@@ -13,25 +13,25 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-type maas2InstanceSuite struct {
-	maas2Suite
+type maasInstanceSuite struct {
+	maasSuite
 }
 
-var _ = gc.Suite(&maas2InstanceSuite{})
+var _ = gc.Suite(&maasInstanceSuite{})
 
-func (s *maas2InstanceSuite) TestString(c *gc.C) {
+func (s *maasInstanceSuite) TestString(c *gc.C) {
 	machine := &fakeMachine{hostname: "peewee", systemID: "herman"}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 	c.Assert(instance.String(), gc.Equals, "peewee:herman")
 }
 
-func (s *maas2InstanceSuite) TestID(c *gc.C) {
+func (s *maasInstanceSuite) TestID(c *gc.C) {
 	machine := &fakeMachine{systemID: "herman"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	c.Assert(thing.Id(), gc.Equals, instance.Id("herman"))
 }
 
-func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
+func (s *maasInstanceSuite) TestAddresses(c *gc.C) {
 	vlan := fakeVLAN{vid: 66}
 	subnet := fakeSubnet{
 		id:    99,
@@ -72,7 +72,7 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 		},
 		machines: []gomaasapi.Machine{machine},
 	}
-	instance := &maas2Instance{machine: machine, environ: s.makeEnviron(c, controller)}
+	instance := &maasInstance{machine: machine, environ: s.makeEnviron(c, controller)}
 	addresses, err := instance.Addresses(s.callCtx)
 
 	expectedAddresses := network.ProviderAddresses{newAddressOnSpaceWithId(
@@ -83,53 +83,53 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(addresses, jc.SameContents, expectedAddresses)
 }
 
-func (s *maas2InstanceSuite) TestZone(c *gc.C) {
+func (s *maasInstanceSuite) TestZone(c *gc.C) {
 	machine := &fakeMachine{zoneName: "inflatable"}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 	zone, err := instance.zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "inflatable")
 }
 
-func (s *maas2InstanceSuite) TestStatusSuccess(c *gc.C) {
+func (s *maasInstanceSuite) TestStatusSuccess(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result := thing.Status(s.callCtx)
 	c.Assert(result, jc.DeepEquals, instance.Status{status.Allocating, "Deploying: Wexler"})
 }
 
-func (s *maas2InstanceSuite) TestStatusError(c *gc.C) {
+func (s *maasInstanceSuite) TestStatusError(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result := thing.Status(s.callCtx)
 	c.Assert(result, jc.DeepEquals, instance.Status{"", "error in getting status"})
 }
 
-func (s *maas2InstanceSuite) TestHostname(c *gc.C) {
+func (s *maasInstanceSuite) TestHostname(c *gc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result, err := thing.hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "saul-goodman")
 }
 
-func (s *maas2InstanceSuite) TestHostnameIsDisplayName(c *gc.C) {
+func (s *maasInstanceSuite) TestHostnameIsDisplayName(c *gc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "saul-goodman")
 }
 
-func (s *maas2InstanceSuite) TestDisplayNameFallsBackToFQDN(c *gc.C) {
+func (s *maasInstanceSuite) TestDisplayNameFallsBackToFQDN(c *gc.C) {
 	machine := newFakeMachine("abc123", "amd64", "ok")
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	result, err := thing.displayName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, thing.machine.FQDN())
 }
 
-func (s *maas2InstanceSuite) TestHardwareCharacteristics(c *gc.C) {
+func (s *maasInstanceSuite) TestHardwareCharacteristics(c *gc.C) {
 	machine := &fakeMachine{
 		cpuCount:     3,
 		memory:       4,
@@ -137,7 +137,7 @@ func (s *maas2InstanceSuite) TestHardwareCharacteristics(c *gc.C) {
 		zoneName:     "bar",
 		tags:         []string{"foo", "bar"},
 	}
-	thing := &maas2Instance{machine: machine}
+	thing := &maasInstance{machine: machine}
 	arch := "foo"
 	cpu := uint64(3)
 	mem := uint64(4)

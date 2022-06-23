@@ -14,11 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type maas2StorageSuite struct {
-	maas2Suite
+type maasStorageSuite struct {
+	maasSuite
 }
 
-var _ = gc.Suite(&maas2StorageSuite{})
+var _ = gc.Suite(&maasStorageSuite{})
 
 func makeCall(funcName string, args ...interface{}) testing.StubCall {
 	return testing.StubCall{funcName, args}
@@ -28,15 +28,15 @@ func checkCalls(c *gc.C, stub *testing.Stub, calls ...testing.StubCall) {
 	stub.CheckCalls(c, calls)
 }
 
-func (s *maas2StorageSuite) makeStorage(c *gc.C, controller gomaasapi.Controller) *maas2Storage {
+func (s *maasStorageSuite) makeStorage(c *gc.C, controller gomaasapi.Controller) *maasStorage {
 	env := s.makeEnviron(c, controller)
 	env.uuid = "prefix"
-	storage, ok := NewStorage(env).(*maas2Storage)
+	storage, ok := NewStorage(env).(*maasStorage)
 	c.Assert(ok, jc.IsTrue)
 	return storage
 }
 
-func (s *maas2StorageSuite) TestGetNoSuchFile(c *gc.C) {
+func (s *maasStorageSuite) TestGetNoSuchFile(c *gc.C) {
 	storage := s.makeStorage(c, newFakeControllerWithErrors(
 		errors.New("This file no existence"),
 	))
@@ -44,7 +44,7 @@ func (s *maas2StorageSuite) TestGetNoSuchFile(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "This file no existence")
 }
 
-func (s *maas2StorageSuite) TestGetReadFails(c *gc.C) {
+func (s *maasStorageSuite) TestGetReadFails(c *gc.C) {
 	storage := s.makeStorage(c, newFakeControllerWithFiles(
 		&fakeFile{name: "prefix-grasshopper.avi", error: errors.New("read error")},
 	))
@@ -52,7 +52,7 @@ func (s *maas2StorageSuite) TestGetReadFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "read error")
 }
 
-func (s *maas2StorageSuite) TestGetNotFound(c *gc.C) {
+func (s *maasStorageSuite) TestGetNotFound(c *gc.C) {
 	storage := s.makeStorage(c, newFakeControllerWithErrors(
 		gomaasapi.NewNoMatchError("wee"),
 	))
@@ -60,7 +60,7 @@ func (s *maas2StorageSuite) TestGetNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *maas2StorageSuite) TestGetSuccess(c *gc.C) {
+func (s *maasStorageSuite) TestGetSuccess(c *gc.C) {
 	controller := newFakeControllerWithFiles(
 		&fakeFile{name: "prefix-grasshopper.avi", contents: []byte("The man in the high castle")},
 	)
@@ -74,7 +74,7 @@ func (s *maas2StorageSuite) TestGetSuccess(c *gc.C) {
 	controller.Stub.CheckCall(c, 0, "GetFile", "prefix-grasshopper.avi")
 }
 
-func (s *maas2StorageSuite) TestListError(c *gc.C) {
+func (s *maasStorageSuite) TestListError(c *gc.C) {
 	storage := s.makeStorage(c, newFakeControllerWithErrors(
 		errors.New("couldn't list files"),
 	))
@@ -82,7 +82,7 @@ func (s *maas2StorageSuite) TestListError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "couldn't list files")
 }
 
-func (s *maas2StorageSuite) TestListSuccess(c *gc.C) {
+func (s *maasStorageSuite) TestListSuccess(c *gc.C) {
 	controller := newFakeControllerWithFiles(
 		&fakeFile{name: "prefix-julianna"},
 		&fakeFile{name: "prefix-frank"},
@@ -94,14 +94,14 @@ func (s *maas2StorageSuite) TestListSuccess(c *gc.C) {
 	controller.Stub.CheckCall(c, 0, "Files", "prefix-grasshopper")
 }
 
-func (s *maas2StorageSuite) TestURLError(c *gc.C) {
+func (s *maasStorageSuite) TestURLError(c *gc.C) {
 	controller := newFakeControllerWithErrors(errors.New("no such file"))
 	storage := s.makeStorage(c, controller)
 	_, err := storage.URL("grasshopper.avi")
 	c.Assert(err, gc.ErrorMatches, "no such file")
 }
 
-func (s *maas2StorageSuite) TestURLSuccess(c *gc.C) {
+func (s *maasStorageSuite) TestURLSuccess(c *gc.C) {
 	controller := newFakeControllerWithFiles(
 		&fakeFile{name: "prefix-grasshopper.avi", url: "heavy lies"},
 	)
@@ -112,7 +112,7 @@ func (s *maas2StorageSuite) TestURLSuccess(c *gc.C) {
 	checkCalls(c, controller.Stub, makeCall("GetFile", "prefix-grasshopper.avi"))
 }
 
-func (s *maas2StorageSuite) TestPut(c *gc.C) {
+func (s *maasStorageSuite) TestPut(c *gc.C) {
 	controller := newFakeControllerWithErrors(errors.New("oh no!"))
 	storage := s.makeStorage(c, controller)
 	reader := bytes.NewReader([]byte{})
@@ -125,14 +125,14 @@ func (s *maas2StorageSuite) TestPut(c *gc.C) {
 	}))
 }
 
-func (s *maas2StorageSuite) TestRemoveNoSuchFile(c *gc.C) {
+func (s *maasStorageSuite) TestRemoveNoSuchFile(c *gc.C) {
 	controller := newFakeControllerWithErrors(errors.New("oh no!"))
 	storage := s.makeStorage(c, controller)
 	err := storage.Remove("FIOS")
 	c.Assert(err, gc.ErrorMatches, "oh no!")
 }
 
-func (s *maas2StorageSuite) TestRemoveErrorFromDelete(c *gc.C) {
+func (s *maasStorageSuite) TestRemoveErrorFromDelete(c *gc.C) {
 	controller := newFakeControllerWithFiles(
 		&fakeFile{name: "prefix-FIOS", error: errors.New("protected")},
 	)
@@ -142,7 +142,7 @@ func (s *maas2StorageSuite) TestRemoveErrorFromDelete(c *gc.C) {
 	checkCalls(c, controller.Stub, makeCall("GetFile", "prefix-FIOS"))
 }
 
-func (s *maas2StorageSuite) TestRemoveAll(c *gc.C) {
+func (s *maasStorageSuite) TestRemoveAll(c *gc.C) {
 	controller := newFakeControllerWithFiles(
 		&fakeFile{name: "prefix-zack"},
 		&fakeFile{name: "prefix-kevin", error: errors.New("oops")},
