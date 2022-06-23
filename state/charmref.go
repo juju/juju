@@ -135,12 +135,15 @@ func finalAppCharmRemoveOps(appName string, curl *string) []txn.Op {
 }
 
 // charmDestroyOps implements the logic of charm.Destroy.
-func charmDestroyOps(st modelBackend, curl *string) ([]txn.Op, error) {
+func charmDestroyOps(st modelBackend, curl string) ([]txn.Op, error) {
+	if curl == "" {
+		return nil, errors.BadRequestf("curl is empty")
+	}
 	db := st.db()
 	charms, cCloser := db.GetCollection(charmsC)
 	defer cCloser()
 
-	charmOp, err := nsLife.destroyOp(charms, *curl, nil)
+	charmOp, err := nsLife.destroyOp(charms, curl, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm")
 	}
@@ -148,7 +151,7 @@ func charmDestroyOps(st modelBackend, curl *string) ([]txn.Op, error) {
 	refcounts, rCloser := db.GetCollection(refcountsC)
 	defer rCloser()
 
-	refcountKey := charmGlobalKey(curl)
+	refcountKey := charmGlobalKey(&curl)
 	refcountOp, err := nsRefcounts.RemoveOp(refcounts, refcountKey, 0)
 	switch errors.Cause(err) {
 	case nil:

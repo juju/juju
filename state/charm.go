@@ -244,8 +244,11 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 
 // insertPlaceholderCharmOps returns the txn operations necessary to insert a
 // charm document referencing a store charm that is not yet directly accessible
-// within the model. If curl is nil, an error will be returned.
+// within the model. If curl is empty, an error will be returned.
 func insertPlaceholderCharmOps(mb modelBackend, curl string) ([]txn.Op, error) {
+	if curl == "" {
+		return nil, errors.BadRequestf("charm URL is empty")
+	}
 	return insertAnyCharmOps(mb, &charmDoc{
 		DocID:       curl,
 		URL:         &curl,
@@ -255,8 +258,11 @@ func insertPlaceholderCharmOps(mb modelBackend, curl string) ([]txn.Op, error) {
 
 // insertPendingCharmOps returns the txn operations necessary to insert a charm
 // document referencing a charm that has yet to be uploaded to the model.
-// If curl is nil, an error will be returned.
+// If curl is empty, an error will be returned.
 func insertPendingCharmOps(mb modelBackend, curl string) ([]txn.Op, error) {
+	if curl == "" {
+		return nil, errors.BadRequestf("charm URL is empty")
+	}
 	return insertAnyCharmOps(mb, &charmDoc{
 		DocID:         curl,
 		URL:           &curl,
@@ -548,7 +554,7 @@ func (c *Charm) Refresh() error {
 // the charm is not referenced by any application.
 func (c *Charm) Destroy() error {
 	buildTxn := func(_ int) ([]txn.Op, error) {
-		ops, err := charmDestroyOps(c.st, c.doc.URL)
+		ops, err := charmDestroyOps(c.st, c.String())
 		if IsNotAlive(err) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
