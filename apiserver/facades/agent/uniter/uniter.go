@@ -2892,13 +2892,9 @@ func (u *UniterAPI) CanApplyLXDProfile(args params.Entities) (params.BoolResults
 	return u.lxdProfileAPI.CanApplyLXDProfile(args)
 }
 
-func (u *UniterAPI) getServiceLocatorName(id string) (string, error) {
-	return "TBD", nil
-}
-
 // AddServiceLocator ...
-func (u *UniterAPI) AddServiceLocator(slId string, slName string, slType string) (string, error) {
-	return u.serviceLocatorAPI.backend.AddServiceLocator(slId, slName, slType)
+func (u *UniterAPI) AddServiceLocator(args params.AddServiceLocators) (params.StringResults, error) {
+	return u.serviceLocatorAPI.AddServiceLocator(args)
 }
 
 func (u *UniterAPIV18) AddServiceLocator(_ struct{}) {}
