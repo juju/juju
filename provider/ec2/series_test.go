@@ -56,6 +56,14 @@ func makeImage(id, storage, virtType, arch, version, region string) *imagemetada
 var TestImageMetadata = []*imagemetadata.ImageMetadata{
 	// LTS-dependent requires new entries upon new LTS release.
 
+	// 22.04:arm64
+	makeImage("ami-02204133", "ssd", "hvm", "arm64", "22.04", "test"),
+
+	// 22.04:amd64
+	makeImage("ami-02204133", "ssd", "hvm", "amd64", "22.04", "test"),
+	makeImage("ami-02204139", "ebs", "hvm", "amd64", "22.04", "test"),
+	makeImage("ami-02204135", "ssd", "pv", "amd64", "22.04", "test"),
+
 	// 20.04:arm64
 	makeImage("ami-02004133", "ssd", "hvm", "arm64", "20.04", "test"),
 
@@ -109,6 +117,7 @@ const testImageMetadataIndex = `
    "datatype": "image-ids",
    "format": "products:1.0",
    "products": [
+    "com.ubuntu.cloud:server:22.04:amd64",
     "com.ubuntu.cloud:server:20.04:amd64",
     "com.ubuntu.cloud:server:18.04:amd64",
     "com.ubuntu.cloud:server:16.04:amd64",
@@ -125,6 +134,61 @@ const testImageMetadataProduct = `
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
+    "com.ubuntu.cloud:server:22.04:amd64": {
+      "release": "jammy",
+      "version": "22.04",
+      "arch": "amd64",
+      "versions": {
+        "20121218": {
+          "items": {
+            "usee1pi": {
+              "root_store": "instance",
+              "virt": "pv",
+              "region": "us-east-1",
+              "id": "ami-02204111"
+            },
+            "usww1pe": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "eu-west-1",
+              "id": "ami-02204116"
+            },
+            "apne1pe": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "ap-northeast-1",
+              "id": "ami-02204126"
+            },
+            "apne1he": {
+              "root_store": "ssd",
+              "virt": "hvm",
+              "region": "ap-northeast-1",
+              "id": "ami-02204187"
+            },
+            "test1peebs": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "test",
+              "id": "ami-02204133"
+            },
+            "test1pessd": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "test",
+              "id": "ami-02204139"
+            },
+            "test1he": {
+              "root_store": "ssd",
+              "virt": "hvm",
+              "region": "test",
+              "id": "ami-02204135"
+            }
+          },
+          "pubname": "ubuntu-jammy-22.04-amd64-server-20121218",
+          "label": "release"
+        }
+      }
+    },
     "com.ubuntu.cloud:server:20.04:amd64": {
       "release": "focal",
       "version": "20.04",

@@ -625,7 +625,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "charm",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/charm-base:ubuntu-20.04",
+			Image:           "jujusolutions/charm-base:ubuntu-22.04",
 			WorkingDir:      "/var/lib/juju",
 			Command:         []string{"/charm/bin/containeragent"},
 			Args: []string{
@@ -686,7 +686,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/juju-db:5.3",
+			Image:           "test-account/juju-db:4.4",
 			Command: []string{
 				"/bin/sh",
 			},
