@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/rpc/params"
 )
 
 type serviceLocatorsSuite struct {
@@ -17,7 +17,7 @@ type serviceLocatorsSuite struct {
 var _ = gc.Suite(&serviceLocatorsSuite{})
 
 func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
-	sl, err := s.State.ServiceLocatorsState().AddServiceLocator(state.AddServiceLocatorParams{
+	sl, err := s.State.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
 		ServiceLocatorUUID: "test-service-locator-uuid",
 		Name:               "test-locator",
 		Type:               "l4-service",
@@ -34,7 +34,7 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	c.Assert(sl.ConsumerUnitId(), gc.Equals, 18)
 	c.Assert(sl.ConsumerRelationId(), gc.Equals, 19)
 
-	sl2, err := s.State.ServiceLocatorsState().AddServiceLocator(state.AddServiceLocatorParams{
+	sl2, err := s.State.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
 		ServiceLocatorUUID: "test-service-locator-uuid2",
 		Name:               "test-locator2",
 		Type:               "l4-service",
