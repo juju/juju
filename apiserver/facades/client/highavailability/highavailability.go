@@ -73,7 +73,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	params.ControllersChanges, error,
 ) {
 	if !st.IsController() {
-		return params.ControllersChanges{}, errors.New("unsupported with hosted models")
+		return params.ControllersChanges{}, errors.New("unsupported with workload models")
 	}
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(st)

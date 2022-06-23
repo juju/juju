@@ -80,7 +80,7 @@ See https://juju.is for getting started tutorials and additional documentation.
 Starter commands:
 
     bootstrap           Initializes a cloud environment.
-    add-model           Adds a hosted model.
+    add-model           Adds a workload model.
     deploy              Deploys a new application.
     status              Displays the current status of Juju, applications, and units.
     add-unit            Adds extra units of a deployed application.

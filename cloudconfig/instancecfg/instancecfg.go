@@ -307,10 +307,10 @@ type StateInitializationParams struct {
 	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
-	// HostedModelConfig is a set of config attributes to be overlaid
+	// InitialModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
 	// initial hosted model config.
-	HostedModelConfig map[string]interface{}
+	InitialModelConfig map[string]interface{}
 
 	// BootstrapMachineInstanceId is the instance ID of the bootstrap
 	// machine instance being initialized.
@@ -347,7 +347,7 @@ type stateInitializationParamsInternal struct {
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
-	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
+	InitialModelConfig                      map[string]interface{}            `yaml:"initial-model-config,omitempty"`
 	StoragePools                            map[string]storage.Attrs          `yaml:"storage-pools,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
@@ -378,7 +378,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               p.ControllerInheritedConfig,
 		RegionInheritedConfig:                   p.RegionInheritedConfig,
-		HostedModelConfig:                       p.HostedModelConfig,
+		InitialModelConfig:                      p.InitialModelConfig,
 		StoragePools:                            p.StoragePools,
 		BootstrapMachineInstanceId:              p.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             p.BootstrapMachineConstraints,
@@ -420,7 +420,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,
-		HostedModelConfig:                       internal.HostedModelConfig,
+		InitialModelConfig:                      internal.InitialModelConfig,
 		StoragePools:                            internal.StoragePools,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,

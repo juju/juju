@@ -428,8 +428,8 @@ func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "test1"
 
-The controller has live hosted models. If you want
-to destroy all hosted models in the controller,
+The controller has live models. If you want
+to destroy all models in the controller,
 run this command again with the --destroy-all-models
 option.
 

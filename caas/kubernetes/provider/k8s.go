@@ -16,7 +16,6 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/arch"
@@ -39,6 +38,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
+
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 
 	"github.com/juju/juju/caas"
 	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
@@ -470,14 +471,14 @@ func (k *kubernetesClient) Bootstrap(
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
-		// validate hosted model name if we need to create it.
-		if hostedModelName, has := pcfg.GetHostedModel(); has {
-			_, err := k.getNamespaceByName(hostedModelName)
+		// validate initial model name if we need to create it.
+		if initialModelName, has := pcfg.GetInitialModel(); has {
+			_, err := k.getNamespaceByName(initialModelName)
 			if err == nil {
 				return errors.NewAlreadyExists(nil,
 					fmt.Sprintf(`
 namespace %q already exists in the cluster,
-please choose a different hosted model name then try again.`, hostedModelName),
+please choose a different initial model name then try again.`, initialModelName),
 				)
 			}
 			if !errors.IsNotFound(err) {

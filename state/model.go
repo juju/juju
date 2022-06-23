@@ -1426,8 +1426,8 @@ func (m *Model) destroyOps(
 		// We only need to destroy resources if the model is non-empty.
 		// It wouldn't normally be harmful to enqueue the cleanups
 		// otherwise, except for when we're destroying an empty
-		// hosted model in the course of destroying the controller. In
-		// that case we'll get errors if we try to enqueue hosted-model
+		// model in the course of destroying the controller. In
+		// that case we'll get errors if we try to enqueue model
 		// cleanups, because the cleanups collection is non-global.
 		ops = append(ops, newCleanupOp(cleanupApplicationsForDyingModel, modelUUID, args))
 		if m.Type() == ModelTypeIAAS {
