@@ -5,6 +5,8 @@ package modelmanager
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
+	"github.com/juju/replicaset/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
@@ -74,6 +76,7 @@ func (s statePoolShim) MongoVersion() (string, error) {
 
 type stateShim struct {
 	*state.PooledState
+	session MongoSession
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -102,10 +105,32 @@ func (s stateShim) AllModelUUIDs() ([]string, error) {
 	return allModelUUIDs, nil
 }
 
+func (s stateShim) MongoSession() MongoSession {
+	if s.session == nil {
+		s.session = mongoSessionShim{s.PooledState.MongoSession()}
+	}
+	return s.session
+}
+
 type modelShim struct {
 	*state.Model
 }
 
 func (s modelShim) IsControllerModel() bool {
 	return s.Model.IsControllerModel()
+}
+
+func (s modelShim) MigrationMode() state.MigrationMode {
+	return s.Model.MigrationMode()
+}
+
+// mongoSessionShim wraps a *mgo.Session to conform to the
+// MongoSession interface.
+type mongoSessionShim struct {
+	*mgo.Session
+}
+
+// CurrentStatus returns the current status of the replicaset.
+func (s mongoSessionShim) CurrentStatus() (*replicaset.Status, error) {
+	return replicaset.CurrentStatus(s.Session)
 }
