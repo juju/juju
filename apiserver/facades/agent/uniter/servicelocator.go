@@ -6,6 +6,9 @@ package uniter
 import (
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
@@ -23,7 +26,7 @@ type ServiceLocatorState struct {
 }
 
 func (s ServiceLocatorState) AddServiceLocator(slId string, slName string, slType string) (string, error) {
-	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(state.AddServiceLocatorParams{
+	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
 		ServiceLocatorUUID: slId,
 		Name:               slName,
 		Type:               slType,
@@ -52,16 +55,21 @@ func (s ServiceLocatorState) AddServiceLocator(slId string, slName string, slTyp
 type ServiceLocatorAPI struct {
 	backend ServiceLocatorBackend
 
-	logger loggo.Logger
+	logger     loggo.Logger
+	accessUnit common.GetAuthFunc
 }
 
 // NewExternalServiceLocatorAPI can be used for API registration.
 func NewExternalServiceLocatorAPI(
 	st *state.State,
+	authorizer facade.Authorizer,
+	accessUnit common.GetAuthFunc,
 	logger loggo.Logger,
 ) *ServiceLocatorAPI {
 	return NewServiceLocatorAPI(
 		ServiceLocatorState{st},
+		authorizer,
+		accessUnit,
 		logger,
 	)
 }
@@ -69,14 +77,20 @@ func NewExternalServiceLocatorAPI(
 // NewServiceLocatorAPI returns a new NewServiceLocatorAPI.
 func NewServiceLocatorAPI(
 	backend ServiceLocatorBackend,
+	authorizer facade.Authorizer,
+	accessUnit common.GetAuthFunc,
 	logger loggo.Logger,
 ) *ServiceLocatorAPI {
+	logger.Tracef("ServiceLocatorAPI called with %s", authorizer.GetAuthTag())
 	return &ServiceLocatorAPI{
-		backend: backend,
-		logger:  logger,
+		backend:    backend,
+		accessUnit: accessUnit,
+		logger:     logger,
 	}
 }
 
-func (a *ServiceLocatorAPI) AddServiceLocator(slId string, slName string, slType string) (string, error) {
-	return a.backend.AddServiceLocator(slId, slName, slType)
+func (a *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (params.StringResults, error) {
+	// TODO: ...
+	//return a.backend.AddServiceLocator(slId, slName, slType)
+	return params.StringResults{}, nil
 }
