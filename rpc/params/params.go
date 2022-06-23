@@ -1498,3 +1498,32 @@ type CLICommandStatus struct {
 	Done   bool     `json:"done,omitempty"`
 	Error  *Error   `json:"error,omitempty"`
 }
+
+// AddServiceLocatorParams contains the parameters for adding a service locator.
+type AddServiceLocatorParams struct {
+	// ServiceLocatorUUID is the UUID of the service locator.
+	ServiceLocatorUUID string `json:"id"`
+
+	// Name is the name of the service locator.
+	Name string `json:"name"`
+
+	// Type is the type of the service locator.
+	Type string `json:"type"`
+
+	// UnitId is owner unit id of the service locator.
+	UnitId int `json:"unit-id"`
+
+	// ConsumerUnitId is consumer unit id of the service locator.
+	ConsumerUnitId int `json:"consumer-unit-id"`
+
+	// ConsumerRelationId is consumer unit id of the service locator.
+	ConsumerRelationId int `json:"consumer-relation-id"`
+
+	// Params is the param lists of the service locator.
+	Params map[string]interface{} `json:"params"`
+}
+
+// AddServiceLocators holds the parameters for making the AddServiceLocators call.
+type AddServiceLocators struct {
+	ServiceLocatorParams []AddServiceLocatorParams `json:"params"`
+}

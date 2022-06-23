@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
+
+	"github.com/juju/juju/rpc/params"
 )
 
 //// ServiceLocators describes the state functionality for service locators.
@@ -90,39 +92,14 @@ func (sl *ServiceLocator) Params() map[string]interface{} {
 	return sl.doc.Params
 }
 
-// AddServiceLocatorParams contains the parameters for adding a service locator
-// to the model.
-type AddServiceLocatorParams struct {
-	// ServiceLocatorUUID is the UUID of the service locator.
-	ServiceLocatorUUID string
-
-	// Name is the name of the service locator.
-	Name string
-
-	// Type is the type of the service locator.
-	Type string
-
-	// UnitId is owner unit id of the service locator.
-	UnitId int
-
-	// ConsumerUnitId is consumer unit id of the service locator.
-	ConsumerUnitId int
-
-	// ConsumerRelationId is consumer unit id of the service locator.
-	ConsumerRelationId int
-
-	// Params is the param lists of the service locator.
-	Params map[string]interface{}
-}
-
-func validateServiceLocatorParams(args AddServiceLocatorParams) (err error) {
+func validateServiceLocatorParams(args params.AddServiceLocatorParams) (err error) {
 	// No Sanity checks.
 	return nil
 }
 
 // AddServiceLocator creates a new service locator record, which records details about a
 // network service provided to related units.
-func (sp *serviceLocatorPersistence) AddServiceLocator(args AddServiceLocatorParams) (_ *ServiceLocator, err error) {
+func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLocatorParams) (_ *ServiceLocator, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add service locator for %q", args.ServiceLocatorUUID)
 
 	if err := validateServiceLocatorParams(args); err != nil {
