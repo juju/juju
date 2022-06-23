@@ -4,6 +4,9 @@
 package uniter
 
 import (
+	"fmt"
+
+	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/wrench"
 )
 
 // ResolverConfig defines configuration for the uniter resolver.
@@ -151,13 +155,17 @@ func (s *uniterResolver) NextOp(
 			return opFactory.NewRunHook(*localState.Hook)
 
 		case operation.Done:
-			// TODO hmlanigan 17-06-2002
-			// Resolve the wrench
-			//curl := localState.CharmURL
-			//if curl != "" && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
-			//	s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
-			//	return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
-			//}
+			// Only check for the wrench if trace logging is enabled. Otherwise,
+			// we'd have to parse the charm url every time just to check to see
+			// if a wrench existed.
+			if localState.CharmURL != "" && logger.IsTraceEnabled() {
+				// If it's set, the charm url will parse.
+				curl := corecharm.MustParseURL(localState.CharmURL)
+				if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
+					s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+					return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+				}
+			}
 
 			logger.Infof("committing %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
