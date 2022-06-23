@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -118,68 +119,61 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *gc.C) {
 	}
 }
 
-func (s *MachinemanagerSuite) TestDestroyMachines(c *gc.C) {
-	s.testDestroyMachines(c, "DestroyMachine", (*machinemanager.Client).DestroyMachines)
-}
-
-func (s *MachinemanagerSuite) TestForceDestroyMachines(c *gc.C) {
-	s.testDestroyMachines(c, "ForceDestroyMachine", (*machinemanager.Client).ForceDestroyMachines)
-}
-
-func (s *MachinemanagerSuite) testDestroyMachines(
-	c *gc.C,
-	methodName string,
-	method func(*machinemanager.Client, ...string) ([]params.DestroyMachineResult, error),
-) {
-	expectedResults := []params.DestroyMachineResult{{
-		Error: &params.Error{Message: "boo"},
-	}, {
-		Info: &params.DestroyMachineInfo{
-			DestroyedUnits:   []params.Entity{{Tag: "unit-foo-0"}},
-			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
-			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
-		},
-	}}
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		c.Assert(request, gc.Equals, methodName)
-		c.Assert(a, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{
-				{Tag: "machine-0"},
-				{Tag: "machine-0-lxd-1"},
-			},
-		})
-		c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
-		out := response.(*params.DestroyMachineResults)
-		*out = params.DestroyMachineResults{Results: expectedResults}
-		return nil
-	})
-	results, err := method(client, "0", "0/lxd/1")
+func (s *MachinemanagerSuite) TestRetryProvisioning(c *gc.C) {
+	client := machinemanager.NewClient(
+		basetesting.BestVersionCaller{
+			BestVersion: 7,
+			APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "RetryProvisioning")
+				c.Assert(version, gc.Equals, 7)
+				c.Assert(a, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{Tag: "machine-0"},
+						{Tag: "machine-1"},
+					},
+				})
+				c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
+				out := response.(*params.ErrorResults)
+				*out = params.ErrorResults{Results: []params.ErrorResult{
+					{Error: &params.Error{Code: "boom"}},
+					{}},
+				}
+				return nil
+			})})
+	result, err := client.RetryProvisioning(names.NewMachineTag("0"), names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expectedResults)
+	c.Assert(result, jc.DeepEquals, []params.ErrorResult{
+		{&params.Error{Code: "boom"}},
+		{},
+	})
 }
 
-func (s *MachinemanagerSuite) TestDestroyMachinesArity(c *gc.C) {
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		return nil
+func (s *MachinemanagerSuite) TestProvisioningScript(c *gc.C) {
+	client := machinemanager.NewClient(
+		basetesting.BestVersionCaller{
+			BestVersion: 7,
+			APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "ProvisioningScript")
+				c.Assert(version, gc.Equals, 7)
+				c.Assert(a, jc.DeepEquals, params.ProvisioningScriptParams{
+					MachineId:              "0",
+					Nonce:                  "nonce",
+					DataDir:                "/path/to/data",
+					DisablePackageCommands: true,
+				})
+				c.Assert(response, gc.FitsTypeOf, &params.ProvisioningScriptResult{})
+				out := response.(*params.ProvisioningScriptResult)
+				*out = params.ProvisioningScriptResult{Script: "script"}
+				return nil
+			})})
+	script, err := client.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId:              "0",
+		Nonce:                  "nonce",
+		DataDir:                "/path/to/data",
+		DisablePackageCommands: true,
 	})
-	_, err := client.DestroyMachines("0")
-	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
-}
-
-func (s *MachinemanagerSuite) TestDestroyMachinesInvalidIds(c *gc.C) {
-	expectedResults := []params.DestroyMachineResult{{
-		Error: &params.Error{Message: `machine ID "!" not valid`},
-	}, {
-		Info: &params.DestroyMachineInfo{},
-	}}
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		out := response.(*params.DestroyMachineResults)
-		*out = params.DestroyMachineResults{Results: expectedResults[1:]}
-		return nil
-	})
-	results, err := client.DestroyMachines("!", "0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expectedResults)
+	c.Assert(script, gc.Equals, "script")
 }
 
 func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(c *gc.C, v int, maxWait *time.Duration) (*machinemanager.Client, []params.DestroyMachineResult) {

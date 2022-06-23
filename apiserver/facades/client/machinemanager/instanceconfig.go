@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client
+package machinemanager
 
 import (
 	"fmt"
@@ -17,20 +17,26 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 )
+
+type backend interface {
+	Model() (Model, error)
+	Machine(string) (Machine, error)
+	ToolsStorage() (binarystorage.StorageCloser, error)
+}
 
 // InstanceConfig returns information from the model config that
 // is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(ctrlSt *state.State, st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(ctrlSt ControllerBackend, st backend, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state model")
 	}
-	modelConfig, err := model.ModelConfig()
+	modelConfig, err := model.Config()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
 	}
@@ -104,7 +110,7 @@ func InstanceConfig(ctrlSt *state.State, st *state.State, machineId, nonce, data
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
-	icfg, err := instancecfg.NewInstanceConfig(st.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
+	icfg, err := instancecfg.NewInstanceConfig(ctrlSt.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
 		machine.Series(), apiInfo,
 	)
 	if err != nil {

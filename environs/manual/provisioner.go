@@ -7,6 +7,7 @@ package manual
 import (
 	"errors"
 	"io"
+	"time"
 
 	"github.com/juju/utils/v3/winrm"
 
@@ -82,6 +83,6 @@ type WinrmClientAPI interface {
 // consumer from the actual API implementation type.
 type ProvisioningClientAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	ForceDestroyMachines(machines ...string) error
+	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }

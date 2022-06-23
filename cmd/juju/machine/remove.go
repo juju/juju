@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
-	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -99,35 +98,8 @@ func (c *removeCommand) Init(args []string) error {
 }
 
 type RemoveMachineAPI interface {
-	// TODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.
-	DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
 	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	Close() error
-}
-
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-type removeMachineAdapter struct {
-	*apiclient.Client
-}
-
-func (a removeMachineAdapter) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
-	return a.destroyMachines(a.Client.DestroyMachines, machines)
-}
-
-func (a removeMachineAdapter) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
-	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
-}
-
-func (a removeMachineAdapter) destroyMachines(f func(...string) error, machines []string) ([]params.DestroyMachineResult, error) {
-	if err := f(machines...); err != nil {
-		return nil, err
-	}
-	results := make([]params.DestroyMachineResult, len(machines))
-	for i := range results {
-		results[i].Info = &params.DestroyMachineInfo{}
-	}
-	return results, nil
 }
 
 func (c *removeCommand) getAPIRoot() (api.Connection, error) {
@@ -138,6 +110,9 @@ func (c *removeCommand) getAPIRoot() (api.Connection, error) {
 }
 
 func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
+	if c.machineAPI != nil {
+		return c.machineAPI, nil
+	}
 	root, err := c.getAPIRoot()
 	if err != nil {
 		return nil, err
@@ -145,13 +120,7 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	if root.BestFacadeVersion("MachineManager") < 4 && c.KeepInstance {
 		return nil, errors.New("this version of Juju doesn't support --keep-instance")
 	}
-	if root.BestFacadeVersion("MachineManager") >= 3 && c.machineAPI == nil {
-		return machinemanager.NewClient(root), nil
-	}
-	if c.machineAPI != nil {
-		return c.machineAPI, nil
-	}
-	return removeMachineAdapter{apiclient.NewClient(root)}, nil
+	return machinemanager.NewClient(root), nil
 }
 
 // Run implements Command.Run.
@@ -182,13 +151,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	var results []params.DestroyMachineResult
-
-	if c.KeepInstance || c.Force {
-		results, err = client.DestroyMachinesWithParams(c.Force, c.KeepInstance, maxWait, c.MachineIds...)
-	} else {
-		results, err = client.DestroyMachines(c.MachineIds...)
-	}
+	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, maxWait, c.MachineIds...)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return err
 	}

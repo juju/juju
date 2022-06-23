@@ -123,6 +123,7 @@ func (c *Client) Resolved(unit string, retry bool) error {
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
+// TODO(juju3) - remove
 func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
 	p := params.Entities{}
 	p.Entities = make([]params.Entity, len(machines))
@@ -134,25 +135,8 @@ func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.Error
 	return results.Results, err
 }
 
-// PublicAddress returns the public address of the specified
-// machine or unit. For a machine, target is an id not a tag.
-func (c *Client) PublicAddress(target string) (string, error) {
-	var results params.PublicAddressResults
-	p := params.PublicAddress{Target: target}
-	err := c.facade.FacadeCall("PublicAddress", p, &results)
-	return results.PublicAddress, err
-}
-
-// PrivateAddress returns the private address of the specified
-// machine or unit.
-func (c *Client) PrivateAddress(target string) (string, error) {
-	var results params.PrivateAddressResults
-	p := params.PrivateAddress{Target: target}
-	err := c.facade.FacadeCall("PrivateAddress", p, &results)
-	return results.PrivateAddress, err
-}
-
 // AddMachines adds new machines with the supplied parameters.
+// TODO(juju3) - remove
 func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	args := params.AddMachines{
 		MachineParams: machineParams,
@@ -164,13 +148,7 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
-//
-// TODO (manadart 2020-01-29): This method, along with its server facade should
-// be moved to the machinemanager client/facade.
-// Then the machinemanager client can be used as an implementation of
-// environs.manual.ProvisioningClientAPI.
-// Then AddMachines above can be removed along with client API facade methods
-// that add machines (AddMachines, AddMachinesV2 and InjectMachines).
+// TODO(juju3) - remove
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
 	var result params.ProvisioningScriptResult
 	if err = c.facade.FacadeCall("ProvisioningScript", args, &result); err != nil {
@@ -179,45 +157,14 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (scrip
 	return result.Script, nil
 }
 
-// DestroyMachines removes a given set of machines.
-//
-// NOTE(axw) this exists only for backwards compatibility, when MachineManager
-// facade v3 is not available. The MachineManager.DestroyMachines method should
-// be preferred.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (c *Client) DestroyMachines(machines ...string) error {
-	params := params.DestroyMachines{MachineNames: machines}
-	return c.facade.FacadeCall("DestroyMachines", params, nil)
-}
-
-// ForceDestroyMachines removes a given set of machines and all associated units.
-//
-// NOTE(axw) this exists only for backwards compatibility, when MachineManager
-// facade v3 is not available. The MachineManager.ForceDestroyMachines method
-// should be preferred.
-//
-// TODO(axw) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
-func (c *Client) ForceDestroyMachines(machines ...string) error {
-	params := params.DestroyMachines{Force: true, MachineNames: machines}
-	return c.facade.FacadeCall("DestroyMachines", params, nil)
-}
-
 // DestroyMachinesWithParams removes a given set of machines and all associated units.
-//
-// NOTE(wallyworld) this exists only for backwards compatibility, when MachineManager
-// facade v4 is not available. The MachineManager.DestroyMachinesWithParams method
-// should be preferred.
-//
-// TODO(wallyworld) 2017-03-16 #1673323
-// Drop this in Juju 3.0.
+// TODO(juju3) - remove
 func (c *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) error {
 	if keep {
 		return errors.NotSupportedf("destroy machine with keep-instance=true")
 	}
-	return c.DestroyMachines(machines...)
+	p := params.DestroyMachines{MachineNames: machines}
+	return c.facade.FacadeCall("DestroyMachines", p, nil)
 }
 
 // GetModelConstraints returns the constraints for the model.

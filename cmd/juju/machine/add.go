@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/winrm"
 
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
@@ -159,7 +160,6 @@ func NewAddCommand() cmd.Command {
 // addCommand starts a new machine and registers it in the model.
 type addCommand struct {
 	baseMachinesCommand
-	api               AddMachineAPI
 	modelConfigAPI    ModelConfigAPI
 	machineManagerAPI MachineManagerAPI
 	// If specified, use this series, else use the model default-series
@@ -223,15 +223,6 @@ func (c *addCommand) Init(args []string) error {
 	return nil
 }
 
-type AddMachineAPI interface {
-	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	Close() error
-	ForceDestroyMachines(machines ...string) error
-	DestroyMachinesWithParams(force, keep bool, machines ...string) error
-	ModelUUID() (string, bool)
-	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
-}
-
 type ModelConfigAPI interface {
 	ModelGet() (map[string]interface{}, error)
 	Close() error
@@ -239,6 +230,9 @@ type ModelConfigAPI interface {
 
 type MachineManagerAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	ModelUUID() (string, bool)
+	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 	BestAPIVersion() int
 	Close() error
 }
@@ -250,13 +244,6 @@ func splitUserHost(host string) (string, string) {
 		return host[:at], host[at+1:]
 	}
 	return "", host
-}
-
-func (c *addCommand) getClientAPI() (AddMachineAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	return c.NewAPIClient()
 }
 
 func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
@@ -271,7 +258,7 @@ func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 
 }
 
-func (c *addCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
+func (c *addCommand) newMachineManagerClient() (*machinemanager.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -283,7 +270,20 @@ func (c *addCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
 	if c.machineManagerAPI != nil {
 		return c.machineManagerAPI, nil
 	}
-	return c.NewMachineManagerClient()
+	return c.newMachineManagerClient()
+}
+
+// TODO(juju3) - remove
+type manualAPIAdaptor struct {
+	*apiclient.Client
+}
+
+func (m manualAPIAdaptor) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+	err := m.Client.DestroyMachinesWithParams(force, keep, machines...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []params.DestroyMachineResult{}, nil
 }
 
 func (c *addCommand) Run(ctx *cmd.Context) error {
@@ -292,17 +292,22 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	client, err := c.getClientAPI()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer client.Close()
-
 	machineManager, err := c.getMachineManagerAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer machineManager.Close()
+
+	// Older controllers still have the manual provisioning
+	// methods on the client facade.
+	var manualClientAPI = machineManager
+	if machineManager.BestAPIVersion() < 7 {
+		root, err := c.NewAPIRoot()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		manualClientAPI = &manualAPIAdaptor{apiclient.NewClient(root)}
+	}
 
 	if len(c.Disks) > 0 && machineManager.BestAPIVersion() < 1 {
 		return errors.New("cannot add machines with disks: not supported by the API server")
@@ -327,7 +332,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Placement != nil {
-		err := c.tryManualProvision(client, cfg, ctx)
+		err := c.tryManualProvision(manualClientAPI, cfg, ctx)
 		if err != errNonManualScope {
 			return err
 		}
@@ -335,7 +340,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	logger.Infof("model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
-		uuid, ok := client.ModelUUID()
+		uuid, ok := machineManager.ModelUUID()
 		if !ok {
 			return errors.New("API connection is controller-only (should never happen)")
 		}
@@ -406,7 +411,7 @@ var (
 	winrmScope        = "winrm"
 )
 
-func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Config, ctx *cmd.Context) error {
+func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, config *config.Config, ctx *cmd.Context) error {
 
 	var provisionMachine manual.ProvisionMachineFunc
 	switch c.Placement.Scope {

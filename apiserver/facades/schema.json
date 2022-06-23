@@ -16478,7 +16478,7 @@
                             "$ref": "#/definitions/AddCharm"
                         }
                     },
-                    "description": "NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
+                    "description": "NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO(juju3) - remove"
                 },
                 "AddCharmWithAuthorization": {
                     "type": "object",
@@ -16487,7 +16487,7 @@
                             "$ref": "#/definitions/AddCharmWithAuthorization"
                         }
                     },
-                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the model, if it does not exist yet. Local charms are not\nsupported, only charm store URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be omitted, in\nwhich case this call is equivalent to AddCharm.\n\nNOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms\nfacade version 3. Please discontinue use and move to the charms facade\nversion.\n\nTODO: remove in juju 3.0"
+                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the model, if it does not exist yet. Local charms are not\nsupported, only charm store URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be omitted, in\nwhich case this call is equivalent to AddCharm.\n\nNOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms\nfacade version 3. Please discontinue use and move to the charms facade\nversion.\n\nTODO(juju3) - remove"
                 },
                 "AddMachines": {
                     "type": "object",
@@ -16499,7 +16499,7 @@
                             "$ref": "#/definitions/AddMachinesResults"
                         }
                     },
-                    "description": "AddMachines adds new machines with the supplied parameters."
+                    "description": "AddMachines adds new machines with the supplied parameters.\nTODO(juju3) - remove"
                 },
                 "AddMachinesV2": {
                     "type": "object",
@@ -16511,7 +16511,7 @@
                             "$ref": "#/definitions/AddMachinesResults"
                         }
                     },
-                    "description": "AddMachinesV2 adds new machines with the supplied parameters."
+                    "description": "AddMachinesV2 adds new machines with the supplied parameters.\nTODO(juju3) - remove"
                 },
                 "AgentVersion": {
                     "type": "object",
@@ -16538,7 +16538,7 @@
                             "$ref": "#/definitions/DestroyMachines"
                         }
                     },
-                    "description": "DestroyMachines removes a given set of machines."
+                    "description": "DestroyMachines removes a given set of machines.\nTODO(juju3) - remove"
                 },
                 "FindTools": {
                     "type": "object",
@@ -16595,7 +16595,7 @@
                             "$ref": "#/definitions/AddMachinesResults"
                         }
                     },
-                    "description": "InjectMachines injects a machine into state with provisioned status."
+                    "description": "InjectMachines injects a machine into state with provisioned status.\nTODO(juju3) - remove"
                 },
                 "ModelGet": {
                     "type": "object",
@@ -16652,7 +16652,7 @@
                             "$ref": "#/definitions/PrivateAddressResults"
                         }
                     },
-                    "description": "PrivateAddress implements the server side of Client.PrivateAddress."
+                    "description": "PrivateAddress implements the server side of Client.PrivateAddress.\nTODO(juju3) - remove as this is unused"
                 },
                 "ProvisioningScript": {
                     "type": "object",
@@ -16664,7 +16664,7 @@
                             "$ref": "#/definitions/ProvisioningScriptResult"
                         }
                     },
-                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
+                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script.\nTODO(juju3) - remove"
                 },
                 "PublicAddress": {
                     "type": "object",
@@ -16676,7 +16676,7 @@
                             "$ref": "#/definitions/PublicAddressResults"
                         }
                     },
-                    "description": "PublicAddress implements the server side of Client.PublicAddress."
+                    "description": "PublicAddress implements the server side of Client.PublicAddress.\nTODO(juju3) - remove as this is unused"
                 },
                 "ResolveCharms": {
                     "type": "object",
@@ -16688,7 +16688,7 @@
                             "$ref": "#/definitions/ResolveCharmResults"
                         }
                     },
-                    "description": "ResolveCharms resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
+                    "description": "ResolveCharms resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO(juju3) - remove"
                 },
                 "Resolved": {
                     "type": "object",
@@ -16709,7 +16709,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "RetryProvisioning marks a provisioning error as transient on the machines."
+                    "description": "RetryProvisioning marks a provisioning error as transient on the machines.\nTODO(juju3) - remove"
                 },
                 "SLALevel": {
                     "type": "object",
@@ -28246,8 +28246,8 @@
     },
     {
         "Name": "MachineManager",
-        "Description": "MachineManagerAPIV6 defines the Version 6 of Machine Manager API.\nChanges input parameters to DestroyMachineWithParams and ForceDestroyMachine.",
-        "Version": 6,
+        "Description": "MachineManagerAPIV7 defines the Version 7 of Machine Manager API.\nAdds provisioning methods moved from client facade.",
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -28279,7 +28279,7 @@
                             "$ref": "#/definitions/DestroyMachineResults"
                         }
                     },
-                    "description": "DestroyMachine removes a set of machines from the model."
+                    "description": "DestroyMachine removes a set of machines from the model.\nTODO(juju3) - remove"
                 },
                 "DestroyMachineWithParams": {
                     "type": "object",
@@ -28303,7 +28303,7 @@
                             "$ref": "#/definitions/DestroyMachineResults"
                         }
                     },
-                    "description": "ForceDestroyMachine forcibly removes a set of machines from the model.\nTODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.\nAlso from ModelManger v6 this call is less useful as it does not support MaxWait customisation."
+                    "description": "ForceDestroyMachine forcibly removes a set of machines from the model.\nTODO(juju3) - remove\nAlso from ModelManger v6 this call is less useful as it does not support MaxWait customisation."
                 },
                 "GetUpgradeSeriesMessages": {
                     "type": "object",
@@ -28328,6 +28328,30 @@
                         }
                     },
                     "description": "InstanceTypes returns instance type information for the cloud and region\nin which the current model is deployed."
+                },
+                "ProvisioningScript": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ProvisioningScriptParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ProvisioningScriptResult"
+                        }
+                    },
+                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
+                },
+                "RetryProvisioning": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RetryProvisioning marks a provisioning error as transient on the machines."
                 },
                 "UpgradeSeriesComplete": {
                     "type": "object",
@@ -28671,6 +28695,21 @@
                     },
                     "additionalProperties": false
                 },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "HardwareCharacteristics": {
                     "type": "object",
                     "properties": {
@@ -28849,6 +28888,42 @@
                     "required": [
                         "scope",
                         "directive"
+                    ]
+                },
+                "ProvisioningScriptParams": {
+                    "type": "object",
+                    "properties": {
+                        "data-dir": {
+                            "type": "string"
+                        },
+                        "disable-package-commands": {
+                            "type": "boolean"
+                        },
+                        "machine-id": {
+                            "type": "string"
+                        },
+                        "nonce": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-id",
+                        "nonce",
+                        "data-dir",
+                        "disable-package-commands"
+                    ]
+                },
+                "ProvisioningScriptResult": {
+                    "type": "object",
+                    "properties": {
+                        "script": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "script"
                     ]
                 },
                 "StringsResult": {

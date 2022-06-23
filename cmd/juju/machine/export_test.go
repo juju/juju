@@ -22,9 +22,8 @@ type AddCommand struct {
 }
 
 // NewAddCommand returns an AddCommand with the api provided as specified.
-func NewAddCommandForTest(api AddMachineAPI, mcAPI ModelConfigAPI, mmAPI MachineManagerAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(mcAPI ModelConfigAPI, mmAPI MachineManagerAPI) (cmd.Command, *AddCommand) {
 	command := &addCommand{
-		api:               api,
 		machineManagerAPI: mmAPI,
 		modelConfigAPI:    mcAPI,
 	}

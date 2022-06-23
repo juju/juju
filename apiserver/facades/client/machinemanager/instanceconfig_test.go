@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client_test
+package machinemanager_test
 
 import (
 	"fmt"
@@ -12,8 +12,8 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/apiserver/facades/client/client"
+	apiclient "github.com/juju/juju/api/client/machinemanager"
+	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -46,7 +46,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	machineId := machines[0].Machine
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig, err := client.InstanceConfig(systemState, s.State, machineId, apiParams.Nonce, "")
+	instanceConfig, err := machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State), machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.State.ControllerConfig()
@@ -72,7 +72,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.InstanceConfig(systemState, s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State), machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
 }
 
@@ -91,6 +91,6 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.InstanceConfig(systemState, s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State), machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, "finding agent binaries: "+coretools.ErrNoMatches.Error())
 }
