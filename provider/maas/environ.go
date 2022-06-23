@@ -1632,13 +1632,13 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx context.ProviderCallContex
 // AdoptResources updates all the instances to indicate they
 // are now associated with the specified controller.
 func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, _ version.Number) error {
-	instances, err := env.AllInstances(ctx)
+	allInstances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var failed []instance.Id
-	for _, inst := range instances {
-		maas2Instance, ok := inst.(*maasInstance)
+	for _, inst := range allInstances {
+		maasInst, ok := inst.(*maasInstance)
 		if !ok {
 			// This should never happen.
 			return errors.Errorf("instance %q wasn't a maasInstance", inst.Id())
@@ -1647,7 +1647,7 @@ func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controll
 		// previous keys unless explicitly passed with an empty
 		// string." So not passing all of the keys here is fine.
 		// https://maas.ubuntu.com/docs2.0/api.html#machine
-		err := maas2Instance.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
+		err := maasInst.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
 		if err != nil {
 			logger.Errorf("error setting controller uuid tag for %q: %v", inst.Id(), err)
 			failed = append(failed, inst.Id())
