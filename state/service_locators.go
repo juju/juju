@@ -37,12 +37,14 @@ type ServiceLocator struct {
 }
 
 type serviceLocatorDoc struct {
-	DocId  string                 `bson:"_id"`
-	Id     string                 `bson:"service-locator-id"`
-	UnitId int                    `bson:"unit-id"`
-	Name   string                 `bson:"name"`
-	Type   string                 `bson:"type"`
-	Params map[string]interface{} `bson:"params"`
+	DocId              string                 `bson:"_id"`
+	Id                 string                 `bson:"service-locator-id"`
+	UnitId             int                    `bson:"unit-id"`
+	ConsumerUnitId     int                    `bson:"consumer-unit-id"`
+	ConsumerRelationId int                    `bson:"consumer-relation-id"`
+	Name               string                 `bson:"name"`
+	Type               string                 `bson:"type"`
+	Params             map[string]interface{} `bson:"params"`
 }
 
 func newServiceLocator(st *State, doc *serviceLocatorDoc) *ServiceLocator {
@@ -68,9 +70,19 @@ func (sl *ServiceLocator) Type() string {
 	return sl.doc.Type
 }
 
-// UnitId returns the name of the service locator.
+// UnitId returns the owner unit ID of the service locator.
 func (sl *ServiceLocator) UnitId() int {
 	return sl.doc.UnitId
+}
+
+// ConsumerUnitId returns the consumer unit ID of the service locator.
+func (sl *ServiceLocator) ConsumerUnitId() int {
+	return sl.doc.ConsumerUnitId
+}
+
+// ConsumerRelationId returns the consumer relation ID of the service locator.
+func (sl *ServiceLocator) ConsumerRelationId() int {
+	return sl.doc.ConsumerRelationId
 }
 
 // Params returns the param list of the service locator.
@@ -90,8 +102,14 @@ type AddServiceLocatorParams struct {
 	// Type is the type of the service locator.
 	Type string
 
-	// UnitId is the ID of the unit where service locator associated with.
+	// UnitId is owner unit id of the service locator.
 	UnitId int
+
+	// ConsumerUnitId is consumer unit id of the service locator.
+	ConsumerUnitId int
+
+	// ConsumerRelationId is consumer unit id of the service locator.
+	ConsumerRelationId int
 
 	// Params is the param lists of the service locator.
 	Params map[string]interface{}
@@ -119,11 +137,13 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args AddServiceLocatorPar
 	}
 
 	serviceLocatorDoc := serviceLocatorDoc{
-		Id:     args.ServiceLocatorUUID,
-		Name:   args.Name,
-		Type:   args.Type,
-		UnitId: args.UnitId,
-		Params: args.Params,
+		Id:                 args.ServiceLocatorUUID,
+		Name:               args.Name,
+		Type:               args.Type,
+		UnitId:             args.UnitId,
+		ConsumerUnitId:     args.ConsumerUnitId,
+		ConsumerRelationId: args.ConsumerRelationId,
+		Params:             args.Params,
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
