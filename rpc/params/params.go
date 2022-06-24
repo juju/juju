@@ -1525,5 +1525,5 @@ type AddServiceLocatorParams struct {
 
 // AddServiceLocators holds the parameters for making the AddServiceLocators call.
 type AddServiceLocators struct {
-	ServiceLocatorParams []AddServiceLocatorParams `json:"params"`
+	ServiceLocators []AddServiceLocatorParams `json:"params"`
 }
