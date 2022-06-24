@@ -612,19 +612,25 @@ func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
 	adder := &charmAdderShim{api: &apiClient{Client: apiclient.NewClient(conn)}}
-	if conn.BestFacadeVersion("Charms") > 2 {
-		adder.charms = &charmsClient{Client: apicharms.NewClient(conn)}
+	adder.charmuploader = &charmsClient{Client: apicharms.NewClient(conn)}
+	if best := conn.BestFacadeVersion("Charms"); best > 2 {
+		adder.charms = adder.charmuploader
 	}
 	return adder
 }
 
 type charmAdderShim struct {
-	charms *charmsClient
-	api    *apiClient
+	charms        *charmsClient
+	charmuploader *charmsClient
+	api           *apiClient
 }
 
 func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
-	return c.api.AddLocalCharm(curl, ch, force)
+	agentVersion, err := c.api.AgentVersion()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.charmuploader.AddLocalCharm(curl, ch, force, agentVersion)
 }
 
 func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {

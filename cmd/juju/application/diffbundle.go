@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/client/annotations"
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/charmhub"
@@ -105,7 +106,15 @@ func NewDiffBundleCommand() cmd.Command {
 		return modelconfig.NewClient(api)
 	}
 	cmd.modelConstraintsClientFunc = func() (ModelConstraintsClient, error) {
-		return cmd.NewAPIClient()
+		root, err := cmd.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		client := modelconfig.NewClient(root)
+		if client.BestAPIVersion() > 2 {
+			return client, nil
+		}
+		return apiclient.NewClient(root), nil
 	}
 	return modelcmd.Wrap(cmd)
 }

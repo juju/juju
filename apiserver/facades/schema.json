@@ -16583,7 +16583,7 @@
                             "$ref": "#/definitions/GetConstraintsResults"
                         }
                     },
-                    "description": "GetModelConstraints returns the constraints for the model."
+                    "description": "GetModelConstraints returns the constraints for the model.\nTODO(juju3) - remove"
                 },
                 "InjectMachines": {
                     "type": "object",
@@ -16736,7 +16736,7 @@
                             "$ref": "#/definitions/SetConstraints"
                         }
                     },
-                    "description": "SetModelConstraints sets the constraints for the model."
+                    "description": "SetModelConstraints sets the constraints for the model.\nTODO(juju3) - remove"
                 },
                 "SetSLALevel": {
                     "type": "object",
@@ -32072,8 +32072,8 @@
     },
     {
         "Name": "ModelConfig",
-        "Description": "ModelConfigAPIV2 is currently the latest.",
-        "Version": 2,
+        "Description": "ModelConfigAPIV3 is currently the latest.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -32084,6 +32084,15 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "GetModelConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/GetConstraintsResults"
+                        }
+                    },
+                    "description": "GetModelConstraints returns the constraints for the model."
+                },
                 "ModelGet": {
                     "type": "object",
                     "properties": {
@@ -32128,6 +32137,15 @@
                         }
                     },
                     "description": "Sequences returns the model's sequence names and next values."
+                },
+                "SetModelConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetConstraints"
+                        }
+                    },
+                    "description": "SetModelConstraints sets the constraints for the model."
                 },
                 "SetSLALevel": {
                     "type": "object",
@@ -32180,6 +32198,18 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "GetConstraintsResults": {
+                    "type": "object",
+                    "properties": {
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "constraints"
                     ]
                 },
                 "ModelConfigResults": {
@@ -32292,6 +32322,22 @@
                         "keys"
                     ]
                 },
+                "SetConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "constraints"
+                    ]
+                },
                 "StringResult": {
                     "type": "object",
                     "properties": {
@@ -32306,6 +32352,63 @@
                     "required": [
                         "result"
                     ]
+                },
+                "Value": {
+                    "type": "object",
+                    "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
+                        "arch": {
+                            "type": "string"
+                        },
+                        "container": {
+                            "type": "string"
+                        },
+                        "cores": {
+                            "type": "integer"
+                        },
+                        "cpu-power": {
+                            "type": "integer"
+                        },
+                        "instance-role": {
+                            "type": "string"
+                        },
+                        "instance-type": {
+                            "type": "string"
+                        },
+                        "mem": {
+                            "type": "integer"
+                        },
+                        "root-disk": {
+                            "type": "integer"
+                        },
+                        "root-disk-source": {
+                            "type": "string"
+                        },
+                        "spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "virt-type": {
+                            "type": "string"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }

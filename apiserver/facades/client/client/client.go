@@ -75,8 +75,7 @@ func (api *API) state() *state.State {
 
 // Client serves client-specific API methods.
 type Client struct {
-	// TODO(wallyworld) - we'll retain model config facade methods
-	// on the client facade until GUI and Python client library are updated.
+	// TODO(juju3) - remove
 	*modelconfig.ModelConfigAPIV1
 
 	api             *API
@@ -201,7 +200,9 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	return NewClient(
 		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
-		&modelconfig.ModelConfigAPIV1{modelConfigAPI},
+		&modelconfig.ModelConfigAPIV1{
+			&modelconfig.ModelConfigAPIV2{modelConfigAPI},
+		},
 		resources,
 		authorizer,
 		presence,
@@ -388,6 +389,7 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 }
 
 // GetModelConstraints returns the constraints for the model.
+// TODO(juju3) - remove
 func (c *Client) GetModelConstraints() (params.GetConstraintsResults, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.GetConstraintsResults{}, err
@@ -401,6 +403,7 @@ func (c *Client) GetModelConstraints() (params.GetConstraintsResults, error) {
 }
 
 // SetModelConstraints sets the constraints for the model.
+// TODO(juju3) - remove
 func (c *Client) SetModelConstraints(args params.SetConstraints) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err

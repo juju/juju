@@ -6,13 +6,13 @@ package store
 import (
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
-	commoncharm "github.com/juju/juju/api/common/charm"
 	"gopkg.in/macaroon.v2"
 
 	apicharm "github.com/juju/juju/api/client/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 )
 
-// CharmAdder defines a subset of the api client needed to add a
+// CharmAdder defines a subset of the charm client needed to add a
 // charm.
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error) // not used in utils
