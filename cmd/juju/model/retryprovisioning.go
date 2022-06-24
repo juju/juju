@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -65,7 +66,12 @@ func (c *retryProvisioningCommand) getAPI() (RetryProvisioningAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client := machinemanager.NewClient(root)
+	return client, nil
 }
 
 func (c *retryProvisioningCommand) Run(context *cmd.Context) error {

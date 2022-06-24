@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/apiserver/facades/client/client"
+	apiclient "github.com/juju/juju/api/client/machinemanager"
+	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/instance"
@@ -143,7 +143,7 @@ func (s *provisionerSuite) TestFinishInstanceConfig(c *gc.C) {
 	// Now check what we would've configured it with.
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := client.InstanceConfig(systemState, s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State), machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg, gc.NotNil)
 	c.Check(icfg.APIInfo, gc.NotNil)
@@ -172,7 +172,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 
 	systemState, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := client.InstanceConfig(systemState, s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := machinemanager.InstanceConfig(systemState, machinemanager.StateBackend(s.State), machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, jc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)

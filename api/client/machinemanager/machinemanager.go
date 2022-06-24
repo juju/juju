@@ -35,6 +35,12 @@ func NewClient(st base.APICallCloser) *Client {
 	return ConstructClient(frontend, backend)
 }
 
+// ModelUUID returns the model UUID from the client connection.
+func (c *Client) ModelUUID() (string, bool) {
+	tag, ok := c.facade.RawAPICaller().ModelTag()
+	return tag.Id(), ok
+}
+
 // AddMachines adds new machines with the supplied parameters, creating any requested disks.
 func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	args := params.AddMachines{
@@ -52,19 +58,6 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 	}
 
 	return results.Machines, nil
-}
-
-// DestroyMachines removes a given set of machines.
-func (client *Client) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
-	return client.destroyMachines("DestroyMachine", machines)
-}
-
-// ForceDestroyMachines removes a given set of machines and all
-// associated units.
-// TODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.
-// Also from ModelManger v6 this call is less useful as it ignores MaxWait customisation.
-func (client *Client) ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
-	return client.destroyMachines("ForceDestroyMachine", machines)
 }
 
 // DestroyMachinesWithParams removes the given set of machines, the semantics of which
@@ -135,6 +128,29 @@ func (client *Client) destroyMachines(method string, machines []string) ([]param
 		}
 	}
 	return allResults, nil
+}
+
+// ProvisioningScript returns a shell script that, when run,
+// provisions a machine agent on the machine executing the script.
+func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
+	var result params.ProvisioningScriptResult
+	if err = c.facade.FacadeCall("ProvisioningScript", args, &result); err != nil {
+		return "", err
+	}
+	return result.Script, nil
+}
+
+// RetryProvisioning updates the provisioning status of a machine allowing the
+// provisioner to retry.
+func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
+	p := params.Entities{}
+	p.Entities = make([]params.Entity, len(machines))
+	for i, machine := range machines {
+		p.Entities[i] = params.Entity{Tag: machine.String()}
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("RetryProvisioning", p, &results)
+	return results.Results, err
 }
 
 // UpgradeSeriesPrepare notifies the controller that a series upgrade is taking

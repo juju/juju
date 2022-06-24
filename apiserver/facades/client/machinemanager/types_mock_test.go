@@ -13,6 +13,7 @@ import (
 	v9 "github.com/juju/charm/v9"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
+	instance "github.com/juju/juju/core/instance"
 	model "github.com/juju/juju/core/model"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
@@ -129,6 +130,21 @@ func (mr *MockMachineMockRecorder) GetUpgradeSeriesMessages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpgradeSeriesMessages", reflect.TypeOf((*MockMachine)(nil).GetUpgradeSeriesMessages))
 }
 
+// HardwareCharacteristics mocks base method.
+func (m *MockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HardwareCharacteristics")
+	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HardwareCharacteristics indicates an expected call of HardwareCharacteristics.
+func (mr *MockMachineMockRecorder) HardwareCharacteristics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HardwareCharacteristics", reflect.TypeOf((*MockMachine)(nil).HardwareCharacteristics))
+}
+
 // Id mocks base method.
 func (m *MockMachine) Id() string {
 	m.ctrl.T.Helper()
@@ -226,6 +242,20 @@ func (m *MockMachine) SetKeepInstance(arg0 bool) error {
 func (mr *MockMachineMockRecorder) SetKeepInstance(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKeepInstance", reflect.TypeOf((*MockMachine)(nil).SetKeepInstance), arg0)
+}
+
+// SetPassword mocks base method.
+func (m *MockMachine) SetPassword(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetPassword", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetPassword indicates an expected call of SetPassword.
+func (mr *MockMachineMockRecorder) SetPassword(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockMachine)(nil).SetPassword), arg0)
 }
 
 // SetUpgradeSeriesStatus mocks base method.

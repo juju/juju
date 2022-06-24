@@ -6,7 +6,6 @@ package client
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -18,25 +17,19 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
@@ -73,8 +66,6 @@ func (api *API) state() *state.State {
 
 // Client serves client-specific API methods.
 type Client struct {
-	*modelconfig.ModelConfigAPIV2
-
 	api             *API
 	newEnviron      common.NewEnvironFunc
 	check           *common.BlockChecker
@@ -130,7 +121,7 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacade creates a version 5 Client facade to handle API requests.
+// NewFacade creates a Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
 func NewFacade(ctx facade.Context) (*Client, error) {
@@ -156,13 +147,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	blockChecker := common.NewBlockChecker(st)
-	backend := modelconfig.NewStateBackend(model)
-	// The modelConfigAPI exposed here is V1.
-	modelConfigAPI, err := modelconfig.NewModelConfigAPI(backend, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	leadershipReader, err := ctx.LeadershipReader(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -176,7 +160,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	return NewClient(
 		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
-		modelConfigAPI,
 		resources,
 		authorizer,
 		presence,
@@ -195,7 +178,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 func NewClient(
 	backend Backend,
 	pool Pool,
-	modelConfigAPI *modelconfig.ModelConfigAPIV2,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
@@ -212,7 +194,6 @@ func NewClient(
 		return nil, apiservererrors.ErrPerm
 	}
 	client := &Client{
-		ModelConfigAPIV2: modelConfigAPI,
 		api: &API{
 			stateAccessor:       backend,
 			pool:                pool,
@@ -290,275 +271,6 @@ func (c *Client) Resolved(p params.Resolved) error {
 		return err
 	}
 	return unit.Resolve(p.Retry)
-}
-
-// PublicAddress implements the server side of Client.PublicAddress.
-func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.PublicAddressResults{}, err
-	}
-
-	switch {
-	case names.IsValidMachine(p.Target):
-		machine, err := c.api.stateAccessor.Machine(p.Target)
-		if err != nil {
-			return results, err
-		}
-		addr, err := machine.PublicAddress()
-		if err != nil {
-			return results, errors.Annotatef(err, "error fetching address for machine %q", machine)
-		}
-		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
-
-	case names.IsValidUnit(p.Target):
-		unit, err := c.api.stateAccessor.Unit(p.Target)
-		if err != nil {
-			return results, err
-		}
-		addr, err := unit.PublicAddress()
-		if err != nil {
-			return results, errors.Annotatef(err, "error fetching address for unit %q", unit)
-		}
-		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
-	}
-	return results, errors.Errorf("unknown unit or machine %q", p.Target)
-}
-
-// PrivateAddress implements the server side of Client.PrivateAddress.
-func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.PrivateAddressResults{}, err
-	}
-
-	switch {
-	case names.IsValidMachine(p.Target):
-		machine, err := c.api.stateAccessor.Machine(p.Target)
-		if err != nil {
-			return results, err
-		}
-		addr, err := machine.PrivateAddress()
-		if err != nil {
-			return results, errors.Annotatef(err, "error fetching address for machine %q", machine)
-		}
-		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
-
-	case names.IsValidUnit(p.Target):
-		unit, err := c.api.stateAccessor.Unit(p.Target)
-		if err != nil {
-			return results, err
-		}
-		addr, err := unit.PrivateAddress()
-		if err != nil {
-			return results, errors.Annotatef(err, "error fetching address for unit %q", unit)
-		}
-		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
-	}
-	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
-
-}
-
-// GetModelConstraints returns the constraints for the model.
-func (c *Client) GetModelConstraints() (params.GetConstraintsResults, error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.GetConstraintsResults{}, err
-	}
-
-	cons, err := c.api.stateAccessor.ModelConstraints()
-	if err != nil {
-		return params.GetConstraintsResults{}, err
-	}
-	return params.GetConstraintsResults{cons}, nil
-}
-
-// SetModelConstraints sets the constraints for the model.
-func (c *Client) SetModelConstraints(args params.SetConstraints) error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	return c.api.stateAccessor.SetModelConstraints(args.Constraints)
-}
-
-// AddMachines adds new machines with the supplied parameters.
-func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	return c.AddMachinesV2(args)
-}
-
-// AddMachinesV2 adds new machines with the supplied parameters.
-func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
-	results := params.AddMachinesResults{
-		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
-	}
-	if err := c.checkCanWrite(); err != nil {
-		return params.AddMachinesResults{}, err
-	}
-	if err := c.check.ChangeAllowed(); err != nil {
-		return results, errors.Trace(err)
-	}
-	for i, p := range args.MachineParams {
-		m, err := c.addOneMachine(p)
-		results.Machines[i].Error = apiservererrors.ServerError(err)
-		if err == nil {
-			results.Machines[i].Machine = m.Id()
-		}
-	}
-	return results, nil
-}
-
-// InjectMachines injects a machine into state with provisioned status.
-func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	return c.AddMachines(args)
-}
-
-func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
-	if p.ParentId != "" && p.ContainerType == "" {
-		return nil, fmt.Errorf("parent machine specified without container type")
-	}
-	if p.ContainerType != "" && p.Placement != nil {
-		return nil, fmt.Errorf("container type and placement are mutually exclusive")
-	}
-	if p.Placement != nil {
-		// Extract container type and parent from container placement directives.
-		containerType, err := instance.ParseContainerType(p.Placement.Scope)
-		if err == nil {
-			p.ContainerType = containerType
-			p.ParentId = p.Placement.Directive
-			p.Placement = nil
-		}
-	}
-
-	if p.ContainerType != "" || p.Placement != nil {
-		// Guard against dubious client by making sure that
-		// the following attributes can only be set when we're
-		// not using placement.
-		p.InstanceId = ""
-		p.Nonce = ""
-		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
-		p.Addrs = nil
-	}
-
-	if p.Series == "" {
-		conf, err := c.api.stateAccessor.ModelConfig()
-		if err != nil {
-			return nil, err
-		}
-		p.Series = config.PreferredSeries(conf)
-	}
-
-	var placementDirective string
-	if p.Placement != nil {
-		model, err := c.api.stateAccessor.Model()
-		if err != nil {
-			return nil, err
-		}
-		// For 1.21 we should support both UUID and name, and with 1.22
-		// just support UUID
-		if p.Placement.Scope != model.Name() && p.Placement.Scope != model.UUID() {
-			return nil, fmt.Errorf("invalid model name %q", p.Placement.Scope)
-		}
-		placementDirective = p.Placement.Directive
-	}
-
-	jobs, err := common.StateJobs(p.Jobs)
-	if err != nil {
-		return nil, err
-	}
-
-	addrs, err := params.ToProviderAddresses(p.Addrs...).ToSpaceAddresses(c.api.stateAccessor)
-	if err != nil {
-		return nil, err
-	}
-
-	template := state.MachineTemplate{
-		Series:                  p.Series,
-		Constraints:             p.Constraints,
-		InstanceId:              p.InstanceId,
-		Jobs:                    jobs,
-		Nonce:                   p.Nonce,
-		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               addrs,
-		Placement:               placementDirective,
-	}
-	if p.ContainerType == "" {
-		return c.api.stateAccessor.AddOneMachine(template)
-	}
-	if p.ParentId != "" {
-		return c.api.stateAccessor.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
-	}
-	return c.api.stateAccessor.AddMachineInsideNewMachine(template, template, p.ContainerType)
-}
-
-// ProvisioningScript returns a shell script that, when run,
-// provisions a machine agent on the machine executing the script.
-func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.ProvisioningScriptResult{}, err
-	}
-
-	var result params.ProvisioningScriptResult
-	st, err := c.api.pool.SystemState()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	icfg, err := InstanceConfig(st, c.api.state(), args.MachineId, args.Nonce, args.DataDir)
-	if err != nil {
-		return result, apiservererrors.ServerError(errors.Annotate(
-			err, "getting instance config",
-		))
-	}
-	// Until DisablePackageCommands is retired, for backwards
-	// compatibility, we must respect the client's request and
-	// override any model settings the user may have specified.
-	// If the client does specify this setting, it will only ever be
-	// true. False indicates the client doesn't care and we should use
-	// what's specified in the environment config.
-	if args.DisablePackageCommands {
-		icfg.EnableOSRefreshUpdate = false
-		icfg.EnableOSUpgrade = false
-	} else if cfg, err := c.api.stateAccessor.ModelConfig(); err != nil {
-		return result, apiservererrors.ServerError(errors.Annotate(
-			err, "getting model config",
-		))
-	} else {
-		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
-		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
-	}
-
-	osSeries, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return result, apiservererrors.ServerError(errors.Annotatef(err,
-			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
-	}
-
-	getProvisioningScript := sshprovisioner.ProvisioningScript
-	if osSeries == coreos.Windows {
-		getProvisioningScript = winrmprovisioner.ProvisioningScript
-	}
-
-	result.Script, err = getProvisioningScript(icfg)
-	if err != nil {
-		return result, apiservererrors.ServerError(errors.Annotate(
-			err, "getting provisioning script",
-		))
-	}
-
-	return result, nil
-}
-
-// DestroyMachines removes a given set of machines.
-func (c *Client) DestroyMachines(args params.DestroyMachines) error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-
-	if err := c.check.RemoveAllowed(); !args.Force && err != nil {
-		return errors.Trace(err)
-	}
-
-	return common.DestroyMachines(c.api.stateAccessor, args.Force, time.Duration(0), args.MachineNames...)
 }
 
 // ModelInfo returns information about the current model.
@@ -865,94 +577,6 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		result.List = append(result.List, &tools)
 	}
 	return result, nil
-}
-
-// Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the
-// client/charms facade instead.
-func (c *Client) AddCharm(args params.AddCharm) error {
-	return errors.NewNotSupported(nil, "Deprecated AddCharm call has been removed in Juju 3.0; please use the charms facade instead")
-}
-
-// Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the
-// client/charms facade instead.
-func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
-	return errors.NewNotSupported(nil, "Deprecated AddCharmWithAuthorization call has been removed in Juju 3.0; please use the charms facade instead")
-}
-
-// ResolveCharms resolves the best available charm URLs with series, for charm
-// locations without a series specified.
-//
-// NOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.
-// Please discontinue use and move to the charms facade version.
-//
-// TODO: remove in juju 3.0
-func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
-	return params.ResolveCharmResults{}, errors.NewNotSupported(nil, "Deprecated ResolveChamrs call has been removed in Juju 3.0; please use the charms facade instead")
-}
-
-// RetryProvisioning marks a provisioning error as transient on the machines.
-func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, err
-	}
-
-	if err := c.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(p.Entities)),
-	}
-	for i, e := range p.Entities {
-		tag, err := names.ParseMachineTag(e.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := c.updateInstanceStatus(tag, map[string]interface{}{"transient": true}); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
-}
-
-type instanceStatus interface {
-	InstanceStatus() (status.StatusInfo, error)
-	SetInstanceStatus(sInfo status.StatusInfo) error
-}
-
-func (c *Client) updateInstanceStatus(tag names.Tag, data map[string]interface{}) error {
-	entity0, err := c.api.stateAccessor.FindEntity(tag)
-	if err != nil {
-		return err
-	}
-	statusGetterSetter, ok := entity0.(instanceStatus)
-	if !ok {
-		return apiservererrors.NotSupportedError(tag, "getting status")
-	}
-	existingStatusInfo, err := statusGetterSetter.InstanceStatus()
-	if err != nil {
-		return err
-	}
-	newData := existingStatusInfo.Data
-	if newData == nil {
-		newData = data
-	} else {
-		for k, v := range data {
-			newData[k] = v
-		}
-	}
-	if len(newData) > 0 && existingStatusInfo.Status != status.Error && existingStatusInfo.Status != status.ProvisioningError {
-		return fmt.Errorf("%s is not in an error state (%v)", names.ReadableString(tag), existingStatusInfo.Status)
-	}
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	now := time.Now()
-	sInfo := status.StatusInfo{
-		Status:  existingStatusInfo.Status,
-		Message: existingStatusInfo.Message,
-		Data:    newData,
-		Since:   &now,
-	}
-	return statusGetterSetter.SetInstanceStatus(sInfo)
 }
 
 // APIHostPorts returns the API host/port addresses stored in state.

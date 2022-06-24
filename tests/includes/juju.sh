@@ -178,6 +178,7 @@ add_model() {
 # add_images_for_vsphere is used to add-image with known vSphere template paths for LTS series
 # and shouldn't be used by any of the tests directly.
 add_images_for_vsphere() {
+	juju metadata add-image juju-ci-root/templates/jammy-test-template --series jammy
 	juju metadata add-image juju-ci-root/templates/focal-test-template --series focal
 	juju metadata add-image juju-ci-root/templates/bionic-test-template --series bionic
 	juju metadata add-image juju-ci-root/templates/xenial-test-template --series xenial
