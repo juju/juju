@@ -7,6 +7,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -98,7 +99,31 @@ func (u *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (p
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.ServiceLocators)),
 	}
+	//canAccess, err := u.accessUnit()
+	//if err != nil {
+	//	return params.StringResults{}, err
+	//}
+	for i, serviceLocator := range args.ServiceLocators {
+		//tag, err := names.ParseTag(entity.Tag)
+		//if err != nil {
+		//	result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+		//	continue
+		//}
+		//
+		//if !canAccess(tag) {
+		//	result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+		//	continue
+		//}
 
-	//return a.backend.AddServiceLocator("id", "name", "type")
-	return params.StringResults{}, nil
+		sl, err := u.backend.AddServiceLocator(
+			serviceLocator.ServiceLocatorUUID,
+			serviceLocator.Name,
+			serviceLocator.Type,
+		)
+
+		result.Results[i].Result = sl
+		result.Results[i].Error = apiservererrors.ServerError(err)
+
+	}
+	return result, nil
 }
