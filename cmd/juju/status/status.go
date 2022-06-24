@@ -224,6 +224,11 @@ func (c *statusCommand) Init(args []string) error {
 			}
 		}
 	}
+
+	if c.watch < 0 {
+		return errors.Errorf("invalid value %q, expected a positive value", c.watch)
+	}
+
 	if c.clock == nil {
 		c.clock = clock.WallClock
 	}
