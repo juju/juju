@@ -20,7 +20,11 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			if cleanupErr := args.Client.ForceDestroyMachines(machineId); cleanupErr != nil {
+			results, cleanupErr := args.Client.DestroyMachinesWithParams(false, false, nil, machineId)
+			if cleanupErr == nil {
+				cleanupErr = results[0].Error
+			}
+			if cleanupErr != nil {
 				logger.Errorf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""

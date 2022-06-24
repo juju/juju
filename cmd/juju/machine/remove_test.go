@@ -165,12 +165,6 @@ func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
 	testing.AssertOperationWasBlocked(c, err, ".*TestForceBlockedError.*")
 }
 
-func (s *RemoveMachineSuite) TestOldFacadeRemoveKeep(c *gc.C) {
-	s.apiConnection.bestFacadeVersion = 3
-	_, err := s.run(c, "--keep-instance", "1")
-	c.Assert(err, gc.ErrorMatches, "this version of Juju doesn't support --keep-instance")
-}
-
 type fakeRemoveMachineAPI struct {
 	forced      bool
 	keep        bool
@@ -183,18 +177,9 @@ func (f *fakeRemoveMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeRemoveMachineAPI) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
-	f.forced = false
-	return f.destroyMachines(machines)
-}
-
 func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = force
 	f.keep = keep
-	return f.destroyMachines(machines)
-}
-
-func (f *fakeRemoveMachineAPI) destroyMachines(machines []string) ([]params.DestroyMachineResult, error) {
 	f.machines = machines
 	if f.removeError != nil || f.results != nil {
 		return f.results, f.removeError

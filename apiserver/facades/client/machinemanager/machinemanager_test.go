@@ -24,13 +24,17 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -526,6 +530,41 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
 		})
 }
 
+func (s *MachineManagerSuite) TestProvisioningScript(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.machines["0"] = &mockMachine{id: "0", series: "focal"}
+	result, err := s.api.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: "0",
+		Nonce:     "nonce",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	scriptLines := strings.Split(result.Script, "\n")
+	provisioningScriptLines := strings.Split(result.Script, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
+	for i, line := range scriptLines {
+		if strings.Contains(line, "oldpassword") {
+			continue
+		}
+		c.Assert(line, gc.Equals, provisioningScriptLines[i])
+	}
+}
+
+func (s *MachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.disableOSUpgrade = true
+	s.st.disableOSRefresh = true
+	s.st.machines["0"] = &mockMachine{id: "0", series: "focal"}
+	result, err := s.api.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: "0",
+		Nonce:     "nonce",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get update")
+	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get upgrade")
+}
+
 func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
 	s.st.machines = map[string]*mockMachine{
 		"0": {id: "0", series: "trusty", units: []string{"foo/0", "test/0"}},
@@ -542,7 +581,9 @@ func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
 func (s *MachineManagerSuite) apiV5() machinemanager.MachineManagerAPIV5 {
 	return machinemanager.MachineManagerAPIV5{
 		MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{
-			MachineManagerAPI: s.api,
+			MachineManagerAPIV7: &machinemanager.MachineManagerAPIV7{
+				MachineManagerAPI: s.api,
+			},
 		},
 	}
 }
@@ -967,7 +1008,43 @@ type mockState struct {
 	blockMsg         string
 	block            state.BlockType
 
+	disableOSUpgrade bool
+	disableOSRefresh bool
+
 	unitStorageAttachmentsF func(tag names.UnitTag) ([]state.StorageAttachment, error)
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	return coretesting.ControllerTag
+}
+
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
+}
+
+func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+	return []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
+		NetPort:      1,
+	}}}, nil
+}
+
+func (st *mockState) ToolsStorage() (binarystorage.StorageCloser, error) {
+	return &mockToolsStorage{}, nil
+}
+
+type mockToolsStorage struct {
+	binarystorage.StorageCloser
+}
+
+func (*mockToolsStorage) Close() error {
+	return nil
+}
+
+func (*mockToolsStorage) AllMetadata() ([]binarystorage.Metadata, error) {
+	return []binarystorage.Metadata{{
+		Version: "2.6.6-ubuntu-amd64",
+	}}, nil
 }
 
 type mockVolumeAccess struct {
@@ -1032,7 +1109,10 @@ func (st *mockState) ModelTag() names.ModelTag {
 
 func (st *mockState) Model() (machinemanager.Model, error) {
 	st.MethodCall(st, "Model")
-	return &mockModel{}, nil
+	return &mockModel{
+		disableOSUpgrade: st.disableOSUpgrade,
+		disableOSRefresh: st.disableOSRefresh,
+	}, nil
 }
 
 func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
@@ -1217,6 +1297,19 @@ func (m *mockMachine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, m
 func (m *mockMachine) ApplicationNames() ([]string, error) {
 	m.MethodCall(m, "ApplicationNames")
 	return []string{"foo"}, nil
+}
+
+func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	m.MethodCall(m, "HardwareCharacteristics")
+	arch := "amd64"
+	return &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil
+}
+
+func (m *mockMachine) SetPassword(p string) error {
+	m.MethodCall(m, "SetPassword")
+	return nil
 }
 
 type mockApplication struct {

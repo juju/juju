@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	apiclient "github.com/juju/juju/api/client/client"
+	machineclient "github.com/juju/juju/api/client/machinemanager"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -1482,7 +1483,7 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
-	err = apiclient.NewClient(userConn).DestroyMachines("42")
+	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(false, false, nil, "42")
 	c.Check(err, gc.ErrorMatches, "model migration in progress")
 }
 

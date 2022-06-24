@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type instanceTypesSuite struct{}
@@ -123,7 +124,7 @@ func (st *mockBackend) FilesystemAccess() storagecommon.FilesystemAccess {
 }
 
 func (b *mockBackend) ModelTag() names.ModelTag {
-	return names.NewModelTag("beef1beef1-0000-0000-000011112222")
+	return coretesting.ModelTag
 }
 
 func (b *mockBackend) Model() (machinemanager.Model, error) {
@@ -149,6 +150,10 @@ func (*mockPool) GetModel(uuid string) (machinemanager.Model, func(), error) {
 	return &mockModel{}, func() {}, nil
 }
 
+func (*mockPool) SystemState() (machinemanager.ControllerBackend, error) {
+	return &mockState{}, nil
+}
+
 type mockEnviron struct {
 	environs.Environ
 	machinemanager.Backend
@@ -167,6 +172,8 @@ func (m *mockEnviron) InstanceTypes(ctx context.ProviderCallContext, c constrain
 
 type mockModel struct {
 	machinemanager.Model
+	disableOSUpgrade bool
+	disableOSRefresh bool
 }
 
 func (mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
@@ -174,11 +181,28 @@ func (mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 }
 
 func (mockModel) ModelTag() names.ModelTag {
-	return names.NewModelTag("beef1beef1-0000-0000-000011112222")
+	return coretesting.ModelTag
 }
 
-func (*mockModel) Config() (*config.Config, error) {
-	return config.New(config.UseDefaults, dummy.SampleConfig())
+func (m *mockModel) Config() (*config.Config, error) {
+	return config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+		"agent-version":            "2.6.6",
+		"enable-os-upgrade":        !m.disableOSUpgrade,
+		"enable-os-refresh-update": !m.disableOSRefresh,
+	}))
+}
+
+func (m *mockModel) UUID() string {
+	return m.ModelTag().Id()
+}
+
+func (*mockModel) Cloud() (cloud.Cloud, error) {
+	return cloud.Cloud{
+		Type: "dummy",
+		Regions: []cloud.Region{{
+			Name: "a-region",
+		}},
+	}, nil
 }
 
 func (*mockModel) CloudName() string {
@@ -187,4 +211,8 @@ func (*mockModel) CloudName() string {
 
 func (*mockModel) CloudRegion() string {
 	return "a-region"
+}
+
+func (*mockModel) CloudCredential() (state.Credential, bool, error) {
+	return state.Credential{}, true, nil
 }

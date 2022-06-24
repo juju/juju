@@ -15,13 +15,17 @@ var (
 	logger = loggo.GetLogger("juju.environs.manual.sshprovisioner")
 )
 
-// Provision returns a new machineId and nil if the provision process is done successfully
+// ProvisionMachine returns a new machineId and nil if the provision process is done successfully
 // The func will manual provision a linux machine using as it's default protocol SSH
 func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err error) {
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			if cleanupErr := args.Client.ForceDestroyMachines(machineId); cleanupErr != nil {
+			results, cleanupErr := args.Client.DestroyMachinesWithParams(false, false, nil, machineId)
+			if cleanupErr == nil {
+				cleanupErr = results[0].Error
+			}
+			if cleanupErr != nil {
 				logger.Errorf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
