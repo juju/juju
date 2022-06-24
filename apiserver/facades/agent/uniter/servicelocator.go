@@ -94,7 +94,7 @@ func (u *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (p
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.ServiceLocators)),
 	}
-	
+
 	//return a.backend.AddServiceLocator("id", "name", "type")
 	return params.StringResults{}, nil
 }
