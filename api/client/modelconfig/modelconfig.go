@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -67,6 +68,21 @@ func (c *Client) ModelSet(config map[string]interface{}) error {
 func (c *Client) ModelUnset(keys ...string) error {
 	args := params.ModelUnset{Keys: keys}
 	return c.facade.FacadeCall("ModelUnset", args, nil)
+}
+
+// GetModelConstraints returns the constraints for the model.
+func (c *Client) GetModelConstraints() (constraints.Value, error) {
+	results := new(params.GetConstraintsResults)
+	err := c.facade.FacadeCall("GetModelConstraints", nil, results)
+	return results.Constraints, err
+}
+
+// SetModelConstraints specifies the constraints for the model.
+func (c *Client) SetModelConstraints(constraints constraints.Value) error {
+	params := params.SetConstraints{
+		Constraints: constraints,
+	}
+	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
 // SetSLALevel sets the support level for the given model.

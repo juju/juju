@@ -8,8 +8,11 @@ import (
 	"io"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -101,7 +104,15 @@ func (c *modelGetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client := modelconfig.NewClient(root)
+	if client.BestAPIVersion() > 2 {
+		return client, nil
+	}
+	return apiclient.NewClient(root), nil
 }
 
 func formatConstraints(writer io.Writer, value interface{}) error {
@@ -119,13 +130,13 @@ func (c *modelGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *modelGetConstraintsCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.getAPI()
+	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
-	defer apiclient.Close()
+	defer client.Close()
 
-	cons, err := apiclient.GetModelConstraints()
+	cons, err := client.GetModelConstraints()
 	if err != nil {
 		return err
 	}
@@ -162,16 +173,24 @@ func (c *modelSetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client := modelconfig.NewClient(root)
+	if client.BestAPIVersion() > 2 {
+		return client, nil
+	}
+	return apiclient.NewClient(root), nil
 }
 
 func (c *modelSetConstraintsCommand) Run(_ *cmd.Context) (err error) {
-	apiclient, err := c.getAPI()
+	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
-	defer apiclient.Close()
+	defer client.Close()
 
-	err = apiclient.SetModelConstraints(c.Constraints)
+	err = client.SetModelConstraints(c.Constraints)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

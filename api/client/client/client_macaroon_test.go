@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/client"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/permission"
@@ -26,35 +27,42 @@ type clientMacaroonSuite struct {
 	apitesting.MacaroonSuite
 }
 
-func (s *clientMacaroonSuite) createTestClient(c *gc.C) *client.Client {
+func (s *clientMacaroonSuite) createTestClients(c *gc.C) (*client.Client, *charms.Client) {
 	username := "testuser@somewhere"
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
 	cookieJar := apitesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
-	client := client.NewClient(s.OpenAPI(c, nil, cookieJar))
+	api := s.OpenAPI(c, nil, cookieJar)
+	client := client.NewClient(api)
+	charmClient := charms.NewClient(api)
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic
 	// so we clear the cookies.
 	cookieJar.Clear()
-	return client
+	return client, charmClient
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
-	client := s.createTestClient(c)
+	client, charmClient := s.createTestClients(c)
+	vers, err := client.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
 	s.DischargerLogin = func() string { return "" }
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
-	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
+	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, gc.ErrorMatches, `Post https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
-	client := s.createTestClient(c)
+	client, _ := s.createTestClients(c)
+	vers, err := client.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	charmClient := charms.NewClient(s.APIState)
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
@@ -62,7 +70,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
 	testcharms.CheckCharmReady(c, charmArchive)
 
 	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
+	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, vers)
 	// We know that in testing we occasionally see "zip: not a valid zip file" occur.
 	// Even after many efforts, we haven't been able to find the source. It almost never
 	// happens locally, and we don't see this in production.

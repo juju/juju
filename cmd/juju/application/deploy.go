@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/client/applicationoffers"
 	apicharms "github.com/juju/juju/api/client/charms"
 	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -62,6 +63,7 @@ type CharmsAPI interface {
 //
 // Once we pair down DeployAPI, this will not longer be a problem.
 
+// TODO(juju3) - remove when methods are migrated away
 type apiClient struct {
 	*apiclient.Client
 }
@@ -76,6 +78,10 @@ type applicationClient struct {
 
 type modelConfigClient struct {
 	*modelconfig.Client
+}
+
+type machineManagerClient struct {
+	*machinemanager.Client
 }
 
 type annotationsClient struct {
@@ -99,9 +105,9 @@ type spacesClient struct {
 }
 
 type deployAPIAdapter struct {
-	charmsAPIVersion int
+	charmsAPIVersion      int
+	modelConfigAPIVersion int
 	api.Connection
-	*apiClient
 	*charmsClient
 	*applicationClient
 	*modelConfigClient
@@ -109,18 +115,17 @@ type deployAPIAdapter struct {
 	*plansClient
 	*offerClient
 	*spacesClient
-}
-
-func (a *deployAPIAdapter) Client() *apiclient.Client {
-	return a.apiClient.Client
+	*machineManagerClient
+	legacyClient *apiClient
 }
 
 func (a *deployAPIAdapter) ModelUUID() (string, bool) {
-	return a.apiClient.ModelUUID()
+	tag, ok := a.ModelTag()
+	return tag.Id(), ok
 }
 
 func (a *deployAPIAdapter) WatchAll() (api.AllWatch, error) {
-	return a.apiClient.WatchAll()
+	return a.legacyClient.WatchAll()
 }
 
 func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
@@ -142,18 +147,37 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 	return a.annotationsClient.Get(tags)
 }
 
+func (a *deployAPIAdapter) GetModelConstraints() (constraints.Value, error) {
+	if a.modelConfigAPIVersion < 2 {
+		return a.modelConfigClient.GetModelConstraints()
+	}
+	return a.legacyClient.GetModelConstraints()
+}
+
 func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	if a.charmsAPIVersion > 2 {
 		return a.charmsClient.AddCharm(curl, origin, force)
 	}
-	return origin, a.apiClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
+	return origin, a.legacyClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
 }
 
 func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
 	if a.charmsAPIVersion > 2 {
 		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
 	}
-	return origin, a.apiClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
+	return origin, a.legacyClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
+}
+
+func (a *deployAPIAdapter) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) (*charm.URL, error) {
+	agentVersion, err := a.legacyClient.AgentVersion()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return a.charmsClient.AddLocalCharm(url, c, b, agentVersion)
+}
+
+func (a *deployAPIAdapter) Status(patterns []string) (*apiparams.FullStatus, error) {
+	return a.legacyClient.Status(patterns)
 }
 
 // NewDeployCommand returns a command to deploy applications.
@@ -218,16 +242,18 @@ func newDeployCommand() *DeployCommand {
 			return nil, errors.Trace(err)
 		}
 		return &deployAPIAdapter{
-			Connection:        apiRoot,
-			apiClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
-			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-			charmsAPIVersion:  apiRoot.BestFacadeVersion("Charms"),
-			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			plansClient:       &plansClient{planURL: mURL},
-			offerClient:       &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
-			spacesClient:      &spacesClient{API: spaces.NewAPI(apiRoot)},
+			Connection:            apiRoot,
+			legacyClient:          &apiClient{Client: apiclient.NewClient(apiRoot)},
+			charmsClient:          &charmsClient{Client: apicharms.NewClient(apiRoot)},
+			charmsAPIVersion:      apiRoot.BestFacadeVersion("Charms"),
+			applicationClient:     &applicationClient{Client: application.NewClient(apiRoot)},
+			machineManagerClient:  &machineManagerClient{Client: machinemanager.NewClient(apiRoot)},
+			modelConfigAPIVersion: apiRoot.BestFacadeVersion("ModelConfig"),
+			modelConfigClient:     &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+			annotationsClient:     &annotationsClient{Client: annotations.NewClient(apiRoot)},
+			plansClient:           &plansClient{planURL: mURL},
+			offerClient:           &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
+			spacesClient:          &spacesClient{API: spaces.NewAPI(apiRoot)},
 		}, nil
 	}
 	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {

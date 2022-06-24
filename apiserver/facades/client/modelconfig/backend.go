@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -25,6 +26,8 @@ type Backend interface {
 	SLALevel() (string, error)
 	SpaceByName(string) error
 	ControllerConfig() (controller.Config, error)
+	SetModelConstraints(value constraints.Value) error
+	ModelConstraints() (constraints.Value, error)
 }
 
 type stateShim struct {
