@@ -204,7 +204,7 @@ juju-metadata:
 .PHONY: juju-wait-for
 juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
 juju-wait-for:
-## juju-wait-for: Install juju-wait-for without updating dependencies
+## waitfor: Install waitfor without updating dependencies
 	${run_go_install}
 
 .PHONY: pebble
@@ -245,7 +245,7 @@ ${BUILD_DIR}/%/bin/juju-metadata: phony_explicit
 
 ${BUILD_DIR}/%/bin/juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
 ${BUILD_DIR}/%/bin/juju-wait-for: phony_explicit
-# build for juju-wait-for
+# build for waitfor
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble

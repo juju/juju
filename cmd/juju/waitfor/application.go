@@ -14,9 +14,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/waitfor/api"
+	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
+	"github.com/juju/juju/cmd/juju/waitfor/api"
+	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
