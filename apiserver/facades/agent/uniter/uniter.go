@@ -2894,8 +2894,7 @@ func (u *UniterAPI) CanApplyLXDProfile(args params.Entities) (params.BoolResults
 
 // AddServiceLocator ...
 func (u *UniterAPI) AddServiceLocator(args params.AddServiceLocators) (params.StringResults, error) {
-	//return u.serviceLocatorAPI.AddServiceLocator(args)
-	return params.StringResults{}, nil
+	return u.serviceLocatorAPI.AddServiceLocator(args)
 }
 
 func (u *UniterAPIV18) AddServiceLocator(_ struct{}) {}
