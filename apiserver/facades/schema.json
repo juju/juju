@@ -44630,7 +44630,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/AddServiceLocators"
                         },
                         "Result": {
                             "$ref": "#/definitions/StringResults"
@@ -45835,6 +45835,63 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "AddServiceLocatorParams": {
+                    "type": "object",
+                    "properties": {
+                        "consumer-relation-id": {
+                            "type": "integer"
+                        },
+                        "consumer-unit-id": {
+                            "type": "integer"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "unit-id": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "name",
+                        "type",
+                        "unit-id",
+                        "consumer-unit-id",
+                        "consumer-relation-id",
+                        "params"
+                    ]
+                },
+                "AddServiceLocators": {
+                    "type": "object",
+                    "properties": {
+                        "params": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AddServiceLocatorParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "params"
+                    ]
                 },
                 "Address": {
                     "type": "object",
