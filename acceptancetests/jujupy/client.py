@@ -881,7 +881,7 @@ class ModelClient:
 
         args += [
             '--constraints', self._get_substrate_constraints(arch),
-            '--default-model', self.env.environment
+            '--create-model', self.env.environment
         ]
         if force:
             args.extend(['--force'])

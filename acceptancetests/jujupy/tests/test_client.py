@@ -357,7 +357,7 @@ class TestModelClient(ClientTest):
                     '--constraints', 'mem=2G spaces=^endpoint-bindings-data,'
                     '^endpoint-bindings-public',
                     'foo/asdf', 'maas',
-                    '--config', config_file.name, '--default-model', 'maas',
+                    '--config', config_file.name, '--create-model', 'maas',
                     '--agent-version', '2.0'),
                 include_e=False)
 
@@ -374,7 +374,7 @@ class TestModelClient(ClientTest):
                 'bootstrap', (
                     '--constraints', 'mem=2G',
                     'foo/asdf', 'maas',
-                    '--config', config_file.name, '--default-model', 'maas',
+                    '--config', config_file.name, '--create-model', 'maas',
                     '--agent-version', '2.0'),
                 include_e=False)
 
@@ -388,7 +388,7 @@ class TestModelClient(ClientTest):
                     'bootstrap', ('--constraints', 'mem=2G',
                                   'bar/baz', 'foo',
                                   '--config', config_file.name,
-                                  '--default-model', 'foo',
+                                  '--create-model', 'foo',
                                   '--agent-version', '2.0'), include_e=False)
                 config_file.seek(0)
                 config = yaml.safe_load(config_file)
@@ -405,7 +405,7 @@ class TestModelClient(ClientTest):
                 '--upload-tools', '--constraints', 'mem=2G',
                 'foo/baz', 'foo',
                 '--config', config_file.name,
-                '--default-model', 'foo'), include_e=False)
+                '--create-model', 'foo'), include_e=False)
 
     def test_bootstrap_credential(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
@@ -418,7 +418,7 @@ class TestModelClient(ClientTest):
                 '--constraints', 'mem=2G',
                 'foo/baz', 'foo',
                 '--config', config_file.name,
-                '--default-model', 'foo', '--agent-version', '2.0',
+                '--create-model', 'foo', '--agent-version', '2.0',
                 '--credential', 'credential_name'), include_e=False)
 
     def test_bootstrap_bootstrap_series(self):
@@ -431,7 +431,7 @@ class TestModelClient(ClientTest):
             'bootstrap', (
                 '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
+                '--config', config_file.name, '--create-model', 'foo',
                 '--agent-version', '2.0',
                 '--bootstrap-series', 'angsty'), include_e=False)
 
@@ -445,7 +445,7 @@ class TestModelClient(ClientTest):
             'bootstrap', (
                 '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
+                '--config', config_file.name, '--create-model', 'foo',
                 '--agent-version', '2.0', '--auto-upgrade'), include_e=False)
 
     def test_bootstrap_metadata(self):
@@ -458,7 +458,7 @@ class TestModelClient(ClientTest):
             'bootstrap', (
                 '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
+                '--config', config_file.name, '--create-model', 'foo',
                 '--agent-version', '2.0',
                 '--metadata-source', '/var/test-source'), include_e=False)
 
@@ -470,7 +470,7 @@ class TestModelClient(ClientTest):
             upload_tools=False, config_filename='config')
         self.assertEqual(
             ('--constraints', 'mem=2G', 'bar/baz', 'foo',
-             '--config', 'config', '--default-model', 'foo',
+             '--config', 'config', '--create-model', 'foo',
              '--agent-version', '2.0', '--to', 'zone=fnord'),
             args)
 
@@ -486,7 +486,7 @@ class TestModelClient(ClientTest):
                             '--constraints', 'mem=2G',
                             'bar/baz', 'foo',
                             '--config', config_file.name,
-                            '--default-model', 'foo',
+                            '--create-model', 'foo',
                             '--agent-version', '2.0'), include_e=False)
 
     def test_bootstrap_async_upload_tools(self):
@@ -500,7 +500,7 @@ class TestModelClient(ClientTest):
                             '--upload-tools', '--constraints', 'mem=2G',
                             'bar/baz', 'foo',
                             '--config', config_file.name,
-                            '--default-model', 'foo',
+                            '--create-model', 'foo',
                             ),
                         include_e=False)
 
@@ -513,7 +513,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(args, (
             '--upload-tools', '--constraints', 'mem=2G',
             'bar/baz', 'foo',
-            '--config', 'config', '--default-model', 'foo',
+            '--config', 'config', '--create-model', 'foo',
             '--bootstrap-series', 'angsty'))
 
     def test_get_bootstrap_args_agent_version(self):
@@ -524,7 +524,7 @@ class TestModelClient(ClientTest):
                                          agent_version='2.0-lambda1')
         self.assertEqual(('--constraints', 'mem=2G',
                           'bar/baz', 'foo',
-                          '--config', 'config', '--default-model', 'foo',
+                          '--config', 'config', '--create-model', 'foo',
                           '--agent-version', '2.0-lambda1'), args)
 
     def test_get_bootstrap_args_upload_tools_and_agent_version(self):
