@@ -59,10 +59,6 @@ type ServiceLocatorAPI struct {
 	accessUnit common.GetAuthFunc
 }
 
-func (s *ServiceLocatorAPI) TestFunc() string {
-	return "test"
-}
-
 // NewExternalServiceLocatorAPI can be used for API registration.
 func NewExternalServiceLocatorAPI(
 	st *state.State,
@@ -93,8 +89,12 @@ func NewServiceLocatorAPI(
 	}
 }
 
-func (a *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (params.StringResults, error) {
-	// TODO: ...
-	//return a.backend.AddServiceLocator(slId, slName, slType)
+func (u *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (params.StringResults, error) {
+	u.logger.Tracef("Starting AddServiceLocator with %+v", args)
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.ServiceLocators)),
+	}
+	
+	//return a.backend.AddServiceLocator("id", "name", "type")
 	return params.StringResults{}, nil
 }
