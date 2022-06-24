@@ -29,10 +29,8 @@ assert_opened_ports_output() {
 
 	# Test the backwards-compatible version of opened-ports where the output
 	# includes the unique set of opened ports for all endpoints.
-	# Note that 'juju exec' injects a trailing line-feed tot he command output
-	# so we need to use echo to generate our expectation string.
-	exp=$(echo "1234/tcp 1337-1339/tcp" | tr '\n' ' ')
-	got=$(juju exec --unit ubuntu-lite/0 "opened-ports" | tr '\n' ' ')
+	exp="1234/tcp 1337-1339/tcp"
+	got=$(juju exec --unit ubuntu-lite/0 "opened-ports" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
 	if [ "$got" != "$exp" ]; then
 		# shellcheck disable=SC2046
 		echo $(red "expected opened-ports output to be:\n${exp}\nGOT:\n${got}")
@@ -40,10 +38,8 @@ assert_opened_ports_output() {
 	fi
 
 	# Try the new version where we group by endpoint.
-	# Note that 'juju exec' injects a trailing line-feed tot he command output
-	# so we need to use echo to generate our expectation string.
-	exp=$(echo "1234/tcp (ubuntu) 1337-1339/tcp (*)" | tr '\n' ' ')
-	got=$(juju exec --unit ubuntu-lite/0 "opened-ports --endpoints" | tr '\n' ' ')
+	exp="1234/tcp (ubuntu) 1337-1339/tcp (*)"
+	got=$(juju exec --unit ubuntu-lite/0 "opened-ports --endpoints" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
 	if [ "$got" != "$exp" ]; then
 		# shellcheck disable=SC2046
 		echo $(red "expected opened-ports output when using --endpoints to be:\n${exp}\nGOT:\n${got}")
