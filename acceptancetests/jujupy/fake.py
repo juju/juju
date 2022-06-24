@@ -726,7 +726,7 @@ class FakeBackend:
         parser.add_argument('controller_name')
         parser.add_argument('--constraints')
         parser.add_argument('--config')
-        parser.add_argument('--default-model')
+        parser.add_argument('--create-model=default')
         parser.add_argument('--agent-version')
         parser.add_argument('--bootstrap-series')
         parser.add_argument('--upload-tools', action='store_true')
