@@ -600,6 +600,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 }
 
 // ModelInfo returns information about the current model.
+// TODO(juju3) - remove
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.ModelInfo{}, err
@@ -649,6 +650,7 @@ func modelInfo(st *state.State, user permission.UserAccess) (params.ModelUserInf
 }
 
 // ModelUserInfo returns information on all users in the model.
+// TODO(juju3) - remove
 func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 	var results params.ModelUserInfoResults
 	if err := c.checkCanRead(); err != nil {
@@ -678,6 +680,7 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 }
 
 // AgentVersion returns the current version that the API server is running.
+// TODO(juju3) - remove
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AgentVersionResult{}, err
@@ -1034,6 +1037,7 @@ func (c *Client) updateInstanceStatus(tag names.Tag, data map[string]interface{}
 }
 
 // APIHostPorts returns the API host/port addresses stored in state.
+// TODO(juju3) - remove
 func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	if err := c.checkCanWrite(); err != nil {
 		return result, err

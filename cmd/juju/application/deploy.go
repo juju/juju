@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -168,8 +169,28 @@ func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin com
 	return origin, a.legacyClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
 }
 
+type modelGetter interface {
+	ModelGet() (map[string]interface{}, error)
+}
+
+func agentVersion(c modelGetter) (version.Number, error) {
+	attrs, err := c.ModelGet()
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		return version.Zero, errors.New("model config missing agent version")
+	}
+	return agentVersion, nil
+}
+
 func (a *deployAPIAdapter) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) (*charm.URL, error) {
-	agentVersion, err := a.legacyClient.AgentVersion()
+	agentVersion, err := agentVersion(a.modelConfigClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -16465,7 +16465,7 @@
                             "$ref": "#/definitions/APIHostPortsResult"
                         }
                     },
-                    "description": "APIHostPorts returns the API host/port addresses stored in state."
+                    "description": "APIHostPorts returns the API host/port addresses stored in state.\nTODO(juju3) - remove"
                 },
                 "AbortCurrentUpgrade": {
                     "type": "object",
@@ -16520,7 +16520,7 @@
                             "$ref": "#/definitions/AgentVersionResult"
                         }
                     },
-                    "description": "AgentVersion returns the current version that the API server is running."
+                    "description": "AgentVersion returns the current version that the API server is running.\nTODO(juju3) - remove"
                 },
                 "CACert": {
                     "type": "object",
@@ -16613,7 +16613,7 @@
                             "$ref": "#/definitions/ModelInfo"
                         }
                     },
-                    "description": "ModelInfo returns information about the current model."
+                    "description": "ModelInfo returns information about the current model.\nTODO(juju3) - remove"
                 },
                 "ModelSet": {
                     "type": "object",
@@ -16640,7 +16640,7 @@
                             "$ref": "#/definitions/ModelUserInfoResults"
                         }
                     },
-                    "description": "ModelUserInfo returns information on all users in the model."
+                    "description": "ModelUserInfo returns information on all users in the model.\nTODO(juju3) - remove"
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -18256,12 +18256,16 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "model-tag": {
+                            "type": "string"
+                        },
                         "user": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "model-tag",
                         "user",
                         "display-name",
                         "last-connection",
@@ -33827,12 +33831,16 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "model-tag": {
+                            "type": "string"
+                        },
                         "user": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "model-tag",
                         "user",
                         "display-name",
                         "last-connection",
@@ -49533,7 +49541,7 @@
     {
         "Name": "UserManager",
         "Description": "UserManagerAPI implements the user manager interface and is the concrete\nimplementation of the api end point.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-user"
         ],
@@ -49575,6 +49583,18 @@
                         }
                     },
                     "description": "EnableUser enables one or more users.  If the user is already enabled,\nthe action is considered a success."
+                },
+                "ModelUserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ModelUserInfoResults"
+                        }
+                    },
+                    "description": "ModelUserInfo returns information on all users in the model."
                 },
                 "RemoveUser": {
                     "type": "object",
@@ -49792,6 +49812,62 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ModelUserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "access": {
+                            "type": "string"
+                        },
+                        "display-name": {
+                            "type": "string"
+                        },
+                        "last-connection": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "user": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "user",
+                        "display-name",
+                        "last-connection",
+                        "access"
+                    ]
+                },
+                "ModelUserInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/ModelUserInfo"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ModelUserInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelUserInfoResult"
                             }
                         }
                     },

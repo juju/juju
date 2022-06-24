@@ -19,8 +19,10 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
+	"github.com/juju/juju/api/http"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
@@ -120,8 +122,8 @@ type Config struct {
 	Guard           fortress.Guard
 	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
 	UploadBinaries  func(migration.UploadBinariesConfig) error
-	CharmDownloader migration.CharmDownloader
-	ToolsDownloader migration.ToolsDownloader
+	CharmStreamer   charms.CharmStreamerFunc
+	ToolsDownloader http.OpenURIFunc
 	Clock           clock.Clock
 }
 
@@ -142,11 +144,11 @@ func (config Config) Validate() error {
 	if config.UploadBinaries == nil {
 		return errors.NotValidf("nil UploadBinaries")
 	}
-	if config.CharmDownloader == nil {
-		return errors.NotValidf("nil CharmDownloader")
+	if config.CharmStreamer == nil {
+		return errors.NotValidf("nil CharmStreamerFunc")
 	}
 	if config.ToolsDownloader == nil {
-		return errors.NotValidf("nil ToolsDownloader")
+		return errors.NotValidf("nil ToolsDownloaderFunc")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -426,13 +428,13 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 	w.setInfoStatus("uploading model binaries into target controller")
 	wrapper := &uploadWrapper{targetClient, modelUUID}
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
-		Charms:          serialized.Charms,
-		CharmDownloader: w.config.CharmDownloader,
-		CharmUploader:   wrapper,
+		Charms:            serialized.Charms,
+		CharmStreamerFunc: w.config.CharmStreamer,
+		CharmUploader:     wrapper,
 
-		Tools:           serialized.Tools,
-		ToolsDownloader: w.config.ToolsDownloader,
-		ToolsUploader:   wrapper,
+		Tools:               serialized.Tools,
+		ToolsDownloaderFunc: w.config.ToolsDownloader,
+		ToolsUploader:       wrapper,
 
 		Resources:          serialized.Resources,
 		ResourceDownloader: w.config.Facade,

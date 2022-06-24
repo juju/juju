@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
+	httpmocks "github.com/juju/juju/api/http/mocks"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/rpc/params"
@@ -22,7 +23,7 @@ type BaseSuite struct {
 
 	facade     *mocks.MockFacadeCaller
 	apiCaller  *mocks.MockAPICallCloser
-	httpClient *mocks.MockHTTPDoer
+	httpClient *httpmocks.MockHTTPDoer
 	client     *resources.Client
 }
 
@@ -34,7 +35,7 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 func (s *BaseSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.httpClient = mocks.NewMockHTTPDoer(ctrl)
+	s.httpClient = httpmocks.NewMockHTTPDoer(ctrl)
 	s.apiCaller = mocks.NewMockAPICallCloser(ctrl)
 	s.apiCaller.EXPECT().BestFacadeVersion(gomock.Any()).Return(3).AnyTimes()
 

@@ -6,7 +6,6 @@ package client_test
 import (
 	"fmt"
 	"net/url"
-	"sort"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -36,7 +35,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -174,93 +172,6 @@ func (s *serverSuite) TestAddMachineVariantsReadOnlyDenied(c *gc.C) {
 	_, err = api.InjectMachines(params.AddMachines{})
 	c.Check(err, gc.ErrorMatches, "permission denied")
 }
-
-func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
-	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.UserAccess(testAdmin, s.Model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
-	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
-	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
-
-	results, err := s.client.ModelUserInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	var expected params.ModelUserInfoResults
-	for _, r := range []struct {
-		user permission.UserAccess
-		info *params.ModelUserInfo
-	}{
-		{
-			owner,
-			&params.ModelUserInfo{
-				UserName:    owner.UserName,
-				DisplayName: owner.DisplayName,
-				Access:      "admin",
-			},
-		}, {
-			localUser1,
-			&params.ModelUserInfo{
-				UserName:    "ralphdoe",
-				DisplayName: "Ralph Doe",
-				Access:      "admin",
-			},
-		}, {
-			localUser2,
-			&params.ModelUserInfo{
-				UserName:    "samsmith",
-				DisplayName: "Sam Smith",
-				Access:      "admin",
-			},
-		}, {
-			remoteUser1,
-			&params.ModelUserInfo{
-				UserName:    "bobjohns@ubuntuone",
-				DisplayName: "Bob Johns",
-				Access:      "write",
-			},
-		}, {
-			remoteUser2,
-			&params.ModelUserInfo{
-				UserName:    "nicshaw@idprovider",
-				DisplayName: "Nic Shaw",
-				Access:      "write",
-			},
-		},
-	} {
-		r.info.LastConnection = lastConnPointer(c, r.user, s.State)
-		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
-	}
-
-	sort.Sort(ByUserName(expected.Results))
-	sort.Sort(ByUserName(results.Results))
-	c.Assert(results, jc.DeepEquals, expected)
-}
-
-func lastConnPointer(c *gc.C, modelUser permission.UserAccess, st *state.State) *time.Time {
-	model, err := st.Model()
-	if err != nil {
-		c.Fatal(err)
-	}
-
-	lastConn, err := model.LastModelConnection(modelUser.UserTag)
-	if err != nil {
-		if state.IsNeverConnectedError(err) {
-			return nil
-		}
-		c.Fatal(err)
-	}
-	return &lastConn
-}
-
-// ByUserName implements sort.Interface for []params.ModelUserInfoResult based on
-// the UserName field.
-type ByUserName []params.ModelUserInfoResult
-
-func (a ByUserName) Len() int           { return len(a) }
-func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
 func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
 	// factory.MakeUser will create an ModelUser for a local user by default.
@@ -1073,55 +984,6 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			c.Fatal("timed out waiting for watcher deltas to be ready")
 		}
 	}
-}
-
-func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
-	server1Addresses := []network.SpaceAddress{
-		network.NewSpaceAddress("server-1", network.WithScope(network.ScopePublic)),
-		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
-	}
-	server1Addresses[1].SpaceID = s.mgmtSpace.Id()
-
-	server2Addresses := []network.SpaceAddress{
-		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
-	}
-	stateAPIHostPorts := []network.SpaceHostPorts{
-		network.SpaceAddressesWithPort(server1Addresses, 123),
-		network.SpaceAddressesWithPort(server2Addresses, 456),
-	}
-
-	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure that address filtering by management space occurred.
-	systemState, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	agentHostPorts, err := systemState.APIHostPortsForAgents()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agentHostPorts, gc.Not(gc.DeepEquals), stateAPIHostPorts)
-
-	apiHostPorts, err := apiclient.NewClient(s.APIState).APIHostPorts()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We need to compare SpaceHostPorts with MachineHostPorts.
-	// They should be congruent.
-	c.Assert(len(apiHostPorts), gc.Equals, len(stateAPIHostPorts))
-	for i, apiHPs := range apiHostPorts {
-		c.Assert(len(apiHPs), gc.Equals, len(stateAPIHostPorts[i]))
-		for j, apiHP := range apiHPs {
-			c.Assert(apiHP.MachineAddress, gc.DeepEquals, stateAPIHostPorts[i][j].MachineAddress)
-			c.Assert(apiHP.NetPort, gc.Equals, stateAPIHostPorts[i][j].NetPort)
-		}
-	}
-
-}
-
-func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
-	current := version.MustParse("2.0.0")
-	s.PatchValue(&jujuversion.Current, current)
-	result, err := apiclient.NewClient(s.APIState).AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, current)
 }
 
 func (s *clientSuite) assertBlockedErrorAndLiveliness(

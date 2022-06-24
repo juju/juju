@@ -118,7 +118,7 @@ var facadeVersions = map[string]int{
 	"Upgrader":                     1,
 	"UpgradeSeries":                3,
 	"UpgradeSteps":                 2,
-	"UserManager":                  2,
+	"UserManager":                  3,
 	"VolumeAttachmentsWatcher":     2,
 	"VolumeAttachmentPlansWatcher": 1,
 }

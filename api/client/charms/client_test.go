@@ -24,8 +24,8 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/client/charms/mocks"
 	apicharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/http/mocks"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
