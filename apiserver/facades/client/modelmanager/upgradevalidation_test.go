@@ -4,22 +4,60 @@
 package modelmanager_test
 
 import (
+	"fmt"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/replicaset/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 var _ = gc.Suite(&upgradeValidationSuite{})
 
 type upgradeValidationSuite struct {
 	jujutesting.IsolationSuite
+}
+
+func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
+	blockers1 := modelmanager.NewModelUpgradeBlockers(
+		"controller",
+		*modelmanager.NewBlocker("model migration is in process"),
+		*modelmanager.NewBlocker("unexpected upgrade series lock found"),
+	)
+	for i := 1; i < 5; i++ {
+		blockers := modelmanager.NewModelUpgradeBlockers(
+			fmt.Sprintf("model-%d", i),
+			*modelmanager.NewBlocker("unexpected upgrade series lock found"),
+			*modelmanager.NewBlocker("model migration is in process"),
+		)
+		blockers1.Append(blockers)
+	}
+	c.Assert(blockers1.String(), gc.Equals, `
+model "controller":
+	model migration is in process
+	unexpected upgrade series lock found
+model "model-1":
+	unexpected upgrade series lock found
+	model migration is in process
+model "model-2":
+	unexpected upgrade series lock found
+	model migration is in process
+model "model-3":
+	unexpected upgrade series lock found
+	model migration is in process
+model "model-4":
+	unexpected upgrade series lock found
+	model migration is in process`[1:])
 }
 
 func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
@@ -29,11 +67,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
 	statePool := mocks.NewMockStatePool(ctrl)
 	state := mocks.NewMockState(ctrl)
 	model := mocks.NewMockModel(ctrl)
-	gomock.InOrder(
-		state.EXPECT().Model().Return(model, nil),
-		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
-		model.EXPECT().Name().Return("model-1"),
-	)
+	state.EXPECT().Model().Return(model, nil)
 
 	checker := modelmanager.NewModelUpgradeCheck("", statePool, state,
 		func(modelUUID string, pool modelmanager.StatePool, st modelmanager.State, model modelmanager.Model) (*modelmanager.Blocker, error) {
@@ -46,7 +80,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
 
 	blockers, err := checker.Validate()
 	c.Assert(err, gc.ErrorMatches, `server is unreachable`)
-	c.Assert(blockers, jc.ErrorIsNil)
+	c.Assert(blockers, gc.IsNil)
 }
 
 func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
@@ -73,7 +107,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
 
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.ErrorMatches, `
+	c.Assert(blockers.String(), gc.Equals, `
 model "admin/model-1":
 	model migration is in process
 	unexpected upgrade series lock found`[1:])
@@ -102,4 +136,187 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 	blocker, err = modelmanager.CheckNoWinMachinesForModel("", nil, state, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker.Error(), gc.Equals, `model hosts 1 windows machine(s)`)
+}
+
+func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	gomock.InOrder(
+		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
+		state.EXPECT().HasUpgradeSeriesLocks().Return(true, nil),
+		state.EXPECT().HasUpgradeSeriesLocks().Return(true, nil),
+	)
+
+	blocker, err := modelmanager.GetCheckUpgradeSeriesLockForModel(false)("", nil, state, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = modelmanager.GetCheckUpgradeSeriesLockForModel(true)("", nil, state, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = modelmanager.GetCheckUpgradeSeriesLockForModel(false)("", nil, state, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `unexpected upgrade series lock found`)
+}
+
+func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(&upgrades.MinMajorUpgradeVersion, map[int]version.Number{
+		3: version.MustParse("2.9.30"),
+	})
+
+	model := mocks.NewMockModel(ctrl)
+	gomock.InOrder(
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.29"), nil),
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.31"), nil),
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.31"), nil),
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.31"), nil),
+	)
+
+	blocker, err := modelmanager.GetCheckTargetVersionForModel(version.MustParse("3.0-beta1"))("", nil, nil, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `upgrade current version "2.9.29" to at least "2.9.30" before upgrading to "3.0-beta1"`)
+
+	blocker, err = modelmanager.GetCheckTargetVersionForModel(version.MustParse("3.0-beta1"))("", nil, nil, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = modelmanager.GetCheckTargetVersionForModel(version.MustParse("1.1.1"))("", nil, nil, model)
+	c.Assert(err, gc.ErrorMatches, `downgrade is not allowed`)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = modelmanager.GetCheckTargetVersionForModel(version.MustParse("4.1.1"))("", nil, nil, model)
+	c.Assert(err, gc.ErrorMatches, `unknown version "4.1.1"`)
+	c.Assert(blocker, gc.IsNil)
+}
+
+func (s *upgradeValidationSuite) TestCheckModelMigrationModeForControllerUpgrade(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	gomock.InOrder(
+		model.EXPECT().MigrationMode().Return(state.MigrationModeNone),
+		model.EXPECT().MigrationMode().Return(state.MigrationModeImporting),
+		model.EXPECT().MigrationMode().Return(state.MigrationModeExporting),
+	)
+
+	blocker, err := modelmanager.CheckModelMigrationModeForControllerUpgrade("", nil, nil, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = modelmanager.CheckModelMigrationModeForControllerUpgrade("", nil, nil, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `model is under "importing" mode, upgrade blocked`)
+
+	blocker, err = modelmanager.CheckModelMigrationModeForControllerUpgrade("", nil, nil, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `model is under "exporting" mode, upgrade blocked`)
+}
+
+func (s *upgradeValidationSuite) TestCheckMongoStatusForControllerUpgrade(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	session := mocks.NewMockMongoSession(ctrl)
+	gomock.InOrder(
+		state.EXPECT().MongoSession().Return(session),
+		session.EXPECT().CurrentStatus().Return(&replicaset.Status{
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					Address: "1.1.1.1",
+					State:   replicaset.PrimaryState,
+				},
+				{
+					Id:      2,
+					Address: "2.2.2.2",
+					State:   replicaset.SecondaryState,
+				},
+				{
+					Id:      3,
+					Address: "3.3.3.3",
+					State:   replicaset.SecondaryState,
+				},
+			},
+		}, nil),
+		state.EXPECT().MongoSession().Return(session),
+		session.EXPECT().CurrentStatus().Return(&replicaset.Status{
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					Address: "1.1.1.1",
+					State:   replicaset.RecoveringState,
+				},
+				{
+					Id:      2,
+					Address: "2.2.2.2",
+					State:   replicaset.FatalState,
+				},
+				{
+					Id:      3,
+					Address: "3.3.3.3",
+					State:   replicaset.Startup2State,
+				},
+				{
+					Id:      4,
+					Address: "4.4.4.4",
+					State:   replicaset.UnknownState,
+				},
+				{
+					Id:      5,
+					Address: "5.5.5.5",
+					State:   replicaset.ArbiterState,
+				},
+				{
+					Id:      6,
+					Address: "6.6.6.6",
+					State:   replicaset.DownState,
+				},
+				{
+					Id:      7,
+					Address: "7.7.7.7",
+					State:   replicaset.RollbackState,
+				},
+				{
+					Id:      8,
+					Address: "8.8.8.8",
+					State:   replicaset.ShunnedState,
+				},
+			},
+		}, nil),
+	)
+
+	blocker, err := modelmanager.CheckMongoStatusForControllerUpgrade("", nil, state, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = modelmanager.CheckMongoStatusForControllerUpgrade("", nil, state, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `unable to upgrade, database node 1 (1.1.1.1) has state RECOVERING, node 2 (2.2.2.2) has state FATAL, node 3 (3.3.3.3) has state STARTUP2, node 4 (4.4.4.4) has state UNKNOWN, node 5 (5.5.5.5) has state ARBITER, node 6 (6.6.6.6) has state DOWN, node 7 (7.7.7.7) has state ROLLBACK, node 8 (8.8.8.8) has state SHUNNED`)
+}
+
+func (s *upgradeValidationSuite) TestCheckMongoVersionForControllerModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	pool := mocks.NewMockStatePool(ctrl)
+	gomock.InOrder(
+		pool.EXPECT().MongoVersion().Return(`4.4`, nil),
+		pool.EXPECT().MongoVersion().Return(`4.3`, nil),
+	)
+
+	blocker, err := modelmanager.CheckMongoVersionForControllerModel("", pool, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = modelmanager.CheckMongoVersionForControllerModel("", pool, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `mongo version has to be "4.4" at least, but current version is "4.3"`)
 }

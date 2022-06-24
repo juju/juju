@@ -21,6 +21,7 @@ import (
 // Validator returns a blocker.
 type Validator func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error)
 
+// Blocker describes a model upgrade blocker.
 type Blocker struct {
 	reason string
 }
@@ -37,12 +38,47 @@ func (b Blocker) Error() string {
 	return b.reason
 }
 
-type modelUpgradeBlockers struct {
+type ModelUpgradeBlockers struct {
 	modelName string
 	blockers  []Blocker
+	next      *ModelUpgradeBlockers
 }
 
-func (e modelUpgradeBlockers) Error() string {
+// NewModelUpgradeBlockers creates a ModelUpgradeBlockers.
+func NewModelUpgradeBlockers(modelName string, blockers ...Blocker) *ModelUpgradeBlockers {
+	return &ModelUpgradeBlockers{modelName: modelName, blockers: blockers}
+}
+
+func (e ModelUpgradeBlockers) String() string {
+	s := e.string()
+	cursor := e.next
+	for {
+		if cursor == nil {
+			return s
+		}
+		s += fmt.Sprintf("\n%s", cursor.string())
+		cursor = cursor.next
+	}
+}
+
+func (e *ModelUpgradeBlockers) Append(next *ModelUpgradeBlockers) {
+	e.tail().next = next
+}
+
+func (e *ModelUpgradeBlockers) tail() *ModelUpgradeBlockers {
+	if e.next == nil {
+		return e
+	}
+	tail := e.next
+	for {
+		if tail.next == nil {
+			return tail
+		}
+		tail = tail.next
+	}
+}
+
+func (e ModelUpgradeBlockers) string() string {
 	if len(e.blockers) == 0 {
 		return ""
 	}
@@ -71,25 +107,25 @@ func NewModelUpgradeCheck(modelUUID string, pool StatePool, state State, validat
 }
 
 // Validate runs the provided validators and returns blocks.
-func (m *ModelUpgradeCheck) Validate() (error, error) {
+func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
 	model, err := m.state.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	blockers := &modelUpgradeBlockers{
-		modelName: fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name()),
-	}
+	var blockers []Blocker
 	for _, validator := range m.validators {
 		if blocker, err := validator(m.modelUUID, m.pool, m.state, model); err != nil {
 			return nil, errors.Trace(err)
 		} else if blocker != nil {
-			blockers.blockers = append(blockers.blockers, *blocker)
+			blockers = append(blockers, *blocker)
 		}
 	}
-	if len(blockers.blockers) == 0 {
+	if len(blockers) == 0 {
 		return nil, nil
 	}
-	return blockers, nil
+	return NewModelUpgradeBlockers(
+		fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name()), blockers...,
+	), nil
 }
 
 func validateControllerModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
@@ -150,7 +186,7 @@ func getCheckTargetVersionForModel(targetVersion version.Number) Validator {
 			return nil, nil
 		}
 		return NewBlocker(
-			"upgrade current version %q to %q before upgrading to %q",
+			"upgrade current version %q to at least %q before upgrading to %q",
 			agentVersion, minVer, targetVersion,
 		), nil
 	}
@@ -198,10 +234,14 @@ func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st St
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	mongoVersion.StorageEngine = ""
 	mongoMinVersion := mongo.Version{Major: 4, Minor: 4}
 	if mongoVersion.NewerThan(mongoMinVersion) < 0 {
 		// Controllers with mongo version < 4.4 are not able to be upgraded further.
-		return NewBlocker("mongo version is not equal or greater than %q", mongoMinVersion), nil
+		return NewBlocker(
+			"mongo version has to be %q at least, but current version is %q",
+			mongoMinVersion, mongoVersion,
+		), nil
 	}
 	return nil, nil
 }

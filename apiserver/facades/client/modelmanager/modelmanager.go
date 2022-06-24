@@ -57,8 +57,8 @@ var (
 // ModelManagerV10 defines the methods on the version 10 facade for the
 // modelmanager API endpoint.
 type ModelManagerV10 interface {
-	ModelManagerV9
-	// ValidateModelUpgrades checks the chosen version now.
+	ModelManagerV8
+	// ValidateModelUpgrades is removed.
 	UpgradeModel(args params.UpgradeModel) error
 }
 
@@ -180,7 +180,7 @@ type ModelManagerAPI struct {
 	state       common.ModelManagerBackend
 	statePool   StatePool
 	ctlrState   common.ModelManagerBackend
-	check       *common.BlockChecker
+	check       common.BlockCheckerInterface
 	authorizer  facade.Authorizer
 	toolsFinder common.ToolsFinder
 	apiUser     names.UserTag
@@ -257,8 +257,10 @@ func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
 	stPool StatePool,
-	configGetter environs.EnvironConfigGetter,
+	toolsFinder common.ToolsFinder,
+	newEnviron common.NewEnvironFunc,
 	getBroker newCaasBrokerFunc,
+	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	m common.Model,
 	callCtx context.ProviderCallContext,
@@ -275,13 +277,13 @@ func NewModelManagerAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
+	// urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
 
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newEnviron := common.EnvironFuncForModel(model, configGetter)
+	// model, err := st.Model()
+	// if err != nil {
+	// 	return nil, errors.Trace(err)
+	// }
+	// newEnviron := common.EnvironFuncForModel(model, configGetter)
 
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
@@ -289,14 +291,15 @@ func NewModelManagerAPI(
 		ctlrState:      ctlrSt,
 		statePool:      stPool,
 		getBroker:      getBroker,
-		check:          common.NewBlockChecker(st),
+		check:          blockChecker,
 		authorizer:     authorizer,
-		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
-		apiUser:        apiUser,
-		isAdmin:        isAdmin,
-		model:          m,
-		callContext:    callCtx,
-		newEnviron:     newEnviron,
+		// toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
+		toolsFinder: toolsFinder,
+		apiUser:     apiUser,
+		isAdmin:     isAdmin,
+		model:       m,
+		callContext: callCtx,
+		newEnviron:  newEnviron,
 	}, nil
 }
 
@@ -1691,6 +1694,7 @@ func (m *ModelManagerAPIV9) ValidateModelUpgrades(args params.ValidateModelUpgra
 
 		// Now check for the validation of a model upgrade.
 		if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
+			logger.Criticalf("validateNoSeriesUpgrades err %#v", err)
 			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 			continue
 		}
@@ -1698,48 +1702,20 @@ func (m *ModelManagerAPIV9) ValidateModelUpgrades(args params.ValidateModelUpgra
 	return results, nil
 }
 
-// func (m *ModelManagerAPI) checkMongoStatusForUpgrade(session MongoSession) error {
-// 	replicaStatus, err := session.CurrentStatus()
-// 	if err != nil {
-// 		return errors.Annotate(err, "checking replicaset status")
-// 	}
-
-// 	// Iterate over the replicaset, and record any nodes that aren't either
-// 	// primary or secondary.
-// 	var notes []string
-// 	for _, member := range replicaStatus.Members {
-// 		switch member.State {
-// 		case replicaset.PrimaryState:
-// 			// All good.
-// 		case replicaset.SecondaryState:
-// 			// Also good.
-// 		default:
-// 			msg := fmt.Sprintf("node %d (%s) has state %s", member.Id, member.Address, member.State)
-// 			notes = append(notes, msg)
-// 		}
-// 	}
-// 	if len(notes) > 0 {
-// 		return errors.Errorf("unable to upgrade, database %s", strings.Join(notes, ", "))
-// 	}
-// 	return nil
-// }
-
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (m *ModelManagerAPI) AbortCurrentUpgrade() error {
 	// TODO: copy from Client facade.
+	if canWrite, err := m.hasWriteAccess(m.model.ModelTag()); err != nil {
+		return errors.Trace(err)
+	} else if !canWrite {
+		return apiservererrors.ErrPerm
+	}
 
-	// if canWrite, err := m.hasWriteAccess(modelTag); err != nil {
-	// 	return errors.Trace(err)
-	// } else if !canWrite {
-	// 	return apiservererrors.ErrPerm
-	// }
-
-	// if err := m.check.ChangeAllowed(); err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// return c.api.stateAccessor.AbortCurrentUpgrade()
-	return nil
+	if err := m.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	return m.state.AbortCurrentUpgrade()
 }
 
 func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
@@ -1777,53 +1753,14 @@ func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
 	return nil
 }
 
-// ValidateModelUpgrades validates if a model is allowed to perform an upgrade.
-// Examples of why you would want to block a model upgrade, would be situations
-// like upgrade-series. If performing an upgrade-series we don't know the
-// current status of the machine, so performing an upgrade-model can lead to
-// bad unintended errors down the line.
-func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error) {
-	if err := m.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
+func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelTag, targetVersion version.Number) (err error) {
+	var blockers *ModelUpgradeBlockers
+	defer func() {
+		if err == nil && blockers != nil {
+			err = errors.NewNotSupported(nil, fmt.Sprintf("cannot upgrade, issues need to be fixed:\n%s", blockers))
+		}
+	}()
 
-	// Only controller or model admin can change cloud credential on a model.
-	checkModelAccess := func(tag names.ModelTag) error {
-		if m.isAdmin {
-			return nil
-		}
-		modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if modelAdmin {
-			return nil
-		}
-		return apiservererrors.ErrPerm
-	}
-
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Models)),
-	}
-	for i, arg := range args.Models {
-		modelTag, err := names.ParseModelTag(arg.ModelTag)
-		if err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-		if err := checkModelAccess(modelTag); err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-		if err := m.validateModelUpgrade(args.Force, modelTag, arg.Version); err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-	}
-	return results, nil
-}
-
-func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelTag, targetVersion version.Number) error {
 	// We now need to access the state pool for that given model.
 	st, err := m.statePool.Get(modelTag.Id())
 	if err != nil {
@@ -1838,9 +1775,6 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 
 	isControllerModel := model.IsControllerModel()
 	if !isControllerModel {
-		// if err := m.validateNoSeriesUpgrades(st, force); err != nil {
-		// 	return errors.Trace(err)
-		// }
 		validators := []Validator{
 			getCheckUpgradeSeriesLockForModel(force),
 		}
@@ -1848,35 +1782,12 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 			validators = append(validators, checkNoWinMachinesForModel)
 		}
 		checker := NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, validators...)
-		blockers, err := checker.Validate()
+		blockers, err = checker.Validate()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return blockers
+		return
 	}
-	// if isControllerModel {
-	// 	// Check to ensure that the replicaset is happy.
-	// 	if err := m.checkMongoStatusForUpgrade(st.MongoSession()); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// 	agentVersion, err := model.AgentVersion()
-	// 	if err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-
-	// 	// TODO: move the upgrades/model.go
-	// 	allowed, minVer, err := upgrades.UpgradeAllowed(agentVersion, targetVersion)
-	// 	if err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// }
-
-	// if targetVersion.Major == 3 {
-	// 	// TODO: move the upgrades/model.go
-	// 	if err := m.deprecationCheckV3(isControllerModel, modelTag.Id(), st); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// }
 
 	validatorsForControllerModel := []Validator{
 		getCheckTargetVersionForModel(targetVersion),
@@ -1889,7 +1800,7 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 		)
 	}
 	checker := NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, validatorsForControllerModel...)
-	blockers, err := checker.Validate()
+	blockers, err = checker.Validate()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1914,6 +1825,7 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer st.Release()
 		checker := NewModelUpgradeCheck(modelUUID, m.statePool, st, validatorsForModel...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {
@@ -1927,65 +1839,18 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 			blockers = blockersForModel
 			continue
 		}
-		blockers = errors.Wrap(blockers, blockersForModel)
+		blockers.Append(blockersForModel)
 	}
-	return blockers
+	return
 }
-
-// func (m *ModelManagerAPI) deprecationCheckV3(isControllerModel bool, modelUUID string, st State) error {
-// 	var winSeries []string
-// 	for _, v := range series.WindowsVersions() {
-// 		winSeries = append(winSeries, v)
-// 		sort.Strings(winSeries)
-// 	}
-// 	check := func(mUUID string, state State) error {
-// 		winMachineCount, err := state.MachineCountForSeries(winSeries...)
-// 		if err != nil {
-// 			return errors.Annotatef(err, "cannot count machines for series %v", winSeries)
-// 		}
-// 		if winMachineCount > 0 {
-// 			return errors.NewNotSupported(nil, fmt.Sprintf("model %q hosts %d windows machine(s)", mUUID, winMachineCount))
-// 		}
-// 		return nil
-// 	}
-// 	if !isControllerModel {
-// 		return check(modelUUID, st)
-// 	}
-
-// 	v, err := m.statePool.MongoVersion()
-// 	if err != nil {
-// 		return errors.Trace(err)
-// 	}
-// 	mongoVersion, err := mongo.NewVersion(v)
-// 	if err != nil {
-// 		return errors.Trace(err)
-// 	}
-// 	mongoMinVersion := mongo.Version{Major: 4, Minor: 4}
-// 	if mongoVersion.NewerThan(mongoMinVersion) < 0 {
-// 		// Controllers with mongo version < 4.4 are not able to be upgraded further.
-// 		err := errors.NewNotSupported(nil, fmt.Sprintf("mongo version is not equal or greater than %q", mongoMinVersion))
-// 		return errors.Trace(err)
-// 	}
-// 	modelUUIDs, err := st.AllModelUUIDs()
-// 	if err != nil {
-// 		return errors.Trace(err)
-// 	}
-// 	for _, id := range modelUUIDs {
-// 		st, err := m.statePool.Get(id)
-// 		if err != nil {
-// 			return errors.Trace(err)
-// 		}
-// 		if err := check(id, st); err != nil {
-// 			return errors.Trace(err)
-// 		}
-// 	}
-// 	return nil
-// }
 
 func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
 	blocker, err := getCheckUpgradeSeriesLockForModel(force)("", nil, st, nil)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if blocker == nil {
+		return nil
 	}
 	return blocker
 }
@@ -2005,3 +1870,6 @@ func (*ModelManagerAPIV8) ValidateModelUpgrades(_, _ struct{}) {}
 
 // UpgradeModel did not exist prior to v10.
 func (*ModelManagerAPIV9) UpgradeModel(_, _ struct{}) {}
+
+// ValidateModelUpgrades is removed in v10.
+func (*ModelManagerAPI) ValidateModelUpgrades(_, _ struct{}) {}

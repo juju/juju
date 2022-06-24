@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/replicaset/v2"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
@@ -95,6 +96,14 @@ func (s stateShim) MachineCountForSeries(series ...string) (int, error) {
 		return 0, errors.Trace(err)
 	}
 	return count, nil
+}
+
+func (s stateShim) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error {
+	return s.PooledState.SetModelAgentVersion(newVersion, stream, ignoreAgentVersions)
+}
+
+func (s stateShim) AbortCurrentUpgrade() error {
+	return s.PooledState.AbortCurrentUpgrade()
 }
 
 func (s stateShim) AllModelUUIDs() ([]string, error) {
