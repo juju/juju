@@ -22,7 +22,13 @@ var DefaultFormatters = map[string]cmd.Formatter{
 
 // FormatYamlWithColor formats yaml output with color.
 func FormatYamlWithColor(w io.Writer, value interface{}) error {
-	//TODO:
+	result, err := marshalYaml(value)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprint(w, string(result))
+
 	return nil
 }
 
@@ -37,7 +43,8 @@ func FormatJsonWithColor(w io.Writer, val interface{}) error {
 		return err
 	}
 
-	_, err = fmt.Fprintln(w, string(result))
+	fmt.Fprintln(w, string(result))
+
 	return err
 }
 

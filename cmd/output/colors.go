@@ -17,6 +17,12 @@ type Colors struct {
 	String *ansiterm.Context
 	// Key is the Color for JSON keys.
 	Key *ansiterm.Context
-	//KeyValSep separates key from values.
+	// KeyValSep separates key from values.
 	KeyValSep *ansiterm.Context
+	// Comment is the color used for yaml comments
+	Comment *ansiterm.Context
+	// Ip is the color for ip addresses
+	Ip *ansiterm.Context
+	// Multiline colors a block of text spanning multiple lines
+	Multiline *ansiterm.Context
 }
