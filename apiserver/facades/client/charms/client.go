@@ -488,10 +488,10 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 
 	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:       logger,
-		Transport:    httpTransport(logger),
-		StateBackend: a.backendState,
-		ModelBackend: a.backendModel,
+		Logger:            logger,
+		CharmhubTransport: httpTransport(logger),
+		StateBackend:      a.backendState,
+		ModelBackend:      a.backendModel,
 	})
 
 	return repoFactory.GetCharmRepository(src)

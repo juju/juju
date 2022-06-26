@@ -40,10 +40,10 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 
 	repoFactory := repoFactoryShim{
 		factory: NewCharmRepoFactory(CharmRepoFactoryConfig{
-			Logger:       cfg.Logger.Child("charmrepofactory"),
-			Transport:    cfg.Transport,
-			StateBackend: cfg.StateBackend,
-			ModelBackend: cfg.ModelBackend,
+			Logger:            cfg.Logger.Child("charmrepofactory"),
+			CharmhubTransport: cfg.Transport,
+			StateBackend:      cfg.StateBackend,
+			ModelBackend:      cfg.ModelBackend,
 		}),
 	}
 
