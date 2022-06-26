@@ -25,8 +25,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -582,14 +580,6 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add a charm in pending mode.
 	chInfo := state.CharmInfo{
 		ID:          charm.MustParseURL("cs:focal/dummy-1"),
@@ -598,7 +588,7 @@ func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
 		SHA256:      "", // indicates that we don't have the data in the blobstore yet.
 		Version:     "42",
 	}
-	_, err = s.State.AddCharmMetadata(chInfo)
+	_, err := s.State.AddCharmMetadata(chInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure a 490 is returned if the charm is pending to be downloaded.

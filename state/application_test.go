@@ -22,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -32,7 +31,6 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -5230,14 +5228,6 @@ deployment:
 }
 
 func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.State.StartSync()
 	w := s.State.WatchApplicationsWithPendingCharms()
 	defer func() { _ = w.Stop() }()

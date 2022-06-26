@@ -19,7 +19,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -774,16 +773,9 @@ func (st *State) AllCharms() ([]*Charm, error) {
 }
 
 // Charm returns the charm with the given URL. Charm placeholders are never
-// returned. Charms pending to be uploaded are only returned if the
-// async charm download feature flag is set.
-//
-// TODO(achilleasa) remove the feature flag check once the server-side bundle
-// expansion work lands.
+// returned, but charms pending to be uploaded are returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	var (
-		cdoc    charmDoc
-		charmID = curl.String()
-	)
+	var cdoc charmDoc
 
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
@@ -799,17 +791,6 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
-	}
-
-	// This check ensures that we don't break the existing deploy logic
-	// until the server-side bundle expansion work lands.
-	cfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	returnPendingCharms := cfg.Features().Contains(feature.AsynchronousCharmDownloads)
-	if cdoc.PendingUpload && !returnPendingCharms {
-		return nil, errors.NotFoundf("charm %q", charmID)
 	}
 
 	return newCharm(st, &cdoc), nil

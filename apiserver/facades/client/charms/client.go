@@ -29,7 +29,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -281,21 +280,9 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	charmURL, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	ctrlCfg, err := a.backendState.ControllerConfig()
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	// TODO(achilleasa): This escape hatch allows us to test the asynchronous
-	// charm download code-path without breaking the existing deploy logic.
-	//
-	// It will be removed once the new universal deploy facade is into place.
-	if ctrlCfg.Features().Contains(feature.AsynchronousCharmDownloads) {
+	// Only the Charmhub API gives us the metadata we need to support async
+	// charm downloads, so don't do it for legacy Charmstore ones.
+	if args.Origin.Source == "charm-hub" {
 		actualOrigin, err := a.queueAsyncCharmDownload(args)
 		if err != nil {
 			return params.CharmOriginResult{}, errors.Trace(err)
@@ -304,6 +291,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{
 			Origin: convertOrigin(actualOrigin),
 		}, nil
+	}
+
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return params.CharmOriginResult{}, err
 	}
 
 	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
@@ -535,10 +527,10 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 
 	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:       logger,
-		Transport:    httpTransport(logger),
-		StateBackend: a.backendState,
-		ModelBackend: a.backendModel,
+		Logger:            logger,
+		CharmhubTransport: httpTransport(logger),
+		StateBackend:      a.backendState,
+		ModelBackend:      a.backendModel,
 	})
 
 	return repoFactory.GetCharmRepository(src)

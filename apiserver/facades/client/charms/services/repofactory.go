@@ -22,7 +22,7 @@ type CharmRepoFactoryConfig struct {
 	Logger loggo.Logger
 
 	// A transport that is injected when making charmhub API calls.
-	Transport charmhub.Transport
+	CharmhubTransport charmhub.Transport
 
 	StateBackend StateBackend
 	ModelBackend ModelBackend
@@ -45,7 +45,7 @@ type CharmRepoFactory struct {
 func NewCharmRepoFactory(cfg CharmRepoFactoryConfig) *CharmRepoFactory {
 	return &CharmRepoFactory{
 		logger:            cfg.Logger,
-		charmhubTransport: cfg.Transport,
+		charmhubTransport: cfg.CharmhubTransport,
 		stateBackend:      cfg.StateBackend,
 		modelBackend:      cfg.ModelBackend,
 		memoizedRepos:     make(map[corecharm.Source]corecharm.Repository),

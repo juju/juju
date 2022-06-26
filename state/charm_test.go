@@ -17,8 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -705,14 +703,6 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 }
 
 func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Check that a charm with missing sha/storage path is flagged as pending
 	// to be uploaded.
 	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
