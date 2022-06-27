@@ -49,10 +49,10 @@ locator-add adds the service locator, specified by name.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *LocatorAddCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ConsumerUnitId, "u", "", "Specify a unit by id")
+	f.StringVar(&c.ConsumerUnitId, "u", "", "specify a unit by id")
 	f.StringVar(&c.ConsumerUnitId, "unit", "", "")
 
-	f.IntVar(&c.ConsumerRelationId, "r", -1, "Specify a relation by id")
+	f.IntVar(&c.ConsumerRelationId, "r", -1, "specify a relation by id")
 	f.IntVar(&c.ConsumerRelationId, "relation", -1, "")
 }
 
