@@ -45,8 +45,7 @@ subjects:
     namespace: $namespace
 EOF
 
-	sa_secret=$(kubectl --kubeconfig "${KUBE_CONFIG}" get sa -o json "${name}" -n "$namespace" | jq -r '.secrets[0].name')
-	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" get secret -o json "$sa_secret" -n "$namespace" | jq -r '.data.token' | base64 -d)
+	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" create token "${name}" -n "$namespace")
 
 	kubectl --kubeconfig "${KUBE_CONFIG}" config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
 
@@ -54,7 +53,7 @@ EOF
 	echo "waiting for modeloperator to become available"
 	while :; do
 		# shellcheck disable=SC2046
-		if [ $(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get deploy -n "${namespace}" "modeloperator" -o=jsonpath='{.status.readyReplicas}' || echo "0") -eq 1 ]; then
+		if [ $(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get deploy -n "${namespace}" "modeloperator" -o=jsonpath='{.status.readyReplicas}' || echo "0") == 1 ]; then
 			break
 		fi
 		sleep 1
@@ -128,8 +127,7 @@ subjects:
     namespace: $namespace
 EOF
 
-	sa_secret=$(kubectl --kubeconfig "${KUBE_CONFIG}" get sa -o json "$name" -n "$namespace" | jq -r '.secrets[0].name')
-	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" get secret -o json "$sa_secret" -n "$namespace" | jq -r '.data.token' | base64 -d)
+	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" create token "${name}" -n "$namespace")
 
 	kubectl --kubeconfig "${TEST_DIR}"/kube.conf config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
 
