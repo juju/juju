@@ -705,7 +705,7 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
 	// Check that a charm with missing sha/storage path is flagged as pending
 	// to be uploaded.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1 := s.dummyCharm(c, "ch:quantal/dummy-1")
 	dummy1.SHA256 = ""
 	dummy1.StoragePath = ""
 	ch1, err := s.State.AddCharmMetadata(dummy1)
@@ -720,7 +720,7 @@ func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
 
 	// Check that a charm with populated sha/storage path is flagged as
 	// uploaded.
-	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:quantal/dummy-2")
 	ch2, err := s.State.AddCharmMetadata(dummy2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch2.IsPlaceholder(), jc.IsFalse)

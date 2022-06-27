@@ -5238,7 +5238,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	// Add a pending charm without an origin and associate it with the
 	// application. As it is lacking an origin, it should not trigger a
 	// change.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1 := s.dummyCharm(c, "ch:dummy-1")
 	dummy1.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
 	dummy1.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch1, err := s.State.AddCharmMetadata(dummy1)
@@ -5251,7 +5251,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 
 	// Add a pending charm with an origin and associate it with the
 	// application. This should trigger a change.
-	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:dummy-2")
 	dummy2.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
 	dummy2.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch2, err := s.State.AddCharmMetadata(dummy2)
@@ -5259,20 +5259,20 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm: ch2,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.mysql.Name())
 
 	// "Upload" a charm and check that we don't get a notification for it.
-	dummy3 := s.dummyCharm(c, "cs:quantal/dummy-3")
+	dummy3 := s.dummyCharm(c, "ch:dummy-3")
 	ch3, err := s.State.AddCharm(dummy3)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm: ch3,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -5293,6 +5293,7 @@ func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmI
 			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
 		)
 	}
+	info.Charm.Meta().Series = []string{"quantal"}
 	return info
 }
 
