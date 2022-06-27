@@ -12,6 +12,13 @@ import (
 	"github.com/juju/utils/v3"
 )
 
+// ServiceLocator represents a single metric set by the charm.
+type ServiceLocator struct {
+	Type   string
+	Name   string
+	Params map[string]interface{}
+}
+
 // LocatorAddCommand implements the locator-add command.
 type LocatorAddCommand struct {
 	cmd.CommandBase
