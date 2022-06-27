@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/client/modelmanager/upgradevalidation"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
@@ -152,15 +153,16 @@ type State interface {
 	Release() bool
 	AllModelUUIDs() ([]string, error)
 	MachineCountForSeries(series ...string) (int, error)
-	MongoSession() MongoSession
+	// MongoSession() MongoSession
+	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
 	AbortCurrentUpgrade() error
 }
 
-// MongoSession provides a way to get the status for the mongo replicaset.
-type MongoSession interface {
-	CurrentStatus() (*replicaset.Status, error)
-}
+// // MongoSession provides a way to get the status for the mongo replicaset.
+// type MongoSession interface {
+// 	CurrentStatus() (*replicaset.Status, error)
+// }
 
 // Model defines a point of use interface for the model from state.
 type Model interface {
@@ -1700,14 +1702,14 @@ func (m *ModelManagerAPIV9) ValidateModelUpgrades(args params.ValidateModelUpgra
 }
 
 func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
-	blocker, err := getCheckUpgradeSeriesLockForModel(force)("", nil, st, nil)
+	locked, err := st.HasUpgradeSeriesLocks()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if blocker == nil {
-		return nil
+	if locked && !force {
+		return errors.Errorf("unexpected upgrade series lock found")
 	}
-	return blocker
+	return nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -1770,7 +1772,7 @@ func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
 }
 
 func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelTag, targetVersion version.Number) (err error) {
-	var blockers *ModelUpgradeBlockers
+	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
 		if err == nil && blockers != nil {
 			err = errors.NewNotSupported(nil, fmt.Sprintf("cannot upgrade, issues need to be fixed:\n%s", blockers))
@@ -1791,13 +1793,8 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 
 	isControllerModel := model.IsControllerModel()
 	if !isControllerModel {
-		validators := []Validator{
-			getCheckUpgradeSeriesLockForModel(force),
-		}
-		if targetVersion.Major == 3 {
-			validators = append(validators, checkNoWinMachinesForModel)
-		}
-		checker := NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, validators...)
+		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion)
+		checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, model, validators...)
 		blockers, err = checker.Validate()
 		if err != nil {
 			return errors.Trace(err)
@@ -1805,17 +1802,10 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 		return
 	}
 
-	validatorsForControllerModel := []Validator{
-		getCheckTargetVersionForModel(targetVersion),
-		checkMongoStatusForControllerUpgrade,
-	}
-	if targetVersion.Major == 3 {
-		validatorsForControllerModel = append(validatorsForControllerModel,
-			checkMongoVersionForControllerModel,
-			checkNoWinMachinesForModel,
-		)
-	}
-	checker := NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, validatorsForControllerModel...)
+	checker := upgradevalidation.NewModelUpgradeCheck(
+		modelTag.Id(), m.statePool, st, model,
+		upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion)...,
+	)
 	blockers, err = checker.Validate()
 	if err != nil {
 		return errors.Trace(err)
@@ -1825,13 +1815,7 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 	if err != nil {
 		return errors.Trace(err)
 	}
-	validatorsForModel := []Validator{
-		getCheckTargetVersionForModel(targetVersion),
-		checkModelMigrationModeForControllerUpgrade,
-	}
-	if targetVersion.Major == 3 {
-		validatorsForModel = append(validatorsForModel, checkNoWinMachinesForModel)
-	}
+	validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion)
 	for _, modelUUID := range modelUUIDs {
 		if modelUUID == modelTag.Id() {
 			// We have done checks for controller model above already.
@@ -1842,7 +1826,11 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 			return errors.Trace(err)
 		}
 		defer st.Release()
-		checker := NewModelUpgradeCheck(modelUUID, m.statePool, st, validatorsForModel...)
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		checker := upgradevalidation.NewModelUpgradeCheck(modelUUID, m.statePool, st, model, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {
 			return errors.Trace(err)
@@ -1855,7 +1843,7 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 			blockers = blockersForModel
 			continue
 		}
-		blockers.Append(blockersForModel)
+		blockers.Join(blockersForModel)
 	}
 	return
 }

@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmanager
+package upgradevalidation
 
 import (
 	"fmt"
@@ -26,10 +26,12 @@ type Blocker struct {
 	reason string
 }
 
+// NewBlocker returns a block.
 func NewBlocker(format string, a ...any) *Blocker {
 	return &Blocker{reason: fmt.Sprintf(format, a...)}
 }
 
+// String returns the Blocker as a string.
 func (b Blocker) String() string {
 	return fmt.Sprintf("\n\t%s", b.reason)
 }
@@ -49,6 +51,7 @@ func NewModelUpgradeBlockers(modelName string, blockers ...Blocker) *ModelUpgrad
 	return &ModelUpgradeBlockers{modelName: modelName, blockers: blockers}
 }
 
+// String returns the ModelUpgradeBlockers as a string.
 func (e ModelUpgradeBlockers) String() string {
 	s := e.string()
 	cursor := e.next
@@ -61,7 +64,8 @@ func (e ModelUpgradeBlockers) String() string {
 	}
 }
 
-func (e *ModelUpgradeBlockers) Append(next *ModelUpgradeBlockers) {
+// Join links the provided ModelUpgradeBlockers as the next node.
+func (e *ModelUpgradeBlockers) Join(next *ModelUpgradeBlockers) {
 	e.tail().next = next
 }
 
@@ -93,28 +97,29 @@ type ModelUpgradeCheck struct {
 	modelUUID  string
 	pool       StatePool
 	state      State
+	model      Model
 	validators []Validator
 }
 
 // NewModelUpgradeCheck returns a ModelUpgradeCheck instance.
-func NewModelUpgradeCheck(modelUUID string, pool StatePool, state State, validators ...Validator) *ModelUpgradeCheck {
+func NewModelUpgradeCheck(
+	modelUUID string, pool StatePool, state State, model Model,
+	validators ...Validator,
+) *ModelUpgradeCheck {
 	return &ModelUpgradeCheck{
 		modelUUID:  modelUUID,
 		pool:       pool,
 		state:      state,
+		model:      model,
 		validators: validators,
 	}
 }
 
 // Validate runs the provided validators and returns blocks.
 func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
-	model, err := m.state.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	var blockers []Blocker
 	for _, validator := range m.validators {
-		if blocker, err := validator(m.modelUUID, m.pool, m.state, model); err != nil {
+		if blocker, err := validator(m.modelUUID, m.pool, m.state, m.model); err != nil {
 			return nil, errors.Trace(err)
 		} else if blocker != nil {
 			blockers = append(blockers, *blocker)
@@ -124,20 +129,42 @@ func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
 		return nil, nil
 	}
 	return NewModelUpgradeBlockers(
-		fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name()), blockers...,
+		fmt.Sprintf("%s/%s", m.model.Owner().Name(), m.model.Name()), blockers...,
 	), nil
 }
 
-func validateControllerModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	return nil, nil
+func ValidatorsForControllerUpgrade(isControllerModel bool, targetVersion version.Number) []Validator {
+	if isControllerModel {
+		validators := []Validator{
+			getCheckTargetVersionForModel(targetVersion),
+			checkMongoStatusForControllerUpgrade,
+		}
+		if targetVersion.Major == 3 {
+			validators = append(validators,
+				checkMongoVersionForControllerModel,
+				checkNoWinMachinesForModel,
+			)
+		}
+		return validators
+	}
+	validators := []Validator{
+		getCheckTargetVersionForModel(targetVersion),
+		checkModelMigrationModeForControllerUpgrade,
+	}
+	if targetVersion.Major == 3 {
+		validators = append(validators, checkNoWinMachinesForModel)
+	}
+	return validators
 }
 
-func validateModelForControllerUpgrade(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	return nil, nil
-}
-
-func validateModelForModelUpgrade(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	return nil, nil
+func ValidatorsForModelUpgrade(force bool, targetVersion version.Number) []Validator {
+	validators := []Validator{
+		getCheckUpgradeSeriesLockForModel(force),
+	}
+	if targetVersion.Major == 3 {
+		validators = append(validators, checkNoWinMachinesForModel)
+	}
+	return validators
 }
 
 func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
@@ -200,7 +227,8 @@ func checkModelMigrationModeForControllerUpgrade(modelUUID string, pool StatePoo
 }
 
 func checkMongoStatusForControllerUpgrade(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	replicaStatus, err := st.MongoSession().CurrentStatus()
+	// replicaStatus, err := st.MongoSession().CurrentStatus()
+	replicaStatus, err := st.MongoCurrentStatus()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot check replicaset status")
 	}

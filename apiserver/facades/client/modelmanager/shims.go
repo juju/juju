@@ -77,7 +77,7 @@ func (s statePoolShim) MongoVersion() (string, error) {
 
 type stateShim struct {
 	*state.PooledState
-	session MongoSession
+	mgosession *mgo.Session
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -114,11 +114,11 @@ func (s stateShim) AllModelUUIDs() ([]string, error) {
 	return allModelUUIDs, nil
 }
 
-func (s stateShim) MongoSession() MongoSession {
-	if s.session == nil {
-		s.session = mongoSessionShim{s.PooledState.MongoSession()}
+func (s stateShim) MongoCurrentStatus() (*replicaset.Status, error) {
+	if s.mgosession == nil {
+		s.mgosession = s.PooledState.MongoSession()
 	}
-	return s.session
+	return replicaset.CurrentStatus(s.mgosession)
 }
 
 type modelShim struct {
@@ -131,15 +131,4 @@ func (s modelShim) IsControllerModel() bool {
 
 func (s modelShim) MigrationMode() state.MigrationMode {
 	return s.Model.MigrationMode()
-}
-
-// mongoSessionShim wraps a *mgo.Session to conform to the
-// MongoSession interface.
-type mongoSessionShim struct {
-	*mgo.Session
-}
-
-// CurrentStatus returns the current status of the replicaset.
-func (s mongoSessionShim) CurrentStatus() (*replicaset.Status, error) {
-	return replicaset.CurrentStatus(s.Session)
 }

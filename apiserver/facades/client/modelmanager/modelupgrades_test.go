@@ -277,7 +277,6 @@ func (s *modelManagerSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 
 	ctrlState := mocks.NewMockState(ctrl)
 	state1 := mocks.NewMockState(ctrl)
-	session := mocks.NewMockMongoSession(ctrl)
 	ctrlState.EXPECT().Release().AnyTimes()
 	ctrlState.EXPECT().Model().Return(ctrlModel, nil)
 	state1.EXPECT().Release()
@@ -287,12 +286,10 @@ func (s *modelManagerSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	assertions := []*gomock.Call{
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
 		// 1. Check controller model.
-		ctrlState.EXPECT().Model().Return(ctrlModel, nil),
 		// - check agent version;
 		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		// - check mongo status;
-		ctrlState.EXPECT().MongoSession().Return(session),
-		session.EXPECT().CurrentStatus().Return(&replicaset.Status{
+		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 			Members: []replicaset.MemberStatus{
 				{
 					Id:      1,
@@ -376,7 +373,6 @@ func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 
 	ctrlState := mocks.NewMockState(ctrl)
 	state1 := mocks.NewMockState(ctrl)
-	session := mocks.NewMockMongoSession(ctrl)
 	ctrlState.EXPECT().Release().AnyTimes()
 	ctrlState.EXPECT().Model().Return(ctrlModel, nil)
 	state1.EXPECT().Release()
@@ -386,12 +382,10 @@ func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	gomock.InOrder(
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
 		// 1. Check controller model.
-		ctrlState.EXPECT().Model().Return(ctrlModel, nil),
 		// - check agent version;
 		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
 		// - check mongo status;
-		ctrlState.EXPECT().MongoSession().Return(session),
-		session.EXPECT().CurrentStatus().Return(&replicaset.Status{
+		ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 			Members: []replicaset.MemberStatus{
 				{
 					Id:      1,
@@ -475,7 +469,6 @@ func (s *modelManagerSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 		s.statePool.EXPECT().Get(modelUUID).Return(state, nil),
 		state.EXPECT().Model().Return(model, nil),
 		model.EXPECT().IsControllerModel().Return(false),
-		state.EXPECT().Model().Return(model, nil),
 
 		// - check no upgrade series in process.
 		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
@@ -531,7 +524,6 @@ func (s *modelManagerSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		s.statePool.EXPECT().Get(modelUUID).Return(state, nil),
 		state.EXPECT().Model().Return(model, nil),
 		model.EXPECT().IsControllerModel().Return(false),
-		state.EXPECT().Model().Return(model, nil),
 
 		// - check no upgrade series in process.
 		state.EXPECT().HasUpgradeSeriesLocks().Return(true, nil),
