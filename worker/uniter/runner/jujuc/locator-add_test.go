@@ -3,6 +3,39 @@
 
 package jujuc_test
 
+import (
+	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v3/cmdtesting"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
+)
+
 type LocatorAddSuite struct {
 	ContextSuite
+}
+
+var _ = gc.Suite(&LocatorAddSuite{})
+
+func (s *LocatorAddSuite) TestHelp(c *gc.C) {
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := jujuc.NewCommand(hctx, "locator-add")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
+Usage: locator-add [options] <locator-name>
+
+Summary:
+add service locator
+
+Options:
+-u, --unit (= "")
+    specify a unit by id
+-r, --relation (= "")
+    specify a relation by id
+`[1:])
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
