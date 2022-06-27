@@ -10,13 +10,14 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/keyvalues"
 )
 
 // ServiceLocator represents a single metric set by the charm.
 type ServiceLocator struct {
 	Type   string
 	Name   string
-	Params map[string]interface{}
+	Params map[string]string
 }
 
 // LocatorAddCommand implements the locator-add command.
@@ -25,9 +26,11 @@ type LocatorAddCommand struct {
 	ctx    Context
 	Labels string
 
-	Id   string
-	Name string
-	Type string
+	Id         string
+	Name       string
+	Type       string
+	Params     map[string]string
+	paramsFile cmd.FileVar
 
 	ConsumerUnitId     string
 	ConsumerRelationId int
@@ -44,10 +47,10 @@ func NewLocatorAddCommand(ctx Context) (cmd.Command, error) {
 func (c *LocatorAddCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "locator-add",
-		Args:    "<locator-name>",
+		Args:    "<locator-type> <locator-name> key=value [key=value ...]",
 		Purpose: "add service locator",
 		Doc: `
-locator-add adds the service locator, specified by name.
+locator-add adds the service locator, specified by type, name and params.
 
 ... . 
 `,
@@ -65,14 +68,20 @@ func (c *LocatorAddCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init parses the command's parameters.
 func (c *LocatorAddCommand) Init(args []string) error {
-	if len(args) < 1 {
+	if len(args) < 2 {
 		return errors.New("no arguments specified")
 	}
-	c.Name = args[0]
+	c.Type = args[0]
+	c.Name = args[1]
 	if c.Name == "" {
 		return errors.Errorf("no service locator name specified")
 	}
-	return cmd.CheckEmpty(args[1:])
+	params, err := keyvalues.Parse(args[2:], true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.Params = params
+	return nil
 }
 
 // Run adds metrics to the hook context.
@@ -83,7 +92,6 @@ func (c *LocatorAddCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Annotate(err, "failed to generate new uuid for service locator")
 	}
 	c.Id = uuid.String()
-	c.Type = "l4-service" // TODO(anvial): remove hardcode after locators assertions will be implemented
 
 	// Record new service locator
 	err = c.ctx.AddServiceLocator(params.AddServiceLocators{
@@ -94,7 +102,7 @@ func (c *LocatorAddCommand) Run(ctx *cmd.Context) (err error) {
 			UnitId:             "unit/0", // TODO(anvial): remove hardcode
 			ConsumerUnitId:     c.ConsumerUnitId,
 			ConsumerRelationId: c.ConsumerRelationId,
-			Params:             map[string]interface{}{}, // TODO(anvial): remove hardcode
+			Params:             c.Params, // TODO(anvial): remove hardcode
 		}},
 	})
 	if err != nil {
