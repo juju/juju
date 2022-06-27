@@ -86,6 +86,20 @@ func (mr *MockContextMockRecorder) AddMetricLabels(arg0, arg1, arg2, arg3 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMetricLabels", reflect.TypeOf((*MockContext)(nil).AddMetricLabels), arg0, arg1, arg2, arg3)
 }
 
+// AddServiceLocator mocks base method.
+func (m *MockContext) AddServiceLocator(arg0 params.AddServiceLocators) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddServiceLocator", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddServiceLocator indicates an expected call of AddServiceLocator.
+func (mr *MockContextMockRecorder) AddServiceLocator(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddServiceLocator", reflect.TypeOf((*MockContext)(nil).AddServiceLocator), arg0)
+}
+
 // AddUnitStorage mocks base method.
 func (m *MockContext) AddUnitStorage(arg0 map[string]params.StorageConstraints) error {
 	m.ctrl.T.Helper()
