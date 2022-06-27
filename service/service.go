@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/service/snap"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/service.go github.com/juju/juju/service Service
@@ -31,7 +30,6 @@ var logger = loggo.GetLogger("juju.service")
 const (
 	InitSystemSystemd = "systemd"
 	InitSystemUpstart = "upstart"
-	InitSystemWindows = "windows"
 	InitSystemSnap    = "snap"
 )
 
@@ -147,8 +145,6 @@ func newService(name string, conf common.Conf, initSystem string) (Service, erro
 	var err error
 
 	switch initSystem {
-	case InitSystemWindows:
-		svc, err = windows.NewService(name, conf)
 	case InitSystemUpstart:
 		svc, err = upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
@@ -177,8 +173,6 @@ var ListServices = func() ([]string, error) {
 	}
 	var services []string
 	switch initName {
-	case InitSystemWindows:
-		services, err = windows.ListServices()
 	case InitSystemSnap:
 		services, err = snap.ListServices()
 	case InitSystemUpstart:
@@ -209,8 +203,6 @@ func ListServicesScript() string {
 
 func listServicesCommand(initSystem string) (string, bool) {
 	switch initSystem {
-	case InitSystemWindows:
-		return windows.ListCommand(), true
 	case InitSystemUpstart:
 		return upstart.ListCommand(), true
 	case InitSystemSystemd:

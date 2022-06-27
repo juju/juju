@@ -79,8 +79,6 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 		return &unixConfigure{base}, nil
 	case os.OpenSUSE:
 		return &unixConfigure{base}, nil
-	case os.Windows:
-		return &windowsConfigure{base}, nil
 	default:
 		return nil, errors.NotSupportedf("OS %s", icfg.Series)
 	}
@@ -133,15 +131,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	cmds = append(cmds, startCmds...)
 
 	svcName := c.icfg.MachineAgentServiceName
-	// TODO (gsamfira): This is temporary until we find a cleaner way to fix
-	// cloudinit.LogProgressCmd to not add >&9 on Windows.
-	targetOS, err := series.GetOSFromSeries(c.icfg.Series)
-	if err != nil {
-		return err
-	}
-	if targetOS != os.Windows {
-		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (service %s)", svcName))
-	}
+	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (service %s)", svcName))
 	c.conf.AddScripts(cmds...)
 	return nil
 }
@@ -181,22 +171,11 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 // call to shell.Renderer.Symlink.
 
 func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
-	switch c.os {
-	case os.Windows:
-		return fmt.Sprintf(
-			`cmd.exe /C mklink /D %s %v`,
-			c.conf.ShellRenderer().FromSlash(toolsDir),
-			c.icfg.AgentVersion(),
-		)
-	default:
-		// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that
-		// the target already exists.
-		return fmt.Sprintf(
-			"ln -s %v %s",
-			c.icfg.AgentVersion(),
-			shquote(toolsDir),
-		)
-	}
+	return fmt.Sprintf(
+		"ln -s %v %s",
+		c.icfg.AgentVersion(),
+		shquote(toolsDir),
+	)
 }
 
 func shquote(p string) string {

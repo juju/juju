@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coresecrets "github.com/juju/juju/core/secrets"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -46,7 +47,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR specifying both --staged and --active not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
+		com, err := jujuc.NewCommand(hctx, "secret-update")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -59,7 +60,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
+	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -85,7 +86,7 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
+	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "apikey", "token=key="})
@@ -104,7 +105,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-update"))
+	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "5h", "apikey"})

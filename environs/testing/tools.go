@@ -309,9 +309,9 @@ var (
 	V100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
 	V100p   = []version.Binary{V100u64, V100u32}
 
-	V100w64 = version.MustParseBinary("1.0.0-windows-amd64")
-	V100w32 = version.MustParseBinary("1.0.0-windows-i386")
-	V100q   = []version.Binary{V100w64, V100w32}
+	V100c64 = version.MustParseBinary("1.0.0-centos-amd64")
+	V100c32 = version.MustParseBinary("1.0.0-centos-i386")
+	V100q   = []version.Binary{V100c64, V100c32}
 	V100all = append(V100p, V100q...)
 
 	V1001    = version.MustParse("1.0.0.1")
@@ -323,10 +323,10 @@ var (
 	V110u32 = version.MustParseBinary("1.1.0-ubuntu-i386")
 	V110p   = []version.Binary{V110u64, V110u32}
 
-	V110w64 = version.MustParseBinary("1.1.0-windows-amd64")
-	V110w32 = version.MustParseBinary("1.1.0-windows-i386")
-	V110w   = []version.Binary{V110w64, V110w32}
-	V110all = append(V110p, V110w...)
+	V110c64 = version.MustParseBinary("1.1.0-centos-amd64")
+	V110c32 = version.MustParseBinary("1.1.0-centos-i386")
+	V110c   = []version.Binary{V110c64, V110c32}
+	V110all = append(V110p, V110c...)
 
 	V120    = version.MustParse("1.2.0")
 	V120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
@@ -338,9 +338,7 @@ var (
 	V220    = version.MustParse("2.2.0")
 	V220u32 = version.MustParseBinary("2.2.0-ubuntu-i386")
 	V220u64 = version.MustParseBinary("2.2.0-ubuntu-amd64")
-	V220w32 = version.MustParseBinary("2.2.0-windows-i386")
-	V220w64 = version.MustParseBinary("2.2.0-windows-amd64")
-	V220all = []version.Binary{V220u64, V220u32, V220w64, V220w32}
+	V220all = []version.Binary{V220u64, V220u32}
 	VAll    = append(V1all, V220all...)
 )
 
@@ -379,7 +377,7 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}, {
 		Info:          "released cli: cli series ignored",
 		Available:     VAll,
-		CliVersion:    V100w64,
+		CliVersion:    V100c64,
 		DefaultSeries: "precise",
 		Expect:        V100p,
 	}, {
@@ -487,7 +485,7 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}, {
 		Info:          "released cli with dev setting respects agent-version",
 		Available:     VAll,
-		CliVersion:    V100w32,
+		CliVersion:    V100c32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
 		Development:   true,
@@ -495,14 +493,14 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}, {
 		Info:          "dev cli respects agent-version",
 		Available:     VAll,
-		CliVersion:    V100w32,
+		CliVersion:    V100c32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
 		Expect:        []version.Binary{V1001u64},
 	}, {
 		Info:          "released cli with dev setting respects agent-version",
 		Available:     V1all,
-		CliVersion:    V100w32,
+		CliVersion:    V100c32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
 		Development:   true,
@@ -510,7 +508,7 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}, {
 		Info:          "dev cli respects agent-version",
 		Available:     V1all,
-		CliVersion:    V100w32,
+		CliVersion:    V100c32,
 		AgentVersion:  V1001,
 		DefaultSeries: "precise",
 		Expect:        []version.Binary{V1001u64},

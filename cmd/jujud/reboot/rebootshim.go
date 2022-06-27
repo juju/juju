@@ -4,6 +4,11 @@
 package reboot
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/agent"
@@ -56,4 +61,71 @@ type agentConfigShim struct {
 // Model return an object implementing Model.
 func (a *agentConfigShim) Model() Model {
 	return a.aCfg.Model()
+}
+
+// TODO (tlm): This code has been moved across in the move to 3.0 removing
+// Windows. However there are a number of things that can be fixed here for some
+// easy wins.
+// - Don't write out a script file. It introduces another failure point that we
+// don't need to take on. We can just run the commands directly from the
+// interpreter
+//
+// If we do decided to keep the script file:
+// - Don't set the executable bit as we are giving the file directly to the
+// interpreter.
+// - Align the shabang line and the interpreter we use.
+
+// scheduleAction will do a reboot or shutdown after given number of seconds
+// this function executes the operating system's reboot binary with appropriate
+// parameters to schedule the reboot
+// If action is params.ShouldDoNothing, it will return immediately.
+func scheduleAction(action params.RebootAction, after int) error {
+	if action == params.ShouldDoNothing {
+		return nil
+	}
+	args := []string{"shutdown"}
+	switch action {
+	case params.ShouldReboot:
+		args = append(args, "-r")
+	case params.ShouldShutdown:
+		args = append(args, "-h")
+	}
+	args = append(args, "now")
+
+	script, err := writeScript(args, after)
+	if err != nil {
+		return err
+	}
+	// Use the "nohup" command to run the reboot script without blocking.
+	scheduled := []string{
+		"nohup",
+		"sh",
+		script,
+		"&",
+	}
+	return runCommand(scheduled)
+}
+
+func writeScript(args []string, after int) (string, error) {
+	tpl := `#!/bin/bash
+sleep %d
+%s`
+	script := fmt.Sprintf(tpl, after, strings.Join(args, " "))
+
+	f, err := tmpFile()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer func() { _ = f.Close() }()
+
+	_, err = f.WriteString(script)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	name := f.Name()
+	err = os.Chmod(name, 0755)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return name, nil
 }

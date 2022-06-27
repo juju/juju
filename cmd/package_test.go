@@ -10,7 +10,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	stdtesting "testing"
 
@@ -89,9 +88,6 @@ var _ = gc.Suite(&OSCallTest{})
 // This ensures embedded commands do not accidentally bypass
 // the restrictions to filesystem or exec access.
 func (s *OSCallTest) TestNoRestrictedCalls(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not needed on Windows, checking for imports on Ubuntu sufficient")
-	}
 	fset := token.NewFileSet()
 	calls := make(map[string]set.Strings)
 

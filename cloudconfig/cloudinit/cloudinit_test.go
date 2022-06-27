@@ -567,14 +567,3 @@ func (S) TestSetOutput(c *gc.C) {
 		c.Assert(stderr, gc.Equals, t.stderr)
 	}
 }
-
-func (S) TestWindowsRender(c *gc.C) {
-	compareOutput := "#ps1_sysnative\r\n\r\npowershell"
-	cfg, err := cloudinit.New("win8")
-	c.Assert(err, jc.ErrorIsNil)
-	cfg.AddRunCmd("powershell")
-	data, err := cfg.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.NotNil)
-	c.Assert(string(data), gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows renderer"))
-}

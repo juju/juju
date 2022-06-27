@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -207,14 +206,6 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, socket
 
 func newUnixSocket(baseDir string, unitTag names.UnitTag, worker string, name string, abstract bool) SocketPair {
 	socket := sockets.Socket{Network: "unix"}
-	if jujuos.HostOS() == jujuos.Windows {
-		base := fmt.Sprintf("%s", unitTag)
-		if worker != "" {
-			base = fmt.Sprintf("%s-%s", unitTag, worker)
-		}
-		socket.Address = fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
-		return SocketPair{socket, socket}
-	}
 	path := filepath.Join(baseDir, name+".socket")
 	if worker != "" {
 		path = filepath.Join(baseDir, fmt.Sprintf("%s-%s.socket", worker, name))

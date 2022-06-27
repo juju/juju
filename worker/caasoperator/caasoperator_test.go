@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/clock"
@@ -69,9 +68,6 @@ var _ = gc.Suite(&WorkerSuite{})
 
 func sockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
-	}
 	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 

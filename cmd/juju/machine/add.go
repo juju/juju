@@ -5,7 +5,6 @@ package machine
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/winrm"
 
 	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
@@ -27,8 +25,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -134,9 +130,6 @@ Examples:
 	# connection
 	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub --private-key /tmp/id_rsa
 
-	# Allocate a machine to the model via WinRM
-	juju add-machine winrm:user@10.10.0.3
-
 	# Allocate a machine to the model. Note: specific to MAAS.
 	juju add-machine host.internal
 
@@ -184,7 +177,7 @@ type addCommand struct {
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container-type>[:<machine-id>] | (ssh|winrm):[<user>@]<host> | <placement>] | <private-key> | <public-key>",
+		Args:    "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
 		Purpose: "Provision a new machine or assign one to the model.",
 		Doc:     addMachineDoc,
 	})
@@ -375,10 +368,8 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 var (
 	sshProvisioner    = sshprovisioner.ProvisionMachine
-	winrmProvisioner  = winrmprovisioner.ProvisionMachine
 	errNonManualScope = errors.New("non-manual scope")
 	sshScope          = "ssh"
-	winrmScope        = "winrm"
 )
 
 func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, config *config.Config, ctx *cmd.Context) error {
@@ -387,8 +378,6 @@ func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, con
 	switch c.Placement.Scope {
 	case sshScope:
 		provisionMachine = sshProvisioner
-	case winrmScope:
-		provisionMachine = c.provisionWinRM
 	default:
 		return errNonManualScope
 	}
@@ -420,44 +409,4 @@ func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, con
 	}
 	ctx.Infof("created machine %v", machineId)
 	return nil
-}
-
-func (c *addCommand) provisionWinRM(args manual.ProvisionMachineArgs) (string, error) {
-	base := osenv.JujuXDGDataHomePath("x509")
-	keyPath := filepath.Join(base, "winrmkey.pem")
-	certPath := filepath.Join(base, "winrmcert.crt")
-	cert := winrm.NewX509()
-	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
-		return "", errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
-	}
-	if err := cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
-		logger.Infof("cannot not find any CA cert to load")
-	}
-
-	cfg := winrm.ClientConfig{
-		User:    args.User,
-		Host:    args.Host,
-		Key:     cert.ClientKey(),
-		Cert:    cert.ClientCert(),
-		Timeout: 25 * time.Second,
-		Secure:  true,
-	}
-
-	caCert := cert.CACert()
-	if caCert == nil {
-		logger.Infof("Skipping winrm CA validation")
-		cfg.Insecure = true
-	} else {
-		cfg.CACert = caCert
-	}
-
-	client, err := winrm.NewClient(cfg)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot create WinRM client connection")
-	}
-	args.WinRM = manual.WinRMArgs{
-		Keys:   cert,
-		Client: client,
-	}
-	return winrmProvisioner(args)
 }

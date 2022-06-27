@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -122,9 +121,6 @@ region=region
 }
 
 func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("skipping on Windows")
-	}
 	home := utils.Home()
 	dir := c.MkDir()
 	err := utils.SetHome(dir)
@@ -133,14 +129,5 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
 		err := utils.SetHome(home)
 		c.Assert(err, jc.ErrorIsNil)
 	})
-	s.assertDetectCredentialsKnownLocation(c, dir)
-}
-
-func (s *credentialsSuite) TestDetectCredentialsKnownLocationWindows(c *gc.C) {
-	if runtime.GOOS != "windows" {
-		c.Skip("skipping on non-Windows platform")
-	}
-	dir := c.MkDir()
-	s.PatchEnvironment("USERPROFILE", dir)
 	s.assertDetectCredentialsKnownLocation(c, dir)
 }

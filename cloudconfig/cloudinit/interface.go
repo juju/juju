@@ -9,8 +9,6 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
-	corenetwork "github.com/juju/juju/core/network"
-	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
@@ -18,8 +16,10 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"golang.org/x/crypto/ssh"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
+	jujupackaging "github.com/juju/juju/packaging"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -426,15 +426,6 @@ func New(ser string) (CloudConfig, error) {
 		return nil, err
 	}
 	switch seriesos {
-	case os.Windows:
-		renderer, _ := shell.NewRenderer("powershell")
-		return &windowsCloudConfig{
-			&cloudConfig{
-				series:   ser,
-				renderer: renderer,
-				attrs:    make(map[string]interface{}),
-			},
-		}, nil
 	case os.Ubuntu:
 		renderer, _ := shell.NewRenderer("bash")
 		return &ubuntuCloudConfig{

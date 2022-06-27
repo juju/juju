@@ -57,10 +57,6 @@ type ProviderConfig struct {
 	// waiting in that case.
 	RetryClock clock.Clock
 
-	// RandomWindowsAdminPassword is a function used to generate
-	// a random password for the Windows admin user.
-	RandomWindowsAdminPassword func() string
-
 	// GneerateSSHKey is a functio nused to generate a new SSH
 	// key pair for provisioning Linux machines.
 	GenerateSSHKey func(comment string) (private, public string, _ error)
@@ -80,9 +76,6 @@ type ProviderConfig struct {
 func (cfg ProviderConfig) Validate() error {
 	if cfg.RetryClock == nil {
 		return errors.NotValidf("nil RetryClock")
-	}
-	if cfg.RandomWindowsAdminPassword == nil {
-		return errors.NotValidf("nil RandomWindowsAdminPassword")
 	}
 	if cfg.GenerateSSHKey == nil {
 		return errors.NotValidf("nil GenerateSSHKey")

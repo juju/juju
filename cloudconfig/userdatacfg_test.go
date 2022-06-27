@@ -1390,42 +1390,6 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 -----END RSA PRIVATE KEY-----
 `[1:])
 
-var windowsCloudinitTests = []cloudinitTest{{
-	cfg: makeNormalConfig("win8", 0).setMachineID("10").mutate(func(cfg *testInstanceConfig) {
-		cfg.APIInfo.CACert = "CA CERT\n" + string(serverCert)
-	}),
-	setEnvConfig:  false,
-	expectScripts: WindowsUserdata,
-}}
-
-func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
-	for i, test := range windowsCloudinitTests {
-		testConfig := test.cfg.render()
-		c.Logf("test %d", i)
-		ci, err := cloudinit.New("win8")
-		c.Assert(err, jc.ErrorIsNil)
-		udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
-
-		c.Assert(err, jc.ErrorIsNil)
-		err = udata.Configure()
-
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(ci, gc.NotNil)
-		data, err := ci.RenderYAML()
-		c.Assert(err, jc.ErrorIsNil)
-
-		stringData := strings.Replace(string(data), "\r\n", "\n", -1)
-		stringData = strings.Replace(stringData, "\t", " ", -1)
-		stringData = strings.TrimSpace(stringData)
-
-		compareString := strings.Replace(test.expectScripts, "\r\n", "\n", -1)
-		compareString = strings.Replace(compareString, "\t", " ", -1)
-		compareString = strings.TrimSpace(compareString)
-
-		testing.CheckString(c, stringData, compareString)
-	}
-}
-
 func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 	command := cloudconfig.ToolsDownloadCommand("download", []string{"a", "b", "c"})
 

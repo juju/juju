@@ -8,7 +8,6 @@
 package collect
 
 import (
-	"fmt"
 	"path"
 	"sync"
 	"time"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/os"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/fortress"
@@ -134,9 +132,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func socketName(baseDir, unitTag string) string {
-	if os.HostOS() == os.Windows {
-		return fmt.Sprintf(`\\.\pipe\collect-metrics-%s`, unitTag)
-	}
 	return path.Join(baseDir, defaultSocketName)
 }
 

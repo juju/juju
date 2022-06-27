@@ -5,7 +5,6 @@ package testing
 
 import (
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -29,9 +28,6 @@ type RealPaths struct {
 
 func osDependentSockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.sock")
-	if runtime.GOOS == "windows" {
-		return sockets.Socket{Network: "unix", Address: `\\.\pipe` + sockPath[2:]}
-	}
 	return sockets.Socket{Network: "unix", Address: sockPath}
 }
 

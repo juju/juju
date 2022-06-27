@@ -105,7 +105,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 	for i, t := range relationIdsTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, _ := s.newHookContext(t.relid, "")
-		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
+		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -147,7 +147,7 @@ Options:
 	} {
 		c.Logf("relid %d", relid)
 		hctx, _ := s.newHookContext(relid, "")
-		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
+		com, err := jujuc.NewCommand(hctx, "relation-ids")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
@@ -177,7 +177,7 @@ func (s *RelationIdsSuite) TestFilterNonLiveRelations(c *gc.C) {
 }
 
 func (s *RelationIdsSuite) assertOutputMatches(c *gc.C, hctx jujuc.Context, expOutput string) {
-	com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
+	com, err := jujuc.NewCommand(hctx, "relation-ids")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)

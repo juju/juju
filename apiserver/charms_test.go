@@ -16,7 +16,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
@@ -101,10 +100,6 @@ func (s *charmsSuite) setModelImporting(c *gc.C) {
 }
 
 func (s *charmsSuite) SetUpSuite(c *gc.C) {
-	// TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Skipping this on windows for now")
-	}
 	s.apiserverBaseSuite.SetUpSuite(c)
 }
 

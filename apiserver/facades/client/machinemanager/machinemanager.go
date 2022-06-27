@@ -20,14 +20,12 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -339,17 +337,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	osSeries, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return result, apiservererrors.ServerError(errors.Annotatef(err,
-			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
-	}
-
 	getProvisioningScript := sshprovisioner.ProvisioningScript
-	if osSeries == coreos.Windows {
-		getProvisioningScript = winrmprovisioner.ProvisioningScript
-	}
-
 	result.Script, err = getProvisioningScript(icfg)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(

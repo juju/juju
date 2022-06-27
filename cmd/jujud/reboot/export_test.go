@@ -5,6 +5,7 @@
 package reboot
 
 var (
-	Timeout = &timeout
-	TmpFile = &tmpFile
+	ScheduleAction = scheduleAction
+	Timeout        = &timeout
+	TmpFile        = &tmpFile
 )

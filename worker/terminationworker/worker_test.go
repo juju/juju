@@ -5,7 +5,6 @@ package terminationworker_test
 
 import (
 	"os"
-	"runtime"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -35,10 +34,6 @@ func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *TerminationWorkerSuite) TestSignal(c *gc.C) {
-	//TODO(bogdanteleaga): Inspect this further on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: sending this signal is not supported on windows")
-	}
 	w := terminationworker.NewWorker()
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)

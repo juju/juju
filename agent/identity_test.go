@@ -7,7 +7,6 @@ package agent
 import (
 	"io/ioutil"
 	"os"
-	"runtime"
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -61,12 +60,7 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 
 	fi, err := os.Stat(conf.SystemIdentityPath())
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Windows is not fully POSIX compliant. Chmod() and Chown() have unexpected behavior
-	// compared to linux/unix
-	if runtime.GOOS != "windows" {
-		c.Check(fi.Mode().Perm(), gc.Equals, os.FileMode(0600))
-	}
+	c.Check(fi.Mode().Perm(), gc.Equals, os.FileMode(0600))
 	// ensure that file is deleted when SystemIdentity is empty
 	info := servingInfo
 	info.SystemIdentity = ""
@@ -74,6 +68,6 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = WriteSystemIdentityFile(conf)
 	c.Assert(err, jc.ErrorIsNil)
-	fi, err = os.Stat(conf.SystemIdentityPath())
+	_, err = os.Stat(conf.SystemIdentityPath())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
