@@ -148,7 +148,7 @@ func (*RestrictedContext) AddMetricLabels(string, string, time.Time, map[string]
 }
 
 // AddServiceLocator implements hooks.Context.
-func (*RestrictedContext) AddServiceLocator(string, string, string) error {
+func (*RestrictedContext) AddServiceLocator(params.AddServiceLocators) error {
 	return ErrRestrictedContext
 }
 
