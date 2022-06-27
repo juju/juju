@@ -6,6 +6,7 @@ package jujuc
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/utils/v3"
 )
@@ -19,6 +20,9 @@ type AddServiceLocatorCommand struct {
 	Id   string
 	Name string
 	Type string
+
+	ConsumerUnitId     string
+	ConsumerRelationId int
 
 	out cmd.Output
 }
@@ -34,7 +38,21 @@ func (c *AddServiceLocatorCommand) Info() *cmd.Info {
 		Name:    "locator-add",
 		Args:    "<locator-name>",
 		Purpose: "add service locator",
+		Doc: `
+locator-add adds the service locator, specified by name.
+
+... . 
+`,
 	})
+}
+
+// SetFlags is part of the cmd.Command interface.
+func (c *AddServiceLocatorCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.ConsumerUnitId, "u", "", "Specify a unit by id")
+	f.StringVar(&c.ConsumerUnitId, "unit", "", "")
+
+	f.IntVar(&c.ConsumerRelationId, "r", -1, "Specify a relation by id")
+	f.IntVar(&c.ConsumerRelationId, "relation", -1, "")
 }
 
 // Init parses the command's parameters.
@@ -57,10 +75,14 @@ func (c *AddServiceLocatorCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Annotate(err, "failed to generate new uuid for service locator")
 	}
 	c.Id = uuid.String()
-	c.Type = "l4-service" // TODO(anvial): remove hardcode after locators assertions will be impl
+	c.Type = "l4-service" // TODO(anvial): remove hardcode after locators assertions will be implemented
 
 	// Record new service locator
-	err = c.ctx.AddServiceLocator(c.Id, c.Name, c.Type)
+	//err = c.ctx.AddServiceLocator(&params.AddServiceLocatorParams{
+	//	ServiceLocatorUUID: c.Id,
+	//	Name:               c.Name,
+	//	Type:               c.Type,
+	//})
 	if err != nil {
 		return errors.Annotate(err, "cannot record service locator")
 	}
