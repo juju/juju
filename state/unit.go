@@ -1648,6 +1648,8 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	u.doc.MachineId = m.doc.Id
 	m.doc.Clean = false
+	m.doc.Principals = append(m.doc.Principals, u.doc.Name)
+	sort.Strings(m.doc.Principals)
 	return nil
 }
 
@@ -1713,7 +1715,10 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 			{{"machineid", m.Id()}},
 		},
 	}}...)
-	massert := isAliveDoc
+	massert := append(isAliveDoc, bson.D{{
+		// The machine must be able to accept a unit.
+		"jobs", bson.M{"$in": []MachineJob{JobHostUnits}},
+	}}...)
 	if unused {
 		massert = append(massert, bson.D{{"clean", bson.D{{"$ne", false}}}}...)
 	}
