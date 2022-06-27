@@ -20,10 +20,14 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -76,9 +80,9 @@ type MachineManagerAPI struct {
 	callContext environscontext.ProviderCallContext
 }
 
-// NewFacadeV6 create a new server-side MachineManager API facade. This
+// NewFacadeV7 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacadeV6(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -293,16 +297,132 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-// DestroyMachine removes a set of machines from the model.
-func (mm *MachineManagerAPI) DestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, false, false, time.Duration(0))
+// ProvisioningScript returns a shell script that, when run,
+// provisions a machine agent on the machine executing the script.
+func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
+	if err := mm.authorizer.CanWrite(); err != nil {
+		return params.ProvisioningScriptResult{}, err
+	}
+
+	var result params.ProvisioningScriptResult
+	st, err := mm.pool.SystemState()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	icfg, err := InstanceConfig(st, mm.st, args.MachineId, args.Nonce, args.DataDir)
+	if err != nil {
+		return result, apiservererrors.ServerError(errors.Annotate(
+			err, "getting instance config",
+		))
+	}
+	// Until DisablePackageCommands is retired, for backwards
+	// compatibility, we must respect the client's request and
+	// override any model settings the user may have specified.
+	// If the client does specify this setting, it will only ever be
+	// true. False indicates the client doesn't care and we should use
+	// what's specified in the environment config.
+	model, err := mm.st.Model()
+	if err != nil {
+		return result, apiservererrors.ServerError(errors.Annotate(
+			err, "getting model config",
+		))
+	}
+	if args.DisablePackageCommands {
+		icfg.EnableOSRefreshUpdate = false
+		icfg.EnableOSUpgrade = false
+	} else if cfg, err := model.Config(); err != nil {
+		return result, apiservererrors.ServerError(errors.Annotate(
+			err, "getting model config",
+		))
+	} else {
+		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
+		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
+	}
+
+	osSeries, err := series.GetOSFromSeries(icfg.Series)
+	if err != nil {
+		return result, apiservererrors.ServerError(errors.Annotatef(err,
+			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
+	}
+
+	getProvisioningScript := sshprovisioner.ProvisioningScript
+	if osSeries == coreos.Windows {
+		getProvisioningScript = winrmprovisioner.ProvisioningScript
+	}
+
+	result.Script, err = getProvisioningScript(icfg)
+	if err != nil {
+		return result, apiservererrors.ServerError(errors.Annotate(
+			err, "getting provisioning script",
+		))
+	}
+
+	return result, nil
 }
 
-// ForceDestroyMachine forcibly removes a set of machines from the model.
-// TODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.
-// Also from ModelManger v6 this call is less useful as it does not support MaxWait customisation.
-func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, true, false, time.Duration(0))
+// RetryProvisioning marks a provisioning error as transient on the machines.
+func (mm *MachineManagerAPI) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
+	if err := mm.authorizer.CanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
+
+	if err := mm.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(p.Entities)),
+	}
+	for i, e := range p.Entities {
+		tag, err := names.ParseMachineTag(e.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := mm.updateInstanceStatus(tag, map[string]interface{}{"transient": true}); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
+type instanceStatus interface {
+	InstanceStatus() (status.StatusInfo, error)
+	SetInstanceStatus(sInfo status.StatusInfo) error
+}
+
+func (mm *MachineManagerAPI) updateInstanceStatus(tag names.Tag, data map[string]interface{}) error {
+	entity0, err := mm.st.FindEntity(tag)
+	if err != nil {
+		return err
+	}
+	statusGetterSetter, ok := entity0.(instanceStatus)
+	if !ok {
+		return apiservererrors.NotSupportedError(tag, "getting status")
+	}
+	existingStatusInfo, err := statusGetterSetter.InstanceStatus()
+	if err != nil {
+		return err
+	}
+	newData := existingStatusInfo.Data
+	if newData == nil {
+		newData = data
+	} else {
+		for k, v := range data {
+			newData[k] = v
+		}
+	}
+	if len(newData) > 0 && existingStatusInfo.Status != status.Error && existingStatusInfo.Status != status.ProvisioningError {
+		return fmt.Errorf("%s is not in an error state (%v)", names.ReadableString(tag), existingStatusInfo.Status)
+	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  existingStatusInfo.Status,
+		Message: existingStatusInfo.Message,
+		Data:    newData,
+		Since:   &now,
+	}
+	return statusGetterSetter.SetInstanceStatus(sInfo)
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.

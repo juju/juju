@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,11 +23,11 @@ func (t TestClientAPI) AddMachines(p []params.AddMachineParams) ([]params.AddMac
 	return make([]params.AddMachinesResult, 1, 1), nil
 }
 
-func (t TestClientAPI) ForceDestroyMachines(machines ...string) error {
+func (t TestClientAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	if machines == nil {
-		return fmt.Errorf("epty machines")
+		return nil, fmt.Errorf("epty machines")
 	}
-	return nil
+	return []params.DestroyMachineResult{}, nil
 }
 
 func (t TestClientAPI) ProvisioningScript(param params.ProvisioningScriptParams) (script string, err error) {

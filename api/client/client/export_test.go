@@ -10,8 +10,6 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-var HasHooksOrDispatch = &hasHooksOrDispatch
-
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets
 // you mock out the FacadeCall method. The function returned by
 // PatchClientFacadeCall is a cleanup function that returns the client to its
