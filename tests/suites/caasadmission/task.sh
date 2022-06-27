@@ -15,7 +15,7 @@ test_caasadmission() {
 		echo "==> Checking for dependencies"
 		check_dependencies petname
 
-		microk8s.config >"${TEST_DIR}"/kube.conf
+		microk8s config >"${TEST_DIR}"/kube.conf
 		export KUBE_CONFIG="${TEST_DIR}"/kube.conf
 
 		test_controller_model_admission
