@@ -59,12 +59,12 @@ func (s *serviceLocatorSuite) TestAddServiceLocator(c *gc.C) {
 	mockBackend.EXPECT().AddServiceLocator("id", "name", "type").Return("id", nil)
 
 	sl, err := api.AddServiceLocator(params.AddServiceLocators{
-		ServiceLocatorParams: []params.AddServiceLocatorParams{{
+		ServiceLocators: []params.AddServiceLocatorParams{{
 			ServiceLocatorUUID: "id",
 			Name:               "name",
 			Type:               "type",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sl, gc.Equals, "id")
+	c.Assert(sl.Results[0].Result, gc.Equals, "id")
 }
