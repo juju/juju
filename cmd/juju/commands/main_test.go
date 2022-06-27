@@ -480,6 +480,7 @@ var commandNames = []string{
 	"upgrade-series",
 	"users",
 	"version",
+	"wait-for",
 	"wallets",
 	"whoami",
 }
