@@ -572,7 +572,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		// If the model to upgrade does not implement the minimum facade version
 		// for validating, we return nil.
 		if err = modelManager.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); errors.IsNotImplemented(err) {
-			return nil
+			err = nil
 		}
 		if err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)

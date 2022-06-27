@@ -60,6 +60,8 @@ type UpgradeBaseSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 
 	coretesting.CmdBlockHelper
+
+	modelManager *mocks.MockModelManagerAPI
 }
 
 func (s *UpgradeBaseSuite) SetUpTest(c *gc.C) {
@@ -176,12 +178,6 @@ var upgradeJujuTests = []upgradeTest{{
 	currentVersion: "3.0.2-ubuntu-amd64",
 	agentVersion:   "2.8.2",
 	expectVersion:  "2.8.2",
-}, {
-	about:          "latest current release matching CLI, major version, no matching agent binaries",
-	available:      []string{"3.3.0-ubuntu-amd64"},
-	currentVersion: "3.0.2-ubuntu-amd64",
-	agentVersion:   "2.8.2",
-	expectErr:      "no compatible agent versions available",
 }, {
 	about:          "latest supported stable, when client is dev, explicit upload",
 	available:      []string{"2.1-dev1-ubuntu-amd64", "2.1.0-ubuntu-amd64", "2.3-dev0-ubuntu-amd64", "3.0.1-ubuntu-amd64"},
@@ -349,7 +345,7 @@ var upgradeJujuTests = []upgradeTest{{
 	expectVersion:  "1.21.3",
 }}
 
-type upgradeCommandFunc func(*upgradeTest) cmd.Command
+type upgradeCommandFunc func(*gc.C, *upgradeTest) (*gomock.Controller, cmd.Command)
 
 func (s *UpgradeJujuSuite) upgradeJujuCommand(
 	jujuClientAPI ClientAPI,
@@ -360,12 +356,29 @@ func (s *UpgradeJujuSuite) upgradeJujuCommand(
 	return newUpgradeJujuCommandForTest(s.ControllerStore, jujuClientAPI, modelConfigAPI, modelManagerAPI, controllerAPI)
 }
 
-func (s *UpgradeJujuSuite) upgradeJujuCommandNoAPI(*upgradeTest) cmd.Command {
-	return newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil)
+func (s *UpgradeJujuSuite) upgradeJujuCommandNoAPI(c *gc.C, test *upgradeTest) (*gomock.Controller, cmd.Command) {
+	return nil, newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil)
+}
+
+func (s *UpgradeJujuSuite) upgradeJujuCommandGoMock(c *gc.C, test *upgradeTest) (*gomock.Controller, cmd.Command) {
+	ctrl := gomock.NewController(c)
+	s.modelManager = mocks.NewMockModelManagerAPI(ctrl)
+	return ctrl, newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, s.modelManager, nil)
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuLegacy(c *gc.C) {
+	s.assertUpgradeTestsLegacy(c, append(upgradeJujuTests, upgradeTest{
+		// We do this check on server side for v10 API.
+		about:          "latest current release matching CLI, major version, no matching agent binaries",
+		available:      []string{"3.3.0-ubuntu-amd64"},
+		currentVersion: "3.0.2-ubuntu-amd64",
+		agentVersion:   "2.8.2",
+		expectErr:      "no compatible agent versions available",
+	}), s.upgradeJujuCommandGoMock)
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
-	s.assertUpgradeTests(c, upgradeJujuTests, s.upgradeJujuCommandNoAPI)
+	s.assertUpgradeTests(c, upgradeJujuTests, s.upgradeJujuCommandGoMock)
 }
 
 func (s *UpgradeBaseSuite) TestFormatVersions(c *gc.C) {
@@ -406,8 +419,8 @@ func (s *UpgradeBaseSuite) TestFormatVersions(c *gc.C) {
 	}
 }
 
-func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgradeJujuCommand upgradeCommandFunc) {
-	for i, test := range tests {
+func (s *UpgradeBaseSuite) assertUpgradeTestsLegacy(c *gc.C, tests []upgradeTest, upgradeJujuCommand upgradeCommandFunc) {
+	runTestCase := func(i int, test upgradeTest) {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
 		tools.DefaultBaseURL = ""
@@ -418,14 +431,23 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 		s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 		s.PatchValue(&upgrades.MinMajorUpgradeVersion, test.upgradeMap)
-		com := upgradeJujuCommand(&test)
+		ctrl, com := upgradeJujuCommand(c, &test)
+		goMocked := ctrl != nil
+		if goMocked {
+			defer ctrl.Finish()
+			s.modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+			if test.agentVersion != test.expectVersion && test.expectErr == "" && test.expectInitErr == "" {
+				s.modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
+			}
+		}
+
 		if err := cmdtesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
 			} else {
 				c.Check(err, jc.ErrorIsNil)
 			}
-			continue
+			return
 		}
 
 		// Set up state and environ, and run the command.
@@ -449,9 +471,9 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		err = com.Run(cmdtesting.Context(c))
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
-			continue
+			return
 		} else if !c.Check(err, jc.ErrorIsNil) {
-			continue
+			return
 		}
 
 		// Check expected changes to environ/state.
@@ -465,6 +487,83 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}
+	}
+
+	for i, test := range tests {
+		runTestCase(i, test)
+	}
+}
+
+func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgradeJujuCommand upgradeCommandFunc) {
+	runTestCase := func(i int, test upgradeTest) {
+		c.Logf("\ntest %d: %s", i, test.about)
+		s.Reset(c)
+		tools.DefaultBaseURL = ""
+
+		// Set up apparent CLI version and initialize the command.
+		current := version.MustParseBinary(test.currentVersion)
+		s.PatchValue(&jujuversion.Current, current.Number)
+		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
+		s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+		s.PatchValue(&upgrades.MinMajorUpgradeVersion, test.upgradeMap)
+		ctrl, com := upgradeJujuCommand(c, &test)
+		goMocked := ctrl != nil
+		if goMocked {
+			defer ctrl.Finish()
+			s.modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+			if test.agentVersion != test.expectVersion && test.expectErr == "" && test.expectInitErr == "" {
+				s.modelManager.EXPECT().UpgradeModel(
+					s.Model.ModelTag(),
+					version.MustParse(test.expectVersion),
+					"",
+					false, false,
+				).Return(nil)
+			}
+		}
+
+		if err := cmdtesting.InitCommand(com, test.args); err != nil {
+			if test.expectInitErr != "" {
+				c.Check(err, gc.ErrorMatches, test.expectInitErr)
+			} else {
+				c.Check(err, jc.ErrorIsNil)
+			}
+			return
+		}
+
+		// Set up state and environ, and run the command.
+		testDir := c.MkDir()
+		updateAttrs := map[string]interface{}{
+			"agent-version":      test.agentVersion,
+			"agent-metadata-url": path.Join(testDir, "tools"),
+		}
+		err := s.Model.UpdateModelConfig(updateAttrs, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		versions := make([]version.Binary, len(test.available))
+		for i, v := range test.available {
+			versions[i] = version.MustParseBinary(v)
+		}
+		if len(versions) > 0 {
+			stor, err := filestorage.NewFileStorageWriter(testDir)
+			c.Assert(err, jc.ErrorIsNil)
+			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
+		}
+
+		err = com.Run(cmdtesting.Context(c))
+		if test.expectErr != "" {
+			c.Check(err, gc.ErrorMatches, test.expectErr)
+			return
+		} else if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
+
+		for _, uploaded := range test.expectUploaded {
+			vers := version.MustParseBinary(uploaded)
+			s.checkToolsUploaded(c, vers, version.MustParse(test.expectVersion))
+		}
+	}
+
+	for i, test := range tests {
+		runTestCase(i, test)
 	}
 }
 
@@ -543,7 +642,7 @@ func (s *UpgradeBaseSuite) Reset(c *gc.C) {
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
-	command := s.upgradeJujuCommandNoAPI(nil)
+	_, command := s.upgradeJujuCommandNoAPI(c, nil)
 	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := coretesting.CurrentVersion(c)
@@ -551,11 +650,13 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.checkToolsUploaded(c, vers, vers.Number)
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgent(c *gc.C) {
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgentLegay(c *gc.C) {
 	s.Reset(c)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
 
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
@@ -571,11 +672,39 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgent(c *gc.C) {
 	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.99.99.2"))
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C) {
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgent(c *gc.C) {
 	s.Reset(c)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+	modelManager.EXPECT().UpgradeModel(
+		s.Model.ModelTag(),
+		version.MustParse("1.99.99.2"),
+		"",
+		false, false,
+	).Return(nil)
+
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99.1",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, nil)
+	_, err := cmdtesting.RunCommand(c, command)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClientLegacy(c *gc.C) {
+	s.Reset(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
 
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
@@ -591,6 +720,33 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C)
 	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
 	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
 	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsFalse)
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C) {
+	s.Reset(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+	modelManager.EXPECT().UpgradeModel(
+		s.Model.ModelTag(),
+		version.MustParse("1.100.0.1"),
+		"",
+		false, false,
+	).Return(nil)
+
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, nil)
+	_, err := cmdtesting.RunCommand(c, command)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.C) {
@@ -615,7 +771,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
-	command := s.upgradeJujuCommandNoAPI(nil)
+	_, command := s.upgradeJujuCommandNoAPI(c, nil)
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
@@ -646,11 +802,13 @@ func (s *UpgradeJujuSuite) TestFailUploadNoControllerModelPermission(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model but you don't have permission to access that model")
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersionslegacy(c *gc.C) {
 	s.Reset(c)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
 
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
@@ -668,11 +826,40 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
 	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsTrue)
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStream(c *gc.C) {
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
 	s.Reset(c)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+	modelManager.EXPECT().UpgradeModel(
+		s.Model.ModelTag(),
+		version.MustParse("1.100.0.1"),
+		"",
+		true, false,
+	).Return(nil)
+
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+	}
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, nil)
+	_, err := cmdtesting.RunCommand(c, command, "--ignore-agent-versions")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStreamlegacy(c *gc.C) {
+	s.Reset(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
 
 	fakeAPI := &fakeUpgradeJujuAPINoState{
 		name:           "dummy-model",
@@ -689,6 +876,36 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStream(c *gc.C) {
 	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
 	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
 	c.Assert(fakeAPI.stream, gc.Equals, "proposed")
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStream(c *gc.C) {
+	s.Reset(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+		facadeVersion:  5,
+	}
+
+	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+	modelManager.EXPECT().UpgradeModel(
+		s.Model.ModelTag(),
+		version.MustParse("1.100.0.1"),
+		"proposed",
+		false, false,
+	).Return(nil)
+
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, nil)
+	_, err := cmdtesting.RunCommand(c, command, "--agent-stream=proposed")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStreamUnsupported(c *gc.C) {
@@ -775,7 +992,7 @@ upgrade to this version by running
 
 		s.setUpEnvAndTools(c, test.currentVersion, test.agentVersion, test.tools)
 
-		com := upgradeJujuCommand(nil)
+		_, com := upgradeJujuCommand(c, nil)
 		err := cmdtesting.InitCommand(com, test.cmdArgs)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -899,7 +1116,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		s.setUpEnvAndTools(c, test.currentVersion, test.agentVersion, test.tools)
 
 		s.PatchValue(&upgrades.MinMajorUpgradeVersion, test.upgradeMap)
-		command := s.upgradeJujuCommandNoAPI(nil)
+		_, command := s.upgradeJujuCommandNoAPI(c, nil)
 		err := cmdtesting.InitCommand(command, test.cmdArgs)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -930,10 +1147,12 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 	}
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
+func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreamsLegacy(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
 
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.addTools("2.1.0-weird-amd64")
@@ -950,16 +1169,41 @@ func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
 	c.Assert(fakeAPI.tools, gc.DeepEquals, []string{"2.1.0-weird-amd64", fakeAPI.nextVersion.String()})
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeValidateModel(c *gc.C) {
+func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+	modelManager.EXPECT().UpgradeModel(
+		s.Model.ModelTag(),
+		version.MustParse("3.1.1"),
+		"",
+		false, false,
+	).Return(nil)
 
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
-	fakeAPI.setUpgradeErr = &params.Error{
-		Message: "a message from the server about the problem",
-		Code:    params.CodeAlreadyExists,
-	}
+	fakeAPI.addTools("2.1.0-weird-amd64")
+
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, fakeAPI)
+	err := cmdtesting.InitCommand(command, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = command.Run(cmdtesting.Context(c))
+	c.Assert(err, gc.IsNil)
+
+	// ensure find tools was called
+	c.Assert(fakeAPI.findToolsCalled, jc.IsTrue)
+	c.Assert(fakeAPI.tools, gc.DeepEquals, []string{"2.1.0-weird-amd64", fakeAPI.nextVersion.String()})
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeValidateModelLegacy(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(errors.Errorf(`a message from the server about the problem`))
+
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 
 	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, fakeAPI)
 	err := cmdtesting.InitCommand(command, []string{})
@@ -969,14 +1213,36 @@ func (s *UpgradeJujuSuite) TestUpgradeValidateModel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `a message from the server about the problem`)
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeValidateModelNotImplementedNoError(c *gc.C) {
+func (s *UpgradeJujuSuite) TestUpgradeValidateModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+	modelManager.EXPECT().UpgradeModel(
+		s.Model.ModelTag(),
+		version.MustParse("3.1.1"),
+		"",
+		false, false,
+	).Return(errors.Errorf(`a message from the server about the problem`))
 
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 
-	fakeAPI.setUpgradeErr = errors.NotImplementedf("")
+	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, fakeAPI)
+	err := cmdtesting.InitCommand(command, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = command.Run(cmdtesting.Context(c))
+	c.Assert(err, gc.ErrorMatches, `a message from the server about the problem`)
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeValidateModelNotImplementedNoErrorLegacy(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(errors.NotImplementedf(""))
+
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 
 	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, fakeAPI)
 	err := cmdtesting.InitCommand(command, []string{})
@@ -990,6 +1256,9 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
 
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.setVersionErr = &params.Error{
@@ -1015,6 +1284,9 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
 
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Return(nil)
+
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.setVersionErr = apiservererrors.OperationBlockedError("the operation has been blocked")
 
@@ -1028,13 +1300,15 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	s.AssertBlocked(c, err, ".*To enable changes.*")
 }
 
-func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
+func (s *UpgradeJujuSuite) TestResetPreviousUpgradeLegacy(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
 
-	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(9)
+	modelManager.EXPECT().ValidateModelUpgrade(s.Model.ModelTag(), false).Times(11).Return(nil)
 
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	ctx := cmdtesting.Context(c)
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
@@ -1065,6 +1339,71 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 		}
 		c.Assert(fakeAPI.setVersionCalledWith, gc.Equals, expectedVersion)
 		c.Assert(fakeAPI.setIgnoreCalledWith, gc.Equals, false)
+	}
+
+	const expectUpgrade = true
+	const expectNoUpgrade = false
+
+	// EOF on stdin - equivalent to answering no.
+	run("", expectNoUpgrade)
+
+	// -y on command line - no confirmation required
+	run("", expectUpgrade, "-y")
+
+	// --yes on command line - no confirmation required
+	run("", expectUpgrade, "--yes")
+
+	// various ways of saying "yes" to the prompt
+	for _, answer := range []string{"y", "Y", "yes", "YES"} {
+		run(answer, expectUpgrade)
+	}
+
+	// various ways of saying "no" to the prompt
+	for _, answer := range []string{"n", "N", "no", "foo"} {
+		run(answer, expectNoUpgrade)
+	}
+}
+
+func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	modelManager := mocks.NewMockModelManagerAPI(ctrl)
+
+	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
+
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	ctx := cmdtesting.Context(c)
+	var stdin bytes.Buffer
+	ctx.Stdin = &stdin
+
+	run := func(answer string, expect bool, args ...string) {
+		stdin.Reset()
+		if answer != "" {
+			stdin.WriteString(answer)
+		}
+
+		fakeAPI.reset()
+
+		if expect {
+			modelManager.EXPECT().AbortCurrentUpgrade().Return(nil)
+			modelManager.EXPECT().UpgradeModel(
+				s.Model.ModelTag(),
+				fakeAPI.nextVersion.Number,
+				"",
+				false, false,
+			).Return(nil)
+		}
+
+		command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, fakeAPI)
+		err := cmdtesting.InitCommand(command,
+			append([]string{"--reset-previous-upgrade"}, args...))
+		c.Assert(err, jc.ErrorIsNil)
+		err = command.Run(ctx)
+		if expect {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, "previous upgrade not reset and no new upgrade triggered")
+		}
 	}
 
 	const expectUpgrade = true
@@ -1319,8 +1658,8 @@ var upgradeCAASModelTests = []upgradeTest{{
 	expectVersion:  "1.21.3",
 }}
 
-func (s *UpgradeCAASModelSuite) upgradeModelCommand(*upgradeTest) cmd.Command {
-	return newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil)
+func (s *UpgradeCAASModelSuite) upgradeModelCommand(*gc.C, *upgradeTest) (*gomock.Controller, cmd.Command) {
+	return nil, newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil)
 }
 
 func (s *UpgradeCAASModelSuite) TestUpgrade(c *gc.C) {

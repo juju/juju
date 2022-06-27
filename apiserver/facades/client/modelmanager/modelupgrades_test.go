@@ -164,7 +164,6 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9ForUpgradingMachines(c *g
 	results, err := v9.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
-			Version:  version.MustParse("2.9.99"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +190,6 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9ForUpgradingMachinesWithF
 	results, err := v9.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
-			Version:  version.MustParse("2.9.99"),
 		}},
 		Force: true,
 	})
@@ -217,7 +215,6 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9ForControllerModels(c *gc
 	results, err := v9.ValidateModelUpgrades(params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: s.st.model.tag.String(),
-			Version:  version.MustParse("2.9.99"),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
