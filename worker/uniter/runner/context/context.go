@@ -1001,7 +1001,7 @@ func (ctx *HookContext) AddServiceLocator(args params.AddServiceLocators) error 
 		ctx.logger.Infof("Service Locator UnitId = %s", sl.UnitId)
 		ctx.logger.Infof("Service Locator ConsumerUnitId = %s", sl.ConsumerUnitId)
 		ctx.logger.Infof("Service Locator ConsumerRelationId = %d", sl.ConsumerRelationId)
-		ctx.logger.Infof("Service Locator Params = %#v", sl.Params)
+		ctx.logger.Infof("Service Locator Params = %+v", sl.Params)
 	}
 
 	return nil
