@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/v3"
 )
 
-// AddServiceLocatorCommand implements the locator-add command.
-type AddServiceLocatorCommand struct {
+// LocatorAddCommand implements the locator-add command.
+type LocatorAddCommand struct {
 	cmd.CommandBase
 	ctx    Context
 	Labels string
@@ -28,13 +28,13 @@ type AddServiceLocatorCommand struct {
 	out cmd.Output
 }
 
-// NewAddServiceLocatorCommand generates a new AddServiceLocatorCommand.
-func NewAddServiceLocatorCommand(ctx Context) (cmd.Command, error) {
-	return &AddServiceLocatorCommand{ctx: ctx}, nil
+// NewLocatorAddCommand generates a new LocatorAddCommand.
+func NewLocatorAddCommand(ctx Context) (cmd.Command, error) {
+	return &LocatorAddCommand{ctx: ctx}, nil
 }
 
 // Info returns the command info structure for the locator-add command.
-func (c *AddServiceLocatorCommand) Info() *cmd.Info {
+func (c *LocatorAddCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "locator-add",
 		Args:    "<locator-name>",
@@ -48,7 +48,7 @@ locator-add adds the service locator, specified by name.
 }
 
 // SetFlags is part of the cmd.Command interface.
-func (c *AddServiceLocatorCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *LocatorAddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConsumerUnitId, "u", "", "Specify a unit by id")
 	f.StringVar(&c.ConsumerUnitId, "unit", "", "")
 
@@ -57,7 +57,7 @@ func (c *AddServiceLocatorCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init parses the command's parameters.
-func (c *AddServiceLocatorCommand) Init(args []string) error {
+func (c *LocatorAddCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("no arguments specified")
 	}
@@ -69,7 +69,7 @@ func (c *AddServiceLocatorCommand) Init(args []string) error {
 }
 
 // Run adds metrics to the hook context.
-func (c *AddServiceLocatorCommand) Run(ctx *cmd.Context) (err error) {
+func (c *LocatorAddCommand) Run(ctx *cmd.Context) (err error) {
 	// Generate new UUID for service locator
 	uuid, err := utils.NewUUID()
 	if err != nil {
