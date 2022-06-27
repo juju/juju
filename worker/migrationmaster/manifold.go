@@ -81,20 +81,28 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	worker, err := config.NewWorker(Config{
+	charmDownloader, err := charms.NewCharmOpener(apiConn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	toolsDownloader, err := http.NewURIOpener(apiConn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w, err := config.NewWorker(Config{
 		ModelUUID:       agent.CurrentConfig().Model().Id(),
 		Facade:          facade,
 		Guard:           guard,
 		APIOpen:         api.Open,
 		UploadBinaries:  migration.UploadBinaries,
-		CharmStreamer:   charms.NewCharmStreamer(apiConn),
-		ToolsDownloader: http.NewURIOpener(apiConn),
+		CharmDownloader: charmDownloader,
+		ToolsDownloader: toolsDownloader,
 		Clock:           config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker, nil
+	return w, nil
 }
 
 func errorFilter(err error) error {

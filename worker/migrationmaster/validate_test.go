@@ -4,10 +4,6 @@
 package migrationmaster_test
 
 import (
-	"io"
-	"net/url"
-
-	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -64,14 +60,14 @@ func (*ValidateSuite) TestMissingUploadBinaries(c *gc.C) {
 
 func (*ValidateSuite) TestMissingCharmDownloader(c *gc.C) {
 	config := validConfig()
-	config.CharmStreamer = nil
-	checkNotValid(c, config, "nil CharmStreamerFunc not valid")
+	config.CharmDownloader = nil
+	checkNotValid(c, config, "nil CharmDownloader not valid")
 }
 
 func (*ValidateSuite) TestMissingToolsDownloader(c *gc.C) {
 	config := validConfig()
 	config.ToolsDownloader = nil
-	checkNotValid(c, config, "nil ToolsDownloaderFunc not valid")
+	checkNotValid(c, config, "nil ToolsDownloader not valid")
 }
 
 func (*ValidateSuite) TestMissingClock(c *gc.C) {
@@ -87,8 +83,8 @@ func validConfig() migrationmaster.Config {
 		Facade:          struct{ migrationmaster.Facade }{},
 		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		UploadBinaries:  func(migration.UploadBinariesConfig) error { return nil },
-		CharmStreamer:   func(curl *charm.URL) (io.ReadCloser, error) { return nil, nil },
-		ToolsDownloader: func(uri string, query url.Values) (io.ReadCloser, error) { return nil, nil },
+		CharmDownloader: struct{ migration.CharmDownloader }{},
+		ToolsDownloader: struct{ migration.ToolsDownloader }{},
 		Clock:           struct{ clock.Clock }{},
 	}
 }

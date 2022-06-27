@@ -27,7 +27,7 @@ type charmDownloaderSuite struct {
 
 var _ = gc.Suite(&charmDownloaderSuite{})
 
-func (s *charmDownloaderSuite) TestCharmStreamer(c *gc.C) {
+func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -52,9 +52,10 @@ func (s *charmDownloaderSuite) TestCharmStreamer(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?file=%2A&url=ch%3Amycharm"},
 	).Return(resp, nil).MinTimes(1)
 
-	streamerFunc := charms.NewCharmStreamer(mockCaller)
+	opener, err := charms.NewCharmOpener(mockCaller)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("ch:mycharm")
-	reader, err := streamerFunc(curl)
+	reader, err := opener.OpenCharm(curl)
 
 	defer reader.Close()
 	c.Assert(err, jc.ErrorIsNil)

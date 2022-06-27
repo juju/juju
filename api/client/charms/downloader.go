@@ -5,6 +5,7 @@
 package charms
 
 import (
+	"context"
 	"io"
 	"net/url"
 
@@ -25,7 +26,11 @@ func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
 			if err != nil {
 				return nil, errors.Annotate(err, "did not receive a valid charm URL")
 			}
-			reader, err := openCharm(apiCaller, curl)
+			streamer, err := NewCharmOpener(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			reader, err := streamer.OpenCharm(curl)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -35,22 +40,31 @@ func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
 	return dlr
 }
 
-// CharmStreamerFunc returns a reader for the specified charm URL.
-type CharmStreamerFunc func(curl *charm.URL) (io.ReadCloser, error)
-
-// NewCharmStreamer returns a charm streamer func for the specified caller.
-func NewCharmStreamer(apiCaller base.APICaller) CharmStreamerFunc {
-	return func(curl *charm.URL) (io.ReadCloser, error) {
-		uri, query := openCharmArgs(curl)
-		return http.OpenURI(apiCaller, uri, query)
-	}
+// CharmOpener provides the OpenCharm method.
+type CharmOpener interface {
+	OpenCharm(curl *charm.URL) (io.ReadCloser, error)
 }
 
-// OpenCharm streams out the identified charm from the controller via
-// the API.
-func openCharm(apiCaller base.APICaller, curl *charm.URL) (io.ReadCloser, error) {
+type charmOpener struct {
+	ctx        context.Context
+	httpClient http.HTTPDoer
+}
+
+func (s *charmOpener) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
 	uri, query := openCharmArgs(curl)
-	return http.OpenURI(apiCaller, uri, query)
+	return http.OpenURI(s.ctx, s.httpClient, uri, query)
+}
+
+// NewCharmOpener returns a charm opener for the specified caller.
+func NewCharmOpener(apiConn base.APICaller) (CharmOpener, error) {
+	httpClient, err := apiConn.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &charmOpener{
+		ctx:        apiConn.Context(),
+		httpClient: httpClient,
+	}, nil
 }
 
 func openCharmArgs(curl *charm.URL) (string, url.Values) {

@@ -26,10 +26,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/charms"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
-	apihttp "github.com/juju/juju/api/http"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -171,7 +169,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Guard:           newStubGuard(s.stub),
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
-		CharmStreamer:   fakeCharmDownloader,
+		CharmDownloader: fakeCharmDownloader,
 		ToolsDownloader: fakeToolsDownloader,
 		Clock:           s.clock,
 	}
@@ -217,7 +215,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	// Observe that the migration was seen, the model exported, an API
 	// connection to the target controller was made, the model was
 	// imported and then the migration completed.
-	calls := joinCalls(
+	s.stub.CheckCalls(c, joinCalls(
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
@@ -282,17 +280,8 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			// REAP
 			{"facade.Reap", nil},
 			{"facade.SetPhase", []interface{}{coremigration.DONE}},
-		})
-	var callNames []string
-	for _, call := range calls {
-		callNames = append(callNames, call.FuncName)
-	}
-	s.stub.CheckCallNames(c, callNames...)
-	mc := jc.NewMultiChecker()
-	// Exclude the streamer funcs from the check.
-	mc.AddExpr(`_[20].Args[1]`, jc.Ignore)
-	mc.AddExpr(`_[20].Args[3]`, jc.Ignore)
-	c.Check(s.stub.Calls(), mc, calls)
+		}),
+	)
 }
 
 func (s *Suite) TestMigrationResume(c *gc.C) {
@@ -1403,9 +1392,9 @@ func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinarie
 		stub.AddCall(
 			"UploadBinaries",
 			config.Charms,
-			config.CharmStreamerFunc,
+			config.CharmDownloader,
 			config.Tools,
-			config.ToolsDownloaderFunc,
+			config.ToolsDownloader,
 			config.Resources,
 			config.ResourceDownloader,
 		)
@@ -1419,9 +1408,9 @@ func nullUploadBinaries(migration.UploadBinariesConfig) error {
 	panic("should not get called")
 }
 
-var fakeCharmDownloader = charms.NewCharmStreamer(nil)
+var fakeCharmDownloader = struct{ migration.CharmDownloader }{}
 
-var fakeToolsDownloader = apihttp.NewURIOpener(nil)
+var fakeToolsDownloader = struct{ migration.ToolsDownloader }{}
 
 func joinCalls(allCalls ...[]jujutesting.StubCall) (out []jujutesting.StubCall) {
 	for _, calls := range allCalls {

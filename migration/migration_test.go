@@ -21,8 +21,6 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	coremigration "github.com/juju/juju/core/migration"
@@ -143,21 +141,21 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 
 	check := func(modify func(*T), missing string) {
 		config := T{
-			CharmStreamerFunc:   charms.NewCharmStreamer(nil),
-			CharmUploader:       struct{ migration.CharmUploader }{},
-			ToolsDownloaderFunc: http.NewURIOpener(nil),
-			ToolsUploader:       struct{ migration.ToolsUploader }{},
-			ResourceDownloader:  struct{ migration.ResourceDownloader }{},
-			ResourceUploader:    struct{ migration.ResourceUploader }{},
+			CharmDownloader:    struct{ migration.CharmDownloader }{},
+			CharmUploader:      struct{ migration.CharmUploader }{},
+			ToolsDownloader:    struct{ migration.ToolsDownloader }{},
+			ToolsUploader:      struct{ migration.ToolsUploader }{},
+			ResourceDownloader: struct{ migration.ResourceDownloader }{},
+			ResourceUploader:   struct{ migration.ResourceUploader }{},
 		}
 		modify(&config)
 		realConfig := migration.UploadBinariesConfig(config)
 		c.Check(realConfig.Validate(), gc.ErrorMatches, fmt.Sprintf("missing %s not valid", missing))
 	}
 
-	check(func(c *T) { c.CharmStreamerFunc = nil }, "CharmStreamerFunc")
+	check(func(c *T) { c.CharmDownloader = nil }, "CharmDownloader")
 	check(func(c *T) { c.CharmUploader = nil }, "CharmUploader")
-	check(func(c *T) { c.ToolsDownloaderFunc = nil }, "ToolsDownloaderFunc")
+	check(func(c *T) { c.ToolsDownloader = nil }, "ToolsDownloader")
 	check(func(c *T) { c.ToolsUploader = nil }, "ToolsUploader")
 	check(func(c *T) { c.ResourceDownloader = nil }, "ResourceDownloader")
 	check(func(c *T) { c.ResourceUploader = nil }, "ResourceUploader")
@@ -196,14 +194,14 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 			"local:trusty/magic-2",
 			"cs:trusty/postgresql-42",
 		},
-		CharmStreamerFunc:   downloader.CharmStreamer(),
-		CharmUploader:       uploader,
-		Tools:               toolsMap,
-		ToolsDownloaderFunc: downloader.URIOpener(),
-		ToolsUploader:       uploader,
-		Resources:           resources,
-		ResourceDownloader:  downloader,
-		ResourceUploader:    uploader,
+		CharmDownloader:    downloader,
+		CharmUploader:      uploader,
+		Tools:              toolsMap,
+		ToolsDownloader:    downloader,
+		ToolsUploader:      uploader,
+		Resources:          resources,
+		ResourceDownloader: downloader,
+		ResourceUploader:   uploader,
 	}
 	err := migration.UploadBinaries(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,13 +239,13 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 	}
 
 	config := migration.UploadBinariesConfig{
-		Charms:              []string{"local:foo/bar-2"},
-		CharmStreamerFunc:   downloader.CharmStreamer(),
-		CharmUploader:       uploader,
-		ToolsDownloaderFunc: downloader.URIOpener(),
-		ToolsUploader:       uploader,
-		ResourceDownloader:  downloader,
-		ResourceUploader:    uploader,
+		Charms:             []string{"local:foo/bar-2"},
+		CharmDownloader:    downloader,
+		CharmUploader:      uploader,
+		ToolsDownloader:    downloader,
+		ToolsUploader:      uploader,
+		ResourceDownloader: downloader,
+		ResourceUploader:   uploader,
 	}
 	err := migration.UploadBinaries(config)
 	c.Assert(err, gc.ErrorMatches,
@@ -260,24 +258,20 @@ type fakeDownloader struct {
 	resources []string
 }
 
-func (d *fakeDownloader) CharmStreamer() charms.CharmStreamerFunc {
-	return func(curl *charm.URL) (io.ReadCloser, error) {
-		urlStr := curl.String()
-		d.charms = append(d.charms, urlStr)
-		// Return the charm URL string as the fake charm content
-		return ioutil.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
-	}
+func (d *fakeDownloader) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
+	urlStr := curl.String()
+	d.charms = append(d.charms, urlStr)
+	// Return the charm URL string as the fake charm content
+	return ioutil.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
 }
 
-func (d *fakeDownloader) URIOpener() http.OpenURIFunc {
-	return func(uri string, query url.Values) (io.ReadCloser, error) {
-		if query != nil {
-			panic("query should be empty")
-		}
-		d.uris = append(d.uris, uri)
-		// Return the URI string as fake content
-		return ioutil.NopCloser(bytes.NewReader([]byte(uri))), nil
+func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
+	if query != nil {
+		panic("query should be empty")
 	}
+	d.uris = append(d.uris, uri)
+	// Return the URI string as fake content
+	return ioutil.NopCloser(bytes.NewReader([]byte(uri))), nil
 }
 
 func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {

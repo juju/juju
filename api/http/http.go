@@ -26,39 +26,51 @@ type HTTPDoer interface {
 	Do(context context.Context, req *http.Request, resp interface{}) error
 }
 
-// OpenURIFunc returns a reader for the blob at the specified uri.
-type OpenURIFunc func(uri string, query url.Values) (io.ReadCloser, error)
+// URIOpener provides the OpenURI method.
+type URIOpener interface {
+	OpenURI(uri string, query url.Values) (io.ReadCloser, error)
+}
 
-// NewURIOpener returns a URI opener func for the api caller.
-func NewURIOpener(apiCaller base.APICaller) OpenURIFunc {
-	return func(uri string, query url.Values) (io.ReadCloser, error) {
-		return OpenURI(apiCaller, uri, query)
-	}
+type uriOpener struct {
+	ctx        context.Context
+	httpClient HTTPDoer
 }
 
 // OpenURI performs a GET on a Juju HTTP endpoint returning the specified blob.
-func OpenURI(apiCaller base.APICaller, uri string, query url.Values) (io.ReadCloser, error) {
-	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := apiCaller.HTTPClient()
+func (o *uriOpener) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
+	return OpenURI(o.ctx, o.httpClient, uri, query)
+}
+
+// NewURIOpener returns a URI opener for the api caller.
+func NewURIOpener(apiConn base.APICaller) (URIOpener, error) {
+	httpClient, err := apiConn.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	blob, err := openBlob(apiCaller.Context(), httpClient, uri, query)
+	return &uriOpener{
+		ctx:        apiConn.Context(),
+		httpClient: httpClient,
+	}, nil
+}
+
+// OpenURI performs a GET on a Juju HTTP endpoint returning the specified blob.
+func OpenURI(ctx context.Context, httpClient HTTPDoer, uri string, query url.Values) (io.ReadCloser, error) {
+	blob, err := openBlobReader(ctx, httpClient, uri, query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return blob, nil
 }
 
-// openBlob streams the identified blob from the controller via the
+// openBlobReader streams the identified blob from the controller via the
 // provided HTTP client.
-func openBlob(ctx context.Context, httpClient HTTPDoer, endpoint string, args url.Values) (io.ReadCloser, error) {
+func openBlobReader(ctx context.Context, httpClient HTTPDoer, endpoint string, args url.Values) (io.ReadCloser, error) {
 	apiURL, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	apiURL.RawQuery = args.Encode()
-	req, err := http.NewRequest("GET", apiURL.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, apiURL.String(), nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create HTTP request")
 	}

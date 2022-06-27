@@ -13,9 +13,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/httprequest.v1"
 
-	basemocks "github.com/juju/juju/api/base/mocks"
 	apihttp "github.com/juju/juju/api/http"
 	"github.com/juju/juju/api/http/mocks"
 )
@@ -26,29 +24,44 @@ type httpSuite struct {
 
 var _ = gc.Suite(&httpSuite{})
 
+type uriMatcher struct {
+	expectedURL string
+}
+
+func (m uriMatcher) Matches(x interface{}) bool {
+	req, ok := x.(*http.Request)
+	if !ok {
+		return false
+	}
+	if req.URL.String() != m.expectedURL {
+		return false
+	}
+	return true
+}
+
+func (uriMatcher) String() string {
+	return "matches charm upload requests"
+}
+
 func (s *httpSuite) TestOpenURI(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	apiCaller := basemocks.NewMockAPICaller(ctrl)
-	mockHttp := mocks.NewMockHTTPClient(ctrl)
-	reqClient := &httprequest.Client{
-		BaseURL: "http://somewhere.invalid",
-		Doer:    mockHttp,
-	}
-	apiCaller.EXPECT().Context().Return(context.TODO())
-	apiCaller.EXPECT().HTTPClient().Return(reqClient, nil)
-	resp := &http.Response{
+	mockHttp := mocks.NewMockHTTPDoer(ctrl)
+	resultResp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
 		Body:       ioutil.NopCloser(strings.NewReader("2.6.6-ubuntu-amd64")),
 	}
-	resp.Header.Add("Content-Type", "application/json")
-	mockHttp.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
-		return resp, nil
+	resultResp.Header.Add("Content-Type", "application/json")
+	ctx := context.TODO()
+	mockHttp.EXPECT().Do(ctx, &uriMatcher{"/tools/2.6.6-ubuntu-amd64"}, gomock.Any()).DoAndReturn(func(_ context.Context, _ *http.Request, resp interface{}) error {
+		out := resp.(**http.Response)
+		*out = resultResp
+		return nil
 	})
 
-	reader, err := apihttp.OpenURI(apiCaller, "/tools/2.6.6-ubuntu-amd64", nil)
+	reader, err := apihttp.OpenURI(ctx, mockHttp, "/tools/2.6.6-ubuntu-amd64", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 

@@ -6,6 +6,7 @@ package migration
 import (
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 
 	"github.com/juju/charm/v8"
@@ -15,8 +16,6 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/http"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
@@ -94,10 +93,22 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 	return dbModel, dbState, nil
 }
 
+// CharmDownloader defines a single method that is used to download a
+// charm from the source controller in a migration.
+type CharmDownloader interface {
+	OpenCharm(*charm.URL) (io.ReadCloser, error)
+}
+
 // CharmUploader defines a single method that is used to upload a
 // charm to the target controller in a migration.
 type CharmUploader interface {
 	UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error)
+}
+
+// ToolsDownloader defines a single method that is used to download
+// tools from the source controller in a migration.
+type ToolsDownloader interface {
+	OpenURI(string, url.Values) (io.ReadCloser, error)
 }
 
 // ToolsUploader defines a single method that is used to upload tools
@@ -124,13 +135,13 @@ type ResourceUploader interface {
 // UploadBinaries function needs to operate. To construct the config
 // with the default helper functions, use `NewUploadBinariesConfig`.
 type UploadBinariesConfig struct {
-	Charms            []string
-	CharmStreamerFunc charms.CharmStreamerFunc
-	CharmUploader     CharmUploader
+	Charms          []string
+	CharmDownloader CharmDownloader
+	CharmUploader   CharmUploader
 
-	Tools               map[version.Binary]string
-	ToolsDownloaderFunc http.OpenURIFunc
-	ToolsUploader       ToolsUploader
+	Tools           map[version.Binary]string
+	ToolsDownloader ToolsDownloader
+	ToolsUploader   ToolsUploader
 
 	Resources          []migration.SerializedModelResource
 	ResourceDownloader ResourceDownloader
@@ -139,14 +150,14 @@ type UploadBinariesConfig struct {
 
 // Validate makes sure that all the config values are non-nil.
 func (c *UploadBinariesConfig) Validate() error {
-	if c.CharmStreamerFunc == nil {
-		return errors.NotValidf("missing CharmStreamerFunc")
+	if c.CharmDownloader == nil {
+		return errors.NotValidf("missing CharmDownloader")
 	}
 	if c.CharmUploader == nil {
 		return errors.NotValidf("missing CharmUploader")
 	}
-	if c.ToolsDownloaderFunc == nil {
-		return errors.NotValidf("missing ToolsDownloaderFunc")
+	if c.ToolsDownloader == nil {
+		return errors.NotValidf("missing ToolsDownloader")
 	}
 	if c.ToolsUploader == nil {
 		return errors.NotValidf("missing ToolsUploader")
@@ -219,7 +230,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 			return errors.Annotate(err, "bad charm URL")
 		}
 
-		reader, err := config.CharmStreamerFunc(curl)
+		reader, err := config.CharmDownloader.OpenCharm(curl)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -245,7 +256,7 @@ func uploadTools(config UploadBinariesConfig) error {
 	for v, uri := range config.Tools {
 		logger.Debugf("sending agent binaries to target: %s", v)
 
-		reader, err := config.ToolsDownloaderFunc(uri, nil)
+		reader, err := config.ToolsDownloader.OpenURI(uri, nil)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
