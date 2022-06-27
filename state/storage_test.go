@@ -458,6 +458,7 @@ var _ = gc.Suite(&StorageStateSuite{})
 
 func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
+	st.Close()
 	defer st.Close()
 	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-block")
 	_, err := st.AddApplication(state.AddApplicationArgs{

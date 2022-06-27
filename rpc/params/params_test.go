@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -53,7 +52,7 @@ var marshalTestCases = []struct {
 			Life:                    life.Alive,
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXD},
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Jobs:                    []model.MachineJob{"JobManageModel"},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
