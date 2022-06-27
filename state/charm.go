@@ -772,8 +772,9 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	return charms, errors.Trace(iter.Close())
 }
 
-// Charm returns the charm with the given URL. Charm placeholders are never
-// returned, but charms pending to be uploaded are returned.
+// Charm returns the charm with the given URL. Charms pending to be uploaded
+// are returned for Charmhub charms (but not Charmstore ones). Charm
+// placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	var cdoc charmDoc
 
@@ -791,6 +792,10 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
+	}
+
+	if cdoc.PendingUpload && curl.Schema != "ch" {
+		return nil, errors.NotFoundf("charm %q", curl.String())
 	}
 
 	return newCharm(st, &cdoc), nil
