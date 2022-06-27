@@ -20,15 +20,12 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
@@ -37,7 +34,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.client")
@@ -258,108 +254,6 @@ func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
 	return result, nil
 }
 
-// Resolved implements the server side of Client.Resolved.
-func (c *Client) Resolved(p params.Resolved) error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	unit, err := c.api.stateAccessor.Unit(p.UnitName)
-	if err != nil {
-		return err
-	}
-	return unit.Resolve(p.Retry)
-}
-
-// ModelInfo returns information about the current model.
-func (c *Client) ModelInfo() (params.ModelInfo, error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.ModelInfo{}, err
-	}
-	state := c.api.stateAccessor
-	conf, err := state.ModelConfig()
-	if err != nil {
-		return params.ModelInfo{}, err
-	}
-	model, err := state.Model()
-	if err != nil {
-		return params.ModelInfo{}, err
-	}
-
-	info := params.ModelInfo{
-		DefaultSeries:  config.PreferredSeries(conf),
-		CloudTag:       names.NewCloudTag(model.CloudName()).String(),
-		CloudRegion:    model.CloudRegion(),
-		ProviderType:   conf.Type(),
-		Name:           conf.Name(),
-		Type:           string(model.Type()),
-		UUID:           model.UUID(),
-		OwnerTag:       model.Owner().String(),
-		Life:           life.Value(model.Life().String()),
-		ControllerUUID: state.ControllerTag().String(),
-		IsController:   state.IsController(),
-	}
-	if agentVersion, exists := conf.AgentVersion(); exists {
-		info.AgentVersion = &agentVersion
-	}
-	if tag, ok := model.CloudCredentialTag(); ok {
-		info.CloudCredentialTag = tag.String()
-	}
-	info.SLA = &params.ModelSLAInfo{
-		Level: model.SLALevel(),
-		Owner: model.SLAOwner(),
-	}
-	return info, nil
-}
-
-func modelInfo(st *state.State, user permission.UserAccess) (params.ModelUserInfo, error) {
-	model, err := st.Model()
-	if err != nil {
-		return params.ModelUserInfo{}, errors.Trace(err)
-	}
-	return common.ModelUserInfo(user, model)
-}
-
-// ModelUserInfo returns information on all users in the model.
-func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
-	var results params.ModelUserInfoResults
-	if err := c.checkCanRead(); err != nil {
-		return results, err
-	}
-
-	model, err := c.api.stateAccessor.Model()
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	users, err := model.Users()
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-
-	for _, user := range users {
-		var result params.ModelUserInfoResult
-		userInfo, err := modelInfo(c.api.state(), user)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-		} else {
-			result.Result = &userInfo
-		}
-		results.Results = append(results.Results, result)
-	}
-	return results, nil
-}
-
-// AgentVersion returns the current version that the API server is running.
-func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.AgentVersionResult{}, err
-	}
-
-	return params.AgentVersionResult{Version: jujuversion.Current}, nil
-}
-
 // SetModelAgentVersion sets the model agent version.
 func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err := c.checkCanWrite(); err != nil {
@@ -577,40 +471,6 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		result.List = append(result.List, &tools)
 	}
 	return result, nil
-}
-
-// APIHostPorts returns the API host/port addresses stored in state.
-func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
-	if err := c.checkCanWrite(); err != nil {
-		return result, err
-	}
-
-	ctrlSt, err := c.api.pool.SystemState()
-	if err != nil {
-		return result, err
-	}
-	servers, err := ctrlSt.APIHostPortsForClients()
-	if err != nil {
-		return result, err
-	}
-
-	pServers := make([]network.HostPorts, len(servers))
-	for i, hps := range servers {
-		pServers[i] = hps.HostPorts()
-	}
-
-	result.Servers = params.FromHostsPorts(pServers)
-	return result, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (c *Client) CACert() (params.BytesResult, error) {
-	cfg, err := c.api.stateAccessor.ControllerConfig()
-	if err != nil {
-		return params.BytesResult{}, errors.Trace(err)
-	}
-	caCert, _ := cfg.CACert()
-	return params.BytesResult{Result: []byte(caCert)}, nil
 }
 
 // NOTE: this is necessary for the other packages that do upgrade tests.

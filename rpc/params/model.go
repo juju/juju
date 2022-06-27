@@ -359,6 +359,7 @@ type ModelFilesystemInfo struct {
 // model. Owners of a model can see this information for all users
 // who have access, so it should not include sensitive information.
 type ModelUserInfo struct {
+	ModelTag       string               `json:"model-tag"`
 	UserName       string               `json:"user"`
 	DisplayName    string               `json:"display-name"`
 	LastConnection *time.Time           `json:"last-connection"`

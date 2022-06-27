@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -21,9 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
 )
@@ -103,43 +99,6 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	return history, nil
 }
 
-// Resolved clears errors on a unit.
-func (c *Client) Resolved(unit string, retry bool) error {
-	p := params.Resolved{
-		UnitName: unit,
-		Retry:    retry,
-	}
-	return c.facade.FacadeCall("Resolved", p, nil)
-}
-
-// ModelUUID returns the model UUID from the client connection
-// and reports whether it is valued.
-func (c *Client) ModelUUID() (string, bool) {
-	tag, ok := c.conn.ModelTag()
-	if !ok {
-		return "", false
-	}
-	return tag.Id(), true
-}
-
-// ModelUserInfo returns information on all users in the model.
-func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
-	var results params.ModelUserInfoResults
-	err := c.facade.FacadeCall("ModelUserInfo", nil, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	info := []params.ModelUserInfo{}
-	for i, result := range results.Results {
-		if result.Result == nil {
-			return nil, errors.Errorf("unexpected nil result at position %d", i)
-		}
-		info = append(info, *result.Result)
-	}
-	return info, nil
-}
-
 // WatchAll returns an AllWatcher, from which you can request the Next
 // collection of Deltas.
 func (c *Client) WatchAll() (*api.AllWatcher, error) {
@@ -201,63 +160,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, osType, arch, agentSt
 	return result, err
 }
 
-// OpenCharm streams out the identified charm from the controller via
-// the API.
-func (c *Client) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
-	return c.OpenURI(openCharmArgs(curl))
-}
-
-// OpenCharm streams out the identified charm from the controller via
-// the API.
-func OpenCharm(apiCaller base.APICaller, curl *charm.URL) (io.ReadCloser, error) {
-	uri, query := openCharmArgs(curl)
-	return openURI(apiCaller, uri, query)
-}
-
-func openCharmArgs(curl *charm.URL) (string, url.Values) {
-	query := make(url.Values)
-	query.Add("url", curl.String())
-	query.Add("file", "*")
-	return "/charms", query
-}
-
-// OpenURI performs a GET on a Juju HTTP endpoint returning the
-func (c *Client) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
-	return openURI(c.conn, uri, query)
-}
-
-func openURI(apiCaller base.APICaller, uri string, query url.Values) (io.ReadCloser, error) {
-	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := apiCaller.HTTPClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	blob, err := openBlob(apiCaller.Context(), httpClient, uri, query)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return blob, nil
-}
-
-// NewCharmDownloader returns a new charm downloader that wraps the
-// provided API caller.
-func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
-	dlr := &downloader.Downloader{
-		OpenBlob: func(url *url.URL) (io.ReadCloser, error) {
-			curl, err := charm.ParseURL(url.String())
-			if err != nil {
-				return nil, errors.Annotate(err, "did not receive a valid charm URL")
-			}
-			reader, err := OpenCharm(apiCaller, curl)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return reader, nil
-		},
-	}
-	return dlr
-}
-
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
 func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
 	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
@@ -286,24 +188,6 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// APIHostPorts returns a slice of network.MachineHostPort for each API server.
-func (c *Client) APIHostPorts() ([]network.MachineHostPorts, error) {
-	var result params.APIHostPortsResult
-	if err := c.facade.FacadeCall("APIHostPorts", nil, &result); err != nil {
-		return nil, err
-	}
-	return result.MachineHostsPorts(), nil
-}
-
-// AgentVersion reports the version number of the api server.
-func (c *Client) AgentVersion() (version.Number, error) {
-	var result params.AgentVersionResult
-	if err := c.facade.FacadeCall("AgentVersion", nil, &result); err != nil {
-		return version.Number{}, err
-	}
-	return result.Version, nil
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries

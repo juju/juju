@@ -5,7 +5,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -223,11 +222,4 @@ func bakeryError(err error) error {
 		bakeryErr.Info.Macaroon = dcMac
 	}
 	return bakeryErr
-}
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination base/mocks/httpdoer_mock.go github.com/juju/juju/api HTTPDoer
-// HTTPDoer exposes the functionality of httprequest.Client needed here.
-type HTTPDoer interface {
-	// Do sends the given request.
-	Do(context context.Context, req *http.Request, resp interface{}) error
 }

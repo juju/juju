@@ -29,7 +29,7 @@ var _ = gc.Suite(&ResolvedSuite{})
 
 func (s *ResolvedSuite) runResolved(c *gc.C, args []string) error {
 	store := jujuclienttesting.MinimalStore()
-	cmd := application.NewResolvedCommandForTest(s.mockAPI, s.mockAPI, store)
+	cmd := application.NewResolvedCommandForTest(s.mockAPI, store)
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
@@ -90,10 +90,5 @@ func (s mockResolveAPI) Close() error {
 
 func (s mockResolveAPI) ResolveUnitErrors(units []string, all, retry bool) error {
 	s.MethodCall(s, "ResolveUnitErrors", units, all, retry)
-	return nil
-}
-
-func (s mockResolveAPI) Resolved(unit string, retry bool) error {
-	s.MethodCall(s, "Resolved", unit, retry)
 	return nil
 }

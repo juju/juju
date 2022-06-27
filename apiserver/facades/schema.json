@@ -15630,36 +15630,9 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "APIHostPorts": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/APIHostPortsResult"
-                        }
-                    },
-                    "description": "APIHostPorts returns the API host/port addresses stored in state."
-                },
                 "AbortCurrentUpgrade": {
                     "type": "object",
                     "description": "AbortCurrentUpgrade aborts and archives the current upgrade\nsynchronisation record, if any."
-                },
-                "AgentVersion": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/AgentVersionResult"
-                        }
-                    },
-                    "description": "AgentVersion returns the current version that the API server is running."
-                },
-                "CACert": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/BytesResult"
-                        }
-                    },
-                    "description": "CACert returns the certificate used to validate the state connection."
                 },
                 "FindTools": {
                     "type": "object",
@@ -15684,33 +15657,6 @@
                         }
                     },
                     "description": "FullStatus gives the information needed for juju status over the api"
-                },
-                "ModelInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelInfo"
-                        }
-                    },
-                    "description": "ModelInfo returns information about the current model."
-                },
-                "ModelUserInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelUserInfoResults"
-                        }
-                    },
-                    "description": "ModelUserInfo returns information on all users in the model."
-                },
-                "Resolved": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Resolved"
-                        }
-                    },
-                    "description": "Resolved implements the server side of Client.Resolved."
                 },
                 "SetModelAgentVersion": {
                     "type": "object",
@@ -15744,71 +15690,6 @@
                 }
             },
             "definitions": {
-                "APIHostPortsResult": {
-                    "type": "object",
-                    "properties": {
-                        "servers": {
-                            "type": "array",
-                            "items": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/HostPort"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "servers"
-                    ]
-                },
-                "Address": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "config-type": {
-                            "type": "string"
-                        },
-                        "is-secondary": {
-                            "type": "boolean"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "space-id": {
-                            "type": "string"
-                        },
-                        "space-name": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "type",
-                        "scope"
-                    ]
-                },
-                "AgentVersionResult": {
-                    "type": "object",
-                    "properties": {
-                        "version": {
-                            "$ref": "#/definitions/Number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "version"
-                    ]
-                },
                 "AllWatcherId": {
                     "type": "object",
                     "properties": {
@@ -16043,21 +15924,6 @@
                         "created-by"
                     ]
                 },
-                "BytesResult": {
-                    "type": "object",
-                    "properties": {
-                        "result": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
                 "DetailedStatus": {
                     "type": "object",
                     "properties": {
@@ -16126,36 +15992,6 @@
                         "name",
                         "role",
                         "subordinate"
-                    ]
-                },
-                "EntityStatus": {
-                    "type": "object",
-                    "properties": {
-                        "data": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "info": {
-                            "type": "string"
-                        },
-                        "since": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "status": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "status",
-                        "info",
-                        "since"
                     ]
                 },
                 "Error": {
@@ -16342,49 +16178,6 @@
                         "statuses"
                     ]
                 },
-                "HostPort": {
-                    "type": "object",
-                    "properties": {
-                        "Address": {
-                            "$ref": "#/definitions/Address"
-                        },
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "config-type": {
-                            "type": "string"
-                        },
-                        "is-secondary": {
-                            "type": "boolean"
-                        },
-                        "port": {
-                            "type": "integer"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "space-id": {
-                            "type": "string"
-                        },
-                        "space-name": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "type",
-                        "scope",
-                        "Address",
-                        "port"
-                    ]
-                },
                 "LXDProfile": {
                     "type": "object",
                     "properties": {
@@ -16419,36 +16212,6 @@
                         "description",
                         "devices"
                     ]
-                },
-                "MachineHardware": {
-                    "type": "object",
-                    "properties": {
-                        "arch": {
-                            "type": "string"
-                        },
-                        "availability-zone": {
-                            "type": "string"
-                        },
-                        "cores": {
-                            "type": "integer"
-                        },
-                        "cpu-power": {
-                            "type": "integer"
-                        },
-                        "mem": {
-                            "type": "integer"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "MachineStatus": {
                     "type": "object",
@@ -16566,168 +16329,6 @@
                         "message"
                     ]
                 },
-                "ModelInfo": {
-                    "type": "object",
-                    "properties": {
-                        "agent-version": {
-                            "$ref": "#/definitions/Number"
-                        },
-                        "cloud-credential-tag": {
-                            "type": "string"
-                        },
-                        "cloud-credential-validity": {
-                            "type": "boolean"
-                        },
-                        "cloud-region": {
-                            "type": "string"
-                        },
-                        "cloud-tag": {
-                            "type": "string"
-                        },
-                        "controller-uuid": {
-                            "type": "string"
-                        },
-                        "default-series": {
-                            "type": "string"
-                        },
-                        "is-controller": {
-                            "type": "boolean"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "machines": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ModelMachineInfo"
-                            }
-                        },
-                        "migration": {
-                            "$ref": "#/definitions/ModelMigrationStatus"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "owner-tag": {
-                            "type": "string"
-                        },
-                        "provider-type": {
-                            "type": "string"
-                        },
-                        "sla": {
-                            "$ref": "#/definitions/ModelSLAInfo"
-                        },
-                        "status": {
-                            "$ref": "#/definitions/EntityStatus"
-                        },
-                        "supported-features": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SupportedFeature"
-                            }
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "users": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ModelUserInfo"
-                            }
-                        },
-                        "uuid": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "type",
-                        "uuid",
-                        "controller-uuid",
-                        "is-controller",
-                        "cloud-tag",
-                        "owner-tag",
-                        "life",
-                        "users",
-                        "machines",
-                        "sla",
-                        "agent-version"
-                    ]
-                },
-                "ModelMachineInfo": {
-                    "type": "object",
-                    "properties": {
-                        "display-name": {
-                            "type": "string"
-                        },
-                        "ha-primary": {
-                            "type": "boolean"
-                        },
-                        "hardware": {
-                            "$ref": "#/definitions/MachineHardware"
-                        },
-                        "has-vote": {
-                            "type": "boolean"
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "instance-id": {
-                            "type": "string"
-                        },
-                        "message": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "wants-vote": {
-                            "type": "boolean"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "id"
-                    ]
-                },
-                "ModelMigrationStatus": {
-                    "type": "object",
-                    "properties": {
-                        "end": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "start": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "status": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "status",
-                        "start"
-                    ]
-                },
-                "ModelSLAInfo": {
-                    "type": "object",
-                    "properties": {
-                        "level": {
-                            "type": "string"
-                        },
-                        "owner": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "level",
-                        "owner"
-                    ]
-                },
                 "ModelStatusInfo": {
                     "type": "object",
                     "properties": {
@@ -16769,58 +16370,6 @@
                         "model-status",
                         "meter-status",
                         "sla"
-                    ]
-                },
-                "ModelUserInfo": {
-                    "type": "object",
-                    "properties": {
-                        "access": {
-                            "type": "string"
-                        },
-                        "display-name": {
-                            "type": "string"
-                        },
-                        "last-connection": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "user": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "user",
-                        "display-name",
-                        "last-connection",
-                        "access"
-                    ]
-                },
-                "ModelUserInfoResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/ModelUserInfo"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ModelUserInfoResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ModelUserInfoResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "NetworkInterface": {
@@ -16991,22 +16540,6 @@
                         "limit"
                     ]
                 },
-                "Resolved": {
-                    "type": "object",
-                    "properties": {
-                        "retry": {
-                            "type": "boolean"
-                        },
-                        "unit-name": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "unit-name",
-                        "retry"
-                    ]
-                },
                 "SetModelAgentVersion": {
                     "type": "object",
                     "properties": {
@@ -17135,25 +16668,6 @@
                     "additionalProperties": false,
                     "required": [
                         "patterns"
-                    ]
-                },
-                "SupportedFeature": {
-                    "type": "object",
-                    "properties": {
-                        "description": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "version": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "description"
                     ]
                 },
                 "Tools": {
@@ -32158,12 +31672,16 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "model-tag": {
+                            "type": "string"
+                        },
                         "user": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "model-tag",
                         "user",
                         "display-name",
                         "last-connection",
@@ -48446,7 +47964,7 @@
     {
         "Name": "UserManager",
         "Description": "UserManagerAPI implements the user manager interface and is the concrete\nimplementation of the api end point.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-user"
         ],
@@ -48488,6 +48006,18 @@
                         }
                     },
                     "description": "EnableUser enables one or more users.  If the user is already enabled,\nthe action is considered a success."
+                },
+                "ModelUserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ModelUserInfoResults"
+                        }
+                    },
+                    "description": "ModelUserInfo returns information on all users in the model."
                 },
                 "RemoveUser": {
                     "type": "object",
@@ -48705,6 +48235,62 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ModelUserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "access": {
+                            "type": "string"
+                        },
+                        "display-name": {
+                            "type": "string"
+                        },
+                        "last-connection": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "user": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "user",
+                        "display-name",
+                        "last-connection",
+                        "access"
+                    ]
+                },
+                "ModelUserInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/ModelUserInfo"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ModelUserInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelUserInfoResult"
                             }
                         }
                     },
