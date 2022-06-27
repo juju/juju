@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -574,7 +575,9 @@ func (s *MachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc
 func (s *MachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.st.machines["0"] = &mockMachine{containers: []string{"0/lxd/0"}}
+	s.leadership.EXPECT().GetMachineApplicationNames("0").Return([]string{"foo-app-1"}, nil)
+
+	s.st.machines["0"] = &mockMachine{id: "0", containers: []string{"0/lxd/0"}}
 	s.st.machines["0/lxd/0"] = &mockMachine{}
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
 		Force:       false,
@@ -583,7 +586,7 @@ func (s *MachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
-			Error: apiservererrors.ServerError(errors.New("machine 0 has container machine(s) \"0/lxd/0\"")),
+			Error: apiservererrors.ServerError(stateerrors.NewHasContainersError("0", []string{"0/lxd/0"})),
 		}},
 	})
 }
@@ -1283,6 +1286,12 @@ func (m *mockMachine) Tag() names.Tag {
 
 func (m *mockMachine) Destroy() error {
 	m.MethodCall(m, "Destroy")
+	if len(m.containers) > 0 {
+		return stateerrors.NewHasContainersError(m.id, m.containers)
+	}
+	if len(m.units) > 0 {
+		return stateerrors.NewHasAssignedUnitsError(m.id, m.units)
+	}
 	return nil
 }
 
