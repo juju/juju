@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
 	"github.com/juju/txn/v2"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/modelmanager/upgradevalidation"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
@@ -42,6 +40,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 var (
@@ -138,40 +137,6 @@ type ModelManagerV2 interface {
 }
 
 type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
-
-// StatePool represents a point of use interface for getting the state from the
-// pool.
-type StatePool interface {
-	Get(string) (State, error)
-	MongoVersion() (string, error)
-}
-
-// State represents a point of use interface for modelling a current model.
-type State interface {
-	Model() (Model, error)
-	HasUpgradeSeriesLocks() (bool, error)
-	Release() bool
-	AllModelUUIDs() ([]string, error)
-	MachineCountForSeries(series ...string) (int, error)
-	// MongoSession() MongoSession
-	MongoCurrentStatus() (*replicaset.Status, error)
-	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
-	AbortCurrentUpgrade() error
-}
-
-// // MongoSession provides a way to get the status for the mongo replicaset.
-// type MongoSession interface {
-// 	CurrentStatus() (*replicaset.Status, error)
-// }
-
-// Model defines a point of use interface for the model from state.
-type Model interface {
-	IsControllerModel() bool
-	AgentVersion() (version.Number, error)
-	Owner() names.UserTag
-	Name() string
-	MigrationMode() state.MigrationMode
-}
 
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.

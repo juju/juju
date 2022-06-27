@@ -15,11 +15,11 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/modelmanager/upgradevalidation"
-	"github.com/juju/juju/apiserver/facades/client/modelmanager/upgradevalidation/mocks"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/upgrades/upgradevalidation"
+	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
 var _ = gc.Suite(&upgradeValidationSuite{})
@@ -222,10 +222,7 @@ func (s *upgradeValidationSuite) TestCheckMongoStatusForControllerUpgrade(c *gc.
 	defer ctrl.Finish()
 
 	state := mocks.NewMockState(ctrl)
-	// session := mocks.NewMockMongoSession(ctrl)
 	gomock.InOrder(
-		// state.EXPECT().MongoSession().Return(session),
-		// session.EXPECT().CurrentStatus().Return(&replicaset.Status{
 		state.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 			Members: []replicaset.MemberStatus{
 				{
@@ -245,8 +242,6 @@ func (s *upgradeValidationSuite) TestCheckMongoStatusForControllerUpgrade(c *gc.
 				},
 			},
 		}, nil),
-		// state.EXPECT().MongoSession().Return(session),
-		// session.EXPECT().CurrentStatus().Return(&replicaset.Status{
 		state.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 			Members: []replicaset.MemberStatus{
 				{
