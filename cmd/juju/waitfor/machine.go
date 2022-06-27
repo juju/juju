@@ -36,7 +36,7 @@ func newMachineCommand() cmd.Command {
 }
 
 const machineCommandDoc = `
-Wait for a given machine to reach a goal state.
+Waits for a machine to reach a specified state.
 
 arguments:
 name
@@ -44,7 +44,7 @@ name
 
 options:
 --query (= 'life=="alive" && status=="started")
-   query represents the goal state of a given machine
+   query represents the sought state of the specified machine
 `
 
 // machineCommand defines a command for waiting for models.
@@ -65,7 +65,7 @@ func (c *machineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "machine",
 		Args:    "[<id>]",
-		Purpose: "wait for an machine to reach a goal state",
+		Purpose: "Wait for a machine to reach a specified state.",
 		Doc:     machineCommandDoc,
 	})
 }

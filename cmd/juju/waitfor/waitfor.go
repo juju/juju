@@ -13,7 +13,8 @@ import (
 var logger = loggo.GetLogger("juju.plugins.waitfor")
 
 var waitForDoc = `
-Juju wait-for attempts to wait for a given entity to reach a goal state.
+Waits for a specified model, machine, application or unit to reach a state
+defined by the supplied query.
 `
 
 // NewWaitForCommand creates the wait-for supercommand and registers the
@@ -23,7 +24,7 @@ func NewWaitForCommand() cmd.Command {
 		Name:        "wait-for",
 		UsagePrefix: "juju",
 		Doc:         waitForDoc,
-		Purpose:     "tools for generating and validating image and tools metadata"})
+		Purpose:     "Wait for an entity to reach a specified state."})
 
 	waitFor.Register(newApplicationCommand())
 	waitFor.Register(newMachineCommand())

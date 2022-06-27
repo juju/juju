@@ -37,13 +37,13 @@ func newApplicationCommand() cmd.Command {
 }
 
 const applicationCommandDoc = `
-Wait for a given application to reach a goal state.
+Waits for an application to reach a specified state.
 arguments:
 name
    application name identifier
 options:
 --query (= 'life=="alive" && status=="active"')
-   query represents the goal state of a given application
+   query represents the sought state of the specified application
 `
 
 // applicationCommand defines a command for waiting for applications.
@@ -65,7 +65,7 @@ func (c *applicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "application",
 		Args:    "[<name>]",
-		Purpose: "wait for an application to reach a goal state",
+		Purpose: "Wait for an application to reach a specified state.",
 		Doc:     applicationCommandDoc,
 	})
 }
