@@ -149,7 +149,7 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 }
 
 func (a *deployAPIAdapter) GetModelConstraints() (constraints.Value, error) {
-	if a.modelConfigAPIVersion < 2 {
+	if a.modelConfigAPIVersion > 2 {
 		return a.modelConfigClient.GetModelConstraints()
 	}
 	return a.legacyClient.GetModelConstraints()
