@@ -995,16 +995,10 @@ func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, la
 func (ctx *HookContext) AddServiceLocator(args params.AddServiceLocators) error {
 
 	for _, sl := range args.ServiceLocators {
-		ctx.logger.Infof("Service Locator ID = %s", sl.ServiceLocatorUUID)
-		ctx.logger.Infof("Service Locator Name = %s", sl.Name)
-		ctx.logger.Infof("Service Locator Type = %s", sl.Type)
-		ctx.logger.Infof("Service Locator UnitId = %s", sl.UnitId)
-		ctx.logger.Infof("Service Locator ConsumerUnitId = %s", sl.ConsumerUnitId)
-		ctx.logger.Infof("Service Locator ConsumerRelationId = %d", sl.ConsumerRelationId)
-		ctx.logger.Infof("Service Locator Params = %+v", sl.Params)
+		ctx.logger.Infof("Service Locator = %+v", sl)
 	}
 
-	return nil
+	return ctx.state.AddServiceLocator(args)
 }
 
 // ActionData returns the context's internal action data. It's meant to be
