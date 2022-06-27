@@ -114,7 +114,6 @@ func (u *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (p
 		//	result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		//	continue
 		//}
-
 		sl, err := u.backend.AddServiceLocator(
 			serviceLocator.ServiceLocatorUUID,
 			serviceLocator.Name,
