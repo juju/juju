@@ -12,13 +12,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -30,7 +28,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -39,7 +36,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -109,85 +105,6 @@ func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
 	return otherSt, apiState
 }
 
-func (s *clientSuite) TestOpenURIFound(c *gc.C) {
-	// Use tools download to test OpenURI
-	const toolsVersion = "2.0.0-ubuntu-ppc64"
-	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
-
-	client := client.NewClient(s.APIState)
-	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
-
-	// The fake tools content will be the version number.
-	content, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, toolsVersion)
-}
-
-func (s *clientSuite) TestOpenURIError(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	_, err := client.OpenURI("/tools/foobar", nil)
-	c.Assert(err, gc.ErrorMatches, ".*error parsing version.+")
-}
-
-func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	vers, err := client.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	charmClient := charms.NewClient(s.APIState)
-	curl, ch, repoPath := addLocalCharm(c, charmClient, "dummy", false, vers)
-	defer os.Remove(repoPath)
-	c.Logf("added local charm as %v", curl)
-	expected, err := ioutil.ReadFile(ch.Path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	reader, err := client.OpenCharm(curl)
-	defer reader.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, expected)
-}
-
-func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	vers, err := client.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	charmClient := charms.NewClient(s.APIState)
-	curl, ch, repoPath := addLocalCharm(c, charmClient, "dummy", true, vers)
-	defer os.Remove(repoPath)
-	expected, err := ioutil.ReadFile(ch.Path)
-	c.Logf("force added local charm as %v", curl)
-	c.Assert(err, jc.ErrorIsNil)
-
-	reader, err := client.OpenCharm(curl)
-	defer reader.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, expected)
-}
-
-func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
-	curl := charm.MustParseURL("cs:quantal/spam-3")
-	client := client.NewClient(s.APIState)
-
-	_, err := client.OpenCharm(curl)
-
-	c.Check(err, gc.ErrorMatches, `.*cannot get charm from state: charm "cs:quantal/spam-3" not found`)
-}
-
-func addLocalCharm(c *gc.C, client *charms.Client, name string, force bool, agentVersion version.Number) (*charm.URL, *charm.CharmArchive, string) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
-	_, err := client.AddLocalCharm(curl, charmArchive, force, agentVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	return curl, charmArchive, charmArchive.Path
-}
-
 func fakeAPIEndpoint(c *gc.C, cl *client.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -220,36 +137,6 @@ func (s *clientSuite) TestClientModelUUID(c *gc.C) {
 	uuid, ok := client.ModelUUID()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, model.Tag().Id())
-}
-
-func (s *clientSuite) TestClientModelUsers(c *gc.C) {
-	cl := client.NewClient(s.APIState)
-	cleanup := client.PatchClientFacadeCall(cl,
-		func(request string, paramsIn interface{}, response interface{}) error {
-			c.Assert(paramsIn, gc.IsNil)
-			if response, ok := response.(*params.ModelUserInfoResults); ok {
-				response.Results = []params.ModelUserInfoResult{
-					{Result: &params.ModelUserInfo{UserName: "one"}},
-					{Result: &params.ModelUserInfo{UserName: "two"}},
-					{Result: &params.ModelUserInfo{UserName: "three"}},
-				}
-			} else {
-				c.Log("wrong output structure")
-				c.Fail()
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	obtained, err := cl.ModelUserInfo()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
-		{UserName: "one"},
-		{UserName: "two"},
-		{UserName: "three"},
-	})
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {

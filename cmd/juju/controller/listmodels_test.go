@@ -407,9 +407,11 @@ func (s *BaseModelsSuite) TestWithIncompleteModels(c *gc.C) {
 	}
 
 	basicAndUsersInfo := createBasicModelInfo()
-	basicAndUsersInfo.Users = []params.ModelUserInfo{
-		{"admin", "display name", nil, params.UserAccessPermission("admin")},
-	}
+	basicAndUsersInfo.Users = []params.ModelUserInfo{{
+		UserName:    "admin",
+		DisplayName: "display name",
+		Access:      "admin",
+	}}
 
 	basicAndMachinesInfo := createBasicModelInfo()
 	basicAndMachinesInfo.Machines = []params.ModelMachineInfo{

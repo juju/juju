@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	jujuapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/resources"
+	apihttp "github.com/juju/juju/api/http"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
@@ -28,7 +28,7 @@ type FacadeCaller interface {
 
 // UnitHTTPClient exposes the raw API HTTP caller functionality needed here.
 type UnitHTTPClient interface {
-	jujuapi.HTTPDoer
+	apihttp.HTTPDoer
 
 	// Unit Returns the name of the unit for this client.
 	Unit() string
@@ -55,7 +55,7 @@ func NewResourcesFacadeClient(caller base.APICaller, unitTag names.UnitTag) (*Re
 // of the uniter facade.
 type ResourcesFacadeClient struct {
 	FacadeCaller
-	jujuapi.HTTPDoer
+	apihttp.HTTPDoer
 	ctx context.Context
 }
 
@@ -112,7 +112,7 @@ func (c *ResourcesFacadeClient) getResourceInfo(resourceName string) (resources.
 }
 
 type unitHTTPClient struct {
-	jujuapi.HTTPDoer
+	apihttp.HTTPDoer
 	unitName string
 	ctx      context.Context
 }
@@ -120,7 +120,7 @@ type unitHTTPClient struct {
 // NewUnitHTTPClient wraps an HTTP client (a la httprequest.Client)
 // with unit information. This allows rewriting of the URL to match
 // the relevant unit.
-func NewUnitHTTPClient(ctx context.Context, client jujuapi.HTTPDoer, unitName string) UnitHTTPClient {
+func NewUnitHTTPClient(ctx context.Context, client apihttp.HTTPDoer, unitName string) UnitHTTPClient {
 	return &unitHTTPClient{
 		HTTPDoer: client,
 		unitName: unitName,

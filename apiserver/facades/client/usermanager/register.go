@@ -23,6 +23,9 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("UserManager", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newUserManagerAPI(ctx) // Adds ResetPassword
 	}, reflect.TypeOf((*UserManagerAPI)(nil)))
+	registry.MustRegister("UserManager", 3, func(ctx facade.Context) (facade.Facade, error) {
+		return newUserManagerAPI(ctx) // Adds ModelUserInfo
+	}, reflect.TypeOf((*UserManagerAPI)(nil)))
 }
 
 // newUserManagerAPI provides the signature required for facade registration.
@@ -45,6 +48,7 @@ func newUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
 
 	return &UserManagerAPI{
 		state:      st,
+		pool:       ctx.StatePool(),
 		authorizer: authorizer,
 		check:      common.NewBlockChecker(st),
 		apiUser:    apiUser,

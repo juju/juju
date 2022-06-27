@@ -69,12 +69,19 @@ type listCommand struct {
 // users command calls.
 type modelUsersAPI interface {
 	Close() error
-	ModelUserInfo() ([]params.ModelUserInfo, error)
+	ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error)
 }
 
-func (c *listCommand) getModelAPI() (modelUsersAPI, error) {
+func (c *listCommand) getModelUsersAPI() (modelUsersAPI, error) {
 	if c.modelUserAPI != nil {
 		return c.modelUserAPI, nil
+	}
+	client, err := c.NewUserManagerAPIClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if client.BestAPIVersion() > 2 {
+		return client, nil
 	}
 	conn, err := c.NewModelAPIRoot(c.modelName)
 	if err != nil {
@@ -132,13 +139,17 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *listCommand) modelUsers(ctx *cmd.Context) error {
-	client, err := c.getModelAPI()
+	client, err := c.getModelUsersAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	result, err := client.ModelUserInfo()
+	uuids, err := c.ModelUUIDs([]string{c.modelName})
+	if err != nil {
+		return err
+	}
+	result, err := client.ModelUserInfo(uuids[0])
 	if err != nil {
 		return err
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/uniter"
-	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -120,7 +120,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			downloader := apiclient.NewCharmDownloader(apiConn)
+			downloader := charms.NewCharmDownloader(apiConn)
 
 			manifoldConfig := config
 			// Configure and start the uniter.

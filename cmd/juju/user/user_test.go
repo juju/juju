@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -25,6 +26,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		APIEndpoints:   []string{"0.1.2.3:12345"},
 		CACert:         testing.CACert,
 		ControllerUUID: testing.ControllerTag.Id(),
+	}
+	s.store.Models["testing"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"adam/test": {ModelUUID: testing.ModelTag.Id(), ModelType: model.IAAS},
+		},
 	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User:     "current-user",

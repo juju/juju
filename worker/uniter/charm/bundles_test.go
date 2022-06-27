@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/uniter"
-	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -104,7 +104,7 @@ func (f fakeBundleInfo) ArchiveSha256() (string, error) {
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
 	bunsDir := filepath.Join(basedir, "random", "bundles")
-	downloader := apiclient.NewCharmDownloader(s.st)
+	downloader := charms.NewCharmDownloader(s.st)
 	d := charm.NewBundlesDir(bunsDir, downloader, loggo.GetLogger(""))
 
 	checkDownloadsEmpty := func() {

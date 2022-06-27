@@ -22,7 +22,7 @@ func init() {
 	gc.Suite(&annotationsSuite{})
 	gc.Suite(&cmdApplicationSuite{})
 	gc.Suite(&CloudAPISuite{})
-	gc.Suite(&apiEnvironmentSuite{})
+	gc.Suite(&apiModelSuite{})
 	gc.Suite(&apiLoggerSuite{})
 	gc.Suite(&BakeryStorageSuite{})
 	gc.Suite(&blockSuite{})

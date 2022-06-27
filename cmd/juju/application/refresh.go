@@ -611,7 +611,10 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{api: &apiClient{Client: apiclient.NewClient(conn)}}
+	adder := &charmAdderShim{
+		api:         &apiClient{Client: apiclient.NewClient(conn)},
+		modelconfig: &modelConfigClient{Client: modelconfig.NewClient(conn)},
+	}
 	adder.charmuploader = &charmsClient{Client: apicharms.NewClient(conn)}
 	if best := conn.BestFacadeVersion("Charms"); best > 2 {
 		adder.charms = adder.charmuploader
@@ -622,11 +625,12 @@ func newCharmAdder(
 type charmAdderShim struct {
 	charms        *charmsClient
 	charmuploader *charmsClient
+	modelconfig   *modelConfigClient
 	api           *apiClient
 }
 
 func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
-	agentVersion, err := c.api.AgentVersion()
+	agentVersion, err := agentVersion(c.modelconfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
