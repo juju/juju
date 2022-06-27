@@ -17,7 +17,7 @@ import (
 type ServiceLocator struct {
 	Type   string
 	Name   string
-	Params map[string]string
+	Params map[string]interface{}
 }
 
 // LocatorAddCommand implements the locator-add command.
@@ -29,7 +29,7 @@ type LocatorAddCommand struct {
 	Id         string
 	Name       string
 	Type       string
-	Params     map[string]string
+	Params     map[string]interface{}
 	paramsFile cmd.FileVar
 
 	ConsumerUnitId     string
@@ -66,6 +66,14 @@ func (c *LocatorAddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.ConsumerRelationId, "relation", -1, "")
 }
 
+func (c *LocatorAddCommand) convertParamsFromArgs(source map[string]string) map[string]interface{} {
+	params := make(map[string]interface{}, len(source))
+	for k, v := range source {
+		params[k] = v
+	}
+	return params
+}
+
 // Init parses the command's parameters.
 func (c *LocatorAddCommand) Init(args []string) error {
 	if len(args) < 2 {
@@ -80,7 +88,7 @@ func (c *LocatorAddCommand) Init(args []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.Params = params
+	c.Params = c.convertParamsFromArgs(params)
 	return nil
 }
 
