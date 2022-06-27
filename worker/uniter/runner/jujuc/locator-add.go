@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/utils/v3"
 )
 
@@ -78,11 +79,17 @@ func (c *AddServiceLocatorCommand) Run(ctx *cmd.Context) (err error) {
 	c.Type = "l4-service" // TODO(anvial): remove hardcode after locators assertions will be implemented
 
 	// Record new service locator
-	//err = c.ctx.AddServiceLocator(&params.AddServiceLocatorParams{
-	//	ServiceLocatorUUID: c.Id,
-	//	Name:               c.Name,
-	//	Type:               c.Type,
-	//})
+	err = c.ctx.AddServiceLocator(params.AddServiceLocators{
+		ServiceLocators: []params.AddServiceLocatorParams{{
+			ServiceLocatorUUID: c.Id,
+			Name:               c.Name,
+			Type:               c.Type,
+			UnitId:             "unit/0", // TODO(anvial): remove hardcode
+			ConsumerUnitId:     c.ConsumerUnitId,
+			ConsumerRelationId: c.ConsumerRelationId,
+			Params:             map[string]interface{}{}, // TODO(anvial): remove hardcode
+		}},
+	})
 	if err != nil {
 		return errors.Annotate(err, "cannot record service locator")
 	}

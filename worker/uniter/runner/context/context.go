@@ -992,10 +992,18 @@ func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, la
 
 // AddServiceLocator adds service locator to the hook context.
 // Implements jujuc.HookContext.ContextServiceLocators, part of runner.Context.
-func (ctx *HookContext) AddServiceLocator(slId string, slName string, slType string) error {
-	ctx.logger.Infof("Service Locator ID = %s", slId)
-	ctx.logger.Infof("Service Locator Name = %s", slName)
-	ctx.logger.Infof("Service Locator Type = %s", slType)
+func (ctx *HookContext) AddServiceLocator(args params.AddServiceLocators) error {
+
+	for _, sl := range args.ServiceLocators {
+		ctx.logger.Infof("Service Locator ID = %s", sl.ServiceLocatorUUID)
+		ctx.logger.Infof("Service Locator Name = %s", sl.Name)
+		ctx.logger.Infof("Service Locator Type = %s", sl.Type)
+		ctx.logger.Infof("Service Locator UnitId = %s", sl.UnitId)
+		ctx.logger.Infof("Service Locator ConsumerUnitId = %s", sl.ConsumerUnitId)
+		ctx.logger.Infof("Service Locator ConsumerRelationId = %d", sl.ConsumerRelationId)
+		ctx.logger.Infof("Service Locator Params = %#v", sl.Params)
+	}
+
 	return nil
 }
 
