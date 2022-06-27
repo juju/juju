@@ -582,7 +582,7 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
 	// Add a charm in pending mode.
 	chInfo := state.CharmInfo{
-		ID:          charm.MustParseURL("cs:focal/dummy-1"),
+		ID:          charm.MustParseURL("ch:focal/dummy-1"),
 		Charm:       testcharms.Repo.CharmArchive(c.MkDir(), "dummy"),
 		StoragePath: "", // indicates that we don't have the data in the blobstore yet.
 		SHA256:      "", // indicates that we don't have the data in the blobstore yet.
@@ -592,7 +592,7 @@ func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure a 490 is returned if the charm is pending to be downloaded.
-	uri := s.charmsURI("?url=cs:focal/dummy-1")
+	uri := s.charmsURI("?url=ch:focal/dummy-1")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusConflict, gc.Commentf("expected to get 409 for charm that is pending to be downloaded"))
 }
