@@ -16,7 +16,7 @@ import (
 // ServiceLocatorBackend describes service locator state methods
 // for executing a service locator upgrade.
 type ServiceLocatorBackend interface {
-	AddServiceLocator(string, string, string) (string, error)
+	AddServiceLocator(params.AddServiceLocatorParams) (string, error)
 	//AllServiceLocators() ([]*serviceLocator, error)
 }
 
@@ -26,12 +26,8 @@ type ServiceLocatorState struct {
 	st *state.State
 }
 
-func (s ServiceLocatorState) AddServiceLocator(slId string, slName string, slType string) (string, error) {
-	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
-		ServiceLocatorUUID: slId,
-		Name:               slName,
-		Type:               slType,
-	})
+func (s ServiceLocatorState) AddServiceLocator(locatorParams params.AddServiceLocatorParams) (string, error) {
+	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(locatorParams)
 	return sl.Id(), err
 }
 
@@ -58,10 +54,6 @@ type ServiceLocatorAPI struct {
 
 	logger     loggo.Logger
 	accessUnit common.GetAuthFunc
-}
-
-func (s *ServiceLocatorAPI) TestFunc() string {
-	return "test"
 }
 
 // NewExternalServiceLocatorAPI can be used for API registration.
@@ -114,11 +106,7 @@ func (u *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (p
 		//	result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		//	continue
 		//}
-		sl, err := u.backend.AddServiceLocator(
-			serviceLocator.ServiceLocatorUUID,
-			serviceLocator.Name,
-			serviceLocator.Type,
-		)
+		sl, err := u.backend.AddServiceLocator(serviceLocator)
 
 		result.Results[i].Result = sl
 		result.Results[i].Error = apiservererrors.ServerError(err)
