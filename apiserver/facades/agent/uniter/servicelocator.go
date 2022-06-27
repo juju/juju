@@ -57,10 +57,6 @@ type ServiceLocatorAPI struct {
 	accessUnit common.GetAuthFunc
 }
 
-func (s *ServiceLocatorAPI) TestFunc() string {
-	return "test"
-}
-
 // NewExternalServiceLocatorAPI can be used for API registration.
 func NewExternalServiceLocatorAPI(
 	st *state.State,
