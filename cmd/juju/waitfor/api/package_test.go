@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/cmd/plugins/juju-wait-for/api WatchAllAPI,AllWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/cmd/juju/waitfor/api WatchAllAPI,AllWatcher
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package waitfor
 
 import (
 	"io"
@@ -14,9 +14,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/waitfor/api"
+	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
 )
@@ -36,7 +36,7 @@ func newUnitCommand() cmd.Command {
 }
 
 const unitCommandDoc = `
-Wait for a given unit to reach a goal state.
+Waits for a unit to reach a specified state.
 
 arguments:
 name
@@ -44,7 +44,7 @@ name
 
 options:
 --query (= 'life=="alive" && status=="active"')
-   query represents the goal state of a given unit
+   query represents the sought state of the specified unit
 `
 
 // unitCommand defines a command for waiting for units.
@@ -65,7 +65,7 @@ func (c *unitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "unit",
 		Args:    "[<name>]",
-		Purpose: "wait for an unit to reach a goal state",
+		Purpose: "Wait for a unit to reach a specified state.",
 		Doc:     unitCommandDoc,
 	})
 }

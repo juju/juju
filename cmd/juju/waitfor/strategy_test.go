@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package waitfor
 
 import (
 	"time"
@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/api/mocks"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
+	"github.com/juju/juju/cmd/juju/waitfor/api"
+	"github.com/juju/juju/cmd/juju/waitfor/api/mocks"
+	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/rpc/params"
 )
 

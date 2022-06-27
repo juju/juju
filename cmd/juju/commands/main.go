@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/juju/waitfor"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -574,6 +575,7 @@ func registerCommands(r commandRegistry) {
 
 	// Payload commands.
 	r.Register(payload.NewListCommand())
+	r.Register(waitfor.NewWaitForCommand())
 
 	rcmd.RegisterAll(r)
 }

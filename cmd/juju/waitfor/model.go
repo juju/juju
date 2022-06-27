@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package waitfor
 
 import (
 	"io"
@@ -14,9 +14,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/waitfor/api"
+	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
 )
@@ -36,7 +36,7 @@ func newModelCommand() cmd.Command {
 }
 
 const modelCommandDoc = `
-Wait for a given model to reach a goal state.
+Waits for a model to reach a specified state.
 
 arguments:
 name
@@ -44,7 +44,7 @@ name
 
 options:
 --query (= 'life=="alive" && status=="available"')
-   query represents the goal state of a given model
+   query represents the sought state of the specified model
 `
 
 // modelCommand defines a command for waiting for models.
@@ -71,7 +71,7 @@ func (c *modelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "model",
 		Args:    "[<name>]",
-		Purpose: "wait for an model to reach a goal state",
+		Purpose: "Wait for a model to reach a specified state.",
 		Doc:     modelCommandDoc,
 	})
 }

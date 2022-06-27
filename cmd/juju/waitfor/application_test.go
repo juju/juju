@@ -1,10 +1,10 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package waitfor
 
 import (
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
+	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"

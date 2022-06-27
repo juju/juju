@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package waitfor
 
 import (
 	"io"
@@ -14,9 +14,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/waitfor/api"
+	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
-	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
 )
@@ -36,7 +36,7 @@ func newMachineCommand() cmd.Command {
 }
 
 const machineCommandDoc = `
-Wait for a given machine to reach a goal state.
+Waits for a machine to reach a specified state.
 
 arguments:
 name
@@ -44,7 +44,7 @@ name
 
 options:
 --query (= 'life=="alive" && status=="started")
-   query represents the goal state of a given machine
+   query represents the sought state of the specified machine
 `
 
 // machineCommand defines a command for waiting for models.
@@ -65,7 +65,7 @@ func (c *machineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "machine",
 		Args:    "[<id>]",
-		Purpose: "wait for an machine to reach a goal state",
+		Purpose: "Wait for a machine to reach a specified state.",
 		Doc:     machineCommandDoc,
 	})
 }
