@@ -45843,7 +45843,7 @@
                             "type": "integer"
                         },
                         "consumer-unit-id": {
-                            "type": "integer"
+                            "type": "string"
                         },
                         "id": {
                             "type": "string"
@@ -45864,7 +45864,7 @@
                             "type": "string"
                         },
                         "unit-id": {
-                            "type": "integer"
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
