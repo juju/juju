@@ -607,19 +607,15 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 
 // ValidateModelUpgrade checks to see if it's possible to upgrade a model,
 // before actually attempting to do the real model-upgrade.
-func (c *Client) ValidateModelUpgrade(model names.ModelTag, chosen version.Number, force bool) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 9 {
-		return errors.NotImplementedf("ValidateModelUpgrade in version %v", bestVer)
-	}
-	modelArg := params.ValidateModelUpgradeParam{
-		ModelTag: model.String(),
-	}
-	if bestVer := c.BestAPIVersion(); bestVer >= 10 {
-		modelArg.Version = chosen
+func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
+	if bestVer := c.BestAPIVersion(); bestVer != 9 {
+		return errors.NotImplementedf("ValidateModelUpgrades in version %v", bestVer)
 	}
 	args := params.ValidateModelUpgradeParams{
-		Models: []params.ValidateModelUpgradeParam{modelArg},
-		Force:  force,
+		Models: []params.ValidateModelUpgradeParam{{
+			ModelTag: model.String(),
+		}},
+		Force: force,
 	}
 	var results params.ErrorResults
 	if err := c.facade.FacadeCall("ValidateModelUpgrades", args, &results); err != nil {
@@ -629,4 +625,30 @@ func (c *Client) ValidateModelUpgrade(model names.ModelTag, chosen version.Numbe
 		return errors.Errorf("expected one result, got %d", num)
 	}
 	return apiservererrors.RestoreError(results.OneError())
+}
+
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (c *Client) AbortCurrentUpgrade() error {
+	if bestVer := c.BestAPIVersion(); bestVer < 10 {
+		return errors.NotImplementedf("AbortCurrentUpgrade in version %v", bestVer)
+	}
+	return c.facade.FacadeCall("AbortCurrentUpgrade", nil, nil)
+}
+
+// UpgradeModel upgrades the model to the provided agent version.
+func (c *Client) UpgradeModel(
+	model names.ModelTag, version version.Number, stream string, ignoreAgentVersions, druRun bool,
+) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 10 {
+		return errors.NotImplementedf("UpgradeModel in version %v", bestVer)
+	}
+	args := params.UpgradeModel{
+		ModelTag:            model.String(),
+		Version:             version,
+		AgentStream:         stream,
+		IgnoreAgentVersions: ignoreAgentVersions,
+		DryRun:              druRun,
+	}
+	return c.facade.FacadeCall("UpgradeModel", args, nil)
 }

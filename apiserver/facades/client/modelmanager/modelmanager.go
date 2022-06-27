@@ -11,7 +11,6 @@ import (
 	stdcontext "context"
 	"fmt"
 	"sort"
-	// "strings"
 	"time"
 
 	"github.com/juju/description/v3"
@@ -32,19 +31,16 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
-	// "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/feature"
-	// "github.com/juju/juju/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
-	// "github.com/juju/juju/upgrades"
 )
 
 var (
@@ -157,6 +153,8 @@ type State interface {
 	AllModelUUIDs() ([]string, error)
 	MachineCountForSeries(series ...string) (int, error)
 	MongoSession() MongoSession
+	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
+	AbortCurrentUpgrade() error
 }
 
 // MongoSession provides a way to get the status for the mongo replicaset.
@@ -1694,7 +1692,6 @@ func (m *ModelManagerAPIV9) ValidateModelUpgrades(args params.ValidateModelUpgra
 
 		// Now check for the validation of a model upgrade.
 		if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
-			logger.Criticalf("validateNoSeriesUpgrades err %#v", err)
 			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 			continue
 		}
@@ -1702,10 +1699,20 @@ func (m *ModelManagerAPIV9) ValidateModelUpgrades(args params.ValidateModelUpgra
 	return results, nil
 }
 
+func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
+	blocker, err := getCheckUpgradeSeriesLockForModel(force)("", nil, st, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if blocker == nil {
+		return nil
+	}
+	return blocker
+}
+
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (m *ModelManagerAPI) AbortCurrentUpgrade() error {
-	// TODO: copy from Client facade.
 	if canWrite, err := m.hasWriteAccess(m.model.ModelTag()); err != nil {
 		return errors.Trace(err)
 	} else if !canWrite {
@@ -1715,7 +1722,12 @@ func (m *ModelManagerAPI) AbortCurrentUpgrade() error {
 	if err := m.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	return m.state.AbortCurrentUpgrade()
+	st, err := m.statePool.Get(m.model.ModelTag().Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Release()
+	return st.AbortCurrentUpgrade()
 }
 
 func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
@@ -1749,8 +1761,12 @@ func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
 	if arg.DryRun {
 		return nil
 	}
-	// TODO: SetModelAgentVersion(args.Version, &args.AgentStream, args.IgnoreAgentVersions)
-	return nil
+	st, err := m.statePool.Get(modelTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Release()
+	return st.SetModelAgentVersion(arg.Version, &arg.AgentStream, arg.IgnoreAgentVersions)
 }
 
 func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelTag, targetVersion version.Number) (err error) {
@@ -1842,17 +1858,6 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 		blockers.Append(blockersForModel)
 	}
 	return
-}
-
-func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
-	blocker, err := getCheckUpgradeSeriesLockForModel(force)("", nil, st, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if blocker == nil {
-		return nil
-	}
-	return blocker
 }
 
 // Mask out new methods from the old API versions. The API reflection

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -864,13 +865,13 @@ func (s *dumpModelSuite) TestDumpModelDBError(c *gc.C) {
 	c.Assert(out, gc.IsNil)
 }
 
-type validateUpdateModelSuite struct {
+type upgradeModelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&validateUpdateModelSuite{})
+var _ = gc.Suite(&upgradeModelSuite{})
 
-func (s *validateUpdateModelSuite) TestValidateModelUpgradeWithWongAPIVersion(c *gc.C) {
+func (s *upgradeModelSuite) TestValidateModelUpgradeWithWongAPIVersionV8(c *gc.C) {
 	called := false
 	apiCaller := basetesting.BestVersionCaller{
 		BestVersion: 8,
@@ -882,11 +883,27 @@ func (s *validateUpdateModelSuite) TestValidateModelUpgradeWithWongAPIVersion(c 
 
 	client := modelmanager.NewClient(apiCaller)
 	err := client.ValidateModelUpgrade(coretesting.ModelTag, false)
-	c.Assert(err, gc.ErrorMatches, `ValidateModelUpgrade in version 8 not implemented`)
+	c.Assert(err, gc.ErrorMatches, `ValidateModelUpgrades in version 8 not implemented`)
 	c.Assert(called, jc.IsFalse)
 }
 
-func (s *validateUpdateModelSuite) TestValidateModelUpgradeWithErrors(c *gc.C) {
+func (s *upgradeModelSuite) TestValidateModelUpgradeWithWongAPIVersionV10(c *gc.C) {
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 10,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			called = true
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.ValidateModelUpgrade(coretesting.ModelTag, false)
+	c.Assert(err, gc.ErrorMatches, `ValidateModelUpgrades in version 10 not implemented`)
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *upgradeModelSuite) TestValidateModelUpgradeWithErrors(c *gc.C) {
 	results := params.ErrorResults{Results: []params.ErrorResult{{
 		Error: &params.Error{Message: "fake error"},
 	}}}
@@ -906,7 +923,7 @@ func (s *validateUpdateModelSuite) TestValidateModelUpgradeWithErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "fake error")
 }
 
-func (s *validateUpdateModelSuite) TestValidateModelUpgrade(c *gc.C) {
+func (s *upgradeModelSuite) TestValidateModelUpgrade(c *gc.C) {
 	results := params.ErrorResults{Results: []params.ErrorResult{{}}}
 
 	apiCaller := basetesting.BestVersionCaller{
@@ -933,4 +950,84 @@ func (s *validateUpdateModelSuite) TestValidateModelUpgrade(c *gc.C) {
 	client := modelmanager.NewClient(apiCaller)
 	err := client.ValidateModelUpgrade(coretesting.ModelTag, true)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradeModelSuite) TestAbortCurrentUpgradeNotSupported(c *gc.C) {
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 9,
+		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
+			called = true
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.AbortCurrentUpgrade()
+	c.Assert(err, gc.ErrorMatches, `AbortCurrentUpgrade in version 9 not implemented`)
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *upgradeModelSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 10,
+		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(request, gc.Equals, "AbortCurrentUpgrade")
+			c.Assert(args, gc.IsNil)
+			c.Assert(result, gc.IsNil)
+			called = true
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.AbortCurrentUpgrade()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *upgradeModelSuite) TestUpgradeModelNotSupported(c *gc.C) {
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 9,
+		APICallerFunc: func(objType string, facadeVersion int, id, request string, args, result interface{}) error {
+			called = true
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.UpgradeModel(coretesting.ModelTag, version.MustParse("2.9.1"), "", true, true)
+	c.Assert(err, gc.ErrorMatches, `UpgradeModel in version 9 not implemented`)
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *upgradeModelSuite) TestUpgradeModel(c *gc.C) {
+	called := false
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 10,
+		APICallerFunc: func(objType string, facadeVersion int, id, request string, args, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(request, gc.Equals, "UpgradeModel")
+			c.Check(facadeVersion, gc.Equals, 10)
+			in, ok := args.(params.UpgradeModel)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(in, gc.DeepEquals, params.UpgradeModel{
+				ModelTag:            coretesting.ModelTag.String(),
+				Version:             version.MustParse("2.9.1"),
+				IgnoreAgentVersions: true,
+				DryRun:              true,
+			})
+			c.Assert(result, gc.IsNil)
+			called = true
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	err := client.UpgradeModel(coretesting.ModelTag, version.MustParse("2.9.1"), "", true, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }

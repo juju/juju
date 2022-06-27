@@ -691,6 +691,7 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 
 // SetModelAgentVersion sets the model agent version.
 func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
+	// TODO: remove in juju3.
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
@@ -794,6 +795,7 @@ func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (c *Client) AbortCurrentUpgrade() error {
+	// TODO: remove in juju3.
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}

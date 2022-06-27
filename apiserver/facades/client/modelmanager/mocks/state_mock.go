@@ -91,6 +91,20 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// AbortCurrentUpgrade mocks base method.
+func (m *MockState) AbortCurrentUpgrade() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AbortCurrentUpgrade")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AbortCurrentUpgrade indicates an expected call of AbortCurrentUpgrade.
+func (mr *MockStateMockRecorder) AbortCurrentUpgrade() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortCurrentUpgrade", reflect.TypeOf((*MockState)(nil).AbortCurrentUpgrade))
+}
+
 // AllModelUUIDs mocks base method.
 func (m *MockState) AllModelUUIDs() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -181,6 +195,20 @@ func (m *MockState) Release() bool {
 func (mr *MockStateMockRecorder) Release() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockState)(nil).Release))
+}
+
+// SetModelAgentVersion mocks base method.
+func (m *MockState) SetModelAgentVersion(arg0 version.Number, arg1 *string, arg2 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelAgentVersion indicates an expected call of SetModelAgentVersion.
+func (mr *MockStateMockRecorder) SetModelAgentVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockState)(nil).SetModelAgentVersion), arg0, arg1, arg2)
 }
 
 // MockModel is a mock of Model interface.

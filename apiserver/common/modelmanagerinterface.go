@@ -10,7 +10,6 @@ import (
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
@@ -89,9 +88,6 @@ type ModelManagerBackend interface {
 	CountOfUnsentMetrics() (int, error)
 	CountOfSentMetrics() (int, error)
 	CleanupOldMetrics() error
-
-	AbortCurrentUpgrade() error
-	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
 }
 
 // Model defines methods provided by a state.Model instance.
