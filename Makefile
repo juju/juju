@@ -70,8 +70,7 @@ endef
 # Windows doesn't support the agent binaries
 ifeq ($(GOOS), windows)
 	INSTALL_TARGETS = juju \
-                      juju-metadata \
-                      juju-wait-for
+                      juju-metadata
 endif
 
 # We only add pebble to the list of install targets if we are building for linux
