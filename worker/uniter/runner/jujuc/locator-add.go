@@ -110,7 +110,7 @@ func (c *LocatorAddCommand) Run(ctx *cmd.Context) (err error) {
 			UnitId:             "unit/0", // TODO(anvial): remove hardcode
 			ConsumerUnitId:     c.ConsumerUnitId,
 			ConsumerRelationId: c.ConsumerRelationId,
-			Params:             c.Params, // TODO(anvial): remove hardcode
+			Params:             c.Params,
 		}},
 	})
 	if err != nil {
