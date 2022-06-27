@@ -26,7 +26,7 @@ cloudinit-userdata: |
     - shellcheck
 EOF
 
-	juju model-config "${FILE}"
+	juju model-config --file "${FILE}"
 	OUT=$(juju model-config cloudinit-userdata)
 	echo "${OUT}" | grep -q "shellcheck"
 

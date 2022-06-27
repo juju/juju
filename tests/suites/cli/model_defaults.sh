@@ -17,7 +17,7 @@ cloudinit-userdata: |
     - shellcheck
 EOF
 
-	juju model-defaults "${FILE}"
+	juju model-defaults --file "${FILE}"
 	juju model-defaults cloudinit-userdata --format=yaml | grep -q 'default: ""'
 	juju model-defaults cloudinit-userdata --format=yaml | grep -q "shellcheck"
 }
