@@ -21,8 +21,8 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 		ServiceLocatorUUID: "test-service-locator-uuid",
 		Name:               "test-locator",
 		Type:               "l4-service",
-		UnitId:             17,
-		ConsumerUnitId:     18,
+		UnitId:             "mysql/17",
+		ConsumerUnitId:     "mediawiki/18",
 		ConsumerRelationId: 19,
 		Params:             map[string]interface{}{"ip-address": "1.1.1.1"},
 	})
@@ -30,16 +30,16 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	c.Assert(sl.Id(), gc.Equals, "test-service-locator-uuid")
 	c.Assert(sl.Name(), gc.Equals, "test-locator")
 	c.Assert(sl.Type(), gc.Equals, "l4-service")
-	c.Assert(sl.UnitId(), gc.Equals, 17)
-	c.Assert(sl.ConsumerUnitId(), gc.Equals, 18)
+	c.Assert(sl.UnitId(), gc.Equals, "mysql/17")
+	c.Assert(sl.ConsumerUnitId(), gc.Equals, "mediawiki/18")
 	c.Assert(sl.ConsumerRelationId(), gc.Equals, 19)
 
 	sl2, err := s.State.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
 		ServiceLocatorUUID: "test-service-locator-uuid2",
 		Name:               "test-locator2",
 		Type:               "l4-service",
-		UnitId:             18,
-		ConsumerUnitId:     19,
+		UnitId:             "mysql/18",
+		ConsumerUnitId:     "mediawiki/19",
 		ConsumerRelationId: 20,
 		Params:             map[string]interface{}{"ip-address": "2.2.2.2"},
 	})
@@ -47,8 +47,8 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	c.Assert(sl2.Id(), gc.Equals, "test-service-locator-uuid2")
 	c.Assert(sl2.Name(), gc.Equals, "test-locator2")
 	c.Assert(sl2.Type(), gc.Equals, "l4-service")
-	c.Assert(sl2.UnitId(), gc.Equals, 18)
-	c.Assert(sl2.ConsumerUnitId(), gc.Equals, 19)
+	c.Assert(sl2.UnitId(), gc.Equals, "mysql/18")
+	c.Assert(sl2.ConsumerUnitId(), gc.Equals, "mediawiki/19")
 	c.Assert(sl2.ConsumerRelationId(), gc.Equals, 20)
 
 	all, err := s.State.ServiceLocatorsState().AllServiceLocators()
@@ -57,7 +57,7 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	c.Assert(all[0].Id(), gc.Equals, "test-service-locator-uuid")
 	c.Assert(all[0].Name(), gc.Equals, "test-locator")
 	c.Assert(all[0].Type(), gc.Equals, "l4-service")
-	c.Assert(all[0].UnitId(), gc.Equals, 17)
-	c.Assert(all[0].ConsumerUnitId(), gc.Equals, 18)
+	c.Assert(all[0].UnitId(), gc.Equals, "mysql/17")
+	c.Assert(all[0].ConsumerUnitId(), gc.Equals, "mediawiki/18")
 	c.Assert(all[0].ConsumerRelationId(), gc.Equals, 19)
 }

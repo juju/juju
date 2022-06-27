@@ -41,8 +41,8 @@ type ServiceLocator struct {
 type serviceLocatorDoc struct {
 	DocId              string                 `bson:"_id"`
 	Id                 string                 `bson:"service-locator-id"`
-	UnitId             int                    `bson:"unit-id"`
-	ConsumerUnitId     int                    `bson:"consumer-unit-id"`
+	UnitId             string                 `bson:"unit-id"`
+	ConsumerUnitId     string                 `bson:"consumer-unit-id"`
 	ConsumerRelationId int                    `bson:"consumer-relation-id"`
 	Name               string                 `bson:"name"`
 	Type               string                 `bson:"type"`
@@ -73,12 +73,12 @@ func (sl *ServiceLocator) Type() string {
 }
 
 // UnitId returns the owner unit ID of the service locator.
-func (sl *ServiceLocator) UnitId() int {
+func (sl *ServiceLocator) UnitId() string {
 	return sl.doc.UnitId
 }
 
 // ConsumerUnitId returns the consumer unit ID of the service locator.
-func (sl *ServiceLocator) ConsumerUnitId() int {
+func (sl *ServiceLocator) ConsumerUnitId() string {
 	return sl.doc.ConsumerUnitId
 }
 

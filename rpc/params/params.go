@@ -1511,10 +1511,10 @@ type AddServiceLocatorParams struct {
 	Type string `json:"type"`
 
 	// UnitId is owner unit id of the service locator.
-	UnitId int `json:"unit-id"`
+	UnitId string `json:"unit-id"`
 
 	// ConsumerUnitId is consumer unit id of the service locator.
-	ConsumerUnitId int `json:"consumer-unit-id"`
+	ConsumerUnitId string `json:"consumer-unit-id"`
 
 	// ConsumerRelationId is consumer unit id of the service locator.
 	ConsumerRelationId int `json:"consumer-relation-id"`
