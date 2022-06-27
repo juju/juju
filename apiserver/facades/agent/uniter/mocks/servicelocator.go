@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	params "github.com/juju/juju/rpc/params"
 )
 
 // MockServiceLocatorBackend is a mock of ServiceLocatorBackend interface.
@@ -34,16 +35,16 @@ func (m *MockServiceLocatorBackend) EXPECT() *MockServiceLocatorBackendMockRecor
 }
 
 // AddServiceLocator mocks base method.
-func (m *MockServiceLocatorBackend) AddServiceLocator(arg0, arg1, arg2 string) (string, error) {
+func (m *MockServiceLocatorBackend) AddServiceLocator(arg0 params.AddServiceLocatorParams) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddServiceLocator", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddServiceLocator", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddServiceLocator indicates an expected call of AddServiceLocator.
-func (mr *MockServiceLocatorBackendMockRecorder) AddServiceLocator(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockServiceLocatorBackendMockRecorder) AddServiceLocator(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddServiceLocator", reflect.TypeOf((*MockServiceLocatorBackend)(nil).AddServiceLocator), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddServiceLocator", reflect.TypeOf((*MockServiceLocatorBackend)(nil).AddServiceLocator), arg0)
 }
