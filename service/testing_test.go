@@ -107,7 +107,6 @@ func (s *BaseSuite) PatchLocalDiscoveryNoMatch(expected string) {
 	names := []string{
 		InitSystemUpstart,
 		InitSystemSystemd,
-		InitSystemWindows,
 	}
 	var checks []discoveryCheck
 	for _, name := range names {

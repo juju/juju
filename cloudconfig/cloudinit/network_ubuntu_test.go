@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -49,10 +48,6 @@ var _ = gc.Suite(&NetworkUbuntuSuite{})
 
 func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	if runtime.GOOS == "windows" {
-		c.Skip("This test is for Linux only")
-	}
 
 	s.tempFolder = c.MkDir()
 	networkFolder := c.MkDir()

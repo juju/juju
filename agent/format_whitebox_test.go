@@ -61,19 +61,6 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 	c.Assert(commands[2], gc.Matches, `chmod 0600 '\S+/agents/machine-1/agent.conf'`)
 }
 
-func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
-	cloudcfg, err := cloudinit.New("win8")
-	c.Assert(err, jc.ErrorIsNil)
-	config := newTestConfig(c)
-	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(commands, gc.HasLen, 2)
-	c.Assert(commands[0], gc.Matches, `mkdir '\S+\\agents\\machine-1'`)
-	c.Assert(commands[1], gc.Matches, `Set-Content '\S+/agents/machine-1/agent.conf' @"
-(.|\n)*
-"@`)
-}
-
 func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	config := newTestConfig(c)
 	err := config.Write()

@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -32,6 +31,11 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
+)
+
+var (
+	hookName      = "something-happened"
+	echoPidScript = "echo $$ > pid"
 )
 
 type ContextSuite struct {
@@ -242,7 +246,7 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	if !spec.missingShebang && runtime.GOOS != "windows" {
+	if !spec.missingShebang {
 		printf("#!/bin/bash")
 	}
 	printf(echoPidScript)

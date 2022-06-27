@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -44,12 +43,6 @@ var _ = gc.Suite(&buildSuite{})
 
 func (b *buildSuite) SetUpTest(c *gc.C) {
 	b.BaseSuite.SetUpTest(c)
-
-	suffix := ""
-	if runtime.GOOS == "windows" {
-		suffix = ".bat"
-	}
-
 	dir1 := c.MkDir()
 	dir2 := c.MkDir()
 
@@ -63,7 +56,7 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 	os.Setenv("PATH", strings.Join([]string{dir1, dir2, path}, string(filepath.ListSeparator)))
 
 	// Make an executable file called "juju-test" in dir2.
-	b.filePath = filepath.Join(dir2, "juju-test"+suffix)
+	b.filePath = filepath.Join(dir2, "juju-test")
 	err := ioutil.WriteFile(
 		b.filePath,
 		[]byte("doesn't matter, we don't execute it"),
@@ -89,17 +82,13 @@ func (b *buildSuite) TearDownTest(c *gc.C) {
 }
 
 func (b *buildSuite) TestFindExecutable(c *gc.C) {
-	root := "/"
-	if runtime.GOOS == "windows" {
-		root = `C:\`
-	}
 	for _, test := range []struct {
 		execFile   string
 		expected   string
 		errorMatch string
 	}{{
-		execFile: filepath.Join(root, "some", "absolute", "path"),
-		expected: filepath.Join(root, "some", "absolute", "path"),
+		execFile: filepath.Join("/", "some", "absolute", "path"),
+		expected: filepath.Join("/", "some", "absolute", "path"),
 	}, {
 		execFile: "./foo",
 		expected: filepath.Join(b.cwd, "foo"),

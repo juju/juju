@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
@@ -64,8 +63,7 @@ func (environProviderCredentials) DetectCredentials(cloudName string) (*cloud.Cl
 	// Google recommends credentials in a json file:
 	// 1. whose path is specified by the GOOGLE_APPLICATION_CREDENTIALS environment variable.
 	// 2. whose location is known to the gcloud command-line tool.
-	//   On Windows, this is %APPDATA%/gcloud/application_default_credentials.json.
-	//   On other systems, $HOME/.config/gcloud/application_default_credentials.json.
+	//   On *nix, this is $HOME/.config/gcloud/application_default_credentials.json.
 
 	validatePath := func(possibleFilePath string) string {
 		if possibleFilePath == "" {
@@ -118,9 +116,6 @@ func (environProviderCredentials) DetectCredentials(cloudName string) (*cloud.Cl
 
 func wellKnownCredentialsFile() string {
 	const f = "application_default_credentials.json"
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("APPDATA"), "gcloud", f)
-	}
 	return filepath.Join(utils.Home(), ".config", "gcloud", f)
 }
 

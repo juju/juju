@@ -95,11 +95,6 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 		result:          expectedResult,
 	},
 	{
-		description:     "win2012 on win2012",
-		machineSeries:   "win2012",
-		containerSeries: "win2012",
-	},
-	{
 		description:     "highsierra on highsierra",
 		machineSeries:   "highsierra",
 		containerSeries: "highsierra",

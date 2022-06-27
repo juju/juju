@@ -15643,48 +15643,6 @@
                     "type": "object",
                     "description": "AbortCurrentUpgrade aborts and archives the current upgrade\nsynchronisation record, if any."
                 },
-                "AddCharm": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddCharm"
-                        }
-                    },
-                    "description": "Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the\nclient/charms facade instead."
-                },
-                "AddCharmWithAuthorization": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddCharmWithAuthorization"
-                        }
-                    },
-                    "description": "Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the\nclient/charms facade instead."
-                },
-                "AddMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddMachines"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/AddMachinesResults"
-                        }
-                    },
-                    "description": "AddMachines adds new machines with the supplied parameters."
-                },
-                "AddMachinesV2": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddMachines"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/AddMachinesResults"
-                        }
-                    },
-                    "description": "AddMachinesV2 adds new machines with the supplied parameters."
-                },
                 "AgentVersion": {
                     "type": "object",
                     "properties": {
@@ -15702,15 +15660,6 @@
                         }
                     },
                     "description": "CACert returns the certificate used to validate the state connection."
-                },
-                "DestroyMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/DestroyMachines"
-                        }
-                    },
-                    "description": "DestroyMachines removes a given set of machines."
                 },
                 "FindTools": {
                     "type": "object",
@@ -15736,36 +15685,6 @@
                     },
                     "description": "FullStatus gives the information needed for juju status over the api"
                 },
-                "GetModelConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/GetConstraintsResults"
-                        }
-                    },
-                    "description": "GetModelConstraints returns the constraints for the model."
-                },
-                "InjectMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddMachines"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/AddMachinesResults"
-                        }
-                    },
-                    "description": "InjectMachines injects a machine into state with provisioned status."
-                },
-                "ModelGet": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelConfigResults"
-                        }
-                    },
-                    "description": "ModelGet implements the server-side part of the\nmodel-config CLI command."
-                },
                 "ModelInfo": {
                     "type": "object",
                     "properties": {
@@ -15774,24 +15693,6 @@
                         }
                     },
                     "description": "ModelInfo returns information about the current model."
-                },
-                "ModelSet": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelSet"
-                        }
-                    },
-                    "description": "ModelSet implements the server-side part of the\nset-model-config CLI command."
-                },
-                "ModelUnset": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelUnset"
-                        }
-                    },
-                    "description": "ModelUnset implements the server-side part of the\nset-model-config CLI command."
                 },
                 "ModelUserInfo": {
                     "type": "object",
@@ -15802,54 +15703,6 @@
                     },
                     "description": "ModelUserInfo returns information on all users in the model."
                 },
-                "PrivateAddress": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/PrivateAddress"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/PrivateAddressResults"
-                        }
-                    },
-                    "description": "PrivateAddress implements the server side of Client.PrivateAddress."
-                },
-                "ProvisioningScript": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ProvisioningScriptParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ProvisioningScriptResult"
-                        }
-                    },
-                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
-                },
-                "PublicAddress": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/PublicAddress"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/PublicAddressResults"
-                        }
-                    },
-                    "description": "PublicAddress implements the server side of Client.PublicAddress."
-                },
-                "ResolveCharms": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ResolveCharms"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ResolveCharmResults"
-                        }
-                    },
-                    "description": "ResolveCharms resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
-                },
                 "Resolved": {
                     "type": "object",
                     "properties": {
@@ -15859,36 +15712,6 @@
                     },
                     "description": "Resolved implements the server side of Client.Resolved."
                 },
-                "RetryProvisioning": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "RetryProvisioning marks a provisioning error as transient on the machines."
-                },
-                "SLALevel": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "SLALevel returns the current sla level for the model."
-                },
-                "Sequences": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelSequencesResult"
-                        }
-                    },
-                    "description": "Sequences returns the model's sequence names and next values."
-                },
                 "SetModelAgentVersion": {
                     "type": "object",
                     "properties": {
@@ -15897,24 +15720,6 @@
                         }
                     },
                     "description": "SetModelAgentVersion sets the model agent version."
-                },
-                "SetModelConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetConstraints"
-                        }
-                    },
-                    "description": "SetModelConstraints sets the constraints for the model."
-                },
-                "SetSLALevel": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelSLA"
-                        }
-                    },
-                    "description": "SetSLALevel sets the sla level on the model."
                 },
                 "StatusHistory": {
                     "type": "object",
@@ -15955,154 +15760,6 @@
                     "additionalProperties": false,
                     "required": [
                         "servers"
-                    ]
-                },
-                "AddCharm": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "url",
-                        "channel",
-                        "force"
-                    ]
-                },
-                "AddCharmWithAuthorization": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "macaroon": {
-                            "$ref": "#/definitions/Macaroon"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "url",
-                        "channel",
-                        "macaroon",
-                        "force"
-                    ]
-                },
-                "AddMachineParams": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        },
-                        "container-type": {
-                            "type": "string"
-                        },
-                        "disks": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Constraints"
-                            }
-                        },
-                        "hardware-characteristics": {
-                            "$ref": "#/definitions/HardwareCharacteristics"
-                        },
-                        "instance-id": {
-                            "type": "string"
-                        },
-                        "jobs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "nonce": {
-                            "type": "string"
-                        },
-                        "parent-id": {
-                            "type": "string"
-                        },
-                        "placement": {
-                            "$ref": "#/definitions/Placement"
-                        },
-                        "series": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "series",
-                        "constraints",
-                        "jobs",
-                        "parent-id",
-                        "container-type",
-                        "instance-id",
-                        "nonce",
-                        "hardware-characteristics",
-                        "addresses"
-                    ]
-                },
-                "AddMachines": {
-                    "type": "object",
-                    "properties": {
-                        "params": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AddMachineParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "params"
-                    ]
-                },
-                "AddMachinesResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "machine": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine"
-                    ]
-                },
-                "AddMachinesResults": {
-                    "type": "object",
-                    "properties": {
-                        "machines": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AddMachinesResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machines"
                     ]
                 },
                 "Address": {
@@ -16401,62 +16058,6 @@
                         "result"
                     ]
                 },
-                "ConfigValue": {
-                    "type": "object",
-                    "properties": {
-                        "source": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "source"
-                    ]
-                },
-                "Constraints": {
-                    "type": "object",
-                    "properties": {
-                        "Count": {
-                            "type": "integer"
-                        },
-                        "Pool": {
-                            "type": "string"
-                        },
-                        "Size": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Pool",
-                        "Size",
-                        "Count"
-                    ]
-                },
-                "DestroyMachines": {
-                    "type": "object",
-                    "properties": {
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "machine-names": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-names",
-                        "force"
-                    ]
-                },
                 "DetailedStatus": {
                     "type": "object",
                     "properties": {
@@ -16527,33 +16128,6 @@
                         "subordinate"
                     ]
                 },
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
                 "EntityStatus": {
                     "type": "object",
                     "properties": {
@@ -16607,30 +16181,6 @@
                     "required": [
                         "message",
                         "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "ExposedEndpoint": {
@@ -16774,51 +16324,6 @@
                         "branches"
                     ]
                 },
-                "GetConstraintsResults": {
-                    "type": "object",
-                    "properties": {
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "constraints"
-                    ]
-                },
-                "HardwareCharacteristics": {
-                    "type": "object",
-                    "properties": {
-                        "arch": {
-                            "type": "string"
-                        },
-                        "availability-zone": {
-                            "type": "string"
-                        },
-                        "cpu-cores": {
-                            "type": "integer"
-                        },
-                        "cpu-power": {
-                            "type": "integer"
-                        },
-                        "mem": {
-                            "type": "integer"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "root-disk-source": {
-                            "type": "string"
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
                 "History": {
                     "type": "object",
                     "properties": {
@@ -16914,10 +16419,6 @@
                         "description",
                         "devices"
                     ]
-                },
-                "Macaroon": {
-                    "type": "object",
-                    "additionalProperties": false
                 },
                 "MachineHardware": {
                     "type": "object",
@@ -17063,23 +16564,6 @@
                     "required": [
                         "color",
                         "message"
-                    ]
-                },
-                "ModelConfigResults": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/ConfigValue"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
                     ]
                 },
                 "ModelInfo": {
@@ -17228,33 +16712,6 @@
                         "start"
                     ]
                 },
-                "ModelSLA": {
-                    "type": "object",
-                    "properties": {
-                        "ModelSLAInfo": {
-                            "$ref": "#/definitions/ModelSLAInfo"
-                        },
-                        "creds": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        },
-                        "level": {
-                            "type": "string"
-                        },
-                        "owner": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "level",
-                        "owner",
-                        "ModelSLAInfo",
-                        "creds"
-                    ]
-                },
                 "ModelSLAInfo": {
                     "type": "object",
                     "properties": {
@@ -17269,41 +16726,6 @@
                     "required": [
                         "level",
                         "owner"
-                    ]
-                },
-                "ModelSequencesResult": {
-                    "type": "object",
-                    "properties": {
-                        "sequences": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "sequences"
-                    ]
-                },
-                "ModelSet": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
                     ]
                 },
                 "ModelStatusInfo": {
@@ -17347,21 +16769,6 @@
                         "model-status",
                         "meter-status",
                         "sla"
-                    ]
-                },
-                "ModelUnset": {
-                    "type": "object",
-                    "properties": {
-                        "keys": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "keys"
                     ]
                 },
                 "ModelUserInfo": {
@@ -17479,106 +16886,6 @@
                         "Build"
                     ]
                 },
-                "Placement": {
-                    "type": "object",
-                    "properties": {
-                        "directive": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "scope",
-                        "directive"
-                    ]
-                },
-                "PrivateAddress": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target"
-                    ]
-                },
-                "PrivateAddressResults": {
-                    "type": "object",
-                    "properties": {
-                        "private-address": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "private-address"
-                    ]
-                },
-                "ProvisioningScriptParams": {
-                    "type": "object",
-                    "properties": {
-                        "data-dir": {
-                            "type": "string"
-                        },
-                        "disable-package-commands": {
-                            "type": "boolean"
-                        },
-                        "machine-id": {
-                            "type": "string"
-                        },
-                        "nonce": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-id",
-                        "nonce",
-                        "data-dir",
-                        "disable-package-commands"
-                    ]
-                },
-                "ProvisioningScriptResult": {
-                    "type": "object",
-                    "properties": {
-                        "script": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "script"
-                    ]
-                },
-                "PublicAddress": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target"
-                    ]
-                },
-                "PublicAddressResults": {
-                    "type": "object",
-                    "properties": {
-                        "public-address": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "public-address"
-                    ]
-                },
                 "RelationStatus": {
                     "type": "object",
                     "properties": {
@@ -17684,48 +16991,6 @@
                         "limit"
                     ]
                 },
-                "ResolveCharmResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "type": "string"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ResolveCharmResults": {
-                    "type": "object",
-                    "properties": {
-                        "urls": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ResolveCharmResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "urls"
-                    ]
-                },
-                "ResolveCharms": {
-                    "type": "object",
-                    "properties": {
-                        "references": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "references"
-                    ]
-                },
                 "Resolved": {
                     "type": "object",
                     "properties": {
@@ -17740,22 +17005,6 @@
                     "required": [
                         "unit-name",
                         "retry"
-                    ]
-                },
-                "SetConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "application": {
-                            "type": "string"
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application",
-                        "constraints"
                     ]
                 },
                 "SetModelAgentVersion": {
@@ -17888,21 +17137,6 @@
                         "patterns"
                     ]
                 },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
                 "SupportedFeature": {
                     "type": "object",
                     "properties": {
@@ -18001,63 +17235,6 @@
                         "charm",
                         "subordinates"
                     ]
-                },
-                "Value": {
-                    "type": "object",
-                    "properties": {
-                        "allocate-public-ip": {
-                            "type": "boolean"
-                        },
-                        "arch": {
-                            "type": "string"
-                        },
-                        "container": {
-                            "type": "string"
-                        },
-                        "cores": {
-                            "type": "integer"
-                        },
-                        "cpu-power": {
-                            "type": "integer"
-                        },
-                        "instance-role": {
-                            "type": "string"
-                        },
-                        "instance-type": {
-                            "type": "string"
-                        },
-                        "mem": {
-                            "type": "integer"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "root-disk-source": {
-                            "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "virt-type": {
-                            "type": "string"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 }
             }
         }
@@ -27449,7 +26626,7 @@
     {
         "Name": "MachineManager",
         "Description": "MachineManagerAPI provides access to the MachineManager API facade.",
-        "Version": 6,
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -27471,18 +26648,6 @@
                     },
                     "description": "AddMachines adds new machines with the supplied parameters."
                 },
-                "DestroyMachine": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/DestroyMachineResults"
-                        }
-                    },
-                    "description": "DestroyMachine removes a set of machines from the model."
-                },
                 "DestroyMachineWithParams": {
                     "type": "object",
                     "properties": {
@@ -27494,18 +26659,6 @@
                         }
                     },
                     "description": "DestroyMachineWithParams removes a set of machines from the model."
-                },
-                "ForceDestroyMachine": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/DestroyMachineResults"
-                        }
-                    },
-                    "description": "ForceDestroyMachine forcibly removes a set of machines from the model.\nTODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.\nAlso from ModelManger v6 this call is less useful as it does not support MaxWait customisation."
                 },
                 "GetUpgradeSeriesMessages": {
                     "type": "object",
@@ -27530,6 +26683,30 @@
                         }
                     },
                     "description": "InstanceTypes returns instance type information for the cloud and region\nin which the current model is deployed."
+                },
+                "ProvisioningScript": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ProvisioningScriptParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ProvisioningScriptResult"
+                        }
+                    },
+                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
+                },
+                "RetryProvisioning": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RetryProvisioning marks a provisioning error as transient on the machines."
                 },
                 "UpgradeSeriesComplete": {
                     "type": "object",
@@ -27873,6 +27050,21 @@
                     },
                     "additionalProperties": false
                 },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "HardwareCharacteristics": {
                     "type": "object",
                     "properties": {
@@ -28051,6 +27243,42 @@
                     "required": [
                         "scope",
                         "directive"
+                    ]
+                },
+                "ProvisioningScriptParams": {
+                    "type": "object",
+                    "properties": {
+                        "data-dir": {
+                            "type": "string"
+                        },
+                        "disable-package-commands": {
+                            "type": "boolean"
+                        },
+                        "machine-id": {
+                            "type": "string"
+                        },
+                        "nonce": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-id",
+                        "nonce",
+                        "data-dir",
+                        "disable-package-commands"
+                    ]
+                },
+                "ProvisioningScriptResult": {
+                    "type": "object",
+                    "properties": {
+                        "script": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "script"
                     ]
                 },
                 "StringsResult": {
@@ -31175,8 +30403,8 @@
     },
     {
         "Name": "ModelConfig",
-        "Description": "ModelConfigAPIV2 is currently the latest.",
-        "Version": 2,
+        "Description": "ModelConfigAPIV3 is currently the latest.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -31187,6 +30415,15 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "GetModelConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/GetConstraintsResults"
+                        }
+                    },
+                    "description": "GetModelConstraints returns the constraints for the model."
+                },
                 "ModelGet": {
                     "type": "object",
                     "properties": {
@@ -31231,6 +30468,15 @@
                         }
                     },
                     "description": "Sequences returns the model's sequence names and next values."
+                },
+                "SetModelConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetConstraints"
+                        }
+                    },
+                    "description": "SetModelConstraints sets the constraints for the model."
                 },
                 "SetSLALevel": {
                     "type": "object",
@@ -31283,6 +30529,18 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "GetConstraintsResults": {
+                    "type": "object",
+                    "properties": {
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "constraints"
                     ]
                 },
                 "ModelConfigResults": {
@@ -31395,6 +30653,22 @@
                         "keys"
                     ]
                 },
+                "SetConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "constraints"
+                    ]
+                },
                 "StringResult": {
                     "type": "object",
                     "properties": {
@@ -31409,6 +30683,63 @@
                     "required": [
                         "result"
                     ]
+                },
+                "Value": {
+                    "type": "object",
+                    "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
+                        "arch": {
+                            "type": "string"
+                        },
+                        "container": {
+                            "type": "string"
+                        },
+                        "cores": {
+                            "type": "integer"
+                        },
+                        "cpu-power": {
+                            "type": "integer"
+                        },
+                        "instance-role": {
+                            "type": "string"
+                        },
+                        "instance-type": {
+                            "type": "string"
+                        },
+                        "mem": {
+                            "type": "integer"
+                        },
+                        "root-disk": {
+                            "type": "integer"
+                        },
+                        "root-disk-source": {
+                            "type": "string"
+                        },
+                        "spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "virt-type": {
+                            "type": "string"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }

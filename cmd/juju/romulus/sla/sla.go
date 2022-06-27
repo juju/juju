@@ -108,6 +108,8 @@ func (c *slaCommand) Info() *cmd.Info {
 		Purpose: "Set the SLA level for a model.",
 		Doc: `
 Set the support level for the model, effective immediately.
+Warning: this command is DEPRECATED and no longer supported.
+
 Examples:
     # set the support level to essential
     juju sla essential

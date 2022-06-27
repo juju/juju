@@ -178,10 +178,6 @@ func (f *fakeRemoveMachineAPI) Close() error {
 func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = force
 	f.keep = keep
-	return f.destroyMachines(machines)
-}
-
-func (f *fakeRemoveMachineAPI) destroyMachines(machines []string) ([]params.DestroyMachineResult, error) {
 	f.machines = machines
 	if f.removeError != nil || f.results != nil {
 		return f.results, f.removeError

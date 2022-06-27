@@ -775,11 +775,6 @@ func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
 		if err != nil || ic.Series != series {
 			return false
 		}
-	case "windows":
-		series, err := series.WindowsVersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
 	default:
 		return false
 	}

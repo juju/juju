@@ -63,12 +63,12 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 	}
 
 	// Stop all units before issuing a reboot. During a reboot, the machine agent
-	// will attempt to hold the execution lock until the reboot happens. However, since
-	// the old file based locking method has been replaced with semaphores (Windows), and
-	// sockets (Linux), if the machine agent is killed by the init system during shutdown,
-	// before the unit agents, the lock is released and unit agents start running hooks.
-	// When they in turn are killed, the hook is thrown into error state. If automatic retries
-	// are disabled, the hook remains in error state.
+	// will attempt to hold the execution lock until the reboot happens. However,
+	// since the old file based locking method has been replaced with sockets, if
+	// the machine agent is killed by the init system during shutdown, before the
+	// unit agents, the lock is released and unit agents start running hooks.
+	// When they in turn are killed, the hook is thrown into error state. If
+	// automatic retries are disabled, the hook remains in error state.
 	if err := r.stopDeployedUnits(); err != nil {
 		return errors.Trace(err)
 	}

@@ -58,7 +58,7 @@ func (s *registerSuite) TestRun(c *gc.C) {
 	hctx.EXPECT().TrackPayload(payload).Return(nil)
 	hctx.EXPECT().FlushPayloads()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("payload-register"))
+	com, err := jujuc.NewCommand(hctx, "payload-register")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := setupMetadata(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"type", "class", "id", "tag1", "tag2"})
@@ -71,7 +71,7 @@ func (s *registerSuite) TestRunUnknownClass(c *gc.C) {
 
 	hctx := mocks.NewMockContext(ctrl)
 
-	com, err := jujuc.NewCommand(hctx, cmdString("payload-register"))
+	com, err := jujuc.NewCommand(hctx, "payload-register")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := setupMetadata(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"type", "badclass", "id", "tag1", "tag2"})
@@ -86,7 +86,7 @@ func (s *registerSuite) TestRunUnknownType(c *gc.C) {
 
 	hctx := mocks.NewMockContext(ctrl)
 
-	com, err := jujuc.NewCommand(hctx, cmdString("payload-register"))
+	com, err := jujuc.NewCommand(hctx, "payload-register")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := setupMetadata(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"badtype", "class", "id", "tag1", "tag2"})
@@ -112,7 +112,7 @@ func (s *registerSuite) TestRunError(c *gc.C) {
 	}
 	hctx.EXPECT().TrackPayload(payload).Return(errors.New("boom"))
 
-	com, err := jujuc.NewCommand(hctx, cmdString("payload-register"))
+	com, err := jujuc.NewCommand(hctx, "payload-register")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := setupMetadata(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"type", "class", "id", "tag1", "tag2"})

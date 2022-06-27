@@ -106,8 +106,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// Set jujuversion.Current to a known value, for which we
 	// will make tools available. Individual tests may
 	// override this.
-	s.PatchValue(&jujuversion.Current, v100w64.Number)
-	s.PatchValue(&arch.HostArch, func() string { return v100w64.Arch })
+	s.PatchValue(&jujuversion.Current, v100u64.Number)
+	s.PatchValue(&arch.HostArch, func() string { return v100u64.Arch })
 	s.PatchValue(&series.HostSeries, func() (string, error) { return "bionic", nil })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
@@ -228,7 +228,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.MinimalStore()
 	}
-	bootstrapVersion := v100w64
+	bootstrapVersion := v100u64
 	if test.version != "" {
 		bootstrapVersion = version.MustParseBinary(test.version)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
@@ -2304,22 +2304,19 @@ func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 
 var (
 	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v100w64 = version.MustParseBinary("1.0.0-windows-amd64")
 	v100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
 	v120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
-	v120w64 = version.MustParseBinary("1.2.0-windows-amd64")
 	v120u32 = version.MustParseBinary("1.2.0-ubuntu-i386")
 	v190u32 = version.MustParseBinary("1.9.0-ubuntu-i386")
-	v190w64 = version.MustParseBinary("1.9.0-windows-amd64")
 	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")
 	v100All = []version.Binary{
-		v100u64, v100w64, v100u32,
+		v100u64, v100u32,
 	}
 	v120All = []version.Binary{
-		v120u64, v120w64, v120u32,
+		v120u64, v120u32,
 	}
 	v190All = []version.Binary{
-		v190u32, v190w64,
+		v190u32,
 	}
 	v200All = []version.Binary{
 		v200u64,

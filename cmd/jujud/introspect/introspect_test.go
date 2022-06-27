@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	stdtesting "testing"
@@ -35,9 +34,6 @@ type IntrospectCommandSuite struct {
 }
 
 func (s *IntrospectCommandSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("introspection socket does not run on windows")
-	}
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&config.DataDir, c.MkDir())
 }

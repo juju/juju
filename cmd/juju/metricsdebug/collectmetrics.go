@@ -20,7 +20,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/worker/metrics/sender"
+	"github.com/juju/juju/common/sender"
 )
 
 // TODO(bogdanteleaga): update this once querying for actions by name is implemented.

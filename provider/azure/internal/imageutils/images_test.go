@@ -10,9 +10,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/go-autorest/autorest/mocks"
+	gc "gopkg.in/check.v1"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -85,13 +86,6 @@ func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
-}
-
-func (s *imageutilsSuite) TestSeriesImageWindows(c *gc.C) {
-	s.assertImageId(c, "win2012r2", "daily", "MicrosoftWindowsServer:WindowsServer:2012-R2-Datacenter:latest")
-	s.assertImageId(c, "win2012", "daily", "MicrosoftWindowsServer:WindowsServer:2012-Datacenter:latest")
-	s.assertImageId(c, "win81", "daily", "MicrosoftVisualStudio:Windows:8.1-Enterprise-N:latest")
-	s.assertImageId(c, "win10", "daily", "MicrosoftVisualStudio:Windows:10-Enterprise:latest")
 }
 
 func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {

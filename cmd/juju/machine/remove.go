@@ -110,14 +110,14 @@ func (c *removeCommand) getAPIRoot() (api.Connection, error) {
 }
 
 func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
+	if c.machineAPI != nil {
+		return c.machineAPI, nil
+	}
 	root, err := c.getAPIRoot()
 	if err != nil {
 		return nil, err
 	}
-	if c.machineAPI == nil {
-		return machinemanager.NewClient(root), nil
-	}
-	return c.machineAPI, nil
+	return machinemanager.NewClient(root), nil
 }
 
 // Run implements Command.Run.

@@ -334,10 +334,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 
 // appendProxyToCommands activates proxy settings on platforms
 // that support this feature via the command line. Currently this
-// will work on most GNU/Linux systems, but has no use in Windows
-// where the proxy settings are taken from the registry or from
-// application specific settings (proxy settings in firefox ignore
-// registry values on Windows).
+// will work on most GNU/Linux systems.
 func (c *RunCommand) appendProxyToCommands() string {
 	switch jujuos.HostOS() {
 	case jujuos.Ubuntu:

@@ -370,7 +370,7 @@ func opClientSetApplicationConstraints(c *gc.C, st api.Connection, mst *state.St
 
 func opClientSetModelConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := apiclient.NewClient(st).SetModelConstraints(nullConstraints)
+	err := modelconfig.NewClient(st).SetModelConstraints(nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}

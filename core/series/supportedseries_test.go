@@ -40,7 +40,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypes(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
@@ -56,7 +56,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
@@ -88,7 +88,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "bionic", "xenial", "trusty", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 var getOSFromSeriesTests = []struct {
@@ -98,12 +98,6 @@ var getOSFromSeriesTests = []struct {
 }{{
 	series: "precise",
 	want:   coreos.Ubuntu,
-}, {
-	series: "win2012r2",
-	want:   coreos.Windows,
-}, {
-	series: "win2016nano",
-	want:   coreos.Windows,
 }, {
 	series: "mountainlion",
 	want:   coreos.OSX,

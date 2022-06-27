@@ -1014,14 +1014,14 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.addCharmToState(c, "cs:~who/multi-series-windows", "multi-series-windows")
+	curl, _ = s.addCharmToState(c, "cs:~who/multi-series-centos", "multi-series-centos")
 
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
 		ForceSeries:     true,
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-windows-0": OS "Ubuntu" not supported by charm`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-centos-0": OS "Ubuntu" not supported by charm`)
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {

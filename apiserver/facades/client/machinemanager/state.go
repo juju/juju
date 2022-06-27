@@ -8,8 +8,11 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/state/binarystorage"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/instance"
@@ -19,6 +22,14 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
+
+// StateBackend wraps a state.
+// TODO(juju3) - move to export_test
+// It's here because we need to for the client
+// facade for backwards compatibility.
+func StateBackend(st *state.State) Backend {
+	return &stateShim{st}
+}
 
 type Backend interface {
 	network.SpaceLookup
@@ -32,6 +43,8 @@ type Backend interface {
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error)
+	FindEntity(names.Tag) (state.Entity, error)
+	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
 type BackendState interface {
@@ -39,13 +52,23 @@ type BackendState interface {
 	MachineFromTag(string) (Machine, error)
 }
 
+type ControllerBackend interface {
+	ControllerTag() names.ControllerTag
+	ControllerConfig() (controller.Config, error)
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+}
+
 type Pool interface {
 	GetModel(string) (Model, func(), error)
+	SystemState() (ControllerBackend, error)
 }
 
 type Model interface {
 	Name() string
 	UUID() string
+	ModelTag() names.ModelTag
+	ControllerUUID() string
+	Type() state.ModelType
 	Cloud() (cloud.Cloud, error)
 	CloudCredential() (state.Credential, bool, error)
 	CloudRegion() string
@@ -55,6 +78,8 @@ type Model interface {
 type Machine interface {
 	Id() string
 	Tag() names.Tag
+	SetPassword(string) error
+	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Destroy() error
 	ForceDestroy(time.Duration) error
 	Series() string
@@ -126,6 +151,10 @@ func (s stateShim) Model() (Model, error) {
 
 type poolShim struct {
 	pool *state.StatePool
+}
+
+func (p *poolShim) SystemState() (ControllerBackend, error) {
+	return p.pool.SystemState()
 }
 
 func (p *poolShim) GetModel(uuid string) (Model, func(), error) {

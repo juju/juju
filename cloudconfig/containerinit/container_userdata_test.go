@@ -5,7 +5,6 @@
 package containerinit_test
 
 import (
-	"runtime"
 	"strings"
 	stdtesting "testing"
 
@@ -31,10 +30,6 @@ var _ = gc.Suite(&UserDataSuite{})
 
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	if runtime.GOOS == "windows" {
-		c.Skip("This test is for Linux only")
-	}
 }
 
 func CloudInitDataExcludingOutputSection(data string) []string {

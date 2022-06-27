@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 
@@ -47,7 +46,6 @@ var _ = gc.Suite(&UniterSuite{})
 
 // This guarantees that we get proper platform
 // specific error directly from their source
-// This works on both windows and unix
 var errNotDir = syscall.ENOTDIR.Error()
 
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
@@ -168,10 +166,6 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Check error conditions during unit bootstrap phase.
 		ut(
@@ -890,10 +884,6 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1448308")
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios - handling conflicts.
 		ut(

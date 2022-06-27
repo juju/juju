@@ -35,9 +35,6 @@ type kvmProvisionerSuite struct {
 var _ = gc.Suite(&kvmProvisionerSuite{})
 
 func (s *kvmProvisionerSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping kvm tests on windows")
-	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 }

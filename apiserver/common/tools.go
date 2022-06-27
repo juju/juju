@@ -281,7 +281,7 @@ func (f *toolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	// Conversely, if we get a request by OS type, matching series tools are
 	// converted to match the OS.
 	// TODO: Remove this block and the called methods for Juju 3/4.
-	if args.Number.Major == 2 && args.Number.Minor <= 8 && (args.OSType != "" || args.Series != "") {
+	if args.Number.Major == 2 && args.Number.Minor <= 8 {
 		if args.OSType != "" {
 			list = f.resultForOSTools(list, args.OSType)
 		}

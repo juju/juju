@@ -16,7 +16,7 @@ type VsphereRenderer struct{}
 
 func (VsphereRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
-	case jujuos.Ubuntu, jujuos.CentOS, jujuos.Windows:
+	case jujuos.Ubuntu, jujuos.CentOS:
 		return renderers.RenderYAML(cfg, renderers.ToBase64)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())

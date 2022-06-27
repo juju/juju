@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -22,9 +21,6 @@ import (
 )
 
 func Test(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping upstart tests on windows")
-	}
 	gc.TestingT(t)
 }
 

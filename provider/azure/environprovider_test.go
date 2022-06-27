@@ -37,9 +37,8 @@ var _ = gc.Suite(&environProviderSuite{})
 func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                     &s.sender,
-		RequestInspector:           &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
-		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		Sender:           &s.sender,
+		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
 			return &azuretesting.FakeCredential{}, nil
 		},
@@ -126,7 +125,6 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 	if config.AzureCLI == nil {
 		config.AzureCLI = azurecli.AzureCLI{}
 	}
-	config.RandomWindowsAdminPassword = func() string { return "sorandom" }
 	config.GenerateSSHKey = func(string) (string, string, error) {
 		return "private", "public", nil
 	}

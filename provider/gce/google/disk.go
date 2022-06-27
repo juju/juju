@@ -8,9 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
-
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 )
 
 // The different types of disk persistence supported by GCE.
@@ -47,28 +44,7 @@ const (
 	StatusRestoring DiskStatus = "RESTORING"
 )
 
-// MinDiskSizeGB is the minimum/default size (in megabytes) for
-// GCE disks.
-//
-// Note: GCE does not currently have an official minimum disk size.
-// However, in testing we found the minimum size to be 10 GB for ubuntu
-// and 50 GB for windows due to the image size. See gceapi message.
-//
-// gceapi: Requested disk size cannot be smaller than the image size (10 GB)
-func MinDiskSizeGB(ser string) uint64 {
-	// See comment below that explains why we're ignoring the error
-	os, _ := series.GetOSFromSeries(ser)
-	switch os {
-	case jujuos.Ubuntu:
-		return 10
-	case jujuos.Windows:
-		return 50
-	// On default we just return a "sane" default since the error
-	// will be propagated through the api and appear in juju status anyway
-	default:
-		return 10
-	}
-}
+const MinDiskSizeGB = 10
 
 // gibToMib converts gibibytes to mebibytes.
 func gibToMib(g int64) uint64 {
@@ -117,7 +93,7 @@ type DiskSpec struct {
 // TooSmall checks the spec's size hint and indicates whether or not
 // it is smaller than the minimum disk size.
 func (ds *DiskSpec) TooSmall() bool {
-	return ds.SizeHintGB < MinDiskSizeGB(ds.Series)
+	return ds.SizeHintGB < MinDiskSizeGB
 }
 
 // SizeGB returns the disk size to use for a new disk. The size hint
@@ -126,7 +102,7 @@ func (ds *DiskSpec) TooSmall() bool {
 func (ds *DiskSpec) SizeGB() uint64 {
 	size := ds.SizeHintGB
 	if ds.TooSmall() {
-		size = MinDiskSizeGB(ds.Series)
+		size = MinDiskSizeGB
 	}
 	return size
 }

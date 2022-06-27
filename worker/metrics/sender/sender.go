@@ -9,18 +9,14 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"runtime"
 	"time"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/agent/metricsadder"
+	csender "github.com/juju/juju/common/sender"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/metrics/spool"
-)
-
-const (
-	DefaultMetricsSendSocketName = "metrics-send.socket"
 )
 
 type stopper interface {
@@ -118,12 +114,7 @@ func (s *sender) stop() {
 }
 
 var socketName = func(baseDir, unitTag string) string {
-	switch runtime.GOOS {
-	case "windows":
-		return fmt.Sprintf(`\\.\pipe\send-metrics-%s`, unitTag)
-	default:
-		return path.Join(baseDir, DefaultMetricsSendSocketName)
-	}
+	return path.Join(baseDir, csender.DefaultMetricsSendSocketName)
 }
 
 func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFactory, baseDir, unitTag string) (*sender, error) {
