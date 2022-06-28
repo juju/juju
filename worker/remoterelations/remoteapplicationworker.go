@@ -290,8 +290,10 @@ func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect() error {
 				CACert:        apiInfo.CACert,
 			}
 
-			err = errors.Annotate(w.localModelFacade.UpdateControllerForModel(controllerInfo, w.remoteModelUUID),
-				"updating external controller info")
+			if err = w.localModelFacade.UpdateControllerForModel(controllerInfo, w.remoteModelUUID); err != nil {
+				_ = w.remoteModelFacade.Close()
+				err = errors.Annotate(err, "updating external controller info")
+			}
 		}
 	}
 
