@@ -8,9 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
 	set "github.com/juju/collections/set"
-	charm0 "github.com/juju/juju/worker/uniter/charm"
+	charm "github.com/juju/juju/worker/uniter/charm"
 )
 
 // MockBundleReader is a mock of BundleReader interface.
@@ -37,10 +36,10 @@ func (m *MockBundleReader) EXPECT() *MockBundleReaderMockRecorder {
 }
 
 // Read mocks base method.
-func (m *MockBundleReader) Read(arg0 charm0.BundleInfo, arg1 <-chan struct{}) (charm0.Bundle, error) {
+func (m *MockBundleReader) Read(arg0 charm.BundleInfo, arg1 <-chan struct{}) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Read", arg0, arg1)
-	ret0, _ := ret[0].(charm0.Bundle)
+	ret0, _ := ret[0].(charm.Bundle)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -89,18 +88,18 @@ func (mr *MockBundleInfoMockRecorder) ArchiveSha256() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveSha256", reflect.TypeOf((*MockBundleInfo)(nil).ArchiveSha256))
 }
 
-// URL mocks base method.
-func (m *MockBundleInfo) URL() *charm.URL {
+// String mocks base method.
+func (m *MockBundleInfo) String() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*charm.URL)
+	ret := m.ctrl.Call(m, "String")
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// URL indicates an expected call of URL.
-func (mr *MockBundleInfoMockRecorder) URL() *gomock.Call {
+// String indicates an expected call of String.
+func (mr *MockBundleInfoMockRecorder) String() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockBundleInfo)(nil).URL))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockBundleInfo)(nil).String))
 }
 
 // MockBundle is a mock of Bundle interface.

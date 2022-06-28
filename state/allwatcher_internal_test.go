@@ -2485,12 +2485,12 @@ func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, [
 				about: "charm is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "charms",
-					Id: st.docID(ch.URL().String()),
+					Id: st.docID(ch.String()),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.CharmInfo{
 						ModelUUID:     st.ModelUUID(),
-						CharmURL:      ch.URL().String(),
+						CharmURL:      ch.String(),
 						Life:          life.Alive,
 						DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 					}}}

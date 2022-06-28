@@ -1239,7 +1239,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
-	cURL := args.Charm.URL().String()
+	cURL := args.Charm.String()
 	appDoc := &applicationDoc{
 		DocID:         applicationID,
 		Name:          args.Name,
@@ -2159,7 +2159,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
-					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
+					Assert: bson.D{{"life", Alive}, {"charmurl", ch.String()}},
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			}

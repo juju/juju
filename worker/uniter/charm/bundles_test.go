@@ -83,13 +83,13 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm) {
 
 type fakeBundleInfo struct {
 	charm.BundleInfo
-	curl   *corecharm.URL
+	curl   string
 	sha256 string
 }
 
-func (f fakeBundleInfo) URL() *corecharm.URL {
-	if f.curl == nil {
-		return f.BundleInfo.URL()
+func (f fakeBundleInfo) String() string {
+	if f.curl == "" {
+		return f.BundleInfo.String()
 	}
 	return f.curl
 }
@@ -121,13 +121,12 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	apiCharm, sch := s.AddCharm(c)
 
 	// Try to get the charm when the content doesn't match.
-	_, err = d.Read(&fakeBundleInfo{apiCharm, nil, "..."}, nil)
+	_, err = d.Read(&fakeBundleInfo{apiCharm, "", "..."}, nil)
 	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: `)+`expected sha256 "...", got ".*"`)
 	checkDownloadsEmpty()
 
 	// Try to get a charm whose bundle doesn't exist.
-	otherURL := corecharm.MustParseURL("cs:quantal/spam-1")
-	_, err = d.Read(&fakeBundleInfo{apiCharm, otherURL, ""}, nil)
+	_, err = d.Read(&fakeBundleInfo{apiCharm, "cs:quantal/spam-1", ""}, nil)
 	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/spam-1" from API server: `)+`.* not found`)
 	checkDownloadsEmpty()
 

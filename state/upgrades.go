@@ -4244,7 +4244,7 @@ func RemoveInvalidCharmPlaceholders(pool *StatePool) error {
 		iter := charms.Find(stillPlaceholder).Iter()
 		var cDoc charmDoc
 		for iter.Next(&cDoc) {
-			docs[cDoc.URL.String()] = cDoc.DocID
+			docs[*cDoc.URL] = cDoc.DocID
 		}
 
 		if err := iter.Close(); err != nil {

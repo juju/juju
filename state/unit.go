@@ -1587,7 +1587,7 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 		ops = append(ops, txn.Op{
 			C:      applicationsC,
 			Id:     appName,
-			Assert: bson.D{{"charmurl", ch.URL()}},
+			Assert: bson.D{{"charmurl", ch.String()}},
 		})
 	}
 	return ops

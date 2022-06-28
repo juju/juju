@@ -4,7 +4,6 @@
 package state
 
 import (
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
 )
@@ -49,11 +48,7 @@ func appCharmIncRefOps(mb modelBackend, appName string, cURL *string, canCreate 
 	if err != nil {
 		return nil, errors.Annotate(err, "storage constraints reference")
 	}
-	curl, err := charm.ParseURL(*cURL)
-	if err != nil {
-		return nil, errors.Annotate(err, "parsing charm url")
-	}
-	charmKey := charmGlobalKey(curl)
+	charmKey := charmGlobalKey(cURL)
 	charmOp, err := getIncRefOp(refcounts, charmKey, 1)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm reference")
@@ -81,11 +76,7 @@ func appCharmDecRefOps(st modelBackend, appName string, cURL *string, maybeDoFin
 		return nil, errors.Trace(e)
 	}
 	ops := []txn.Op{}
-	curl, err := charm.ParseURL(*cURL)
-	if op.FatalError(err) {
-		return fail(errors.Annotate(err, "charm url parsing"))
-	}
-	charmKey := charmGlobalKey(curl)
+	charmKey := charmGlobalKey(cURL)
 	charmOp, err := nsRefcounts.AliveDecRefOp(refcounts, charmKey)
 	if op.FatalError(err) {
 		return fail(errors.Annotate(err, "charm reference"))
@@ -144,13 +135,15 @@ func finalAppCharmRemoveOps(appName string, curl *string) []txn.Op {
 }
 
 // charmDestroyOps implements the logic of charm.Destroy.
-func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
+func charmDestroyOps(st modelBackend, curl string) ([]txn.Op, error) {
+	if curl == "" {
+		return nil, errors.BadRequestf("curl is empty")
+	}
 	db := st.db()
 	charms, cCloser := db.GetCollection(charmsC)
 	defer cCloser()
 
-	charmKey := curl.String()
-	charmOp, err := nsLife.destroyOp(charms, charmKey, nil)
+	charmOp, err := nsLife.destroyOp(charms, curl, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm")
 	}
@@ -158,7 +151,7 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	refcounts, rCloser := db.GetCollection(refcountsC)
 	defer rCloser()
 
-	refcountKey := charmGlobalKey(curl)
+	refcountKey := charmGlobalKey(&curl)
 	refcountOp, err := nsRefcounts.RemoveOp(refcounts, refcountKey, 0)
 	switch errors.Cause(err) {
 	case nil:

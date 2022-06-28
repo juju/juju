@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	ch "github.com/juju/charm/v8"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -45,8 +44,8 @@ func (s *ManifestDeployerSuite) SetUpTest(c *gc.C) {
 	s.deployer = charm.NewManifestDeployer(s.targetPath, deployerPath, s.bundles, loggo.GetLogger("test"))
 }
 
-func (s *ManifestDeployerSuite) addMockCharm(c *gc.C, revision int, bundle charm.Bundle) charm.BundleInfo {
-	return s.bundles.AddBundle(c, charmURL(revision), bundle)
+func (s *ManifestDeployerSuite) addMockCharm(revision int, bundle charm.Bundle) charm.BundleInfo {
+	return s.bundles.AddBundle(charmURL(revision), bundle)
 }
 
 func (s *ManifestDeployerSuite) addCharm(c *gc.C, revision int, content ...ft.Entry) charm.BundleInfo {
@@ -68,12 +67,12 @@ func (s *ManifestDeployerSuite) deployCharm(c *gc.C, revision int, content ...ft
 func (s *ManifestDeployerSuite) assertCharm(c *gc.C, revision int, content ...ft.Entry) {
 	url, err := charm.ReadCharmURL(filepath.Join(s.targetPath, ".juju-charm"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.DeepEquals, charmURL(revision))
+	c.Assert(url, gc.Equals, charmURL(revision).String())
 	ft.Entries(content).Check(c, s.targetPath)
 }
 
 func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
-	info := s.addMockCharm(c, 1, mockBundle{})
+	info := s.addMockCharm(1, mockBundle{})
 	abort := make(chan struct{})
 	errors := make(chan error)
 	s.bundles.EnableWaitForAbort()
@@ -86,7 +85,7 @@ func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
 }
 
 func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
-	info := s.addMockCharm(c, 1, mockBundle{})
+	info := s.addMockCharm(1, mockBundle{})
 	abort := make(chan struct{})
 	errors := make(chan error)
 	stopWaiting := s.bundles.EnableWaitForAbort()
@@ -204,7 +203,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 			return nil
 		},
 	}
-	info := s.addMockCharm(c, 2, mockCharm)
+	info := s.addMockCharm(2, mockCharm)
 	err := s.deployer.Stage(info, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -247,7 +246,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 			return fmt.Errorf("oh noes")
 		},
 	}
-	badInfo := s.addMockCharm(c, 2, badCharm)
+	badInfo := s.addMockCharm(2, badCharm)
 	err := s.deployer.Stage(badInfo, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
@@ -278,8 +277,7 @@ type RetryingBundleReaderSuite struct {
 func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	charmURL := ch.MustParseURL("ch:focal/dummy-1")
-	s.bundleInfo.EXPECT().URL().Return(charmURL).AnyTimes()
+	s.bundleInfo.EXPECT().String().Return("ch:focal/dummy-1").AnyTimes()
 	s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")).AnyTimes()
 
 	go func() {
@@ -298,8 +296,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	charmURL := ch.MustParseURL("ch:focal/dummy-1")
-	s.bundleInfo.EXPECT().URL().Return(charmURL).AnyTimes()
+	s.bundleInfo.EXPECT().String().Return("ch:focal/dummy-1").AnyTimes()
 	gomock.InOrder(
 		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")),
 		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(s.bundle, nil),
