@@ -5,6 +5,7 @@ package migration
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/state"
@@ -95,6 +96,10 @@ func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	return PrecheckShim(s.controllerState, s.controllerState)
+}
+
+func (s precheckShim) MongoCurrentStatus() (*replicaset.Status, error) {
+	return nil, errors.NotImplementedf("this is not used but just for implimenting the interface")
 }
 
 // PoolShim wraps a state.StatePool to produce a Pool.

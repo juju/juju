@@ -28,7 +28,6 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -249,7 +248,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 	}
 	err := migration.UploadBinaries(config)
 	c.Assert(err, gc.ErrorMatches,
-		"charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
+		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
 }
 
 type fakeDownloader struct {

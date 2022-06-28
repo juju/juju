@@ -7,6 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/replicaset/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -35,13 +36,13 @@ type SourcePrecheckSuite struct {
 var _ = gc.Suite(&SourcePrecheckSuite{})
 
 func sourcePrecheck(backend migration.PrecheckBackend) error {
-	return migration.SourcePrecheck(backend, allAlivePresence(), allAlivePresence())
+	return migration.SourcePrecheck(backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence())
 }
 
 func (*SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
-	err := migration.SourcePrecheck(backend, allAlivePresence(), allAlivePresence())
+	err := migration.SourcePrecheck(backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -67,6 +68,42 @@ func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 	}
 	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
+}
+
+func (*SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
+	backend := newFakeBackend()
+	hasUpgradeSeriesLocks := true
+	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
+	machineCountForSeries := 10
+	backend.machineCountForSeries = &machineCountForSeries
+	agentVersion := version.MustParse("2.9.31")
+	backend.model.agentVersion = &agentVersion
+	backend.model.name = "model-1"
+	backend.model.owner = names.NewUserTag("foo")
+	err := migration.SourcePrecheck(backend, version.MustParse("3.0-beta1"), allAlivePresence(), allAlivePresence())
+	c.Assert(err.Error(), gc.Equals, `
+cannot migrate, issues need to be fixed:
+model "foo/model-1":
+	upgrade current model ("2.9.31") to at least "2.9.32" before upgrading/migrating to "3.0-beta1"
+	unexpected upgrade series lock found
+	model hosts 10 windows machine(s)`[1:])
+}
+
+func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
+	backend := newFakeBackend()
+	hasUpgradeSeriesLocks := true
+	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
+	machineCountForSeries := 10
+	backend.machineCountForSeries = &machineCountForSeries
+	agentVersion := version.MustParse("2.9.31")
+	backend.model.agentVersion = &agentVersion
+	backend.model.name = "model-1"
+	backend.model.owner = names.NewUserTag("foo")
+	err := migration.SourcePrecheck(backend, version.MustParse("2.9.99"), allAlivePresence(), allAlivePresence())
+	c.Assert(err.Error(), gc.Equals, `
+cannot migrate, issues need to be fixed:
+model "foo/model-1":
+	unexpected upgrade series lock found`[1:])
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
@@ -137,7 +174,7 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	backend := newHappyBackend()
 	modelPresence := downAgentPresence("machine-1")
 	controllerPresence := allAlivePresence()
-	err := migration.SourcePrecheck(backend, modelPresence, controllerPresence)
+	err := migration.SourcePrecheck(backend, version.MustParse("2.9.32"), modelPresence, controllerPresence)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
@@ -252,7 +289,7 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 	backend := newHappyBackend()
 	modelPresence := downAgentPresence("unit-foo-0")
 	controllerPresence := allAlivePresence()
-	err := migration.SourcePrecheck(backend, modelPresence, controllerPresence)
+	err := migration.SourcePrecheck(backend, version.MustParse("2.9.32"), modelPresence, controllerPresence)
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (lost)")
 }
 
@@ -431,9 +468,9 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
 	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals,
-		`model must be upgraded to at least version 2.8.9 before being migrated to a controller with version 3.0.0`)
+		`model must be upgraded to at least version 2.9.32 before being migrated to a controller with version 3.0.0`)
 
-	s.modelInfo.AgentVersion = version.MustParse("2.8.9")
+	s.modelInfo.AgentVersion = version.MustParse("2.9.32")
 	err = s.runPrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -752,6 +789,15 @@ type fakeBackend struct {
 	credentialsErr error
 
 	controllerBackend *fakeBackend
+
+	hasUpgradeSeriesLocks    *bool
+	hasUpgradeSeriesLocksErr error
+
+	machineCountForSeries    *int
+	machineCountForSeriesErr error
+
+	mongoCurrentStatus    *replicaset.Status
+	mongoCurrentStatusErr error
 }
 
 func (b *fakeBackend) Model() (migration.PrecheckModel, error) {
@@ -801,6 +847,27 @@ func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	return b.controllerBackend, nil
 }
 
+func (b *fakeBackend) HasUpgradeSeriesLocks() (bool, error) {
+	if b.hasUpgradeSeriesLocks == nil {
+		return false, nil
+	}
+	return *b.hasUpgradeSeriesLocks, b.hasUpgradeSeriesLocksErr
+}
+
+func (b *fakeBackend) MachineCountForSeries(series ...string) (int, error) {
+	if b.machineCountForSeries == nil {
+		return 0, nil
+	}
+	return *b.machineCountForSeries, b.machineCountForSeriesErr
+}
+
+func (b *fakeBackend) MongoCurrentStatus() (*replicaset.Status, error) {
+	if b.mongoCurrentStatus == nil {
+		return &replicaset.Status{}, nil
+	}
+	return b.mongoCurrentStatus, b.mongoCurrentStatusErr
+}
+
 type fakePool struct {
 	models []migration.PrecheckModel
 }
@@ -830,6 +897,8 @@ type fakeModel struct {
 	modelType     state.ModelType
 	migrationMode state.MigrationMode
 	credential    string
+
+	agentVersion *version.Number
 }
 
 func (m *fakeModel) Type() state.ModelType {
@@ -854,6 +923,13 @@ func (m *fakeModel) Life() state.Life {
 
 func (m *fakeModel) MigrationMode() state.MigrationMode {
 	return m.migrationMode
+}
+
+func (m *fakeModel) AgentVersion() (version.Number, error) {
+	if m.agentVersion == nil {
+		return version.MustParse("2.9.32"), nil
+	}
+	return *m.agentVersion, nil
 }
 
 func (m *fakeModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
