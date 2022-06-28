@@ -188,8 +188,12 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallCont
 		},
 	}
 
+	disks, err := v.env.disksClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var result armcompute.DisksClientCreateOrUpdateResponse
-	poller, err := v.env.disks.BeginCreateOrUpdate(ctx, v.env.resourceGroup, diskName, diskModel, nil)
+	poller, err := disks.BeginCreateOrUpdate(ctx, v.env.resourceGroup, diskName, diskModel, nil)
 	if err == nil {
 		result, err = poller.PollUntilDone(ctx, nil)
 	}
@@ -214,8 +218,12 @@ func (v *azureVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]stri
 }
 
 func (v *azureVolumeSource) listManagedDiskVolumes(ctx context.ProviderCallContext) ([]string, error) {
+	disks, err := v.env.disksClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var volumeIds []string
-	pager := v.env.disks.NewListPager(nil)
+	pager := disks.NewListPager(nil)
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
@@ -244,7 +252,12 @@ func (v *azureVolumeSource) describeManagedDiskVolumes(ctx context.ProviderCallC
 		wg.Add(1)
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			disk, err := v.env.disks.Get(ctx, v.env.resourceGroup, volumeId, nil)
+			disks, err := v.env.disksClient()
+			if err != nil {
+				results[i].Error = err
+				return
+			}
+			disk, err := disks.Get(ctx, v.env.resourceGroup, volumeId, nil)
 			if err != nil {
 				if errorutils.IsNotFoundError(err) {
 					err = errors.NotFoundf("disk %s", volumeId)
@@ -270,7 +283,11 @@ func (v *azureVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volu
 
 func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	return foreachVolume(volumeIds, func(volumeId string) error {
-		poller, err := v.env.disks.BeginDelete(ctx, v.env.resourceGroup, volumeId, nil)
+		disks, err := v.env.disksClient()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		poller, err := disks.BeginDelete(ctx, v.env.resourceGroup, volumeId, nil)
 		if err == nil {
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
@@ -560,8 +577,12 @@ type maybeVirtualMachine struct {
 // virtualMachines returns a mapping of instance IDs to VirtualMachines and
 // errors, for each of the specified instance IDs.
 func (v *azureVolumeSource) virtualMachines(ctx context.ProviderCallContext, instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
+	compute, err := v.env.computeClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	all := make(map[instance.Id]*armcompute.VirtualMachine)
-	pager := v.env.compute.NewListPager(v.env.resourceGroup, nil)
+	pager := compute.NewListPager(v.env.resourceGroup, nil)
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
@@ -590,6 +611,11 @@ func (v *azureVolumeSource) updateVirtualMachines(
 	ctx context.ProviderCallContext,
 	virtualMachines map[instance.Id]*maybeVirtualMachine, instanceIds []instance.Id,
 ) ([]error, error) {
+	compute, err := v.env.computeClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	results := make([]error, len(instanceIds))
 	for i, instanceId := range instanceIds {
 		vm, ok := virtualMachines[instanceId]
@@ -600,7 +626,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			results[i] = vm.err
 			continue
 		}
-		poller, err := v.env.compute.BeginCreateOrUpdate(
+		poller, err := compute.BeginCreateOrUpdate(
 			ctx,
 			v.env.resourceGroup, toValue(vm.vm.Name), *vm.vm, nil,
 		)
