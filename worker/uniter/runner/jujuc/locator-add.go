@@ -51,8 +51,6 @@ func (c *LocatorAddCommand) Info() *cmd.Info {
 		Purpose: "add service locator",
 		Doc: `
 locator-add adds the service locator, specified by type, name and params.
-
-... . 
 `,
 	})
 }

@@ -5,6 +5,7 @@ package jujuctesting
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -14,12 +15,15 @@ type ServiceLocators struct {
 }
 
 // AddServiceLocator adds a Service Locator for the provided data.
-func (m *ServiceLocators) AddServiceLocator(slType string, slName string, slParams map[string]interface{}) {
-	m.ServiceLocators = append(m.ServiceLocators, jujuc.ServiceLocator{
-		Type:   slType,
-		Name:   slName,
-		Params: slParams,
-	})
+func (m *ServiceLocators) AddServiceLocator(locators params.AddServiceLocators) {
+	for _, sl := range locators.ServiceLocators {
+		m.ServiceLocators = append(m.ServiceLocators, jujuc.ServiceLocator{
+			Type:   sl.Type,
+			Name:   sl.Name,
+			Params: sl.Params,
+		})
+	}
+
 }
 
 // ContextServiceLocators is a test double for jujuc.ContextServiceLocators.
@@ -29,12 +33,12 @@ type ContextServiceLocators struct {
 }
 
 // AddServiceLocator implements jujuc.ContextServiceLocators.
-func (c *ContextServiceLocators) AddServiceLocator(slType string, slName string, slParams map[string]interface{}) error {
-	c.stub.AddCall("AddServiceLocator", slType, slName, slParams)
+func (c *ContextServiceLocators) AddServiceLocator(locators params.AddServiceLocators) error {
+	c.stub.AddCall("AddServiceLocator", locators)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.info.AddServiceLocator(slType, slName, slParams)
+	c.info.AddServiceLocator(locators)
 	return nil
 }
