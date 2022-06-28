@@ -74,6 +74,6 @@ jobs:
     - name: "Test client"
       run: |
         # Jenkins can perform the full jujud testing.
-        go test -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic
+        go test -v ./cmd/juju/... -check.v -coverprofile=coverage.txt -covermode=atomic -timeout=15m
         go test -v ./cmd/plugins/... -check.v
       shell: bash
