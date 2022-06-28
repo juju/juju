@@ -57,6 +57,7 @@ locator-add adds the service locator, specified by type, name and params.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *LocatorAddCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 	f.StringVar(&c.ConsumerUnitId, "u", "", "specify a unit by id")
 	f.StringVar(&c.ConsumerUnitId, "unit", "", "")
 
@@ -91,7 +92,7 @@ func (c *LocatorAddCommand) Init(args []string) error {
 }
 
 // Run adds service locators to the hook context.
-func (c *LocatorAddCommand) Run(ctx *cmd.Context) (err error) {
+func (c *LocatorAddCommand) Run(ctx *cmd.Context) error {
 	// Generate new UUID for service locator
 	uuid, err := utils.NewUUID()
 	if err != nil {
@@ -114,5 +115,6 @@ func (c *LocatorAddCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "cannot record service locator")
 	}
-	return nil
+
+	return c.out.Write(ctx, c.Id)
 }
