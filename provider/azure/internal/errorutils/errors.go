@@ -149,7 +149,14 @@ func SimpleError(err error) error {
 	if reqErr.ServiceError == nil {
 		return respErr
 	}
-	return errors.New(reqErr.ServiceError.Message)
+	msg := ""
+	if len(reqErr.ServiceError.Details) > 0 {
+		msg = reqErr.ServiceError.Details[0].Message
+	}
+	if msg == "" {
+		msg = reqErr.ServiceError.Message
+	}
+	return errors.New(msg)
 }
 
 // HandleCredentialError determines if given error relates to invalid credential.

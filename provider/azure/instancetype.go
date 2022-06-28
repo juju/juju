@@ -520,9 +520,8 @@ func mbToMib(mb uint64) uint64 {
 //
 // NOTE(axw) for now we ignore simplestreams altogether, and go straight to
 // Azure's image registry.
-func findInstanceSpec(
+func (env *azureEnviron) findInstanceSpec(
 	ctx context.ProviderCallContext,
-	client *armcompute.VirtualMachineImagesClient,
 	instanceTypesMap map[string]instances.InstanceType,
 	constraint *instances.InstanceConstraint,
 	imageStream string,
@@ -533,6 +532,10 @@ func findInstanceSpec(
 		return nil, errors.NotFoundf("%s in arch constraints", arch.AMD64)
 	}
 
+	client, err := env.imagesClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	image, err := imageutils.SeriesImage(ctx, constraint.Series, imageStream, constraint.Region, client)
 	if err != nil {
 		return nil, errors.Trace(err)

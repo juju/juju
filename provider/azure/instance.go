@@ -72,18 +72,16 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Stat
 // with the given set of instances. This assumes that the instances'
 // VirtualMachines are up-to-date, and that there are no concurrent accesses
 // to the instances.
-func setInstanceAddresses(
+func (env *azureEnviron) setInstanceAddresses(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
-	nicClient *armnetwork.InterfacesClient,
-	pipClient *armnetwork.PublicIPAddressesClient,
 	instances []*azureInstance,
 ) (err error) {
-	instanceNics, err := instanceNetworkInterfaces(ctx, resourceGroup, nicClient)
+	instanceNics, err := env.instanceNetworkInterfaces(ctx, resourceGroup)
 	if err != nil {
 		return errors.Annotate(err, "listing network interfaces")
 	}
-	instancePips, err := instancePublicIPAddresses(ctx, resourceGroup, pipClient)
+	instancePips, err := env.instancePublicIPAddresses(ctx, resourceGroup)
 	if err != nil {
 		return errors.Annotate(err, "listing public IP addresses")
 	}
@@ -97,11 +95,14 @@ func setInstanceAddresses(
 // instanceNetworkInterfaces lists all network interfaces in the resource
 // group, and returns a mapping from instance ID to the network interfaces
 // associated with that instance.
-func instanceNetworkInterfaces(
+func (env *azureEnviron) instanceNetworkInterfaces(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
-	nicClient *armnetwork.InterfacesClient,
 ) (map[instance.Id][]*armnetwork.Interface, error) {
+	nicClient, err := env.interfacesClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	pager := nicClient.NewListPager(resourceGroup, nil)
 	instanceNics := make(map[instance.Id][]*armnetwork.Interface)
 	for pager.More() {
@@ -120,11 +121,14 @@ func instanceNetworkInterfaces(
 // interfacePublicIPAddresses lists all public IP addresses in the resource
 // group, and returns a mapping from instance ID to the public IP addresses
 // associated with that instance.
-func instancePublicIPAddresses(
+func (env *azureEnviron) instancePublicIPAddresses(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
-	pipClient *armnetwork.PublicIPAddressesClient,
 ) (map[instance.Id][]*armnetwork.PublicIPAddress, error) {
+	pipClient, err := env.publicAddressesClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	pager := pipClient.NewListPager(resourceGroup, nil)
 	instancePips := make(map[instance.Id][]*armnetwork.PublicIPAddress)
 	for pager.More() {
@@ -183,6 +187,10 @@ func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic *ar
 	if nic == nil || nic.Properties == nil {
 		return nil, errors.NotFoundf("internal network address or security group")
 	}
+	subnets, err := env.subnetsClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for _, ipConfiguration := range nic.Properties.IPConfigurations {
 		if ipConfiguration.Properties == nil {
 			continue
@@ -198,7 +206,7 @@ func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic *ar
 		if securityGroup == nil && ipConfiguration.Properties.Subnet != nil {
 			idParts := strings.Split(toValue(ipConfiguration.Properties.Subnet.ID), "/")
 			lenParts := len(idParts)
-			subnet, err := env.subnets.Get(ctx, idParts[lenParts-7], idParts[lenParts-3], idParts[lenParts-1], &armnetwork.SubnetsClientGetOptions{
+			subnet, err := subnets.Get(ctx, idParts[lenParts-7], idParts[lenParts-3], idParts[lenParts-1], &armnetwork.SubnetsClientGetOptions{
 				Expand: to.Ptr("networkSecurityGroup"),
 			})
 			if err != nil {
@@ -285,6 +293,10 @@ func (inst *azureInstance) openPortsOnGroup(
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
 
+	securityRules, err := inst.env.securityRulesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	singleSourceIngressRules := explodeIngressRules(rules)
 	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
@@ -340,11 +352,14 @@ func (inst *azureInstance) openPortsOnGroup(
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		}
-		_, err = inst.env.securityRules.BeginCreateOrUpdate(
+		poller, err := securityRules.BeginCreateOrUpdate(
 			ctx,
 			nsgInfo.resourceGroup, toValue(nsg.Name), ruleName, securityRule,
 			nil,
 		)
+		if err == nil {
+			_, err = poller.PollUntilDone(ctx, nil)
+		}
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "creating security rule for %q", ruleName), ctx)
 		}
@@ -377,11 +392,15 @@ func (inst *azureInstance) closePortsOnGroup(
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
 
+	securityRules, err := inst.env.securityRulesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	singleSourceIngressRules := explodeIngressRules(rules)
 	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
 		logger.Debugf("deleting security rule %q", ruleName)
-		poller, err := inst.env.securityRules.BeginDelete(
+		poller, err := securityRules.BeginDelete(
 			ctx,
 			nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), ruleName,
 			nil,
@@ -426,7 +445,11 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 }
 
 func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext, machineId string, nsgInfo *securityGroupInfo) (rules firewall.IngressRules, err error) {
-	nsg, err := inst.env.securityGroups.Get(ctx, nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), nil)
+	securityGroups, err := inst.env.securityGroupsClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nsg, err := securityGroups.Get(ctx, nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), nil)
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
@@ -522,10 +545,15 @@ func deleteInstanceNetworkSecurityRules(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	securityRules, err := env.securityRulesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, info := range securityGroupInfos {
 		if err := deleteSecurityRules(
 			ctx, id, info,
-			env.securityRules,
+			securityRules,
 		); err != nil {
 			return errors.Trace(err)
 		}

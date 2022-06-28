@@ -13,13 +13,16 @@ import (
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
-func createDeployment(
+func (env *azureEnviron) createDeployment(
 	ctx context.ProviderCallContext,
-	client *armresources.DeploymentsClient,
 	resourceGroup string,
 	deploymentName string,
 	t armtemplates.Template,
 ) error {
+	deploy, err := env.deployClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	templateMap, err := t.Map()
 	if err != nil {
 		return errors.Trace(err)
@@ -30,7 +33,7 @@ func createDeployment(
 			Mode:     to.Ptr(armresources.DeploymentModeIncremental),
 		},
 	}
-	poller, err := client.BeginCreateOrUpdate(
+	poller, err := deploy.BeginCreateOrUpdate(
 		ctx,
 		resourceGroup,
 		deploymentName,
