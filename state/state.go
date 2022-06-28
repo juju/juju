@@ -2159,7 +2159,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
-					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
+					Assert: bson.D{{"life", Alive}, {"charmurl", ch.String()}},
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			}
