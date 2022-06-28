@@ -53,7 +53,11 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 	// We will add these, excluding the SSH/API rules, to the
 	// network security group template created in the deployment
 	// below.
-	allRules, err := existingSecurityRules(ctx, env.securityGroups, env.resourceGroup)
+	securityGroups, err := env.securityGroupsClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	allRules, err := existingSecurityRules(ctx, securityGroups, env.resourceGroup)
 	if errors.IsNotFound(err) {
 		allRules = nil
 	} else if err != nil {
@@ -97,8 +101,12 @@ func existingSecurityRules(
 }
 
 func isControllerEnviron(env *azureEnviron, ctx context.ProviderCallContext) (bool, error) {
+	compute, err := env.computeClient()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	// Look for a machine with the "juju-is-controller" tag set to "true".
-	pager := env.compute.NewListPager(env.resourceGroup, nil)
+	pager := compute.NewListPager(env.resourceGroup, nil)
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
