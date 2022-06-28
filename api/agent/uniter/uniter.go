@@ -596,14 +596,14 @@ func (st *State) CloudSpec() (*params.CloudSpec, error) {
 	return result.Result, nil
 }
 
-func (st *State) AddServiceLocator(locators params.AddServiceLocators) error {
+func (st *State) AddServiceLocator(locators params.AddServiceLocators) (params.StringResult, error) {
 	var result params.StringResult
 	err := st.facade.FacadeCall("AddServiceLocator", locators, &result)
 	if err != nil {
-		return errors.Trace(err)
+		return params.StringResult{}, errors.Trace(err)
 	}
 	if err := result.Error; err != nil {
-		return errors.Trace(err)
+		return params.StringResult{}, errors.Trace(err)
 	}
-	return nil
+	return result, nil
 }
