@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/controller/migrationmaster"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
@@ -74,7 +75,7 @@ type Facade interface {
 
 	// Prechecks performs pre-migration checks on the model and
 	// (source) controller.
-	Prechecks() error
+	Prechecks(targetControllerVersion version.Number) error
 
 	// ModelInfo return basic information about the model to migrated.
 	ModelInfo() (coremigration.ModelInfo, error)
@@ -333,31 +334,46 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 }
 
 func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
+	model, err := w.config.Facade.ModelInfo()
+	if err != nil {
+		return errors.Annotate(err, "failed to obtain model info during prechecks")
+	}
+	targetConn, err := w.openAPIConn(status.TargetInfo)
+	if err != nil {
+		return errors.Annotate(err, "failed to connect to target controller during prechecks")
+	}
+	defer targetConn.Close()
+
+	targetControllerVersion, err := w.getTargetControllerVersion(targetConn)
+	if err != nil {
+		return errors.Annotate(err, "cannot get target controller version")
+	}
+
 	w.setInfoStatus("performing source prechecks")
-	err := w.config.Facade.Prechecks()
+	err = w.config.Facade.Prechecks(targetControllerVersion)
 	if err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}
 
 	w.setInfoStatus("performing target prechecks")
-	model, err := w.config.Facade.ModelInfo()
-	if err != nil {
-		return errors.Annotate(err, "failed to obtain model info during prechecks")
-	}
-	conn, err := w.openAPIConn(status.TargetInfo)
-	if err != nil {
-		return errors.Annotate(err, "failed to connect to target controller during prechecks")
-	}
-	defer conn.Close()
-
-	if conn.ControllerTag() != status.TargetInfo.ControllerTag {
+	if targetConn.ControllerTag() != status.TargetInfo.ControllerTag {
 		return errors.Errorf("unexpected target controller UUID (got %s, expected %s)",
-			conn.ControllerTag(), status.TargetInfo.ControllerTag)
+			targetConn.ControllerTag(), status.TargetInfo.ControllerTag)
 	}
-
-	targetClient := migrationtarget.NewClient(conn)
+	targetClient := migrationtarget.NewClient(targetConn)
 	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
+}
+
+func (w *Worker) getTargetControllerVersion(conn api.Connection) (version.Number, error) {
+	// Use target Connection to access the ModelInfo via MigrationMaster API.
+	// This is a workaround.
+	client := migrationmaster.NewClient(conn, nil)
+	model, err := client.ModelInfo()
+	if err != nil {
+		return version.Number{}, errors.Annotate(err, "failed to obtain model info during prechecks")
+	}
+	return model.ControllerAgentVersion, nil
 }
 
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {

@@ -254,7 +254,7 @@ func (s *Suite) TestPrechecksModelError(c *gc.C) {
 
 	s.precheckBackend.EXPECT().Model().Return(nil, errors.New("boom"))
 
-	err := s.mustMakeAPI(c).Prechecks()
+	err := s.mustMakeAPI(c).Prechecks(version.MustParse("2.9.32"))
 	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
 }
 
@@ -543,7 +543,6 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
-
 	return ctrl
 }
 

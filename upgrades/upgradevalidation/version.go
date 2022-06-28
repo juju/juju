@@ -5,8 +5,11 @@ package upgradevalidation
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 )
+
+var logger = loggo.GetLogger("juju.upgrades.validations")
 
 // MinMajorMigrateVersion defines the minimum version the model
 // must be running before migrating to the target controller.
@@ -41,6 +44,7 @@ func versionCheck(from, to version.Number, versionMap map[int]version.Number) (b
 		return false, version.Number{}, errors.Errorf("downgrade is not allowed")
 	}
 	minVer, ok := versionMap[to.Major]
+	logger.Debugf("from %q, to %q, versionMap %#v", from, to, versionMap)
 	if !ok {
 		return false, version.Number{}, errors.Errorf("cannot upgrade/migrate to %q", to)
 	}

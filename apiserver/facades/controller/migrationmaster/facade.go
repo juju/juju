@@ -168,7 +168,7 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 
 // Prechecks performs pre-migration checks on the model and
 // (source) controller.
-func (api *API) Prechecks() error {
+func (api *API) Prechecks(targetControllerVersion version.Number) error {
 	model, err := api.precheckBackend.Model()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
@@ -183,6 +183,7 @@ func (api *API) Prechecks() error {
 	}
 	return migration.SourcePrecheck(
 		api.precheckBackend,
+		targetControllerVersion,
 		api.presence.ModelPresence(model.UUID()),
 		api.presence.ModelPresence(controllerModel.UUID()),
 	)

@@ -120,9 +120,10 @@ var (
 		{"guard.Lockdown", nil},
 	}
 	prechecksCalls = []jujutesting.StubCall{
-		{"facade.Prechecks", nil},
 		{"facade.ModelInfo", nil},
 		apiOpenControllerCall,
+		{"MigrationMaster.ModelInfo", []interface{}{nil}},
+		{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 		{"MigrationTarget.Prechecks", []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
@@ -153,9 +154,14 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 	s.stub = new(jujutesting.Stub)
 	s.connection = &stubConnection{
+		c:             c,
 		stub:          s.stub,
 		controllerTag: targetControllerTag,
 		logStream:     &mockStream{},
+		migrationMasterModelInfo: params.MigrationModelInfo{
+			OwnerTag:               names.NewUserTag("foo").String(),
+			ControllerAgentVersion: version.MustParse("2.9.99"),
+		},
 	}
 	s.connectionErr = nil
 
@@ -430,9 +436,10 @@ func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.MinionReportTimeout", nil},
-			{"facade.Prechecks", nil},
 			{"facade.ModelInfo", nil},
 			apiOpenControllerCall,
+			{"MigrationMaster.ModelInfo", []interface{}{nil}},
+			{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 			apiCloseCall,
 		},
 		abortCalls,
@@ -448,7 +455,11 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.MinionReportTimeout", nil},
-			{"facade.Prechecks", nil},
+			{"facade.ModelInfo", nil},
+			apiOpenControllerCall,
+			{"MigrationMaster.ModelInfo", []interface{}{nil}},
+			{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
+			apiCloseCall,
 		},
 		abortCalls,
 	))
@@ -463,7 +474,6 @@ func (s *Suite) TestQUIESCEModelInfoFail(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.MinionReportTimeout", nil},
-			{"facade.Prechecks", nil},
 			{"facade.ModelInfo", nil},
 		},
 		abortCalls,
@@ -1221,8 +1231,8 @@ func (f *stubMasterFacade) MinionReportTimeout() (time.Duration, error) {
 	return f.minionReportTimeout, nil
 }
 
-func (f *stubMasterFacade) Prechecks() error {
-	f.stub.AddCall("facade.Prechecks")
+func (f *stubMasterFacade) Prechecks(targetControllerVersion version.Number) error {
+	f.stub.AddCall("facade.Prechecks", targetControllerVersion)
 	return f.prechecksErr
 }
 
@@ -1311,6 +1321,7 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 }
 
 type stubConnection struct {
+	c *gc.C
 	api.Connection
 	stub                *jujutesting.Stub
 	prechecksErr        error
@@ -1326,6 +1337,8 @@ type stubConnection struct {
 
 	machineErrs     []string
 	checkMachineErr error
+
+	migrationMasterModelInfo params.MigrationModelInfo
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
@@ -1359,6 +1372,14 @@ func (c *stubConnection) APICall(objType string, _ int, _, request string, args,
 				})
 			}
 			return c.checkMachineErr
+		}
+	} else if objType == "MigrationMaster" {
+		switch request {
+		case "ModelInfo":
+			c.c.Logf("objType %q request %q, args %#v", objType, request, args)
+			modelInfo := response.(*params.MigrationModelInfo)
+			*modelInfo = c.migrationMasterModelInfo
+			return nil
 		}
 	}
 	return errors.New("unexpected API call")
