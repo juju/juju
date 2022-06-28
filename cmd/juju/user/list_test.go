@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -52,21 +53,25 @@ func (f *fakeClock) Now() time.Time {
 	return f.now
 }
 
-func (f *fakeUserListAPI) ModelUserInfo() ([]params.ModelUserInfo, error) {
+func (f *fakeUserListAPI) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error) {
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
+	tag := names.NewModelTag(modelUUID).String()
 	userlist := []params.ModelUserInfo{
 		{
+			ModelTag:       tag,
 			UserName:       "admin",
 			LastConnection: &last1,
 			Access:         "write",
 		}, {
+			ModelTag:       tag,
 			UserName:       "adam",
 			DisplayName:    "Adam",
 			LastConnection: &last2,
 			Access:         "read",
 		}, {
+			ModelTag:    tag,
 			UserName:    "charlie@ubuntu.com",
 			DisplayName: "Charlie",
 			Access:      "read",
@@ -198,7 +203,7 @@ func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 }
 
 func (s *UserListCommandSuite) TestModelUsers(c *gc.C) {
-	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "admin")
+	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Name                Display name  Access  Last connection
@@ -210,7 +215,7 @@ charlie@ubuntu.com  Charlie       read    never connected
 }
 
 func (s *UserListCommandSuite) TestModelUsersFormatJson(c *gc.C) {
-	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "admin", "--format", "json")
+	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "test", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "{"+
 		`"adam":{"display-name":"Adam","access":"read","last-connection":"2015-03-01"},`+
@@ -220,7 +225,7 @@ func (s *UserListCommandSuite) TestModelUsersFormatJson(c *gc.C) {
 }
 
 func (s *UserListCommandSuite) TestModelUsersInfoFormatYaml(c *gc.C) {
-	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "admin", "--format", "yaml")
+	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "test", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 adam:

@@ -259,7 +259,7 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	return c.newAPIRoot("")
 }
 
-// NewAPIRoot returns a new connection to the API server for the named model
+// NewModelAPIRoot returns a new connection to the API server for the named model
 // in the specified controller.
 func (c *ControllerCommandBase) NewModelAPIRoot(modelName string) (api.Connection, error) {
 	controllerName, err := c.ControllerName()

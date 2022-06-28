@@ -12,7 +12,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/charms"
+	"github.com/juju/juju/api/http"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/worker/fortress"
 )
@@ -80,21 +81,28 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	apiClient := apiclient.NewClient(apiConn)
-	worker, err := config.NewWorker(Config{
+	charmDownloader, err := charms.NewCharmOpener(apiConn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	toolsDownloader, err := http.NewURIOpener(apiConn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w, err := config.NewWorker(Config{
 		ModelUUID:       agent.CurrentConfig().Model().Id(),
 		Facade:          facade,
 		Guard:           guard,
 		APIOpen:         api.Open,
 		UploadBinaries:  migration.UploadBinaries,
-		CharmDownloader: apiClient,
-		ToolsDownloader: apiClient,
+		CharmDownloader: charmDownloader,
+		ToolsDownloader: toolsDownloader,
 		Clock:           config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker, nil
+	return w, nil
 }
 
 func errorFilter(err error) error {

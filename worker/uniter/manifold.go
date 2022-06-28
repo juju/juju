@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
-	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -122,7 +122,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			downloader := apiclient.NewCharmDownloader(apiConn)
+			downloader := charms.NewCharmDownloader(apiConn)
 
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
 				client := secretsmanager.NewClient(apiConn)

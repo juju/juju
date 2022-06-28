@@ -249,7 +249,7 @@ func opClientApplicationUnexpose(c *gc.C, st api.Connection, mst *state.State) (
 }
 
 func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	err := apiclient.NewClient(st).Resolved("wordpress/1", false)
+	err := application.NewClient(st).ResolveUnitErrors([]string{"wordpress/1"}, false, false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the

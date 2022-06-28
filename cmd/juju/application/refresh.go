@@ -563,20 +563,21 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{
-		api:          &apiClient{Client: apiclient.NewClient(conn)},
-		charmsClient: &charmsClient{Client: apicharms.NewClient(conn)},
+	return &charmAdderShim{
+		api:               &apiClient{Client: apiclient.NewClient(conn)},
+		charmsClient:      &charmsClient{Client: apicharms.NewClient(conn)},
+		modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(conn)},
 	}
-	return adder
 }
 
 type charmAdderShim struct {
 	*charmsClient
+	*modelConfigClient
 	api *apiClient
 }
 
 func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
-	agentVersion, err := c.api.AgentVersion()
+	agentVersion, err := agentVersion(c.modelConfigClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
