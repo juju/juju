@@ -26,16 +26,19 @@ func (s *LocatorAddSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
-Usage: locator-add [options] <locator-name>
+Usage: locator-add [options] <locator-type> <locator-name> key=value [key=value ...]
 
 Summary:
 add service locator
 
 Options:
+-r, --relation  (= -1)
+    specify a relation by id
 -u, --unit (= "")
     specify a unit by id
--r, --relation (= "")
-    specify a relation by id
+
+Details:
+locator-add adds the service locator, specified by type, name and params.
 `[1:])
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
