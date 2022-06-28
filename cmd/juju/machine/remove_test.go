@@ -104,10 +104,11 @@ func (s *RemoveMachineSuite) TestRemoveNoWaitWithoutForce(c *gc.C) {
 func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	s.fake.results = []params.DestroyMachineResult{{
 		Error: &params.Error{
-			Message: "oy vey",
+			Message: "oy vey machine 1",
 		},
 	}, {
 		Info: &params.DestroyMachineInfo{
+			MachineId:        "2/lxd/1",
 			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
 			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
 			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
@@ -117,8 +118,27 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing machine 1 failed: oy vey
+removing machine failed: oy vey machine 1
 removing machine 2/lxd/1
+- will remove unit foo/0
+- will remove storage bar/1
+- will detach storage baz/2
+`[1:])
+}
+
+func (s *RemoveMachineSuite) TestRemoveOutputWithoutMachineId(c *gc.C) {
+	s.fake.results = []params.DestroyMachineResult{{
+		Info: &params.DestroyMachineInfo{
+			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
+			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
+		},
+	}}
+	ctx, err := s.run(c, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing machine 0
 - will remove unit foo/0
 - will remove storage bar/1
 - will detach storage baz/2
@@ -149,6 +169,40 @@ func (s *RemoveMachineSuite) TestRemoveKeep(c *gc.C) {
 	c.Assert(s.fake.forced, jc.IsFalse)
 	c.Assert(s.fake.keep, jc.IsTrue)
 	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2"})
+}
+
+func (s *RemoveMachineSuite) TestRemoveWithContainers(c *gc.C) {
+	s.fake.results = []params.DestroyMachineResult{{
+		Info: &params.DestroyMachineInfo{
+			MachineId:        "1",
+			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
+			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
+			DestroyedContainers: []params.DestroyMachineResult{{
+				Info: &params.DestroyMachineInfo{
+					MachineId:        "1/lxd/2",
+					DestroyedUnits:   []params.Entity{{"unit-foo-1"}},
+					DestroyedStorage: []params.Entity{{"storage-bar-2"}},
+					DetachedStorage:  []params.Entity{{"storage-baz-3"}},
+				},
+			}},
+		},
+	}}
+
+	ctx, err := s.run(c, "--force", "1")
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing machine 1/lxd/2
+- will remove unit foo/1
+- will remove storage bar/2
+- will detach storage baz/3
+
+removing machine 1
+- will remove unit foo/0
+- will remove storage bar/1
+- will detach storage baz/2
+`[1:])
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
@@ -186,7 +240,7 @@ func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWa
 	}
 	results := make([]params.DestroyMachineResult, len(machines))
 	for i := range results {
-		results[i].Info = &params.DestroyMachineInfo{}
+		results[i].Info = &params.DestroyMachineInfo{MachineId: machines[i]}
 	}
 	return results, nil
 }

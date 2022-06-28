@@ -83,6 +83,7 @@ type Machine interface {
 	Destroy() error
 	ForceDestroy(time.Duration) error
 	Series() string
+	Containers() ([]string, error)
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error
 	CreateUpgradeSeriesLock([]string, string) error
