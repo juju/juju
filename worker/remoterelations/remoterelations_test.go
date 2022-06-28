@@ -228,7 +228,60 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
 		{"WatchOfferStatus", []interface{}{"offer-mysql-uuid", macaroon.Slice{mac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
+}
 
+func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpdateError(c *gc.C) {
+	s.stub.SetErrors(nil, nil, nil, nil, errors.New("busted"))
+
+	newControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+
+	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+		// If attempting to connect to the remote controller as defined in
+		// SetUpTest, return a redirect error with a different address.
+		if info.Addrs[0] == "1.2.3.4:1234" {
+			return nil, &api.RedirectError{
+				Servers:         []network.MachineHostPorts{network.NewMachineHostPorts(2345, "2.3.4.5")},
+				CACert:          "new-controller-cert",
+				FollowRedirect:  false,
+				ControllerTag:   newControllerTag,
+				ControllerAlias: "",
+			}
+		}
+
+		// The address we asked to connect has changed;
+		// represent a successful connection.
+		return s.remoteRelationsFacade, nil
+	}
+
+	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+
+	w, err := remoterelations.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	expected := []jujutesting.StubCall{
+		{"WatchRemoteApplications", nil},
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		// We expect a redirect error will cause the new details to be saved,
+		// But this call returns an error.
+		{"UpdateControllerForModel", []interface{}{
+			crossmodel.ControllerInfo{
+				ControllerTag: newControllerTag,
+				Alias:         "",
+				Addrs:         []string{"2.3.4.5:2345"},
+				CACert:        "new-controller-cert",
+			},
+			"remote-model-uuid"},
+		},
+		{"Close", nil},
+		{"SetRemoteApplicationStatus", []interface{}{"mysql", "error",
+			"cannot connect to external controller: opening facade to remote model: updating external controller info: busted"}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
