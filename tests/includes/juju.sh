@@ -1,11 +1,15 @@
 #!/bin/bash -e
 # juju_version will return only the version and not the architecture/substrate
-# of the juju version.
-# This will use any juju on $PATH
+# of the juju version. If JUJU_VERSION is defined in CI this value will be used
+# otherwise we interrogate the juju binary on path.
 juju_version() {
-	# Match only major, minor, and patch or tag
-	version=$(juju version | grep -oP '^\d+\.\d+(\.\d+|-\w+)')
-	echo "${version}"
+  # Match only major, minor, and patch or tag + build number
+  if [ -n "${JUJU_VERSION:-}" ]; then
+    version=${JUJU_VERSION}
+  else
+    version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
+  fi
+  echo "${version}"
 }
 
 jujud_version() {
