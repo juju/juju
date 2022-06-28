@@ -90,7 +90,7 @@ func (c *LocatorAddCommand) Init(args []string) error {
 	return nil
 }
 
-// Run adds metrics to the hook context.
+// Run adds service locators to the hook context.
 func (c *LocatorAddCommand) Run(ctx *cmd.Context) (err error) {
 	// Generate new UUID for service locator
 	uuid, err := utils.NewUUID()
