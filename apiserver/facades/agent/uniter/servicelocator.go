@@ -28,7 +28,7 @@ type ServiceLocatorState struct {
 
 func (s ServiceLocatorState) AddServiceLocator(locatorParams params.AddServiceLocatorParams) (string, error) {
 	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(locatorParams)
-	return sl.Id(), err
+	return string(sl.Id()), err
 }
 
 //func (s ServiceLocatorState) ServiceLocator(id string) (ServiceLocatorBackend, error) {
