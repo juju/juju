@@ -794,7 +794,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	if cdoc.PendingUpload && curl.Schema != "ch" {
+	if cdoc.PendingUpload && charm.Schema(curl.Schema) != charm.CharmHub {
 		return nil, errors.NotFoundf("charm %q", curl.String())
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
@@ -282,7 +283,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 
 	// Only the Charmhub API gives us the metadata we need to support async
 	// charm downloads, so don't do it for legacy Charmstore ones.
-	if args.Origin.Source == "charm-hub" {
+	if commoncharm.OriginSource(args.Origin.Source) == commoncharm.OriginCharmHub {
 		actualOrigin, err := a.queueAsyncCharmDownload(args)
 		if err != nil {
 			return params.CharmOriginResult{}, errors.Trace(err)
