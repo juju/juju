@@ -476,7 +476,7 @@ type Charm struct {
 	charmURL *charm.URL
 }
 
-func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
+func newCharm(st *State, cdoc *charmDoc) *Charm {
 	// Because we probably just read the doc from state, make sure we
 	// unescape any config option names for "$" and ".". See
 	// http://pad.lv/1308146
@@ -496,7 +496,7 @@ func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
 	cdoc.ModelUUID = st.ModelUUID()
 
 	ch := Charm{st: st, doc: *cdoc}
-	return &ch, nil
+	return &ch
 }
 
 // unescapeLXDProfile returns the LXDProfile back to normal after
@@ -783,14 +783,7 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	var charms []*Charm
 	iter := charmsCollection.Find(nsLife.notDead()).Iter()
 	for iter.Next(&cdoc) {
-		ch, err := newCharm(st, &cdoc)
-		if err != nil {
-			err2 := iter.Close()
-			if err2 != nil {
-				logger.Errorf("%s", err2)
-			}
-			return charms, errors.Trace(err)
-		}
+		ch := newCharm(st, &cdoc)
 		charms = append(charms, ch)
 	}
 	return charms, errors.Trace(iter.Close())
@@ -834,8 +827,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if cdoc.PendingUpload && !returnPendingCharms {
 		return nil, errors.NotFoundf("charm %q", charmID)
 	}
-
-	return newCharm(st, &cdoc)
+	return newCharm(st, &cdoc), nil
 }
 
 // LatestPlaceholderCharm returns the latest charm described by the
@@ -877,7 +869,7 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	if latest.URL == nil {
 		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
 	}
-	return newCharm(st, &latest)
+	return newCharm(st, &latest), nil
 }
 
 // PrepareLocalCharmUpload must be called before a local charm is
@@ -982,7 +974,7 @@ func (st *State) PrepareCharmUpload(curl *charm.URL) (*Charm, error) {
 		}
 	}
 	if err = st.db().Run(buildTxn); err == nil {
-		return newCharm(st, &uploadedCharm)
+		return newCharm(st, &uploadedCharm), nil
 	}
 	return nil, errors.Trace(err)
 }
