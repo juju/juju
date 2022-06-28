@@ -50,11 +50,11 @@ type serviceLocatorDoc struct {
 }
 
 func newServiceLocator(st *State, doc *serviceLocatorDoc) *ServiceLocator {
-	app := &ServiceLocator{
+	serviceLocator := &ServiceLocator{
 		st:  st,
 		doc: *doc,
 	}
-	return app
+	return serviceLocator
 }
 
 // Id returns the ID of the service locator.
@@ -100,7 +100,7 @@ func validateServiceLocatorParams(args params.AddServiceLocatorParams) (err erro
 // AddServiceLocator creates a new service locator record, which records details about a
 // network service provided to related units.
 func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLocatorParams) (_ *ServiceLocator, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service locator for %q", args.ServiceLocatorUUID)
+	defer errors.DeferredAnnotatef(&err, "cannot add service locator for %q", args.Name)
 
 	if err := validateServiceLocatorParams(args); err != nil {
 		return nil, errors.Trace(err)
@@ -114,7 +114,6 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 	}
 
 	serviceLocatorDoc := serviceLocatorDoc{
-		Id:                 args.ServiceLocatorUUID,
 		Name:               args.Name,
 		Type:               args.Type,
 		UnitId:             args.UnitId,
@@ -129,13 +128,13 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 			if err := checkModelActive(sp.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return nil, errors.AlreadyExistsf("service locator Name: %s ID: %s", args.Name, args.ServiceLocatorUUID)
+			return nil, errors.AlreadyExistsf("service locator Name: %s ID: %s", args.Name)
 		}
 		ops := []txn.Op{
 			model.assertActiveOp(),
 			{
 				C:      serviceLocatorsC,
-				Id:     serviceLocatorDoc.Id,
+				Id:     serviceLocatorDoc.DocId,
 				Assert: txn.DocMissing,
 				Insert: &serviceLocatorDoc,
 			},
@@ -165,9 +164,9 @@ func (sp *serviceLocatorPersistence) AllServiceLocators() ([]*ServiceLocator, er
 }
 
 // ServiceLocator returns the service locator.
-func (sp *serviceLocatorPersistence) ServiceLocator(ServiceLocatorUUID string) ([]*ServiceLocator, error) {
-	locators, err := sp.serviceLocators(bson.D{{"service-locator-uuid", ServiceLocatorUUID}})
-	return locators, errors.Annotatef(err, "getting service locators for %v", ServiceLocatorUUID)
+func (sp *serviceLocatorPersistence) ServiceLocator(slId string) ([]*ServiceLocator, error) {
+	locators, err := sp.serviceLocators(bson.D{{"service-locator-uuid", slId}})
+	return locators, errors.Annotatef(err, "getting service locators for %v", slId)
 }
 
 // serviceLocators returns the service locators for the input condition
