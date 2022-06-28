@@ -246,7 +246,7 @@ func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {
 }
 
 func unmarshalCharmConfig(configYAML string) *charm.Config {
-	if configYAML == "" {
+	if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
 		return nil
 	}
 	cfgYaml := configYAML
