@@ -40,7 +40,7 @@ type ServiceLocator struct {
 
 type serviceLocatorDoc struct {
 	DocId              string                 `bson:"_id"`
-	Id                 string                 `bson:"service-locator-id"`
+	Id                 int                    `bson:"id"`
 	UnitId             string                 `bson:"unit-id"`
 	ConsumerUnitId     string                 `bson:"consumer-unit-id"`
 	ConsumerRelationId int                    `bson:"consumer-relation-id"`
@@ -58,7 +58,7 @@ func newServiceLocator(st *State, doc *serviceLocatorDoc) *ServiceLocator {
 }
 
 // Id returns the ID of the service locator.
-func (sl *ServiceLocator) Id() string {
+func (sl *ServiceLocator) Id() int {
 	return sl.doc.Id
 }
 
@@ -134,7 +134,7 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 			model.assertActiveOp(),
 			{
 				C:      serviceLocatorsC,
-				Id:     serviceLocatorDoc.DocId,
+				Id:     serviceLocatorDoc.Id,
 				Assert: txn.DocMissing,
 				Insert: &serviceLocatorDoc,
 			},
@@ -165,7 +165,7 @@ func (sp *serviceLocatorPersistence) AllServiceLocators() ([]*ServiceLocator, er
 
 // ServiceLocator returns the service locator.
 func (sp *serviceLocatorPersistence) ServiceLocator(slId string) ([]*ServiceLocator, error) {
-	locators, err := sp.serviceLocators(bson.D{{"service-locator-uuid", slId}})
+	locators, err := sp.serviceLocators(bson.D{{"id", slId}})
 	return locators, errors.Annotatef(err, "getting service locators for %v", slId)
 }
 
