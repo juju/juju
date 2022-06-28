@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades"
 )
 
 // Validator returns a blocker.
@@ -133,38 +132,17 @@ func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
 	), nil
 }
 
-func ValidatorsForControllerUpgrade(isControllerModel bool, targetVersion version.Number) []Validator {
-	if isControllerModel {
-		validators := []Validator{
-			getCheckTargetVersionForModel(targetVersion),
-			checkMongoStatusForControllerUpgrade,
+func getCheckUpgradeSeriesLockForModel(force bool) Validator {
+	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+		locked, err := st.HasUpgradeSeriesLocks()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		if targetVersion.Major == 3 {
-			validators = append(validators,
-				checkMongoVersionForControllerModel,
-				checkNoWinMachinesForModel,
-			)
+		if locked && !force {
+			return NewBlocker("unexpected upgrade series lock found"), nil
 		}
-		return validators
+		return nil, nil
 	}
-	validators := []Validator{
-		getCheckTargetVersionForModel(targetVersion),
-		checkModelMigrationModeForControllerUpgrade,
-	}
-	if targetVersion.Major == 3 {
-		validators = append(validators, checkNoWinMachinesForModel)
-	}
-	return validators
-}
-
-func ValidatorsForModelUpgrade(force bool, targetVersion version.Number) []Validator {
-	validators := []Validator{
-		getCheckUpgradeSeriesLockForModel(force),
-	}
-	if targetVersion.Major == 3 {
-		validators = append(validators, checkNoWinMachinesForModel)
-	}
-	return validators
 }
 
 func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
@@ -184,28 +162,17 @@ func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, mode
 	return nil, nil
 }
 
-func getCheckUpgradeSeriesLockForModel(force bool) Validator {
-	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-		locked, err := st.HasUpgradeSeriesLocks()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if locked && !force {
-			return NewBlocker("unexpected upgrade series lock found"), nil
-		}
-		return nil, nil
-	}
-}
-
-func getCheckTargetVersionForModel(targetVersion version.Number) Validator {
+func getCheckTargetVersionForModel(
+	targetVersion version.Number,
+	versionChecker func(from, to version.Number) (bool, version.Number, error),
+) Validator {
 	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
 		agentVersion, err := model.AgentVersion()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		// TODO: move the upgrades/model.go
-		allowed, minVer, err := upgrades.UpgradeAllowed(agentVersion, targetVersion)
+		allowed, minVer, err := versionChecker(agentVersion, targetVersion)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -213,7 +180,7 @@ func getCheckTargetVersionForModel(targetVersion version.Number) Validator {
 			return nil, nil
 		}
 		return NewBlocker(
-			"upgrade current version %q to at least %q before upgrading to %q",
+			"upgrade current model (%q) to at least %q before upgrading/migrating to %q",
 			agentVersion, minVer, targetVersion,
 		), nil
 	}

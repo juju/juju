@@ -20,19 +20,14 @@ type StatePool interface {
 // State represents a point of use interface for modelling a current model.
 type State interface {
 	HasUpgradeSeriesLocks() (bool, error)
-	Release() bool
-	AllModelUUIDs() ([]string, error)
 	MachineCountForSeries(series ...string) (int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
-	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
-	AbortCurrentUpgrade() error
 }
 
 // Model defines a point of use interface for the model from state.
 type Model interface {
-	IsControllerModel() bool
-	AgentVersion() (version.Number, error)
-	Owner() names.UserTag
 	Name() string
+	Owner() names.UserTag
+	AgentVersion() (version.Number, error)
 	MigrationMode() state.MigrationMode
 }

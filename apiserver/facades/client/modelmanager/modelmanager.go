@@ -242,13 +242,6 @@ func NewModelManagerAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
-
-	// model, err := st.Model()
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
-	// newEnviron := common.EnvironFuncForModel(model, configGetter)
 
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
@@ -258,13 +251,12 @@ func NewModelManagerAPI(
 		getBroker:      getBroker,
 		check:          blockChecker,
 		authorizer:     authorizer,
-		// toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
-		toolsFinder: toolsFinder,
-		apiUser:     apiUser,
-		isAdmin:     isAdmin,
-		model:       m,
-		callContext: callCtx,
-		newEnviron:  newEnviron,
+		toolsFinder:    toolsFinder,
+		apiUser:        apiUser,
+		isAdmin:        isAdmin,
+		model:          m,
+		callContext:    callCtx,
+		newEnviron:     newEnviron,
 	}, nil
 }
 

@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -735,7 +735,7 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			allowed, minVer, err := upgrades.UpgradeAllowed(vers, args.Version)
+			allowed, minVer, err := upgradevalidation.UpgradeToAllowed(vers, args.Version)
 			if err != nil {
 				return errors.Trace(err)
 			}

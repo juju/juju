@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -206,7 +206,8 @@ func (c *baseUpgradeCommand) precheckVersion(ctx *cmd.Context, agentVersion vers
 		// Only upgrade to a different major number if:
 		// 1 - Explicitly requested with --agent-version or using --build-agent, and
 		// 2 - The model is running a valid version to upgrade from.
-		allowed, minVer, err := upgrades.UpgradeAllowed(agentVersion, c.Version)
+		// We will do this check in server side later, but it doesn't hurt to do it here as a precheck.
+		allowed, minVer, err := upgradevalidation.UpgradeToAllowed(agentVersion, c.Version)
 		if err != nil {
 			return false, errors.Trace(err)
 		}

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -265,7 +265,7 @@ func (s *modelManagerSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgrades.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -361,7 +361,7 @@ func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgrades.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.2"),
 	})
 
@@ -440,12 +440,12 @@ func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	c.Assert(err.Error(), gc.Equals, `
 cannot upgrade, issues need to be fixed:
 model "admin/controller":
-	upgrade current version "2.9.1" to at least "2.9.2" before upgrading to "3.0-beta1"
+	upgrade current model ("2.9.1") to at least "2.9.2" before upgrading/migrating to "3.0-beta1"
 	unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
 	mongo version has to be "4.4" at least, but current version is "4.3"
 	model hosts 8 windows machine(s)
 model "admin/model-1":
-	upgrade current version "2.9.0" to at least "2.9.2" before upgrading to "3.0-beta1"
+	upgrade current model ("2.9.0") to at least "2.9.2" before upgrading/migrating to "3.0-beta1"
 	model is under "exporting" mode, upgrade blocked
 	model hosts 6 windows machine(s)`[1:])
 }
@@ -454,7 +454,7 @@ func (s *modelManagerSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgrades.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 
@@ -510,7 +510,7 @@ func (s *modelManagerSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgrades.MinMajorUpgradeVersion, map[int]version.Number{
+	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
 

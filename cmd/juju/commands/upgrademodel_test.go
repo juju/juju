@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -135,7 +135,7 @@ var upgradeJujuTests = []upgradeTest{{
 	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--agent-version", "5.2.0"},
-	expectErr:      `unknown version "5.2.0"`,
+	expectErr:      `cannot upgrade/migrate to "5.2.0"`,
 }, {
 	about:          "version downgrade",
 	available:      []string{"4.2-beta2-ubuntu-amd64"},
@@ -430,7 +430,7 @@ func (s *UpgradeBaseSuite) assertUpgradeTestsLegacy(c *gc.C, tests []upgradeTest
 		s.PatchValue(&jujuversion.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 		s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
-		s.PatchValue(&upgrades.MinMajorUpgradeVersion, test.upgradeMap)
+		s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, test.upgradeMap)
 		ctrl, com := upgradeJujuCommand(c, &test)
 		goMocked := ctrl != nil
 		if goMocked {
@@ -505,7 +505,7 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		s.PatchValue(&jujuversion.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 		s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
-		s.PatchValue(&upgrades.MinMajorUpgradeVersion, test.upgradeMap)
+		s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, test.upgradeMap)
 		ctrl, com := upgradeJujuCommand(c, &test)
 		goMocked := ctrl != nil
 		if goMocked {
@@ -1115,7 +1115,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 
 		s.setUpEnvAndTools(c, test.currentVersion, test.agentVersion, test.tools)
 
-		s.PatchValue(&upgrades.MinMajorUpgradeVersion, test.upgradeMap)
+		s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, test.upgradeMap)
 		_, command := s.upgradeJujuCommandNoAPI(c, nil)
 		err := cmdtesting.InitCommand(command, test.cmdArgs)
 		c.Assert(err, jc.ErrorIsNil)
