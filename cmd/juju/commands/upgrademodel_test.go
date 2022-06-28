@@ -1172,17 +1172,18 @@ func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreamsLegacy(c *gc.C) {
 func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.addTools("2.1.0-weird-amd64")
+
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
 	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
 	modelManager.EXPECT().UpgradeModel(
 		s.Model.ModelTag(),
-		version.MustParse("3.1.1"),
+		fakeAPI.nextVersion.Number,
 		"",
 		false, false,
 	).Return(nil)
-
-	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
-	fakeAPI.addTools("2.1.0-weird-amd64")
 
 	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, fakeAPI)
 	err := cmdtesting.InitCommand(command, []string{})
@@ -1216,16 +1217,17 @@ func (s *UpgradeJujuSuite) TestUpgradeValidateModelLegacy(c *gc.C) {
 func (s *UpgradeJujuSuite) TestUpgradeValidateModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+
 	modelManager := mocks.NewMockModelManagerAPI(ctrl)
 	modelManager.EXPECT().BestAPIVersion().AnyTimes().Return(10)
 	modelManager.EXPECT().UpgradeModel(
 		s.Model.ModelTag(),
-		version.MustParse("3.1.1"),
+		fakeAPI.nextVersion.Number,
 		"",
 		false, false,
 	).Return(errors.Errorf(`a message from the server about the problem`))
-
-	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 
 	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, modelManager, fakeAPI)
 	err := cmdtesting.InitCommand(command, []string{})

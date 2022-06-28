@@ -281,8 +281,6 @@ func (s *modelManagerOldSuite) TestCreateModelArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c,
 		"ControllerTag",
-		"ModelUUID",
-		"Model",
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
@@ -471,8 +469,6 @@ func (s *modelManagerOldSuite) TestCreateCAASModelArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasSt.CheckCallNames(c,
 		"ControllerTag",
-		"ModelUUID",
-		"Model",
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
@@ -790,8 +786,6 @@ func (s *modelManagerOldSuite) TestDumpModelMissingModel(c *gc.C) {
 	results := s.api.DumpModels(models)
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"GetBackend", []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -849,8 +843,6 @@ func (s *modelManagerOldSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"ModelTag", nil},
 		{"GetBackend", []interface{}{tag.Id()}},
 	})
@@ -918,8 +910,6 @@ func (s *modelManagerOldSuite) TestDestroyModelsV3(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{[]params.ErrorResult{{}}})
 	s.st.CheckCallNames(c,
 		"ControllerTag",
-		"ModelUUID",
-		"Model",
 		"GetBackend",
 		"Model",
 		"GetBlockForType",
@@ -932,8 +922,6 @@ func (s *modelManagerOldSuite) TestDestroyModelsV3(c *gc.C) {
 	)
 	destroyStorage := true
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
-		{"UUID", nil},
-		{"Type", nil},
 		{"Status", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: &destroyStorage,
@@ -1961,7 +1949,7 @@ func (s *modelManagerOldSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `getting model`)
-	s.st.CheckCallNames(c, "ControllerTag", "ModelUUID", "Model", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
+	s.st.CheckCallNames(c, "ControllerTag", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
 }
 
 func (s *modelManagerOldSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {

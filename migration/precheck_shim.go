@@ -99,7 +99,7 @@ func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 }
 
 func (s precheckShim) MongoCurrentStatus() (*replicaset.Status, error) {
-	return nil, errors.NotImplementedf("this is not used but just for implimenting the interface")
+	return nil, errors.NotImplementedf("this is not used but just for implementing the interface")
 }
 
 // PoolShim wraps a state.StatePool to produce a Pool.

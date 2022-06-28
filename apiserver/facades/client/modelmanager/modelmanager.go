@@ -1694,10 +1694,9 @@ func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if canWrite, err := m.hasWriteAccess(modelTag); err != nil {
 		return errors.Trace(err)
-	} else if !canWrite {
+	} else if !canWrite && !m.isAdmin {
 		return apiservererrors.ErrPerm
 	}
 

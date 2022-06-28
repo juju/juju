@@ -600,9 +600,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 }
 
 func (c *upgradeJujuCommand) notifyControllerUpgrade(
-	ctx *cmd.Context, modelManager ModelManagerAPI,
-	modelTag names.ModelTag, chosen version.Number,
-	dryRun bool,
+	ctx *cmd.Context, modelManager ModelManagerAPI, modelTag names.ModelTag, chosen version.Number, dryRun bool,
 ) error {
 	if c.ResetPrevious {
 		if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
@@ -626,6 +624,7 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
+
 	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", chosen)
 	return nil
 }

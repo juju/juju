@@ -219,8 +219,6 @@ func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	s.assertModelInfo(c, *results.Results[0].Result, s.expectedModelInfo(c, nil))
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -299,8 +297,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -315,8 +311,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
 	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
-		{"UUID", nil},
-		{"Type", nil},
 		{"Name", nil},
 		{"Type", nil},
 		{"UUID", nil},

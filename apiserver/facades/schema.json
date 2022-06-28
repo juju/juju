@@ -31099,6 +31099,11 @@
                 },
                 "Prechecks": {
                     "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Number"
+                        }
+                    },
                     "description": "Prechecks performs pre-migration checks on the model and\n(source) controller."
                 },
                 "ProcessRelations": {
@@ -32816,6 +32821,10 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "AbortCurrentUpgrade": {
+                    "type": "object",
+                    "description": "AbortCurrentUpgrade aborts and archives the current upgrade\nsynchronisation record, if any."
+                },
                 "ChangeModelCredential": {
                     "type": "object",
                     "properties": {
@@ -32972,17 +32981,13 @@
                     },
                     "description": "UnsetModelDefaults removes the specified default model settings."
                 },
-                "ValidateModelUpgrades": {
+                "UpgradeModel": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ValidateModelUpgradeParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
+                            "$ref": "#/definitions/UpgradeModel"
                         }
-                    },
-                    "description": "ValidateModelUpgrades validates if a model is allowed to perform an upgrade.\nExamples of why you would want to block a model upgrade, would be situations\nlike upgrade-series. If performing an upgrade-series we don't know the\ncurrent status of the machine, so performing an upgrade-model can lead to\nbad unintended errors down the line."
+                    }
                 }
             },
             "definitions": {
@@ -34046,6 +34051,31 @@
                         "keys"
                     ]
                 },
+                "UpgradeModel": {
+                    "type": "object",
+                    "properties": {
+                        "agent-stream": {
+                            "type": "string"
+                        },
+                        "dry-run": {
+                            "type": "boolean"
+                        },
+                        "ignore-agent-versions": {
+                            "type": "boolean"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "$ref": "#/definitions/Number"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "version"
+                    ]
+                },
                 "UserModel": {
                     "type": "object",
                     "properties": {
@@ -34076,41 +34106,6 @@
                     "additionalProperties": false,
                     "required": [
                         "user-models"
-                    ]
-                },
-                "ValidateModelUpgradeParam": {
-                    "type": "object",
-                    "properties": {
-                        "model-tag": {
-                            "type": "string"
-                        },
-                        "version": {
-                            "$ref": "#/definitions/Number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "model-tag",
-                        "version"
-                    ]
-                },
-                "ValidateModelUpgradeParams": {
-                    "type": "object",
-                    "properties": {
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "model": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ValidateModelUpgradeParam"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "model",
-                        "force"
                     ]
                 }
             }
