@@ -9,7 +9,6 @@ import (
 	"github.com/juju/gnuflag"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/keyvalues"
 )
 
@@ -94,16 +93,15 @@ func (c *LocatorAddCommand) Init(args []string) error {
 // Run adds service locators to the hook context.
 func (c *LocatorAddCommand) Run(ctx *cmd.Context) error {
 	// Generate new UUID for service locator
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return errors.Annotate(err, "failed to generate new uuid for service locator")
-	}
-	c.Id = uuid.String()
+	//uuid, err := utils.NewUUID()
+	//if err != nil {
+	//	return errors.Annotate(err, "failed to generate new uuid for service locator")
+	//}
+	//c.Id = uuid.String()
 
 	// Record new service locator
-	err = c.ctx.AddServiceLocator(params.AddServiceLocators{
+	result, err := c.ctx.AddServiceLocator(params.AddServiceLocators{
 		ServiceLocators: []params.AddServiceLocatorParams{{
-			ServiceLocatorUUID: c.Id,
 			Name:               c.Name,
 			Type:               c.Type,
 			UnitId:             "unit/0", // TODO(anvial): remove hardcode
@@ -116,5 +114,5 @@ func (c *LocatorAddCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot record service locator")
 	}
 
-	return c.out.Write(ctx, c.Id)
+	return c.out.Write(ctx, result)
 }

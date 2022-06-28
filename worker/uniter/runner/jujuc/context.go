@@ -297,7 +297,7 @@ type ContextMetrics interface {
 // ContextServiceLocators is the part of a hook context related to service locators.
 type ContextServiceLocators interface {
 	// AddServiceLocator records a metric to return after hook execution.
-	AddServiceLocator(params.AddServiceLocators) error
+	AddServiceLocator(params.AddServiceLocators) (params.StringResult, error)
 }
 
 // ContextStorage is the part of a hook context related to storage
