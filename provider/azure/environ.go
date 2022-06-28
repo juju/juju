@@ -78,7 +78,7 @@ const (
 	// commonDeployment is used to create resources common to all models.
 	commonDeployment = "common"
 
-	computeAPIVersion = "2018-10-01"
+	computeAPIVersion = "2021-11-01"
 	networkAPIVersion = "2018-08-01"
 )
 
@@ -1341,17 +1341,24 @@ func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, name 
 		if errorutils.IsNotFoundError(err) {
 			return errors.NewNotFound(err, fmt.Sprintf("deployment %q not found", name))
 		}
-		if errorutils.IsConflictError(err) {
-			code := errorutils.ErrorCode(err)
-			if code == serviceErrorCodeDeploymentCannotBeCancelled ||
-				code == serviceErrorCodeResourceGroupBeingDeleted {
-				// Deployments can only canceled while they're running.
-				return nil
-			}
+		// Deployments can only canceled while they're running.
+		if isDeployConflictError(err) {
+			return nil
 		}
 		return errorutils.HandleCredentialError(errors.Annotatef(err, "canceling deployment %q", name), ctx)
 	}
 	return nil
+}
+
+func isDeployConflictError(err error) bool {
+	if errorutils.IsConflictError(err) {
+		code := errorutils.ErrorCode(err)
+		if code == serviceErrorCodeDeploymentCannotBeCancelled ||
+			code == serviceErrorCodeResourceGroupBeingDeleted {
+			return true
+		}
+	}
+	return false
 }
 
 // deleteVirtualMachine deletes a virtual machine and all of the resources that
@@ -1463,7 +1470,8 @@ func (env *azureEnviron) deleteVirtualMachine(
 		_, err = deploymentPoller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+		ignoreError := isDeployConflictError(err) || errorutils.IsNotFoundError(err)
+		if !ignoreError || errorutils.MaybeInvalidateCredential(err, ctx) {
 			return errors.Annotate(err, "deleting deployment")
 		}
 	}
