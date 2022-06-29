@@ -2725,7 +2725,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	// Make the container Dying: cannot because of nested container.
 	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers ".*"`)
+	c.Assert(err, gc.ErrorMatches, `machine .* is hosting container\(s\) ".*"`)
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
