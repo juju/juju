@@ -58,3 +58,26 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	c.Assert(all[0].ConsumerUnitId(), gc.Equals, "mediawiki/18")
 	c.Assert(all[0].ConsumerRelationId(), gc.Equals, 19)
 }
+
+func (s *serviceLocatorsSuite) TestServiceLocatorDuplication(c *gc.C) {
+	_, err := s.State.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
+		Name:               "test-locator", // part of unique key
+		Type:               "l4-service",
+		UnitId:             "mysql/17", // part of unique key
+		ConsumerUnitId:     "mediawiki/18",
+		ConsumerRelationId: 19,
+		Params:             map[string]interface{}{"ip-address": "1.1.1.1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
+		Name:               "test-locator", // part of unique key
+		Type:               "l4-service",
+		UnitId:             "mysql/17", // part of unique key
+		ConsumerUnitId:     "mediawiki/19",
+		ConsumerRelationId: 20,
+		Params:             map[string]interface{}{"ip-address": "2.2.2.2"},
+	})
+	c.Assert(err.Error(), gc.Equals, "service locator name: test-locator unit-id: mysql/17 already exists")
+
+}
