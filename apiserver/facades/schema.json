@@ -45845,9 +45845,6 @@
                         "consumer-unit-id": {
                             "type": "string"
                         },
-                        "id": {
-                            "type": "string"
-                        },
                         "name": {
                             "type": "string"
                         },
@@ -45869,7 +45866,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "id",
                         "name",
                         "type",
                         "unit-id",

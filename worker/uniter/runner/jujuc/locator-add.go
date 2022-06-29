@@ -92,19 +92,12 @@ func (c *LocatorAddCommand) Init(args []string) error {
 
 // Run adds service locators to the hook context.
 func (c *LocatorAddCommand) Run(ctx *cmd.Context) error {
-	// Generate new UUID for service locator
-	//uuid, err := utils.NewUUID()
-	//if err != nil {
-	//	return errors.Annotate(err, "failed to generate new uuid for service locator")
-	//}
-	//c.Id = uuid.String()
-
 	// Record new service locator
 	result, err := c.ctx.AddServiceLocator(params.AddServiceLocators{
 		ServiceLocators: []params.AddServiceLocatorParams{{
 			Name:               c.Name,
 			Type:               c.Type,
-			UnitId:             "unit/0", // TODO(anvial): remove hardcode
+			UnitId:             c.ctx.UnitName(),
 			ConsumerUnitId:     c.ConsumerUnitId,
 			ConsumerRelationId: c.ConsumerRelationId,
 			Params:             c.Params,

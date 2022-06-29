@@ -87,11 +87,12 @@ func (mr *MockContextMockRecorder) AddMetricLabels(arg0, arg1, arg2, arg3 interf
 }
 
 // AddServiceLocator mocks base method.
-func (m *MockContext) AddServiceLocator(arg0 params.AddServiceLocators) error {
+func (m *MockContext) AddServiceLocator(arg0 params.AddServiceLocators) (params.StringResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddServiceLocator", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(params.StringResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddServiceLocator indicates an expected call of AddServiceLocator.

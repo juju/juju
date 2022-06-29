@@ -33,12 +33,12 @@ type ContextServiceLocators struct {
 }
 
 // AddServiceLocator implements jujuc.ContextServiceLocators.
-func (c *ContextServiceLocators) AddServiceLocator(locators params.AddServiceLocators) error {
+func (c *ContextServiceLocators) AddServiceLocator(locators params.AddServiceLocators) (params.StringResult, error) {
 	c.stub.AddCall("AddServiceLocator", locators)
 	if err := c.stub.NextErr(); err != nil {
-		return errors.Trace(err)
+		return params.StringResult{}, errors.Trace(err)
 	}
 
 	c.info.AddServiceLocator(locators)
-	return nil
+	return params.StringResult{}, nil
 }
