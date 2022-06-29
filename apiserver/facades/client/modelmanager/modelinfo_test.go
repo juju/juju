@@ -848,13 +848,11 @@ func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 }
 
 func (st *mockState) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error {
-	st.MethodCall(st, "SetModelAgentVersion", newVersion, stream, ignoreAgentVersions)
-	return st.NextErr()
+	return errors.NotImplementedf("SetModelAgentVersion")
 }
 
 func (st *mockState) AbortCurrentUpgrade() error {
-	st.MethodCall(st, "AbortCurrentUpgrade")
-	return st.NextErr()
+	return errors.NotImplementedf("AbortCurrentUpgrade")
 }
 
 func (st *mockState) Cloud(name string) (cloud.Cloud, error) {

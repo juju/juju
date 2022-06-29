@@ -1689,6 +1689,7 @@ func (m *ModelManagerAPI) AbortCurrentUpgrade() error {
 	return st.AbortCurrentUpgrade()
 }
 
+// UpgradeModel upgrades a model.
 func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
 	modelTag, err := names.ParseModelTag(arg.ModelTag)
 	if err != nil {
@@ -1713,7 +1714,7 @@ func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
 	if err := environs.CheckProviderAPI(envOrBroker, m.callContext); err != nil {
 		return errors.Trace(err)
 	}
-	if err := m.validateModelUpgrade(false, modelTag, arg.Version); err != nil {
+	if err := m.validateModelUpgrade(false, modelTag, arg.ToVersion); err != nil {
 		return errors.Trace(err)
 	}
 	if arg.DryRun {
@@ -1724,7 +1725,7 @@ func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
 		return errors.Trace(err)
 	}
 	defer st.Release()
-	return st.SetModelAgentVersion(arg.Version, &arg.AgentStream, arg.IgnoreAgentVersions)
+	return st.SetModelAgentVersion(arg.ToVersion, &arg.AgentStream, arg.IgnoreAgentVersions)
 }
 
 func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelTag, targetVersion version.Number) (err error) {

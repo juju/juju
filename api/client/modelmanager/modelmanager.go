@@ -645,7 +645,7 @@ func (c *Client) UpgradeModel(
 	}
 	args := params.UpgradeModel{
 		ModelTag:            model.String(),
-		Version:             version,
+		ToVersion:           version,
 		AgentStream:         stream,
 		IgnoreAgentVersions: ignoreAgentVersions,
 		DryRun:              druRun,

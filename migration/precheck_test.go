@@ -80,9 +80,9 @@ func (*SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
-	err := migration.SourcePrecheck(backend, version.MustParse("3.0-beta1"), allAlivePresence(), allAlivePresence())
+	err := migration.SourcePrecheck(backend, version.MustParse("3.0.0"), allAlivePresence(), allAlivePresence())
 	c.Assert(err.Error(), gc.Equals, `
-cannot migrate to controller ("3.0-beta1") due to issues:
+cannot migrate to controller ("3.0.0") due to issues:
 "foo/model-1":
 - current model ("2.9.31") has to be upgraded to "2.9.32" at least
 - unexpected upgrade series lock found

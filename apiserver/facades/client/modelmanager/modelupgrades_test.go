@@ -28,7 +28,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type modelManagerSuite struct {
+type modelManagerUpgradeSuite struct {
 	jujutesting.IsolationSuite
 
 	st          *mockState
@@ -42,9 +42,9 @@ type modelManagerSuite struct {
 	blockChecker     *mocks.MockBlockCheckerInterface
 }
 
-var _ = gc.Suite(&modelManagerSuite{})
+var _ = gc.Suite(&modelManagerUpgradeSuite{})
 
-func (s *modelManagerSuite) SetUpTest(c *gc.C) {
+func (s *modelManagerUpgradeSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	adminUser := "admin"
@@ -60,7 +60,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *modelManagerSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
+func (s *modelManagerUpgradeSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
 	attrs := dummy.SampleConfig()
 	attrs["agent-version"] = jujuversion.Current.String()
 	cfg, err := config.New(config.UseDefaults, attrs)
@@ -73,7 +73,7 @@ func (s *modelManagerSuite) createModel(c *gc.C, user names.UserTag) *mockModel 
 	}
 }
 
-func (s *modelManagerSuite) getModelManagerAPI(c *gc.C) (*gomock.Controller, *modelmanager.ModelManagerAPI) {
+func (s *modelManagerUpgradeSuite) getModelManagerAPI(c *gc.C) (*gomock.Controller, *modelmanager.ModelManagerAPI) {
 	ctrl := gomock.NewController(c)
 	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
@@ -94,7 +94,7 @@ func (s *modelManagerSuite) getModelManagerAPI(c *gc.C) (*gomock.Controller, *mo
 
 // TestValidateModelUpgradesWithNoModelTags tests that we don't fail if we don't
 // pass any model tags.
-func (s *modelManagerSuite) TestValidateModelUpgradesV9WithNoModelTags(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestValidateModelUpgradesV9WithNoModelTags(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -106,7 +106,7 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9WithNoModelTags(c *gc.C) 
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
-func (s *modelManagerSuite) TestValidateModelUpgradesV9WithInvalidModelTag(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestValidateModelUpgradesV9WithInvalidModelTag(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -123,7 +123,7 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9WithInvalidModelTag(c *gc
 	c.Assert(results.OneError(), gc.ErrorMatches, `"!!!" is not a valid tag`)
 }
 
-func (s *modelManagerSuite) TestValidateModelUpgradesV9WithModelWithNoPermission(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestValidateModelUpgradesV9WithModelWithNoPermission(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("user"),
 	}
@@ -144,7 +144,7 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9WithModelWithNoPermission
 	c.Assert(results.OneError(), gc.ErrorMatches, `permission denied`)
 }
 
-func (s *modelManagerSuite) TestValidateModelUpgradesV9ForUpgradingMachines(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestValidateModelUpgradesV9ForUpgradingMachines(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -171,7 +171,7 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9ForUpgradingMachines(c *g
 	c.Assert(results.OneError(), gc.ErrorMatches, `unexpected upgrade series lock found`)
 }
 
-func (s *modelManagerSuite) TestValidateModelUpgradesV9ForUpgradingMachinesWithForce(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestValidateModelUpgradesV9ForUpgradingMachinesWithForce(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
@@ -198,7 +198,7 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9ForUpgradingMachinesWithF
 	c.Assert(results.OneError(), jc.ErrorIsNil)
 }
 
-func (s *modelManagerSuite) TestValidateModelUpgradesV9ForControllerModels(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestValidateModelUpgradesV9ForControllerModels(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -222,7 +222,7 @@ func (s *modelManagerSuite) TestValidateModelUpgradesV9ForControllerModels(c *gc
 	c.Assert(results.OneError(), jc.ErrorIsNil)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -230,7 +230,7 @@ func (s *modelManagerSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"!!!" is not a valid tag`)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("user"),
 	}
@@ -239,14 +239,14 @@ func (s *modelManagerSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 
 	err := api.UpgradeModel(
 		params.UpgradeModel{
-			ModelTag: s.st.model.tag.String(),
-			Version:  version.MustParse("3.0-beta1"),
+			ModelTag:  s.st.model.tag.String(),
+			ToVersion: version.MustParse("3.0.0"),
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -254,14 +254,14 @@ func (s *modelManagerSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 
 	err := api.UpgradeModel(
 		params.UpgradeModel{
-			ModelTag: s.st.model.tag.String(),
-			Version:  version.MustParse("3.0-beta1"),
+			ModelTag:  s.st.model.tag.String(),
+			ToVersion: version.MustParse("3.0.0"),
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, `the operation has been blocked`)
 }
 
-func (s *modelManagerSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, dryRun bool) {
+func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -333,7 +333,7 @@ func (s *modelManagerSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	if !dryRun {
 		assertions = append(assertions,
 			s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil),
-			ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.0-beta1"), &agentStream, false).Return(nil),
+			ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.0.0"), &agentStream, false).Return(nil),
 		)
 	}
 	gomock.InOrder(assertions...)
@@ -341,7 +341,7 @@ func (s *modelManagerSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	err := api.UpgradeModel(
 		params.UpgradeModel{
 			ModelTag:    ctrlModelTag.String(),
-			Version:     version.MustParse("3.0-beta1"),
+			ToVersion:   version.MustParse("3.0.0"),
 			AgentStream: agentStream,
 			DryRun:      dryRun,
 		},
@@ -349,15 +349,15 @@ func (s *modelManagerSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3(c *gc.C) {
 	s.assertUpgradeModelForControllerModelJuju3(c, false)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.C) {
 	s.assertUpgradeModelForControllerModelJuju3(c, true)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -433,12 +433,12 @@ func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 
 	err := api.UpgradeModel(
 		params.UpgradeModel{
-			ModelTag: ctrlModelTag.String(),
-			Version:  version.MustParse("3.0-beta1"),
+			ModelTag:  ctrlModelTag.String(),
+			ToVersion: version.MustParse("3.0.0"),
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `
-cannot upgrade to "3.0-beta1" due to issues with these models:
+cannot upgrade to "3.0.0" due to issues with these models:
 "admin/controller":
 - current model ("2.9.1") has to be upgraded to "2.9.2" at least
 - unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
@@ -450,7 +450,7 @@ cannot upgrade to "3.0-beta1" due to issues with these models:
 - windows is not supported but the model hosts 6 windows machine(s)`[1:])
 }
 
-func (s *modelManagerSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
+func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -482,7 +482,7 @@ func (s *modelManagerSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	if !dryRun {
 		assertions = append(assertions,
 			s.statePool.EXPECT().Get(modelUUID).Return(state, nil),
-			state.EXPECT().SetModelAgentVersion(version.MustParse("3.0-beta1"), &agentStream, false).Return(nil),
+			state.EXPECT().SetModelAgentVersion(version.MustParse("3.0.0"), &agentStream, false).Return(nil),
 		)
 	}
 	gomock.InOrder(assertions...)
@@ -490,7 +490,7 @@ func (s *modelManagerSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	err := api.UpgradeModel(
 		params.UpgradeModel{
 			ModelTag:    s.st.model.tag.String(),
-			Version:     version.MustParse("3.0-beta1"),
+			ToVersion:   version.MustParse("3.0.0"),
 			AgentStream: agentStream,
 			DryRun:      dryRun,
 		},
@@ -498,15 +498,15 @@ func (s *modelManagerSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelJuju3(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3(c *gc.C) {
 	s.assertUpgradeModelJuju3(c, false)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
 	s.assertUpgradeModelJuju3(c, true)
 }
 
-func (s *modelManagerSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 
@@ -538,19 +538,19 @@ func (s *modelManagerSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	)
 	err := api.UpgradeModel(
 		params.UpgradeModel{
-			ModelTag: s.st.model.tag.String(),
-			Version:  version.MustParse("3.0-beta1"),
+			ModelTag:  s.st.model.tag.String(),
+			ToVersion: version.MustParse("3.0.0"),
 		},
 	)
 	c.Logf(err.Error())
 	c.Assert(err.Error(), gc.Equals, `
-cannot upgrade to "3.0-beta1" due to issues with these models:
+cannot upgrade to "3.0.0" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
 - windows is not supported but the model hosts 10 windows machine(s)`[1:])
 }
 
-func (s *modelManagerSuite) TestAbortCurrentUpgrade(c *gc.C) {
+func (s *modelManagerUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	ctrl, api := s.getModelManagerAPI(c)
 	defer ctrl.Finish()
 

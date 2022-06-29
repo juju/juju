@@ -1016,7 +1016,7 @@ func (s *upgradeModelSuite) TestUpgradeModel(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(in, gc.DeepEquals, params.UpgradeModel{
 				ModelTag:            coretesting.ModelTag.String(),
-				Version:             version.MustParse("2.9.1"),
+				ToVersion:           version.MustParse("2.9.1"),
 				IgnoreAgentVersions: true,
 				DryRun:              true,
 			})

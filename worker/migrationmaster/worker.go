@@ -366,8 +366,6 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 }
 
 func (w *Worker) getTargetControllerVersion(conn api.Connection) (version.Number, error) {
-	// Use target Connection to access the ModelInfo via MigrationMaster API.
-	// This is a workaround.
 	client := controller.NewClient(conn)
 	result, err := client.ControllerVersion()
 	if err != nil {

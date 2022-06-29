@@ -319,7 +319,7 @@ type modelConfigAPI interface {
 
 // ModelManagerAPI defines model manager API methods.
 type ModelManagerAPI interface {
-	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error
+	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error // TODO: remove in juju3.
 	UpgradeModel(model names.ModelTag, version version.Number, stream string, ignoreAgentVersions, druRun bool) error
 	AbortCurrentUpgrade() error
 
@@ -625,7 +625,9 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", chosen)
+	if !dryRun {
+		fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", chosen)
+	}
 	return nil
 }
 
