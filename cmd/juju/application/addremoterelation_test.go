@@ -100,7 +100,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationTerminated(c *gc.C) {
 	err := s.runAddRelation(c, "kontroll:bob/prod.hosted-mysql", "applicationname")
 	c.Assert(err, gc.ErrorMatches, `
 Offer "applicationname" has been removed from the remote model.
-To relate to a new offer with the same name, first run
+To integrate with a new offer with the same name, first run
 'juju remove-saas applicationname' to remove the SAAS record from this model.`[1:])
 }
 
@@ -113,7 +113,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationDying(c *gc.C) {
 	err := s.runAddRelation(c, "applicationname2", "kontroll:bob/prod.hosted-mysql")
 	c.Assert(err, gc.ErrorMatches, `
 SAAS application "hosted-mysql" has been removed but termination has not completed.
-To relate to a new offer with the same name, first run
+To integrate with a new offer with the same name, first run
 'juju remove-saas hosted-mysql --force' to remove the SAAS record from this model.`[1:])
 }
 
