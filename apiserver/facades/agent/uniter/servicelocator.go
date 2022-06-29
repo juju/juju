@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"fmt"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,7 +29,7 @@ type ServiceLocatorState struct {
 
 func (s ServiceLocatorState) AddServiceLocator(locatorParams params.AddServiceLocatorParams) (string, error) {
 	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(locatorParams)
-	return string(sl.Id()), err
+	return fmt.Sprint(sl.Id()), err
 }
 
 //func (s ServiceLocatorState) ServiceLocator(id string) (ServiceLocatorBackend, error) {
