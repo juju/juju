@@ -241,6 +241,9 @@ func (m *mockRelationsFacade) SetRemoteApplicationStatus(applicationName string,
 
 func (m *mockRelationsFacade) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
 	m.stub.MethodCall(m, "UpdateControllerForModel", controller, modelUUID)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
 	return nil
 }
 

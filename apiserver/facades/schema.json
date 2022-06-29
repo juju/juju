@@ -26434,6 +26434,12 @@
                 "DestroyMachineInfo": {
                     "type": "object",
                     "properties": {
+                        "destroyed-containers": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DestroyMachineResult"
+                            }
+                        },
                         "destroyed-storage": {
                             "type": "array",
                             "items": {
@@ -26451,9 +26457,15 @@
                             "items": {
                                 "$ref": "#/definitions/Entity"
                             }
+                        },
+                        "machine-id": {
+                            "type": "string"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-id"
+                    ]
                 },
                 "DestroyMachineResult": {
                     "type": "object",

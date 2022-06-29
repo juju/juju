@@ -316,7 +316,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
 	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
 	f.Var(&c.storagePool, "storage-pool", "Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
-	f.StringVar(&c.initialModelName, "create-model", "", "Name of an initial model to create on the new controller")
+	f.StringVar(&c.initialModelName, "add-model", "", "Name of an initial model to create on the new controller")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")

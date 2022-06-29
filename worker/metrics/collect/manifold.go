@@ -45,18 +45,18 @@ var (
 	defaultPeriod = 5 * time.Minute
 
 	// errMetricsNotDefined is returned when the charm the uniter is running does
-	// not declared any metrics.
+	// not declare any metrics.
 	errMetricsNotDefined = errors.New("no metrics defined")
 
 	// readCharm function reads the charm directory and extracts declared metrics and the charm url.
-	readCharm = func(unitTag names.UnitTag, paths context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+	readCharm = func(unitTag names.UnitTag, paths context.Paths) (string, map[string]corecharm.Metric, error) {
 		ch, err := corecharm.ReadCharm(paths.GetCharmDir())
 		if err != nil {
-			return nil, nil, errors.Annotatef(err, "failed to read charm from: %v", paths.GetCharmDir())
+			return "", nil, errors.Annotatef(err, "failed to read charm from: %v", paths.GetCharmDir())
 		}
 		chURL, err := charm.ReadCharmURL(path.Join(paths.GetCharmDir(), charm.CharmURLPath))
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return "", nil, errors.Trace(err)
 		}
 		charmMetrics := map[string]corecharm.Metric{}
 		if ch.Metrics() != nil {
@@ -75,7 +75,7 @@ var (
 		if len(charmMetrics) == 0 {
 			return nil, errMetricsNotDefined
 		}
-		return metricFactory.Recorder(charmMetrics, chURL.String(), unitTag.String())
+		return metricFactory.Recorder(charmMetrics, chURL, unitTag.String())
 	}
 
 	newSocketListener = func(path string, handler spool.ConnectionHandler) (stopper, error) {
@@ -183,7 +183,11 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 		return nil, errors.Trace(err)
 	}
 
-	if len(validMetrics) > 0 && charmURL.Schema == "local" {
+	curl, err := corecharm.ParseURL(charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(validMetrics) > 0 && curl.Schema == "local" {
 		h := newHandler(handlerConfig{
 			charmdir:       charmdir,
 			agent:          agent,

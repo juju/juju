@@ -154,46 +154,60 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	anyFailed := false
-	for i, id := range c.MachineIds {
-		result := results[i]
-		if result.Error != nil {
+	for _, result := range results {
+		err = logRemovedMachine(ctx, result, c.KeepInstance)
+		if err != nil {
 			anyFailed = true
-			ctx.Infof("removing machine %s failed: %s", id, result.Error)
-			continue
-		}
-		if c.KeepInstance {
-			ctx.Infof("removing machine %s (but retaining cloud instance)", id)
-		} else {
-			ctx.Infof("removing machine %s", id)
-		}
-		for _, entity := range result.Info.DestroyedUnits {
-			unitTag, err := names.ParseUnitTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Infof("- will remove %s", names.ReadableString(unitTag))
-		}
-		for _, entity := range result.Info.DestroyedStorage {
-			storageTag, err := names.ParseStorageTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Infof("- will remove %s", names.ReadableString(storageTag))
-		}
-		for _, entity := range result.Info.DetachedStorage {
-			storageTag, err := names.ParseStorageTag(entity.Tag)
-			if err != nil {
-				logger.Warningf("%s", err)
-				continue
-			}
-			ctx.Infof("- will detach %s", names.ReadableString(storageTag))
+			ctx.Infof("%s", err)
 		}
 	}
 
 	if anyFailed {
 		return cmd.ErrSilent
+	}
+	return nil
+}
+
+func logRemovedMachine(ctx *cmd.Context, result params.DestroyMachineResult, keepInstance bool) error {
+	if result.Error != nil {
+		return errors.Errorf("removing machine failed: %s", result.Error)
+	}
+	for _, destroyContainerResult := range result.Info.DestroyedContainers {
+		err := logRemovedMachine(ctx, destroyContainerResult, keepInstance)
+		if err != nil {
+			ctx.Infof("%s", err)
+		}
+		ctx.Infof("\n")
+	}
+	id := result.Info.MachineId
+	if keepInstance {
+		ctx.Infof("removing machine %s (but retaining cloud instance)", id)
+	} else {
+		ctx.Infof("removing machine %s", id)
+	}
+	for _, entity := range result.Info.DestroyedUnits {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			logger.Warningf("%s", err)
+			continue
+		}
+		ctx.Infof("- will remove %s", names.ReadableString(unitTag))
+	}
+	for _, entity := range result.Info.DestroyedStorage {
+		storageTag, err := names.ParseStorageTag(entity.Tag)
+		if err != nil {
+			logger.Warningf("%s", err)
+			continue
+		}
+		ctx.Infof("- will remove %s", names.ReadableString(storageTag))
+	}
+	for _, entity := range result.Info.DetachedStorage {
+		storageTag, err := names.ParseStorageTag(entity.Tag)
+		if err != nil {
+			logger.Warningf("%s", err)
+			continue
+		}
+		ctx.Infof("- will detach %s", names.ReadableString(storageTag))
 	}
 	return nil
 }
