@@ -41,6 +41,7 @@ func versionCheck(from, to version.Number, versionMap map[int]version.Number) (b
 	}
 	// Downgrades not allowed.
 	if from.Major > to.Major {
+		logger.Debugf("downgrade from %q to %q is not allowed", from, to)
 		return false, version.Number{}, errors.Errorf("downgrade is not allowed")
 	}
 	minVer, ok := versionMap[to.Major]

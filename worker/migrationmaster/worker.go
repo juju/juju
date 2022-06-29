@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
-	// "github.com/juju/juju/api/controller/migrationmaster"
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"

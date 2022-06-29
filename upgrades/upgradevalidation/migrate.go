@@ -18,15 +18,3 @@ func ValidatorsForModelMigrationSource(targetVersion version.Number) []Validator
 	}
 	return validators
 }
-
-// // ValidatorsForModelMigrationTarget returns a list of validators to run target controller for model migration,
-// func ValidatorsForModelMigrationTarget(targetVersion version.Number) []Validator {
-// 	validators := []Validator{
-// 		getCheckTargetVersionForModel(targetVersion, MigrateToAllowed),
-// 		getCheckUpgradeSeriesLockForModel(false),
-// 	}
-// 	if targetVersion.Major == 3 {
-// 		validators = append(validators, checkNoWinMachinesForModel)
-// 	}
-// 	return validators
-// }
