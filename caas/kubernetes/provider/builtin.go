@@ -12,6 +12,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/utils/v3"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -86,6 +87,15 @@ func decideKubeConfigDir() (string, error) {
 	return filepath.Join("/var/snap/microk8s/current/", "credentials", "client.config"), nil
 }
 
+var microk8sGroupError = `
+Insufficient permissions to access MicroK8s.
+You can either try again with sudo or add the user %s to the 'snap_microk8s' group:
+
+    sudo usermod -a -G snap_microk8s %s
+
+After this, reload the user groups either via a reboot or by running 'newgrp snap_microk8s'.
+`[1:]
+
 func getLocalMicroK8sConfig(cmdRunner CommandRunner, getKubeConfigDir func() (string, error)) ([]byte, error) {
 	// TODO: fix OSX and Windows - probably still use `microk8s config (need to test)`.
 	_, err := cmdRunner.LookPath("microk8s")
@@ -100,6 +110,13 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner, getKubeConfigDir func() (st
 	content, err := ioutil.ReadFile(clientConfigPath)
 	if os.IsNotExist(err) {
 		return nil, errors.Annotatef(notSupportErr, "%q does not exist", clientConfigPath)
+	}
+	if os.IsPermission(err) {
+		user, err := utils.LocalUsername()
+		if err != nil {
+			user = "<user>"
+		}
+		return nil, errors.Errorf(microk8sGroupError, user, user)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read %q", clientConfigPath)
