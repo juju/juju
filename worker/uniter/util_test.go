@@ -718,7 +718,7 @@ func (s startupError) step(c *gc.C, ctx *testContext) {
 type verifyDeployed struct{}
 
 func (s verifyDeployed) step(c *gc.C, ctx *testContext) {
-	c.Assert(ctx.deployer.curl, jc.DeepEquals, curl(0))
+	c.Assert(ctx.deployer.staged, jc.DeepEquals, curl(0).String())
 	c.Assert(ctx.deployer.deployed, jc.IsTrue)
 }
 

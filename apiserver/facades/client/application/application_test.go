@@ -294,7 +294,7 @@ func (s *applicationSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "local:quantal/dummy-1")
+	c.Assert(ch.String(), gc.Equals, "local:quantal/dummy-1")
 
 	// Empty string will be returned as nil.
 	options := map[string]string{
@@ -531,7 +531,7 @@ func (s *applicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "haha/borken",
 			NumUnits:        1,
-			CharmURL:        charm.URL().String(),
+			CharmURL:        charm.String(),
 			CharmOrigin:     createCharmOriginFromURL(c, charm.URL()),
 			Resources:       map[string]string{"dummy": pendingID},
 		}},
@@ -559,7 +559,7 @@ func (s *applicationSuite) TestApplicationDeploymentLeavesResourcesOnSuccess(c *
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "unborken",
 			NumUnits:        1,
-			CharmURL:        charm.URL().String(),
+			CharmURL:        charm.String(),
 			CharmOrigin:     createCharmOriginFromURL(c, charm.URL()),
 			Resources:       map[string]string{"dummy": pendingID},
 		}},
@@ -784,7 +784,7 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.URL().String(), gc.Equals, curl.String())
+	c.Assert(charm.String(), gc.Equals, curl.String())
 	c.Assert(force, jc.IsFalse)
 }
 
@@ -827,7 +827,7 @@ func (s *applicationSuite) assertApplicationSetCharm(c *gc.C, forceUnits bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	charm, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.URL().String(), gc.Equals, "cs:~who/precise/wordpress-3")
+	c.Assert(charm.String(), gc.Equals, "cs:~who/precise/wordpress-3")
 }
 
 func (s *applicationSuite) assertApplicationSetCharmBlocked(c *gc.C, msg string) {
@@ -893,7 +893,7 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.URL().String(), gc.Equals, curl.String())
+	c.Assert(charm.String(), gc.Equals, curl.String())
 	c.Assert(force, jc.IsTrue)
 }
 
@@ -991,7 +991,7 @@ func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/"+url+"-0")
+	c.Assert(ch.String(), gc.Equals, "cs:~who/"+url+"-0")
 }
 
 func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {

@@ -32,7 +32,7 @@ run_simplestream_metadata() {
 		--show-log \
 		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true \
-		--create-model=default \
+		--add-model=default \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
 		--agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"

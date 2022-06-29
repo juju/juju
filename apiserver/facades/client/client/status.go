@@ -1249,7 +1249,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		series = coreseries.Kubernetes.String()
 	}
 	var processedStatus = params.ApplicationStatus{
-		Charm:            applicationCharm.URL().String(),
+		Charm:            applicationCharm.String(),
 		CharmVersion:     applicationCharm.Version(),
 		CharmProfile:     charmProfileName,
 		CharmChannel:     channel,
@@ -1276,7 +1276,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		if err != nil {
 			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 		}
-		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String(), expectWorkload)
+		processedStatus.Units = context.processUnits(units, applicationCharm.String(), expectWorkload)
 	}
 
 	// If for whatever reason the application isn't yet in the cache,

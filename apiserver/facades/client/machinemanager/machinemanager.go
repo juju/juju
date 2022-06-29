@@ -429,96 +429,84 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	if err := mm.check.RemoveAllowed(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
-	destroyMachine := func(entity params.Entity) params.DestroyMachineResult {
+	results := make([]params.DestroyMachineResult, len(args.Entities))
+	for i, entity := range args.Entities {
 		result := params.DestroyMachineResult{}
-		fail := func(e error) params.DestroyMachineResult {
+		fail := func(e error) {
 			result.Error = apiservererrors.ServerError(e)
-			return result
+			results[i] = result
 		}
 
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			return fail(err)
+			fail(err)
+			continue
 		}
 		machine, err := mm.st.Machine(machineTag.Id())
 		if err != nil {
-			return fail(err)
+			fail(err)
+			continue
 		}
 		if keep {
 			logger.Infof("destroy machine %v but keep instance", machineTag.Id())
 			if err := machine.SetKeepInstance(keep); err != nil {
 				if !force {
-					return fail(err)
+					fail(err)
+					continue
 				}
 				logger.Warningf("could not keep instance for machine %v: %v", machineTag.Id(), err)
 			}
 		}
-		var info params.DestroyMachineInfo
+		info := params.DestroyMachineInfo{
+			MachineId: machineTag.Id(),
+		}
+
+		containers, err := machine.Containers()
+		if err != nil {
+			fail(err)
+			continue
+		}
+		if force {
+			info.DestroyedContainers, err = mm.destoryContainer(containers, force, keep, maxWait)
+			if err != nil {
+				fail(err)
+				continue
+			}
+		}
+
 		units, err := machine.Units()
 		if err != nil {
-			return fail(err)
+			fail(err)
+			continue
 		}
-
-		var storageErrors []params.ErrorResult
-		storageError := func(e error) {
-			storageErrors = append(storageErrors, params.ErrorResult{Error: apiservererrors.ServerError(e)})
-		}
-
-		storageSeen := names.NewSet()
 		for _, unit := range units {
-			info.DestroyedUnits = append(
-				info.DestroyedUnits,
-				params.Entity{Tag: unit.UnitTag().String()},
-			)
-			storage, err := storagecommon.UnitStorage(mm.storageAccess, unit.UnitTag())
-			if err != nil {
-				storageError(errors.Annotatef(err, "getting storage for unit %v", unit.UnitTag().Id()))
-				continue
-			}
-
-			// Filter out storage we've already seen. Shared
-			// storage may be attached to multiple units.
-			var unseen []state.StorageInstance
-			for _, storage := range storage {
-				storageTag := storage.StorageTag()
-				if storageSeen.Contains(storageTag) {
-					continue
-				}
-				storageSeen.Add(storageTag)
-				unseen = append(unseen, storage)
-			}
-			storage = unseen
-
-			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
-				mm.storageAccess.VolumeAccess(), mm.storageAccess.FilesystemAccess(), storage)
-			if err != nil {
-				storageError(errors.Annotatef(err, "classifying storage for destruction for unit %v", unit.UnitTag().Id()))
-				continue
-			}
-			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
-			info.DetachedStorage = append(info.DetachedStorage, detached...)
+			info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unit.UnitTag().String()})
 		}
 
-		if len(storageErrors) != 0 {
-			all := params.ErrorResults{Results: storageErrors}
+		info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(units)
+		if err != nil {
 			if !force {
-				return fail(all.Combine())
+				fail(err)
+				continue
 			}
-			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), all.Combine())
+			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), err)
 		}
 
 		applicationNames, err := mm.leadership.GetMachineApplicationNames(machineTag.Id())
 		if err != nil {
-			return fail(err)
+			fail(err)
+			continue
 		}
 
 		if force {
 			if err := machine.ForceDestroy(maxWait); err != nil {
-				return fail(err)
+				fail(err)
+				continue
 			}
 		} else {
 			if err := machine.Destroy(); err != nil {
-				return fail(err)
+				fail(err)
+				continue
 			}
 		}
 
@@ -534,11 +522,11 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 		// still prevent another leadership change. The work around for this
 		// case until we provide the ability for the operator to unpin via the
 		// CLI, is to remove the raft logs manually.
-		results, err := mm.leadership.UnpinApplicationLeadersByName(machineTag, applicationNames)
+		unpinResults, err := mm.leadership.UnpinApplicationLeadersByName(machineTag, applicationNames)
 		if err != nil {
 			logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
 		}
-		for _, result := range results.Results {
+		for _, result := range unpinResults.Results {
 			if result.Error != nil {
 				logger.Warningf(
 					"could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
@@ -546,13 +534,62 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 		}
 
 		result.Info = &info
-		return result
-	}
-	results := make([]params.DestroyMachineResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		results[i] = destroyMachine(entity)
+		results[i] = result
 	}
 	return params.DestroyMachineResults{Results: results}, nil
+}
+
+func (mm *MachineManagerAPI) destoryContainer(containers []string, force, keep bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
+	if containers == nil || len(containers) == 0 {
+		return nil, nil
+	}
+	entities := params.Entities{Entities: make([]params.Entity, len(containers))}
+	for i, container := range containers {
+		entities.Entities[i] = params.Entity{Tag: names.NewMachineTag(container).String()}
+	}
+	results, err := mm.destroyMachine(entities, force, keep, maxWait)
+	return results.Results, err
+}
+
+func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, detached []params.Entity, _ error) {
+	var storageErrors []params.ErrorResult
+	storageError := func(e error) {
+		storageErrors = append(storageErrors, params.ErrorResult{Error: apiservererrors.ServerError(e)})
+	}
+
+	storageSeen := names.NewSet()
+	for _, unit := range units {
+		storage, err := storagecommon.UnitStorage(mm.storageAccess, unit.UnitTag())
+		if err != nil {
+			storageError(errors.Annotatef(err, "getting storage for unit %v", unit.UnitTag().Id()))
+			continue
+		}
+
+		// Filter out storage we've already seen. Shared
+		// storage may be attached to multiple units.
+		var unseen []state.StorageInstance
+		for _, storage := range storage {
+			storageTag := storage.StorageTag()
+			if storageSeen.Contains(storageTag) {
+				continue
+			}
+			storageSeen.Add(storageTag)
+			unseen = append(unseen, storage)
+		}
+		storage = unseen
+
+		unitDestroyed, unitDetached, err := storagecommon.ClassifyDetachedStorage(
+			mm.storageAccess.VolumeAccess(), mm.storageAccess.FilesystemAccess(), storage,
+		)
+		if err != nil {
+			storageError(errors.Annotatef(err, "classifying storage for destruction for unit %v", unit.UnitTag().Id()))
+			continue
+		}
+		destroyed = append(destroyed, unitDestroyed...)
+		detached = append(detached, unitDetached...)
+	}
+	err := params.ErrorResults{Results: storageErrors}.Combine()
+	return destroyed, detached, err
 }
 
 // UpgradeSeriesValidate validates that the incoming arguments correspond to a

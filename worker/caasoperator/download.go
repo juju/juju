@@ -28,6 +28,10 @@ func (c *charmInfo) URL() *charm.URL {
 	return c.curl
 }
 
+func (c *charmInfo) String() string {
+	return c.curl.String()
+}
+
 func (c *charmInfo) ArchiveSha256() (string, error) {
 	return c.sha256, nil
 }

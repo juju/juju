@@ -453,8 +453,8 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--config", "controller-name=test"},
 	err:  `controller name cannot be set via config, please use cmd args`,
 }, {
-	info: "resource-group-name does not support create-model",
-	args: []string{"--config", "resource-group-name=foo", "--create-model", "foo"},
+	info: "resource-group-name does not support add-model",
+	args: []string{"--config", "resource-group-name=foo", "--add-model", "foo"},
 	err:  `if using resource-group-name "foo" then a workload model cannot be specified as well`,
 }, {
 	info: "missing storage pool name",
@@ -550,7 +550,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade", "--create-model", "workload")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade", "--add-model", "workload")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
@@ -565,7 +565,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade", "--create-model", "workload")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade", "--add-model", "workload")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
@@ -639,7 +639,7 @@ func (s *BootstrapSuite) TestBootstrapWithWorkloadModel(c *gc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
-		"--create-model", "mymodel",
+		"--add-model", "mymodel",
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
@@ -728,7 +728,7 @@ func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
-		"--create-model", "workload",
+		"--add-model", "workload",
 		"--model-default", "network=foo",
 		"--model-default", "ftp-proxy=model-proxy",
 		"--config", "ftp-proxy=controller-proxy",
