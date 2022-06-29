@@ -29,7 +29,7 @@ type ServiceLocatorState struct {
 
 func (s ServiceLocatorState) AddServiceLocator(locatorParams params.AddServiceLocatorParams) (string, error) {
 	sl, err := s.st.ServiceLocatorsState().AddServiceLocator(locatorParams)
-	return fmt.Sprint(sl.Id()), err
+	return fmt.Sprintf("%d", sl.Id()), err
 }
 
 //func (s ServiceLocatorState) ServiceLocator(id string) (ServiceLocatorBackend, error) {
@@ -111,9 +111,9 @@ func (u *ServiceLocatorAPI) AddServiceLocator(args params.AddServiceLocators) (p
 		//	result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		//	continue
 		//}
-		sl, err := u.backend.AddServiceLocator(serviceLocator)
+		slId, err := u.backend.AddServiceLocator(serviceLocator)
 
-		result.Results[i].Result = sl
+		result.Results[i].Result = slId
 		result.Results[i].Error = apiservererrors.ServerError(err)
 
 	}
