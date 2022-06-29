@@ -284,7 +284,7 @@ var commandNames = []string{
 	"add-k8s",
 	"add-machine",
 	"add-model",
-	"add-relation",
+	"add-relation", // alias for 'integrate'
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
@@ -352,6 +352,7 @@ var commandNames = []string{
 	"import-filesystem",
 	"import-ssh-key",
 	"info",
+	"integrate",
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
@@ -395,7 +396,7 @@ var commandNames = []string{
 	"refresh",
 	"regions",
 	"register",
-	"relate", //alias for add-relation
+	"relate", // alias for integrate
 	"reload-spaces",
 	"remove-application",
 	"remove-cached-images",
