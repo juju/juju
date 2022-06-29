@@ -31101,7 +31101,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Number"
+                            "$ref": "#/definitions/PrechecksArgs"
                         }
                     },
                     "description": "Prechecks performs pre-migration checks on the model and\n(source) controller."
@@ -31366,6 +31366,18 @@
                         "Tag",
                         "Patch",
                         "Build"
+                    ]
+                },
+                "PrechecksArgs": {
+                    "type": "object",
+                    "properties": {
+                        "target-controller-version": {
+                            "$ref": "#/definitions/Number"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target-controller-version"
                     ]
                 },
                 "ProcessRelations": {
@@ -32987,7 +32999,8 @@
                         "Params": {
                             "$ref": "#/definitions/UpgradeModel"
                         }
-                    }
+                    },
+                    "description": "UpgradeModel upgrades a model."
                 }
             },
             "definitions": {
@@ -34066,14 +34079,14 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "version": {
+                        "to-version": {
                             "$ref": "#/definitions/Number"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
-                        "version"
+                        "to-version"
                     ]
                 },
                 "UserModel": {

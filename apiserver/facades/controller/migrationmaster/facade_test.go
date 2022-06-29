@@ -254,7 +254,7 @@ func (s *Suite) TestPrechecksModelError(c *gc.C) {
 
 	s.precheckBackend.EXPECT().Model().Return(nil, errors.New("boom"))
 
-	err := s.mustMakeAPI(c).Prechecks(version.MustParse("2.9.32"))
+	err := s.mustMakeAPI(c).Prechecks(params.PrechecksArgs{TargetControllerVersion: version.MustParse("2.9.32")})
 	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
 }
 

@@ -211,8 +211,9 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.Prechecks(version.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, "blam")
+	expectedArg := params.PrechecksArgs{TargetControllerVersion: version.MustParse("1.2.4")}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.Prechecks", []interface{}{"", version.MustParse("1.2.4")}},
+		{"MigrationMaster.Prechecks", []interface{}{"", expectedArg}},
 	})
 }
 
