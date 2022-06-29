@@ -66,6 +66,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
 		).Return(0, nil),
+		ctrlState.EXPECT().MachineCountForSeries("xenial").Return(0, nil),
 
 		// 2. Check hosted models.
 		// - check agent version;
@@ -77,9 +78,10 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
 		).Return(0, nil),
+		state1.EXPECT().MachineCountForSeries("xenial").Return(0, nil),
 	)
 
-	targetVersion := version.MustParse("3.0-beta1")
+	targetVersion := version.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion)
 	checker := upgradevalidation.NewModelUpgradeCheck(ctrlModelTag.Id(), statePool, ctrlState, ctrlModel, validators...)
 	blockers, err := checker.Validate()
@@ -178,9 +180,10 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
 		).Return(0, nil),
+		state.EXPECT().MachineCountForSeries("xenial").Return(0, nil),
 	)
 
-	targetVersion := version.MustParse("3.0-beta1")
+	targetVersion := version.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion)
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, state, model, validators...)
 	blockers, err := checker.Validate()

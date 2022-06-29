@@ -135,6 +135,25 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 	c.Assert(blocker.Error(), gc.Equals, `windows is not supported but the model hosts 1 windows machine(s)`)
 }
 
+func (s *upgradeValidationSuite) TestcheckNoXenialMachinesForModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := mocks.NewMockState(ctrl)
+	gomock.InOrder(
+		state.EXPECT().MachineCountForSeries("xenial").Return(0, nil),
+		state.EXPECT().MachineCountForSeries("xenial").Return(1, nil),
+	)
+
+	blocker, err := upgradevalidation.CheckNoXenialMachinesForModel("", nil, state, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+
+	blocker, err = upgradevalidation.CheckNoXenialMachinesForModel("", nil, state, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `xenial is not supported but the model hosts 1 windows machine(s)`)
+}
+
 func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -176,14 +195,14 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 	)
 
 	blocker, err := upgradevalidation.GetCheckTargetVersionForModel(
-		version.MustParse("3.0-beta1"),
+		version.MustParse("3.0.0"),
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker.Error(), gc.Equals, `current model ("2.9.29") has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
-		version.MustParse("3.0-beta1"),
+		version.MustParse("3.0.0"),
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)

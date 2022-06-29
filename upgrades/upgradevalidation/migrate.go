@@ -14,7 +14,7 @@ func ValidatorsForModelMigrationSource(targetVersion version.Number) []Validator
 		getCheckUpgradeSeriesLockForModel(false),
 	}
 	if targetVersion.Major == 3 {
-		validators = append(validators, checkNoWinMachinesForModel)
+		validators = append(validators, checkNoWinMachinesForModel, checkNoXenialMachinesForModel)
 	}
 	return validators
 }

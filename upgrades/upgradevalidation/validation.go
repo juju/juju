@@ -39,6 +39,7 @@ func (b Blocker) Error() string {
 	return b.reason
 }
 
+// ModelUpgradeBlockers holds a list of blockers for upgrading the provided model.
 type ModelUpgradeBlockers struct {
 	modelName string
 	blockers  []Blocker
@@ -92,6 +93,7 @@ func (e ModelUpgradeBlockers) string() string {
 	return errString
 }
 
+// ModelUpgradeCheck sumarizes a list of blockers for upgrading the provided model.
 type ModelUpgradeCheck struct {
 	modelUUID  string
 	pool       StatePool
@@ -152,12 +154,24 @@ func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, mode
 		sort.Strings(winSeries)
 	}
 
-	winMachineCount, err := st.MachineCountForSeries(winSeries...)
+	count, err := st.MachineCountForSeries(winSeries...)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot count machines for series %v", winSeries)
 	}
-	if winMachineCount > 0 {
-		return NewBlocker("windows is not supported but the model hosts %d windows machine(s)", winMachineCount), nil
+	if count > 0 {
+		return NewBlocker("windows is not supported but the model hosts %d windows machine(s)", count), nil
+	}
+	return nil, nil
+}
+
+func checkNoXenialMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+	xenial := series.Xenial.String()
+	count, err := st.MachineCountForSeries(xenial)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot count machines for series %v", xenial)
+	}
+	if count > 0 {
+		return NewBlocker("%s is not supported but the model hosts %d windows machine(s)", xenial, count), nil
 	}
 	return nil, nil
 }
@@ -193,7 +207,6 @@ func checkModelMigrationModeForControllerUpgrade(modelUUID string, pool StatePoo
 }
 
 func checkMongoStatusForControllerUpgrade(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	// replicaStatus, err := st.MongoSession().CurrentStatus()
 	replicaStatus, err := st.MongoCurrentStatus()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot check replicaset status")

@@ -18,6 +18,7 @@ func ValidatorsForControllerUpgrade(isControllerModel bool, targetVersion versio
 			validators = append(validators,
 				checkMongoVersionForControllerModel,
 				checkNoWinMachinesForModel,
+				checkNoXenialMachinesForModel,
 			)
 		}
 		return validators
@@ -27,7 +28,9 @@ func ValidatorsForControllerUpgrade(isControllerModel bool, targetVersion versio
 		checkModelMigrationModeForControllerUpgrade,
 	}
 	if targetVersion.Major == 3 {
-		validators = append(validators, checkNoWinMachinesForModel)
+		validators = append(validators,
+			checkNoWinMachinesForModel, checkNoXenialMachinesForModel,
+		)
 	}
 	return validators
 }
@@ -38,7 +41,9 @@ func ValidatorsForModelUpgrade(force bool, targetVersion version.Number) []Valid
 		getCheckUpgradeSeriesLockForModel(force),
 	}
 	if targetVersion.Major == 3 {
-		validators = append(validators, checkNoWinMachinesForModel)
+		validators = append(validators,
+			checkNoWinMachinesForModel, checkNoXenialMachinesForModel,
+		)
 	}
 	return validators
 }

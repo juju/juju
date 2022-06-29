@@ -16,6 +16,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 var (
+	CheckNoXenialMachinesForModel               = checkNoXenialMachinesForModel
 	CheckNoWinMachinesForModel                  = checkNoWinMachinesForModel
 	GetCheckUpgradeSeriesLockForModel           = getCheckUpgradeSeriesLockForModel
 	GetCheckTargetVersionForModel               = getCheckTargetVersionForModel
