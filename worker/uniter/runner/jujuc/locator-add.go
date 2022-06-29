@@ -107,5 +107,5 @@ func (c *LocatorAddCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot record service locator")
 	}
 
-	return c.out.Write(ctx, result)
+	return c.out.Write(ctx, result.Results[0].Result)
 }

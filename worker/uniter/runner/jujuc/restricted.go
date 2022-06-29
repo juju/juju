@@ -148,8 +148,8 @@ func (*RestrictedContext) AddMetricLabels(string, string, time.Time, map[string]
 }
 
 // AddServiceLocator implements hooks.Context.
-func (*RestrictedContext) AddServiceLocator(params.AddServiceLocators) (params.StringResult, error) {
-	return params.StringResult{}, ErrRestrictedContext
+func (*RestrictedContext) AddServiceLocator(params.AddServiceLocators) (params.StringResults, error) {
+	return params.StringResults{}, ErrRestrictedContext
 }
 
 // StorageTags implements hooks.Context.
