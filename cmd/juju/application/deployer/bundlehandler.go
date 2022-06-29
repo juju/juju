@@ -286,10 +286,7 @@ func (h *bundleHandler) makeModel(
 	}
 
 	h.modelConfig, err = getModelConfig(h.deployAPI)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // updateChannelsModelStatus gets the application's channel from a different
