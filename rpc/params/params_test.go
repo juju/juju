@@ -52,7 +52,7 @@ var marshalTestCases = []struct {
 			Life:                    life.Alive,
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXD},
-			Jobs:                    []model.MachineJob{"JobManageModel"},
+			Jobs:                    []model.MachineJob{model.JobManageModel},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
