@@ -6,7 +6,7 @@ package migration
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -70,7 +70,7 @@ type PrecheckMachine interface {
 type PrecheckApplication interface {
 	Name() string
 	Life() state.Life
-	CharmURL() (*charm.URL, bool)
+	CharmURL() (*string, bool)
 	AllUnits() ([]PrecheckUnit, error)
 	MinUnits() int
 }
@@ -374,6 +374,9 @@ func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []Precheck
 	}
 
 	appCharmURL, _ := app.CharmURL()
+	if appCharmURL == nil {
+		return errors.Errorf("application charm url is nil")
+	}
 
 	for _, unit := range units {
 		if unit.Life() != state.Alive {
@@ -391,7 +394,7 @@ func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []Precheck
 		}
 
 		unitCharmURL, _ := unit.CharmURL()
-		if appCharmURL.String() != unitCharmURL.String() {
+		if *appCharmURL != unitCharmURL.String() {
 			return errors.Errorf("unit %s is upgrading", unit.Name())
 		}
 	}

@@ -108,50 +108,10 @@ func unmarshallEnqueuedActions(in params.EnqueuedActions) (EnqueuedActions, erro
 		return EnqueuedActions{}, errors.Trace(err)
 	}
 
-	result := EnqueuedActions{
-		OperationID: tag.Id(),
-		Actions:     make([]ActionResult, len(in.Actions)),
-	}
-	for i, a := range in.Actions {
-		var err error
-		if a.Error != nil {
-			err = a.Error
-		}
-		result.Actions[i] = ActionResult{
-			Error: err,
-		}
-		if a.Result != "" {
-			actionTag, tagErr := names.ParseActionTag(a.Result)
-			if tagErr == nil {
-				result.Actions[i].Action = &Action{ID: actionTag.Id()}
-			} else {
-				result.Actions[i].Error = tagErr
-			}
-		}
-	}
-	return result, nil
-}
-
-func unmarshallEnqueuedActionsV2(in params.EnqueuedActionsV2) (EnqueuedActions, error) {
-	tag, err := names.ParseOperationTag(in.OperationTag)
-	if err != nil {
-		return EnqueuedActions{}, errors.Trace(err)
-	}
-
 	return EnqueuedActions{
 		OperationID: tag.Id(),
 		Actions:     unmarshallActionResults(in.Actions),
 	}, nil
-}
-
-func unmarshallEnqueuedRunActions(in []params.ActionResult) (EnqueuedActions, error) {
-	result := EnqueuedActions{
-		Actions: make([]ActionResult, len(in)),
-	}
-	for i, a := range in {
-		result.Actions[i] = unmarshallActionResult(a)
-	}
-	return result, nil
 }
 
 func unmarshallActionResults(in []params.ActionResult) []ActionResult {

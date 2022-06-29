@@ -61,7 +61,6 @@ type BaseBackupsSuite struct {
 	command    cmd.Command
 	metaresult *params.BackupsMetadataResult
 	data       string
-	apiVersion int
 
 	filename string
 
@@ -76,8 +75,6 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 		Filename: "backup-filename",
 	}
 	s.data = "<compressed archive data>"
-
-	s.apiVersion = 2
 
 	s.store = jujuclienttesting.MinimalStore()
 	models := s.store.Models["arthur"]
@@ -109,8 +106,8 @@ func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
 
 func (s *BaseBackupsSuite) patchGetAPI(client backups.APIClient) {
 	s.PatchValue(backups.NewGetAPI,
-		func(c *backups.CommandBase) (backups.APIClient, int, error) {
-			return client, s.apiVersion, nil
+		func(c *backups.CommandBase) (backups.APIClient, error) {
+			return client, nil
 		},
 	)
 }

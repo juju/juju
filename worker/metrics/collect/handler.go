@@ -37,7 +37,7 @@ type handler struct {
 // Handle triggers the collect-metrics hook and writes collected metrics
 // to the specified connection.
 func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	err := c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
@@ -46,17 +46,17 @@ func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
 	}
 
 	err = l.config.charmdir.Visit(func() error {
-		return l.do(c)
+		return l.do()
 	}, abort)
 	if err != nil {
-		fmt.Fprintf(c, "error: %v\n", err.Error())
+		_, _ = fmt.Fprintf(c, "error: %v\n", err.Error())
 	} else {
-		fmt.Fprintf(c, "ok\n")
+		_, _ = fmt.Fprintf(c, "ok\n")
 	}
 	return errors.Trace(err)
 }
 
-func (l *handler) do(c net.Conn) error {
+func (l *handler) do() error {
 	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataDir(), l.config.unitTag, "metrics-collect", nil)
 	charmURL, validMetrics, err := readCharm(l.config.unitTag, paths)
 	if err != nil {
@@ -65,13 +65,13 @@ func (l *handler) do(c net.Conn) error {
 
 	recorder, err := l.config.metricsFactory.Recorder(
 		validMetrics,
-		charmURL.String(),
+		charmURL,
 		l.config.unitTag.String(),
 	)
 	if err != nil {
 		return errors.Annotate(err, "failed to create the metric recorder")
 	}
-	defer recorder.Close()
+	defer func() { _ = recorder.Close() }()
 	err = l.config.runner.do(recorder)
 	if err != nil {
 		return errors.Annotate(err, "failed to collect metrics")

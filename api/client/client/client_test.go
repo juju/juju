@@ -12,13 +12,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -26,11 +24,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -39,9 +35,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -99,209 +93,6 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *clientSuite) TestZipHasHooksOnly(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks only
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
-	err = ch.ArchiveTo(tempFile)
-	c.Assert(err, jc.ErrorIsNil)
-	f := *client.HasHooksOrDispatch
-	hasHooks, err := f(tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasHooks, jc.IsTrue)
-}
-
-func (s *clientSuite) TestZipHasDispatchFileOnly(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("category-dispatch") // has dispatch file only
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
-	err = ch.ArchiveTo(tempFile)
-	c.Assert(err, jc.ErrorIsNil)
-	f := *client.HasHooksOrDispatch
-	hasDispatch, err := f(tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasDispatch, jc.IsTrue)
-}
-
-func (s *clientSuite) TestZipHasNoHooksNorDispath(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("category") // has no hooks nor dispatch file
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
-	err = ch.ArchiveTo(tempFile)
-	c.Assert(err, jc.ErrorIsNil)
-	f := *client.HasHooksOrDispatch
-	hasHooks, err := f(tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasHooks, jc.IsFalse)
-}
-
-func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	client := client.NewClient(s.APIState)
-
-	// Test the sanity checks first.
-	_, err := client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil, false)
-	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "cs:quantal/wordpress-1"`)
-
-	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.String())
-
-	// Upload a charm directory with changed revision.
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
-	charmDir.SetDiskRevision(42)
-	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.Revision, gc.Equals, 42)
-
-	// Upload a charm directory again, revision should be bumped.
-	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
-}
-
-func (s *clientSuite) TestAddLocalCharmFindingHooksError(c *gc.C) {
-	s.assertAddLocalCharmFailed(c,
-		func(string) (bool, error) {
-			return true, fmt.Errorf("bad zip")
-		},
-		`bad zip`)
-}
-
-func (s *clientSuite) TestAddLocalCharmNoHooks(c *gc.C) {
-	s.assertAddLocalCharmFailed(c,
-		func(string) (bool, error) {
-			return false, nil
-		},
-		`invalid charm \"dummy\": has no hooks nor dispatch file`)
-}
-
-func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	client := client.NewClient(s.APIState)
-
-	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.String())
-
-	// Upload a charm directory with changed revision.
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "lxd-profile")
-	charmDir.SetDiskRevision(42)
-	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.Revision, gc.Equals, 42)
-
-	// Upload a charm directory again, revision should be bumped.
-	savedURL, err = client.AddLocalCharm(curl, charmDir, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
-}
-
-func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	client := client.NewClient(s.APIState)
-
-	// Upload an archive with its original revision.
-	_, err := client.AddLocalCharm(curl, charmArchive, false)
-	c.Assert(err, gc.ErrorMatches, "invalid lxd-profile.yaml: contains device type \"unix-disk\"")
-}
-
-func (s *clientSuite) TestAddLocalCharmWithValidLXDProfileWithForceSucceeds(c *gc.C) {
-	s.testAddLocalCharmWithWithForceSucceeds("lxd-profile", c)
-}
-
-func (s *clientSuite) TestAddLocalCharmWithInvalidLXDProfileWithForceSucceeds(c *gc.C) {
-	s.testAddLocalCharmWithWithForceSucceeds("lxd-profile-fail", c)
-}
-
-func (s *clientSuite) testAddLocalCharmWithWithForceSucceeds(name string, c *gc.C) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	client := client.NewClient(s.APIState)
-
-	// Upload an archive with its original revision.
-	savedURL, err := client.AddLocalCharm(curl, charmArchive, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.String())
-
-	// Upload a charm directory with changed revision.
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), name)
-	charmDir.SetDiskRevision(42)
-	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.Revision, gc.Equals, 42)
-
-	// Upload a charm directory again, revision should be bumped.
-	savedURL, err = client.AddLocalCharm(curl, charmDir, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
-}
-
-func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
-	curl, ch := s.testCharm(c)
-	s.PatchValue(client.HasHooksOrDispatch, f)
-	_, err := client.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
-	c.Assert(err, gc.ErrorMatches, msg)
-}
-
-func (s *clientSuite) TestAddLocalCharmDefinetelyWithHooks(c *gc.C) {
-	curl, ch := s.testCharm(c)
-	s.PatchValue(client.HasHooksOrDispatch, func(string) (bool, error) {
-		return true, nil
-	})
-	savedCURL, err := client.NewClient(s.APIState).AddLocalCharm(curl, ch, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedCURL.String(), gc.Equals, curl.String())
-}
-
-func (s *clientSuite) testCharm(c *gc.C) (*charm.URL, charm.Charm) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	return curl, charmArchive
-}
-
-func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-
-	otherSt, otherAPISt := s.otherModel(c)
-	defer otherSt.Close()
-	defer otherAPISt.Close()
-	client := client.NewClient(otherAPISt)
-
-	// Upload an archive
-	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.String())
-
-	charm, err := otherSt.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.String(), gc.Equals, curl.String())
-}
-
 func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
 	otherSt := s.Factory.MakeModel(c, nil)
 	info := s.APIInfo(c)
@@ -311,175 +102,6 @@ func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
 	apiState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	return otherSt, apiState
-}
-
-func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
-	client := client.NewClient(s.APIState)
-
-	// AddLocalCharm does not use the facades, so instead of patching the
-	// facade call, we set up a fake endpoint to test.
-	defer fakeAPIEndpoint(c, client, modelEndpoint(c, s.APIState, "charms"), "POST",
-		func(w http.ResponseWriter, r *http.Request) {
-			httprequest.WriteJSON(w, http.StatusMethodNotAllowed, &params.CharmsResponse{
-				Error:     "the POST method is not allowed",
-				ErrorCode: params.CodeMethodNotAllowed,
-			})
-		},
-	).Close()
-
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-
-	_, err := client.AddLocalCharm(curl, charmArchive, false)
-	c.Assert(err, gc.ErrorMatches, `.*the POST method is not allowed$`)
-}
-
-func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
-	tests := []minverTest{
-		{"2.0.0", "1.0.0", false, true},
-		{"1.0.0", "2.0.0", false, false},
-		{"1.25.0", "1.24.0", false, true},
-		{"1.24.0", "1.25.0", false, false},
-		{"1.25.1", "1.25.0", false, true},
-		{"1.25.0", "1.25.1", false, false},
-		{"1.25.0", "1.25.0", false, true},
-		{"1.25.0", "1.25-alpha1", false, true},
-		{"1.25-alpha1", "1.25.0", false, true},
-		{"2.0.0", "1.0.0", true, true},
-		{"1.0.0", "2.0.0", true, false},
-		{"1.25.0", "1.24.0", true, true},
-		{"1.24.0", "1.25.0", true, false},
-		{"1.25.1", "1.25.0", true, true},
-		{"1.25.0", "1.25.1", true, false},
-		{"1.25.0", "1.25.0", true, true},
-		{"1.25.0", "1.25-alpha1", true, true},
-		{"1.25-alpha1", "1.25.0", true, true},
-	}
-	client := client.NewClient(s.APIState)
-	for _, t := range tests {
-		testMinVer(client, t, c)
-	}
-}
-
-type minverTest struct {
-	juju  string
-	charm string
-	force bool
-	ok    bool
-}
-
-func testMinVer(cl *client.Client, t minverTest, c *gc.C) {
-	charmMinVer := version.MustParse(t.charm)
-	jujuVer := version.MustParse(t.juju)
-
-	cleanup := client.PatchClientFacadeCall(cl,
-		func(request string, paramsIn interface{}, response interface{}) error {
-			c.Assert(paramsIn, gc.IsNil)
-			if response, ok := response.(*params.AgentVersionResult); ok {
-				response.Version = jujuVer
-			} else {
-				c.Log("wrong output structure")
-				c.Fail()
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
-	)
-	charmArchive.Meta().MinJujuVersion = charmMinVer
-
-	_, err := cl.AddLocalCharm(curl, charmArchive, t.force)
-
-	if t.ok {
-		if err != nil {
-			c.Errorf("Unexpected non-nil error for jujuver %v, minver %v: %#v", t.juju, t.charm, err)
-		}
-	} else {
-		if err == nil {
-			c.Errorf("Unexpected nil error for jujuver %v, minver %v", t.juju, t.charm)
-		} else if !jujuversion.IsMinVersionError(err) {
-			c.Errorf("Wrong error for jujuver %v, minver %v: expected minVersionError, got: %#v", t.juju, t.charm, err)
-		}
-	}
-}
-
-func (s *clientSuite) TestOpenURIFound(c *gc.C) {
-	// Use tools download to test OpenURI
-	const toolsVersion = "2.0.0-ubuntu-ppc64"
-	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
-
-	client := client.NewClient(s.APIState)
-	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
-
-	// The fake tools content will be the version number.
-	content, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, toolsVersion)
-}
-
-func (s *clientSuite) TestOpenURIError(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	_, err := client.OpenURI("/tools/foobar", nil)
-	c.Assert(err, gc.ErrorMatches, ".*error parsing version.+")
-}
-
-func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	curl, ch, repoPath := addLocalCharm(c, client, "dummy", false)
-	defer os.Remove(repoPath)
-	c.Logf("added local charm as %v", curl)
-	expected, err := ioutil.ReadFile(ch.Path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	reader, err := client.OpenCharm(curl)
-	defer reader.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, expected)
-}
-
-func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
-	client := client.NewClient(s.APIState)
-	curl, ch, repoPath := addLocalCharm(c, client, "dummy", true)
-	defer os.Remove(repoPath)
-	expected, err := ioutil.ReadFile(ch.Path)
-	c.Logf("force added local charm as %v", curl)
-	c.Assert(err, jc.ErrorIsNil)
-
-	reader, err := client.OpenCharm(curl)
-	defer reader.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, expected)
-}
-
-func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
-	curl := charm.MustParseURL("cs:quantal/spam-3")
-	client := client.NewClient(s.APIState)
-
-	_, err := client.OpenCharm(curl)
-
-	c.Check(err, gc.ErrorMatches, `.*cannot get charm from state: charm "cs:quantal/spam-3" not found`)
-}
-
-func addLocalCharm(c *gc.C, client *client.Client, name string, force bool) (*charm.URL, *charm.CharmArchive, string) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
-	_, err := client.AddLocalCharm(curl, charmArchive, force)
-	c.Assert(err, jc.ErrorIsNil)
-	return curl, charmArchive, charmArchive.Path
 }
 
 func fakeAPIEndpoint(c *gc.C, cl *client.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
@@ -504,46 +126,6 @@ func modelEndpoint(c *gc.C, apiState api.Connection, destination string) string 
 	modelTag, ok := apiState.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	return path.Join("/model", modelTag.Id(), destination)
-}
-
-func (s *clientSuite) TestClientModelUUID(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	client := client.NewClient(s.APIState)
-	uuid, ok := client.ModelUUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, model.Tag().Id())
-}
-
-func (s *clientSuite) TestClientModelUsers(c *gc.C) {
-	cl := client.NewClient(s.APIState)
-	cleanup := client.PatchClientFacadeCall(cl,
-		func(request string, paramsIn interface{}, response interface{}) error {
-			c.Assert(paramsIn, gc.IsNil)
-			if response, ok := response.(*params.ModelUserInfoResults); ok {
-				response.Results = []params.ModelUserInfoResult{
-					{Result: &params.ModelUserInfo{UserName: "one"}},
-					{Result: &params.ModelUserInfo{UserName: "two"}},
-					{Result: &params.ModelUserInfo{UserName: "three"}},
-				}
-			} else {
-				c.Log("wrong output structure")
-				c.Fail()
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	obtained, err := cl.ModelUserInfo()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
-		{UserName: "one"},
-		{UserName: "two"},
-		{UserName: "three"},
-	})
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
@@ -811,17 +393,4 @@ type closeWatcher struct {
 func (c *closeWatcher) Close() error {
 	c.closed = true
 	return nil
-}
-
-type IsolatedClientSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&IsolatedClientSuite{})
-
-func (s *IsolatedClientSuite) TestFindAllErrorsOnOlderController(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 1}
-	client := client.BarebonesClient(apiCaller)
-	_, err := client.FindTools(0, 0, "", "", "proposed")
-	c.Assert(err, gc.ErrorMatches, "passing agent-stream not supported by the controller")
 }

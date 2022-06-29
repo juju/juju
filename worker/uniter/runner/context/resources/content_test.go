@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

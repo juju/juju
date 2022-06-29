@@ -25,14 +25,12 @@ type Backend interface {
 	Machine(id string) (Machine, error)
 	MachineSeries(id string) (string, error)
 	MongoSession() *mgo.Session
-	MongoVersion() (string, error)
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType
 	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
-	RestoreInfo() *state.RestoreInfo
 	ControllerNodes() ([]state.ControllerNode, error)
 }
 
@@ -43,34 +41,6 @@ type API struct {
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
-}
-
-// APIv2 serves backup-specific API methods for version 2.
-type APIv2 struct {
-	*API
-}
-
-// APIv3 serves backup-specific API methods for version 3.
-type APIv3 struct {
-	*APIv2
-}
-
-// NewAPIv3 returns a v3 api facade.
-func NewAPIv3(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIv3, error) {
-	api, err := NewAPIv2(backend, resources, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv3{api}, nil
-}
-
-// NewAPIv2 returns a v2 api facade.
-func NewAPIv2(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPI(backend, resources, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
 }
 
 // NewAPI creates a new instance of the Backups API facade.

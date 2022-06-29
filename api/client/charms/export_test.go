@@ -8,6 +8,8 @@ import (
 	commoncharms "github.com/juju/juju/api/common/charms"
 )
 
+var HasHooksOrDispatch = &hasHooksOrDispatch
+
 func NewClientWithFacade(facade base.FacadeCaller) *Client {
 	charmInfoClient := commoncharms.NewCharmInfoClient(facade)
 	return &Client{facade: facade, CharmInfoClient: charmInfoClient}

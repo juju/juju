@@ -4,8 +4,6 @@
 package application
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -25,7 +23,6 @@ func NewResolvedCommand() cmd.Command {
 type resolvedCommand struct {
 	modelcmd.ModelCommandBase
 	applicationResolveAPI applicationResolveAPI
-	clientAPI             clientAPI
 
 	UnitNames []string
 	NoRetry   bool
@@ -69,13 +66,7 @@ func (c *resolvedCommand) Init(args []string) error {
 
 type applicationResolveAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ResolveUnitErrors(units []string, all, retry bool) error
-}
-
-type clientAPI interface {
-	Resolved(unit string, retry bool) error
-	Close() error
 }
 
 func (c *resolvedCommand) getapplicationResolveAPI() (applicationResolveAPI, error) {
@@ -90,13 +81,6 @@ func (c *resolvedCommand) getapplicationResolveAPI() (applicationResolveAPI, err
 	return application.NewClient(root), nil
 }
 
-func (c *resolvedCommand) getClientAPI() (clientAPI, error) {
-	if c.clientAPI != nil {
-		return c.clientAPI, nil
-	}
-	return c.NewAPIClient()
-}
-
 func (c *resolvedCommand) Run(ctx *cmd.Context) error {
 	applicationResolveAPI, err := c.getapplicationResolveAPI()
 	if err != nil {
@@ -104,29 +88,5 @@ func (c *resolvedCommand) Run(ctx *cmd.Context) error {
 	}
 	defer applicationResolveAPI.Close()
 
-	if applicationResolveAPI.BestAPIVersion() >= 6 {
-		return block.ProcessBlockedError(applicationResolveAPI.ResolveUnitErrors(c.UnitNames, c.All, !c.NoRetry), block.BlockChange)
-	}
-
-	if c.All {
-		return errors.Errorf("resolving all units or more than one unit not support by this version of Juju")
-	}
-
-	clientAPI, err := c.getClientAPI()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer clientAPI.Close()
-	for _, unit := range c.UnitNames {
-		if len(c.UnitNames) > 1 {
-			fmt.Fprintf(ctx.GetStdout(), "resolving unit %q\n", unit)
-		}
-		if err := block.ProcessBlockedError(clientAPI.Resolved(unit, !c.NoRetry), block.BlockChange); err != nil {
-			return errors.Annotatef(err, "error resolving unit %q", unit)
-		}
-	}
-	if len(c.UnitNames) > 1 {
-		fmt.Fprintln(ctx.GetStdout(), "all units resolved")
-	}
-	return nil
+	return block.ProcessBlockedError(applicationResolveAPI.ResolveUnitErrors(c.UnitNames, c.All, !c.NoRetry), block.BlockChange)
 }

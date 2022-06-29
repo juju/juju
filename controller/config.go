@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

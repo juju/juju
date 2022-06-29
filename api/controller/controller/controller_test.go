@@ -21,6 +21,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	proxyfactory "github.com/juju/juju/proxy/factory"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -30,28 +31,6 @@ type Suite struct {
 }
 
 var _ = gc.Suite(&Suite{})
-
-func (s *Suite) TestDestroyControllerStorageAPIVersion(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 3}
-	client := controller.NewClient(apiCaller)
-	for _, destroyStorage := range []*bool{nil, new(bool)} {
-		err := client.DestroyController(controller.DestroyControllerParams{
-			DestroyStorage: destroyStorage,
-		})
-		c.Assert(err, gc.ErrorMatches, "this Juju controller requires DestroyStorage to be true")
-	}
-
-}
-
-func (s *Suite) TestDestroyControllerForceAPIVersion(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 10}
-	client := controller.NewClient(apiCaller)
-	force := true
-	err := client.DestroyController(controller.DestroyControllerParams{
-		Force: &force,
-	})
-	c.Assert(err, gc.ErrorMatches, "this Juju controller does not support force destroy")
-}
 
 func (s *Suite) TestDestroyController(c *gc.C) {
 	var stub jujutesting.Stub
@@ -395,15 +374,6 @@ func (s *Suite) TestConfigSet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "ruth mundy")
 }
 
-func (s *Suite) TestConfigSetAgainstOlderAPIVersion(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{BestVersion: 4}
-	client := controller.NewClient(apiCaller)
-	err := client.ConfigSet(map[string]interface{}{
-		"some-setting": 345,
-	})
-	c.Assert(err, gc.ErrorMatches, "this controller version doesn't support updating controller config")
-}
-
 func (s *Suite) TestWatchModelSummaries(c *gc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 9,
@@ -438,4 +408,25 @@ func (s *Suite) TestWatchAllModelSummaries(c *gc.C) {
 	watcher, err := client.WatchAllModelSummaries()
 	c.Assert(err, gc.ErrorMatches, "some error")
 	c.Assert(watcher, gc.IsNil)
+}
+
+func (s *Suite) TestDashboardConnectionInfo(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Controller")
+			c.Assert(request, gc.Equals, "DashboardConnectionInfo")
+			c.Assert(args, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.DashboardConnectionInfo{})
+			*(result.(*params.DashboardConnectionInfo)) = params.DashboardConnectionInfo{
+				SSHConnection: &params.DashboardConnectionSSHTunnel{
+					Host: "10.1.1.1",
+					Port: "1234",
+				},
+			}
+			return nil
+		})
+	client := controller.NewClient(apiCaller)
+	connectionInfo, err := client.DashboardConnectionInfo(proxyfactory.NewFactory())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(connectionInfo.SSHTunnel, gc.NotNil)
 }

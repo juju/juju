@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -190,7 +190,7 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 		return errors.Trace(err)
 	}
 	offer.ApplicationName = app.Name()
-	offer.CharmURL = curl.String()
+	offer.CharmURL = *curl
 	for _, oc := range conns {
 		connDetails := params.OfferConnection{
 			SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),

@@ -225,10 +225,6 @@ type fakeAPIConnection struct {
 	model string
 }
 
-func (f *fakeAPIConnection) BestFacadeVersion(facade string) int {
-	return 2
-}
-
 func (f *fakeAPIConnection) ModelTag() (names.ModelTag, bool) {
 	return names.NewModelTag(f.model), false
 }

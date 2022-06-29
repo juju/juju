@@ -26,12 +26,12 @@ type actionSettingContext struct {
 	commands [][]string
 }
 
-func (a *actionSettingContext) UpdateActionResults(keys []string, value string) error {
+func (a *actionSettingContext) UpdateActionResults(keys []string, value interface{}) error {
 	if a.commands == nil {
 		a.commands = make([][]string, 0)
 	}
 
-	a.commands = append(a.commands, append(keys, value))
+	a.commands = append(a.commands, append(keys, fmt.Sprintf("%v", value)))
 	return nil
 }
 
@@ -39,13 +39,13 @@ type nonActionSettingContext struct {
 	jujuc.Context
 }
 
-func (a *nonActionSettingContext) UpdateActionResults(keys []string, value string) error {
+func (a *nonActionSettingContext) UpdateActionResults(keys []string, value interface{}) error {
 	return fmt.Errorf("not running an action")
 }
 
 func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
 	hctx := &nonActionSettingContext{}
-	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
+	com, err := jujuc.NewCommand(hctx, "action-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops=nope"})
@@ -131,7 +131,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	for i, t := range actionSetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionSettingContext{}
-		com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
+		com, err := jujuc.NewCommand(hctx, "action-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		c.Logf("  command list: %#v", t.command)
@@ -144,7 +144,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 
 func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	hctx := &actionSettingContext{}
-	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
+	com, err := jujuc.NewCommand(hctx, "action-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})

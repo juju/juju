@@ -182,6 +182,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.UniterParams.NewOperationExecutor, gc.NotNil)
 	c.Assert(config.UniterParams.NewProcessRunner, gc.NotNil)
 	c.Assert(config.UniterParams.NewDeployer, gc.NotNil)
+	c.Assert(config.UniterParams.SecretRotateWatcherFunc, gc.NotNil)
 	c.Assert(config.Logger, gc.NotNil)
 	c.Assert(config.ExecClientGetter, gc.NotNil)
 	config.LeadershipTrackerFunc = nil
@@ -194,6 +195,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UniterParams.NewOperationExecutor = nil
 	config.UniterParams.NewDeployer = nil
 	config.UniterParams.NewProcessRunner = nil
+	config.UniterParams.SecretRotateWatcherFunc = nil
 	config.Logger = nil
 	config.ExecClientGetter = nil
 

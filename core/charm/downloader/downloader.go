@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
@@ -52,7 +52,7 @@ type Storage interface {
 	Store(*charm.URL, DownloadedCharm) error
 }
 
-// DownloadResult encapsulates the details of a downloaded charm.
+// DownloadedCharm encapsulates the details of a downloaded charm.
 type DownloadedCharm struct {
 	// Charm provides information about the charm contents.
 	Charm charm.Charm

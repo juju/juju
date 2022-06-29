@@ -52,12 +52,9 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
 		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{Enabled: false} },
 		UpgradeComplete:     func() bool { return true },
-		RestoreStatus: func() state.RestoreStatus {
-			return state.RestoreNotActive
-		},
-		MetricsCollector: apiserver.NewMetricsCollector(),
-		RaftOpQueue:      queue.NewOpQueue(testclock),
-		SysLogger:        noopSysLogger{},
+		MetricsCollector:    apiserver.NewMetricsCollector(),
+		RaftOpQueue:         queue.NewOpQueue(testclock),
+		SysLogger:           noopSysLogger{},
 	}
 }
 

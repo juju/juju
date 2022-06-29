@@ -40,21 +40,6 @@ type StorageAPI struct {
 	modelType       state.ModelType
 }
 
-// StorageAPIv5 implements the storage v5 API.
-type StorageAPIv5 struct {
-	StorageAPI
-}
-
-// StorageAPIv4 implements the storage v4 API adding AddToUnit, Import and Remove (replacing Destroy)
-type StorageAPIv4 struct {
-	StorageAPIv5
-}
-
-// StorageAPIv3 implements the storage v3 API.
-type StorageAPIv3 struct {
-	StorageAPIv4
-}
-
 func NewStorageAPI(
 	backend backend,
 	modelType state.ModelType,
@@ -425,17 +410,6 @@ func (a *StorageAPI) validateProviderCriteria(registry storage.ProviderRegistry,
 }
 
 // CreatePool creates a new pool with specified parameters.
-func (a *StorageAPIv4) CreatePool(p params.StoragePool) error {
-	result, err := a.StorageAPIv5.CreatePool(params.StoragePoolArgs{
-		Pools: []params.StoragePool{p},
-	})
-	if err != nil {
-		return apiservererrors.ServerError(err)
-	}
-	return result.OneError()
-}
-
-// CreatePool creates a new pool with specified parameters.
 func (a *StorageAPI) CreatePool(p params.StoragePoolArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
@@ -787,20 +761,6 @@ func createFilesystemDetails(
 
 // AddToUnit validates and creates additional storage instances for units.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPIv3) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
-	v4results, err := a.addToUnit(args)
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	v3results := make([]params.ErrorResult, len(v4results.Results))
-	for i, result := range v4results.Results {
-		v3results[i].Error = result.Error
-	}
-	return params.ErrorResults{v3results}, nil
-}
-
-// AddToUnit validates and creates additional storage instances for units.
-// A "CHANGE" block can block this operation.
 func (a *StorageAPI) AddToUnit(args params.StoragesAddParams) (params.AddStorageResults, error) {
 	return a.addToUnit(args)
 }
@@ -928,13 +888,6 @@ func (a *StorageAPI) internalDetach(args params.StorageAttachmentIds, force *boo
 	return params.ErrorResults{result}, nil
 }
 
-// Detach sets the specified storage attachments to Dying, unless they are
-// already Dying or Dead. Any associated, persistent storage will remain
-// alive.
-func (a *StorageAPIv5) Detach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
-	return a.internalDetach(args, nil, nil)
-}
-
 func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag, force *bool, maxWait *time.Duration) error {
 	forcing := force != nil && *force
 	if unitTag != (names.UnitTag{}) {
@@ -987,7 +940,7 @@ func (a *StorageAPI) Attach(args params.StorageAttachmentIds) (params.ErrorResul
 		if err != nil {
 			return err
 		}
-		return a.attachStorage(storageTag, unitTag)
+		return a.storageAccess.AttachStorage(storageTag, unitTag)
 	}
 
 	result := make([]params.ErrorResult, len(args.Ids))
@@ -995,10 +948,6 @@ func (a *StorageAPI) Attach(args params.StorageAttachmentIds) (params.ErrorResul
 		result[i].Error = apiservererrors.ServerError(attachOne(arg))
 	}
 	return params.ErrorResults{Results: result}, nil
-}
-
-func (a *StorageAPI) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
-	return a.storageAccess.AttachStorage(storageTag, unitTag)
 }
 
 // Import imports existing storage into the model.
@@ -1164,39 +1113,4 @@ func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 		}
 	}
 	return results, nil
-}
-
-// Mask out old methods from the new API versions. The API reflection
-// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
-// so this removes the method as far as the RPC machinery is concerned.
-
-// DetachStorage added in v6 api version
-func (*StorageAPIv5) DetachStorage(_, _ struct{}) {}
-
-// RemovePool etc added in v5 api version
-func (*StorageAPIv4) RemovePool(_, _ struct{}) {}
-func (*StorageAPIv4) UpdatePool(_, _ struct{}) {}
-
-// Remove etc added in v4 api version.
-func (*StorageAPIv3) Remove(_, _ struct{})           {}
-func (*StorageAPIv3) Import(_, _ struct{})           {}
-func (*StorageAPIv3) importStorage(_, _ struct{})    {}
-func (*StorageAPIv3) importFilesystem(_, _ struct{}) {}
-
-// Destroy sets the specified storage entities to Dying, unless they are
-// already Dying or Dead.
-func (a *StorageAPIv3) Destroy(args params.Entities) (params.ErrorResults, error) {
-	v4Args := params.RemoveStorage{
-		Storage: make([]params.RemoveStorageInstance, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		v4Args.Storage[i] = params.RemoveStorageInstance{
-			Tag: arg.Tag,
-			// The v3 behaviour was to detach the storage
-			// at the same time as marking the storage Dying.
-			DestroyAttachments: true,
-			DestroyStorage:     true,
-		}
-	}
-	return a.remove(v4Args)
 }

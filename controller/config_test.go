@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/romulus"

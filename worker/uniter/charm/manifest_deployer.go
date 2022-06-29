@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -51,7 +51,7 @@ type manifestDeployer struct {
 	bundles   BundleReader
 	logger    Logger
 	staged    struct {
-		url      *charm.URL
+		url      string
 		bundle   Bundle
 		manifest set.Strings
 	}
@@ -71,7 +71,7 @@ func (d *manifestDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	url := info.URL()
+	url := info.String()
 	if err := d.storeManifest(url, manifest); err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (d *manifestDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 }
 
 func (d *manifestDeployer) Deploy() (err error) {
-	if d.staged.url == nil {
+	if d.staged.url == "" {
 		return fmt.Errorf("charm deployment failed: no charm set")
 	}
 
@@ -91,7 +91,7 @@ func (d *manifestDeployer) Deploy() (err error) {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	upgrading := baseURL != nil
+	upgrading := baseURL != ""
 	defer func(err *error) {
 		if *err != nil {
 			if upgrading {
@@ -180,7 +180,7 @@ func (d *manifestDeployer) ensureBaseFiles(baseManifest set.Strings) error {
 	deployingURL, deployingManifest, err := d.loadManifest(deployingURLPath)
 	if err == nil {
 		d.logger.Infof("detected interrupted deploy of charm %q", deployingURL)
-		if *deployingURL != *d.staged.url {
+		if deployingURL != d.staged.url {
 			d.logger.Infof("removing files from charm %q", deployingURL)
 			if err := d.removeDiff(deployingManifest, baseManifest); err != nil {
 				return err
@@ -194,23 +194,23 @@ func (d *manifestDeployer) ensureBaseFiles(baseManifest set.Strings) error {
 }
 
 // storeManifest stores, into dataPath, the supplied manifest for the supplied charm.
-func (d *manifestDeployer) storeManifest(url *charm.URL, manifest set.Strings) error {
+func (d *manifestDeployer) storeManifest(url string, manifest set.Strings) error {
 	if err := os.MkdirAll(d.DataPath(manifestsDataPath), 0755); err != nil {
 		return err
 	}
-	name := charm.Quote(url.String())
+	name := charm.Quote(url)
 	path := filepath.Join(d.DataPath(manifestsDataPath), name)
 	return utils.WriteYaml(path, manifest.SortedValues())
 }
 
 // loadManifest loads, from dataPath, the manifest for the charm identified by the
 // identity file at the supplied path within the charm directory.
-func (d *manifestDeployer) loadManifest(urlFilePath string) (*charm.URL, set.Strings, error) {
+func (d *manifestDeployer) loadManifest(urlFilePath string) (string, set.Strings, error) {
 	url, err := ReadCharmURL(d.CharmPath(urlFilePath))
 	if err != nil {
-		return nil, nil, err
+		return "", nil, err
 	}
-	name := charm.Quote(url.String())
+	name := charm.Quote(url)
 	path := filepath.Join(d.DataPath(manifestsDataPath), name)
 	manifest := []string{}
 	err = utils.ReadYaml(path, &manifest)
@@ -267,8 +267,8 @@ func (rbr RetryingBundleReader) Read(bi BundleInfo, abort <-chan struct{}) (Bund
 		// If the charm is still not available something went wrong.
 		// Report a NotFound error instead
 		if errors.IsNotYetAvailable(fetchErr) {
-			rbr.Logger.Errorf("exceeded max retry attempts while waiting for blob data for %q to become available", bi.URL().String())
-			fetchErr = errors.NotFoundf("blob data for %q", bi.URL().String())
+			rbr.Logger.Errorf("exceeded max retry attempts while waiting for blob data for %q to become available", bi.String())
+			fetchErr = errors.NotFoundf("blob data for %q", bi.String())
 		}
 		return nil, errors.Trace(fetchErr)
 	}

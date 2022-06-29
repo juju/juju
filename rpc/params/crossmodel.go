@@ -5,7 +5,7 @@ package params
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/life"

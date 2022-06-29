@@ -4,20 +4,16 @@
 package provider
 
 import (
-	"fmt"
-	"strings"
-
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/exec"
-	"gopkg.in/yaml.v2"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -28,7 +24,7 @@ import (
 type ClientConfigFuncGetter func(string) (clientconfig.ClientConfigFunc, error)
 
 // GetClusterMetadataFunc returns the ClusterMetadata using the provided ClusterMetadataChecker
-type GetClusterMetadataFunc func(KubeCloudStorageParams) (*caas.ClusterMetadata, error)
+type GetClusterMetadataFunc func(KubeCloudStorageParams) (*k8s.ClusterMetadata, error)
 
 // KubeCloudParams defines the parameters used to extract a k8s cluster definition from kubeconfig data.
 type KubeCloudParams struct {
@@ -47,57 +43,20 @@ type KubeCloudParams struct {
 type KubeCloudStorageParams struct {
 	WorkloadStorage        string
 	HostCloudRegion        string
-	MetadataChecker        caas.ClusterMetadataChecker
+	MetadataChecker        k8s.ClusterMetadataChecker
 	GetClusterMetadataFunc GetClusterMetadataFunc
 }
 
-func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata, storageMsg string) string {
-	var workloadSC, operatorSC string
-	// Record the operator storage to use.
-	if clusterMetadata.OperatorStorageClass != nil {
-		operatorSC = clusterMetadata.OperatorStorageClass.Name
-	} else {
-		if storageMsg == "" {
-			storageMsg += "\nwith "
-		} else {
-			storageMsg += "\nand "
-		}
-		storageMsg += "operator storage provisioned by the workload storage class"
-	}
-
-	if clusterMetadata.NominatedStorageClass != nil {
-		workloadSC = clusterMetadata.NominatedStorageClass.Name
-	}
-
-	if k8sCloud.Config == nil {
-		k8sCloud.Config = make(map[string]interface{})
-	}
-	if _, ok := k8sCloud.Config[k8sconstants.WorkloadStorageKey]; !ok {
-		k8sCloud.Config[k8sconstants.WorkloadStorageKey] = workloadSC
-	}
-	if _, ok := k8sCloud.Config[k8sconstants.OperatorStorageKey]; !ok {
-		k8sCloud.Config[k8sconstants.OperatorStorageKey] = operatorSC
-	}
-	return storageMsg
-}
-
-// UpdateKubeCloudWithStorage updates the passed Cloud with storage details retrieved from the clouds' cluster.
-func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudStorageParams) (storageMsg string, err error) {
-	// Get the cluster metadata so we can see if there's suitable storage available.
+// UpdateKubeCloudWithStorage updates the passed Cloud with storage details retrieved from the cloud's cluster.
+func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudStorageParams) (cloud.Cloud, error) {
+	// Get the cluster metadata and see what storage comes back based on the
+	// preffered rules for metadata.
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams)
-	defer func() {
-		if err == nil {
-			storageMsg = updateK8sCloud(k8sCloud, clusterMetadata, storageMsg)
-		}
-	}()
-
-	if err != nil || clusterMetadata == nil {
-		// err will be nil if user hit Ctrl+C.
-		msg := "cannot get cluster metadata"
-		if err != nil {
-			msg = err.Error()
-		}
-		return "", ClusterQueryError{Message: msg}
+	if err != nil {
+		return cloud.Cloud{}, ClusterQueryError{Message: err.Error()}
+	}
+	if clusterMetadata == nil {
+		return cloud.Cloud{}, ClusterQueryError{Message: "cannot get cluster metadata"}
 	}
 
 	if storageParams.HostCloudRegion == "" && clusterMetadata.Cloud != "" {
@@ -109,12 +68,11 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}
 	k8sCloud.HostCloudRegion = storageParams.HostCloudRegion
 
-	var cloudType, region string
 	if k8sCloud.HostCloudRegion != "" {
-		cloudType, region, err = cloud.SplitHostCloudRegion(k8sCloud.HostCloudRegion)
+		_, region, err := cloud.SplitHostCloudRegion(k8sCloud.HostCloudRegion)
 		if err != nil {
 			// Shouldn't happen as HostCloudRegion is validated earlier.
-			return "", errors.Trace(err)
+			return cloud.Cloud{}, errors.Trace(err)
 		}
 		if region != "" {
 			k8sCloud.Regions = []cloud.Region{{
@@ -123,80 +81,25 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 			}}
 		}
 	}
-	// If the user has not specified storage and cloudType is usable, check Juju's opinionated defaults.
-	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(
-		cloudType, clusterMetadata.NominatedStorageClass,
-	)
-	if storageParams.WorkloadStorage == "" {
-		if err == nil {
-			return
-		}
-		if caas.IsNonPreferredStorageError(err) {
-			npse := err.(*caas.NonPreferredStorageError)
-			return "", NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name}
-		}
-		if errors.IsNotFound(err) {
-			// No juju preferred storage config in jujuPreferredWorkloadStorage, for example, maas.
-			if clusterMetadata.NominatedStorageClass == nil {
-				// And no preferred storage classes with expected annotations found.
-				//  - workloadStorageClassAnnotationKey
-				//  - operatorStorageClassAnnotationKey
-				return "", UnknownClusterError{
-					Message:   "Suitable Kubernetes storage class for workload storage not found in cluster. Consider adding a default storage class to the cluster",
-					CloudName: cloudType,
-				}
-			}
-			// Do further EnsureStorageProvisioner if preferred storage found via juju preferred/default annotations.
-		} else if err != nil {
-			return "", errors.Trace(err)
+
+	// We at least expected operator storage to be available to successfully use
+	// this cloud.
+	if clusterMetadata.OperatorStorageClass == nil {
+		return cloud.Cloud{}, &environs.PreferredStorageNotFound{
+			Message: "no preferred operator storage found in Kubernetes cluster",
 		}
 	}
 
-	// we need to create storage class with the opinionated defaults, or use an existing one if
-	// --storage provided or nominated storage found but Juju does not have preferred storage config to
-	// compare with for the cloudType(like maas for example);
-	var (
-		provisioner       string
-		volumeBindingMode string
-		params            map[string]string
-	)
-	scName := storageParams.WorkloadStorage
-	nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
-	if ok {
-		provisioner = nonPreferredStorageErr.Provisioner
-		volumeBindingMode = nonPreferredStorageErr.VolumeBindingMode
-		params = nonPreferredStorageErr.Parameters
-	} else if clusterMetadata.NominatedStorageClass != nil {
-		if scName == "" {
-			// no preferred storage class config but nominated storage found.
-			scName = clusterMetadata.NominatedStorageClass.Name
-		}
+	if k8sCloud.Config == nil {
+		k8sCloud.Config = make(map[string]interface{})
 	}
-	sp, existing, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
-		Name:              scName,
-		Provisioner:       provisioner,
-		Parameters:        params,
-		VolumeBindingMode: volumeBindingMode,
-	})
-	if errors.IsNotFound(err) {
-		return "", errors.Wrap(err, errors.NotFoundf("storage class %q", scName))
+
+	k8sCloud.Config[k8sconstants.OperatorStorageKey] = clusterMetadata.OperatorStorageClass.Name
+	k8sCloud.Config[k8sconstants.WorkloadStorageKey] = ""
+	if clusterMetadata.WorkloadStorageClass != nil {
+		k8sCloud.Config[k8sconstants.WorkloadStorageKey] = clusterMetadata.WorkloadStorageClass.Name
 	}
-	if err != nil {
-		return "", errors.Annotatef(err, "creating storage class %q", scName)
-	}
-	if nonPreferredStorageErr != nil && sp.Provisioner == provisioner {
-		storageMsg = fmt.Sprintf(" with %s default storage provisioned", nonPreferredStorageErr.Name)
-	} else {
-		storageMsg = " with storage provisioned"
-	}
-	scExisting := "existing"
-	if !existing {
-		scExisting = "new"
-	}
-	storageMsg += fmt.Sprintf("\nby the %s %q storage class", scExisting, scName)
-	clusterMetadata.NominatedStorageClass = sp
-	clusterMetadata.OperatorStorageClass = sp
-	return storageMsg, nil
+	return k8sCloud, nil
 }
 
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster
@@ -240,7 +143,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	}
 
 	var credentials cloud.Credential
-	if cld.Name != caas.K8sCloudMicrok8s {
+	if cld.Name != k8s.K8sCloudMicrok8s {
 		creds, err := p.RegisterCredentials(cld)
 		if err != nil {
 			return cld, err
@@ -253,9 +156,6 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 
 		credentials = cloudCred.AuthCredentials[creds[cld.Name].DefaultCredential]
 	} else {
-		if err := ensureMicroK8sSuitable(p.cmdRunner); err != nil {
-			return cld, errors.Trace(err)
-		}
 		// Need the credentials, need to query for those details
 		mk8sCloud, err := p.builtinCloudGetter(p.cmdRunner)
 		if err != nil {
@@ -283,9 +183,14 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
+	if cld.Name == k8s.K8sCloudMicrok8s {
+		if err := ensureMicroK8sSuitable(broker); err != nil {
+			return cld, errors.Trace(err)
+		}
+	}
 	storageUpdateParams := KubeCloudStorageParams{
 		MetadataChecker: broker,
-		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*caas.ClusterMetadata, error) {
+		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
 			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata("")
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -294,76 +199,54 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		},
 	}
 
-	_, err = UpdateKubeCloudWithStorage(&cld, storageUpdateParams)
+	cld, err = UpdateKubeCloudWithStorage(cld, storageUpdateParams)
 	if err != nil {
-		return cloud.Cloud{}, errors.Trace(err)
+		return cld, errors.Trace(err)
 	}
 
 	if cld.HostCloudRegion == "" {
-		cld.HostCloudRegion = caas.K8sCloudOther
+		cld.HostCloudRegion = k8s.K8sCloudOther
 	}
 
 	return cld, nil
 }
 
-func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
-	status, err := microK8sStatus(cmdRunner)
+func checkDefaultStorageExist(broker ClusterMetadataStorageChecker) error {
+	storageClasses, err := broker.ListStorageClasses(k8slabels.NewSelector())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot list storage classes")
+	}
+	for _, sc := range storageClasses {
+		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			return nil
+		}
+	}
+	return errors.NotFoundf("default storage")
+}
+
+func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
+	pods, err := broker.ListPods("kube-system", k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}))
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot list kube-dns pods")
+	}
+	if len(pods) > 0 {
+		return nil
+	}
+	return errors.NotFoundf("dns pod")
+}
+
+func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
+	err := checkDefaultStorageExist(broker)
+	if errors.IsNotFound(err) {
+		return errors.New("required storage addon is not enabled")
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	requiredAddons := set.NewStrings("dns", "storage")
-	for _, addon := range status.Addons {
-		if addon.Name == "dns" && addon.Status == "enabled" {
-			requiredAddons.Remove("dns")
-		}
-		if (addon.Name == "storage" || addon.Name == "hostpath-storage") && addon.Status == "enabled" {
-			requiredAddons.Remove("storage")
-		}
-	}
 
-	if requiredAddons.Size() > 0 {
-		return errors.Errorf("required addons not enabled for microk8s, run 'microk8s enable %s'",
-			strings.Join(requiredAddons.SortedValues(), " "),
-		)
+	err = checkDNSAddonEnabled(broker)
+	if errors.IsNotFound(err) {
+		return errors.New("required dns addon is not enabled")
 	}
-	return nil
-}
-
-func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
-	var status microk8sStatus
-	result, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: "microk8s status --wait-ready --timeout 15 --format yaml",
-	})
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	if result.Code != 0 {
-		msg := string(result.Stderr)
-		if msg == "" {
-			msg = string(result.Stdout)
-		}
-		if msg == "" {
-			msg = "unknown error running microk8s status"
-		}
-		return status, errors.New(msg)
-	} else {
-		if strings.HasPrefix(strings.ToLower(string(result.Stdout)), "microk8s is not running") {
-			return status, errors.NotProvisionedf("microk8s is not running")
-		}
-	}
-
-	err = yaml.Unmarshal(result.Stdout, &status)
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	return status, nil
-}
-
-type microk8sStatus struct {
-	Addons []microk8sAddon `yaml:"addons"`
-}
-
-type microk8sAddon struct {
-	Name   string `yaml:"name"`
-	Status string `yaml:"status"`
+	return errors.Trace(err)
 }

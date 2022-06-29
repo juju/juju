@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
@@ -334,7 +334,8 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 }
 
 func (op *DestroyRemoteApplicationOperation) eraseHistory() error {
-	if err := eraseStatusHistory(op.app.st, op.app.globalKey()); err != nil {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.app.st, op.app.globalKey()); err != nil {
 		one := errors.Annotate(err, "saas application")
 		if op.FatalError(one) {
 			return one

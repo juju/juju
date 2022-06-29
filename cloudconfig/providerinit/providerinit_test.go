@@ -5,8 +5,6 @@
 package providerinit_test
 
 import (
-	"encoding/base64"
-	"fmt"
 	"path"
 
 	"github.com/juju/names/v4"
@@ -18,7 +16,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -269,65 +266,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 			`mkdir /tmp/postruncmd2`,
 		})
 	}
-}
-
-func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
-	series := "win8"
-	metricsSpoolDir := paths.MetricsSpoolDir(paths.SeriesToOS(series))
-	toolsList := tools.List{
-		&tools.Tools{
-			URL:     "http://foo.com/tools/released/juju1.2.3-windows-amd64.tgz",
-			Version: version.MustParseBinary("1.2.3-windows-amd64"),
-			Size:    10,
-			SHA256:  "1234",
-		},
-	}
-	dataDir := paths.DataDir(paths.SeriesToOS(series))
-	logDir := paths.LogDir(paths.SeriesToOS(series))
-
-	cfg := instancecfg.InstanceConfig{
-		ControllerTag:    testing.ControllerTag,
-		MachineId:        "10",
-		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		Series:           series,
-		Jobs:             []model.MachineJob{model.JobHostUnits},
-		MachineNonce:     "FAKE_NONCE",
-		APIInfo: &api.Info{
-			Addrs:    []string{"state-addr.testing.invalid:54321"},
-			Password: "bletch",
-			CACert:   "CA CERT\n" + testing.CACert,
-			Tag:      names.NewMachineTag("10"),
-			ModelTag: testing.ModelTag,
-		},
-		MachineAgentServiceName: "jujud-machine-10",
-		DataDir:                 dataDir,
-		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
-		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
-	}
-	err := cfg.SetTools(toolsList)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ci, err := cloudinit.New("win8")
-	c.Assert(err, jc.ErrorIsNil)
-
-	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = udata.Configure()
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := ci.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cicompose, err := cloudinit.New("win8")
-	c.Assert(err, jc.ErrorIsNil)
-
-	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	got := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
-	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(got), gc.Equals, string(expected))
 }
 
 var validCloudInitUserData = `

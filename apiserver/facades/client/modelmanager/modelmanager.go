@@ -18,9 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn/v2"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -52,34 +50,8 @@ var (
 // ModelManagerV9 defines the methods on the version 9 facade for the
 // modelmanager API endpoint.
 type ModelManagerV9 interface {
-	ModelManagerV8
 	ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error)
-}
-
-// ModelManagerV8 defines the methods on the version 8 facade for the
-// modelmanager API endpoint.
-type ModelManagerV8 interface {
-	ModelManagerV7
-	// ModelInfo gains credential validity in return.
-}
-
-// ModelManagerV7 defines the methods on the version 7 facade for the
-// modelmanager API endpoint.
-type ModelManagerV7 interface {
-	ModelManagerV6
-	// DestroyModels now has 'force' and 'max-wait' parameters.
-}
-
-// ModelManagerV6 defines the methods on the version 6 facade for the
-// modelmanager API endpoint.
-type ModelManagerV6 interface {
-	ModelManagerV5
 	ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error)
-}
-
-// ModelManagerV5 defines the methods on the version 5 facade for the
-// modelmanager API endpoint.
-type ModelManagerV5 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
@@ -89,42 +61,6 @@ type ModelManagerV5 interface {
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 	ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error)
-}
-
-// ModelManagerV4 defines the methods on the version 4 facade for the
-// modelmanager API endpoint.
-type ModelManagerV4 interface {
-	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
-	DumpModels(args params.DumpModelRequest) params.StringResults
-	DumpModelsDB(args params.Entities) params.MapResults
-	ListModelSummaries(request params.ModelSummariesRequest) (params.ModelSummaryResults, error)
-	ListModels(user params.Entity) (params.UserModelList, error)
-	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
-	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
-	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
-}
-
-// ModelManagerV3 defines the methods on the version 3 facade for the
-// modelmanager API endpoint.
-type ModelManagerV3 interface {
-	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
-	DumpModels(args params.DumpModelRequest) params.StringResults
-	DumpModelsDB(args params.Entities) params.MapResults
-	ListModels(user params.Entity) (params.UserModelList, error)
-	DestroyModels(args params.Entities) (params.ErrorResults, error)
-	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
-	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
-}
-
-// ModelManagerV2 defines the methods on the version 2 facade for the
-// modelmanager API endpoint.
-type ModelManagerV2 interface {
-	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
-	DumpModels(args params.Entities) params.MapResults
-	DumpModelsDB(args params.Entities) params.MapResults
-	ListModels(user params.Entity) (params.UserModelList, error)
-	DestroyModels(args params.Entities) (params.ErrorResults, error)
-	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
@@ -164,57 +100,8 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
-// ModelManagerAPIV8 provides a way to wrap the different calls between
-// version 8 and version 8 of the model manager API
-type ModelManagerAPIV8 struct {
-	*ModelManagerAPI
-}
-
-// ModelManagerAPIV7 provides a way to wrap the different calls between
-// version 8 and version 7 of the model manager API
-type ModelManagerAPIV7 struct {
-	*ModelManagerAPIV8
-}
-
-// ModelManagerAPIV6 provides a way to wrap the different calls between
-// version 7 and version 6 of the model manager API
-type ModelManagerAPIV6 struct {
-	*ModelManagerAPIV7
-}
-
-// ModelManagerAPIV5 provides a way to wrap the different calls between
-// version 5 and version 6 of the model manager API
-type ModelManagerAPIV5 struct {
-	*ModelManagerAPIV6
-}
-
-// ModelManagerAPIV4 provides a way to wrap the different calls between
-// version 4 and version 5 of the model manager API
-type ModelManagerAPIV4 struct {
-	*ModelManagerAPIV5
-}
-
-// ModelManagerAPIV3 provides a way to wrap the different calls between
-// version 3 and version 4 of the model manager API
-type ModelManagerAPIV3 struct {
-	*ModelManagerAPIV4
-}
-
-// ModelManagerAPIV2 provides a way to wrap the different calls between
-// version 2 and version 3 of the model manager API
-type ModelManagerAPIV2 struct {
-	*ModelManagerAPIV3
-}
-
 var (
 	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
-	_ ModelManagerV8 = (*ModelManagerAPIV8)(nil)
-	_ ModelManagerV7 = (*ModelManagerAPIV7)(nil)
-	_ ModelManagerV6 = (*ModelManagerAPIV6)(nil)
-	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
-	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
-	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
-	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -707,27 +594,6 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte
 	return bytes, nil
 }
 
-func (m *ModelManagerAPIV2) dumpModel(args params.Entity) (map[string]interface{}, error) {
-	bytes, err := m.ModelManagerAPI.dumpModel(args, false)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Now read it back into a map.
-	var asMap map[string]interface{}
-	err = yaml.Unmarshal(bytes, &asMap)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// In order to serialize the map through JSON, we need to make sure
-	// that all the embedded maps are map[string]interface{}, not
-	// map[interface{}]interface{} which is what YAML gives by default.
-	out, err := utils.ConformYAML(asMap)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return out.(map[string]interface{}), nil
-}
-
 func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{}, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
@@ -772,24 +638,6 @@ func (m *ModelManagerAPI) DumpModels(args params.DumpModelRequest) params.String
 		}
 		// We know here that the bytes are valid YAML.
 		results.Results[i].Result = string(bytes)
-	}
-	return results
-}
-
-// DumpModels will export the models into the database agnostic
-// representation. The user needs to either be a controller admin, or have
-// admin privileges on the model itself.
-func (m *ModelManagerAPIV2) DumpModels(args params.Entities) params.MapResults {
-	results := params.MapResults{
-		Results: make([]params.MapResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		dumped, err := m.dumpModel(entity)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = dumped
 	}
 	return results
 }
@@ -947,25 +795,6 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 
 // DestroyModels will try to destroy the specified models.
 // If there is a block on destruction, this method will return an error.
-func (m *ModelManagerAPIV3) DestroyModels(args params.Entities) (params.ErrorResults, error) {
-	// v3 DestroyModels is implemented in terms of v4:
-	// storage is unconditionally destroyed, as was the
-	// old behaviour.
-	destroyStorage := true
-	v4Args := params.DestroyModelsParams{
-		Models: make([]params.DestroyModelParams, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		v4Args.Models[i] = params.DestroyModelParams{
-			ModelTag:       arg.Tag,
-			DestroyStorage: &destroyStorage,
-		}
-	}
-	return m.ModelManagerAPI.DestroyModels(v4Args)
-}
-
-// DestroyModels will try to destroy the specified models.
-// If there is a block on destruction, this method will return an error.
 // From ModelManager v7 onwards, DestroyModels gains 'force' and 'max-wait' parameters.
 func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
@@ -1011,16 +840,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 }
 
 // ModelInfo returns information about the specified models.
-func (m *ModelManagerAPIV7) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
-	return m.internalModelInfo(args, false)
-}
-
-// ModelInfo returns information about the specified models.
 func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
-	return m.internalModelInfo(args, true)
-}
-
-func (m *ModelManagerAPI) internalModelInfo(args params.Entities, includeCredentialValidity bool) (params.ModelInfoResults, error) {
 	results := params.ModelInfoResults{
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
@@ -1034,7 +854,7 @@ func (m *ModelManagerAPI) internalModelInfo(args params.Entities, includeCredent
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		if modelInfo.CloudCredentialTag != "" && includeCredentialValidity {
+		if modelInfo.CloudCredentialTag != "" {
 			credentialTag, err := names.ParseCloudCredentialTag(modelInfo.CloudCredentialTag)
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
@@ -1389,15 +1209,6 @@ func (m *ModelManagerAPI) ModelDefaultsForClouds(args params.Entities) (params.M
 	return result, nil
 }
 
-// ModelDefaults returns the default config values used when creating a new model.
-func (m *ModelManagerAPIV5) ModelDefaults() (params.ModelDefaultsResult, error) {
-	result := params.ModelDefaultsResult{}
-	if !m.isAdmin {
-		return result, apiservererrors.ErrPerm
-	}
-	return m.modelDefaults(m.model.CloudName()), nil
-}
-
 func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult {
 	result := params.ModelDefaultsResult{}
 	values, err := m.ctlrState.ModelConfigDefaultValues(cloud)
@@ -1501,36 +1312,6 @@ func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environscloudspec
 		return nil, errors.Trace(err)
 	}
 	return rspec, nil
-}
-
-// ModelStatus is a legacy method call to ensure that we preserve
-// backward compatibility.
-// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (m *ModelManagerAPIV2) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	return m.ModelManagerAPI.oldModelStatus(req)
-}
-
-// ModelStatus is a legacy method call to ensure that we preserve
-// backward compatibility.
-// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (m *ModelManagerAPIV3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	return m.ModelManagerAPI.oldModelStatus(req)
-}
-
-// ModelStatus is a legacy method call to ensure that we preserve
-// backward compatibility.
-// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (m *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	results, err := m.ModelStatusAPI.ModelStatus(req)
-	if err != nil {
-		return params.ModelStatusResults{}, err
-	}
-	for _, r := range results.Results {
-		if r.Error != nil {
-			return params.ModelStatusResults{Results: make([]params.ModelStatus, len(req.Entities))}, errors.Trace(r.Error)
-		}
-	}
-	return results, nil
 }
 
 // ChangeModelCredential changes cloud credential reference for models.
@@ -1678,16 +1459,3 @@ func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
 	}
 	return nil
 }
-
-// Mask out new methods from the old API versions. The API reflection
-// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
-// so this removes the method as far as the RPC machinery is concerned.
-
-// ChangeModelCredential did not exist prior to v5.
-func (*ModelManagerAPIV4) ChangeModelCredential(_, _ struct{}) {}
-
-// ModelDefaultsForClouds did not exist prior to v6.
-func (*ModelManagerAPIV5) ModelDefaultsForClouds(_, _ struct{}) {}
-
-// ValidateModelUpgrade did not exist prior to v9.
-func (*ModelManagerAPIV8) ValidateModelUpgrade(_, _ struct{}) {}

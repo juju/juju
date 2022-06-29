@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	jujuclock "github.com/juju/clock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
@@ -20,6 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	core "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbac "k8s.io/client-go/kubernetes/typed/rbac/v1"
+
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 var logger = loggo.GetLogger("juju.caas.kubernetes.provider.proxy")
@@ -48,27 +50,8 @@ const (
 	ProxyConfigMapKey = "config"
 )
 
-// CreateControllerProxy establishes the Kubernetes resources needed for
-// proxying to a Juju controller. The end result of this function is a service
-// account with a set of permissions that the Juju client can use for proxying
-// to a controller.
-func CreateControllerProxy(
-	config ControllerProxyConfig,
-	labels labels.Set,
-	clock jujuclock.Clock,
-	configI core.ConfigMapInterface,
-	roleI rbac.RoleInterface,
-	roleBindingI rbac.RoleBindingInterface,
-	saI core.ServiceAccountInterface,
-	secretI core.SecretInterface,
-) error {
-	objMeta := meta.ObjectMeta{
-		Labels: labels,
-		Name:   config.Name,
-	}
-
-	role := &rbacv1.Role{
-		ObjectMeta: objMeta,
+var (
+	proxyRole = rbacv1.Role{
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
@@ -89,57 +72,164 @@ func CreateControllerProxy(
 			},
 		},
 	}
+)
 
-	role, err := roleI.Create(context.TODO(), role, meta.CreateOptions{})
+// proxyRoleForName builds the role needed for proxying to pods within a given
+// namespace.
+func proxyRoleForName(name string, lbs labels.Set) *rbacv1.Role {
+	role := proxyRole
+	role.ObjectMeta = meta.ObjectMeta{
+		Labels: lbs,
+		Name:   name,
+	}
+	return &role
+}
+
+// EnsureModelProxy ensures there is a proxy service account in existence for
+// the namespace of a Kubernetes model.
+func EnsureProxyService(
+	ctx context.Context,
+	lbs labels.Set,
+	name string,
+	clock clock.Clock,
+	roleI rbac.RoleInterface,
+	roleBindingI rbac.RoleBindingInterface,
+	saI core.ServiceAccountInterface,
+	secretI core.SecretInterface,
+) error {
+	pr := proxyRoleForName(name, lbs)
+	roleRVal, err := roleI.Create(ctx, pr, meta.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		roleRVal, err = roleI.Update(ctx, pr, meta.UpdateOptions{})
+	}
 	if err != nil {
-		return fmt.Errorf("creating proxy service account role: %w", err)
+		return errors.Annotate(err, "cannot create proxy service account role")
 	}
 
-	sa := &corev1.ServiceAccount{ObjectMeta: objMeta}
-	sa, err = saI.Create(context.TODO(), sa, meta.CreateOptions{})
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: meta.ObjectMeta{
+			Labels: lbs,
+			Name:   name,
+		},
+	}
+
+	saRVal, err := saI.Create(ctx, sa, meta.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		saRVal, err = saI.Get(ctx, sa.Name, meta.GetOptions{})
+	}
 	if err != nil {
-		return fmt.Errorf("creating proxy service account: %w", err)
+		return errors.Annotate(err, "creating proxy service account")
 	}
 
 	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: objMeta,
+		ObjectMeta: meta.ObjectMeta{
+			Labels: lbs,
+			Name:   name,
+		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      sa.Name,
-				Namespace: sa.Namespace,
+				Name:      saRVal.Name,
+				Namespace: saRVal.Namespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     role.Name,
+			Name:     roleRVal.Name,
 		},
 	}
 
-	_, err = roleBindingI.Create(context.TODO(), roleBinding, meta.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("creating proxy service account role binding: %w", err)
+	_, err = roleBindingI.Create(ctx, roleBinding, meta.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		_, err = roleBindingI.Update(ctx, roleBinding, meta.UpdateOptions{})
 	}
-
-	configJSON, err := json.Marshal(config)
 	if err != nil {
-		return fmt.Errorf("marshalling proxy configmap data to json: %w", err)
+		return errors.Annotate(err, "creating proxy service account role binding")
 	}
-
+	objMeta := meta.ObjectMeta{
+		Labels: lbs,
+		Name:   name,
+	}
 	_, err = EnsureSecretForServiceAccount(sa.GetName(), objMeta, clock, secretI, saI)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	return nil
+
+}
+
+// WaitForProxyService attempt to block the caller until the proxy service is
+// fully provisioned within Kubernetes or until the function gives up trying to
+// wait. This should be a very quick wait.
+func WaitForProxyService(
+	ctx context.Context,
+	name string,
+	saI core.ServiceAccountInterface,
+) error {
+	hasSASecret := func() error {
+		svc, err := saI.Get(ctx, name, meta.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return errors.NewNotFound(err, "proxy service for "+name)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting proxy service for %s", name)
+		}
+
+		if len(svc.Secrets) == 0 {
+			return errors.NotProvisionedf("proxy service for %s", name)
+		}
+
+		return nil
+	}
+	return retry.Call(retry.CallArgs{
+		Func: hasSASecret,
+		IsFatalError: func(err error) bool {
+			return !errors.IsNotProvisioned(err)
+		},
+		Attempts: 5,
+		Delay:    time.Second * 3,
+		Clock:    clock.WallClock,
+	})
+}
+
+// CreateControllerProxy establishes the Kubernetes resources needed for
+// proxying to a Juju controller. The end result of this function is a service
+// account with a set of permissions that the Juju client can use for proxying
+// to a controller.
+func CreateControllerProxy(
+	ctx context.Context,
+	config ControllerProxyConfig,
+	lbs labels.Set,
+	clock clock.Clock,
+	configI core.ConfigMapInterface,
+	roleI rbac.RoleInterface,
+	roleBindingI rbac.RoleBindingInterface,
+	saI core.ServiceAccountInterface,
+	secretI core.SecretInterface,
+) error {
+	lbs = labels.Merge(lbs, utils.LabelsJuju)
+
+	err := EnsureProxyService(ctx, lbs, config.Name, clock, roleI, roleBindingI, saI, secretI)
+	if err != nil {
+		return errors.Annotate(err, "ensuring proxy service account")
+	}
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("marshalling proxy configmap data to json: %w", err)
+	}
+
 	cm := &corev1.ConfigMap{
-		ObjectMeta: objMeta,
+		ObjectMeta: meta.ObjectMeta{
+			Labels: lbs,
+			Name:   config.Name,
+		},
 		Data: map[string]string{
 			ProxyConfigMapKey: string(configJSON),
 		},
 	}
 
-	_, err = configI.Create(context.TODO(), cm, meta.CreateOptions{})
+	_, err = configI.Create(ctx, cm, meta.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("creating proxy config map: %w", err)
 	}
@@ -147,13 +237,13 @@ func CreateControllerProxy(
 	return nil
 }
 
-func fetchTokenReadySecret(name string, api core.SecretInterface, clock jujuclock.Clock) (*corev1.Secret, error) {
+func fetchTokenReadySecret(name string, api core.SecretInterface, clock clock.Clock) (*corev1.Secret, error) {
 	var (
 		secret *corev1.Secret
 		err    error
 	)
 	// NOTE (tlm) Increased the max duration here to 120 seconds to deal with
-	// microk8s bootstrapping. Microk8s is taking a significant amoutn of time
+	// microk8s bootstrapping. Microk8s is taking a significant amount of time
 	// to be Kubernetes ready while still reporting that it is ready to go.
 	// See lp:1937282
 	retryCallArgs := retry.CallArgs{
@@ -193,7 +283,7 @@ func fetchTokenReadySecret(name string, api core.SecretInterface, clock jujucloc
 func EnsureSecretForServiceAccount(
 	saName string,
 	objMeta meta.ObjectMeta,
-	clock jujuclock.Clock,
+	clock clock.Clock,
 	secretAPI core.SecretInterface,
 	saAPI core.ServiceAccountInterface,
 ) (*corev1.Secret, error) {

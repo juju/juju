@@ -6,7 +6,8 @@ package azure
 import (
 	stdcontext "context"
 
-	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -16,7 +17,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
@@ -36,16 +36,18 @@ var logger = loggo.GetLogger("juju.provider.azure")
 type ProviderConfig struct {
 	// Sender is the autorest.Sender that will be used by Azure
 	// clients. If sender is nil, the default HTTP client sender
-	// will be used.
-	Sender autorest.Sender
+	// will be used. Used for testing.
+	Sender policy.Transporter
 
 	// RequestInspector will be used to inspect Azure requests
-	// if it is non-nil.
-	RequestInspector autorest.PrepareDecorator
+	// if it is non-nil. Used for testing.
+	RequestInspector policy.Policy
 
-	// NewStorageClient will be used to construct new storage
-	// clients.
-	NewStorageClient azurestorage.NewClientFunc
+	// Retry is set by tests to limit the default retries.
+	Retry policy.RetryOptions
+
+	// CreateTokenCredential is set by tests to create a token.
+	CreateTokenCredential func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error)
 
 	// RetryClock is used for retrying some operations, like
 	// waiting for deployments to complete.
@@ -54,10 +56,6 @@ type ProviderConfig struct {
 	// package, which uses "time" directly. We cannot mock the
 	// waiting in that case.
 	RetryClock clock.Clock
-
-	// RandomWindowsAdminPassword is a function used to generate
-	// a random password for the Windows admin user.
-	RandomWindowsAdminPassword func() string
 
 	// GneerateSSHKey is a functio nused to generate a new SSH
 	// key pair for provisioning Linux machines.
@@ -76,14 +74,8 @@ type ProviderConfig struct {
 
 // Validate validates the Azure provider configuration.
 func (cfg ProviderConfig) Validate() error {
-	if cfg.NewStorageClient == nil {
-		return errors.NotValidf("nil NewStorageClient")
-	}
 	if cfg.RetryClock == nil {
 		return errors.NotValidf("nil RetryClock")
-	}
-	if cfg.RandomWindowsAdminPassword == nil {
-		return errors.NotValidf("nil RandomWindowsAdminPassword")
 	}
 	if cfg.GenerateSSHKey == nil {
 		return errors.NotValidf("nil GenerateSSHKey")
@@ -112,6 +104,7 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 		environProviderCredentials: environProviderCredentials{
 			servicePrincipalCreator: config.ServicePrincipalCreator,
 			azureCLI:                config.AzureCLI,
+			transporter:             config.Sender,
 		},
 		config: config,
 	}, nil
@@ -186,5 +179,8 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 var verifyCredentials = func(e *azureEnviron, ctx context.ProviderCallContext) error {
 	// This is used at bootstrap - the ctx invalid credential callback will log
 	// a suitable message.
-	return errorutils.HandleCredentialError(e.authorizer.refreshToken(""), ctx)
+	_, err := e.credential.GetToken(ctx, policy.TokenRequestOptions{
+		Scopes: []string{"https://management.core.windows.net/.default"},
+	})
+	return errorutils.HandleCredentialError(err, ctx)
 }

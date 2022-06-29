@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/testing"
@@ -33,15 +32,6 @@ func (s *UserdataSuite) TestOpenstackUnix(c *gc.C) {
 	result, err = renderer.Render(cloudcfg, os.CentOS)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, utils.Gzip(cloudcfg.YAML))
-}
-
-func (s *UserdataSuite) TestOpenstackWindows(c *gc.C) {
-	renderer := openstack.OpenstackRenderer{}
-	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
-
-	result, err := renderer.Render(cloudcfg, os.Windows)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, renderers.WinEmbedInScript(cloudcfg.YAML))
 }
 
 func (s *UserdataSuite) TestOpenstackUnknownOS(c *gc.C) {

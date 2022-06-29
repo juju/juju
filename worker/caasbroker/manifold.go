@@ -31,7 +31,7 @@ type ManifoldConfig struct {
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as
-// an caas,Broker resource.
+// a caas.Broker resource.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	manifold := dependency.Manifold{
 		Inputs: []string{

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/downloader"
@@ -64,7 +64,7 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) (err error) {
 	// First download...
-	curl, err := url.Parse(info.URL().String())
+	curl, err := url.Parse(info.String())
 	if err != nil {
 		return errors.Annotate(err, "could not parse charm URL")
 	}
@@ -75,10 +75,10 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 		Verify:    downloader.NewSha256Verifier(expectedSha256),
 		Abort:     abort,
 	}
-	d.logger.Infof("downloading %s from API server", info.URL())
+	d.logger.Infof("downloading %s from API server", info.String())
 	filename, err := d.downloader.Download(req)
 	if err != nil {
-		return errors.Annotatef(err, "failed to download charm %q from API server", info.URL())
+		return errors.Annotatef(err, "failed to download charm %q from API server", info.String())
 	}
 	defer errors.DeferredAnnotatef(&err, "downloaded but failed to copy charm to %q from %q", target, filename)
 
@@ -95,13 +95,13 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 // bundlePath returns the path to the location where the verified charm
 // bundle identified by info will be, or has been, saved.
 func (d *BundlesDir) bundlePath(info BundleInfo) string {
-	return d.bundleURLPath(info.URL())
+	return d.bundleURLPath(info.String())
 }
 
 // bundleURLPath returns the path to the location where the verified charm
 // bundle identified by url will be, or has been, saved.
-func (d *BundlesDir) bundleURLPath(url *charm.URL) string {
-	return path.Join(d.path, charm.Quote(url.String()))
+func (d *BundlesDir) bundleURLPath(url string) string {
+	return path.Join(d.path, charm.Quote(url))
 }
 
 // ClearDownloads removes any entries in the temporary bundle download

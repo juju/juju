@@ -54,11 +54,18 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo snap install *.snap --dangerous --classic
+        sudo snap install *.snap --dangerous
+        # Since we're installing dangerously, we need to
+        # manually grant permissions to juju
+        sudo snap connect juju:lxd lxd
+        sudo snap connect juju:config-lxd
+        sudo snap connect juju:dot-local-share-juju
+        sudo snap connect juju:ssh-public-keys
+        snap connections juju
 
     - name: Test bootstrap
       shell: bash
       run: |
         set -euxo pipefail
         lxc network set lxdbr0 ipv6.address none
-        juju bootstrap localhost
+        juju bootstrap localhost --debug

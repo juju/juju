@@ -376,47 +376,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 	)
 }
 
-func (s *SubnetsSuite) TestAllSpacesWithExistingSuccess(c *gc.C) {
-	s.testAllSpacesSuccess(c, apiservertesting.WithSpaces)
-}
-
-func (s *SubnetsSuite) TestAllSpacesNoExistingSuccess(c *gc.C) {
-	s.testAllSpacesSuccess(c, apiservertesting.WithoutSpaces)
-}
-
-func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces apiservertesting.SetUpFlag) {
-	apiservertesting.BackingInstance.SetUp(c,
-		apiservertesting.StubZonedEnvironName,
-		apiservertesting.WithZones,
-		withBackingSpaces,
-		apiservertesting.WithSubnets,
-	)
-
-	api := &subnets.APIv3{API: s.facade}
-	results, err := api.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AssertAllSpacesResult(c, results, apiservertesting.BackingInstance.Spaces)
-
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-		apiservertesting.BackingCall("AllSpaces"),
-	)
-}
-
-func (s *SubnetsSuite) TestAllSpacesFailure(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(errors.NotFoundf("boom"))
-
-	api := &subnets.APIv3{API: s.facade}
-	results, err := api.AllSpaces()
-	c.Assert(err, gc.ErrorMatches, "boom not found")
-	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(results, jc.DeepEquals, params.SpaceResults{})
-
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-		apiservertesting.BackingCall("AllSpaces"),
-	)
-}
-
 func (s *SubnetsSuite) CheckAddSubnetsFails(
 	c *gc.C, envName string,
 	withZones, withSpaces, withSubnets apiservertesting.SetUpFlag,
@@ -594,24 +553,6 @@ func (s *SubnetsSuite) TestAddSubnetAPI(c *gc.C) {
 				SpaceTag: "space-dmz",
 				CIDR:     "10.42.0.0/16",
 				Zones:    []string{"zone1"},
-			},
-		},
-	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results.Results), gc.Equals, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-}
-
-func (s *SubnetsSuite) TestAddSubnetAPIv2(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName,
-		apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
-	apiV2 := &subnets.APIv2{APIv3: &subnets.APIv3{API: s.facade}}
-	results, err := apiV2.AddSubnets(params.AddSubnetsParamsV2{
-		Subnets: []params.AddSubnetParamsV2{
-			{
-				SpaceTag:  "space-dmz",
-				SubnetTag: "subnet-10.42.0.0/16",
-				Zones:     []string{"zone1"},
 			},
 		},
 	})

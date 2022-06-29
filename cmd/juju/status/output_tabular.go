@@ -6,16 +6,19 @@ package status
 import (
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/ansiterm"
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
+	"github.com/juju/version/v2"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -24,6 +27,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -42,6 +46,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
 
+	// NO_COLOR; regardless of its value,is required by ansiterm to enable
+	// toggling color capability on or off
+	os.Setenv("NO_COLOR", "")
+
 	// To format things into columns.
 	tw := output.TabWriter(writer)
 	if forceColor {
@@ -55,13 +63,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	// Default table output
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
-	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
-
+	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion}
 	// Optional table output if values exist
 	message := getModelMessage(fs.Model)
 	if fs.Model.SLA != "" {
 		header = append(header, "SLA")
 		values = append(values, fs.Model.SLA)
+
 	}
 	if cs := fs.Controller; cs != nil && cs.Timestamp != "" {
 		header = append(header, "Timestamp")
@@ -71,11 +79,20 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		header = append(header, "Notes")
 		values = append(values, message)
 	}
-
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	w := startSection(tw, true, header...)
-	w.Println(values...)
+	versionPos := indexOf("Version", header)
+	w.Print(values[:versionPos]...)
+	if fs.Model.Version != "" {
+		modelVersionNum, err := version.Parse(fs.Model.Version)
+		if err == nil && jujuversion.Current.Compare(modelVersionNum) > 0 {
+			w.PrintColor(output.WarningHighlight, fs.Model.Version)
+		} else {
+			w.Print(fs.Model.Version)
+		}
+	}
 
+	w.Println(values[versionPos:]...)
 	if len(fs.Branches) > 0 {
 		printBranches(tw, fs.Branches)
 	}
@@ -113,7 +130,8 @@ func startSection(tw *ansiterm.TabWriter, top bool, headers ...interface{}) outp
 	if !top {
 		w.Println()
 	}
-	w.Println(headers...)
+	w.PrintHeaders(output.EmphasisHighlight.DefaultBold, headers...)
+
 	return w
 }
 
@@ -201,18 +219,24 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print(scale)
 		}
 
-		w.Print(app.CharmName, app.CharmChannel, app.CharmRev)
+		w.Print(app.CharmName, app.CharmChannel)
+		if app.CanUpgradeTo != "" {
+			w.PrintColor(output.WarningHighlight, app.CharmRev)
+		} else {
+			w.Print(app.CharmRev)
+		}
 		if fs.Model.Type == caasModelType {
-			w.Print(app.Address)
+			w.PrintColor(output.InfoHighlight, app.Address)
 		}
 
-		exposed := "no"
 		if app.Exposed {
-			exposed = "yes"
+			w.PrintColor(output.GoodHighlight, "yes")
+		} else {
+			w.Print("no")
 		}
-		w.Print(exposed)
 
-		w.Println(app.StatusInfo.Message)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, app.StatusInfo.Message)
+		w.Println()
 		for un, u := range app.Units {
 			units[un] = u
 			if u.MeterStatus != nil {
@@ -241,20 +265,19 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		w.Print(indent("", level*2, name))
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
+
 		if fs.Model.Type == caasModelType {
-			w.Println(
-				u.Address,
-				strings.Join(u.OpenedPorts, ","),
-				message,
-			)
+			w.PrintColor(output.InfoHighlight, u.Address)
+			printPorts(w, u.OpenedPorts)
+			w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
+			w.Println()
 			return
 		}
-		w.Println(
-			u.Machine,
-			u.PublicAddress,
-			strings.Join(u.OpenedPorts, ","),
-			message,
-		)
+		w.Print(u.Machine)
+		w.PrintColor(output.InfoHighlight, u.PublicAddress)
+		printPorts(w, u.OpenedPorts)
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
+		w.Println()
 	}
 
 	if len(units) > 0 {
@@ -295,6 +318,27 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		}
 	}
 	endSection(tw)
+}
+
+func printPorts(w output.Wrapper, ps []string) {
+	size := len(ps)
+	for i, op := range ps {
+		if strings.Contains(op, "/") { //some port values just contain the protocol name e.g icmp
+			pp := strings.Split(op, "/")
+			w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, pp[0]) //port e.g 3306
+			w.PrintNoTab(fmt.Sprintf("/%s", pp[1]))                          //append back the forward slash to the protocol name (3306/tcp)
+		} else {
+			if _, err := strconv.Atoi(op); err == nil { //if string is a port number i.e 3306
+				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, op)
+			} else { //the string is a protocol name i.e icmp
+				w.PrintNoTab(op)
+			}
+		}
+		if i != size-1 && size > 1 {
+			w.PrintNoTab(", ")
+		}
+	}
+	w.Print("") //Print empty tab after the ports
 }
 
 func printBranches(tw *ansiterm.TabWriter, branches map[string]branchStatus) {
@@ -346,12 +390,16 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 	w := startSection(tw, false, "Relation provider", "Requirer", "Interface", "Type", "Message")
 
 	for _, r := range relations {
-		w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
+		provider := strings.Split(r.Provider, ":")
+		w.PrintNoTab(provider[0])                                                       //the service name (mysql)
+		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", provider[1])) //the resource type (:cluster)
+		requirer := strings.Split(r.Requirer, ":")
+		w.PrintNoTab(requirer[0])                                                       //the service name (mysql)
+		w.PrintColor(output.EmphasisHighlight.Magenta, fmt.Sprintf(":%s", requirer[1])) //the resource type (:cluster)
+		w.Print(r.Interface, r.Type)
 		if r.Status != string(relation.Joined) {
 			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
-			if r.Message != "" {
-				w.Print(" - " + r.Message)
-			}
+			w.PrintColorNoTab(output.EmphasisHighlight.Gray, r.Message)
 		}
 		w.Println()
 	}
@@ -422,7 +470,7 @@ func getModelMessage(model modelStatus) string {
 }
 
 func printMachines(tw *ansiterm.TabWriter, standAlone bool, machines map[string]machineStatus) {
-	w := startSection(tw, standAlone, "Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
+	w := startSection(tw, standAlone, "Machine", "State", "Address", "Inst id", "Series", "AZ", "Message")
 	for _, name := range naturalsort.Sort(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
@@ -444,7 +492,12 @@ func printMachine(w output.Wrapper, m machineStatus) {
 
 	w.Print(m.Id)
 	w.PrintStatus(status)
-	w.Println(m.DNSName, m.machineName(), m.Series, az, message)
+	w.PrintColor(output.InfoHighlight, m.DNSName)
+	w.Print(m.machineName(), m.Series, az)
+	if message != "" { //some unit tests were failing because of the printed empty string .
+		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
+	}
+	w.Println()
 
 	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])

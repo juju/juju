@@ -385,7 +385,7 @@ var attributeParams = agent.AgentConfigParams{
 	Nonce:                    "a nonce",
 	Controller:               testing.ControllerTag,
 	Model:                    testing.ModelTag,
-	JujuDBSnapChannel:        "4.4/stable",
+	JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
 	NonSyncedWritesToRaftLog: false,
 	BatchRaftFSM:             false,
 	AgentLogfileMaxSizeMB:    150,

@@ -4,6 +4,8 @@
 package azure
 
 import (
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/ssh"
@@ -11,7 +13,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azurecli"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
 )
 
 const (
@@ -31,12 +32,17 @@ func NewProvider(config ProviderConfig) (environs.CloudEnvironProvider, error) {
 
 func init() {
 	environProvider, err := NewProvider(ProviderConfig{
-		NewStorageClient:           azurestorage.NewClient,
-		RetryClock:                 &clock.WallClock,
-		RandomWindowsAdminPassword: randomAdminPassword,
-		GenerateSSHKey:             ssh.GenerateKey,
-		ServicePrincipalCreator:    &azureauth.ServicePrincipalCreator{},
-		AzureCLI:                   azurecli.AzureCLI{},
+		RetryClock:              &clock.WallClock,
+		GenerateSSHKey:          ssh.GenerateKey,
+		ServicePrincipalCreator: &azureauth.ServicePrincipalCreator{},
+		AzureCLI:                azurecli.AzureCLI{},
+		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
+			return azidentity.NewClientSecretCredential(
+				tenantID, appId, appPassword, &azidentity.ClientSecretCredentialOptions{
+					ClientOptions: opts,
+				},
+			)
+		},
 	})
 	if err != nil {
 		panic(err)

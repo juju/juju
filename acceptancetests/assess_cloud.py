@@ -104,7 +104,7 @@ def assess_cloud_kill_controller(bs_manager):
         # stopped its jujud).  This would normally be seen as a bug, so we
         # suppress it.
         cmd = ('--machine', '0', 'sudo service jujud-machine-0 stop')
-        controller_client.juju('run', cmd, check=False, suppress_err=True)
+        controller_client.juju('exec', cmd, check=False, suppress_err=True)
         bs_manager.has_controller = False
 
 

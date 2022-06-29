@@ -6,9 +6,9 @@ package application
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/assumes"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/assumes"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -71,6 +72,9 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
+		return nil, errors.NotSupportedf("manual deploy of the controller charm")
+	}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 {
 			return nil, fmt.Errorf("subordinate application must be deployed without units")
@@ -89,6 +93,10 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 		logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
+	if corecharm.IsKubernetes(args.Charm) && charm.MetaFormat(args.Charm) == charm.FormatV1 {
+		logger.Debugf("DEPRECATED: %q is a podspec charm, which will be removed in a future release", args.Charm.URL())
+	}
+
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
@@ -96,7 +104,7 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 		Name:              args.ApplicationName,
 		Series:            args.Series,
 		Charm:             args.Charm,
-		CharmOrigin:       stateCharmOrigin(args.CharmOrigin),
+		CharmOrigin:       StateCharmOrigin(args.CharmOrigin),
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
@@ -179,7 +187,8 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 	return result
 }
 
-func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
+// StateCharmOrigin returns a state layer CharmOrigin given a core Origin.
+func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 	var ch *state.Channel
 	if c := origin.Channel; c != nil {
 		normalizedC := c.Normalize()

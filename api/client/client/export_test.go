@@ -10,8 +10,6 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-var HasHooksOrDispatch = &hasHooksOrDispatch
-
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets
 // you mock out the FacadeCall method. The function returned by
 // PatchClientFacadeCall is a cleanup function that returns the client to its
@@ -56,11 +54,4 @@ func (r *rawAPICaller) Context() context.Context {
 // that AddLocalCharm uses in order to test NotImplementedError.
 func SetServerAddress(c *Client, scheme, addr string) {
 	api.SetServerAddressForTesting(c.conn, scheme, addr)
-}
-
-// APIClient returns a 'barebones' api.Client suitable for calling FindTools in
-// an error state (anything else is likely to panic.)
-func BarebonesClient(apiCaller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(apiCaller, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, conn: api.EmptyConnectionForTesting()}
 }

@@ -19,15 +19,14 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
 )
-
-// CmdSuffix is the filename suffix to use for executables.
-const CmdSuffix = cmdSuffix
 
 // This logger is fine being package level as this jujuc executable
 // is separate from the uniter in that it is run inside hooks.
@@ -41,41 +40,41 @@ type creator func(Context) (cmd.Command, error)
 
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
-	"close-port" + cmdSuffix:              NewClosePortCommand,
-	"config-get" + cmdSuffix:              NewConfigGetCommand,
-	"juju-log" + cmdSuffix:                NewJujuLogCommand,
-	"open-port" + cmdSuffix:               NewOpenPortCommand,
-	"opened-ports" + cmdSuffix:            NewOpenedPortsCommand,
-	"relation-get" + cmdSuffix:            NewRelationGetCommand,
-	"relation-ids" + cmdSuffix:            NewRelationIdsCommand,
-	"relation-list" + cmdSuffix:           NewRelationListCommand,
-	"relation-set" + cmdSuffix:            NewRelationSetCommand,
-	"unit-get" + cmdSuffix:                NewUnitGetCommand,
-	"add-metric" + cmdSuffix:              NewAddMetricCommand,
-	"juju-reboot" + cmdSuffix:             NewJujuRebootCommand,
-	"status-get" + cmdSuffix:              NewStatusGetCommand,
-	"status-set" + cmdSuffix:              NewStatusSetCommand,
-	"network-get" + cmdSuffix:             NewNetworkGetCommand,
-	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
-	"k8s-spec-set" + cmdSuffix:            constructCommandCreator("k8s-spec-set", NewK8sSpecSetCommand),
-	"k8s-spec-get" + cmdSuffix:            constructCommandCreator("k8s-spec-get", NewK8sSpecGetCommand),
-	"k8s-raw-set" + cmdSuffix:             NewK8sRawSetCommand,
-	"k8s-raw-get" + cmdSuffix:             NewK8sRawGetCommand,
+	"close-port":              NewClosePortCommand,
+	"config-get":              NewConfigGetCommand,
+	"juju-log":                NewJujuLogCommand,
+	"open-port":               NewOpenPortCommand,
+	"opened-ports":            NewOpenedPortsCommand,
+	"relation-get":            NewRelationGetCommand,
+	"relation-ids":            NewRelationIdsCommand,
+	"relation-list":           NewRelationListCommand,
+	"relation-set":            NewRelationSetCommand,
+	"unit-get":                NewUnitGetCommand,
+	"add-metric":              NewAddMetricCommand,
+	"juju-reboot":             NewJujuRebootCommand,
+	"status-get":              NewStatusGetCommand,
+	"status-set":              NewStatusSetCommand,
+	"network-get":             NewNetworkGetCommand,
+	"application-version-set": NewApplicationVersionSetCommand,
+	"k8s-spec-set":            constructCommandCreator("k8s-spec-set", NewK8sSpecSetCommand),
+	"k8s-spec-get":            constructCommandCreator("k8s-spec-get", NewK8sSpecGetCommand),
+	"k8s-raw-set":             NewK8sRawSetCommand,
+	"k8s-raw-get":             NewK8sRawGetCommand,
 	// "pod" variants are deprecated.
-	"pod-spec-set" + cmdSuffix: constructCommandCreator("pod-spec-set", NewK8sSpecSetCommand),
-	"pod-spec-get" + cmdSuffix: constructCommandCreator("pod-spec-get", NewK8sSpecGetCommand),
+	"pod-spec-set": constructCommandCreator("pod-spec-set", NewK8sSpecSetCommand),
+	"pod-spec-get": constructCommandCreator("pod-spec-get", NewK8sSpecGetCommand),
 
-	"goal-state" + cmdSuffix:     NewGoalStateCommand,
-	"credential-get" + cmdSuffix: NewCredentialGetCommand,
+	"goal-state":     NewGoalStateCommand,
+	"credential-get": NewCredentialGetCommand,
 
-	"action-get" + cmdSuffix:  NewActionGetCommand,
-	"action-set" + cmdSuffix:  NewActionSetCommand,
-	"action-fail" + cmdSuffix: NewActionFailCommand,
-	"action-log" + cmdSuffix:  NewActionLogCommand,
+	"action-get":  NewActionGetCommand,
+	"action-set":  NewActionSetCommand,
+	"action-fail": NewActionFailCommand,
+	"action-log":  NewActionLogCommand,
 
-	"state-get" + cmdSuffix:    NewStateGetCommand,
-	"state-delete" + cmdSuffix: NewStateDeleteCommand,
-	"state-set" + cmdSuffix:    NewStateSetCommand,
+	"state-get":    NewStateGetCommand,
+	"state-delete": NewStateDeleteCommand,
+	"state-set":    NewStateSetCommand,
 }
 
 type functionCmdCreator func(Context, string) (cmd.Command, error)
@@ -86,26 +85,34 @@ func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
 	}
 }
 
+var secretCommands = map[string]creator{
+	"secret-create": NewSecretCreateCommand,
+	"secret-update": NewSecretUpdateCommand,
+	"secret-get":    NewSecretGetCommand,
+	"secret-grant":  NewSecretGrantCommand,
+	"secret-revoke": NewSecretRevokeCommand,
+}
+
 var storageCommands = map[string]creator{
-	"storage-add" + cmdSuffix:  NewStorageAddCommand,
-	"storage-get" + cmdSuffix:  NewStorageGetCommand,
-	"storage-list" + cmdSuffix: NewStorageListCommand,
+	"storage-add":  NewStorageAddCommand,
+	"storage-get":  NewStorageGetCommand,
+	"storage-list": NewStorageListCommand,
 }
 
 var leaderCommands = map[string]creator{
-	"is-leader" + cmdSuffix:  NewIsLeaderCommand,
-	"leader-get" + cmdSuffix: NewLeaderGetCommand,
-	"leader-set" + cmdSuffix: NewLeaderSetCommand,
+	"is-leader":  NewIsLeaderCommand,
+	"leader-get": NewLeaderGetCommand,
+	"leader-set": NewLeaderSetCommand,
 }
 
 var resourceCommands = map[string]creator{
-	"resource-get" + cmdSuffix: NewResourceGetCmd,
+	"resource-get": NewResourceGetCmd,
 }
 
 var payloadCommands = map[string]creator{
-	"payload-register" + cmdSuffix:   NewPayloadRegisterCmd,
-	"payload-unregister" + cmdSuffix: NewPayloadUnregisterCmd,
-	"payload-status-set" + cmdSuffix: NewPayloadStatusSetCmd,
+	"payload-register":   NewPayloadRegisterCmd,
+	"payload-unregister": NewPayloadUnregisterCmd,
+	"payload-status-set": NewPayloadStatusSetCmd,
 }
 
 func allEnabledCommands() map[string]creator {
@@ -120,6 +127,9 @@ func allEnabledCommands() map[string]creator {
 	add(leaderCommands)
 	add(resourceCommands)
 	add(payloadCommands)
+	if featureflag.Enabled(feature.Secrets) {
+		add(secretCommands)
+	}
 	return all
 }
 

@@ -8,14 +8,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -37,8 +35,7 @@ func (s *ExportBundleCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &jujutesting.Stub{}
 	s.fakeBundle = &fakeExportBundleClient{
-		Stub:           s.stub,
-		bestAPIVersion: 3,
+		Stub: s.stub,
 	}
 	s.fakeConfig = &fakeConfigClient{
 		Stub: s.stub,
@@ -199,127 +196,11 @@ func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *gc.C)
 	c.Assert(string(output), gc.Equals, "fake-data")
 }
 
-func (s *ExportBundleCommandSuite) TestPatchOfExportedBundleToExposeTrustFlag(c *gc.C) {
-	s.fakeBundle.result = "applications:\n" +
-		"  aws-integrator:\n" +
-		"    charm: cs:~containers/aws-integrator\n" +
-		"    num_units: 1\n" +
-		"    to:\n" +
-		"    - \"0\"\n" +
-		"  gcp-integrator:\n" +
-		"    charm: cs:~containers/gcp-integrator\n" +
-		"    num_units: 2\n" +
-		"    to:\n" +
-		"    - \"0\"\n" +
-		"    - \"1\"\n" +
-		"  ubuntu-lite:\n" +
-		"    charm: cs:~jameinel/ubuntu-lite-7\n" +
-		"    num_units: 1\n" +
-		"    to:\n" +
-		"    - \"2\"\n" +
-		"machines:\n" +
-		"  \"0\": {}\n" +
-		"  \"1\": {}\n" +
-		"  \"2\": {}\n" +
-		"series: bionic\n"
-
-	// Pretend we target an older controller that does not expose the
-	// TrustRequired flag in the yaml output.
-	s.fakeBundle.bestAPIVersion = 2
-
-	s.fakeConfig.result = map[string]*params.ApplicationGetResults{
-		"aws-integrator": {
-			ApplicationConfig: map[string]interface{}{
-				appFacade.TrustConfigOptionName: map[string]interface{}{
-					"description": "Does this application have access to trusted credentials",
-					"default":     false,
-					"type":        "bool",
-					"value":       true,
-				},
-			},
-		},
-		"gcp-integrator": {
-			ApplicationConfig: map[string]interface{}{
-				appFacade.TrustConfigOptionName: map[string]interface{}{
-					"description": "Does this application have access to trusted credentials",
-					"default":     false,
-					"type":        "bool",
-					"value":       false,
-				},
-			},
-		},
-		"ubuntu-lite": {
-			ApplicationConfig: map[string]interface{}{
-				"unrelated": map[string]interface{}{
-					"description": "The question to the meaning of life",
-					"default":     42,
-					"type":        "int",
-					"value":       42,
-				},
-			},
-		},
-	}
-
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Since we are iterating a map with applications we cannot call
-	// stub.CheckCalls but instead need to collect the calls, sort them and
-	// run the checks manually.
-	var exportBundleCallCount, getConfigCallCount int
-	var getConfigAppList []string
-	for _, call := range s.stub.Calls() {
-		switch call.FuncName {
-		case "ExportBundle":
-			exportBundleCallCount++
-		case "Get":
-			getConfigCallCount++
-			getConfigAppList = append(getConfigAppList, call.Args[1].(string))
-		default:
-			c.Fatalf("unexpected call to %q", call.FuncName)
-		}
-	}
-	sort.Strings(getConfigAppList)
-
-	c.Assert(exportBundleCallCount, gc.Equals, 1)
-	c.Assert(getConfigCallCount, gc.Equals, 3)
-	c.Assert(getConfigAppList, gc.DeepEquals, []string{"aws-integrator", "gcp-integrator", "ubuntu-lite"})
-
-	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, ""+
-		"applications:\n"+
-		"  aws-integrator:\n"+
-		"    charm: cs:~containers/aws-integrator\n"+
-		"    num_units: 1\n"+
-		"    to:\n"+
-		"    - \"0\"\n"+
-		"    trust: true\n"+
-		"  gcp-integrator:\n"+
-		"    charm: cs:~containers/gcp-integrator\n"+
-		"    num_units: 2\n"+
-		"    to:\n"+
-		"    - \"0\"\n"+
-		"    - \"1\"\n"+
-		"  ubuntu-lite:\n"+
-		"    charm: cs:~jameinel/ubuntu-lite-7\n"+
-		"    num_units: 1\n"+
-		"    to:\n"+
-		"    - \"2\"\n"+
-		"machines:\n"+
-		"  \"0\": {}\n"+
-		"  \"1\": {}\n"+
-		"  \"2\": {}\n"+
-		"series: bionic\n")
-}
-
 type fakeExportBundleClient struct {
 	*jujutesting.Stub
-	result         string
-	filename       string
-	bestAPIVersion int
+	result   string
+	filename string
 }
-
-func (f *fakeExportBundleClient) BestAPIVersion() int { return f.bestAPIVersion }
 
 func (f *fakeExportBundleClient) Close() error { return nil }
 

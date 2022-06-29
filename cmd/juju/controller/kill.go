@@ -27,15 +27,15 @@ import (
 
 const killDoc = `
 Forcibly destroy the specified controller.  If the API server is accessible,
-this command will attempt to destroy the controller model and all hosted models
+this command will attempt to destroy the controller model and all models
 and their resources.
 
 If the API server is unreachable, the machines of the controller model will be
 destroyed through the cloud provisioner.  If there are additional machines,
-including machines within hosted models, these machines will not be destroyed
+including machines within models, these machines will not be destroyed
 and will never be reconnected to the Juju controller being destroyed.
 
-The normal process of killing the controller will involve watching the hosted
+The normal process of killing the controller will involve watching the
 models as they are brought down in a controlled manner. If for some reason the
 models do not stop cleanly, there is a default five minute timeout. If no change
 in the model state occurs for the duration of this timeout, the command will
@@ -197,7 +197,7 @@ func (c *killCommand) DirectDestroyRemaining(
 	hostedConfig, err := api.HostedModelConfigs()
 	if err != nil {
 		hasErrors = true
-		logger.Errorf("unable to retrieve hosted model config: %v", err)
+		logger.Errorf("unable to retrieve model config: %v", err)
 	}
 	ctrlUUID := ""
 	// try to get controller UUID or just ignore.
@@ -244,7 +244,7 @@ func (c *killCommand) DirectDestroyRemaining(
 				Config:         cfg,
 			}
 			var env environs.CloudDestroyer
-			if model.CloudSpec.Type == cloud.CloudTypeCAAS {
+			if cloud.CloudTypeIsCAAS(model.CloudSpec.Type) {
 				env, err = caas.Open(stdcontext.TODO(), cloudProvider, openParams)
 			} else {
 				env, err = environs.Open(stdcontext.TODO(), cloudProvider, openParams)
@@ -266,7 +266,7 @@ func (c *killCommand) DirectDestroyRemaining(
 	if hasErrors {
 		logger.Errorf("there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
 	} else {
-		ctx.Infof("All hosted models destroyed, cleaning up controller machines")
+		ctx.Infof("All models destroyed, cleaning up controller machines")
 	}
 }
 
@@ -338,7 +338,7 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 	if hasUnreclaimedResources(envStatus) {
 		return errors.New("timed out")
 	} else {
-		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
+		ctx.Infof("All models reclaimed, cleaning up controller machines")
 	}
 	return nil
 }

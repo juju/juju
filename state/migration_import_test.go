@@ -9,7 +9,7 @@ import (
 	"time" // only uses time.Time values
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -670,7 +670,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
@@ -722,7 +722,7 @@ func (s *MigrationImportSuite) TestApplicationsWithMissingPlatform(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 
@@ -755,7 +755,7 @@ func (s *MigrationImportSuite) TestApplicationsWithMissingPlatformWithoutConstra
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 
@@ -797,7 +797,7 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, false)
@@ -841,7 +841,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "kubernetes",
-		URL:      charm.URL().String(),
+		URL:      charm.String(),
 		Revision: strconv.Itoa(charm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
@@ -916,7 +916,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "kubernetes",
-		URL:      testCharm.URL().String(),
+		URL:      testCharm.String(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	newApp, err := newSt.Application(application.Name())
@@ -1988,7 +1988,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 
 	operationID, err := m.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModel, newState := s.importModel(c, s.State)
@@ -2003,6 +2003,8 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	c.Check(action.Name(), gc.Equals, "foo")
 	c.Check(state.ActionOperationId(action), gc.Equals, operationID)
 	c.Check(action.Status(), gc.Equals, state.ActionPending)
+	c.Check(action.Parallel(), jc.IsTrue)
+	c.Check(action.ExecutionGroup(), gc.Equals, "group")
 }
 
 func (s *MigrationImportSuite) TestOperation(c *gc.C) {

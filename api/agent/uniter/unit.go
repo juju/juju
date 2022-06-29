@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -90,9 +90,6 @@ func (u *Unit) Refresh() error {
 
 // SetUnitStatus sets the status of the unit.
 func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
-	if u.st.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("SetUnitStatus")
-	}
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -136,11 +133,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[s
 			{Tag: u.tag.String(), Status: agentStatus.String(), Info: info, Data: data},
 		},
 	}
-	setStatusFacadeCall := "SetAgentStatus"
-	if u.st.facade.BestAPIVersion() < 2 {
-		setStatusFacadeCall = "SetStatus"
-	}
-	err := u.st.facade.FacadeCall(setStatusFacadeCall, args, &result)
+	err := u.st.facade.FacadeCall("SetAgentStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -315,9 +308,6 @@ func (u *Unit) DestroyAllSubordinates() error {
 // satisfying params.IsCodeNotAssigned when the unit has no assigned
 // machine..
 func (u *Unit) AssignedMachine() (names.MachineTag, error) {
-	if u.st.BestAPIVersion() < 1 {
-		return names.MachineTag{}, errors.NotImplementedf("unit.AssignedMachine() (need V1+)")
-	}
 	var invalidTag names.MachineTag
 	var results params.StringResults
 	args := params.Entities{
@@ -641,11 +631,6 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 
 // LogActionMessage logs a progress message for the specified action.
 func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
-	// Just a safety check since controller is always ahead of unit agents.
-	if u.st.facade.BestAPIVersion() < 12 {
-		return errors.NotImplementedf("LogActionMessage() (need V12+)")
-	}
-
 	var result params.ErrorResults
 	args := params.ActionMessageParams{
 		Messages: []params.EntityString{{Tag: tag.String(), Value: message}},
@@ -844,10 +829,6 @@ func (u *Unit) CanApplyLXDProfile() (bool, error) {
 
 // AddStorage adds desired storage instances to a unit.
 func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) error {
-	if u.st.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("AddStorage() (need V2+)")
-	}
-
 	all := make([]params.StorageAddParams, 0, len(constraints))
 	for storage, cons := range constraints {
 		for _, one := range cons {

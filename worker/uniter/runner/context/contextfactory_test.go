@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -178,7 +178,7 @@ func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
 		s.SetCharm(c, "dummy")
 		operationID, err := s.Model(c).EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
+		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, true, "group", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		actionData := &context.ActionData{
@@ -206,6 +206,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	s.AssertRelationContext(c, ctx, 1, "", "")
 	s.AssertNotStorageContext(c, ctx)
 	s.AssertNotWorkloadContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
@@ -220,6 +221,7 @@ func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
@@ -294,6 +296,22 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotSecretContext(c, ctx)
+}
+
+func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
+	hi := hook.Info{
+		Kind:      hooks.SecretRotate,
+		SecretURL: "secret://app/mariadb/password",
+	}
+	ctx, err := s.factory.HookContext(hi)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertSecretContext(c, ctx, hi.SecretURL)
+	s.AssertNotWorkloadContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 }
 
 var podSpec = `
@@ -582,7 +600,7 @@ func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	operationID, err := s.Model(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
+	action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionData := &context.ActionData{

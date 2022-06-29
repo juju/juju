@@ -183,6 +183,30 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithInvalidStatus(
 	})
 }
 
+func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithSameStatus(c *gc.C) {
+	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
+	defer ctrl.Finish()
+
+	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
+
+	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesCompleteRunning, "", nil)
+
+	args := params.UpgradeSeriesStatusParams{
+		Params: []params.UpgradeSeriesStatusParam{
+			{
+				Entity: params.Entity{Tag: s.unitTag1.String()},
+				Status: model.UpgradeSeriesCompleteRunning,
+			},
+		},
+	}
+	watches, err := api.SetUpgradeSeriesUnitStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
 	defer ctrl.Finish()

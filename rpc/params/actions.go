@@ -46,16 +46,18 @@ type Actions struct {
 
 // Action describes an Action that will be or has been queued up.
 type Action struct {
-	Tag        string                 `json:"tag"`
-	Receiver   string                 `json:"receiver"`
-	Name       string                 `json:"name"`
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	Tag            string                 `json:"tag"`
+	Receiver       string                 `json:"receiver"`
+	Name           string                 `json:"name"`
+	Parameters     map[string]interface{} `json:"parameters,omitempty"`
+	Parallel       *bool                  `json:"parallel,omitempty"`
+	ExecutionGroup *string                `json:"execution-group,omitempty"`
 }
 
 // EnqueuedActions represents the result of enqueuing actions to run.
 type EnqueuedActions struct {
 	OperationTag string         `json:"operation"`
-	Actions      []StringResult `json:"actions,omitempty"`
+	Actions      []ActionResult `json:"actions,omitempty"`
 }
 
 type EnqueuedActionsV2 struct {
@@ -111,24 +113,6 @@ type ActionsQueryResult struct {
 	Receiver string       `json:"receiver,omitempty"`
 	Action   ActionResult `json:"action,omitempty"`
 	Error    *Error       `json:"error,omitempty"`
-}
-
-// ActionsByNames wrap a slice of Actions for API calls.
-type ActionsByNames struct {
-	Actions []ActionsByName `json:"actions,omitempty"`
-}
-
-// ActionsByName is a bulk API call wrapper containing actions
-// as results.
-type ActionsByName struct {
-	Name    string         `json:"name,omitempty"`
-	Actions []ActionResult `json:"actions,omitempty"`
-	Error   *Error         `json:"error,omitempty"`
-}
-
-// FindActionsByName finds actions given an action name.
-type FindActionsByNames struct {
-	ActionNames []string `json:"names,omitempty"`
 }
 
 // OperationQueryArgs holds args for listing operations.

@@ -8,13 +8,12 @@
 package collect
 
 import (
-	"fmt"
 	"path"
 	"sync"
 	"time"
 
-	corecharm "github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	corecharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/os"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/fortress"
@@ -47,18 +45,18 @@ var (
 	defaultPeriod = 5 * time.Minute
 
 	// errMetricsNotDefined is returned when the charm the uniter is running does
-	// not declared any metrics.
+	// not declare any metrics.
 	errMetricsNotDefined = errors.New("no metrics defined")
 
 	// readCharm function reads the charm directory and extracts declared metrics and the charm url.
-	readCharm = func(unitTag names.UnitTag, paths context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+	readCharm = func(unitTag names.UnitTag, paths context.Paths) (string, map[string]corecharm.Metric, error) {
 		ch, err := corecharm.ReadCharm(paths.GetCharmDir())
 		if err != nil {
-			return nil, nil, errors.Annotatef(err, "failed to read charm from: %v", paths.GetCharmDir())
+			return "", nil, errors.Annotatef(err, "failed to read charm from: %v", paths.GetCharmDir())
 		}
 		chURL, err := charm.ReadCharmURL(path.Join(paths.GetCharmDir(), charm.CharmURLPath))
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return "", nil, errors.Trace(err)
 		}
 		charmMetrics := map[string]corecharm.Metric{}
 		if ch.Metrics() != nil {
@@ -77,7 +75,7 @@ var (
 		if len(charmMetrics) == 0 {
 			return nil, errMetricsNotDefined
 		}
-		return metricFactory.Recorder(charmMetrics, chURL.String(), unitTag.String())
+		return metricFactory.Recorder(charmMetrics, chURL, unitTag.String())
 	}
 
 	newSocketListener = func(path string, handler spool.ConnectionHandler) (stopper, error) {
@@ -134,9 +132,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func socketName(baseDir, unitTag string) string {
-	if os.HostOS() == os.Windows {
-		return fmt.Sprintf(`\\.\pipe\collect-metrics-%s`, unitTag)
-	}
 	return path.Join(baseDir, defaultSocketName)
 }
 
@@ -188,7 +183,11 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 		return nil, errors.Trace(err)
 	}
 
-	if len(validMetrics) > 0 && charmURL.Schema == "local" {
+	curl, err := corecharm.ParseURL(charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(validMetrics) > 0 && curl.Schema == "local" {
 		h := newHandler(handlerConfig{
 			charmdir:       charmdir,
 			agent:          agent,

@@ -25,13 +25,22 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsclientsetfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/dynamic"
+	k8sdynamicfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
+	k8srestfake "k8s.io/client-go/rest/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
@@ -2401,8 +2410,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -2424,45 +2431,40 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceInvalidServiceName(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *gc.C) {
+	// TODO: use this instead of gomock inside k8s testing.
+	k8sClientSet := k8sfake.NewSimpleClientset()
+	extClientSet := apiextensionsclientsetfake.NewSimpleClientset()
+	dynamicClientSet := k8sdynamicfake.NewSimpleDynamicClient(k8sruntime.NewScheme())
+	restClient := &k8srestfake.RESTClient{}
+
+	newK8sClientFunc := func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
+		c.Assert(cfg.Username, gc.Equals, "fred")
+		c.Assert(cfg.Password, gc.Equals, "secret")
+		c.Assert(cfg.Host, gc.Equals, "some-host")
+		c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
+			CertData: []byte("cert-data"),
+			KeyData:  []byte("cert-key"),
+			CAData:   []byte(testing.CACert),
+		})
+		return k8sClientSet, extClientSet, dynamicClientSet, nil
+	}
+	newK8sRestFunc := func(cfg *rest.Config) (rest.Interface, error) {
+		return restClient, nil
+	}
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+	s.setupBroker(c, nil, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "")
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
 			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
-			Services: []k8sspecs.K8sService{
-				{
-					Meta: k8sspecs.Meta{
-						Name:        "app-name",
-						Labels:      map[string]string{"foo": "bar"},
-						Annotations: map[string]string{"cloud.google.com/load-balancer-type": "Internal"},
-					},
-					Spec: core.ServiceSpec{
-						Selector: map[string]string{"app": "MyApp"},
-						Ports: []core.ServicePort{
-							{
-								Protocol:   core.ProtocolTCP,
-								Port:       80,
-								TargetPort: intstr.IntOrString{IntVal: 9376},
-							},
-						},
-						Type: core.ServiceTypeLoadBalancer,
-					},
-				},
-			},
 		},
 	}
-
-	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-	)
-
 	params := &caas.ServiceParams{
-		PodSpec:      basicPodSpec,
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		PodSpec: basicPodSpec,
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
@@ -2474,7 +2476,69 @@ func (s *K8sBrokerSuite) TestEnsureServiceInvalidServiceName(c *gc.C) {
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, gc.ErrorMatches, `creating or updating services: "app-name" is a reserved service name`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	listFirst, err := k8sClientSet.AppsV1().Deployments(s.getNamespace()).List(stdcontext.TODO(), v1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(listFirst.Items, gc.HasLen, 1)
+
+	// Update and swap the ports between containers
+	basicPodSpec2 := getBasicPodspec()
+	basicPodSpec2.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+		},
+	}
+	swap := basicPodSpec2.Containers[0].Ports
+	basicPodSpec2.Containers[0].Ports = basicPodSpec2.Containers[1].Ports
+	basicPodSpec2.Containers[1].Ports = swap
+	params2 := &caas.ServiceParams{
+		PodSpec: basicPodSpec2,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params2, 2, config.ConfigAttributes{
+		"kubernetes-service-type":            "loadbalancer",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listLast, err := k8sClientSet.AppsV1().Deployments(s.getNamespace()).List(stdcontext.TODO(), v1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(listFirst.Items, gc.HasLen, 1)
+
+	before := listFirst.Items[0]
+	after := listLast.Items[0]
+
+	// Check the containers swapped their ports between them.
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.Spec.Template.Spec.Containers[_].Ports[_].Name`, jc.Ignore)
+	mc.AddExpr(`_.Spec.Template.Spec.Containers[_].Ports[_].ContainerPort`, jc.Ignore)
+	c.Assert(after, mc, before)
+	c.Assert(before.Spec.Template.Spec.Containers[0].Ports[0], gc.DeepEquals, core.ContainerPort{
+		Name:          "",
+		ContainerPort: 80,
+		Protocol:      core.ProtocolTCP,
+	})
+	c.Assert(before.Spec.Template.Spec.Containers[1].Ports[0], gc.DeepEquals, core.ContainerPort{
+		Name:          "fred",
+		ContainerPort: 8080,
+		Protocol:      core.ProtocolTCP,
+	})
+	c.Assert(after.Spec.Template.Spec.Containers[0].Ports[0], gc.DeepEquals, core.ContainerPort{
+		Name:          "fred",
+		ContainerPort: 8080,
+		Protocol:      core.ProtocolTCP,
+	})
+	c.Assert(after.Spec.Template.Spec.Containers[1].Ports[0], gc.DeepEquals, core.ContainerPort{
+		Name:          "",
+		ContainerPort: 80,
+		Protocol:      core.ProtocolTCP,
+	})
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.C) {
@@ -2575,8 +2639,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
@@ -2866,8 +2928,6 @@ password: shhhh`[1:],
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -3125,8 +3185,6 @@ password: shhhh`[1:],
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
@@ -3922,8 +3980,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -4093,8 +4149,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
@@ -4290,8 +4344,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -4473,8 +4525,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
@@ -4734,8 +4784,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
@@ -5009,8 +5057,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
@@ -5337,8 +5383,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -5632,8 +5676,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			Return(nil, nil),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(deploymentArg, nil),
 	)
@@ -5768,8 +5810,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockPersistentVolumeClaims.EXPECT().Create(gomock.Any(), pvc, v1.CreateOptions{}).
 			Return(pvc, nil),
-		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(deploymentArg, nil),
 	)
@@ -5922,6 +5962,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 			Return(pvc, nil),
 		s.mockPersistentVolumeClaims.EXPECT().Update(gomock.Any(), pvc, v1.UpdateOptions{}).
 			Return(pvc, nil),
+		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(deploymentArg, nil),
 		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(deploymentArg, nil),
 	)
@@ -6923,7 +6967,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *gc.C) {
 		},
 		{
 			Name:      "juju-data-dir",
-			MountPath: "/usr/bin/juju-run",
+			MountPath: "/usr/bin/juju-exec",
 			SubPath:   "tools/jujud",
 		},
 		{
@@ -7018,11 +7062,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
-			Limits: core.ResourceList{
+			Requests: core.ResourceList{
 				"memory": resource.MustParse("64Mi"),
 				"cpu":    resource.MustParse("500m"),
 			},
 		}
+		break
 	}
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 	ociImageSecret := s.getOCIImageSecret(c, nil)
@@ -8366,7 +8411,7 @@ func dataVolumeMounts() []core.VolumeMount {
 		},
 		{
 			Name:      "juju-data-dir",
-			MountPath: "/usr/bin/juju-run",
+			MountPath: "/usr/bin/juju-exec",
 			SubPath:   "tools/jujud",
 		},
 	}

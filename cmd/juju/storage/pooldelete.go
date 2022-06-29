@@ -16,7 +16,6 @@ import (
 type PoolRemoveAPI interface {
 	Close() error
 	RemovePool(name string) error
-	BestAPIVersion() int
 }
 
 const poolRemoveCommandDoc = `
@@ -75,9 +74,6 @@ func (c *poolRemoveCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer api.Close()
-	if api.BestAPIVersion() < 5 {
-		return errors.New("removing storage pools is not supported by this version of Juju")
-	}
 	err = api.RemovePool(c.poolName)
 	if params.IsCodeNotFound(err) {
 		ctx.Infof("removing storage pool %s failed: %s", c.poolName, err)

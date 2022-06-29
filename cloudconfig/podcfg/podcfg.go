@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
+	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
@@ -93,10 +94,6 @@ type BootstrapConfig struct {
 
 // AgentConfig returns an agent config.
 func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWriter, error) {
-	mongoVers, err := cfg.mongoVersion()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
 			DataDir:         cfg.DataDir,
@@ -111,10 +108,42 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Values:             cfg.AgentEnvironment,
 		Controller:         cfg.ControllerTag,
 		Model:              cfg.APIInfo.ModelTag,
-		MongoVersion:       *mongoVers,
 		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.MongoMemoryProfile()),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
+}
+
+// UnitAgentConfig returns the agent config file for the controller unit charm.
+// This is created a bootstrap time.
+func (cfg *ControllerPodConfig) UnitAgentConfig() (agent.ConfigSetterWriter, error) {
+	password, err := utils.RandomPassword()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	configParams := agent.AgentConfigParams{
+		Paths: agent.Paths{
+			DataDir:         cfg.DataDir,
+			LogDir:          cfg.LogDir,
+			MetricsSpoolDir: cfg.MetricsSpoolDir,
+		},
+		Tag:               names.NewUnitTag("controller/" + cfg.ControllerId),
+		UpgradedToVersion: cfg.JujuVersion,
+		Password:          password,
+		// Unit agent should always connect to the local controller.
+		APIAddresses: []string{net.JoinHostPort(
+			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort),
+		)},
+		CACert:     cfg.APIInfo.CACert,
+		Values:     cfg.AgentEnvironment,
+		Controller: cfg.ControllerTag,
+		Model:      cfg.APIInfo.ModelTag,
+	}
+	conf, err := agent.NewAgentConfig(configParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conf.SetPassword(password)
+	return conf, nil
 }
 
 // APIHostAddrs returns a list of api server addresses.
@@ -206,12 +235,12 @@ func (cfg *ControllerPodConfig) GetPodName() string {
 	return "controller-" + cfg.ControllerId
 }
 
-// GetHostedModel checks if hosted model was requested to create.
-func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
-	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
-	if hasHostedModel {
-		modelName := cfg.Bootstrap.HostedModelConfig[config.NameKey].(string)
-		logger.Debugf("configured hosted model %q for bootstrapping", modelName)
+// GetInitialModel checks if hosted model was requested to create.
+func (cfg *ControllerPodConfig) GetInitialModel() (string, bool) {
+	hasInitialModel := len(cfg.Bootstrap.InitialModelConfig) > 0
+	if hasInitialModel {
+		modelName := cfg.Bootstrap.InitialModelConfig[config.NameKey].(string)
+		logger.Debugf("configured initial model %q for bootstrapping", modelName)
 		return modelName, true
 	}
 	return "", false

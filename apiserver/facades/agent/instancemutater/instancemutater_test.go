@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	coretesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -260,7 +259,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	s.expectInstanceId("0")
 	s.expectUnits(1)
 	s.expectCharmProfiles()
-	s.expectProfileExtraction(c)
+	s.expectProfileExtraction()
 	s.expectName()
 	facade := s.facadeAPIForScenario(c)
 
@@ -302,8 +301,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	s.expectInstanceId("0")
 	s.expectUnits(2)
 	s.expectCharmProfiles()
-	s.expectProfileExtraction(c)
-	s.expectProfileExtractionWithEmpty(c)
+	s.expectProfileExtraction()
+	s.expectProfileExtractionWithEmpty()
 	s.expectName()
 	facade := s.facadeAPIForScenario(c)
 
@@ -393,7 +392,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectCharmProfiles() {
 	machineExp.CharmProfiles().Return([]string{"charm-app-0"}, nil)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction() {
 	appExp := s.application.EXPECT()
 	charmExp := s.charm.EXPECT()
 	stateExp := s.state.EXPECT()
@@ -401,10 +400,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *g
 
 	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
-	chURL, err := charm.ParseURL("cs:app-0")
-	c.Assert(err, jc.ErrorIsNil)
-	appExp.CharmURL().Return(chURL)
+	chURLStr := "cs:app-0"
+	appExp.CharmURL().Return(&chURLStr)
+	chURL := charm.MustParseURL(chURLStr)
 	stateExp.Charm(chURL).Return(s.charm, nil)
+	charmExp.Revision().Return(chURL.Revision)
 	charmExp.LXDProfile().Return(lxdprofile.Profile{
 		Config: map[string]string{
 			"security.nesting": "true",
@@ -418,7 +418,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *g
 	})
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty(c *gc.C) {
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty() {
 	appExp := s.application.EXPECT()
 	charmExp := s.charm.EXPECT()
 	stateExp := s.state.EXPECT()
@@ -426,10 +426,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 
 	unitExp.ApplicationName().Return("foo")
 	stateExp.Application("foo").Return(s.application, nil)
-	chURL, err := charm.ParseURL("cs:app-0")
-	c.Assert(err, jc.ErrorIsNil)
-	appExp.CharmURL().Return(chURL)
+	chURLStr := "cs:app-0"
+	appExp.CharmURL().Return(&chURLStr)
+	chURL := charm.MustParseURL(chURLStr)
 	stateExp.Charm(chURL).Return(s.charm, nil)
+	charmExp.Revision().Return(chURL.Revision)
 	charmExp.LXDProfile().Return(lxdprofile.Profile{})
 }
 
@@ -648,9 +649,8 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 	s.expectAuthController()
 	s.expectWatchMachinesWithNotify(1)
 	facade := s.facadeAPIForScenario(c)
-	facadev2 := &instancemutater.InstanceMutaterAPIV2{facade}
 
-	result, err := facadev2.WatchMachines()
+	result, err := facade.WatchMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -666,9 +666,8 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	s.expectAuthController()
 	s.expectWatchMachinesWithClosedChannel()
 	facade := s.facadeAPIForScenario(c)
-	facadev2 := &instancemutater.InstanceMutaterAPIV2{facade}
 
-	_, err := facadev2.WatchMachines()
+	_, err := facade.WatchMachines()
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
 }
 

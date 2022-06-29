@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
@@ -27,6 +29,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
@@ -138,10 +141,6 @@ type machineDoc struct {
 	// Placement is the placement directive that should be used when provisioning
 	// an instance for the machine.
 	Placement string `bson:",omitempty"`
-
-	// StopMongoUntilVersion holds the version that must be checked to
-	// know if mongo must be stopped.
-	StopMongoUntilVersion string `bson:",omitempty"`
 
 	// AgentStartedAt records the time when the machine agent started.
 	AgentStartedAt time.Time `bson:"agent-started-at,omitempty"`
@@ -459,28 +458,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 	}
 	err := m.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
-}
-
-// SetStopMongoUntilVersion sets a version that is to be checked against
-// the agent config before deciding if mongo must be started on a
-// state server.
-func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
-	}}
-	if err := m.st.db().RunTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, stateerrors.ErrDead))
-	}
-	m.doc.StopMongoUntilVersion = v.String()
-	return nil
-}
-
-// StopMongoUntilVersion returns the current minimum version that
-// is required for this machine to have mongo running.
-func (m *Machine) StopMongoUntilVersion() (mongo.Version, error) {
-	return mongo.NewVersion(m.doc.StopMongoUntilVersion)
 }
 
 // IsManager returns true if the machine has JobManageModel.
@@ -1739,8 +1716,30 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Sp
 			"machine %q preferred public address changed from %q to %q",
 			m.Id(), oldPublic, newPublic.networkAddress(),
 		)
+		if isController(&m.doc) {
+			if err := m.st.maybeUpdateControllerCharm(m.doc.PreferredPublicAddress.Value); err != nil {
+				return errors.Trace(err)
+			}
+		}
 	}
 	return nil
+}
+
+func (st *State) maybeUpdateControllerCharm(publicAddr string) error {
+	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return controllerApp.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
+		"controller-url": api.ControllerAPIURL(publicAddr, controllerCfg.APIPort()),
+	})
 }
 
 func (m *Machine) setAddressesOps(
@@ -2043,26 +2042,36 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 
 // PrepareActionPayload returns the payload to use in creating an action for this machine.
 // Note that the use of spec.InsertDefaults mutates payload.
-func (m *Machine) PrepareActionPayload(name string, payload map[string]interface{}) (map[string]interface{}, error) {
+func (m *Machine) PrepareActionPayload(name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (map[string]interface{}, bool, string, error) {
 	if len(name) == 0 {
-		return nil, errors.New("no action name given")
+		return nil, false, "", errors.New("no action name given")
 	}
 
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
-		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
+		return nil, false, "", errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
 	}
 
 	// Reject bad payloads before attempting to insert defaults.
 	err := spec.ValidateParams(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 	payloadWithDefaults, err := spec.InsertDefaults(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
-	return payloadWithDefaults, nil
+
+	runParallel := spec.Parallel
+	if parallel != nil {
+		runParallel = *parallel
+	}
+	runExecutionGroup := spec.ExecutionGroup
+	if executionGroup != nil {
+		runExecutionGroup = *executionGroup
+	}
+
+	return payloadWithDefaults, runParallel, runExecutionGroup, nil
 }
 
 // CancelAction is part of the ActionReceiver interface.

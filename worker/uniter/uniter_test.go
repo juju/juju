@@ -7,12 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 
-	corecharm "github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	corecharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +19,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -46,7 +46,6 @@ var _ = gc.Suite(&UniterSuite{})
 
 // This guarantees that we get proper platform
 // specific error directly from their source
-// This works on both windows and unix
 var errNotDir = syscall.ENOTDIR.Error()
 
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
@@ -167,10 +166,6 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Check error conditions during unit bootstrap phase.
 		ut(
@@ -458,6 +453,22 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			// reboot.
 			waitHooks{"start"},
 			verifyRunning{},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterRotateSecretHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"rotate secret hook runs when there are secrets to be rotated",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			createSecret{"app/u/password"},
+			rotateSecret{secrets.NewSimpleURL("app/u/password").ID()},
+			waitHooks{"secret-rotate"},
 		),
 	})
 }
@@ -873,10 +884,6 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1448308")
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios - handling conflicts.
 		ut(

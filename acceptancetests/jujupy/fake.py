@@ -24,7 +24,6 @@ import json
 import logging
 import re
 import subprocess
-import uuid
 
 import pexpect
 import yaml
@@ -210,12 +209,6 @@ class FakeEnvironmentState:
         exc = subprocess.CalledProcessError(returncode, cmd, stdout)
         exc.stderr = message
         raise exc
-
-    def restore_backup(self):
-        self.controller.require_controller('restore', self.name)
-        if len(self.state_servers) > 0:
-            return self._fail_stderr('Operation not permitted')
-        self.state_servers.append(self.add_machine())
 
     def enable_ha(self):
         self.controller.require_controller('enable-ha', self.name)
@@ -733,7 +726,7 @@ class FakeBackend:
         parser.add_argument('controller_name')
         parser.add_argument('--constraints')
         parser.add_argument('--config')
-        parser.add_argument('--default-model')
+        parser.add_argument('--add-model=default')
         parser.add_argument('--agent-version')
         parser.add_argument('--bootstrap-series')
         parser.add_argument('--upload-tools', action='store_true')
@@ -864,18 +857,18 @@ class FakeBackend:
         return {model_name: data}
 
     def run_action(self, unit_id, action):
-        action_uuid = '{}'.format(uuid.uuid1())
+        action_id = '1'
         try:
             result = self.action_results[unit_id][action]
-            self.action_queue[action_uuid] = result
+            self.action_queue[action_id] = result
         except KeyError:
             raise ValueError('No such action "{0}"'
                              ' specified for unit {1}.'.format(action,
                                                                unit_id))
-        return ('Action queued with id: {}'.format(action_uuid))
+        return ('Action queued with id: {}'.format(action_id))
 
-    def show_action_output(self, action_uuid):
-        return self.action_queue.get(action_uuid, None)
+    def show_task(self, id):
+        return self.action_queue.get(id, None)
 
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
@@ -1010,8 +1003,6 @@ class FakeBackend:
                 self.controller_state.users.pop(username)
                 if username in self.controller_state.shares:
                     self.controller_state.shares.remove(username)
-            if command == 'restore-backup':
-                model_state.restore_backup()
             return 0, CommandTime(command, args)
 
     @contextmanager
@@ -1081,12 +1072,12 @@ class FakeBackend:
                 return model_state.remove_ssh_key(args)
             if command == 'import-ssh-key':
                 return model_state.import_ssh_key(args)
-            if command == 'run-action':
+            if command == 'run':
                 unit_id = args[0]
                 action = args[1]
                 return self.run_action(unit_id, action)
-            if command == 'show-action-output':
-                return self.show_action_output(args[0])
+            if command == 'show-task':
+                return self.show_task(args[0])
             return ''
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,

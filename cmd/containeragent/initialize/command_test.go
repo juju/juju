@@ -1,9 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:build !windows
-// +build !windows
-
 package initialize_test
 
 import (
@@ -103,6 +100,7 @@ apiport: 17070`[1:])
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
 
 	gomock.InOrder(
+		s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, os.ErrNotExist),
 		s.applicationAPI.EXPECT().UnitIntroduction(`gitlab-0`, `gitlab-uuid`).Times(1).Return(&caasapplication.UnitConfig{
 			UnitTag:   names.NewUnitTag("gitlab/0"),
 			AgentConf: data,
@@ -114,6 +112,37 @@ apiport: 17070`[1:])
 
 		s.applicationAPI.EXPECT().Close().Times(1).Return(nil),
 	)
+
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
+	c.Assert(containerAgentWritten.Bytes(), jc.SameContents, expectedContainerAgent)
+	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
+}
+
+func (s *initCommandSuit) TestRunConfExists(c *gc.C) {
+	ctrl := s.setupCommand(c)
+	defer ctrl.Finish()
+
+	expectedPebble := []byte(`PEBBLE`)
+	expectedContainerAgent := []byte(`CONTAINERAGENT`)
+	expectedJujuc := []byte(`JUJUC`)
+
+	pebbleWritten := bytes.NewBuffer(nil)
+	containerAgentWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+
+	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0755)).Return(NopWriteCloser(containerAgentWritten), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
+	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
 
 	_, err := cmdtesting.RunCommand(c, s.cmd,
 		"--data-dir", "/var/lib/juju",

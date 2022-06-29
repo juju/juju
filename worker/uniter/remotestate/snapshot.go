@@ -4,13 +4,12 @@
 package remotestate
 
 import (
-	"github.com/juju/charm/v8"
-
-	"github.com/juju/names/v4"
+	"github.com/juju/charm/v9"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/names/v4"
 )
 
 // Snapshot is a snapshot of the remote state of the unit.
@@ -90,6 +89,9 @@ type Snapshot struct {
 	// Commands is the list of IDs of commands to be
 	// executed by this unit.
 	Commands []string
+
+	// SecretRotations is a list of secret URLs that need to be rotated.
+	SecretRotations []string
 
 	// UpgradeSeriesStatus is the preparation status of
 	// any currently running series upgrade.

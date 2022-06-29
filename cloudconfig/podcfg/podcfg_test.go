@@ -8,6 +8,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -57,7 +58,7 @@ func testPodLabels(c *gc.C, cfg *config.Config, jobs []model.MachineJob, expectT
 
 func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
-	cfg["juju-db-snap-channel"] = "4.4/stable"
+	cfg["juju-db-snap-channel"] = "9.9/stable"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
@@ -71,13 +72,13 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	c.Assert(path, gc.Equals, "jujusolutions/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "jujusolutions/juju-db:4.4")
+	c.Assert(path, gc.Equals, "jujusolutions/juju-db:9.9")
 }
 
 func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
 	cfg["caas-image-repo"] = "path/to/my/repo"
-	cfg["juju-db-snap-channel"] = "4.4"
+	cfg["juju-db-snap-channel"] = "9.9"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
@@ -92,7 +93,7 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 	c.Assert(path, gc.Equals, "path/to/my/repo/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "path/to/my/repo/juju-db:4.4")
+	c.Assert(path, gc.Equals, "path/to/my/repo/juju-db:9.9")
 }
 
 func (*podcfgSuite) TestBootstrapConstraints(c *gc.C) {
@@ -132,4 +133,27 @@ func (*podcfgSuite) TestFinishControllerPodConfig(c *gc.C) {
 		"PROVIDER_TYPE": "kubernetes",
 		"foo":           "bar",
 	})
+}
+
+func (*podcfgSuite) TestUnitAgentConfig(c *gc.C) {
+	cfg := testing.FakeControllerConfig()
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		cfg,
+		"controller-1",
+		"kubernetes",
+		constraints.Value{},
+	)
+	podConfig.APIInfo = &api.Info{
+		ModelTag: testing.ModelTag,
+		CACert:   testing.CACert,
+	}
+	podConfig.Bootstrap.StateServingInfo.APIPort = 1234
+	podConfig.JujuVersion = version.MustParse("6.6.6")
+	c.Assert(err, jc.ErrorIsNil)
+	agentCfg, err := podConfig.UnitAgentConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo, ok := agentCfg.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentCfg.OldPassword(), gc.Equals, apiInfo.Password)
+	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{"localhost:1234"})
 }

@@ -4,7 +4,7 @@
 package leadership
 
 import (
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/uniter/hook"

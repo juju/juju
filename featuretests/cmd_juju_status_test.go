@@ -68,7 +68,7 @@ func (s *StatusSuite) run(c *gc.C, args ...string) *cmd.Context {
 
 func (s *StatusSuite) TestMultipleRelationsInYamlFormat(c *gc.C) {
 	s.setupMultipleRelationsBetweenApplications(c)
-	context := s.run(c, "status", "--format=yaml")
+	context := s.run(c, "status", "--no-color", "--format=yaml")
 	out := cmdtesting.Stdout(context)
 
 	// expected relations for 'logging'
@@ -93,7 +93,7 @@ func (s *StatusSuite) TestMultipleRelationsInYamlFormat(c *gc.C) {
 
 func (s *StatusSuite) TestMultipleRelationsInTabularFormat(c *gc.C) {
 	s.setupMultipleRelationsBetweenApplications(c)
-	context := s.run(c, "status", "--relations")
+	context := s.run(c, "status", "--no-color", "--relations")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 Relation provider      Requirer                   Interface  Type         Message
 wordpress:juju-info    logging:info               juju-info  subordinate  joining  
@@ -107,10 +107,10 @@ func (s *StatusSuite) TestMachineDisplayNameIsDisplayed(c *gc.C) {
 		InstanceId:  instance.Id("id1"),
 		DisplayName: "eye-dee-one",
 	})
-	context := s.run(c, "status")
+	context := s.run(c, "status", "--no-color")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, "eye-dee-one")
 
-	context2 := s.run(c, "status", "--format=yaml")
+	context2 := s.run(c, "status", "--no-color", "--format=yaml")
 	c.Assert(cmdtesting.Stdout(context2), jc.Contains, "eye-dee-one")
 }
 
@@ -163,7 +163,7 @@ func (s *StatusSuite) TestStatusWhenFilteringByMachine(c *gc.C) {
 		Machine:     machine,
 	})
 
-	context := s.run(c, "status")
+	context := s.run(c, "status", "--no-color")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 App        Version  Status   Scale  Charm      Channel  Rev  Exposed  Message
 another             waiting    0/1  mysql                 5  no       waiting for machine
@@ -175,12 +175,12 @@ another/0    waiting   allocating  1                               waiting for m
 mysql/0      waiting   allocating  0                               waiting for machine
 wordpress/0  waiting   allocating  0                               waiting for machine
 
-Machine  State    DNS  Inst id  Series   AZ  Message
-0        pending       id0      quantal      
-1        pending       id1      quantal      
+Machine  State    Address  Inst id  Series   AZ  Message
+0        pending           id0      quantal      
+1        pending           id1      quantal      
 `)
 
-	context = s.run(c, "status", "0")
+	context = s.run(c, "status", "--no-color", "0")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 App        Version  Status   Scale  Charm      Channel  Rev  Exposed  Message
 mysql               waiting    0/1  mysql                 1  no       waiting for machine
@@ -190,8 +190,8 @@ Unit         Workload  Agent       Machine  Public address  Ports  Message
 mysql/0      waiting   allocating  0                               waiting for machine
 wordpress/0  waiting   allocating  0                               waiting for machine
 
-Machine  State    DNS  Inst id  Series   AZ  Message
-0        pending       id0      quantal      
+Machine  State    Address  Inst id  Series   AZ  Message
+0        pending           id0      quantal      
 `)
 }
 
@@ -234,25 +234,25 @@ func (s *StatusSuite) TestStatusFilteringByMachineIDMatchesExactly(c *gc.C) {
 		Machine:     machine10,
 	})
 
-	context := s.run(c, "status", "1")
+	context := s.run(c, "status", "--no-color", "1")
 	// Should not have matched anything from machine 10.
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 Unit       Workload  Agent       Machine  Public address  Ports  Message
 another/0  waiting   allocating  1                               waiting for machine
 
-Machine  State    DNS  Inst id  Series   AZ  Message
-1        pending       id1      quantal      
+Machine  State    Address  Inst id  Series   AZ  Message
+1        pending           id1      quantal      
 
 `)
 
-	context = s.run(c, "status", "10")
+	context = s.run(c, "status", "--no-color", "10")
 	// Should not have matched anything from machine 1.
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 Unit       Workload  Agent       Machine  Public address  Ports  Message
 another/1  waiting   allocating  10                              waiting for machine
 
-Machine  State    DNS  Inst id  Series   AZ  Message
-10       pending       id10     quantal      
+Machine  State    Address  Inst id  Series   AZ  Message
+10       pending           id10     quantal      
 
 `)
 }
@@ -276,10 +276,10 @@ func (s *StatusSuite) TestStatusMachineFilteringWithUnassignedUnits(c *gc.C) {
 		InstanceId: instance.Id("id1"),
 	})
 
-	context := s.run(c, "status", "1")
+	context := s.run(c, "status", "--no-color", "1")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-Machine  State    DNS  Inst id  Series   AZ  Message
-1        pending       id1      quantal      
+Machine  State    Address  Inst id  Series   AZ  Message
+1        pending           id1      quantal      
 
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, ``)

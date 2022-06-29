@@ -186,7 +186,6 @@ func (c executeOneByRevision) InstanceKey() string {
 }
 
 // Build a refresh request for sending to the API.
-
 func (c executeOneByRevision) Build() (transport.RefreshRequest, error) {
 	var name, id *string
 	if c.Name != "" {
@@ -254,6 +253,9 @@ func RefreshMany(configs ...RefreshConfig) RefreshConfig {
 
 // Build a refresh request that can be past to the API.
 func (c refreshMany) Build() (transport.RefreshRequest, error) {
+	if len(c.Configs) == 0 {
+		return transport.RefreshRequest{}, errors.NotFoundf("configs")
+	}
 	// Not all configs built here have a context, start out with an empty
 	// slice, so we do not call Refresh with a nil context.
 	// See executeOne.Build().

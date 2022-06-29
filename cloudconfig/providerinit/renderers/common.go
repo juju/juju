@@ -6,11 +6,7 @@ package renderers
 
 import (
 	"encoding/base64"
-	"fmt"
 
-	"github.com/juju/utils/v3"
-
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 )
 
@@ -19,21 +15,6 @@ func ToBase64(data []byte) []byte {
 	buf := make([]byte, base64.StdEncoding.EncodedLen(len(data)))
 	base64.StdEncoding.Encode(buf, data)
 	return buf
-}
-
-// WinEmbedInScript for now is used on windows and it returns a powershell script
-// which has the userdata embedded as base64(gzip(userdata))
-func WinEmbedInScript(udata []byte) []byte {
-	encUserdata := ToBase64(utils.Gzip(udata))
-	// place the encUseData inside the "%s" marked sign
-	return []byte(fmt.Sprintf(cloudconfig.UserDataScript, encUserdata))
-}
-
-// AddPowershellTags adds <powershell>...</powershell> to it's input
-func AddPowershellTags(udata []byte) []byte {
-	return []byte(`<powershell>` +
-		string(udata) +
-		`</powershell>`)
 }
 
 // Decorator is a function that can be used as part of a rendering pipeline.

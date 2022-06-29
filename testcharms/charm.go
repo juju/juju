@@ -16,8 +16,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6/testing"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7/testing"
 
 	jtesting "github.com/juju/juju/testing"
 )

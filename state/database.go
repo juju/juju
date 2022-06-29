@@ -5,8 +5,8 @@ package state
 
 import (
 	"runtime/debug"
-	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -217,13 +217,16 @@ func (schema CollectionSchema) Create(
 	return nil
 }
 
+const codeNamespaceExists = 48
+
 // createCollection swallows collection-already-exists errors.
 func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 	err := raw.Create(spec)
-	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err == nil || strings.HasSuffix(err.Error(), "already exists") {
-		return nil
+	if err, ok := err.(*mgo.QueryError); ok {
+		// 48 is collection already exists.
+		if err.Code == codeNamespaceExists {
+			return nil
+		}
 	}
 	if mgoAlreadyExistsErr(err) {
 		return nil
@@ -270,7 +273,7 @@ type database struct {
 
 // RunTransactionObserverFunc is the type of a function to be called
 // after an mgo/txn transaction is run.
-type RunTransactionObserverFunc func(dbName, modelUUID string, ops []txn.Op, err error)
+type RunTransactionObserverFunc func(dbName, modelUUID string, attempt int, duration time.Duration, ops []txn.Op, err error)
 
 func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
@@ -380,6 +383,8 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 				}
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
+					t.Attempt,
+					t.Duration,
 					t.Ops, t.Error,
 				)
 			}
@@ -389,6 +394,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			RunTransactionObserver: observer,
 			Clock:                  db.clock,
 			ServerSideTransactions: db.serverSideTransactions,
+			MaxRetryAttempts:       40,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

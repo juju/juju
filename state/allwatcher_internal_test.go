@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -577,7 +577,8 @@ func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSli
 }
 
 func applicationCharmURL(app *Application) *charm.URL {
-	url, _ := app.CharmURL()
+	urlStr, _ := app.CharmURL()
+	url := charm.MustParseURL(*urlStr)
 	return url
 }
 
@@ -934,7 +935,7 @@ func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			operationID, err := m.EnqueueOperation("a test", 1)
 			c.Assert(err, jc.ErrorIsNil)
-			action, err := m.EnqueueAction(operationID, u.Tag(), "vacuumdb", map[string]interface{}{}, nil)
+			action, err := m.EnqueueAction(operationID, u.Tag(), "vacuumdb", map[string]interface{}{}, true, "group", nil)
 			c.Assert(err, jc.ErrorIsNil)
 			enqueued := makeActionInfo(action, st)
 			action, err = action.Begin()
@@ -2484,12 +2485,12 @@ func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, [
 				about: "charm is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "charms",
-					Id: st.docID(ch.URL().String()),
+					Id: st.docID(ch.String()),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.CharmInfo{
 						ModelUUID:     st.ModelUUID(),
-						CharmURL:      ch.URL().String(),
+						CharmURL:      ch.String(),
 						Life:          life.Alive,
 						DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 					}}}
@@ -3539,7 +3540,8 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			applicationOfferInfo, owner, _ := addOffer(c, st)
 			app, err := st.Application("mysql")
 			c.Assert(err, jc.ErrorIsNil)
-			curl, _ := app.CharmURL()
+			curlStr, _ := app.CharmURL()
+			curl := charm.MustParseURL(*curlStr)
 			ch, err := st.Charm(curl)
 			c.Assert(err, jc.ErrorIsNil)
 			AddTestingApplication(c, st, "another-mysql", ch)
@@ -3706,17 +3708,19 @@ func (s entityInfoSlice) Less(i, j int) bool {
 func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
-		ModelUUID:  st.ModelUUID(),
-		ID:         a.Id(),
-		Receiver:   a.Receiver(),
-		Name:       a.Name(),
-		Parameters: a.Parameters(),
-		Status:     string(a.Status()),
-		Message:    message,
-		Results:    results,
-		Enqueued:   a.Enqueued(),
-		Started:    a.Started(),
-		Completed:  a.Completed(),
+		ModelUUID:      st.ModelUUID(),
+		ID:             a.Id(),
+		Receiver:       a.Receiver(),
+		Name:           a.Name(),
+		Parameters:     a.Parameters(),
+		Parallel:       a.Parallel(),
+		ExecutionGroup: a.ExecutionGroup(),
+		Status:         string(a.Status()),
+		Message:        message,
+		Results:        results,
+		Enqueued:       a.Enqueued(),
+		Started:        a.Started(),
+		Completed:      a.Completed(),
 	}
 }
 

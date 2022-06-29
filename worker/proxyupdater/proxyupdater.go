@@ -4,7 +4,6 @@
 package proxyupdater
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	stdexec "os/exec"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v3/exec"
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/api/agent/proxyupdater"
@@ -29,7 +27,6 @@ var getHostOS = os.HostOS
 
 type Config struct {
 	SupportLegacyValues bool
-	RegistryPath        string
 	EnvFiles            []string
 	SystemdFiles        []string
 	API                 API
@@ -106,7 +103,7 @@ var NewWorker = func(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-func (w *proxyWorker) saveProxySettingsToFiles() error {
+func (w *proxyWorker) saveProxySettings() error {
 	// The proxy settings are (usually) stored in three files:
 	// - /etc/juju-proxy.conf - in 'env' format
 	// - /etc/systemd/system.conf.d/juju-proxy.conf
@@ -124,44 +121,6 @@ func (w *proxyWorker) saveProxySettingsToFiles() error {
 		}
 	}
 	return nil
-}
-
-func (w *proxyWorker) saveProxySettingsToRegistry() error {
-	// On windows we write the proxy settings to the registry.
-	setProxyScript := `$value_path = "%s"
-    $new_proxy = "%s"
-    $proxy_val = Get-ItemProperty -Path $value_path -Name ProxySettings
-    if ($? -eq $false){ New-ItemProperty -Path $value_path -Name ProxySettings -PropertyType String -Value $new_proxy }else{ Set-ItemProperty -Path $value_path -Name ProxySettings -Value $new_proxy }
-    `
-
-	if w.config.RegistryPath == "" {
-		err := fmt.Errorf("config.RegistryPath is empty")
-		w.config.Logger.Errorf("saveProxySettingsToRegistry couldn't write proxy settings to registry: %s", err)
-		return err
-	}
-
-	result, err := exec.RunCommands(exec.RunParams{
-		Commands: fmt.Sprintf(
-			setProxyScript,
-			w.config.RegistryPath,
-			w.proxy.Http),
-	})
-	if err != nil {
-		return err
-	}
-	if result.Code != 0 {
-		w.config.Logger.Errorf("failed writing new proxy values: \n%s\n%s", result.Stdout, result.Stderr)
-	}
-	return nil
-}
-
-func (w *proxyWorker) saveProxySettings() error {
-	switch getHostOS() {
-	case os.Windows:
-		return w.saveProxySettingsToRegistry()
-	default:
-		return w.saveProxySettingsToFiles()
-	}
 }
 
 func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings proxy.Settings) {
@@ -213,7 +172,7 @@ func getPackageCommander() (commands.PackageCommander, error) {
 }
 
 func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
-	if hostOS := getHostOS(); hostOS == os.Windows || hostOS == os.CentOS {
+	if hostOS := getHostOS(); hostOS == os.CentOS {
 		w.config.Logger.Tracef("no snap proxies on %s", hostOS)
 		return
 	}
@@ -289,7 +248,7 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror string) {
-	if hostOS := getHostOS(); hostOS == os.Windows || hostOS == os.CentOS {
+	if hostOS := getHostOS(); hostOS == os.CentOS {
 		w.config.Logger.Tracef("no apt proxies on %s", hostOS)
 		return
 	}

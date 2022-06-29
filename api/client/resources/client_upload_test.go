@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -119,7 +119,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	var args interface{} = params.AddPendingResourcesArgsV2{
+	args := params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{Tag: "application-a-application"},
 		URL:    "ch:spam",
 		CharmOrigin: params.CharmOrigin{
@@ -162,7 +162,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	var args interface{} = params.AddPendingResourcesArgsV2{
+	args := params.AddPendingResourcesArgsV2{
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
@@ -200,7 +200,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	var args interface{} = params.AddPendingResourcesArgsV2{
+	args := params.AddPendingResourcesArgsV2{
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
@@ -229,7 +229,7 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	var args interface{} = params.AddPendingResourcesArgsV2{
+	args := params.AddPendingResourcesArgsV2{
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}

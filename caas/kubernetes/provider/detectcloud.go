@@ -6,7 +6,7 @@ package provider
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
@@ -51,7 +51,7 @@ func localKubeConfigClouds() ([]cloud.Cloud, error) {
 // DetectCloud implements environs.CloudDetector.
 func (p kubernetesEnvironProvider) DetectCloud(name string) (cloud.Cloud, error) {
 	mk8sCloud, err := p.builtinCloudGetter(p.cmdRunner)
-	if err == nil && name == caas.K8sCloudMicrok8s {
+	if err == nil && name == k8s.K8sCloudMicrok8s {
 		return mk8sCloud, nil
 	}
 	if !errors.IsNotFound(err) && err != nil {

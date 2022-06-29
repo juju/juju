@@ -29,9 +29,7 @@ var _ = gc.Suite(&RemoveMachineSuite{})
 func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeRemoveMachineAPI{}
-	s.apiConnection = &mockAPIConnection{
-		bestFacadeVersion: 4,
-	}
+	s.apiConnection = &mockAPIConnection{}
 }
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -104,10 +102,11 @@ func (s *RemoveMachineSuite) TestRemoveNoWaitWithoutForce(c *gc.C) {
 func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	s.fake.results = []params.DestroyMachineResult{{
 		Error: &params.Error{
-			Message: "oy vey",
+			Message: "oy vey machine 1",
 		},
 	}, {
 		Info: &params.DestroyMachineInfo{
+			MachineId:        "2/lxd/1",
 			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
 			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
 			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
@@ -117,7 +116,7 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
-removing machine 1 failed: oy vey
+removing machine failed: oy vey machine 1
 removing machine 2/lxd/1
 - will remove unit foo/0
 - will remove storage bar/1
@@ -151,6 +150,40 @@ func (s *RemoveMachineSuite) TestRemoveKeep(c *gc.C) {
 	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2"})
 }
 
+func (s *RemoveMachineSuite) TestRemoveWithContainers(c *gc.C) {
+	s.fake.results = []params.DestroyMachineResult{{
+		Info: &params.DestroyMachineInfo{
+			MachineId:        "1",
+			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
+			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
+			DestroyedContainers: []params.DestroyMachineResult{{
+				Info: &params.DestroyMachineInfo{
+					MachineId:        "1/lxd/2",
+					DestroyedUnits:   []params.Entity{{"unit-foo-1"}},
+					DestroyedStorage: []params.Entity{{"storage-bar-2"}},
+					DetachedStorage:  []params.Entity{{"storage-baz-3"}},
+				},
+			}},
+		},
+	}}
+
+	ctx, err := s.run(c, "--force", "1")
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing machine 1/lxd/2
+- will remove unit foo/1
+- will remove storage bar/2
+- will detach storage baz/3
+
+removing machine 1
+- will remove unit foo/0
+- will remove storage bar/1
+- will detach storage baz/2
+`[1:])
+}
+
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
 	s.fake.removeError = apiservererrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "1")
@@ -165,12 +198,6 @@ func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
 	testing.AssertOperationWasBlocked(c, err, ".*TestForceBlockedError.*")
 }
 
-func (s *RemoveMachineSuite) TestOldFacadeRemoveKeep(c *gc.C) {
-	s.apiConnection.bestFacadeVersion = 3
-	_, err := s.run(c, "--keep-instance", "1")
-	c.Assert(err, gc.ErrorMatches, "this version of Juju doesn't support --keep-instance")
-}
-
 type fakeRemoveMachineAPI struct {
 	forced      bool
 	keep        bool
@@ -183,34 +210,20 @@ func (f *fakeRemoveMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeRemoveMachineAPI) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
-	f.forced = false
-	return f.destroyMachines(machines)
-}
-
 func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = force
 	f.keep = keep
-	return f.destroyMachines(machines)
-}
-
-func (f *fakeRemoveMachineAPI) destroyMachines(machines []string) ([]params.DestroyMachineResult, error) {
 	f.machines = machines
 	if f.removeError != nil || f.results != nil {
 		return f.results, f.removeError
 	}
 	results := make([]params.DestroyMachineResult, len(machines))
 	for i := range results {
-		results[i].Info = &params.DestroyMachineInfo{}
+		results[i].Info = &params.DestroyMachineInfo{MachineId: machines[i]}
 	}
 	return results, nil
 }
 
 type mockAPIConnection struct {
 	api.Connection
-	bestFacadeVersion int
-}
-
-func (m *mockAPIConnection) BestFacadeVersion(name string) int {
-	return m.bestFacadeVersion
 }

@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"strconv"
 	"strings"
 	"unicode"
 
@@ -175,128 +174,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 	return volumes, nil
 }
 
-// volumes creates the storage volumes and attachments
-// corresponding to the volume info associated with a MAAS node.
-func (mi *maas1Instance) volumes(
-	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
-) (
-	[]storage.Volume, []storage.VolumeAttachment, error,
-) {
-	var volumes []storage.Volume
-	var attachments []storage.VolumeAttachment
-
-	deviceInfo, ok := mi.maasObject.GetMap()["physicalblockdevice_set"]
-	// Older MAAS servers don't support storage.
-	if !ok || deviceInfo.IsNil() {
-		return volumes, attachments, nil
-	}
-
-	labelsMap, ok := mi.maasObject.GetMap()["constraint_map"]
-	if !ok || labelsMap.IsNil() {
-		return nil, nil, errors.NotFoundf("constraint map field")
-	}
-
-	devices, err := deviceInfo.GetArray()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	// deviceLabel is the volume label passed
-	// into the acquire node call as part
-	// of the storage constraints parameter.
-	deviceLabels, err := labelsMap.GetMap()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "invalid constraint map value")
-	}
-
-	// Set up a collection of volumes tags which
-	// we specifically asked for when the node was acquired.
-	validVolumes := set.NewStrings()
-	for _, v := range requestedVolumes {
-		validVolumes.Add(v.Id())
-	}
-
-	for _, d := range devices {
-		deviceAttrs, err := d.GetMap()
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		// id in devices list is numeric
-		id, err := deviceAttrs["id"].GetFloat64()
-		if err != nil {
-			return nil, nil, errors.Annotate(err, "invalid device id")
-		}
-		// id in constraint_map field is a string
-		idKey := strconv.Itoa(int(id))
-
-		// Device Label.
-		deviceLabelValue, ok := deviceLabels[idKey]
-		if !ok {
-			logger.Debugf("acquire maas node: missing volume label for id %q", idKey)
-			continue
-		}
-		deviceLabel, err := deviceLabelValue.GetString()
-		if err != nil {
-			return nil, nil, errors.Annotate(err, "invalid device label")
-		}
-		// We don't explicitly allow the root volume to be specified yet.
-		if deviceLabel == rootDiskLabel {
-			continue
-		}
-		// We only care about the volumes we specifically asked for.
-		if !validVolumes.Contains(deviceLabel) {
-			continue
-		}
-
-		// HardwareId and DeviceName.
-		// First try for id_path.
-		idPathPrefix := "/dev/disk/by-id/"
-		hardwareId, err := deviceAttrs["id_path"].GetString()
-		var deviceName string
-		if err == nil {
-			if !strings.HasPrefix(hardwareId, idPathPrefix) {
-				return nil, nil, errors.Errorf("invalid device id %q", hardwareId)
-			}
-			hardwareId = hardwareId[len(idPathPrefix):]
-		} else {
-			// On VMAAS, id_path not available so try for path instead.
-			deviceName, err = deviceAttrs["name"].GetString()
-			if err != nil {
-				return nil, nil, errors.Annotate(err, "invalid device name")
-			}
-		}
-
-		// Size.
-		sizeinBytes, err := deviceAttrs["size"].GetFloat64()
-		if err != nil {
-			return nil, nil, errors.Annotate(err, "invalid device size")
-		}
-
-		volumeTag := names.NewVolumeTag(deviceLabel)
-		vol := storage.Volume{
-			volumeTag,
-			storage.VolumeInfo{
-				VolumeId:   volumeTag.String(),
-				HardwareId: hardwareId,
-				Size:       uint64(sizeinBytes / humanize.MiByte),
-				Persistent: false,
-			},
-		}
-		volumes = append(volumes, vol)
-
-		attachment := storage.VolumeAttachment{
-			volumeTag,
-			mTag,
-			storage.VolumeAttachmentInfo{
-				DeviceName: deviceName,
-				ReadOnly:   false,
-			},
-		}
-		attachments = append(attachments, attachment)
-	}
-	return volumes, attachments, nil
-}
-
-func (mi *maas2Instance) volumes(
+func (mi *maasInstance) volumes(
 	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,

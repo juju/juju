@@ -4,13 +4,11 @@
 package runner_test
 
 import (
-	"os"
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -182,7 +180,6 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(
-		uniter,
 		s.paths,
 		contextFactory,
 		runner.NewRunner,
@@ -231,9 +228,9 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			},
 		},
 		{
-			// juju-run should work as a predefined action even if
+			// juju-exec should work as a predefined action even if
 			// it's not part of the charm
-			actionName: "juju-run",
+			actionName: "juju-exec",
 			payload: map[string]interface{}{
 				"command": "foo",
 				"timeout": 0.0,
@@ -243,9 +240,16 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		c.Logf("test %d", i)
 		operationID, err := s.model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, nil)
+		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, true, "group", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		rnr, err := s.factory.NewActionRunner(action.Id(), nil)
+		uniterAction := uniter.NewAction(
+			action.Id(),
+			action.Name(),
+			action.Parameters(),
+			action.Parallel(),
+			action.ExecutionGroup(),
+		)
+		rnr, err := s.factory.NewActionRunner(uniterAction, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertPaths(c, rnr)
 		ctx := rnr.Context()
@@ -283,20 +287,10 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	}
 }
 
-func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
-	rnr, err := s.factory.NewActionRunner("irrelevant", nil)
-	c.Assert(rnr, gc.IsNil)
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-	c.Assert(err, gc.Not(jc.Satisfies), charmrunner.IsBadActionError)
-}
-
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test", 1)
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "no-such-action", nil, nil)
-	c.Assert(err, jc.ErrorIsNil) // this will fail when using AddAction on unit
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
+	action := uniter.NewAction("666", "no-such-action", nil, false, "")
+	rnr, err := s.factory.NewActionRunner(action, nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
 	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
@@ -304,44 +298,13 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test", 1)
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", map[string]interface{}{
+	action := uniter.NewAction("666", "snapshot", map[string]interface{}{
 		"outfile": 123,
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
+	}, true, "group")
+	rnr, err := s.factory.NewActionRunner(action, nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
-}
-
-func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
-	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test", 1)
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.unit.CancelAction(action)
-	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
-	c.Check(rnr, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
-}
-
-func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
-	s.SetCharm(c, "dummy")
-	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	operationID, err := s.model.EnqueueOperation("a test", 1)
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, otherUnit.Tag(), "snapshot", nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
-	c.Check(rnr, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }
 
 func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
@@ -353,9 +316,16 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 	cancel := make(chan struct{})
 	operationID, err := s.model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, nil)
+	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id(), cancel)
+	uniterAction := uniter.NewAction(
+		action.Id(),
+		action.Name(),
+		action.Parameters(),
+		action.Parallel(),
+		action.ExecutionGroup(),
+	)
+	rnr, err := s.factory.NewActionRunner(uniterAction, cancel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()

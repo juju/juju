@@ -43,9 +43,9 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 # - We filter pebble here for only linux builds as that is only what it will
 #   compile for at the moment.
 define BUILD_AGENT_TARGETS
-	$(call bin_platform_paths,jujuc,${AGENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,jujud,${AGENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,containeragent,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call bin_platform_paths,jujud,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call bin_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call bin_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
@@ -54,8 +54,7 @@ endef
 # compiled
 define BUILD_CLIENT_TARGETS
 	$(call bin_platform_paths,juju,${CLIENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,juju-metadata,${CLIENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,juju-wait-for,${CLIENT_PACKAGE_PLATFORMS})
+	$(call bin_platform_paths,juju-metadata,${CLIENT_PACKAGE_PLATFORMS})
 endef
 
 # INSTALL_TARGETS is a list of make targets that get installed when make
@@ -65,9 +64,14 @@ define INSTALL_TARGETS
 	jujuc \
 	jujud \
 	containeragent \
-	juju-metadata \
-	juju-wait-for
+	juju-metadata
 endef
+
+# Windows doesn't support the agent binaries
+ifeq ($(GOOS), windows)
+	INSTALL_TARGETS = juju \
+                      juju-metadata
+endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
@@ -78,7 +82,7 @@ endif
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
 	TEST_TIMEOUT := 5400s
 else
-	TEST_TIMEOUT := 1800s
+	TEST_TIMEOUT := 2700s
 endif
 TEST_TIMEOUT:=$(TEST_TIMEOUT)
 
@@ -194,12 +198,6 @@ juju-metadata:
 ## juju-metadata: Install juju-metadata without updating dependencies
 	${run_go_install}
 
-.PHONY: juju-wait-for
-juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
-juju-wait-for:
-## juju-wait-for: Install juju-wait-for without updating dependencies
-	${run_go_install}
-
 .PHONY: pebble
 pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble
 pebble:
@@ -234,11 +232,6 @@ ${BUILD_DIR}/%/bin/containeragent: phony_explicit
 ${BUILD_DIR}/%/bin/juju-metadata: PACKAGE = github.com/juju/juju/cmd/plugins/juju-metadata
 ${BUILD_DIR}/%/bin/juju-metadata: phony_explicit
 # build for juju-metadata
-	$(run_go_build)
-
-${BUILD_DIR}/%/bin/juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
-${BUILD_DIR}/%/bin/juju-wait-for: phony_explicit
-# build for juju-wait-for
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble
@@ -342,8 +335,8 @@ else
 	@sudo snap install go --channel=1.18/stable --classic
 endif
 
-WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-JUJU_DB_CHANNEL=4.4/stable
+WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
+JUJU_DB_CHANNEL=5.3/stable
 
 .PHONY: install-mongo-dependencies
 install-mongo-dependencies:

@@ -4,7 +4,7 @@
 package remoterelations_test
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -12,24 +12,10 @@ import (
 	"gopkg.in/tomb.v2"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
-
-type mockControllerInfo struct {
-	uuid string
-	info crossmodel.ControllerInfo
-}
-
-func (c *mockControllerInfo) Id() string {
-	return c.uuid
-}
-
-func (c *mockControllerInfo) ControllerInfo() crossmodel.ControllerInfo {
-	return c.info
-}
 
 type mockRelation struct {
 	common.Relation

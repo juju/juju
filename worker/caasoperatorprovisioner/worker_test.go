@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -79,12 +79,12 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 
 func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 	w, err := caasoperatorprovisioner.NewProvisionerWorker(caasoperatorprovisioner.Config{
-		Facade:      s.provisionerFacade,
-		Broker:      s.caasClient,
-		ModelTag:    s.modelTag,
-		AgentConfig: s.agentConfig,
-		Clock:       s.clock,
-		Logger:      loggo.GetLogger("test"),
+		Facade:          s.provisionerFacade,
+		OperatorManager: s.caasClient,
+		ModelTag:        s.modelTag,
+		AgentConfig:     s.agentConfig,
+		Clock:           s.clock,
+		Logger:          loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
@@ -233,7 +233,6 @@ apiaddresses:
 - 192.18.1.1:17070
 oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
-mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
 		OperatorInfo: []byte(
 			fmt.Sprintf(
@@ -304,7 +303,6 @@ apiaddresses:
 - 192.18.1.1:17070
 oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
-mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
 		ConfigMapGeneration: 1,
 	}

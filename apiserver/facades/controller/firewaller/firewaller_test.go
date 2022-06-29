@@ -28,9 +28,10 @@ type firewallerSuite struct {
 	firewallerBaseSuite
 	*commontesting.ModelWatcherTest
 
-	cc         *mocks.MockControllerConfigAPI
-	firewaller *firewaller.FirewallerAPIV3
+	firewaller *firewaller.FirewallerAPI
 	subnet     *state.Subnet
+
+	ctrl *gomock.Controller
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -50,49 +51,53 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(s.State),
 		common.AuthFuncForTag(s.Model.ModelTag()),
 	)
+
+	s.ctrl = gomock.NewController(c)
+	controllerConfigAPI := mocks.NewMockControllerConfigAPI(s.ctrl)
 	// Create a firewaller API for the machine.
-	firewallerAPI, err := firewaller.NewFirewallerAPI(
+	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(s.State, s.Model),
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,
+		controllerConfigAPI,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
 }
 
-func (s *firewallerSuite) setup(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	return ctrl
-}
-
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
-	constructor := func(st *state.State, res facade.Resources, auth facade.Authorizer) error {
-		m, err := st.Model()
-		c.Assert(err, jc.ErrorIsNil)
+	defer s.ctrl.Finish()
 
-		_, err = firewaller.NewFirewallerAPI(firewaller.StateShim(st, m), res, auth, nil)
+	constructor := func(context facade.Context) error {
+		_, err := firewaller.NewFirewallerAPIV7(context)
 		return err
 	}
 	s.testFirewallerFailsWithNonControllerUser(c, constructor)
 }
 
 func (s *firewallerSuite) TestLife(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testLife(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestInstanceId(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testInstanceId(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testWatchModelMachines(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatch(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testWatch(c, s.firewaller, cannotWatchUnits)
 }
 
@@ -101,6 +106,8 @@ func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	s.testGetAssignedMachine(c, s.firewaller)
 }
 
@@ -128,6 +135,8 @@ func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName 
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
+	defer s.ctrl.Finish()
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	s.openPorts(c)
@@ -174,7 +183,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.ctrl.Finish()
 
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
@@ -192,13 +201,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 		{Tag: s.units[0].Tag().String()},
 	}})
 
-	apiv5 := &firewaller.FirewallerAPIV5{
-		&firewaller.FirewallerAPIV4{
-			FirewallerAPIV3:     s.firewaller,
-			ControllerConfigAPI: s.cc,
-		}}
-
-	result, err := apiv5.AreManuallyProvisioned(args)
+	result, err := s.firewaller.AreManuallyProvisioned(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -218,21 +221,60 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.ctrl.Finish()
 
-	apiv6 := &firewaller.FirewallerAPIV6{
-		&firewaller.FirewallerAPIV5{
-			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3:     s.firewaller,
-				ControllerConfigAPI: s.cc,
-			},
+	// Set the application to exposed first.
+	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"10.0.0.0/0"},
 		},
-	}
-	s.testGetExposeInfo(c, apiv6)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
+		{Tag: s.application.Tag().String()},
+	}})
+	result, err := s.firewaller.GetExposeInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
+		Results: []params.ExposeInfoResult{
+			{
+				Exposed: true,
+				ExposedEndpoints: map[string]params.ExposedEndpoint{
+					"": {
+						ExposeToSpaces: []string{network.AlphaSpaceId},
+						ExposeToCIDRs:  []string{"10.0.0.0/0"},
+					},
+				},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`application "bar"`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now reset the exposed flag for the application and check again.
+	err = s.application.ClearExposed()
+	c.Assert(err, jc.ErrorIsNil)
+
+	args = params.Entities{Entities: []params.Entity{
+		{Tag: s.application.Tag().String()},
+	}}
+	result, err = s.firewaller.GetExposeInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
+		Results: []params.ExposeInfoResult{
+			{Exposed: false},
+		},
+	})
 }
 
 func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.ctrl.Finish()
 
 	// Set up a spaces with two subnets
 	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
@@ -251,24 +293,34 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	apiv6 := &firewaller.FirewallerAPIV6{
-		&firewaller.FirewallerAPIV5{
-			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3:     s.firewaller,
-				ControllerConfigAPI: s.cc,
-			},
-		},
+	watchSubnetTags := []names.SubnetTag{
+		names.NewSubnetTag(sub2.ID()),
+	}
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(watchSubnetTags)),
+	}
+	for i, tag := range watchSubnetTags {
+		entities.Entities[i].Tag = tag.String()
 	}
 
-	s.testWatchSubnets(
-		c,
-		[]names.SubnetTag{
-			names.NewSubnetTag(sub2.ID()),
-		},
-		// We should only get sub2 in the initial changeset due to the
-		// filter condition.
-		[]string{sub2.ID()},
-		apiv6,
-	)
+	got, err := s.firewaller.WatchSubnets(entities)
+	c.Assert(err, jc.ErrorIsNil)
+	want := params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{sub2.ID()},
+	}
+	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, jc.SameContents, want.Changes)
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
 }

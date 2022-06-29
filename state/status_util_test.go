@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"regexp"
-	"runtime"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -33,10 +32,6 @@ func primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, c
 		}
 		err := entity.SetStatus(s)
 		c.Assert(err, jc.ErrorIsNil)
-		if runtime.GOOS == "windows" {
-			// The default clock tick on Windows is 15.6 ms.
-			time.Sleep(20 * time.Millisecond)
-		}
 	}
 }
 

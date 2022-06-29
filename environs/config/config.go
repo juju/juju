@@ -98,10 +98,6 @@ const (
 	// of OS image metadata for containers.
 	ContainerImageMetadataURLKey = "container-image-metadata-url"
 
-	// GUIStreamKey stores the key used to specify the stream
-	// to used when fetching a gui tarball.
-	GUIStreamKey = "gui-stream"
-
 	// Proxy behaviour has become something of an annoying thing to define
 	// well. These following four proxy variables are being kept to continue
 	// with the existing behaviour for those deployments that specify them.
@@ -1365,17 +1361,6 @@ func (c *Config) ContainerImageStream() string {
 	return "released"
 }
 
-// GUIStream returns the simplestreams stream
-// used to identify which gui to use when
-// when fetching a gui tarball.
-func (c *Config) GUIStream() string {
-	v, _ := c.defined[GUIStreamKey].(string)
-	if v != "" {
-		return v
-	}
-	return "released"
-}
-
 // CharmHubURL returns the URL to use for CharmHub API calls.
 func (c *Config) CharmHubURL() (string, bool) {
 	if v, ok := c.defined[CharmHubURLKey].(string); ok && v != "" {
@@ -1715,7 +1700,6 @@ var alwaysOptional = schema.Defaults{
 	SnapStoreProxyURLKey:            schema.Omit,
 	AptMirrorKey:                    schema.Omit,
 	AgentStreamKey:                  schema.Omit,
-	GUIStreamKey:                    schema.Omit,
 	ResourceTagsKey:                 schema.Omit,
 	"cloudimg-base-url":             schema.Omit,
 	"enable-os-refresh-update":      schema.Omit,
@@ -2081,11 +2065,6 @@ global or per instance security groups.`,
 	},
 	"image-stream": {
 		Description: `The simplestreams stream used to identify which image ids to search when starting an instance.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	GUIStreamKey: {
-		Description: `The simplestreams stream used to identify which gui ids to search when downloading a gui tarball.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

@@ -114,7 +114,6 @@ func (c *removeRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 // ApplicationDestroyRelationAPI defines the API methods that application remove relation command uses.
 type ApplicationDestroyRelationAPI interface {
 	Close() error
-	BestAPIVersion() int
 	DestroyRelation(force *bool, maxWait *time.Duration, endpoints ...string) error
 	DestroyRelationId(relationId int, force *bool, maxWait *time.Duration) error
 }
@@ -147,9 +146,6 @@ func (c *removeRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	if len(c.Endpoints) == 0 && client.BestAPIVersion() < 5 {
-		return errors.New("removing a relation using its ID is not supported by this version of Juju")
-	}
 	if len(c.Endpoints) > 0 {
 		err = client.DestroyRelation(force, maxWait, c.Endpoints...)
 	} else {

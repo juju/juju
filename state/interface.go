@@ -136,7 +136,7 @@ type ActionReceiver interface {
 	Entity
 
 	// PrepareActionPayload returns the payload to use in creating an action for this receiver.
-	PrepareActionPayload(name string, payload map[string]interface{}) (map[string]interface{}, error)
+	PrepareActionPayload(name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (map[string]interface{}, bool, string, error)
 
 	// CancelAction removes a pending Action from the queue for this
 	// ActionReceiver and marks it as cancelled.
@@ -192,6 +192,14 @@ type Action interface {
 	// an action, and is expected to be validated by the Unit using the Charm
 	// definition of the Action.
 	Parameters() map[string]interface{}
+
+	// Parallel returns true if the action can run without
+	// needed to acquire the machine lock.
+	Parallel() bool
+
+	// ExecutionGroup is the group of actions which cannot
+	// execute in parallel with each other.
+	ExecutionGroup() string
 
 	// Enqueued returns the time the action was added to state as a pending
 	// Action.

@@ -26,6 +26,8 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/modelcmd"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/client"
@@ -654,7 +656,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStream(c *gc.C) {
 		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		agentVersion:   "1.99.99",
-		facadeVersion:  5,
 	}
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
 	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
@@ -664,25 +665,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStream(c *gc.C) {
 	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
 	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
 	c.Assert(fakeAPI.stream, gc.Equals, "proposed")
-}
-
-func (s *UpgradeJujuSuite) TestUpgradeJujuWithAgentStreamUnsupported(c *gc.C) {
-	s.Reset(c)
-	fakeAPI := &fakeUpgradeJujuAPINoState{
-		name:           "dummy-model",
-		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		agentVersion:   "1.99.99",
-		facadeVersion:  4,
-	}
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
-	command := s.upgradeJujuCommand(fakeAPI, fakeAPI, fakeAPI, nil)
-	_, err := cmdtesting.RunCommand(c, command, "--agent-stream=proposed")
-	c.Assert(err, gc.ErrorMatches, `
-this version of Juju does not support specifying an agent-stream value
-different to that of the controller model. If you want to use "proposed" agents,
-you must first 'juju model-config -m controller agent-stream=proposed'.
-`)
 }
 
 type DryRunTest struct {
@@ -1077,10 +1059,6 @@ func (a *fakeUpgradeJujuAPI) reset() {
 	a.findToolsCalled = false
 }
 
-func (a *fakeUpgradeJujuAPI) BestAPIVersion() int {
-	return 5
-}
-
 func (a *fakeUpgradeJujuAPI) ControllerConfig() (controller.Config, error) {
 	return map[string]interface{}{
 		"caas-image-repo": "image-repo",
@@ -1157,11 +1135,6 @@ type fakeUpgradeJujuAPINoState struct {
 	modelAgentVersion   version.Number
 	ignoreAgentVersions bool
 	stream              string
-	facadeVersion       int
-}
-
-func (a *fakeUpgradeJujuAPINoState) BestAPIVersion() int {
-	return a.facadeVersion
 }
 
 func (a *fakeUpgradeJujuAPINoState) Close() error {
@@ -1427,4 +1400,24 @@ func (s *upgradePrecheckSuite) expectPreparePrechecker(err error) {
 
 func (s *upgradePrecheckSuite) expectPrecheckUpgradeOperations() {
 	s.upgradeEnv.EXPECT().PrecheckUpgradeOperations().Return(s.ops)
+}
+
+func newUpgradeJujuCommandForTest(
+	store jujuclient.ClientStore,
+	jujuClientAPI ClientAPI,
+	modelConfigAPI modelConfigAPI,
+	modelManagerAPI modelManagerAPI,
+	controllerAPI ControllerAPI,
+	options ...modelcmd.WrapOption,
+) cmd.Command {
+	command := &upgradeJujuCommand{
+		baseUpgradeCommand: baseUpgradeCommand{
+			modelConfigAPI:  modelConfigAPI,
+			modelManagerAPI: modelManagerAPI,
+			controllerAPI:   controllerAPI,
+		},
+		jujuClientAPI: jujuClientAPI,
+	}
+	command.SetClientStore(store)
+	return modelcmd.Wrap(command, options...)
 }

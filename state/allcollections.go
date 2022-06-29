@@ -6,17 +6,8 @@ package state
 import (
 	"github.com/juju/mgo/v2"
 
-	"github.com/juju/juju/state/cloudimagemetadata"
-
 	"github.com/juju/juju/state/bakerystorage"
-)
-
-// The capped collection used for transaction logs defaults to 10MB.
-// It's tweaked in export_test.go to 1MB to avoid the overhead of
-// creating and deleting the large file repeatedly in tests.
-var (
-	txnLogSize      = 10000000
-	txnLogSizeTests = 1000000
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // allCollections should be the single source of truth for information about
@@ -72,10 +63,6 @@ func allCollections() CollectionSchema {
 			// to, and interpreted by, both state and the multiwatcher.
 			global:    true,
 			rawAccess: true,
-			explicitCreate: &mgo.CollectionInfo{
-				Capped:   true,
-				MaxBytes: txnLogSize,
-			},
 		},
 
 		// ------------------
@@ -90,10 +77,6 @@ func allCollections() CollectionSchema {
 		// This collection holds the details of the HA-ness of controllers.
 		controllerNodesC: {},
 
-		// This collection is used to track progress when restoring a
-		// controller from backup.
-		restoreInfoC: {global: true},
-
 		// This collection is used by the controllers to coordinate binary
 		// upgrades and schema migrations.
 		upgradeInfoC: {global: true},
@@ -104,13 +87,6 @@ func allCollections() CollectionSchema {
 		// Tools metadata is per-model, to allow multiple revisions of tools to
 		// be uploaded to different models without affecting other models.
 		toolsmetadataC: {},
-
-		// This collection holds a convenient representation of the content of
-		// the simplestreams data source pointing to Juju GUI archives.
-		guimetadataC: {global: true},
-
-		// This collection holds Juju GUI current version and other settings.
-		guisettingsC: {global: true},
 
 		// This collection holds model information; in particular its
 		// Life and its UUID.
@@ -572,6 +548,26 @@ func allCollections() CollectionSchema {
 		// eg addresses.
 		cloudServicesC: {},
 
+		secretMetadataC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"controller-uuid", "model-uuid", "_id"},
+			}},
+		},
+
+		secretValuesC: {
+			global: true,
+		},
+
+		secretRotateC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"owner"},
+			}},
+		},
+
+		// ----------------------
+
 		// Raw-access collections
 		// ======================
 
@@ -613,8 +609,6 @@ const (
 	globalClockC               = "globalclock"
 	globalRefcountsC           = "globalRefcounts"
 	globalSettingsC            = "globalSettings"
-	guimetadataC               = "guimetadata"
-	guisettingsC               = "guisettings"
 	instanceDataC              = "instanceData"
 	leaseHoldersC              = "leaseholders"
 	machinesC                  = "machines"
@@ -641,7 +635,6 @@ const (
 	rebootC                    = "reboot"
 	relationScopesC            = "relationscopes"
 	relationsC                 = "relations"
-	restoreInfoC               = "restoreInfo"
 	sequenceC                  = "sequence"
 	applicationsC              = "applications"
 	endpointBindingsC          = "endpointbindings"
@@ -681,4 +674,9 @@ const (
 	externalControllersC = "externalControllers"
 	relationNetworksC    = "relationNetworks"
 	firewallRulesC       = "firewallRules"
+
+	// Secrets
+	secretMetadataC = "secretMetadata"
+	secretValuesC   = "secretValues"
+	secretRotateC   = "secretRotate"
 )

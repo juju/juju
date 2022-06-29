@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/controller"
@@ -59,7 +59,7 @@ type Application interface {
 	Series() string
 	SetStatus(statusInfo status.StatusInfo) error
 	CharmModifiedVersion() int
-	CharmURL() (curl *charm.URL, force bool)
+	CharmURL() (curl *string, force bool)
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	GetScale() int
 	ClearResources() error

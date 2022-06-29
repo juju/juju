@@ -108,7 +108,7 @@ func (s *KillSuite) TestKillWaitForModels_AllGood(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err = controller.KillWaitForModels(wrapped, ctx, s.api, test1UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "All hosted models reclaimed, cleaning up controller machines\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "All models reclaimed, cleaning up controller machines\n")
 }
 
 func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
@@ -153,7 +153,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 	expect := "" +
 		"Waiting for 1 model, 2 machines, 2 applications\n" +
 		"Waiting for 1 model, 1 machine\n" +
-		"All hosted models reclaimed, cleaning up controller machines\n"
+		"All models reclaimed, cleaning up controller machines\n"
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expect)
 }
@@ -208,7 +208,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
 	expect := "" +
 		"Waiting for 0 model, 2 machines\n" +
 		"Waiting for 0 model, 1 machine\n" +
-		"All hosted models reclaimed, cleaning up controller machines\n"
+		"All models reclaimed, cleaning up controller machines\n"
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expect)
 }
@@ -259,7 +259,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
 		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
 		"Waiting for 1 model, 1 machine, will kill machines directly in 20s\n" +
-		"All hosted models reclaimed, cleaning up controller machines\n"
+		"All models reclaimed, cleaning up controller machines\n"
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expect)
 }

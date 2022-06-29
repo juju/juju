@@ -5,16 +5,18 @@
 package cloudconfig_test
 
 import (
+	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -39,6 +42,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -166,14 +170,8 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	return cfg
 }
 
-// setGUI populates the configuration with the Juju GUI tools.
-func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
-	cfg.Bootstrap.GUI = &tools.GUIArchive{
-		URL:     url,
-		Version: version.MustParse("1.2.3"),
-		Size:    42,
-		SHA256:  "1234",
-	}
+func (cfg *testInstanceConfig) setControllerCharm(path string) *testInstanceConfig {
+	cfg.Bootstrap.ControllerCharm = path
 	return cfg
 }
 
@@ -182,7 +180,7 @@ func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
 	if envConfig != nil && cfg.Bootstrap != nil {
 		cfg.Bootstrap.ControllerModelConfig = envConfig
-		cfg.Bootstrap.HostedModelConfig = map[string]interface{}{"name": "hosted-model"}
+		cfg.Bootstrap.InitialModelConfig = map[string]interface{}{"name": "my-model"}
 	}
 	return cfg
 }
@@ -718,53 +716,7 @@ func (s *cloudinitSuite) TestCloudInit(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) TestCloudInitWithLocalGUI(c *gc.C) {
-	guiPath := path.Join(c.MkDir(), "gui.tar.bz2")
-	content := []byte("content")
-	err := ioutil.WriteFile(guiPath, content, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := makeBootstrapConfig("precise", 0).setGUI("file://" + filepath.ToSlash(guiPath))
-	guiJson, err := json.Marshal(cfg.Bootstrap.GUI)
-	c.Assert(err, jc.ErrorIsNil)
-	base64Content := base64.StdEncoding.EncodeToString(content)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
-mkdir -p $gui
-install -D -m 644 /dev/null '/var/lib/juju/gui/gui.tar.bz2'
-printf %%s %s | base64 -d > '/var/lib/juju/gui/gui.tar.bz2'
-[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
-rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
-`, base64Content, guiJson))
-	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
-}
-
-func (*cloudinitSuite) TestCloudInitWithRemoteGUI(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI("https://1.2.3.4/gui.tar.bz2")
-	guiJson, err := json.Marshal(cfg.Bootstrap.GUI)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
-mkdir -p $gui
-curl -sSf -o $gui/gui.tar.bz2 --retry 10 'https://1.2.3.4/gui.tar.bz2' || echo Unable to retrieve Juju GUI
-[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
-rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
-`, guiJson))
-	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
-}
-
-func (*cloudinitSuite) TestCloudInitWithGUIReadError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI("file:///no/such/gui.tar.bz2")
-	expectedError := "cannot set up Juju GUI: cannot read Juju GUI archive: .*"
-	checkCloudInitWithGUI(c, cfg, "", expectedError)
-}
-
-func (*cloudinitSuite) TestCloudInitWithGUIURLError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI(":")
-	expectedError := "cannot set up Juju GUI: cannot parse Juju GUI URL: .*"
-	checkCloudInitWithGUI(c, cfg, "", expectedError)
-}
-
-func checkCloudInitWithGUI(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
+func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
 	envConfig := minimalModelConfig(c)
 	testConfig := cfg.maybeSetModelConfig(envConfig).render()
 	ci, err := cloudinit.New(testConfig.Series)
@@ -787,6 +739,48 @@ func checkCloudInitWithGUI(c *gc.C, cfg *testInstanceConfig, expectedScripts str
 
 	scripts := getScripts(configKeyValues)
 	assertScriptMatch(c, scripts, expectedScripts, false)
+}
+
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *gc.C) {
+	controllerCharmPath := testcharms.Repo.CharmDir("juju-controller").Path
+	ch, err := charm.ReadCharmDir(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+	buf := bytes.NewBuffer(nil)
+	err = ch.ArchiveTo(buf)
+	c.Assert(err, jc.ErrorIsNil)
+	content := buf.Bytes()
+
+	cfg := makeBootstrapConfig("precise", 0).setControllerCharm(controllerCharmPath)
+	base64Content := base64.StdEncoding.EncodeToString(content)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
+printf %%s %s | base64 -d > '/var/lib/juju/charms/controller.charm'
+`, base64Content))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+}
+
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("juju-controller")
+	dir, err := charm.ReadCharmDir(ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCharmPath := filepath.Join(c.MkDir(), "controller.charm")
+	f, err := os.Create(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+	err = dir.ArchiveTo(f)
+	_ = f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	content, err := ioutil.ReadFile(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig("precise", 0).setControllerCharm(controllerCharmPath)
+	base64Content := base64.StdEncoding.EncodeToString(content)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
+printf %%s %s | base64 -d > '/var/lib/juju/charms/controller.charm'
+`, base64Content))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
@@ -1146,7 +1140,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 				StateInitializationParams: instancecfg.StateInitializationParams{
 					BootstrapMachineInstanceId: "i-bootstrap",
 					ControllerModelConfig:      minimalModelConfig(c),
-					HostedModelConfig:          map[string]interface{}{"name": "hosted-model"},
+					InitialModelConfig:         map[string]interface{}{"name": "my-model"},
 				},
 				StateServingInfo: stateServingInfo,
 			},
@@ -1396,42 +1390,6 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 -----END RSA PRIVATE KEY-----
 `[1:])
 
-var windowsCloudinitTests = []cloudinitTest{{
-	cfg: makeNormalConfig("win8", 0).setMachineID("10").mutate(func(cfg *testInstanceConfig) {
-		cfg.APIInfo.CACert = "CA CERT\n" + string(serverCert)
-	}),
-	setEnvConfig:  false,
-	expectScripts: WindowsUserdata,
-}}
-
-func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
-	for i, test := range windowsCloudinitTests {
-		testConfig := test.cfg.render()
-		c.Logf("test %d", i)
-		ci, err := cloudinit.New("win8")
-		c.Assert(err, jc.ErrorIsNil)
-		udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
-
-		c.Assert(err, jc.ErrorIsNil)
-		err = udata.Configure()
-
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(ci, gc.NotNil)
-		data, err := ci.RenderYAML()
-		c.Assert(err, jc.ErrorIsNil)
-
-		stringData := strings.Replace(string(data), "\r\n", "\n", -1)
-		stringData = strings.Replace(stringData, "\t", " ", -1)
-		stringData = strings.TrimSpace(stringData)
-
-		compareString := strings.Replace(test.expectScripts, "\r\n", "\n", -1)
-		compareString = strings.Replace(compareString, "\t", " ", -1)
-		compareString = strings.TrimSpace(compareString)
-
-		testing.CheckString(c, stringData, compareString)
-	}
-}
-
 func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 	command := cloudconfig.ToolsDownloadCommand("download", []string{"a", "b", "c"})
 
@@ -1520,10 +1478,11 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 	instConfig := makeBootstrapConfig("quantal", 0).maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()
-	instConfig.Bootstrap.InitialSSHHostKeys.RSA = &instancecfg.SSHKeyPair{
-		Private: "private",
-		Public:  "public",
-	}
+	instConfig.Bootstrap.InitialSSHHostKeys = instancecfg.SSHHostKeys{{
+		Private:            "private",
+		Public:             "public",
+		PublicKeyAlgorithm: ssh.KeyAlgoRSA,
+	}}
 	cloudcfg, err := cloudinit.New(instConfig.Series)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1544,11 +1503,11 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 
 	cmds := cloudcfg.BootCmds()
 	c.Assert(cmds, jc.DeepEquals, []string{
-		`echo 'Regenerating SSH RSA host key' >&$JUJU_PROGRESS_FD`,
-		`rm /etc/ssh/ssh_host_rsa_key*`,
+		`echo 'Regenerating SSH host keys' >&$JUJU_PROGRESS_FD`,
+		`rm /etc/ssh/ssh_host_*_key*`,
 		`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`,
-		`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`,
 		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
+		`ssh-keygen -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key || true`,
 	})
 }
 

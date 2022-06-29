@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import socket
 import shutil
 import subprocess
 import sys
@@ -62,6 +63,8 @@ from jujupy.utility import (
     _dns_name_for_machine,
     pause,
     qualified_model_name,
+    is_ipv6_address,
+    print_now,
     skip_on_missing_file,
     split_address_port,
     temp_yaml_file,
@@ -862,7 +865,7 @@ class ModelClient:
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             arch=None, credential=None, auto_upgrade=False,
-            metadata_source=None, no_gui=False, agent_version=None,
+            metadata_source=None, agent_version=None,
             db_snap_path=None, db_snap_asserts_path=None, force=False,
             config_options=None):
         """Return the bootstrap arguments for the substrate."""
@@ -878,7 +881,7 @@ class ModelClient:
 
         args += [
             '--constraints', self._get_substrate_constraints(arch),
-            '--default-model', self.env.environment
+            '--add-model', self.env.environment
         ]
         if force:
             args.extend(['--force'])
@@ -903,8 +906,6 @@ class ModelClient:
             args.append('--auto-upgrade')
         if self.env.bootstrap_to is not None:
             args.extend(['--to', self.env.bootstrap_to])
-        if no_gui:
-            args.append('--no-gui')
         if db_snap_path and db_snap_asserts_path:
             args.extend(['--db-snap', db_snap_path,
                          '--db-snap-asserts', db_snap_asserts_path])
@@ -986,10 +987,12 @@ class ModelClient:
         })
 
     @contextmanager
-    def _bootstrap_config(self, mongo_memory_profile=None, caas_image_repo=None):
+    def _bootstrap_config(self, mongo_memory_profile=None, db_snap_channel=None, caas_image_repo=None):
         cfg = self.make_model_config()
         if mongo_memory_profile:
             cfg['mongo-memory-profile'] = mongo_memory_profile
+        if db_snap_channel:
+            cfg['juju-db-snap-channel'] = db_snap_channel
         if caas_image_repo:
             cfg['caas-image-repo'] = caas_image_repo
         with temp_yaml_file(cfg) as config_filename:
@@ -1005,13 +1008,14 @@ class ModelClient:
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None, arch=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
-                  no_gui=False, agent_version=None, db_snap_path=None,
+                  agent_version=None, db_snap_path=None,
                   db_snap_asserts_path=None, mongo_memory_profile=None,
-                  caas_image_repo=None, force=False, config_options=None):
+                  caas_image_repo=None, force=False, db_snap_channel=None,
+                  config_options=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
-                mongo_memory_profile, caas_image_repo,
+                mongo_memory_profile, db_snap_channel, caas_image_repo,
         ) as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools=upload_tools,
@@ -1021,7 +1025,6 @@ class ModelClient:
                 credential=credential,
                 auto_upgrade=auto_upgrade,
                 metadata_source=metadata_source,
-                no_gui=no_gui,
                 agent_version=agent_version,
                 db_snap_path=db_snap_path,
                 db_snap_asserts_path=db_snap_asserts_path,
@@ -1035,8 +1038,7 @@ class ModelClient:
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
-                        auto_upgrade=False, metadata_source=None,
-                        no_gui=False):
+                        auto_upgrade=False, metadata_source=None):
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
@@ -1046,7 +1048,6 @@ class ModelClient:
                 credential=None,
                 auto_upgrade=auto_upgrade,
                 metadata_source=metadata_source,
-                no_gui=no_gui,
             )
             self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
@@ -1331,6 +1332,17 @@ class ModelClient:
         return self._backend.juju(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env, suppress_err=suppress_err)
+
+    def reboot(self, machine):
+        """Reboot a machine."""
+        try:
+            self.juju('ssh', (machine, 'sudo shutdown -r now'))
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 255:
+                raise e
+            log.info("Ignoring `juju ssh` exit status after triggering reboot")
+        hostname = self.get_status().get_machine_dns_name(machine)
+        wait_for_port(hostname, 22, timeout=240)
 
     def expect(self, command, args=(), include_e=True,
                timeout=None, extra_env=None):
@@ -1878,14 +1890,6 @@ class ModelClient:
         log.info("State-Server backup at %s", backup_file_path)
         return backup_file_path.decode(getpreferredencoding())
 
-    def restore_backup(self, backup_file):
-        self.juju(
-            'restore-backup',
-            ('--file', backup_file))
-
-    def restore_backup_async(self, backup_file):
-        return self.juju_async('restore-backup', ('--file', backup_file))
-
     def enable_ha(self):
         self.juju(
             'enable-ha', ('-n', '3', '-c', self.env.controller.name),
@@ -1899,14 +1903,13 @@ class ModelClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("show-action-output", id, "--wait", timeout)
-        status = yaml.safe_load(out)["status"]
-        if status != "completed":
+        try:
+            return self.get_juju_output("show-task", id, "--wait", timeout)
+        except Exception as e:
             action_name = '' if not action else ' "{}"'.format(action)
             raise Exception(
-                'Timed out waiting for action{} to complete during fetch '
-                'with status: {}.'.format(action_name, status))
-        return out
+                'Timed out waiting for action {} to complete during fetch '
+                'caught exception: {}.'.format(action_name, str(e)))
 
     def action_do(self, unit, action, *args):
         """Performs the given action on the given unit.
@@ -1914,13 +1917,13 @@ class ModelClient:
         Action params should be given as args in the form foo=bar.
         Returns the id of the queued action.
         """
-        args = (unit, action) + args
+        args = ("--background", unit, action) + args
 
-        output = self.get_juju_output("run-action", *args)
-        action_id_pattern = re.compile('Action queued with id: "([0-9]+)"')
+        output = self.get_juju_output("run", *args, merge_stderr=True)
+        action_id_pattern = re.compile("Check task status with 'juju show-task ([0-9]+)'")
         match = action_id_pattern.search(output)
         if match is None:
-            raise Exception("Action id not found in output: {}".format(output))
+            raise Exception("Task id not found in output: {}".format(output))
         return match.group(1)
 
     def action_do_fetch(self, unit, action, timeout="1m", *args):
@@ -1932,7 +1935,7 @@ class ModelClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
-    def run(self, commands, applications=None, machines=None, units=None,
+    def exec_cmds(self, commands, applications=None, machines=None, units=None,
             use_json=True):
         args = []
         if use_json:
@@ -1944,7 +1947,7 @@ class ModelClient:
         if units is not None:
             args.extend(['--unit', ','.join(units)])
         args.extend(commands)
-        responses = self.get_juju_output('run', *args)
+        responses = self.get_juju_output('exec', *args)
         if use_json:
             return json.loads(responses)
         else:
@@ -2026,15 +2029,15 @@ class ModelClient:
                    'size={}'.format(size)))
 
     def disable_user(self, user_name):
-        """Disable an user"""
+        """Disable a user"""
         self.controller_juju('disable-user', (user_name,))
 
     def enable_user(self, user_name):
-        """Enable an user"""
+        """Enable a user"""
         self.controller_juju('enable-user', (user_name,))
 
     def logout(self):
-        """Logout an user"""
+        """Logout a user"""
         self.controller_juju('logout', ())
         self.env.user_name = ''
 
@@ -2601,3 +2604,58 @@ def client_for_existing(juju_path, juju_data_dir, debug=False,
     return ModelClient(
         config, version, full_path,
         debug=debug, soft_deadline=soft_deadline, _backend=backend)
+
+
+# Equivalent of socket.EAI_NODATA when using windows sockets
+# <https://msdn.microsoft.com/ms740668#WSANO_DATA>
+WSANO_DATA = 11004
+
+
+def wait_for_port(host, port, closed=False, timeout=30):
+    family = socket.AF_INET6 if is_ipv6_address(host) else socket.AF_INET
+    for remaining in until_timeout(timeout):
+        try:
+            addrinfo = socket.getaddrinfo(host, port, family,
+                                          socket.SOCK_STREAM)
+        except socket.error as e:
+            if e.errno not in (socket.EAI_NODATA, WSANO_DATA):
+                raise
+            if closed:
+                return
+            else:
+                continue
+        sockaddr = addrinfo[0][4]
+        # Treat Azure messed-up address lookup as a closed port.
+        if sockaddr[0] == '0.0.0.0':
+            if closed:
+                return
+            else:
+                continue
+        conn = socket.socket(*addrinfo[0][:3])
+        conn.settimeout(max(remaining or 0, 5))
+        try:
+            conn.connect(sockaddr)
+        except socket.timeout:
+            if closed:
+                return
+        except socket.error as e:
+            if e.errno not in (errno.ECONNREFUSED, errno.ENETUNREACH,
+                               errno.ETIMEDOUT, errno.EHOSTUNREACH):
+                raise
+            if closed:
+                return
+        except socket.gaierror as e:
+            print_now(str(e))
+        except Exception as e:
+            print_now('Unexpected {!r}: {}'.format(type(e), e))
+            raise
+        else:
+            conn.close()
+            if not closed:
+                return
+            time.sleep(1)
+    raise PortTimeoutError('Timed out waiting for port.')
+
+
+class PortTimeoutError(Exception):
+    pass

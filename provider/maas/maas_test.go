@@ -1,140 +1,22 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package maas
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"path/filepath"
-	"strconv"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
-	"github.com/juju/os/v2/series"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
-	version "github.com/juju/juju/version"
+	"github.com/juju/juju/version"
 )
-
-const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
-
-const maas2DomainsResponse = `
-[
-    {
-        "authoritative": "true",
-        "resource_uri": "/MAAS/api/2.0/domains/0/",
-        "name": "maas",
-        "id": 0,
-        "ttl": null,
-        "resource_record_count": 3
-    }
-]
-`
-
-type baseProviderSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-	envtesting.ToolsFixture
-	controllerUUID string
-
-	callCtx           *context.CloudCallContext
-	invalidCredential bool
-}
-
-func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
-	suite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	storageDir := c.MkDir()
-	toolsDir := filepath.Join(storageDir, "tools")
-	suite.PatchValue(&envtools.DefaultBaseURL, utils.MakeFileURL(toolsDir))
-	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
-}
-
-func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddCleanup(func(*gc.C) {
-		restoreFinishBootstrap()
-	})
-}
-
-func (s *baseProviderSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
-	s.callCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
-}
-
-func (s *baseProviderSuite) TearDownTest(c *gc.C) {
-	s.invalidCredential = false
-	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-}
-
-func (s *baseProviderSuite) TearDownSuite(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
-}
-
-type providerSuite struct {
-	baseProviderSuite
-	testMAASObject *gomaasapi.TestMAASObject
-}
-
-func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
-	var out bytes.Buffer
-	err := json.NewEncoder(&out).Encode(space)
-	if err != nil {
-		panic(err)
-	}
-	return &out
-}
-
-func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.baseProviderSuite.SetUpSuite(c)
-	s.testMAASObject = gomaasapi.NewTestMAAS("1.0")
-}
-
-func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.baseProviderSuite.SetUpTest(c)
-	mockGetController := func(string, string) (gomaasapi.Controller, error) {
-		return nil, gomaasapi.NewUnsupportedVersionError("oops")
-	}
-	s.PatchValue(&GetMAAS2Controller, mockGetController)
-	// Creating a space ensures that the spaces endpoint won't 404.
-	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
-}
-
-func (s *providerSuite) TearDownTest(c *gc.C) {
-	s.baseProviderSuite.TearDownTest(c)
-	s.testMAASObject.TestServer.Clear()
-}
-
-func (s *providerSuite) TearDownSuite(c *gc.C) {
-	s.baseProviderSuite.TearDownSuite(c)
-	s.testMAASObject.Close()
-}
 
 var maasEnvAttrs = coretesting.Attrs{
 	"name": "test-env",
@@ -144,99 +26,680 @@ var maasEnvAttrs = coretesting.Attrs{
 	},
 }
 
-func (suite *providerSuite) makeEnvironWithURL(url string, getCapabilities MaasCapabilities) (*maasEnviron, error) {
+type maasSuite struct {
+	baseProviderSuite
+}
+
+func (suite *maasSuite) injectController(controller gomaasapi.Controller) {
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return controller, nil
+	}
+	suite.PatchValue(&GetMAASController, mockGetController)
+}
+
+func (suite *maasSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *maasEnviron {
+	if controller != nil {
+		suite.injectController(controller)
+	}
+	testAttrs := coretesting.Attrs{}
+	for k, v := range maasEnvAttrs {
+		testAttrs[k] = v
+	}
+	testAttrs["agent-version"] = version.Current.String()
+
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
 	cloud := environscloudspec.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
-		Endpoint:   url,
+		Endpoint:   "http://any-old-junk.invalid/",
 		Credential: &cred,
 	}
-	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
+
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env, err := NewEnviron(cloud, cfg, getCapabilities)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return env, nil
-}
-
-// makeEnviron creates a functional maasEnviron for a test.
-func (suite *providerSuite) makeEnviron() *maasEnviron {
-	env, err := suite.makeEnvironWithURL(
-		suite.testMAASObject.TestServer.URL,
-		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
-			return set.NewStrings("network-deployment-ubuntu"), nil
-		},
-	)
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := NewEnviron(cloud, cfg, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
 	return env
 }
 
-func (suite *providerSuite) addNode(jsonText string) instance.Id {
-	node := suite.testMAASObject.TestServer.NewNode(jsonText)
-	resourceURI, _ := node.GetField("resource_uri")
-	return instance.Id(resourceURI)
+type fakeController struct {
+	gomaasapi.Controller
+	*testing.Stub
+
+	domains            []gomaasapi.Domain
+	bootResources      []gomaasapi.BootResource
+	bootResourcesError error
+	machines           []gomaasapi.Machine
+	machinesError      error
+	machinesArgsCheck  func(gomaasapi.MachinesArgs)
+	zones              []gomaasapi.Zone
+	zonesError         error
+	spaces             []gomaasapi.Space
+	spacesError        error
+	staticRoutes       []gomaasapi.StaticRoute
+	staticRoutesError  error
+
+	allocateMachine          gomaasapi.Machine
+	allocateMachineMatches   gomaasapi.ConstraintMatches
+	allocateMachineError     error
+	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
+
+	files []gomaasapi.File
+
+	devices      []gomaasapi.Device
+	domainsError error
 }
 
-func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {
-	return network.SubnetInfo{
-		CIDR:            fmt.Sprintf("192.168.%d.0/24", ipRange),
-		ProviderId:      network.Id(strconv.Itoa(int(subnetID))),
-		ProviderSpaceId: network.Id(fmt.Sprintf("%d", spaceID)),
+func newFakeController() *fakeController {
+	return &fakeController{
+		Stub: &testing.Stub{},
+		zones: []gomaasapi.Zone{
+			&fakeZone{name: "mossack"},
+			&fakeZone{name: "fonseca"},
+		},
+		domains: []gomaasapi.Domain{
+			&fakeDomain{},
+		},
 	}
 }
 
-func createSubnetWithSpace(ipRange, NICID uint, space string) gomaasapi.CreateSubnet {
-	var s gomaasapi.CreateSubnet
-	s.DNSServers = []string{"192.168.1.2"}
-	s.Name = fmt.Sprintf("maas-eth%d", NICID)
-	s.Space = space
-	s.GatewayIP = fmt.Sprintf("192.168.%v.1", ipRange)
-	s.CIDR = fmt.Sprintf("192.168.%v.0/24", ipRange)
-	return s
+func newFakeControllerWithErrors(errors ...error) *fakeController {
+	controller := newFakeController()
+	controller.SetErrors(errors...)
+	return controller
 }
 
-func (suite *providerSuite) addSubnet(c *gc.C, ipRange, spaceAndNICID uint, systemID string) uint {
-	space := fmt.Sprintf("space-%d", spaceAndNICID)
-	return suite.addSubnetWithSpace(c, ipRange, spaceAndNICID, space, systemID)
+func newFakeControllerWithFiles(files ...gomaasapi.File) *fakeController {
+	controller := newFakeController()
+	controller.files = files
+	return controller
 }
 
-func (suite *providerSuite) addSubnetWithSpace(c *gc.C, ipRange, NICID uint, space string, systemID string) uint {
-	out := bytes.Buffer{}
-	err := json.NewEncoder(&out).Encode(createSubnetWithSpace(ipRange, NICID, space))
-	c.Assert(err, jc.ErrorIsNil)
-	subnet := suite.testMAASObject.TestServer.NewSubnet(&out)
-	c.Assert(err, jc.ErrorIsNil)
+func (c *fakeController) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	c.MethodCall(c, "Devices", args)
+	return c.devices, c.NextErr()
+}
 
-	other := gomaasapi.AddressRange{}
-	other.Start = fmt.Sprintf("192.168.%d.139", ipRange)
-	other.End = fmt.Sprintf("192.168.%d.149", ipRange)
-	other.Purpose = []string{"not-the-dynamic-range"}
-	suite.testMAASObject.TestServer.AddFixedAddressRange(subnet.ID, other)
-
-	ar := gomaasapi.AddressRange{}
-	ar.Start = fmt.Sprintf("192.168.%d.10", ipRange)
-	ar.End = fmt.Sprintf("192.168.%d.138", ipRange)
-	ar.Purpose = []string{"something", "dynamic-range"}
-	suite.testMAASObject.TestServer.AddFixedAddressRange(subnet.ID, ar)
-	if systemID != "" {
-		var nni gomaasapi.NodeNetworkInterface
-		nni.Name = subnet.Name
-		nni.Links = append(nni.Links, gomaasapi.NetworkLink{
-			ID:     uint(1),
-			Mode:   "auto",
-			Subnet: subnet,
-		})
-		suite.testMAASObject.TestServer.SetNodeNetworkLink(systemID, nni)
+func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
+	if c.machinesArgsCheck != nil {
+		c.machinesArgsCheck(args)
 	}
-	return subnet.ID
+	if c.machinesError != nil {
+		return nil, c.machinesError
+	}
+	if len(args.SystemIDs) > 0 {
+		result := []gomaasapi.Machine{}
+		systemIds := set.NewStrings(args.SystemIDs...)
+		for _, machine := range c.machines {
+			if systemIds.Contains(machine.SystemID()) {
+				result = append(result, machine)
+			}
+		}
+		return result, nil
+	}
+	return c.machines, nil
+}
+
+func (c *fakeController) Domains() ([]gomaasapi.Domain, error) {
+	return c.domains, c.domainsError
+}
+
+func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, gomaasapi.ConstraintMatches, error) {
+	if c.allocateMachineArgsCheck != nil {
+		c.allocateMachineArgsCheck(args)
+	}
+	if c.allocateMachineError != nil {
+		return nil, c.allocateMachineMatches, c.allocateMachineError
+	}
+	return c.allocateMachine, c.allocateMachineMatches, nil
+}
+
+func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
+	if c.bootResourcesError != nil {
+		return nil, c.bootResourcesError
+	}
+	return c.bootResources, nil
+}
+
+func (c *fakeController) Zones() ([]gomaasapi.Zone, error) {
+	if c.zonesError != nil {
+		return nil, c.zonesError
+	}
+	return c.zones, nil
+}
+
+func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
+	if c.spacesError != nil {
+		return nil, c.spacesError
+	}
+	return c.spaces, nil
+}
+
+func (c *fakeController) StaticRoutes() ([]gomaasapi.StaticRoute, error) {
+	if c.staticRoutesError != nil {
+		return nil, c.staticRoutesError
+	}
+	return c.staticRoutes, nil
+}
+func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
+	c.MethodCall(c, "Files", prefix)
+	return c.files, c.NextErr()
+}
+
+func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
+	c.MethodCall(c, "GetFile", filename)
+	err := c.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	// Try to find the file by name (needed for testing RemoveAll)
+	for _, file := range c.files {
+		if file.Filename() == filename {
+			return file, nil
+		}
+	}
+	// The test forgot to set up matching files!
+	return nil, errors.Errorf("no file named %v found - did you set up your test correctly?", filename)
+}
+
+func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
+	c.MethodCall(c, "AddFile", args)
+	return c.NextErr()
+}
+
+func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
+	c.MethodCall(c, "ReleaseMachines", args)
+	return c.NextErr()
+}
+
+type fakeMachineOnlyController struct {
+	machines []gomaasapi.Machine
+}
+
+func (f *fakeMachineOnlyController) Machines(gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
+	return f.machines, nil
+}
+
+type fakeBootResource struct {
+	gomaasapi.BootResource
+	name         string
+	architecture string
+}
+
+func (r *fakeBootResource) Name() string {
+	return r.name
+}
+
+func (r *fakeBootResource) Architecture() string {
+	return r.architecture
+}
+
+type fakeMachine struct {
+	gomaasapi.Machine
+	*testing.Stub
+
+	zoneName      string
+	hostname      string
+	systemID      string
+	ipAddresses   []string
+	statusName    string
+	statusMessage string
+	cpuCount      int
+	memory        int
+	architecture  string
+	interfaceSet  []gomaasapi.Interface
+	tags          []string
+	createDevice  gomaasapi.Device
+	devices       []gomaasapi.Device
+}
+
+func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
+	return &fakeMachine{
+		Stub:         &testing.Stub{},
+		systemID:     systemID,
+		architecture: architecture,
+		statusName:   statusName,
+	}
+}
+
+func (m *fakeMachine) Tags() []string {
+	return m.tags
+}
+
+func (m *fakeMachine) SetOwnerData(data map[string]string) error {
+	m.MethodCall(m, "SetOwnerData", data)
+	return m.NextErr()
+}
+
+func (m *fakeMachine) CPUCount() int {
+	return m.cpuCount
+}
+
+func (m *fakeMachine) Memory() int {
+	return m.memory
+}
+
+func (m *fakeMachine) Architecture() string {
+	return m.architecture
+}
+
+func (m *fakeMachine) SystemID() string {
+	return m.systemID
+}
+
+func (m *fakeMachine) Hostname() string {
+	return m.hostname
+}
+
+func (m *fakeMachine) FQDN() string {
+	domain := "example.com."
+	host := m.Hostname()
+	if host == "" {
+		return domain
+	}
+	return host + "." + domain
+}
+
+func (m *fakeMachine) IPAddresses() []string {
+	return m.ipAddresses
+}
+
+func (m *fakeMachine) StatusName() string {
+	return m.statusName
+}
+
+func (m *fakeMachine) StatusMessage() string {
+	return m.statusMessage
+}
+
+func (m *fakeMachine) Zone() gomaasapi.Zone {
+	return fakeZone{name: m.zoneName}
+}
+
+func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
+	return m.interfaceSet
+}
+
+func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
+	m.MethodCall(m, "Start", args)
+	return m.NextErr()
+}
+
+func (m *fakeMachine) CreateDevice(args gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
+	m.MethodCall(m, "CreateDevice", args)
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	m.devices = append(m.devices, m.createDevice)
+	return m.createDevice, nil
+}
+
+func (m *fakeMachine) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	m.MethodCall(m, "Devices", args)
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	return m.devices, nil
+}
+
+type fakeZone struct {
+	gomaasapi.Zone
+	name string
+}
+
+func (z fakeZone) Name() string {
+	return z.name
+}
+
+type fakeSpace struct {
+	gomaasapi.Space
+	name    string
+	id      int
+	subnets []gomaasapi.Subnet
+}
+
+func (s fakeSpace) Name() string {
+	return s.name
+}
+
+func (s fakeSpace) ID() int {
+	return s.id
+}
+
+func (s fakeSpace) Subnets() []gomaasapi.Subnet {
+	return s.subnets
+}
+
+type fakeSubnet struct {
+	gomaasapi.Subnet
+	id         int
+	space      string
+	vlan       gomaasapi.VLAN
+	gateway    string
+	cidr       string
+	dnsServers []string
+}
+
+func (s fakeSubnet) ID() int {
+	return s.id
+}
+
+func (s fakeSubnet) Space() string {
+	return s.space
+}
+
+func (s fakeSubnet) VLAN() gomaasapi.VLAN {
+	return s.vlan
+}
+
+func (s fakeSubnet) Gateway() string {
+	return s.gateway
+}
+
+func (s fakeSubnet) CIDR() string {
+	return s.cidr
+}
+
+func (s fakeSubnet) DNSServers() []string {
+	return s.dnsServers
+}
+
+type fakeStaticRoute struct {
+	id          int
+	source      fakeSubnet
+	destination fakeSubnet
+	gatewayIP   string
+	metric      int
+}
+
+var _ gomaasapi.StaticRoute = (*fakeStaticRoute)(nil)
+
+func (r fakeStaticRoute) ID() int {
+	return r.id
+}
+
+func (r fakeStaticRoute) Source() gomaasapi.Subnet {
+	return r.source
+}
+
+func (r fakeStaticRoute) Destination() gomaasapi.Subnet {
+	return r.destination
+}
+
+func (r fakeStaticRoute) GatewayIP() string {
+	return r.gatewayIP
+}
+
+func (r fakeStaticRoute) Metric() int {
+	return r.metric
+}
+
+type fakeVLAN struct {
+	gomaasapi.VLAN
+	id  int
+	vid int
+	mtu int
+}
+
+func (v fakeVLAN) ID() int {
+	return v.id
+}
+
+func (v fakeVLAN) VID() int {
+	return v.vid
+}
+
+func (v fakeVLAN) MTU() int {
+	return v.mtu
+}
+
+type fakeInterface struct {
+	*testing.Stub
+
+	id         int
+	name       string
+	parents    []string
+	children   []string
+	type_      string
+	enabled    bool
+	vlan       gomaasapi.VLAN
+	links      []gomaasapi.Link
+	macAddress string
+}
+
+var _ gomaasapi.Interface = (*fakeInterface)(nil)
+
+func (v *fakeInterface) ID() int {
+	return v.id
+}
+
+func (v *fakeInterface) Name() string {
+	return v.name
+}
+
+func (v *fakeInterface) Parents() []string {
+	return v.parents
+}
+
+func (v *fakeInterface) Children() []string {
+	return v.children
+}
+
+func (v *fakeInterface) Type() string {
+	return v.type_
+}
+
+func (v *fakeInterface) EffectiveMTU() int {
+	return 1500
+}
+
+func (v *fakeInterface) Enabled() bool {
+	return v.enabled
+}
+
+func (v *fakeInterface) VLAN() gomaasapi.VLAN {
+	return v.vlan
+}
+
+func (v *fakeInterface) Links() []gomaasapi.Link {
+	return v.links
+}
+
+func (v *fakeInterface) MACAddress() string {
+	return v.macAddress
+}
+
+func (v *fakeInterface) LinkSubnet(args gomaasapi.LinkSubnetArgs) error {
+	v.MethodCall(v, "LinkSubnet", args)
+	return v.NextErr()
+}
+
+func (v *fakeInterface) Delete() error {
+	v.MethodCall(v, "Delete")
+	return v.NextErr()
+}
+
+func (v *fakeInterface) Tags() []string {
+	return nil
+}
+
+func (v *fakeInterface) UnlinkSubnet(gomaasapi.Subnet) error {
+	return errors.NotImplementedf("UnlinkSubnet")
+}
+
+func (v *fakeInterface) Update(gomaasapi.UpdateInterfaceArgs) error {
+	return errors.NotImplementedf("Update")
+}
+
+type fakeLink struct {
+	gomaasapi.Link
+	id        int
+	mode      string
+	subnet    gomaasapi.Subnet
+	ipAddress string
+}
+
+func (l *fakeLink) ID() int {
+	return l.id
+}
+
+func (l *fakeLink) Mode() string {
+	return l.mode
+}
+
+func (l *fakeLink) Subnet() gomaasapi.Subnet {
+	return l.subnet
+}
+
+func (l *fakeLink) IPAddress() string {
+	return l.ipAddress
+}
+
+type fakeFile struct {
+	gomaasapi.File
+	name     string
+	url      string
+	contents []byte
+	deleted  bool
+	error    error
+}
+
+func (f *fakeFile) Filename() string {
+	return f.name
+}
+
+func (f *fakeFile) AnonymousURL() string {
+	return f.url
+}
+
+func (f *fakeFile) Delete() error {
+	f.deleted = true
+	return f.error
+}
+
+func (f *fakeFile) ReadAll() ([]byte, error) {
+	if f.error != nil {
+		return nil, f.error
+	}
+	return f.contents, nil
+}
+
+type fakeBlockDevice struct {
+	gomaasapi.BlockDevice
+
+	name   string
+	idPath string
+	size   uint64
+}
+
+func (bd fakeBlockDevice) Name() string {
+	return bd.name
+}
+
+func (bd fakeBlockDevice) IDPath() string {
+	return bd.idPath
+}
+
+func (bd fakeBlockDevice) Size() uint64 {
+	return bd.size
+}
+
+type fakePartition struct {
+	gomaasapi.Partition
+
+	name string
+	path string
+	size uint64
+}
+
+func (part fakePartition) Name() string {
+	return part.name
+}
+
+func (part fakePartition) Path() string {
+	return part.path
+}
+
+func (part fakePartition) Size() uint64 {
+	return part.size
+}
+
+type fakeDevice struct {
+	*testing.Stub
+
+	interfaceSet []gomaasapi.Interface
+	systemID     string
+	interface_   gomaasapi.Interface
+	deleteCB     func()
+}
+
+var _ gomaasapi.Device = (*fakeDevice)(nil)
+
+func (d *fakeDevice) FQDN() string {
+	return ""
+}
+
+func (d *fakeDevice) Hostname() string {
+	return ""
+}
+
+func (d *fakeDevice) Pool() gomaasapi.Pool {
+	return nil
+}
+
+func (d *fakeDevice) IPAddresses() []string {
+	addrs := make([]string, 0, len(d.interfaceSet))
+	for _, iface := range d.interfaceSet {
+		for _, link := range iface.Links() {
+			addrs = append(addrs, link.IPAddress())
+		}
+	}
+	return addrs
+}
+
+func (d *fakeDevice) Owner() string {
+	return ""
+}
+
+func (d *fakeDevice) Parent() string {
+	return ""
+}
+
+func (d *fakeDevice) Zone() gomaasapi.Zone {
+	return &fakeZone{}
+}
+
+func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
+	return d.interfaceSet
+}
+
+func (d *fakeDevice) SystemID() string {
+	return d.systemID
+}
+
+func (d *fakeDevice) CreateInterface(args gomaasapi.CreateInterfaceArgs) (gomaasapi.Interface, error) {
+	d.MethodCall(d, "CreateInterface", args)
+	d.interfaceSet = append(d.interfaceSet, d.interface_)
+	return d.interface_, d.NextErr()
+}
+
+func (d *fakeDevice) Delete() error {
+	d.MethodCall(d, "Delete")
+	if d.deleteCB != nil {
+		d.deleteCB()
+	}
+	return d.NextErr()
+}
+
+type fakeDomain struct{}
+
+func (*fakeDomain) Name() string {
+	return "maas"
 }

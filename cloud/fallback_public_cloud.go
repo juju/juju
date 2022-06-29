@@ -5,7 +5,7 @@ package cloud
 
 // Generated code - do not edit.
 
-const fallbackPublicCloudInfo = `# DO NOT EDIT, will be overwritten, use "juju update-clouds" to refresh.
+const fallbackPublicCloudInfo = `# DO NOT EDIT, will be overwritten, use "juju update-public-clouds" to refresh.
 clouds:
   aws:
     type: ec2
@@ -323,35 +323,6 @@ clouds:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
         identity-endpoint: https://graph.chinacloudapi.cn
-  cloudsigma:
-    type: cloudsigma
-    description: CloudSigma Cloud
-    auth-types: [ userpass ]
-    regions:
-      dub:
-        endpoint: https://dub.cloudsigma.com/api/2.0/
-      fra:
-        endpoint: https://fra.cloudsigma.com/api/2.0/
-      hnl:
-        endpoint: https://hnl.cloudsigma.com/api/2.0/
-      mel:
-        endpoint: https://mel.cloudsigma.com/api/2.0/
-      mia:
-        endpoint: https://mia.cloudsigma.com/api/2.0/
-      mnl:
-        endpoint: https://mnl.cloudsigma.com/api/2.0/
-      per:
-        endpoint: https://per.cloudsigma.com/api/2.0/
-      ruh:
-        endpoint: https://ruh.cloudsigma.com/api/2.0/
-      sjc:
-        endpoint: https://sjc.cloudsigma.com/api/2.0/
-      waw:
-        endpoint: https://waw.cloudsigma.com/api/2.0/
-      wdc:
-        endpoint: https://wdc.cloudsigma.com/api/2.0/
-      zrh:
-        endpoint: https://zrh.cloudsigma.com/api/2.0/
   oracle:
     type: oci
     description: Oracle Cloud Infrastructure

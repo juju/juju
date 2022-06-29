@@ -5,8 +5,8 @@ package romulus
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/modelcmd"

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -622,7 +622,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				operationID, err := m.EnqueueOperation("a test", 1)
 				c.Assert(err, jc.ErrorIsNil)
-				_, err = m.AddAction(unit, operationID, "snapshot", nil)
+				_, err = m.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -3349,6 +3349,9 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	charm1 := s.AddTestingCharm(c, "wordpress")
 	charm2, err := s.State.Charm(charm1.URL())
 	c.Assert(err, jc.ErrorIsNil)
+	// Refresh is required to set the charmURL, so the test will succeed.
+	err = charm2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm1, jc.DeepEquals, charm2)
 
 	wordpress1 := s.AddTestingApplication(c, "wordpress", charm1)
@@ -3503,7 +3506,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("something", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(unit, operationID, "fakeaction", nil)
+	_, err = s.Model.AddAction(unit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3584,7 +3587,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := s.Model.AddAction(u, operationID, "snapshot", nil)
+	f, err := s.Model.AddAction(u, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.Model.Action(f.Id())
@@ -4564,6 +4567,8 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	type args struct {
 		dbName    string
 		modelUUID string
+		attempt   int
+		duration  time.Duration
 		ops       []mgotxn.Op
 		err       error
 	}
@@ -4576,12 +4581,14 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	}
 
 	params := s.testOpenParams()
-	params.RunTransactionObserver = func(dbName, modelUUID string, ops []mgotxn.Op, err error) {
+	params.RunTransactionObserver = func(dbName, modelUUID string, attempt int, duration time.Duration, ops []mgotxn.Op, err error) {
 		mu.Lock()
 		defer mu.Unlock()
 		recordedCalls = append(recordedCalls, args{
 			dbName:    dbName,
 			modelUUID: modelUUID,
+			attempt:   attempt,
+			duration:  duration,
 			ops:       ops,
 			err:       err,
 		})
@@ -4607,6 +4614,7 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 		}
 		c.Check(call.dbName, gc.Equals, "juju")
 		c.Check(call.modelUUID, gc.Equals, s.modelTag.Id())
+		c.Check(call.duration, gc.Not(gc.Equals), 0)
 		c.Check(call.err, gc.IsNil)
 		c.Check(call.ops, gc.HasLen, 1)
 		c.Check(call.ops[0].Update, gc.NotNil)
@@ -4631,7 +4639,10 @@ func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.Use
 }
 
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
-	inst := &gitjujutesting.MgoInstance{EnableAuth: true}
+	inst := &gitjujutesting.MgoInstance{
+		EnableAuth:       true,
+		EnableReplicaSet: true,
+	}
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.DestroyWithLog()

@@ -4,14 +4,10 @@
 package errorutils
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -21,68 +17,146 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.azure")
 
-// ServiceError returns the *azure.ServiceError underlying the
-// supplied error, if any, and a bool indicating whether one
-// was found.
-func ServiceError(err error) (*azure.ServiceError, bool) {
-	if err == nil {
-		return nil, false
-	}
-	err = errors.Cause(err)
-	if d, ok := err.(autorest.DetailedError); ok {
-		err = errors.Cause(d.Original)
-	}
-	if se, ok := err.(*azure.ServiceError); ok {
-		return se, true
-	}
-	if r, ok := err.(*azure.RequestError); ok {
-		return r.ServiceError, true
-	}
-	// The error Azure gives us back can also be a struct
-	// not a pointer.
-	if se, ok := err.(azure.ServiceError); ok {
-		return &se, true
-	}
-	if r, ok := err.(azure.RequestError); ok {
-		return r.ServiceError, true
-	}
-	return nil, false
+type requestError struct {
+	ServiceError *serviceError `json:"error"`
 }
 
-// QuotaExceededError returns the relevant error message and true
+type serviceError struct {
+	Code    string                `json:"code"`
+	Message string                `json:"message"`
+	Details []serviceErrorDetails `json:"details"`
+}
+
+type serviceErrorDetails struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// MaybeQuotaExceededError returns the relevant error message and true
 // if the error is caused by a Quota Exceeded issue.
-func QuotaExceededError(err error) (error, bool) {
-	serviceErr, ok := ServiceError(err)
-	if !ok {
+func MaybeQuotaExceededError(err error) (error, bool) {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
 		return err, false
 	}
-	if serviceErr.Code == "QuotaExceeded" {
-		return errors.Errorf("%v", serviceErr.Message), true
+	if respErr.StatusCode != http.StatusBadRequest {
+		return respErr, false
 	}
-	for _, d := range serviceErr.Details {
-		if code, ok := d["code"].(string); ok && code == "QuotaExceeded" {
-			return errors.Errorf("%v", d["message"]), true
+	var reqErr requestError
+	if err = runtime.UnmarshalAsJSON(respErr.RawResponse, &reqErr); err != nil {
+		return respErr, false
+	}
+	if reqErr.ServiceError == nil {
+		return respErr, false
+	}
+	if reqErr.ServiceError.Code == "QuotaExceeded" {
+		return errors.New(reqErr.ServiceError.Message), true
+	}
+	for _, d := range reqErr.ServiceError.Details {
+		if d.Code == "QuotaExceeded" {
+			return errors.New(d.Message), true
 		}
 	}
-	return err, false
+	return respErr, false
+}
+
+func hasErrorCode(resp *http.Response, code string) bool {
+	if resp == nil {
+		return false
+	}
+	var reqErr requestError
+	if err := runtime.UnmarshalAsJSON(resp, &reqErr); err != nil {
+		return false
+	}
+	if reqErr.ServiceError == nil {
+		return false
+	}
+	if reqErr.ServiceError.Code == code {
+		return true
+	}
+	for _, d := range reqErr.ServiceError.Details {
+		if d.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+// IsNotFoundError returns true if the error is
+// caused by a not found error.
+func IsNotFoundError(err error) bool {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	return respErr.StatusCode == http.StatusNotFound ||
+		hasErrorCode(respErr.RawResponse, "NotFound")
 }
 
 // IsConflictError returns true if the error is
 // caused by a deployment Conflict.
 func IsConflictError(err error) bool {
-	serviceErr, ok := ServiceError(err)
-	if !ok {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
 		return false
 	}
-	if serviceErr.Code == "Conflict" {
-		return true
+	return respErr.StatusCode == http.StatusConflict ||
+		hasErrorCode(respErr.RawResponse, "Conflict")
+}
+
+// IsForbiddenError returns true if the error is
+// caused by a forbidden error.
+func IsForbiddenError(err error) bool {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return false
 	}
-	for _, d := range serviceErr.Details {
-		if code, ok := d["code"].(string); ok && code == "Conflict" {
-			return true
-		}
+	return respErr.StatusCode == http.StatusForbidden ||
+		hasErrorCode(respErr.RawResponse, "Forbidden")
+}
+
+// ErrorCode returns the top level error code
+// if the error is a ResponseError.
+func ErrorCode(err error) string {
+	var respErr *azcore.ResponseError
+	if errors.As(err, &respErr) {
+		return respErr.ErrorCode
 	}
-	return false
+	return ""
+}
+
+// StatusCode returns the top level status code
+// if the error is a ResponseError.
+func StatusCode(err error) int {
+	var respErr *azcore.ResponseError
+	if errors.As(err, &respErr) {
+		return respErr.StatusCode
+	}
+	return 0
+}
+
+// SimpleError returns an error with the "interesting"
+// content from a ResponseError.
+func SimpleError(err error) error {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return err
+	}
+	var reqErr requestError
+	if err := runtime.UnmarshalAsJSON(respErr.RawResponse, &reqErr); err != nil {
+		return respErr
+	}
+	if reqErr.ServiceError == nil {
+		return respErr
+	}
+	msg := ""
+	if len(reqErr.ServiceError.Details) > 0 {
+		msg = reqErr.ServiceError.Details[0].Message
+	}
+	if msg == "" {
+		msg = reqErr.ServiceError.Message
+	}
+	return errors.New(msg)
 }
 
 // HandleCredentialError determines if given error relates to invalid credential.
@@ -117,119 +191,5 @@ func HasDenialStatusCode(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	if d, ok := errors.Cause(err).(autorest.DetailedError); ok {
-		if d.Response != nil {
-			return common.AuthorisationFailureStatusCodes.Contains(d.Response.StatusCode)
-		}
-		statusCode, _ := d.StatusCode.(int)
-		return common.AuthorisationFailureStatusCodes.Contains(statusCode)
-	}
-	return false
-}
-
-// CheckForDetailedError attempts to unmarshal the body into a DetailedError.
-// If this succeeds then the DetailedError is returned as an error,
-// otherwise the response is passed on to the next Responder.
-func CheckForDetailedError(r autorest.Responder) autorest.Responder {
-	return autorest.ResponderFunc(func(resp *http.Response) error {
-		if resp.Body != nil {
-			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if len(b) > 0 {
-				resp.Body = ioutil.NopCloser(bytes.NewReader(b))
-				// Remove any UTF-8 BOM, if present.
-				b = bytes.TrimPrefix(b, []byte("\ufeff"))
-				var de autorest.DetailedError
-				if err := json.Unmarshal(b, &de); err == nil {
-					return de
-				}
-			}
-		}
-		return r.Respond(resp)
-	})
-}
-
-// CheckForGraphError attempts to unmarshal the body into a GraphError.
-// If this succeeds then the GraphError is returned as an error,
-// otherwise the response is passed on to the next Responder.
-func CheckForGraphError(r autorest.Responder) autorest.Responder {
-	return autorest.ResponderFunc(func(resp *http.Response) error {
-		err, _ := maybeGraphError(resp)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return r.Respond(resp)
-	})
-}
-
-func maybeGraphError(resp *http.Response) (error, bool) {
-	if resp.Body != nil {
-		defer resp.Body.Close()
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return errors.Trace(err), false
-		}
-		resp.Body = ioutil.NopCloser(bytes.NewReader(b))
-
-		// Remove any UTF-8 BOM, if present.
-		b = bytes.TrimPrefix(b, []byte("\ufeff"))
-		var ge graphrbac.GraphError
-		if err := json.Unmarshal(b, &ge); err == nil {
-			if ge.OdataError != nil && ge.Code != nil {
-				return &GraphError{ge}, true
-			}
-		}
-	}
-	return nil, false
-}
-
-// GraphError is a go error that wraps the graphrbac.GraphError response
-// type, which doesn't implement the error interface.
-type GraphError struct {
-	graphrbac.GraphError
-}
-
-// Code returns the code from the GraphError.
-func (e *GraphError) Code() string {
-	return *e.GraphError.Code
-}
-
-// Message returns the message from the GraphError.
-func (e *GraphError) Message() string {
-	if e.GraphError.OdataError == nil || e.GraphError.ErrorMessage == nil || e.GraphError.Message == nil {
-		return ""
-	}
-	return *e.GraphError.Message
-}
-
-// Error implements the error interface.
-func (e *GraphError) Error() string {
-	s := e.Code()
-	if m := e.Message(); m != "" {
-		s += ": " + m
-	}
-	return s
-}
-
-// AsGraphError returns a GraphError if one is contained within the given
-// error, otherwise it returns nil.
-func AsGraphError(err error) *GraphError {
-	err = errors.Cause(err)
-	if de, ok := err.(autorest.DetailedError); ok {
-		err = de.Original
-	}
-	if ge, _ := err.(*GraphError); ge != nil {
-		return ge
-	}
-	if de, ok := err.(*azure.RequestError); ok {
-		ge, ok := maybeGraphError(de.Response)
-		if ok {
-			return ge.(*GraphError)
-		}
-	}
-	return nil
+	return common.AuthorisationFailureStatusCodes.Contains(StatusCode(err))
 }

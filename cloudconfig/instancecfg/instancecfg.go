@@ -201,8 +201,8 @@ type InstanceConfig struct {
 type BootstrapConfig struct {
 	StateInitializationParams
 
-	// GUI is the Juju GUI archive to be installed in the new instance.
-	GUI *coretools.GUIArchive
+	// ControllerCharm is a local controller charm to be used.
+	ControllerCharm string
 
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
@@ -248,11 +248,7 @@ type BootstrapConfig struct {
 }
 
 // SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
-type SSHHostKeys struct {
-	// RSA, if non-nil, contains the RSA key to configure as the initial
-	// SSH host key.
-	RSA *SSHKeyPair
-}
+type SSHHostKeys []SSHKeyPair
 
 // SSHKeyPair is an SSH host key pair.
 type SSHKeyPair struct {
@@ -261,6 +257,9 @@ type SSHKeyPair struct {
 
 	// Public contains the public key in authorized_keys format.
 	Public string
+
+	// PublicKeyAlgorithm contains the public key algorithm as defined by golang.org/x/crypto/ssh KeyAlgo*
+	PublicKeyAlgorithm string
 }
 
 // StateInitializationParams contains parameters for initializing the
@@ -296,6 +295,9 @@ type StateInitializationParams struct {
 	// to a controller.
 	ControllerConfig controller.Config
 
+	// ControllerCharmRisk is used when deploying the controller charm.
+	ControllerCharmRisk string
+
 	// ControllerInheritedConfig is a set of config attributes to be shared by all
 	// models managed by this controller.
 	ControllerInheritedConfig map[string]interface{}
@@ -305,10 +307,10 @@ type StateInitializationParams struct {
 	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
-	// HostedModelConfig is a set of config attributes to be overlaid
+	// InitialModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
 	// initial hosted model config.
-	HostedModelConfig map[string]interface{}
+	InitialModelConfig map[string]interface{}
 
 	// BootstrapMachineInstanceId is the instance ID of the bootstrap
 	// machine instance being initialized.
@@ -345,7 +347,7 @@ type stateInitializationParamsInternal struct {
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
-	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
+	InitialModelConfig                      map[string]interface{}            `yaml:"initial-model-config,omitempty"`
 	StoragePools                            map[string]storage.Attrs          `yaml:"storage-pools,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
@@ -357,6 +359,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCloudRegion                   string                            `yaml:"controller-cloud-region"`
 	ControllerCloudCredentialName           string                            `yaml:"controller-cloud-credential-name,omitempty"`
 	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
+	ControllerCharmRisk                     string                            `yaml:"controller-charm-risk,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -370,23 +373,24 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		return nil, errors.Annotate(err, "marshalling cloud definition")
 	}
 	internal := stateInitializationParamsInternal{
-		p.ControllerConfig,
-		p.ControllerModelConfig.AllAttrs(),
-		p.ControllerModelEnvironVersion,
-		p.ControllerInheritedConfig,
-		p.RegionInheritedConfig,
-		p.HostedModelConfig,
-		p.StoragePools,
-		p.BootstrapMachineInstanceId,
-		p.BootstrapMachineConstraints,
-		p.BootstrapMachineHardwareCharacteristics,
-		p.BootstrapMachineDisplayName,
-		p.ModelConstraints,
-		string(customImageMetadataJSON),
-		string(controllerCloud),
-		p.ControllerCloudRegion,
-		p.ControllerCloudCredentialName,
-		p.ControllerCloudCredential,
+		ControllerConfig:                        p.ControllerConfig,
+		ControllerModelConfig:                   p.ControllerModelConfig.AllAttrs(),
+		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
+		ControllerInheritedConfig:               p.ControllerInheritedConfig,
+		RegionInheritedConfig:                   p.RegionInheritedConfig,
+		InitialModelConfig:                      p.InitialModelConfig,
+		StoragePools:                            p.StoragePools,
+		BootstrapMachineInstanceId:              p.BootstrapMachineInstanceId,
+		BootstrapMachineConstraints:             p.BootstrapMachineConstraints,
+		BootstrapMachineHardwareCharacteristics: p.BootstrapMachineHardwareCharacteristics,
+		BootstrapMachineDisplayName:             p.BootstrapMachineDisplayName,
+		ModelConstraints:                        p.ModelConstraints,
+		CustomImageMetadataJSON:                 string(customImageMetadataJSON),
+		ControllerCloud:                         string(controllerCloud),
+		ControllerCloudRegion:                   p.ControllerCloudRegion,
+		ControllerCloudCredentialName:           p.ControllerCloudCredentialName,
+		ControllerCloudCredential:               p.ControllerCloudCredential,
+		ControllerCharmRisk:                     p.ControllerCharmRisk,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -416,7 +420,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,
-		HostedModelConfig:                       internal.HostedModelConfig,
+		InitialModelConfig:                      internal.InitialModelConfig,
 		StoragePools:                            internal.StoragePools,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
@@ -428,6 +432,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCloudRegion:                   internal.ControllerCloudRegion,
 		ControllerCloudCredentialName:           internal.ControllerCloudCredentialName,
 		ControllerCloudCredential:               internal.ControllerCloudCredential,
+		ControllerCharmRisk:                     internal.ControllerCharmRisk,
 	}
 	return nil
 }
@@ -502,9 +507,9 @@ func (cfg *InstanceConfig) SnapDir() string {
 	return path.Join(cfg.DataDir, "snap")
 }
 
-// GUITools returns the directory where the Juju GUI release is stored.
-func (cfg *InstanceConfig) GUITools() string {
-	return agenttools.SharedGUIDir(cfg.DataDir)
+// CharmDir returns the directory where system charms should be uploaded to.
+func (cfg *InstanceConfig) CharmDir() string {
+	return path.Join(cfg.DataDir, "charms")
 }
 
 func (cfg *InstanceConfig) APIHostAddrs() []string {
@@ -620,10 +625,22 @@ func (cfg *InstanceConfig) SetSnapSource(snapPath string, snapAssertionsPath str
 	return nil
 }
 
-type requiresError string
+// SetControllerCharm annotates the instance configuration
+// with the location of a local controller charm to upload during
+// the instance's provisioning.
+func (cfg *InstanceConfig) SetControllerCharm(controllerCharmPath string) error {
+	if controllerCharmPath == "" {
+		return nil
+	}
 
-func (e requiresError) Error() string {
-	return "invalid machine configuration: missing " + string(e)
+	_, err := os.Stat(controllerCharmPath)
+	if err != nil {
+		return errors.Annotatef(err, "unable set local controller charm (at %s)", controllerCharmPath)
+	}
+
+	cfg.Bootstrap.ControllerCharm = controllerCharmPath
+
+	return nil
 }
 
 // VerifyConfig verifies that the InstanceConfig is valid.

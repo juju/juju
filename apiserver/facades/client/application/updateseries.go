@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -36,7 +36,7 @@ type UpdateSeries interface {
 // UpdateSeriesState defines a common set of functions for retrieving state
 // objects.
 type UpdateSeriesState interface {
-	// ApplicationsFromMachine returns a list of all the applications for a
+	// Application returns a list of all the applications for a
 	// given machine. This includes all the subordinates.
 	Application(string) (Application, error)
 }

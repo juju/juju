@@ -170,7 +170,3 @@ func (*fakeHistoryAPI) Close() error {
 func (f *fakeHistoryAPI) StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error) {
 	return f.history, f.err
 }
-
-func (*fakeHistoryAPI) BestAPIVersion() int {
-	return 3
-}

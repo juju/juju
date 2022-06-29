@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -145,7 +145,11 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 		charmhubApps   []appInfo
 	)
 	for _, application := range applications {
-		curl, _ := application.CharmURL()
+		cURL, _ := application.CharmURL()
+		curl, err := charm.ParseURL(*cURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		switch {
 		case charm.Local.Matches(curl.Schema):
 			continue

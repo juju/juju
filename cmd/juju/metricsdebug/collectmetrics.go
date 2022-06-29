@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,7 +20,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/worker/metrics/sender"
+	"github.com/juju/juju/common/sender"
 )
 
 // TODO(bogdanteleaga): update this once querying for actions by name is implemented.
@@ -28,7 +29,7 @@ Trigger metrics collection
 
 This command waits for the metric collection to finish before returning.
 You may abort this command and it will continue to run asynchronously.
-Results may be checked by 'juju show-action-status'.
+Results may be checked by 'juju show-task'.
 `
 
 const (
@@ -93,11 +94,11 @@ func parseRunOutput(result actionapi.ActionResult) (string, string, error) {
 	if result.Error != nil {
 		return "", "", result.Error
 	}
-	stdout, ok := result.Output["Stdout"].(string)
+	stdout, ok := result.Output["stdout"].(string)
 	if !ok {
 		return "", "", errors.New("could not read stdout")
 	}
-	stderr, ok := result.Output["Stderr"].(string)
+	stderr, ok := result.Output["stderr"].(string)
 	if !ok {
 		return "", "", errors.New("could not read stderr")
 	}
@@ -156,9 +157,10 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	clk := clock.WallClock
 	// We want to wait for the action results indefinitely.  Discard the tick.
-	wait := time.NewTimer(0 * time.Second)
-	_ = <-wait.C
+	wait := clk.NewTimer(0 * time.Second)
+	_ = <-wait.Chan()
 	// trigger sending metrics in parallel
 	wg := &sync.WaitGroup{}
 	wg.Add(len(runResults.Actions))
@@ -169,7 +171,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 			wg.Done()
 			continue
 		}
-		actionResult, err := getActionResult(runnerClient, r.Action.ID, wait)
+		actionResult, err := getActionResult(runnerClient, r.Action.ID, clk, wait)
 		if err != nil {
 			_, _ = fmt.Fprintf(ctx.Stderr, "failed to collect metrics: %v\n", err)
 			wg.Done()
@@ -201,7 +203,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, sendResults.Actions[0].Error)
 				return
 			}
-			actionResult, err := getActionResult(runnerClient, sendResults.Actions[0].Action.ID, wait)
+			actionResult, err := getActionResult(runnerClient, sendResults.Actions[0].Action.ID, clk, wait)
 			if err != nil {
 				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return
@@ -222,6 +224,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 }
 
 // getActionResult abstracts over the action CLI function that we use here to fetch results
-var getActionResult = func(c runClient, actionId string, wait *time.Timer) (actionapi.ActionResult, error) {
-	return action.GetActionResult(c, actionId, wait, false)
+var getActionResult = func(c runClient, actionId string, clk clock.Clock, wait clock.Timer) (actionapi.ActionResult, error) {
+	tick := clk.NewTimer(2 * time.Second)
+	return action.GetActionResult(c, actionId, tick, wait)
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/rackspace"
+	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing/factory"
 )
@@ -55,14 +55,14 @@ func (s *CmdCredentialSuite) TestUpdateCredentialCommand(c *gc.C) {
 		Data: `
 clouds:
   dummy:
-    type: rackspace
+    type: openstack
     description: Dummy Test Cloud Metadata
     auth-types: [ userpass ]
 `,
 	})
 
 	store := jujuclient.NewFileClientStore()
-	store.UpdateCredential("dummy", cloud.CloudCredential{
+	_ = store.UpdateCredential("dummy", cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"cred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 				"username":    user,
@@ -78,7 +78,7 @@ clouds:
 	_, err = s.run(c, "update-credential", "dummy", "cred", "-c", "kontroll")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
-	store.UpdateCredential("dummy", cloud.CloudCredential{
+	_ = store.UpdateCredential("dummy", cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"cred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 				"username": user,
@@ -99,7 +99,7 @@ For more information, see ‘juju show-credential dummy cred’.
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	client := apicloud.NewClient(s.OpenControllerAPI(c))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	tag := names.NewCloudCredentialTag("dummy/admin@local/cred")
 	result, err := client.Credentials(tag)
@@ -122,7 +122,7 @@ func (s *CmdCredentialSuite) TestSetModelCredentialCommand(c *gc.C) {
 		Data: `
 clouds:
   dummy:
-    type: rackspace
+    type: openstack
     description: Dummy Test Cloud Metadata
     auth-types: [ userpass ]
 `,
@@ -141,7 +141,7 @@ clouds:
 	newCredentialTag := names.NewCloudCredentialTag("dummy/admin@local/newcred")
 
 	client := apicloud.NewClient(s.OpenControllerAPI(c))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Check new credential does not exist on the controller.
 	result, err := client.Credentials(newCredentialTag)
@@ -224,6 +224,6 @@ func (s *CmdCredentialSuite) run(c *gc.C, args ...string) (*cmd.Context, error) 
 	command := commands.NewJujuCommand(context, "")
 	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	err := command.Run(context)
-	loggo.RemoveWriter("warning")
+	_, _ = loggo.RemoveWriter("warning")
 	return context, err
 }

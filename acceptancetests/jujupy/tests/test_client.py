@@ -357,7 +357,7 @@ class TestModelClient(ClientTest):
                     '--constraints', 'mem=2G spaces=^endpoint-bindings-data,'
                     '^endpoint-bindings-public',
                     'foo/asdf', 'maas',
-                    '--config', config_file.name, '--default-model', 'maas',
+                    '--config', config_file.name, '--add-model', 'maas',
                     '--agent-version', '2.0'),
                 include_e=False)
 
@@ -374,7 +374,7 @@ class TestModelClient(ClientTest):
                 'bootstrap', (
                     '--constraints', 'mem=2G',
                     'foo/asdf', 'maas',
-                    '--config', config_file.name, '--default-model', 'maas',
+                    '--config', config_file.name, '--add-model', 'maas',
                     '--agent-version', '2.0'),
                 include_e=False)
 
@@ -388,7 +388,7 @@ class TestModelClient(ClientTest):
                     'bootstrap', ('--constraints', 'mem=2G',
                                   'bar/baz', 'foo',
                                   '--config', config_file.name,
-                                  '--default-model', 'foo',
+                                  '--add-model', 'foo',
                                   '--agent-version', '2.0'), include_e=False)
                 config_file.seek(0)
                 config = yaml.safe_load(config_file)
@@ -405,7 +405,7 @@ class TestModelClient(ClientTest):
                 '--upload-tools', '--constraints', 'mem=2G',
                 'foo/baz', 'foo',
                 '--config', config_file.name,
-                '--default-model', 'foo'), include_e=False)
+                '--add-model', 'foo'), include_e=False)
 
     def test_bootstrap_credential(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
@@ -418,7 +418,7 @@ class TestModelClient(ClientTest):
                 '--constraints', 'mem=2G',
                 'foo/baz', 'foo',
                 '--config', config_file.name,
-                '--default-model', 'foo', '--agent-version', '2.0',
+                '--add-model', 'foo', '--agent-version', '2.0',
                 '--credential', 'credential_name'), include_e=False)
 
     def test_bootstrap_bootstrap_series(self):
@@ -431,7 +431,7 @@ class TestModelClient(ClientTest):
             'bootstrap', (
                 '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
+                '--config', config_file.name, '--add-model', 'foo',
                 '--agent-version', '2.0',
                 '--bootstrap-series', 'angsty'), include_e=False)
 
@@ -445,21 +445,8 @@ class TestModelClient(ClientTest):
             'bootstrap', (
                 '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
+                '--config', config_file.name, '--add-model', 'foo',
                 '--agent-version', '2.0', '--auto-upgrade'), include_e=False)
-
-    def test_bootstrap_no_gui(self):
-        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = ModelClient(env, '2.0-zeta1', None)
-        with patch_juju_call(client) as mock:
-            with observable_temp_file() as config_file:
-                client.bootstrap(no_gui=True)
-        mock.assert_called_with(
-            'bootstrap', (
-                '--constraints', 'mem=2G',
-                'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
-                '--agent-version', '2.0', '--no-gui'), include_e=False)
 
     def test_bootstrap_metadata(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -471,7 +458,7 @@ class TestModelClient(ClientTest):
             'bootstrap', (
                 '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
+                '--config', config_file.name, '--add-model', 'foo',
                 '--agent-version', '2.0',
                 '--metadata-source', '/var/test-source'), include_e=False)
 
@@ -483,7 +470,7 @@ class TestModelClient(ClientTest):
             upload_tools=False, config_filename='config')
         self.assertEqual(
             ('--constraints', 'mem=2G', 'bar/baz', 'foo',
-             '--config', 'config', '--default-model', 'foo',
+             '--config', 'config', '--add-model', 'foo',
              '--agent-version', '2.0', '--to', 'zone=fnord'),
             args)
 
@@ -499,7 +486,7 @@ class TestModelClient(ClientTest):
                             '--constraints', 'mem=2G',
                             'bar/baz', 'foo',
                             '--config', config_file.name,
-                            '--default-model', 'foo',
+                            '--add-model', 'foo',
                             '--agent-version', '2.0'), include_e=False)
 
     def test_bootstrap_async_upload_tools(self):
@@ -513,7 +500,7 @@ class TestModelClient(ClientTest):
                             '--upload-tools', '--constraints', 'mem=2G',
                             'bar/baz', 'foo',
                             '--config', config_file.name,
-                            '--default-model', 'foo',
+                            '--add-model', 'foo',
                             ),
                         include_e=False)
 
@@ -526,7 +513,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(args, (
             '--upload-tools', '--constraints', 'mem=2G',
             'bar/baz', 'foo',
-            '--config', 'config', '--default-model', 'foo',
+            '--config', 'config', '--add-model', 'foo',
             '--bootstrap-series', 'angsty'))
 
     def test_get_bootstrap_args_agent_version(self):
@@ -537,7 +524,7 @@ class TestModelClient(ClientTest):
                                          agent_version='2.0-lambda1')
         self.assertEqual(('--constraints', 'mem=2G',
                           'bar/baz', 'foo',
-                          '--config', 'config', '--default-model', 'foo',
+                          '--config', 'config', '--add-model', 'foo',
                           '--agent-version', '2.0-lambda1'), args)
 
     def test_get_bootstrap_args_upload_tools_and_agent_version(self):
@@ -2650,24 +2637,6 @@ class TestModelClient(ClientTest):
             client.backup()
             self.assertNotEqual(environ, os.environ)
 
-    def test_restore_backup(self):
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        with patch_juju_call(client) as gjo_mock:
-            client.restore_backup('quxx')
-        gjo_mock.assert_called_once_with(
-            'restore-backup',
-            ('--file', 'quxx'))
-
-    def test_restore_backup_async(self):
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        with patch.object(client, 'juju_async') as gjo_mock:
-            result = client.restore_backup_async('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', (
-           '--file', 'quxx'))
-        self.assertIs(gjo_mock.return_value, result)
-
     def test_enable_ha(self):
         env = JujuData('qux')
         client = ModelClient(env, None, '/foobar/baz')
@@ -2811,7 +2780,7 @@ class TestModelClient(ClientTest):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "666")
         mock.assert_called_once_with(
-            'run-action', 'foo/0', 'myaction', "param=5"
+            'run', 'foo/0', 'myaction', "param=5"
         )
 
     def test_action_do_error(self):
@@ -2820,7 +2789,7 @@ class TestModelClient(ClientTest):
         with patch.object(ModelClient, 'get_juju_output') as mock:
             mock.return_value = "some bad text"
             with self.assertRaisesRegexp(Exception,
-                                         "Action id not found in output"):
+                                         "Task id not found in output"):
                 client.action_do("foo/0", "myaction", "param=5")
 
     def test_action_fetch(self):
@@ -2832,7 +2801,7 @@ class TestModelClient(ClientTest):
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
         mock.assert_called_once_with(
-            'show-action-output', '123', "--wait", "1m"
+            'show-task', '123', "--wait", "1m"
         )
 
     def test_action_fetch_timeout(self):
@@ -2861,47 +2830,47 @@ class TestModelClient(ClientTest):
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
 
-    def test_run(self):
+    def test_exec(self):
         client = fake_juju_client(cls=ModelClient)
         run_list = [
-            {"MachineId": "1",
-             "Stdout": "Linux\n",
-             "ReturnCode": 255,
-             "Stderr": "Permission denied (publickey,password)"}]
+            {"machine": "1",
+             "stdout": "Linux\n",
+             "return-code": 255,
+             "stderr": "Permission denied (publickey,password)"}]
         run_output = json.dumps(run_list)
         with patch.object(client._backend, 'get_juju_output',
                           return_value=run_output) as gjo_mock:
-            result = client.run(('wname',), applications=['foo', 'bar'])
+            result = client.exec_cmds(('wname',), applications=['foo', 'bar'])
         self.assertEqual(run_list, result)
         gjo_mock.assert_called_once_with(
-            'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
+            'exec', ('--format', 'json', '--application', 'foo,bar', 'wname'),
             frozenset(['migration']), 'foo',
             'name:name', user_name=None)
 
-    def test_run_machines(self):
+    def test_exec_machines(self):
         client = fake_juju_client(cls=ModelClient)
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output',
                           return_value=output) as output_mock:
-            client.run(['true'], machines=['0', '1', '2'])
+            client.exec_cmds(['true'], machines=['0', '1', '2'])
         output_mock.assert_called_once_with(
-            'run', '--format', 'json', '--machine', '0,1,2', 'true')
+            'exec', '--format', 'json', '--machine', '0,1,2', 'true')
 
-    def test_run_use_json_false(self):
+    def test_exec_use_json_false(self):
         client = fake_juju_client(cls=ModelClient)
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output', return_value=output):
-            result = client.run(['true'], use_json=False)
+            result = client.exec_cmds(['true'], use_json=False)
         self.assertEqual(output, result)
 
-    def test_run_units(self):
+    def test_exec_units(self):
         client = fake_juju_client(cls=ModelClient)
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output',
                           return_value=output) as output_mock:
-            client.run(['true'], units=['foo/0', 'foo/1', 'foo/2'])
+            client.exec_cmds(['true'], units=['foo/0', 'foo/1', 'foo/2'])
         output_mock.assert_called_once_with(
-            'run', '--format', 'json', '--unit', 'foo/0,foo/1,foo/2', 'true')
+            'exec', '--format', 'json', '--unit', 'foo/0,foo/1,foo/2', 'true')
 
     def test_list_space(self):
         client = ModelClient(JujuData(None, {'type': 'lxd'}),

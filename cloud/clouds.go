@@ -288,14 +288,16 @@ type region struct {
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
 }
 
-// CloudTypeCAAS is the kubernetes cloud type.
-const CloudTypeCAAS = "kubernetes"
+const (
+	// CloudTypeKubernetes is the kubernetes cloud type.
+	CloudTypeKubernetes = "kubernetes"
+)
 
 // DefaultCloudRegion is the name of the default region that Juju creates for clouds that do not define a region.
 const DefaultCloudRegion = "default"
 
 var caasCloudTypes = map[string]bool{
-	CloudTypeCAAS: true,
+	CloudTypeKubernetes: true,
 }
 
 // CloudIsCAAS checks if cloud is a CAAS cloud.
@@ -481,7 +483,6 @@ var defaultCloudDescription = map[string]string{
 	"google":      "Google Cloud Platform",
 	"azure":       "Microsoft Azure",
 	"azure-china": "Microsoft Azure China",
-	"cloudsigma":  "CloudSigma Cloud",
 	"lxd":         "LXD Container Hypervisor",
 	"maas":        "Metal As A Service",
 	"openstack":   "Openstack Cloud",

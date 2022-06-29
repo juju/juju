@@ -12,6 +12,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
+
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
@@ -30,10 +32,6 @@ func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
 
-func cmdString(cmd string) string {
-	return cmd + jujuc.CmdSuffix
-}
-
 type ContextSuite struct {
 	jujuctesting.ContextSuite
 	testing.BaseSuite
@@ -42,6 +40,7 @@ type ContextSuite struct {
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.Secrets)
 	s.ContextSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 }

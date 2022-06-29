@@ -78,27 +78,7 @@ func getAllUnitNames(st State, units, applications []string) (result []names.Tag
 
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
-func (a *ActionAPI) Run(run params.RunParams) (params.EnqueuedActionsV2, error) {
-	actionParams, err := a.run(run)
-	if err != nil {
-		return params.EnqueuedActionsV2{}, errors.Trace(err)
-	}
-	return a.EnqueueOperation(actionParams)
-}
-
-// Run the commands specified on the machines identified through the
-// list of machines, units and services.
-func (a *APIv6) Run(run params.RunParams) (params.ActionResults, error) {
-	actionParams, err := a.run(run)
-	if err != nil {
-		return params.ActionResults{}, errors.Trace(err)
-	}
-	return a.Enqueue(actionParams)
-}
-
-// Run the commands specified on the machines identified through the
-// list of machines, units and services.
-func (a *ActionAPI) run(run params.RunParams) (results params.Actions, err error) {
+func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -120,28 +100,15 @@ func (a *ActionAPI) run(run params.RunParams) (results params.Actions, err error
 		machines[i] = names.NewMachineTag(machineId)
 	}
 
-	return a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
-}
-
-// RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActionsV2, err error) {
-	actionParams, err := a.runOnAllMachines(run)
+	actionParams, err := a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext, run.Parallel, run.ExecutionGroup)
 	if err != nil {
-		return params.EnqueuedActionsV2{}, errors.Trace(err)
+		return results, errors.Trace(err)
 	}
 	return a.EnqueueOperation(actionParams)
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *APIv6) RunOnAllMachines(run params.RunParams) (params.ActionResults, error) {
-	actionParams, err := a.runOnAllMachines(run)
-	if err != nil {
-		return params.ActionResults{}, errors.Trace(err)
-	}
-	return a.Enqueue(actionParams)
-}
-
-func (a *ActionAPI) runOnAllMachines(run params.RunParams) (results params.Actions, err error) {
+func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -167,7 +134,11 @@ func (a *ActionAPI) runOnAllMachines(run params.RunParams) (results params.Actio
 		machineTags[i] = machine.Tag()
 	}
 
-	return a.createRunActionsParams(machineTags, run.Commands, run.Timeout, false)
+	actionParams, err := a.createRunActionsParams(machineTags, run.Commands, run.Timeout, false, run.Parallel, run.ExecutionGroup)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	return a.EnqueueOperation(actionParams)
 }
 
 func (a *ActionAPI) createRunActionsParams(
@@ -175,6 +146,8 @@ func (a *ActionAPI) createRunActionsParams(
 	quotedCommands string,
 	timeout time.Duration,
 	workloadContext bool,
+	parallel *bool,
+	executionGroup *string,
 ) (params.Actions, error) {
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
@@ -189,9 +162,11 @@ func (a *ActionAPI) createRunActionsParams(
 
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
-			Receiver:   tag.String(),
-			Name:       actions.JujuRunActionName,
-			Parameters: actionParams,
+			Receiver:       tag.String(),
+			Name:           actions.JujuExecActionName,
+			Parameters:     actionParams,
+			Parallel:       parallel,
+			ExecutionGroup: executionGroup,
 		})
 	}
 

@@ -85,15 +85,6 @@ func (c *Client) ListPools(providers, names []string) ([]params.StoragePool, err
 // CreatePool creates pool with specified parameters.
 func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}) error {
 	// Older facade did not support bulk calls.
-	if c.BestAPIVersion() < 5 {
-		args := params.StoragePool{
-			Name:     pname,
-			Provider: provider,
-			Attrs:    attrs,
-		}
-		return c.facade.FacadeCall("CreatePool", args, nil)
-	}
-
 	var results params.ErrorResults
 	args := params.StoragePoolArgs{
 		Pools: []params.StoragePool{{
@@ -111,9 +102,6 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 
 // RemovePool removes the named pool
 func (c *Client) RemovePool(pname string) error {
-	if c.BestAPIVersion() < 5 {
-		return errors.New("removing storage pools is not supported by this version of Juju")
-	}
 	var results params.ErrorResults
 	args := params.StoragePoolDeleteArgs{
 		Pools: []params.StoragePoolDeleteArg{{
@@ -128,9 +116,6 @@ func (c *Client) RemovePool(pname string) error {
 
 // UpdatePool updates a  pool with specified parameters.
 func (c *Client) UpdatePool(pname, provider string, attrs map[string]interface{}) error {
-	if c.BestAPIVersion() < 5 {
-		return errors.New("updating storage pools is not supported by this version of Juju")
-	}
 	var results params.ErrorResults
 	args := params.StoragePoolArgs{
 		Pools: []params.StoragePool{{
@@ -247,36 +232,18 @@ func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage 
 	}
 	results := params.ErrorResults{}
 	var args interface{}
-	var method string
-	if c.BestAPIVersion() <= 3 {
-		if !destroyStorage {
-			return nil, errors.Errorf("this juju controller does not support non-destructive removal of storage")
+	aStorage := make([]params.RemoveStorageInstance, len(storageIds))
+	for i, id := range storageIds {
+		aStorage[i] = params.RemoveStorageInstance{
+			Tag:                names.NewStorageTag(id).String(),
+			DestroyAttachments: destroyAttachments,
+			DestroyStorage:     destroyStorage,
+			Force:              force,
+			MaxWait:            maxWait,
 		}
-		// In version 3, destroyAttached is ignored; removing
-		// storage always causes detachment.
-		entities := make([]params.Entity, len(storageIds))
-		for i, id := range storageIds {
-			entities[i].Tag = names.NewStorageTag(id).String()
-		}
-		args = params.Entities{entities}
-		method = "Destroy"
-	} else {
-		aStorage := make([]params.RemoveStorageInstance, len(storageIds))
-		for i, id := range storageIds {
-			aStorage[i] = params.RemoveStorageInstance{
-				Tag:                names.NewStorageTag(id).String(),
-				DestroyAttachments: destroyAttachments,
-				DestroyStorage:     destroyStorage,
-			}
-			if c.BestAPIVersion() > 5 {
-				aStorage[i].Force = force
-				aStorage[i].MaxWait = maxWait
-			}
-		}
-		args = params.RemoveStorage{aStorage}
-		method = "Remove"
 	}
-	if err := c.facade.FacadeCall(method, args, &results); err != nil {
+	args = params.RemoveStorage{aStorage}
+	if err := c.facade.FacadeCall("Remove", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {
@@ -300,20 +267,12 @@ func (c *Client) Detach(storageIds []string, force *bool, maxWait *time.Duration
 			StorageTag: names.NewStorageTag(id).String(),
 		}
 	}
-	var args interface{}
-	var method string
-	if c.BestAPIVersion() < 6 {
-		method = "Detach"
-		args = params.StorageAttachmentIds{ids}
-	} else {
-		method = "DetachStorage"
-		args = params.StorageDetachmentParams{
-			StorageIds: params.StorageAttachmentIds{ids},
-			Force:      force,
-			MaxWait:    maxWait,
-		}
+	args := params.StorageDetachmentParams{
+		StorageIds: params.StorageAttachmentIds{ids},
+		Force:      force,
+		MaxWait:    maxWait,
 	}
-	if err := c.facade.FacadeCall(method, args, &results); err != nil {
+	if err := c.facade.FacadeCall("DetachStorage", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {

@@ -34,21 +34,6 @@ type OffersAPI struct {
 	authContext *commoncrossmodel.AuthContext
 }
 
-// OffersAPIV2 implements the cross model interface V2.
-type OffersAPIV2 struct {
-	*OffersAPI
-}
-
-// OffersAPIV3 implements the cross model interface V3.
-type OffersAPIV3 struct {
-	*OffersAPIV2
-}
-
-// OffersAPIV4 implements the cross model interface V4.
-type OffersAPIV4 struct {
-	*OffersAPIV3
-}
-
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
@@ -424,15 +409,9 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 	return result, nil
 }
 
-// GetConsumeDetails returns the details necessary to pass to another model to
-// consume the specified offers represented by the urls.
-func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
-	return api.getConsumeDetails(api.Authorizer.GetAuthTag().(names.UserTag), args)
-}
-
 // GetConsumeDetails returns the details necessary to pass to another model
 // to allow the specified args user to consume the offers represented by the args URLs.
-func (api *OffersAPIV3) GetConsumeDetails(args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPI) GetConsumeDetails(args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	// Prefer args user if provided.
 	if args.UserTag != "" {
@@ -492,7 +471,7 @@ func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURL
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
-// This call currently has no client side API, only there for the GUI at this stage.
+// This call currently has no client side API, only there for the Dashboard at this stage.
 func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
@@ -549,26 +528,17 @@ func (api *OffersAPI) oneRemoteApplicationInfo(user names.UserTag, urlStr string
 	}, nil
 }
 
-// DestroyOffers removes the offers specified by the given URLs.
-func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
-	return destroyOffers(api, args.OfferURLs, false)
-}
-
 // DestroyOffers removes the offers specified by the given URLs, forcing if necessary.
-func (api *OffersAPIV2) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
-	return destroyOffers(api.OffersAPI, args.OfferURLs, args.Force)
-}
-
-func destroyOffers(api *OffersAPI, offerURLs []string, force bool) (params.ErrorResults, error) {
-	result := make([]params.ErrorResult, len(offerURLs))
+func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
+	result := make([]params.ErrorResult, len(args.OfferURLs))
 
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	models, err := api.getModelsFromOffers(user, offerURLs...)
+	models, err := api.getModelsFromOffers(user, args.OfferURLs...)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	for i, one := range offerURLs {
+	for i, one := range args.OfferURLs {
 		url, err := jujucrossmodel.ParseOfferURL(one)
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
@@ -589,7 +559,7 @@ func destroyOffers(api *OffersAPI, offerURLs []string, force bool) (params.Error
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName, force)
+		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName, args.Force)
 		result[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.ErrorResults{Results: result}, nil

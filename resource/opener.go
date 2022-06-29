@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"github.com/im7mortal/kmutex"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -78,7 +78,11 @@ func newInternalResourceOpener(
 	if unit != nil {
 		charmURL, _ = unit.CharmURL()
 	} else {
-		charmURL, _ = application.CharmURL()
+		cURL, _ := application.CharmURL()
+		charmURL, err = charm.ParseURL(*cURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	switch {
 	case charm.CharmHub.Matches(charmURL.Schema):

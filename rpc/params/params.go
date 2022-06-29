@@ -22,18 +22,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// FindTags wraps a slice of strings that are prefixes to use when
-// searching for matching tags.
-type FindTags struct {
-	Prefixes []string `json:"prefixes"`
-}
-
-// FindTagsResults wraps the mapping between the requested prefix and the
-// matching tags for each requested prefix.
-type FindTagsResults struct {
-	Matches map[string][]Entity `json:"matches"`
-}
-
 // Entity identifies a single entity.
 type Entity struct {
 	Tag string `json:"tag"`
@@ -773,20 +761,6 @@ type ContainerConfig struct {
 	*UpdateBehavior
 }
 
-// ContainerConfigV5 contains information from the model config that is
-// needed for container cloud-init for version 5 provisioner api calls.
-type ContainerConfigV5 struct {
-	ProviderType               string                 `json:"provider-type"`
-	AuthorizedKeys             string                 `json:"authorized-keys"`
-	SSLHostnameVerification    bool                   `json:"ssl-hostname-verification"`
-	Proxy                      proxy.Settings         `json:"proxy"`
-	AptProxy                   proxy.Settings         `json:"apt-proxy"`
-	AptMirror                  string                 `json:"apt-mirror"`
-	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
-	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
-	*UpdateBehavior
-}
-
 // ProvisioningScriptParams contains the parameters for the
 // ProvisioningScript client API call.
 type ProvisioningScriptParams struct {
@@ -1231,6 +1205,9 @@ type DestroyMachineResult struct {
 // DestroyMachineInfo contains information related to the removal of
 // a machine.
 type DestroyMachineInfo struct {
+	// MachineId is the ID if the machine that will be destroyed
+	MachineId string `json:"machine-id"`
+
 	// DetachedStorage is the tags of storage instances that will be
 	// detached from the machine (assigned units) as a result of
 	// destroying the machine, and will remain in the model after
@@ -1241,9 +1218,13 @@ type DestroyMachineInfo struct {
 	// destroyed as a result of destroying the machine.
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
 
-	// DestroyedStorage is the tags of units that will be destroyed
+	// DestroyedUnits are the tags of units that will be destroyed
 	// as a result of destroying the machine.
 	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
+
+	// DestroyedContainers are the results of the destroyed containers hosted
+	// on a machine, destroyed as a result of destroying the machine
+	DestroyedContainers []DestroyMachineResult `json:"destroyed-containers,omitempty"`
 }
 
 // DestroyUnitResults contains the results of a DestroyUnit API request.

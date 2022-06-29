@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
@@ -108,11 +108,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Cloud credentials aren't migrated. They must exist in the
 		// target controller already.
 		cloudCredentialsC,
-		// This is controller global, and related to the system state of the
-		// embedded GUI.
-		guimetadataC,
-		// This is controller global, not migrated.
-		guisettingsC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,
@@ -123,8 +118,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		usermodelnameC,
 		// Metrics aren't migrated.
 		metricsC,
-		// Backup and restore information is not migrated.
-		restoreInfoC,
 		// reference counts are implementation details that should be
 		// reconstructed on the other side.
 		refcountsC,
@@ -220,6 +213,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// sure the leader units' leases are claimed in the target
 		// controller when leases are managed in raft.
 		leaseHoldersC,
+
+		// secrets
+		secretMetadataC,
+		secretValuesC,
+		secretRotateC,
 	)
 
 	modelCollections := set.NewStrings()
@@ -325,9 +323,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"Life",
 		// ForceDestroyed is only true for dying/dead machines.
 		"ForceDestroyed",
-		// Ignored at this stage, could be an issue if mongo 3.0 isn't
-		// available.
-		"StopMongoUntilVersion",
 		// Ignored; they get populated on demand when the agent restarts
 		"AgentStartedAt",
 		"Hostname",
@@ -746,6 +741,8 @@ func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 		"Message",
 		"Status",
 		"Logs",
+		"Parallel",
+		"ExecutionGroup",
 	)
 	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }

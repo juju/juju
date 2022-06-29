@@ -16,6 +16,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	agentconstants "github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/testing"
 )
@@ -28,7 +29,7 @@ var _ = gc.Suite(&format_2_0Suite{})
 
 func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 	dataDir := c.MkDir()
-	configPath := filepath.Join(dataDir, AgentConfigFilename)
+	configPath := filepath.Join(dataDir, agentconstants.AgentConfigFilename)
 	err := utils.AtomicWriteFile(configPath, []byte(agentConfig2_0NotStateMachine), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
@@ -39,7 +40,7 @@ func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 
 func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *gc.C) {
 	dataDir := c.MkDir()
-	configPath := filepath.Join(dataDir, AgentConfigFilename)
+	configPath := filepath.Join(dataDir, agentconstants.AgentConfigFilename)
 	err := utils.AtomicWriteFile(configPath, []byte(agentConfig2_0Contents), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -6,7 +6,9 @@ package params
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/proxy"
 )
 
 // DestroyControllerArgs holds the arguments for destroying a controller.
@@ -130,4 +132,42 @@ const (
 type ControllerVersionResults struct {
 	Version   string `json:"version"`
 	GitCommit string `json:"git-commit"`
+}
+
+// DashboardConnectionProxy represents a proxy connection to the Juju Dashboard
+type DashboardConnectionProxy struct {
+	Config map[string]interface{} `json:"config"`
+	Type   string                 `json:"type"`
+}
+
+// DashboardConnectionSSHTunnel represents an ssh tunnel connection to the Juju
+// Dashboard
+type DashboardConnectionSSHTunnel struct {
+	Host string `json:"host"`
+	Port string `json:"port"`
+}
+
+// DashboardConnectionInfo holds the information necassery
+type DashboardConnectionInfo struct {
+	ProxyConnection *DashboardConnectionProxy     `json:"proxy-connection"`
+	SSHConnection   *DashboardConnectionSSHTunnel `json:"ssh-connection"`
+	Error           *Error                        `json:"error,omitempty"`
+}
+
+// NewDashboardConnectionProxy constructs a new DashboardConnectionProxy from
+// the supplied proxier.
+func NewDashboardConnectionProxy(proxier proxy.Proxier) (*DashboardConnectionProxy, error) {
+	if proxier == nil {
+		return nil, errors.NotValidf("cannot have nil proxier")
+	}
+
+	config, err := proxier.RawConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting raw configuration for proxier of type %s", proxier.Type())
+	}
+
+	return &DashboardConnectionProxy{
+		Config: config,
+		Type:   proxier.Type(),
+	}, nil
 }

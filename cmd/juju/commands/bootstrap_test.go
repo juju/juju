@@ -30,13 +30,13 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
@@ -44,9 +44,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/sync"
@@ -62,6 +60,7 @@ import (
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -107,11 +106,16 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// Set jujuversion.Current to a known value, for which we
 	// will make tools available. Individual tests may
 	// override this.
-	s.PatchValue(&jujuversion.Current, v100w64.Number)
-	s.PatchValue(&arch.HostArch, func() string { return v100w64.Arch })
+	s.PatchValue(&jujuversion.Current, v100u64.Number)
+	s.PatchValue(&arch.HostArch, func() string { return v100u64.Arch })
 	s.PatchValue(&series.HostSeries, func() (string, error) { return "bionic", nil })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
+
+	// Ensure KUBECONFIG doesn't interfere with tests.
+	s.PatchEnvironment(k8scmd.RecommendedConfigPathEnvVar, filepath.Join(c.MkDir(), "config"))
+
+	s.PatchEnvironment("JUJU_BOOTSTRAP_MODEL", "")
 
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
@@ -155,33 +159,13 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
 }
 
-// bootstrapCommandWrapper wraps the bootstrap command. The wrapped command has
-// the ability to disable fetching GUI information from simplestreams, so that
-// it is possible to test the bootstrap process without connecting to the
-// network. This ability can be turned on by setting disableGUI to true.
-type bootstrapCommandWrapper struct {
-	bootstrapCommand
-	disableGUI bool
-}
-
-func (c *bootstrapCommandWrapper) Run(ctx *cmd.Context) error {
-	if c.disableGUI {
-		c.bootstrapCommand.noGUI = true
-	}
-	return c.bootstrapCommand.Run(ctx)
-}
-
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
-	return s.newBootstrapCommandWrapper(true)
-}
-
-func (s *BootstrapSuite) newBootstrapCommandWrapper(disableGUI bool) cmd.Command {
-	c := &bootstrapCommandWrapper{
-		bootstrapCommand: s.bootstrapCmd,
-		disableGUI:       disableGUI,
-	}
+	c := s.bootstrapCmd
 	c.SetClientStore(s.store)
-	return modelcmd.Wrap(c)
+	return modelcmd.Wrap(&c,
+		modelcmd.WrapSkipModelFlags,
+		modelcmd.WrapSkipDefaultModel,
+	)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
@@ -195,7 +179,7 @@ func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/core/series and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("focal", "bionic", "xenial", "trusty", jujutesting.KubernetesSeriesName)
+var defaultSupportedJujuSeries = set.NewStrings("jammy", "focal", "bionic", "xenial", "trusty", jujutesting.KubernetesSeriesName)
 
 type bootstrapTest struct {
 	info string
@@ -244,7 +228,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.MinimalStore()
 	}
-	bootstrapVersion := v100w64
+	bootstrapVersion := v100u64
 	if test.version != "" {
 		bootstrapVersion = version.MustParseBinary(test.version)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
@@ -469,9 +453,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--config", "controller-name=test"},
 	err:  `controller name cannot be set via config, please use cmd args`,
 }, {
-	info: "resource-group-name needs --no-default-model",
-	args: []string{"--config", "resource-group-name=foo"},
-	err:  `if using resource-group-name "foo" then --no-default-model is required as well`,
+	info: "resource-group-name does not support add-model",
+	args: []string{"--config", "resource-group-name=foo", "--add-model", "foo"},
+	err:  `if using resource-group-name "foo" then a workload model cannot be specified as well`,
 }, {
 	info: "missing storage pool name",
 	args: []string{"--storage-pool", "type=ebs"},
@@ -566,13 +550,13 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade", "--add-model", "workload")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin/default")
+	c.Assert(modelName, gc.Equals, "admin/workload")
 	m, err := s.store.ModelByName(currentController, modelName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.ModelType, gc.Equals, model.IAAS)
@@ -581,16 +565,44 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "xenial")
 
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade", "--add-model", "workload")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "devcontroller")
+	modelName, err := s.store.CurrentModel(currentController)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelName, gc.Equals, "admin/workload")
+	m, err := s.store.ModelByName(currentController, modelName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.ModelType, gc.Equals, model.IAAS)
+}
+
+func (s *BootstrapSuite) TestBootstrapWorkloadModelFromEnv(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "xenial")
+
+	s.PatchEnvironment("JUJU_BOOTSTRAP_MODEL", "workload")
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin/default")
+	c.Assert(modelName, gc.Equals, "admin/workload")
 	m, err := s.store.ModelByName(currentController, modelName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.ModelType, gc.Equals, model.IAAS)
+}
+
+func (s *BootstrapSuite) TestBootstrapNoCurrentModel(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "xenial")
+
+	// If no workload model specified, current model is not set.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "devcontroller")
+	_, err = s.store.CurrentModel(currentController)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *BootstrapSuite) TestNoSwitch(c *gc.C) {
@@ -615,7 +627,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
 	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
 }
 
-func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithWorkloadModel(c *gc.C) {
 	s.patchVersionAndSeries(c, "xenial")
 
 	var bootstrapFuncs fakeBootstrapFuncs
@@ -627,15 +639,15 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
-		"--default-model", "mymodel",
+		"--add-model", "mymodel",
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
-	c.Assert(bootstrapFuncs.args.HostedModelConfig["name"], gc.Equals, "mymodel")
-	c.Assert(bootstrapFuncs.args.HostedModelConfig["foo"], gc.Equals, "bar")
+	c.Assert(bootstrapFuncs.args.InitialModelConfig["name"], gc.Equals, "mymodel")
+	c.Assert(bootstrapFuncs.args.InitialModelConfig["foo"], gc.Equals, "bar")
 }
 
-func (s *BootstrapSuite) TestBootstrapNoDefaultModel(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *gc.C) {
 	s.patchVersionAndSeries(c, "xenial")
 
 	var bootstrapFuncs fakeBootstrapFuncs
@@ -647,11 +659,10 @@ func (s *BootstrapSuite) TestBootstrapNoDefaultModel(c *gc.C) {
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
-		"--no-default-model",
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
-	c.Assert(bootstrapFuncs.args.HostedModelConfig, gc.HasLen, 0)
+	c.Assert(bootstrapFuncs.args.InitialModelConfig, gc.HasLen, 0)
 }
 
 func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
@@ -702,7 +713,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 		"--auto-upgrade",
 		"--config", "authorized-keys-path="+fakeSSHFile,
 	)
-	_, ok := bootstrapFuncs.args.HostedModelConfig["authorized-keys-path"]
+	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys-path"]
 	c.Assert(ok, jc.IsFalse)
 }
 
@@ -717,15 +728,16 @@ func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
+		"--add-model", "workload",
 		"--model-default", "network=foo",
 		"--model-default", "ftp-proxy=model-proxy",
 		"--config", "ftp-proxy=controller-proxy",
 	)
 
-	c.Check(bootstrapFuncs.args.HostedModelConfig["network"], gc.Equals, "foo")
+	c.Check(bootstrapFuncs.args.InitialModelConfig["network"], gc.Equals, "foo")
 	c.Check(bootstrapFuncs.args.ControllerInheritedConfig["network"], gc.Equals, "foo")
 
-	c.Check(bootstrapFuncs.args.HostedModelConfig["ftp-proxy"], gc.Equals, "controller-proxy")
+	c.Check(bootstrapFuncs.args.InitialModelConfig["ftp-proxy"], gc.Equals, "controller-proxy")
 	c.Check(bootstrapFuncs.args.ControllerInheritedConfig["ftp-proxy"], gc.Equals, "model-proxy")
 }
 
@@ -747,9 +759,9 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *
 		"--config", "authorized-keys=ssh-key",
 		"--config", "agent-version=1.19.0",
 	)
-	_, ok := bootstrapFuncs.args.HostedModelConfig["authorized-keys"]
+	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys"]
 	c.Assert(ok, jc.IsFalse)
-	_, ok = bootstrapFuncs.args.HostedModelConfig["agent-version"]
+	_, ok = bootstrapFuncs.args.InitialModelConfig["agent-version"]
 	c.Assert(ok, jc.IsFalse)
 }
 
@@ -984,49 +996,6 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidStoragePool(c *gc.C) {
 		"--storage-pool", "foo=bar",
 	)
 	c.Assert(err, gc.ErrorMatches, `invalid storage provider config: storage provider "invalid" not found`)
-}
-
-func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
-	s.patchVersionAndSeries(c, "xenial")
-	var bootstrapFuncs fakeBootstrapFuncs
-
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, gui.DefaultBaseURL)
-}
-
-func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
-	s.patchVersionAndSeries(c, "xenial")
-	s.PatchEnvironment("JUJU_GUI_SIMPLESTREAMS_URL", "https://1.2.3.4/gui/streams")
-
-	var bootstrapFuncs fakeBootstrapFuncs
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, "https://1.2.3.4/gui/streams")
-}
-
-func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
-	s.patchVersionAndSeries(c, "xenial")
-	var bootstrapFuncs fakeBootstrapFuncs
-
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller", "--no-gui")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, "")
-}
-
-type mockBootstrapInstance struct {
-	instances.Instance
-}
-
-func (*mockBootstrapInstance) Addresses() ([]network.SpaceAddress, error) {
-	return []network.SpaceAddress{{MachineAddress: network.MachineAddress{Value: "localhost"}}}, nil
 }
 
 // In the case where we cannot examine the client store, we want the
@@ -1993,7 +1962,6 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-cloudsigma                                    
 equinix                                       
 google                                        
 oracle                                        
@@ -2031,10 +1999,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
 	}
 
-	command := &bootstrapCommandWrapper{
-		bootstrapCommand: s.bootstrapCmd,
-		disableGUI:       true,
-	}
+	command := s.bootstrapCmd
 	command.SetClientStore(store)
 
 	var logWriter loggo.TestWriter
@@ -2045,7 +2010,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 		logWriter.Clear()
 	}()
 
-	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(command), "--clouds")
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(&command), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
@@ -2056,7 +2021,6 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-cloudsigma                                    
 equinix                                       
 google                                        
 oracle                                        
@@ -2142,6 +2106,51 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(gotArgs.ExtraAgentValuesForTesting, jc.DeepEquals, map[string]string{"foo": "bar", "hello": "world"})
+}
+
+func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *gc.C) {
+	for _, test := range []struct {
+		charmPath string
+		err       string
+	}{
+		{
+			charmPath: testcharms.Repo.CharmDir("juju-controller").Path,
+		}, {
+			charmPath: testcharms.Repo.CharmDir("mysql").Path,
+			err:       `--controller-charm-path ".*mysql" is not a "juju-controller" charm`,
+		}, {
+			charmPath: c.MkDir(),
+			err:       `--controller-charm-path ".*" is not a valid charm`,
+		}, {
+			charmPath: "/invalid/path",
+			err:       `problem with --controller-charm-path: .* /invalid/path: .*`,
+		},
+	} {
+		var gotArgs bootstrap.BootstrapParams
+		bootstrapFuncs := &fakeBootstrapFuncs{
+			bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+				gotArgs = args
+				return errors.New("test error")
+			},
+		}
+		s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+			return bootstrapFuncs
+		})
+		_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+			"dummy", "devcontroller", "--controller-charm-path", test.charmPath,
+		)
+		if test.err == "" {
+			c.Assert(err, gc.Equals, cmd.ErrSilent)
+			c.Assert(gotArgs.ControllerCharmPath, gc.DeepEquals, test.charmPath)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		}
+	}
+}
+
+func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmRisk(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--controller-charm-risk", "foo")
+	c.Assert(err, gc.ErrorMatches, `controller charm risk "foo" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
@@ -2295,22 +2304,19 @@ func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 
 var (
 	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v100w64 = version.MustParseBinary("1.0.0-windows-amd64")
 	v100u32 = version.MustParseBinary("1.0.0-ubuntu-i386")
 	v120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
-	v120w64 = version.MustParseBinary("1.2.0-windows-amd64")
 	v120u32 = version.MustParseBinary("1.2.0-ubuntu-i386")
 	v190u32 = version.MustParseBinary("1.9.0-ubuntu-i386")
-	v190w64 = version.MustParseBinary("1.9.0-windows-amd64")
 	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")
 	v100All = []version.Binary{
-		v100u64, v100w64, v100u32,
+		v100u64, v100u32,
 	}
 	v120All = []version.Binary{
-		v120u64, v120w64, v120u32,
+		v120u64, v120u32,
 	}
 	v190All = []version.Binary{
-		v190u32, v190w64,
+		v190u32,
 	}
 	v200All = []version.Binary{
 		v200u64,

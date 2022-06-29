@@ -6,6 +6,7 @@ package state_test
 import (
 	"time"
 
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -78,12 +79,12 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 			Time:  now,
 		}
 	}
-	charm := s.AddTestingCharm(c, "wordpress")
-	app := s.AddTestingApplication(c, "wordpress", charm)
+	ch := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	applicationCharmURL, _ := app.CharmURL()
-	err = unit.SetCharmURL(applicationCharmURL)
+	err = unit.SetCharmURL(charm.MustParseURL(*applicationCharmURL))
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
@@ -92,7 +93,7 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 				state.BatchParam{
 					UUID:     utils.MustNewUUID().String(),
 					Created:  now,
-					CharmURL: applicationCharmURL.String(),
+					CharmURL: *applicationCharmURL,
 					Metrics:  metrics,
 					Unit:     unit.UnitTag(),
 				},
@@ -112,12 +113,12 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	s.SetUpTest(c)
 	defer s.TearDownTest(c)
 	oldTime := time.Now().Add(-(state.CleanupAge))
-	charm := s.AddTestingCharm(c, "wordpress")
-	app := s.AddTestingApplication(c, "wordpress", charm)
+	ch := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	applicationCharmURL, _ := app.CharmURL()
-	err = unit.SetCharmURL(applicationCharmURL)
+	err = unit.SetCharmURL(charm.MustParseURL(*applicationCharmURL))
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
@@ -126,7 +127,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 				state.BatchParam{
 					UUID:     utils.MustNewUUID().String(),
 					Created:  oldTime,
-					CharmURL: applicationCharmURL.String(),
+					CharmURL: *applicationCharmURL,
 					Metrics:  []state.Metric{{}},
 					Unit:     unit.UnitTag(),
 				},

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
@@ -252,8 +252,8 @@ func InitializeState(
 	}
 	c.SetPassword(newPassword)
 
-	if err := ensureHostedModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredTag); err != nil {
-		return nil, errors.Annotate(err, "ensuring hosted model")
+	if err := ensureInitialModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredTag); err != nil {
+		return nil, errors.Annotate(err, "ensuring initial model")
 	}
 	return ctrl, nil
 }
@@ -299,8 +299,8 @@ func getCloudCredentials(
 	return cloudCredentials, cloudCredentialTag, nil
 }
 
-// ensureHostedModel ensures hosted model.
-func ensureHostedModel(
+// ensureInitialModel ensures the initial model.
+func ensureInitialModel(
 	cloudSpec environscloudspec.CloudSpec,
 	provider environs.EnvironProvider,
 	args InitializeStateParams,
@@ -309,41 +309,41 @@ func ensureHostedModel(
 	adminUser names.UserTag,
 	cloudCredentialTag names.CloudCredentialTag,
 ) error {
-	if len(args.HostedModelConfig) == 0 {
-		logger.Debugf("no hosted model configured")
+	if len(args.InitialModelConfig) == 0 {
+		logger.Debugf("no initial model configured")
 		return nil
 	}
 
 	// Create the initial hosted model, with the model config passed to
-	// bootstrap, which contains the UUID, name for the hosted model,
+	// bootstrap, which contains the UUID, name for the model,
 	// and any user supplied config. We also copy the authorized-keys
 	// from the controller model.
 	attrs := make(map[string]interface{})
-	for k, v := range args.HostedModelConfig {
+	for k, v := range args.InitialModelConfig {
 		attrs[k] = v
 	}
 	attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
 
 	creator := modelmanager.ModelConfigCreator{Provider: args.Provider}
-	hostedModelConfig, err := creator.NewModelConfig(
+	InitialModelConfig, err := creator.NewModelConfig(
 		cloudSpec, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
-		return errors.Annotate(err, "creating hosted model config")
+		return errors.Annotate(err, "creating initial model config")
 	}
 	controllerUUID := args.ControllerConfig.ControllerUUID()
 
-	hostedModelEnv, err := getEnviron(controllerUUID, cloudSpec, hostedModelConfig, provider)
+	initialModelEnv, err := getEnviron(controllerUUID, cloudSpec, InitialModelConfig, provider)
 	if err != nil {
-		return errors.Annotate(err, "opening hosted model environment")
+		return errors.Annotate(err, "opening initial model environment")
 	}
 
-	if err := hostedModelEnv.Create(
+	if err := initialModelEnv.Create(
 		context.CallContext(st),
 		environs.CreateParams{
 			ControllerUUID: controllerUUID,
 		}); err != nil {
-		return errors.Annotate(err, "creating hosted model environment")
+		return errors.Annotate(err, "creating initial model environment")
 	}
 
 	ctrlModel, err := st.Model()
@@ -351,10 +351,10 @@ func ensureHostedModel(
 		return errors.Trace(err)
 	}
 
-	model, hostedModelState, err := ctrl.NewModel(state.ModelArgs{
+	model, initialModelState, err := ctrl.NewModel(state.ModelArgs{
 		Type:                    ctrlModel.Type(),
 		Owner:                   adminUser,
-		Config:                  hostedModelConfig,
+		Config:                  InitialModelConfig,
 		Constraints:             args.ModelConstraints,
 		CloudName:               args.ControllerCloud.Name,
 		CloudRegion:             args.ControllerCloudRegion,
@@ -363,21 +363,21 @@ func ensureHostedModel(
 		EnvironVersion:          provider.Version(),
 	})
 	if err != nil {
-		return errors.Annotate(err, "creating hosted model")
+		return errors.Annotate(err, "creating initial model")
 	}
-	defer func() { _ = hostedModelState.Close() }()
+	defer func() { _ = initialModelState.Close() }()
 
-	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
+	if err := model.AutoConfigureContainerNetworking(initialModelEnv); err != nil {
 		return errors.Annotate(err, "autoconfiguring container networking")
 	}
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
-	ctx := context.CallContext(hostedModelState)
-	if err = space.ReloadSpaces(ctx, space.NewState(hostedModelState), hostedModelEnv); err != nil {
+	ctx := context.CallContext(initialModelState)
+	if err = space.ReloadSpaces(ctx, space.NewState(initialModelState), initialModelEnv); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
-			return errors.Annotate(err, "fetching hosted model spaces")
+			return errors.Annotate(err, "fetching initial model spaces")
 		}
 	}
 	return nil
@@ -394,7 +394,7 @@ func getEnviron(
 		Cloud:          cloudSpec,
 		Config:         modelConfig,
 	}
-	if cloudSpec.Type == cloud.CloudTypeCAAS {
+	if cloud.CloudTypeIsCAAS(cloudSpec.Type) {
 		return caas.Open(stdcontext.TODO(), provider, openParams)
 	}
 	return environs.Open(stdcontext.TODO(), provider, openParams)
@@ -499,12 +499,12 @@ func initControllerCloudService(
 		return errors.Annotate(err, "getting environ")
 	}
 
-	broker, ok := env.(caas.ServiceGetterSetter)
+	broker, ok := env.(caas.ServiceManager)
 	if !ok {
 		// this should never happen.
-		return errors.Errorf("environ %T does not implement ServiceGetterSetter interface", env)
+		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
 	}
-	svc, err := broker.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, true)
+	svc, err := broker.GetService(k8sconstants.JujuControllerStackName, caas.ModeWorkload, true)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -2535,23 +2535,23 @@ snapshot:
 			expectedPayload: map[string]interface{}{"outfile": "abcd"},
 		},
 		{
-			actionName: "juju-run",
+			actionName: "juju-exec",
 			errString:  `validation failed: \(root\) : "command" property is missing and required, given \{\}; \(root\) : "timeout" property is missing and required, given \{\}`,
 		},
 		{
-			actionName:   "juju-run",
+			actionName:   "juju-exec",
 			givenPayload: map[string]interface{}{"command": "allyourbasearebelongtous"},
 			errString:    `validation failed: \(root\) : "timeout" property is missing and required, given \{"command":"allyourbasearebelongtous"\}`,
 		},
 		{
-			actionName:   "juju-run",
+			actionName:   "juju-exec",
 			givenPayload: map[string]interface{}{"timeout": 5 * time.Second},
 			// Note: in Go 1.8 the representation of large numbers in JSON changed
 			// to use integer rather than exponential notation, hence the pattern.
 			errString: `validation failed: \(root\) : "command" property is missing and required, given \{"timeout":5.*\}`,
 		},
 		{
-			actionName:      "juju-run",
+			actionName:      "juju-exec",
 			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 		},
@@ -2565,7 +2565,7 @@ snapshot:
 		c.Logf("running test %d", i)
 		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model.AddAction(unit1, operationID, t.actionName, t.givenPayload)
+		action, err := s.Model.AddAction(unit1, operationID, t.actionName, t.givenPayload, nil, nil)
 		if t.errString != "" {
 			c.Assert(err, gc.ErrorMatches, t.errString)
 		} else {
@@ -2579,7 +2579,7 @@ snapshot:
 func (s *UnitSuite) TestAddActionWithError(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(s.unit, operationID, "benchmark", nil)
+	_, err = s.Model.AddAction(s.unit, operationID, "benchmark", nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `action "benchmark" not defined on unit "wordpress/0"`)
 	op, err := s.Model.Operation(operationID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2608,16 +2608,16 @@ action-b-b:
 	// Add 3 actions to first unit, and 2 to the second unit
 	operationID, err := s.Model.EnqueueOperation("a test", 5)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(unit1, operationID, "action-a-a", nil)
+	_, err = s.Model.AddAction(unit1, operationID, "action-a-a", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(unit1, operationID, "action-a-b", nil)
+	_, err = s.Model.AddAction(unit1, operationID, "action-a-b", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(unit1, operationID, "action-a-c", nil)
+	_, err = s.Model.AddAction(unit1, operationID, "action-a-c", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.Model.AddAction(unit2, operationID, "action-b-a", nil)
+	_, err = s.Model.AddAction(unit2, operationID, "action-b-a", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(unit2, operationID, "action-b-b", nil)
+	_, err = s.Model.AddAction(unit2, operationID, "action-b-b", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that calling Actions on unit1 returns only
@@ -3162,7 +3162,7 @@ func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
+	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action.Parameters(), jc.DeepEquals, map[string]interface{}{
 		"outfile": "abcd", "workload-context": false,

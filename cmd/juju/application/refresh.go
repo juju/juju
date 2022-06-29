@@ -7,16 +7,15 @@ import (
 	"fmt"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charmrepo/v7"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -316,18 +315,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	// If the user has specified config or storage constraints,
-	// make sure the server has facade version 2 at a minimum.
-	if c.Config.Path != "" || len(c.Storage) > 0 {
-		action := "updating config"
-		if c.Config.Path == "" {
-			action = "updating storage constraints"
-		}
-		if err := c.checkApplicationFacadeSupport(apiRoot, action, 2); err != nil {
-			return err
-		}
-	}
-
 	generation, err := c.ActiveBranch()
 	if err != nil {
 		return errors.Trace(err)
@@ -338,13 +325,8 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Select a suitable default URL schema for charm URLs that don't
-	// provide one depending on whether the current controller supports
-	// resources v2 facades which is for charmhub (i.e. it is a 2.9+ controller).
+	// Set a default URL schema for charm URLs that don't provide one.
 	var defaultCharmSchema = charm.CharmHub
-	if apiRoot.BestFacadeVersion("Resources") < 2 {
-		defaultCharmSchema = charm.CharmStore
-	}
 
 	// Ensure that the switchURL (if provided) always contains a schema. If
 	// one is missing inject the default value we selected above.
@@ -355,10 +337,6 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BindToSpaces != "" {
-		if err := c.checkApplicationFacadeSupport(apiRoot, "specifying bindings", 11); err != nil {
-			return err
-		}
-
 		if err := c.parseBindFlag(apiRoot); err != nil && errors.IsNotSupported(err) {
 			ctx.Infof("Spaces not supported by this model's cloud, ignoring bindings.")
 		} else if err != nil {
@@ -444,7 +422,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	curl := charmID.URL
 	charmsClient := c.NewCharmClient(apiRoot)
-	meta, err := utils.GetMetaResources(curl, charmsClient)
+	charmInfo, err := charmsClient.CharmInfo(curl.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -452,28 +430,20 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		URL:    curl,
 		Origin: commoncharm.CoreCharmOrigin(charmID.Origin),
 	}
-	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, meta)
+	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// Print out the updated endpoint binding plan.
 	var bindingsChangelog []string
-	if apiRoot.BestFacadeVersion("Application") >= 11 {
-		// Fetch information about the charm we want to upgrade to and
-		// print out the updated endpoint binding plan.
-		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(curl.String())
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		curBindings := applicationInfo.EndpointBindings
-		appDefaultSpace := curBindings[""]
-		newCharmEndpoints := allEndpoints(charmInfo)
-		if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
-			return errors.Trace(err)
-		}
-		c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
+	curBindings := applicationInfo.EndpointBindings
+	appDefaultSpace := curBindings[""]
+	newCharmEndpoints := allEndpoints(charmInfo)
+	if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
+		return errors.Trace(err)
 	}
+	c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
 
 	// Finally, upgrade the application.
 	var configYAML []byte
@@ -546,24 +516,6 @@ func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
 	return nil
 }
 
-type versionQuerier interface {
-	BestFacadeVersion(string) int
-	ServerVersion() (version.Number, bool)
-}
-
-func (c *refreshCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
-	if verQuerier.BestFacadeVersion("Application") >= minVersion {
-		return nil
-	}
-
-	suffix := "this server"
-	if ver, ok := verQuerier.ServerVersion(); ok {
-		suffix = fmt.Sprintf("server version %s", ver)
-	}
-
-	return errors.New(action + " at refresh time is not supported by " + suffix)
-}
-
 // upgradeResources pushes metadata up to the server for each resource defined
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the refresh call.
@@ -611,41 +563,25 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{api: &apiClient{Client: apiclient.NewClient(conn)}}
-	if conn.BestFacadeVersion("Charms") > 2 {
-		adder.charms = &charmsClient{Client: apicharms.NewClient(conn)}
+	return &charmAdderShim{
+		api:               &apiClient{Client: apiclient.NewClient(conn)},
+		charmsClient:      &charmsClient{Client: apicharms.NewClient(conn)},
+		modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(conn)},
 	}
-	return adder
 }
 
 type charmAdderShim struct {
-	charms *charmsClient
-	api    *apiClient
+	*charmsClient
+	*modelConfigClient
+	api *apiClient
 }
 
 func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
-	return c.api.AddLocalCharm(curl, ch, force)
-}
-
-func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	if c.charms != nil {
-		return c.charms.AddCharm(curl, origin, force)
+	agentVersion, err := agentVersion(c.modelConfigClient)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return origin, c.api.AddCharm(curl, csparams.Channel(origin.Risk), force)
-}
-
-func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
-	if c.charms != nil {
-		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
-	}
-	return origin, c.api.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
-}
-
-func (c *charmAdderShim) CheckCharmPlacement(appName string, curl *charm.URL) error {
-	if c.charms != nil {
-		return c.charms.CheckCharmPlacement(appName, curl)
-	}
-	return nil
+	return c.charmsClient.AddLocalCharm(curl, ch, force, agentVersion)
 }
 
 func getCharmStore(

@@ -6,84 +6,555 @@ package action
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/juju/juju/rpc/params"
+
+	"github.com/juju/charm/v9"
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"gopkg.in/yaml.v2"
 
-	coreactions "github.com/juju/juju/core/actions"
+	actionapi "github.com/juju/juju/api/client/action"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
 
-// getActionTagByPrefix uses the APIClient to get all ActionTags matching a prefix.
-func getActionTagsByPrefix(api APIClient, prefix string) ([]names.ActionTag, error) {
-	results := []names.ActionTag{}
+const (
+	// leaderSnippet is a regular expression for unit ID-like syntax that is used
+	// to indicate the current leader for an application.
+	leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+)
 
-	if api.BestAPIVersion() > 6 {
-		if _, err := strconv.Atoi(prefix); err != nil {
-			return nil, errors.NotValidf("task id %q", prefix)
+var (
+	validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
+
+	// nameRule describes the name format of an action or keyName must match to be valid.
+	nameRule = charm.GetActionNameRule()
+
+	// resultPollTime is how often to poll the backend for results.
+	resultPollTime = 2 * time.Second
+)
+
+type runCommandBase struct {
+	ActionCommandBase
+	api        APIClient
+	background bool
+	out        cmd.Output
+	utc        bool
+
+	clock       clock.Clock
+	wait        time.Duration
+	defaultWait time.Duration
+
+	logMessageHandler func(*cmd.Context, string)
+
+	hideProgress bool // whether to hide progress info by default
+}
+
+// SetFlags offers an option for YAML output.
+func (c *runCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.ActionCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
+		"yaml":  cmd.FormatYaml,
+		"json":  cmd.FormatJson,
+		"plain": printPlainOutput,
+	})
+
+	f.BoolVar(&c.background, "background", false, "Run the task in the background")
+	f.DurationVar(&c.wait, "wait", 0, "Maximum wait time for a task to complete")
+	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
+}
+
+func (c *runCommandBase) Init(_ []string) error {
+	if c.background && c.wait > 0 {
+		return errors.New("cannot specify both --wait and --background")
+	}
+	if !c.background && c.wait == 0 {
+		c.wait = c.defaultWait
+		if c.wait == 0 {
+			c.wait = 60 * time.Second
 		}
-		return []names.ActionTag{names.NewActionTag(prefix)}, nil
 	}
-	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
-	if err != nil {
-		return results, err
-	}
-
-	matches, ok := tags.Matches[prefix]
-	if !ok || len(matches) < 1 {
-		return results, nil
-	}
-
-	results, rejects := getActionTags(matches)
-	if len(rejects) > 0 {
-		logger.Errorf("FindActionTagsByPrefix for prefix %q found invalid tags %v", prefix, rejects)
-	}
-	return results, nil
+	return nil
 }
 
-// getActionTagByPrefix uses the APIClient to get an ActionTag from a prefix.
-func getActionTagByPrefix(api APIClient, prefix string) (names.ActionTag, error) {
-	tag := names.ActionTag{}
-	actiontags, err := getActionTagsByPrefix(api, prefix)
-	if err != nil {
-		return tag, err
+func (c *runCommandBase) ensureAPI() (err error) {
+	if c.api != nil {
+		return nil
 	}
-
-	if len(actiontags) < 1 {
-		return tag, errors.Errorf("actions for identifier %q not found", prefix)
-	}
-
-	if len(actiontags) > 1 {
-		return tag, errors.Errorf("identifier %q matched multiple actions %v", prefix, actiontags)
-	}
-
-	return actiontags[0], nil
+	c.api, err = c.NewActionAPIClient()
+	return errors.Trace(err)
 }
 
-// getActionTags converts a slice of params.Entity to a slice of names.ActionTag, and
-// also populates a slice of strings for the params.Entity.Tag that are not a valid
-// names.ActionTag.
-func getActionTags(entities []params.Entity) (good []names.ActionTag, bad []string) {
-	for _, entity := range entities {
-		if tag, err := entityToActionTag(entity); err != nil {
-			bad = append(bad, entity.Tag)
+func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
+	var runningTasks []enqueuedAction
+	var enqueueErrs []string
+	for _, a := range results.Actions {
+		if a.Error != nil {
+			enqueueErrs = append(enqueueErrs, a.Error.Error())
+			continue
+		}
+		runningTasks = append(runningTasks, enqueuedAction{
+			task:     a.Action.ID,
+			receiver: a.Action.Receiver,
+		})
+	}
+	operationID := results.OperationID
+	numTasks := len(runningTasks)
+	if !c.background && numTasks > 0 {
+		var plural string
+		if numTasks > 1 {
+			plural = "s"
+		}
+		c.progressf(ctx, "Running operation %s with %d task%s", operationID, numTasks, plural)
+	}
+
+	var actionID string
+	info := make(map[string]interface{}, numTasks)
+	for _, result := range runningTasks {
+		actionID = result.task
+
+		if !c.background {
+			c.progressf(ctx, "  - task %s on %s", actionID, result.receiver)
+		}
+		info[result.receiverId()] = map[string]string{
+			"id": result.task,
+		}
+	}
+	if !c.background {
+		c.progressf(ctx, "")
+	}
+	if numTasks == 0 {
+		ctx.Infof("Operation %s failed to schedule any tasks:\n%s", operationID, strings.Join(enqueueErrs, "\n"))
+		return nil
+	}
+	if len(enqueueErrs) > 0 {
+		ctx.Infof("Some actions could not be scheduled:\n%s\n", strings.Join(enqueueErrs, "\n"))
+		ctx.Infof("")
+	}
+	if c.background {
+		if numTasks == 1 {
+			ctx.Infof("Scheduled operation %s with task %s", operationID, actionID)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
+			ctx.Infof("Check task status with 'juju show-task %s'", actionID)
 		} else {
-			good = append(good, tag)
+			ctx.Infof("Scheduled operation %s with %d tasks", operationID, numTasks)
+			_ = cmd.FormatYaml(ctx.Stdout, info)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
+			ctx.Infof("Check task status with 'juju show-task <id>'")
 		}
+		return nil
 	}
-	return
+	failed, err := c.waitForTasks(ctx, runningTasks, info)
+	if err != nil {
+		return errors.Trace(err)
+	} else if len(failed) > 0 {
+		var plural string
+		if len(failed) > 1 {
+			plural = "s"
+		}
+		list := make([]string, 0, len(failed))
+		for k, v := range failed {
+			list = append(list, fmt.Sprintf(" - id %q with return code %d", k, v))
+		}
+		sort.Strings(list)
+
+		return errors.Errorf(`
+the following task%s failed:
+%s
+
+use 'juju show-task' to inspect the failure%s
+`[1:], plural, strings.Join(list, "\n"), plural)
+	}
+	return nil
 }
 
-// entityToActionTag converts the params.Entity type to a names.ActionTag
-func entityToActionTag(entity params.Entity) (names.ActionTag, error) {
-	return names.ParseActionTag(entity.Tag)
+func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedAction, info map[string]interface{}) (map[string]int, error) {
+	var wait clock.Timer
+	if c.wait < 0 {
+		// Indefinite wait. Discard the tick.
+		wait = c.clock.NewTimer(0 * time.Second)
+		<-wait.Chan()
+	} else {
+		wait = c.clock.NewTimer(c.wait)
+	}
+
+	actionDone := make(chan struct{})
+	var logsWatcher watcher.StringsWatcher
+	haveLogs := false
+	if len(runningTasks) == 1 {
+		var err error
+		logsWatcher, err = c.api.WatchActionProgress(runningTasks[0].task)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		processLogMessages(logsWatcher, actionDone, ctx, c.utc, func(ctx *cmd.Context, msg string) {
+			haveLogs = true
+			c.logMessageHandler(ctx, msg)
+		})
+	}
+
+	waitForWatcher := func() {
+		close(actionDone)
+		if logsWatcher != nil {
+			_ = logsWatcher.Wait()
+		}
+	}
+
+	failed := make(map[string]int)
+	resultReceivers := set.NewStrings()
+	for i, result := range runningTasks {
+		c.progressf(ctx, "Waiting for task %v...\n", result.task)
+		// tick every two seconds, to delay the loop timer.
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		tick := c.clock.NewTimer(resultPollTime)
+		actionResult, err := GetActionResult(c.api, result.task, tick, wait)
+		if i == 0 {
+			waitForWatcher()
+			if haveLogs {
+				// Make the logs a bit separate in the output.
+				c.progressf(ctx, "\n")
+			}
+		}
+		if err != nil {
+			if errors.IsTimeout(err) {
+				return nil, c.handleTimeout(runningTasks, resultReceivers)
+			}
+			return nil, errors.Trace(err)
+		}
+
+		resultReceivers.Add(result.receiver)
+		resultData, resultExitCode := formatActionResult(result.task, actionResult, c.utc)
+		resultData["id"] = result.task // Action ID is required in case we timed out.
+		info[result.receiverId()] = resultData
+
+		// If any of the actions have a error exit code, then inform the user
+		// that their exec failed.
+		if resultExitCode < 1 {
+			continue
+		}
+
+		failed[result.task] = resultExitCode
+	}
+
+	return failed, c.out.Write(ctx, info)
+}
+
+func (c *runCommandBase) handleTimeout(tasks []enqueuedAction, got set.Strings) error {
+	want := set.NewStrings()
+	for _, t := range tasks {
+		want.Add(t.receiver)
+	}
+	timedOut := want.Difference(got)
+	var receivers []string
+	for _, r := range timedOut.SortedValues() {
+		tag, err := names.ParseTag(r)
+		if err != nil {
+			continue
+		}
+		receivers = append(receivers, names.ReadableString(tag))
+	}
+	return errors.Errorf("timed out waiting for results from: %v", strings.Join(receivers, ", "))
+}
+
+// progressf prints progress information such as:
+//   "Running operation 1 with 2 tasks"
+//   "Waiting for task 3..."
+// This output is sent to either logs or console as per this table:
+//
+//    c.hideProgress = |  true   |  false  |
+//   ------------------|---------|---------|
+//       --quiet flag  |  logs   |  logs   |
+//       neither flag  |  logs   | console |
+//     --verbose flag  | console | console |
+//
+// By setting the hideProgress field, commands can choose whether these
+// messages are logged or sent to console by default.
+func (c *runCommandBase) progressf(ctx *cmd.Context, format string, params ...interface{}) {
+	if c.hideProgress {
+		ctx.Verbosef(format, params...)
+	} else {
+		ctx.Infof(format, params...)
+	}
+}
+
+// GetActionResult tries to repeatedly fetch a task until it is
+// in a completed state and then it returns it.
+// It waits for a maximum of "wait" before returning with the latest action status.
+func GetActionResult(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
+	return timerLoop(api, requestedId, tick, wait)
+}
+
+// timerLoop loops indefinitely to query the given API, until "wait" times
+// out, using the "tick" timer to delay the API queries.  It writes the
+// result to the given output.
+func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
+	var (
+		result actionapi.ActionResult
+		err    error
+	)
+
+	// Loop over results until we get "failed" or "completed".  Wait for
+	// timer, and reset it each time.
+	for {
+		result, err = fetchResult(api, requestedId)
+		if err != nil {
+			return result, err
+		}
+
+		// Whether or not we're waiting for a result, if a completed
+		// result arrives, we're done.
+		switch result.Status {
+		case params.ActionRunning, params.ActionPending:
+		default:
+			return result, nil
+		}
+
+		// Block until a tick happens, or the wait arrives.
+		select {
+		case <-wait.Chan():
+			switch result.Status {
+			case params.ActionRunning, params.ActionPending:
+				return result, errors.NewTimeout(err, "maximum wait time reached")
+			default:
+				return result, nil
+			}
+		case <-tick.Chan():
+			tick.Reset(resultPollTime)
+		}
+	}
+}
+
+// fetchResult queries the given API for the given Action ID, and
+// makes sure the results are acceptable, returning an error if they are not.
+func fetchResult(api APIClient, requestedId string) (actionapi.ActionResult, error) {
+	none := actionapi.ActionResult{}
+
+	actions, err := api.Actions([]string{requestedId})
+	if err != nil {
+		return none, err
+	}
+	numActionResults := len(actions)
+	if numActionResults == 0 {
+		return none, errors.NotFoundf("task %v", requestedId)
+	}
+	if numActionResults != 1 {
+		return none, errors.Errorf("too many results for task %s", requestedId)
+	}
+
+	result := actions[0]
+	if result.Error != nil {
+		return none, result.Error
+	}
+
+	return result, nil
+}
+
+type enqueuedAction struct {
+	task     string
+	receiver string
+	err      error
+}
+
+func (a *enqueuedAction) receiverId() string {
+	tag, err := names.ParseTag(a.receiver)
+	if err != nil {
+		return a.receiver
+	}
+	return tag.Id()
+}
+
+func (a *enqueuedAction) GoString() string {
+	tag, err := names.ParseTag(a.receiver)
+	if err != nil {
+		return a.receiver
+	}
+	return tag.Kind() + " " + tag.Id()
+}
+
+// filteredOutputKeys are those we don't want to display as part of the
+// results map for plain output.
+var filteredOutputKeys = set.NewStrings("return-code", "stdout", "stderr", "stdout-encoding", "stderr-encoding")
+
+func printPlainOutput(writer io.Writer, value interface{}) error {
+	info, ok := value.(map[string]interface{})
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", info, value)
+	}
+
+	// actionOutput contains the action-set data of each action result.
+	// If there's only one action result, just that data is printed.
+	var actionOutput = make(map[string]string)
+
+	// actionInfo contains the id and stdout of each action result.
+	// It will be printed if there's more than one action result.
+	var actionInfo = make(map[string]map[string]interface{})
+
+	/*
+		Parse action YAML data that looks like this:
+
+		mysql/0:
+		  id: "1"
+		  results:
+		    <action data here>
+		  status: completed
+	*/
+	var resultMetadata map[string]interface{}
+	var stdout, stderr string
+	for k := range info {
+		resultMetadata, ok = info[k].(map[string]interface{})
+		if !ok {
+			return errors.Errorf("expected value of type %T, got %T", resultMetadata, info[k])
+		}
+		resultData, ok := resultMetadata["results"].(map[string]interface{})
+		if ok {
+			resultDataCopy := make(map[string]interface{})
+			for k, v := range resultData {
+				k = strings.ToLower(k)
+				if k == "stdout" && v != "" {
+					stdout = fmt.Sprint(v)
+				}
+				if k == "stderr" && v != "" {
+					stderr = fmt.Sprint(v)
+				}
+				if !filteredOutputKeys.Contains(k) {
+					resultDataCopy[k] = v
+				}
+			}
+			if len(resultDataCopy) > 0 {
+				data, err := yaml.Marshal(resultDataCopy)
+				if err == nil {
+					actionOutput[k] = string(data)
+				} else {
+					actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
+				}
+			}
+		} else {
+			status, ok := resultMetadata["status"].(string)
+			if !ok {
+				status = "has unknown status"
+			}
+			actionOutput[k] = fmt.Sprintf("Task %v %v\n", resultMetadata["id"], status)
+		}
+		actionInfo[k] = map[string]interface{}{
+			"id":     resultMetadata["id"],
+			"output": actionOutput[k],
+		}
+	}
+	if len(actionOutput) > 1 {
+		return cmd.FormatYaml(writer, actionInfo)
+	}
+	for _, msg := range actionOutput {
+		fmt.Fprintln(writer, msg)
+	}
+	if stdout != "" {
+		fmt.Fprintln(writer, strings.Trim(stdout, "\n"))
+	}
+	if stderr != "" {
+		fmt.Fprintln(writer, strings.Trim(stderr, "\n"))
+	}
+	return nil
+}
+
+// formatActionResult removes empty values from the given ActionResult and
+// inserts the remaining ones in a map[string]interface{} for cmd.Output to
+// write in an easy-to-read format.
+func formatActionResult(id string, result actionapi.ActionResult, utc bool) (map[string]interface{}, int) {
+	response := map[string]interface{}{"id": id, "status": result.Status}
+	if result.Error != nil {
+		response["error"] = result.Error.Error()
+	}
+	if result.Action != nil {
+		rt, err := names.ParseTag(result.Action.Receiver)
+		if err == nil {
+			response[rt.Kind()] = rt.Id()
+		}
+	}
+	if result.Message != "" {
+		response["message"] = result.Message
+	}
+	output, exitCode := convertActionOutput(result.Output)
+	if len(result.Output) != 0 {
+		response["results"] = output
+	}
+	if len(result.Log) > 0 {
+		var logs []string
+		for _, msg := range result.Log {
+			logs = append(logs, formatLogMessage(actions.ActionMessage{
+				Timestamp: msg.Timestamp,
+				Message:   msg.Message,
+			}, false, utc, false))
+		}
+		response["log"] = logs
+	}
+
+	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {
+		return response, exitCode
+	}
+
+	responseTiming := make(map[string]string)
+	for k, v := range map[string]string{
+		"enqueued":  formatTimestamp(result.Enqueued, false, utc, false),
+		"started":   formatTimestamp(result.Started, false, utc, false),
+		"completed": formatTimestamp(result.Completed, false, utc, false),
+	} {
+		if v != "" {
+			responseTiming[k] = v
+		}
+	}
+	response["timing"] = responseTiming
+
+	return response, exitCode
+}
+
+// convertActionOutput returns result data with stdout, stderr etc correctly formatted.
+func convertActionOutput(output map[string]interface{}) (map[string]interface{}, int) {
+	if output == nil {
+		return nil, -1
+	}
+	values := output
+	// We always want to have a string for stdout, but only show stderr,
+	// code and error if they are there.
+	res, ok := output["stdout"].(string)
+	if ok && len(res) > 0 {
+		values["stdout"] = strings.Replace(res, "\r\n", "\n", -1)
+	} else {
+		delete(values, "stdout")
+	}
+	res, ok = output["stderr"].(string)
+	if ok && len(res) > 0 {
+		values["stderr"] = strings.Replace(res, "\r\n", "\n", -1)
+	} else {
+		delete(values, "stderr")
+	}
+	// return-code may come in as a float64 due to serialisation.
+	var v interface{}
+	if v, ok = output["return-code"]; ok && v != nil {
+		res = fmt.Sprintf("%v", v)
+	}
+	code := -1
+	if ok && len(res) > 0 {
+		var err error
+		if code, err = strconv.Atoi(res); err == nil {
+			values["return-code"] = code
+		}
+	} else {
+		delete(values, "return-code")
+	}
+	return values, code
 }
 
 // addValueToMap adds the given value to the map on which the method is run.
@@ -129,7 +600,7 @@ const (
 )
 
 func decodeLogMessage(encodedMessage string, utc bool) (string, error) {
-	var actionMessage coreactions.ActionMessage
+	var actionMessage actions.ActionMessage
 	err := json.Unmarshal([]byte(encodedMessage), &actionMessage)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -156,7 +627,7 @@ func formatTimestamp(timestamp time.Time, progressFormat, utc, plain bool) strin
 	return timestamp.Format(timestampFormat)
 }
 
-func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, utc, plain bool) string {
+func formatLogMessage(actionMessage actions.ActionMessage, progressFormat, utc, plain bool) string {
 	return fmt.Sprintf("%v %v", formatTimestamp(actionMessage.Timestamp, progressFormat, utc, plain), actionMessage.Message)
 }
 

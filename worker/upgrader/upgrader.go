@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3/arch"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/agent/upgrader"
@@ -112,8 +112,8 @@ func AllowedTargetVersion(
 	curVersion version.Number,
 	targetVersion version.Number,
 ) bool {
-	// Don't allow downgrading from higher major versions.
-	if curVersion.Major > targetVersion.Major {
+	// Don't allow downgrading from higher versions to version 1.x
+	if curVersion.Major >= 2 && targetVersion.Major == 1 {
 		return false
 	}
 	return true

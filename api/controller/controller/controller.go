@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -101,7 +102,7 @@ type HostedConfig struct {
 }
 
 // HostedModelConfigs returns all model settings for the
-// controller model.
+// models hosted on the controller.
 func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
 	result := params.HostedModelConfigsResults{}
 	err := c.facade.FacadeCall("HostedModelConfigs", nil, &result)
@@ -166,16 +167,6 @@ type DestroyControllerParams struct {
 // DestroyController puts the controller model into a "dying" state,
 // and removes all non-manager machine instances.
 func (c *Client) DestroyController(args DestroyControllerParams) error {
-	if c.BestAPIVersion() < 4 {
-		if args.DestroyStorage == nil || !*args.DestroyStorage {
-			return errors.New("this Juju controller requires DestroyStorage to be true")
-		}
-		args.DestroyStorage = nil
-	}
-	if c.BestAPIVersion() < 11 && args.Force != nil && *args.Force {
-		return errors.New("this Juju controller does not support force destroy")
-	}
-
 	return c.facade.FacadeCall("DestroyController", params.DestroyControllerArgs{
 		DestroyModels:  args.DestroyModels,
 		DestroyStorage: args.DestroyStorage,
@@ -290,9 +281,6 @@ func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 // settings that aren't passed will be left with their previous
 // values.
 func (c *Client) ConfigSet(values map[string]interface{}) error {
-	if c.BestAPIVersion() < 5 {
-		return errors.Errorf("this controller version doesn't support updating controller config")
-	}
 	return errors.Trace(
 		c.facade.FacadeCall("ConfigSet", params.ControllerConfigSet{Config: values}, nil),
 	)
@@ -401,4 +389,54 @@ func (c *Client) ControllerVersion() (ControllerVersion, error) {
 		GitCommit: result.GitCommit,
 	}
 	return out, err
+}
+
+// DashboardConnectionInfo
+type DashboardConnectionInfo struct {
+	Proxier   proxy.Proxier
+	SSHTunnel *DashboardConnectionSSHTunnel
+}
+
+type DashboardConnectionSSHTunnel struct {
+	Host string
+	Port string
+}
+
+// ProxierFactory is an interface type representing a factory that can make a
+// new juju proxier from the supplied raw config.
+type ProxierFactory interface {
+	ProxierFromConfig(string, map[string]interface{}) (proxy.Proxier, error)
+}
+
+// DashboardConnectionInfo fetches the connection information needed for
+// connecting to the Juju Dashboard.
+func (c *Client) DashboardConnectionInfo(factory ProxierFactory) (DashboardConnectionInfo, error) {
+	rval := DashboardConnectionInfo{}
+	result := params.DashboardConnectionInfo{}
+	err := c.facade.FacadeCall("DashboardConnectionInfo", nil, &result)
+	if err != nil {
+		return rval, errors.Trace(err)
+	}
+
+	if result.Error != nil {
+		return rval, result.Error
+	}
+
+	if result.SSHConnection != nil {
+		rval.SSHTunnel = &DashboardConnectionSSHTunnel{
+			Host: result.SSHConnection.Host,
+			Port: result.SSHConnection.Port,
+		}
+		return rval, nil
+	}
+
+	proxier, err := factory.ProxierFromConfig(
+		result.ProxyConnection.Type,
+		result.ProxyConnection.Config)
+	if err != nil {
+		return rval, errors.Annotate(err, "creating proxier from config")
+	}
+
+	rval.Proxier = proxier
+	return rval, nil
 }

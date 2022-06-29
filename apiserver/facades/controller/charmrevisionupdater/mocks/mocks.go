@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
-	params "github.com/juju/charmrepo/v6/csclient/params"
+	charm "github.com/juju/charm/v9"
+	params "github.com/juju/charmrepo/v7/csclient/params"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
@@ -88,10 +88,10 @@ func (mr *MockApplicationMockRecorder) CharmOrigin() *gomock.Call {
 }
 
 // CharmURL mocks base method.
-func (m *MockApplication) CharmURL() (*charm.URL, bool) {
+func (m *MockApplication) CharmURL() (*string, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
-	ret0, _ := ret[0].(*charm.URL)
+	ret0, _ := ret[0].(*string)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

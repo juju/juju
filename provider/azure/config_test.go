@@ -16,9 +16,9 @@ import (
 
 const (
 	fakeApplicationId         = "60a04dc9-1857-425f-8076-5ba81ca53d66"
+	fakeTenantId              = "11111111-1111-1111-1111-111111111111"
 	fakeSubscriptionId        = "22222222-2222-2222-2222-222222222222"
 	fakeManagedSubscriptionId = "33333333-3333-3333-3333-333333333333"
-	fakeStorageAccountKey     = "quay"
 )
 
 type configSuite struct {
@@ -38,13 +38,6 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 
 func (s *configSuite) TestValidateNew(c *gc.C) {
 	s.assertConfigValid(c, nil)
-}
-
-func (s *configSuite) TestValidateInvalidStorageAccountType(c *gc.C) {
-	s.assertConfigInvalid(
-		c, testing.Attrs{"storage-account-type": "savings"},
-		`invalid storage account type "savings", expected one of: \["Premium_LRS" "Premium_ZRS" "Standard_GRS" "Standard_GZRS" "Standard_LRS" "Standard_RAGRS" "Standard_RAGZRS" "Standard_ZRS"\]`,
-	)
 }
 
 func (s *configSuite) TestValidateInvalidLoadBalancerSkuName(c *gc.C) {
@@ -75,16 +68,6 @@ func (s *configSuite) TestValidateResourceGroupNameLength(c *gc.C) {
 		`resource group name "someextremelyoverlylongishresourcegroupname-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" is too long
 
 Please choose a name of no more than 80 characters.`)
-}
-
-func (s *configSuite) TestValidateStorageAccountTypeCantChange(c *gc.C) {
-	cfgOld := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Standard_LRS"})
-	_, err := s.provider.Validate(cfgOld, cfgOld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfgNew := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Premium_LRS"})
-	_, err = s.provider.Validate(cfgNew, cfgOld)
-	c.Assert(err, gc.ErrorMatches, `cannot change immutable "storage-account-type" config \(Standard_LRS -> Premium_LRS\)`)
 }
 
 func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *gc.C) {

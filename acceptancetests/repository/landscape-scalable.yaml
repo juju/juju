@@ -1,6 +1,6 @@
 landscape-scalable:
     series: trusty
-    services:
+    applications:
         rabbitmq-server:
             charm: cs:trusty/rabbitmq-server-7
         postgresql:

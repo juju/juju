@@ -45,7 +45,7 @@ type MachineProvisioner interface {
 	Refresh() error
 
 	// ProvisioningInfo returns the information required to provision a machine.
-	ProvisioningInfo() (*params.ProvisioningInfoV10, error)
+	ProvisioningInfo() (*params.ProvisioningInfo, error)
 
 	// SetInstanceStatus sets the status for the provider instance.
 	SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error
@@ -182,8 +182,8 @@ func (m *Machine) Refresh() error {
 }
 
 // ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
-func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
-	var results params.ProvisioningInfoResultsV10
+func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
+	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
 	err := m.st.facade.FacadeCall("ProvisioningInfo", args, &results)
 	if err != nil {

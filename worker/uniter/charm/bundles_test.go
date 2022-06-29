@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/uniter"
-	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -83,13 +83,13 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm) {
 
 type fakeBundleInfo struct {
 	charm.BundleInfo
-	curl   *corecharm.URL
+	curl   string
 	sha256 string
 }
 
-func (f fakeBundleInfo) URL() *corecharm.URL {
-	if f.curl == nil {
-		return f.BundleInfo.URL()
+func (f fakeBundleInfo) String() string {
+	if f.curl == "" {
+		return f.BundleInfo.String()
 	}
 	return f.curl
 }
@@ -104,7 +104,7 @@ func (f fakeBundleInfo) ArchiveSha256() (string, error) {
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
 	bunsDir := filepath.Join(basedir, "random", "bundles")
-	downloader := apiclient.NewCharmDownloader(s.st)
+	downloader := charms.NewCharmDownloader(s.st)
 	d := charm.NewBundlesDir(bunsDir, downloader, loggo.GetLogger(""))
 
 	checkDownloadsEmpty := func() {
@@ -121,13 +121,12 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	apiCharm, sch := s.AddCharm(c)
 
 	// Try to get the charm when the content doesn't match.
-	_, err = d.Read(&fakeBundleInfo{apiCharm, nil, "..."}, nil)
+	_, err = d.Read(&fakeBundleInfo{apiCharm, "", "..."}, nil)
 	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: `)+`expected sha256 "...", got ".*"`)
 	checkDownloadsEmpty()
 
 	// Try to get a charm whose bundle doesn't exist.
-	otherURL := corecharm.MustParseURL("cs:quantal/spam-1")
-	_, err = d.Read(&fakeBundleInfo{apiCharm, otherURL, ""}, nil)
+	_, err = d.Read(&fakeBundleInfo{apiCharm, "cs:quantal/spam-1", ""}, nil)
 	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/spam-1" from API server: `)+`.* not found`)
 	checkDownloadsEmpty()
 

@@ -12,7 +12,7 @@ import (
 	os "os"
 
 	gomock "github.com/golang/mock/gomock"
-	charmrepotesting "github.com/juju/charmrepo/v6/testing"
+	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	charms "github.com/juju/juju/apiserver/common/charms"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
@@ -242,18 +242,18 @@ func (mr *MockCharmMockRecorder) Revision() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revision", reflect.TypeOf((*MockCharm)(nil).Revision))
 }
 
-// URL mocks base method.
-func (m *MockCharm) URL() *charm.URL {
+// String mocks base method.
+func (m *MockCharm) String() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*charm.URL)
+	ret := m.ctrl.Call(m, "String")
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// URL indicates an expected call of URL.
-func (mr *MockCharmMockRecorder) URL() *gomock.Call {
+// String indicates an expected call of String.
+func (mr *MockCharmMockRecorder) String() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockCharm)(nil).URL))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockCharm)(nil).String))
 }
 
 // MockModel is a mock of Model interface.

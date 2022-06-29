@@ -4,7 +4,6 @@
 package transport
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -16,8 +15,8 @@ type RefreshRequest struct {
 	// be always present and hence the no omitempty.
 	Context []RefreshRequestContext `json:"context"`
 	Actions []RefreshRequestAction  `json:"actions"`
-	Metrics RequestMetrics          `json:"metrics,omitempty"`
 	Fields  []string                `json:"fields,omitempty"`
+	Metrics RequestMetrics          `json:"metrics,omitempty"`
 }
 
 // RequestMetrics are a map of key value pairs of metrics for the controller
@@ -97,8 +96,8 @@ type RefreshEntity struct {
 	CreatedAt time.Time          `json:"created-at"`
 
 	// The minimum set of metadata required for deploying a charm.
-	MetadataYAML json.RawMessage `json:"metadata-yaml,omitempty"`
-	ConfigYAML   json.RawMessage `json:"config-yaml,omitempty"`
+	MetadataYAML string `json:"metadata-yaml,omitempty"`
+	ConfigYAML   string `json:"config-yaml,omitempty"`
 }
 
 // RefreshResourceRevision represents a resource name revision pair for

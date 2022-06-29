@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/exec"
 	"github.com/juju/utils/v3/symlink"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
@@ -94,11 +96,11 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun           = paths.JujuRun(paths.CurrentOS())
+	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
-	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
-	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
+	jujudSymlinks     = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
+	caasJujudSymlinks = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -115,7 +117,7 @@ var (
 	iaasMachineManifolds = machine.IAASManifolds
 )
 
-// Variable to override in tests, default is true
+// ProductionMongoWriteConcern is provided to override in tests, default is true
 var ProductionMongoWriteConcern = true
 
 func init() {
@@ -329,6 +331,7 @@ func NewMachineAgent(
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
 		isCaasAgent:                 isCaasAgent,
+		cmdRunner:                   &defaultRunner{},
 	}
 	return a, nil
 }
@@ -359,6 +362,22 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 		return errors.Annotate(err, "registering pubsub collector")
 	}
 	return nil
+}
+
+// CommandRunner allows to run commands on the underlying system
+type CommandRunner interface {
+	RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
+}
+
+type defaultRunner struct{}
+
+// RunCommands executes the Commands specified in the RunParams using
+// '/bin/bash -s' on everything else, passing the commands through as
+// stdin, and collecting stdout and stderr. If a non-zero return code is
+// returned, this is collected as the code for the response and this does
+// not classify as an error.
+func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error) {
+	return exec.RunCommands(run)
 }
 
 // MachineAgent is responsible for tying together all functionality
@@ -400,6 +419,7 @@ type MachineAgent struct {
 	pubsubMetrics *centralhub.PubsubMetrics
 
 	isCaasAgent bool
+	cmdRunner   CommandRunner
 }
 
 // Wait waits for the machine agent to finish.
@@ -603,7 +623,6 @@ func (a *MachineAgent) makeEngineCreator(
 				return a.statusSetter(apiConn)
 			},
 			ControllerLeaseDuration:           time.Minute,
-			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			MachineLock:                       a.machineLock,
 			SetStatePool:                      statePoolReporter.Set,
@@ -675,8 +694,8 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 		logger.Infof("Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
-	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
-	// so the agent will simply exit without error pending reboot/shutdown.
+	// We return ErrRebootMachine so the agent will simply exit without error
+	// pending reboot/shutdown.
 	return jworker.ErrRebootMachine
 }
 
@@ -760,7 +779,19 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			// the API, report "unknown job type" here.
 		}
 	}
-	if !isController {
+	if isController {
+		// We disallow "do-release-upgrade" to run on Juju Controller machine because we do not want to break mongodb.
+		// - https://bugs.launchpad.net/juju/+bug/1881218
+		result, err := a.cmdRunner.RunCommands(exec.RunParams{
+			Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if result.Code != 0 {
+			return nil, errors.New(fmt.Sprintf("cannot patch /etc/update-manager/release-upgrades: %s", result.Stderr))
+		}
+	} else {
 		_ = runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
 			facade := apimachiner.NewState(apiConn)
@@ -1205,20 +1236,10 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	var mongodVersion mongo.Version
-	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
-	// update Mongo version.
-	if err = a.ChangeConfig(
-		func(config agent.ConfigSetter) error {
-			config.SetMongoVersion(mongodVersion)
-			return nil
-		},
-	); err != nil {
-		return errors.Annotate(err, "cannot set mongo version")
-	}
 	return nil
 }
 
@@ -1360,6 +1381,13 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 
 func (a *MachineAgent) createSymlink(target, link string) error {
 	fullLink := utils.EnsureBaseDir(a.rootDir, link)
+
+	// TODO(juju 4) - remove this legacy behaviour.
+	// Remove the obsolete "juju-run" symlink
+	if strings.Contains(fullLink, "/juju-exec") {
+		runLink := strings.Replace(fullLink, "/juju-exec", "/juju-run", 1)
+		_ = os.Remove(runLink)
+	}
 
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {

@@ -19,8 +19,19 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// ControllerModelName is the name of the admin model in each controller.
-const ControllerModelName = "controller"
+const (
+	// ControllerModelName is the name of the admin model in each controller.
+	ControllerModelName = "controller"
+
+	// ControllerCharmName is the name of the controller charm.
+	ControllerCharmName = "juju-controller"
+
+	// ControllerApplicationName is the name of the controller application.
+	ControllerApplicationName = "controller"
+
+	// ControllerCharmArchive is the name of the controller charm archive.
+	ControllerCharmArchive = "controller.charm"
+)
 
 // PrepareParams contains the parameters for preparing a controller Environ
 // for bootstrapping.

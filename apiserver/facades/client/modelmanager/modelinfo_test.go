@@ -191,37 +191,6 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV7{
-		&modelmanager.ModelManagerAPIV8{
-			s.modelmanager,
-		},
-	}
-
-	results, err := api.ModelInfo(params.Entities{
-		Entities: []params.Entity{{
-			names.NewModelTag(s.st.model.cfg.UUID()).String(),
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Result, gc.NotNil)
-	c.Check(results.Results[0].Error, gc.IsNil)
-	s.assertModelInfo(c, *results.Results[0].Result, s.expectedModelInfo(c, nil))
-	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
-		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
-		{"Model", nil},
-		{"IsController", nil},
-		{"AllMachines", nil},
-		{"ControllerNodes", nil},
-		{"HAPrimaryMachine", nil},
-		{"LatestMigration", nil},
-	})
-}
-
 func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) params.ModelInfo {
 	expectedAgentVersion, exists := s.st.model.cfg.AgentVersion()
 	c.Assert(exists, jc.IsTrue)

@@ -6,9 +6,9 @@ package resources
 import (
 	"context"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmhub"

@@ -555,7 +555,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := enableHA(c, haServer, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "unsupported with hosted models")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "unsupported with workload models")
 
 	c.Assert(enableHAResult.Maintained, gc.HasLen, 0)
 	c.Assert(enableHAResult.Added, gc.HasLen, 0)

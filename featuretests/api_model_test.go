@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/api/client/usermanager"
 	"github.com/juju/juju/core/permission"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/testing"
@@ -25,21 +26,11 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type apiEnvironmentSuite struct {
+type apiModelSuite struct {
 	testing.JujuConnSuite
-	client *apiclient.Client
 }
 
-func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.client = apiclient.NewClient(s.APIState)
-	c.Assert(s.client, gc.NotNil)
-	s.AddCleanup(func(*gc.C) {
-		s.client.ClientFacade.Close()
-	})
-}
-
-func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
+func (s *apiModelSuite) TestGrantModel(c *gc.C) {
 	username := "foo@ubuntuone"
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,8 +48,8 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
-func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
-	// First share an environment with a user.
+func (s *apiModelSuite) TestRevokeModel(c *gc.C) {
+	// First share an model with a user.
 	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "foo@ubuntuone"})
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,7 +60,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser, gc.Not(gc.DeepEquals), permission.UserAccess{})
 
-	// Then test unsharing the environment.
+	// Then test unsharing the model.
 	err = mm.RevokeModel(user.UserName, "read", model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -78,22 +69,26 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }
 
-func (s *apiEnvironmentSuite) TestModelUserInfo(c *gc.C) {
+func (s *apiModelSuite) TestModelUserInfo(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
 	mod, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	owner, err := s.State.UserAccess(mod.Owner(), mod.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained, err := s.client.ModelUserInfo()
+	um := usermanager.NewClient(s.OpenControllerAPI(c))
+	defer um.Close()
+	obtained, err := um.ModelUserInfo(mod.ModelTag().Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, []params.ModelUserInfo{
 		{
+			ModelTag:       mod.ModelTag().String(),
 			UserName:       owner.UserName,
 			DisplayName:    owner.DisplayName,
 			Access:         "admin",
 			LastConnection: lastConnPointer(c, mod, owner),
 		}, {
+			ModelTag:       mod.ModelTag().String(),
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
 			Access:         "admin",
@@ -113,8 +108,8 @@ func lastConnPointer(c *gc.C, mod *state.Model, modelUser permission.UserAccess)
 	return &lastConn
 }
 
-func (s *apiEnvironmentSuite) TestUploadToolsOtherModel(c *gc.C) {
-	// setup other environment
+func (s *apiModelSuite) TestUploadToolsOtherModel(c *gc.C) {
+	// setup other model
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 

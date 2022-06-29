@@ -15,6 +15,7 @@ import (
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
@@ -150,7 +151,7 @@ func (c *UpdateCAASCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
+func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -162,7 +163,17 @@ func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credentia
 		}
 		openParams.ControllerUUID = ctrlUUID
 	}
-	return caas.New(stdcontext.TODO(), openParams)
+
+	broker, err := caas.New(stdcontext.TODO(), openParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// This is k8-specific and not part of the Broker interface
+	if metaChecker, implemented := broker.(k8s.ClusterMetadataChecker); implemented {
+		return metaChecker, nil
+	}
+	return nil, errors.NotSupportedf("querying cluster metadata using the broker")
 }
 
 // maybeBuiltInCloud returns a built in cloud (eg microk8s) and the relevant credential

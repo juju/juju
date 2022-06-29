@@ -343,19 +343,3 @@ func (a *API) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, err
 	result.Results = results
 	return result, nil
 }
-
-// APIv1 provides the upgrade-series API facade for version 1.
-type APIv1 struct {
-	*APIv2
-}
-
-// CurrentSeries was not available on version 1 of the API.
-func (api *APIv1) CurrentSeries(_, _ struct{}) {}
-
-// APIv2 provides the upgrade-series API facade for version 2.
-type APIv2 struct {
-	*API
-}
-
-// SetInstanceStatus was not available on version 2 of the API.
-func (api *APIv2) SetInstanceStatus(_, _ struct{}) {}

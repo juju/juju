@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -291,9 +291,10 @@ func (a *mockApplication) CharmModifiedVersion() int {
 	return a.charmModifiedVersion
 }
 
-func (a *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+func (a *mockApplication) CharmURL() (curl *string, force bool) {
 	a.MethodCall(a, "CharmURL")
-	return a.charm.URL(), false
+	cURL := a.charm.URL().String()
+	return &cURL, false
 }
 
 func (a *mockApplication) ApplicationConfig() (coreconfig.ConfigAttributes, error) {

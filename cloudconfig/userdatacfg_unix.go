@@ -9,12 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
@@ -27,6 +27,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
@@ -200,13 +201,17 @@ func (w *unixConfigure) ConfigureBasic() error {
 		// except when manually provisioning.
 		icfgKeys := w.icfg.Bootstrap.InitialSSHHostKeys
 		var keys cloudinit.SSHKeys
-		if icfgKeys.RSA != nil {
-			keys.RSA = &cloudinit.SSHKey{
-				Private: icfgKeys.RSA.Private,
-				Public:  icfgKeys.RSA.Public,
-			}
+		for _, hostKey := range icfgKeys {
+			keys = append(keys, cloudinit.SSHKey{
+				Private:            hostKey.Private,
+				Public:             hostKey.Public,
+				PublicKeyAlgorithm: hostKey.PublicKeyAlgorithm,
+			})
 		}
-		w.conf.SetSSHKeys(keys)
+		err := w.conf.SetSSHKeys(keys)
+		if err != nil {
+			return errors.Annotate(err, "setting ssh keys")
+		}
 	}
 
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
@@ -274,23 +279,19 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLog))
 	}
 
-	if w.icfg.Bootstrap != nil {
+	if w.icfg.Bootstrap != nil && len(w.icfg.Bootstrap.InitialSSHHostKeys) > 0 {
 		// Before anything else, we must regenerate the SSH host keys.
-		var any bool
-		keys := w.icfg.Bootstrap.InitialSSHHostKeys
-		if keys.RSA != nil {
-			any = true
-			w.conf.AddBootCmd(cloudinit.LogProgressCmd("Regenerating SSH RSA host key"))
-			w.conf.AddBootCmd(`rm /etc/ssh/ssh_host_rsa_key*`)
-			w.conf.AddBootCmd(`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`)
-		}
-		if any {
-			// ssh_keys was specified in cloud-config, which will
-			// disable all key generation. Generate the other keys
-			// that we did not generate previously.
-			w.conf.AddBootCmd(`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`)
-			w.conf.AddBootCmd(`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`)
-		}
+		// During bootstrap we provide our own keys, but to prevent keys being
+		// sniffed from metadata by user applications that shouldn't have access,
+		// we regenerate them.
+		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Regenerating SSH host keys"))
+		w.conf.AddBootCmd(`rm /etc/ssh/ssh_host_*_key*`)
+		w.conf.AddBootCmd(`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`)
+		w.conf.AddBootCmd(`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`)
+		// We drop DSA due to it not really being supported by default anymore,
+		// we also softly fail on ed25519 as it may not be supported by the target
+		// machine.
+		w.conf.AddBootCmd(`ssh-keygen -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key || true`)
 	}
 
 	if err := w.conf.AddPackageCommands(
@@ -340,7 +341,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
-	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
+	// ubuntu:ubuntu from root:root so the juju-exec command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
 	// itself does.)
 	lockDir := path.Join(w.icfg.DataDir, "locks")
@@ -390,11 +391,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.Bootstrap != nil {
-		if err := w.configureBootstrap(); err != nil {
+		if err = w.addLocalSnapUpload(); err != nil {
 			return errors.Trace(err)
 		}
-
-		if err = w.addLocalSnapUpload(); err != nil {
+		if err = w.addLocalControllerCharmsUpload(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -458,15 +461,6 @@ func (w *unixConfigure) ConfigureCustomOverrides() error {
 }
 
 func (w *unixConfigure) configureBootstrap() error {
-	// Add the Juju GUI to the bootstrap node.
-	cleanup, err := w.setUpGUI()
-	if err != nil {
-		return errors.Annotate(err, "cannot set up Juju GUI")
-	}
-	if cleanup != nil {
-		defer cleanup()
-	}
-
 	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
@@ -525,6 +519,45 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	}
 	_, snapAssertionsName := path.Split(assertionsPath)
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapAssertionsName), snapAssertionsData, 0644)
+
+	return nil
+}
+
+func (w *unixConfigure) addLocalControllerCharmsUpload() error {
+	if w.icfg.Bootstrap == nil {
+		return nil
+	}
+
+	charmPath := w.icfg.Bootstrap.ControllerCharm
+
+	if charmPath == "" {
+		return nil
+	}
+
+	logger.Infof("preparing to upload controller charm from %v", charmPath)
+	_, err := charm.ReadCharm(charmPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var charmData []byte
+	if charm.IsCharmDir(charmPath) {
+		ch, err := charm.ReadCharmDir(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		buf := bytes.NewBuffer(nil)
+		err = ch.ArchiveTo(buf)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmData = buf.Bytes()
+	} else {
+		charmData, err = ioutil.ReadFile(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
 
 	return nil
 }
@@ -607,62 +640,6 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 	)
 
 	return nil
-}
-
-// setUpGUI fetches the Juju GUI archive and save it to the controller.
-// The returned clean up function must be called when the bootstrapping
-// process is completed.
-func (w *unixConfigure) setUpGUI() (func(), error) {
-	if w.icfg.Bootstrap.GUI == nil {
-		// No GUI archives were found on simplestreams, and no development
-		// GUI path has been passed with the JUJU_GUI environment variable.
-		return nil, nil
-	}
-	u, err := url.Parse(w.icfg.Bootstrap.GUI.URL)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
-	}
-	guiJson, err := json.Marshal(w.icfg.Bootstrap.GUI)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	guiDir := w.icfg.GUITools()
-	w.conf.AddScripts(
-		"gui="+shquote(guiDir),
-		"mkdir -p $gui",
-	)
-	if u.Scheme == "file" {
-		// Upload the GUI from a local archive file.
-		guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot read Juju GUI archive")
-		}
-		w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), guiData, 0644)
-	} else {
-		// Download the GUI from simplestreams.
-		command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
-		if w.icfg.DisableSSLHostnameVerification {
-			command += " --insecure"
-		}
-		curlProxyArgs := w.formatCurlProxyArguments()
-		command += curlProxyArgs
-		command += " " + shquote(u.String())
-		// A failure in fetching the Juju GUI archive should not prevent the
-		// model to be bootstrapped. Better no GUI than no Juju at all.
-		command += " || echo Unable to retrieve Juju GUI"
-		w.conf.AddRunCmd(command)
-	}
-	w.conf.AddScripts(
-		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
-		fmt.Sprintf(
-			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
-			w.icfg.Bootstrap.GUI.SHA256, shquote(string(guiJson))),
-	)
-	return func() {
-		// Don't remove the GUI archive until after bootstrap agent runs,
-		// so it has a chance to add it to its catalogue.
-		w.conf.AddRunCmd("rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
-	}, nil
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,

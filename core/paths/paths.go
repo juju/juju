@@ -28,7 +28,7 @@ const (
 	dataDir
 	storageDir
 	confDir
-	jujuRun
+	jujuExec
 	certDir
 	metricsSpoolDir
 	uniterStateDir
@@ -59,7 +59,7 @@ var nixVals = map[osVarType]string{
 	transientDataDir:     NixTransientDataDir,
 	storageDir:           "/var/lib/juju/storage",
 	confDir:              "/etc/juju",
-	jujuRun:              "/usr/bin/juju-run",
+	jujuExec:             "/usr/bin/juju-exec",
 	jujuDumpLogs:         "/usr/bin/juju-dumplogs",
 	jujuIntrospect:       "/usr/bin/juju-introspect",
 	certDir:              "/etc/juju/certs.d",
@@ -77,7 +77,7 @@ var winVals = map[osVarType]string{
 	transientDataDir: "C:/Juju/lib/juju-transient",
 	storageDir:       "C:/Juju/lib/juju/storage",
 	confDir:          "C:/Juju/etc",
-	jujuRun:          "C:/Juju/bin/juju-run.exe",
+	jujuExec:         "C:/Juju/bin/juju-exec.exe",
 	jujuDumpLogs:     "C:/Juju/bin/juju-dumplogs.exe",
 	jujuIntrospect:   "C:/Juju/bin/juju-introspect.exe",
 	certDir:          "C:/Juju/certs",
@@ -179,10 +179,10 @@ func ConfDir(os OS) string {
 	return osVal(os, confDir)
 }
 
-// JujuRun returns the absolute path to the juju-run binary for
+// JujuExec returns the absolute path to the juju-exec binary for
 // a particular series.
-func JujuRun(os OS) string {
-	return osVal(os, jujuRun)
+func JujuExec(os OS) string {
+	return osVal(os, jujuExec)
 }
 
 // JujuDumpLogs returns the absolute path to the juju-dumplogs binary

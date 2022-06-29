@@ -5,6 +5,7 @@ package testing
 
 import (
 	"testing"
+	"time"
 
 	jujutesting "github.com/juju/testing"
 )
@@ -17,6 +18,10 @@ import (
 // MgoSSLTestPackage.
 func MgoTestPackage(t *testing.T) {
 	jujutesting.MgoServer.EnableReplicaSet = true
+	// Tests tend to cause enough contention that the default lock request
+	// timeout of 5ms is not enough. We may need to consider increasing the
+	// value for production also.
+	jujutesting.MgoServer.MaxTransactionLockRequestTimeout = 20 * time.Millisecond
 	jujutesting.MgoTestPackage(t, nil)
 }
 
@@ -24,5 +29,9 @@ func MgoTestPackage(t *testing.T) {
 // that requires a secure (SSL) connection to a MongoDB server.
 func MgoSSLTestPackage(t *testing.T) {
 	jujutesting.MgoServer.EnableReplicaSet = true
+	// Tests tend to cause enough contention that the default lock request
+	// timeout of 5ms is not enough. We may need to consider increasing the
+	// value for production also.
+	jujutesting.MgoServer.MaxTransactionLockRequestTimeout = 20 * time.Millisecond
 	jujutesting.MgoTestPackage(t, Certs)
 }

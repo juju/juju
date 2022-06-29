@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1983,12 +1983,6 @@ func (st *State) WatchUpgradeInfo() NotifyWatcher {
 	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
 }
 
-// WatchRestoreInfoChanges returns a NotifyWatcher that will inform
-// when the restore status changes.
-func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
-	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
-}
-
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
 func (model *Model) WatchForModelConfigChanges() NotifyWatcher {
@@ -2064,13 +2058,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	charmConfigKey := applicationCharmConfigKey(u.doc.Application, cURL)
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
 }
 
@@ -2089,13 +2077,7 @@ func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	charmConfigKey := applicationCharmConfigKey(u.doc.Application, cURL)
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newSettingsHashWatcher(u.st, charmConfigKey), nil
 }
 
@@ -2159,7 +2141,7 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 		if err := query.One(&doc); err != nil {
 			return "", err
 		}
-		return doc.CharmURL.String(), nil
+		return *doc.CharmURL, nil
 	}
 	transform := func(value string) string {
 		return lxdprofile.NotRequiredStatus

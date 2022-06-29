@@ -101,7 +101,7 @@ the following types of entities:
 
 	Client
 	ClientWatcher
-		Client (a singleton) is the access point for all the GUI client
+		Client (a singleton) is the access point for all the Dashboard client
 		and other user-facing methods. This is only
 		usable by clients, not by agents.
 

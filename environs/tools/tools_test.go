@@ -247,7 +247,7 @@ var findExactToolsTests = []struct {
 	err:  envtools.ErrNoTools,
 }, {
 	info:   "only non-matches available in custom",
-	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V100w64, envtesting.V1001u64),
+	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V1001u64),
 	seek:   envtesting.V100u64,
 	err:    coretools.ErrNoMatches,
 }, {
@@ -256,7 +256,7 @@ var findExactToolsTests = []struct {
 	seek:   envtesting.V100u64,
 }, {
 	info:   "only non-matches available in public",
-	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V100w64, envtesting.V1001u64),
+	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V1001u64),
 	seek:   envtesting.V100u64,
 	err:    coretools.ErrNoMatches,
 }, {
@@ -344,7 +344,7 @@ var findToolsFallbackTests = []struct {
 	major:    1,
 	minor:    2,
 	streams:  []string{"devel", "proposed", "released"},
-	devel:    []version.Binary{envtesting.V110w64},
+	devel:    []version.Binary{},
 	proposed: []version.Binary{envtesting.V110u64, envtesting.V120u64},
 	released: []version.Binary{envtesting.V100u64},
 	expect:   []version.Binary{envtesting.V120u64},

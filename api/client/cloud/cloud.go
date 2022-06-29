@@ -203,21 +203,6 @@ func (c *Client) internalUpdateCloudsCredentials(in params.UpdateCredentialArgs,
 		}
 		return errors.Errorf("expected %d result%v got %d when updating credentials", count, plural, got)
 	}
-	if c.facade.BestAPIVersion() < 3 {
-		var out params.ErrorResults
-		if err := c.facade.FacadeCall("UpdateCredentials", in, &out); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(out.Results) != count {
-			return nil, countErr(len(out.Results))
-		}
-		converted := make([]params.UpdateCredentialResult, count)
-		for i, one := range out.Results {
-			converted[i] = params.UpdateCredentialResult{CredentialTag: in.Credentials[i].Tag, Error: one.Error}
-		}
-		return converted, nil
-	}
-
 	var out params.UpdateCredentialResults
 	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", in, &out); err != nil {
 		return nil, errors.Trace(err)
@@ -258,18 +243,6 @@ func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, cred
 func (c *Client) RevokeCredential(tag names.CloudCredentialTag, force bool) error {
 	var results params.ErrorResults
 
-	if c.facade.BestAPIVersion() < 3 {
-		args := params.Entities{
-			Entities: []params.Entity{{
-				Tag: tag.String(),
-			}},
-		}
-		if err := c.facade.FacadeCall("RevokeCredentials", args, &results); err != nil {
-			return errors.Trace(err)
-		}
-		return results.OneError()
-	}
-
 	args := params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
 			{Tag: tag.String(), Force: force},
@@ -303,9 +276,6 @@ func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCr
 // AddCredential adds a credential to the controller with a given tag.
 // This can be a credential for a cloud that is not the same cloud as the controller's host.
 func (c *Client) AddCredential(tag string, credential jujucloud.Credential) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 2 {
-		return errors.NotImplementedf("AddCredential() (need v2+, have v%d)", bestVer)
-	}
 	var results params.ErrorResults
 	cloudCredential := params.CloudCredential{
 		AuthType:   string(credential.AuthType()),
@@ -325,16 +295,6 @@ func (c *Client) AddCredential(tag string, credential jujucloud.Credential) erro
 
 // AddCloud adds a new cloud to current controller.
 func (c *Client) AddCloud(cloud jujucloud.Cloud, force bool) error {
-	bestVer := c.BestAPIVersion()
-	if bestVer < 2 {
-		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
-	}
-	if bestVer < 6 && force {
-		return errors.NotImplementedf("AddCloud() with force (need v6+, have v%d)", bestVer)
-	}
-	if (len(cloud.Config) > 0 || len(cloud.RegionConfig) > 0) && bestVer < 5 {
-		return errors.New("adding a cloud with config parameters is not supported by this version of Juju")
-	}
 	args := params.AddCloudArgs{Name: cloud.Name, Cloud: common.CloudToParams(cloud)}
 	if force {
 		args.Force = &force
@@ -348,9 +308,6 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud, force bool) error {
 
 // UpdateCloud updates an existing cloud on a current controller.
 func (c *Client) UpdateCloud(cloud jujucloud.Cloud) error {
-	if c.BestAPIVersion() < 4 {
-		return errors.New("updating controller cloud is not supported by this version of Juju")
-	}
 	args := params.UpdateCloudArgs{
 		Clouds: []params.AddCloudArgs{{
 			Name:  cloud.Name,
@@ -366,9 +323,6 @@ func (c *Client) UpdateCloud(cloud jujucloud.Cloud) error {
 
 // RemoveCloud removes a cloud from the current controller.
 func (c *Client) RemoveCloud(cloud string) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 2 {
-		return errors.NotImplementedf("RemoveCloud() (need v2+, have v%d)", bestVer)
-	}
 	args := params.Entities{Entities: []params.Entity{{Tag: names.NewCloudTag(cloud).String()}}}
 	var result params.ErrorResults
 	err := c.facade.FacadeCall("RemoveClouds", args, &result)
@@ -394,9 +348,6 @@ func (c *Client) RemoveCloud(cloud string) error {
 // CredentialContents returns contents of the credential values for the specified
 // cloud and credential name. Secrets will be included if requested.
 func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
-	if bestVer := c.BestAPIVersion(); bestVer < 2 {
-		return nil, errors.NotImplementedf("CredentialContents() (need v2+, have v%d)", bestVer)
-	}
 	oneCredential := params.CloudCredentialArg{}
 	if cloud == "" && credential == "" {
 		// this is valid and means we want all.
@@ -427,17 +378,11 @@ func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) 
 
 // GrantCloud grants a user access to a cloud.
 func (c *Client) GrantCloud(user, access string, clouds ...string) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 3 {
-		return errors.NotImplementedf("GrantCloud() (need v3+, have v%d)", bestVer)
-	}
 	return c.modifyCloudUser(params.GrantCloudAccess, user, access, clouds)
 }
 
 // RevokeCloud revokes a user's access to a cloud.
 func (c *Client) RevokeCloud(user, access string, clouds ...string) error {
-	if bestVer := c.BestAPIVersion(); bestVer < 3 {
-		return errors.NotImplementedf("RevokeCloud() (need v3+, have v%d)", bestVer)
-	}
 	return c.modifyCloudUser(params.RevokeCloudAccess, user, access, clouds)
 }
 

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -146,15 +146,8 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
 	}
 
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// TODO (manadart 2019-02-21) Factor the current generation into this call.
-	// TODO (manadart 2021-12-03) Most places where we are passing a charm URL
-	// could just use its string form.
-	s, err := charmSettingsWithDefaults(u.st, cURL, u.doc.Application, model.GenerationMaster)
+	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application, model.GenerationMaster)
 	if err != nil {
 		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
 	}
@@ -588,19 +581,20 @@ func (op *DestroyUnitOperation) Done(err error) error {
 }
 
 func (op *DestroyUnitOperation) eraseHistory() error {
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalKey()); err != nil {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalAgentKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
 		if op.FatalError(one) {
 			return one
@@ -1515,7 +1509,8 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Add a reference to the application settings for the new charm.
-		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, curl, false)
+		cURL := curl.String()
+		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, &cURL, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1530,21 +1525,18 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
 			})
 
-		cURL, err := u.CharmURL()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if cURL != nil {
+		unitCURL := u.doc.CharmURL
+		if unitCURL != nil {
 			// Drop the reference to the old charm.
 			// Since we can force this now, let's.. There is no point hanging on to the old charm.
 			op := &ForcedOperation{Force: true}
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, cURL, true, op)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, unitCURL, true, op)
 			if err != nil {
 				// No need to stop further processing if the old key could not be removed.
-				logger.Errorf("could not remove old charm references for %s: %v", cURL, err)
+				logger.Errorf("could not remove old charm references for %s: %v", unitCURL, err)
 			}
 			if len(op.Errors) != 0 {
-				logger.Errorf("could not remove old charm references for %s: %v", cURL, op.Errors)
+				logger.Errorf("could not remove old charm references for %s: %v", unitCURL, op.Errors)
 			}
 			ops = append(ops, decOps...)
 		}
@@ -1571,7 +1563,11 @@ func (u *Unit) charm() (*Charm, error) {
 		if err != nil {
 			return nil, err
 		}
-		cURL = app.doc.CharmURL
+		appCURLStr, _ := app.CharmURL()
+		cURL, err = charm.ParseURL(*appCURLStr)
+		if err != nil {
+			return nil, errors.NotValidf("application charm url")
+		}
 	}
 
 	ch, err := u.st.Charm(cURL)
@@ -1592,7 +1588,7 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 		ops = append(ops, txn.Op{
 			C:      applicationsC,
 			Id:     appName,
-			Assert: bson.D{{"charmurl", ch.URL()}},
+			Assert: bson.D{{"charmurl", ch.String()}},
 		})
 	}
 	return ops
@@ -2729,9 +2725,9 @@ type ActionSpecsByName map[string]charm.ActionSpec
 
 // PrepareActionPayload returns the payload to use in creating an action for this unit.
 // Note that the use of spec.InsertDefaults mutates payload.
-func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}) (map[string]interface{}, error) {
+func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (map[string]interface{}, bool, string, error) {
 	if len(name) == 0 {
-		return nil, errors.New("no action name given")
+		return nil, false, "", errors.New("no action name given")
 	}
 
 	// If the action is predefined inside juju, get spec from map
@@ -2739,38 +2735,47 @@ func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{})
 	if !ok {
 		specs, err := u.ActionSpecs()
 		if err != nil {
-			return nil, err
+			return nil, false, "", err
 		}
 		spec, ok = specs[name]
 		if !ok {
-			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.Name())
 		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
 	err := spec.ValidateParams(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 	payloadWithDefaults, err := spec.InsertDefaults(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 
 	// For k8s operators, we run the action on the operator pod by default.
 	if _, ok := payloadWithDefaults["workload-context"]; !ok {
 		app, err := u.Application()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		ch, _, err := app.Charm()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 			payloadWithDefaults["workload-context"] = false
 		}
 	}
-	return payloadWithDefaults, nil
+
+	runParallel := spec.Parallel
+	if parallel != nil {
+		runParallel = *parallel
+	}
+	runExecutionGroup := spec.ExecutionGroup
+	if executionGroup != nil {
+		runExecutionGroup = *executionGroup
+	}
+	return payloadWithDefaults, runParallel, runExecutionGroup, nil
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
@@ -2908,13 +2913,7 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 		}
 		return app.StorageConstraints()
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	key := applicationStorageConstraintsKey(u.doc.Application, cURL)
+	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
 	cons, err := readStorageConstraints(u.st, key)
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -2965,13 +2964,8 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	// will need to be more sophisticated, because it might need to
 	// create the settings doc.
 	if charmURL := args.unitDoc.CharmURL; charmURL != nil {
-		cURL, err := charm.ParseURL(*charmURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		appName := args.unitDoc.Application
-		charmRefOps, err := appCharmIncRefOps(st, appName, cURL, false)
+		charmRefOps, err := appCharmIncRefOps(st, appName, charmURL, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

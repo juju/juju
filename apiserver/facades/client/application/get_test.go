@@ -6,7 +6,7 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -65,83 +65,6 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = &application.APIv13{api}
-}
-
-func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{
-		&application.APIv5{
-			&application.APIv6{
-				&application.APIv7{
-					&application.APIv8{
-						&application.APIv9{
-							&application.APIv10{
-								&application.APIv11{
-									&application.APIv12{
-										s.applicationAPI,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	results, err := v4.Get(params.ApplicationGet{ApplicationName: "wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
-		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     true,
-				"description": "A descriptive title used for the blog.",
-				"type":        "string",
-				"value":       "My Title",
-			},
-		},
-		Constraints: constraints.MustParse("arch=amd64"),
-		Series:      "quantal",
-	})
-}
-
-func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := &application.APIv5{
-		&application.APIv6{
-			&application.APIv7{
-				&application.APIv8{
-					&application.APIv9{
-						&application.APIv10{
-							&application.APIv11{
-								&application.APIv12{
-									s.applicationAPI,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	results, err := v5.Get(params.ApplicationGet{ApplicationName: "wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
-		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     "My Title",
-				"description": "A descriptive title used for the blog.",
-				"source":      "default",
-				"type":        "string",
-				"value":       "My Title",
-			},
-		},
-		Constraints: constraints.MustParse("arch=amd64"),
-		Series:      "quantal",
-	})
 }
 
 func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
@@ -257,21 +180,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV8 := &application.APIv8{
-		&application.APIv9{
-			&application.APIv10{
-				&application.APIv11{
-					&application.APIv12{
-						&application.APIv13{
-							api,
-						},
-					},
-				},
-			},
-		},
-	}
 
-	results, err := apiV8.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
+	results, err := api.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "dashboard4miner",

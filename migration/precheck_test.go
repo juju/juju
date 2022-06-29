@@ -4,7 +4,7 @@
 package migration_test
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -430,10 +430,10 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 
 	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
 	err := s.runPrecheck(backend)
-	c.Assert(err.Error(), gc.Equals,
-		`model must be upgraded to at least version 2.8.9 before being migrated to a controller with version 3.0.0`)
+	c.Assert(err, gc.ErrorMatches,
+		`model must be upgraded to at least version 2.9.17 before being migrated to a controller with version 3.0.0`)
 
-	s.modelInfo.AgentVersion = version.MustParse("2.8.9")
+	s.modelInfo.AgentVersion = version.MustParse("2.9.17")
 	err = s.runPrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -933,12 +933,12 @@ func (a *fakeApp) Life() state.Life {
 	return a.life
 }
 
-func (a *fakeApp) CharmURL() (*charm.URL, bool) {
+func (a *fakeApp) CharmURL() (*string, bool) {
 	url := a.charmURL
 	if url == "" {
 		url = "cs:foo-1"
 	}
-	return charm.MustParseURL(url), false
+	return &url, false
 }
 
 func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {

@@ -6,7 +6,7 @@ linters:
   enable:
     - errcheck
 run:
-  timeout: 20m
+  timeout: 30m
   tests: false
 skip-dirs:
   - acceptancetests

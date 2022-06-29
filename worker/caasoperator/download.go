@@ -4,7 +4,7 @@
 package caasoperator
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/status"
@@ -26,6 +26,10 @@ type charmInfo struct {
 
 func (c *charmInfo) URL() *charm.URL {
 	return c.curl
+}
+
+func (c *charmInfo) String() string {
+	return c.curl.String()
 }
 
 func (c *charmInfo) ArchiveSha256() (string, error) {

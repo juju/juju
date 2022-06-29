@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -811,8 +811,11 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 	for _, app := range applications {
 		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
-		charmURL, _ := app.CharmURL()
-
+		cURL, _ := app.CharmURL()
+		charmURL, err := charm.ParseURL(*cURL)
+		if err != nil {
+			continue
+		}
 		if len(appUnits) > 0 {
 			unitMap[app.Name()] = appUnits
 			// Record the base URL for the application's charm so that
@@ -896,7 +899,11 @@ func fetchOffers(st Backend, applications map[string]*state.Application) (map[st
 			continue
 		}
 		curl, _ := app.CharmURL()
-		offerInfo.charmURL = curl.String()
+		if curl == nil {
+			offerInfo.err = errors.NotValidf("application charm url nil")
+			continue
+		}
+		offerInfo.charmURL = *curl
 		rc, err := st.RemoteConnectionStatus(offer.OfferUUID)
 		if err != nil && !errors.IsNotFound(err) {
 			offerInfo.err = err
@@ -1242,7 +1249,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		series = coreseries.Kubernetes.String()
 	}
 	var processedStatus = params.ApplicationStatus{
-		Charm:            applicationCharm.URL().String(),
+		Charm:            applicationCharm.String(),
 		CharmVersion:     applicationCharm.Version(),
 		CharmProfile:     charmProfileName,
 		CharmChannel:     channel,
@@ -1269,7 +1276,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		if err != nil {
 			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 		}
-		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String(), expectWorkload)
+		processedStatus.Units = context.processUnits(units, applicationCharm.String(), expectWorkload)
 	}
 
 	// If for whatever reason the application isn't yet in the cache,

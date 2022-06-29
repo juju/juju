@@ -6,8 +6,8 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -76,7 +76,7 @@ type Application interface {
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	ApplicationTag() names.ApplicationTag
 	Charm() (Charm, bool, error)
-	CharmURL() (*charm.URL, bool)
+	CharmURL() (*string, bool)
 	Channel() csparams.Channel
 	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
@@ -122,7 +122,9 @@ type Bindings interface {
 // details on the methods, see the methods on state.Charm with
 // the same names.
 type Charm interface {
-	charm.Charm
+	Config() *charm.Config
+	Manifest() *charm.Manifest
+	Meta() *charm.Meta
 	URL() *charm.URL
 	String() string
 }

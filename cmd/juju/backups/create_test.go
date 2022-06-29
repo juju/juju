@@ -165,21 +165,6 @@ func (s *createSuite) TestDefault(c *gc.C) {
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
 }
 
-func (s *createSuite) TestDefaultV1(c *gc.C) {
-	s.apiVersion = 1
-	client := s.setDownload()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-	c.Assert(err, jc.ErrorIsNil)
-
-	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "backup-id")
-	s.expectedErr = `
-Downloaded to juju-backup-00010101-000000.tar.gz
-`[1:]
-	s.checkDownload(c, ctx)
-	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
-}
-
 func (s *createSuite) TestDefaultQuiet(c *gc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.createCommandForGlobalOptionTesting(s.wrappedCommand), "create-backup", "--quiet")

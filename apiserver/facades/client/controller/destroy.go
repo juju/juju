@@ -16,22 +16,6 @@ import (
 
 // DestroyController destroys the controller.
 //
-// The v3 implementation of DestroyController ignores the DestroyStorage
-// field of the arguments, and unconditionally destroys all storage in
-// the controller.
-//
-// See ControllerAPIv4.DestroyController for more details.
-func (c *ControllerAPIv3) DestroyController(args params.DestroyControllerArgs) error {
-	if args.DestroyStorage != nil {
-		return errors.New("destroy-storage unexpected on the v3 API")
-	}
-	destroyStorage := true
-	args.DestroyStorage = &destroyStorage
-	return destroyController(c.state, c.statePool, c.authorizer, args)
-}
-
-// DestroyController destroys the controller.
-//
 // If the args specify the destruction of the models, this method will
 // attempt to do so. Otherwise, if the controller has any non-empty,
 // non-Dead hosted models, then an error with the code
@@ -41,7 +25,7 @@ func (c *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 }
 
 func destroyController(
-	st *state.State,
+	st Backend,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	args params.DestroyControllerArgs,
@@ -73,7 +57,7 @@ func destroyController(
 	))
 }
 
-func ensureNotBlocked(st *state.State) error {
+func ensureNotBlocked(st Backend) error {
 	// If there are blocks let the user know.
 	blocks, err := st.AllBlocksForController()
 	if err != nil {

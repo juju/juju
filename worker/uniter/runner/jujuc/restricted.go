@@ -6,13 +6,14 @@ package jujuc
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -224,7 +225,7 @@ func (*RestrictedContext) ActionParams() (map[string]interface{}, error) {
 }
 
 // UpdateActionResults implements hooks.Context.
-func (*RestrictedContext) UpdateActionResults(keys []string, value string) error {
+func (*RestrictedContext) UpdateActionResults(keys []string, value interface{}) error {
 	return ErrRestrictedContext
 }
 
@@ -250,4 +251,29 @@ func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
 // WorkloadName implements hooks.Context.
 func (*RestrictedContext) WorkloadName() (string, error) {
 	return "", ErrRestrictedContext
+}
+
+// GetSecret implements runner.Context.
+func (ctx *RestrictedContext) GetSecret(ID string) (secrets.SecretValue, error) {
+	return nil, ErrRestrictedContext
+}
+
+// CreateSecret implements runner.Context.
+func (ctx *RestrictedContext) CreateSecret(name string, args *SecretUpsertArgs) (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// UpdateSecret implements runner.Context.
+func (ctx *RestrictedContext) UpdateSecret(name string, args *SecretUpsertArgs) (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// GrantSecret implements runner.Context.
+func (c *RestrictedContext) GrantSecret(name string, args *SecretGrantRevokeArgs) error {
+	return nil
+}
+
+// RevokeSecret implements runner.Context.
+func (c *RestrictedContext) RevokeSecret(name string, args *SecretGrantRevokeArgs) error {
+	return nil
 }

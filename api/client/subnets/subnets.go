@@ -40,12 +40,7 @@ func (api *API) AddSubnet(cidr string, providerId network.Id, space names.SpaceT
 		cidr = ""
 	}
 
-	var args interface{}
-	if bestVer := api.BestAPIVersion(); bestVer < 3 {
-		args = makeAddSubnetsParamsV2(cidr, providerId, space, zones)
-	} else {
-		args = makeAddSubnetsParams(cidr, providerId, space, zones)
-	}
+	var args = makeAddSubnetsParams(cidr, providerId, space, zones)
 	err := api.facade.FacadeCall("AddSubnets", args, &response)
 	if err != nil {
 		return errors.Trace(err)
@@ -91,21 +86,6 @@ func (api *API) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
 	}
 
 	return result.Results, nil
-}
-
-func makeAddSubnetsParamsV2(cidr string, providerId network.Id, space names.SpaceTag, zones []string) params.AddSubnetsParamsV2 {
-	var subnetTag string
-	if cidr != "" {
-		subnetTag = "subnet-" + cidr
-	}
-	return params.AddSubnetsParamsV2{
-		Subnets: []params.AddSubnetParamsV2{{
-			SubnetTag:        subnetTag,
-			SubnetProviderId: string(providerId),
-			SpaceTag:         space.String(),
-			Zones:            zones,
-		}},
-	}
 }
 
 func makeAddSubnetsParams(cidr string, providerId network.Id, space names.SpaceTag, zones []string) params.AddSubnetsParams {

@@ -27,7 +27,6 @@ import (
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/model"
-	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
@@ -204,7 +203,7 @@ func (runner *runner) RunCommands(commands string, runLocation RunLocation) (*ut
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
-// juju-run as an action
+// juju-exec as an action
 func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, rMode runMode, abort <-chan struct{}) (*utilexec.ExecResponse, error) {
 	var err error
 	token := ""
@@ -277,10 +276,10 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	})
 }
 
-// runJujuRunAction is the function that executes when a juju-run action is ran.
-func (runner *runner) runJujuRunAction() (err error) {
+// runJujuExecAction is the function that executes when a juju-exec action is ran.
+func (runner *runner) runJujuExecAction() (err error) {
 	logger := runner.logger()
-	logger.Debugf("juju-run action is running")
+	logger.Debugf("juju-exec action is running")
 	data, err := runner.context.ActionData()
 	if err != nil {
 		return errors.Trace(err)
@@ -288,14 +287,14 @@ func (runner *runner) runJujuRunAction() (err error) {
 	params := data.Params
 	command, ok := params["command"].(string)
 	if !ok {
-		return errors.New("no command parameter to juju-run action")
+		return errors.New("no command parameter to juju-exec action")
 	}
 
 	// The timeout is passed in in nanoseconds(which are represented in go as int64)
 	// But due to serialization it comes out as float64
 	timeout, ok := params["timeout"].(float64)
 	if !ok {
-		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
+		logger.Debugf("unable to read juju-exec action timeout, will continue running action without one")
 	}
 
 	runLocation := Operator
@@ -310,10 +309,10 @@ func (runner *runner) runJujuRunAction() (err error) {
 	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode, data.Cancel)
 	if results != nil {
 		if err := runner.updateActionResults(results); err != nil {
-			return runner.context.Flush("juju-run", err)
+			return runner.context.Flush("juju-exec", err)
 		}
 	}
-	return runner.context.Flush("juju-run", err)
+	return runner.context.Flush("juju-exec", err)
 }
 
 func encodeBytes(input []byte) (value string, encoding string) {
@@ -328,31 +327,30 @@ func encodeBytes(input []byte) (value string, encoding string) {
 }
 
 func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error {
-	// TODO(juju3) - use lower case here
-	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
+	if err := runner.context.UpdateActionResults([]string{"return-code"}, results.Code); err != nil {
 		return errors.Trace(err)
 	}
 
 	stdout, encoding := encodeBytes(results.Stdout)
 	if stdout != "" {
-		if err := runner.context.UpdateActionResults([]string{"Stdout"}, stdout); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stdout"}, stdout); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"StdoutEncoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stdout-encoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	stderr, encoding := encodeBytes(results.Stderr)
 	if stderr != "" {
-		if err := runner.context.UpdateActionResults([]string{"Stderr"}, stderr); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stderr"}, stderr); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"StderrEncoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stderr-encoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -365,8 +363,8 @@ func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
-	if actionName == actions.JujuRunActionName {
-		return InvalidHookHandler, runner.runJujuRunAction()
+	if actions.IsJujuExecAction(actionName) {
+		return InvalidHookHandler, runner.runJujuExecAction()
 	}
 	runLocation := Operator
 	if workloadContext, ok := data.Params["workload-context"].(bool); !ok || workloadContext {
@@ -431,12 +429,6 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, environmenter)
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
-	}
-	if jujuos.HostOS() == jujuos.Windows {
-		// TODO(fwereade): somehow consolidate with utils/exec?
-		// We don't do this on the other code path, which uses exec.RunCommands,
-		// because that already has handling for windows environment requirements.
-		env = mergeWindowsEnvironment(env, os.Environ())
 	}
 	if rMode == runOnRemote {
 		env = append(env, "JUJU_AGENT_TOKEN="+token)
@@ -597,8 +589,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 
 // Check still tested
 func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, env []string) error {
-	hookCmd := hookCommand(hook)
-	ps := exec.Command(hookCmd[0], hookCmd[1:]...)
+	ps := exec.Command(hook)
 	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()

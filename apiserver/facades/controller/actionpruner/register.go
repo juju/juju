@@ -6,6 +6,8 @@ package actionpruner
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -14,4 +16,18 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ActionPruner", 1, func(ctx facade.Context) (facade.Facade, error) {
 		return newAPI(ctx)
 	}, reflect.TypeOf((*API)(nil)))
+}
+
+// newAPI returns an action pruner API.
+func newAPI(ctx facade.Context) (*API, error) {
+	m, err := Model(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &API{
+		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), ctx.Auth()),
+		st:           ctx.State(),
+		authorizer:   ctx.Auth(),
+		cancel:       ctx.Cancel(),
+	}, nil
 }

@@ -6,6 +6,7 @@ package machine_test
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -25,8 +26,7 @@ import (
 
 type AddMachineSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fakeAddMachine     *fakeAddMachineAPI
-	fakeMachineManager *fakeMachineManagerAPI
+	fakeAddMachine *fakeAddMachineAPI
 }
 
 var _ = gc.Suite(&AddMachineSuite{})
@@ -34,7 +34,6 @@ var _ = gc.Suite(&AddMachineSuite{})
 func (s *AddMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAddMachine = &fakeAddMachineAPI{}
-	s.fakeMachineManager = &fakeMachineManagerAPI{}
 }
 
 func (s *AddMachineSuite) TestInit(c *gc.C) {
@@ -105,7 +104,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine, s.fakeMachineManager)
+		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine)
 		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -124,7 +123,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine, s.fakeMachineManager)
+	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeAddMachine)
 	return cmdtesting.RunCommand(c, add, args...)
 }
 
@@ -133,8 +132,8 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "created machine 0\n")
 
-	c.Assert(s.fakeMachineManager.args, gc.HasLen, 1)
-	c.Assert(s.fakeMachineManager.args[0].Jobs, jc.DeepEquals, []model.MachineJob{model.JobHostUnits})
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	c.Assert(s.fakeAddMachine.args[0].Jobs, jc.DeepEquals, []model.MachineJob{model.JobHostUnits})
 }
 
 func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
@@ -168,9 +167,9 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
 func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 	_, err := s.run(c, "--constraints", "mem=8G", "--series=special", "zone=nz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeMachineManager.args, gc.HasLen, 1)
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
 
-	param := s.fakeMachineManager.args[0]
+	param := s.fakeAddMachine.args[0]
 
 	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
 	c.Assert(param.Series, gc.Equals, "special")
@@ -180,18 +179,18 @@ func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--series=special")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeMachineManager.args, gc.HasLen, 3)
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
 
-	param := s.fakeMachineManager.args[0]
+	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Series, gc.Equals, "special")
 
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
-	c.Assert(param, jc.DeepEquals, s.fakeMachineManager.args[1])
-	c.Assert(param, jc.DeepEquals, s.fakeMachineManager.args[2])
+	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
+	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[2])
 }
 
 func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
-	s.fakeMachineManager.successOrder = []bool{true, false, false}
+	s.fakeAddMachine.successOrder = []bool{true, false, false}
 	expectedOutput := `created machine 0
 failed to create 2 machines
 `
@@ -201,27 +200,20 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fakeMachineManager.addError = apiservererrors.OperationBlockedError("TestBlockedError")
+	s.fakeAddMachine.addError = apiservererrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c)
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
-	s.fakeMachineManager.apiVersion = 1
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 0)
-	c.Assert(s.fakeMachineManager.args, gc.HasLen, 1)
-	param := s.fakeMachineManager.args[0]
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Disks, gc.DeepEquals, []storage.Constraints{
 		{Size: 1024, Count: 2},
 		{Size: 2048, Count: 1},
 	})
-}
-
-func (s *AddMachineSuite) TestAddMachineWithDisksUnsupported(c *gc.C) {
-	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
-	c.Assert(err, gc.ErrorMatches, "cannot add machines with disks: not supported by the API server")
 }
 
 type fakeAddMachineAPI struct {
@@ -231,6 +223,10 @@ type fakeAddMachineAPI struct {
 	addError         error
 	addModelGetError error
 	providerType     string
+}
+
+func (f *fakeAddMachineAPI) BestAPIVersion() int {
+	return 7
 }
 
 func (f *fakeAddMachineAPI) Close() error {
@@ -264,12 +260,8 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	return results, nil
 }
 
-func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
-	return errors.NotImplementedf("ForceDestroyMachines")
-}
-
-func (f *fakeAddMachineAPI) DestroyMachinesWithParams(force, keep bool, machines ...string) error {
-	return errors.NotImplementedf("ForceDestroyMachinesWithParams")
+func (f *fakeAddMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+	return nil, errors.NotImplementedf("ForceDestroyMachinesWithParams")
 }
 
 func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
@@ -287,13 +279,4 @@ func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
 	return dummy.SampleConfig().Merge(map[string]interface{}{
 		"type": providerType,
 	}), nil
-}
-
-type fakeMachineManagerAPI struct {
-	apiVersion int
-	fakeAddMachineAPI
-}
-
-func (f *fakeMachineManagerAPI) BestAPIVersion() int {
-	return f.apiVersion
 }

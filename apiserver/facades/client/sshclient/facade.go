@@ -28,10 +28,6 @@ type Facade struct {
 	leadershipReader leadership.Reader
 }
 
-type FacadeV2 struct {
-	*Facade
-}
-
 func internalFacade(backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -211,9 +207,6 @@ func (facade *Facade) Proxy() (params.SSHProxyResult, error) {
 	}
 	return params.SSHProxyResult{UseProxy: config.ProxySSH()}, nil
 }
-
-// Leader is not available via the V2 Facade.
-func (a *FacadeV2) Leader(_ struct{}) {}
 
 // Leader returns the unit name of the leader for the given application.
 func (facade *Facade) Leader(entity params.Entity) (params.StringResult, error) {

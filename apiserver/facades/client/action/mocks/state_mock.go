@@ -108,6 +108,20 @@ func (mr *MockActionMockRecorder) Enqueued() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueued", reflect.TypeOf((*MockAction)(nil).Enqueued))
 }
 
+// ExecutionGroup mocks base method.
+func (m *MockAction) ExecutionGroup() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecutionGroup")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ExecutionGroup indicates an expected call of ExecutionGroup.
+func (mr *MockActionMockRecorder) ExecutionGroup() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecutionGroup", reflect.TypeOf((*MockAction)(nil).ExecutionGroup))
+}
+
 // Finish mocks base method.
 func (m *MockAction) Finish(arg0 state.ActionResults) (state.Action, error) {
 	m.ctrl.T.Helper()
@@ -177,6 +191,20 @@ func (m *MockAction) Name() string {
 func (mr *MockActionMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockAction)(nil).Name))
+}
+
+// Parallel mocks base method.
+func (m *MockAction) Parallel() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Parallel")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Parallel indicates an expected call of Parallel.
+func (mr *MockActionMockRecorder) Parallel() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Parallel", reflect.TypeOf((*MockAction)(nil).Parallel))
 }
 
 // Parameters mocks base method.
@@ -362,18 +390,20 @@ func (mr *MockActionReceiverMockRecorder) PendingActions() *gomock.Call {
 }
 
 // PrepareActionPayload mocks base method.
-func (m *MockActionReceiver) PrepareActionPayload(arg0 string, arg1 map[string]interface{}) (map[string]interface{}, error) {
+func (m *MockActionReceiver) PrepareActionPayload(arg0 string, arg1 map[string]interface{}, arg2 *bool, arg3 *string) (map[string]interface{}, bool, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareActionPayload", arg0, arg1)
+	ret := m.ctrl.Call(m, "PrepareActionPayload", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(map[string]interface{})
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(string)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // PrepareActionPayload indicates an expected call of PrepareActionPayload.
-func (mr *MockActionReceiverMockRecorder) PrepareActionPayload(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockActionReceiverMockRecorder) PrepareActionPayload(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareActionPayload", reflect.TypeOf((*MockActionReceiver)(nil).PrepareActionPayload), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareActionPayload", reflect.TypeOf((*MockActionReceiver)(nil).PrepareActionPayload), arg0, arg1, arg2, arg3)
 }
 
 // RunningActions mocks base method.

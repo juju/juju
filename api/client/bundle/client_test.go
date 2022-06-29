@@ -4,16 +4,16 @@
 package bundle_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/bundle"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
+
+const apiVersion = 6
 
 type bundleMockSuite struct {
 	coretesting.BaseSuite
@@ -83,7 +83,7 @@ func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
 			result := response.(*params.BundleChangesResults)
 			result.Changes = changes
 			return nil
-		}, 2,
+		}, apiVersion,
 	)
 	result, err := client.GetChanges(bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,7 +121,7 @@ func (s *bundleMockSuite) TestGetChangesReturnsErrors(c *gc.C) {
 				"Error returned from request",
 			}
 			return nil
-		}, 2,
+		}, apiVersion,
 	)
 	result, err := client.GetChanges(bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +182,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 			result := response.(*params.BundleChangesMapArgsResults)
 			result.Changes = changes
 			return nil
-		}, 4,
+		}, apiVersion,
 	)
 	result, err := client.GetChangesMapArgs(bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,98 +222,12 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 				"Error returned from request",
 			}
 			return nil
-		}, 4,
+		}, apiVersion,
 	)
 	result, err := client.GetChangesMapArgs(bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Errors, gc.DeepEquals, []string{"Error returned from request"})
 	c.Assert(result.Changes, gc.DeepEquals, []*params.BundleChangesMapArgs(nil))
-}
-
-func (s *bundleMockSuite) TestGetChangesMapArgsV3(c *gc.C) {
-	bundleURL := "cs:bundle-url"
-	bundleYAML := `applications:
-	ubuntu:
-		charm: cs:trusty/ubuntu
-		series: trusty
-		num_units: 1
-		options:
-			key: value
-			series: xenial
-		relations:
-			- []`
-	client := newClient(
-		func(objType string,
-			version int,
-			id,
-			request string,
-			args,
-			response interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Bundle")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "GetChangesMapArgs")
-			c.Assert(args, gc.Equals, params.BundleChangesParams{
-				BundleDataYAML: bundleYAML,
-				BundleURL:      bundleURL,
-			})
-			result := response.(*params.BundleChangesMapArgsResults)
-			result.Errors = []string{
-				"Error returned from request",
-			}
-			return nil
-		}, 3,
-	)
-	_, err := client.GetChangesMapArgs(bundleURL, bundleYAML)
-	c.Assert(err, gc.ErrorMatches, "this controller version does not support bundle get changes as map args feature.")
-}
-
-func (s *bundleMockSuite) TestFailExportBundlev1(c *gc.C) {
-	client := newClient(
-		func(objType string,
-			version int,
-			id,
-			request string,
-			args,
-			response interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Bundle")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ExportBundle")
-			c.Assert(args, gc.Equals, nil)
-			result := response.(*params.StringResult)
-			result.Result = ""
-			return nil
-		}, 1,
-	)
-	result, err := client.ExportBundle(false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "this controller version does not support bundle export feature.")
-	c.Assert(result, jc.DeepEquals, "")
-}
-
-func (s *bundleMockSuite) TestFailExportBundleWithDefaults(c *gc.C) {
-	client := newClient(
-		func(objType string,
-			version int,
-			id,
-			request string,
-			args,
-			response interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Bundle")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ExportBundle")
-			c.Assert(args, gc.Equals, nil)
-			result := response.(*params.StringResult)
-			result.Result = ""
-			return nil
-		}, 4,
-	)
-	result, err := client.ExportBundle(true)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "this controller version does not support bundle export with charm defaults.")
-	c.Assert(result, jc.DeepEquals, "")
 }
 
 func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
@@ -342,49 +256,9 @@ func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 			result := response.(*params.StringResult)
 			result.Result = bundle
 			return nil
-		}, 5,
+		}, apiVersion,
 	)
 	result, err := client.ExportBundle(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, bundle)
-}
-
-func (s *bundleMockSuite) TestExportBundleNotNilParamsErrorv2(c *gc.C) {
-	client := newClient(
-		func(objType string, version int,
-			id,
-			request string,
-			args,
-			response interface{},
-		) error {
-			result := response.(*params.StringResult)
-			result.Result = ""
-			*(response.(*params.StringResult)) = params.StringResult{Error: apiservererrors.ServerError(
-				errors.New("export failed nothing to export as there are no applications"))}
-			return result.Error
-		}, 2,
-	)
-	result, err := client.ExportBundle(false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(result, jc.DeepEquals, "")
-	c.Check(err.Error(), gc.Matches, "export failed nothing to export as there are no applications")
-}
-
-func (s *bundleMockSuite) TestExportBundleFailNoParamsErrorv2(c *gc.C) {
-	client := newClient(
-		func(objType string, version int,
-			id,
-			request string,
-			args,
-			response interface{},
-		) error {
-			result := response.(*params.StringResult)
-			result.Result = ""
-			return errors.New("foo")
-		}, 2,
-	)
-	result, err := client.ExportBundle(false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(result, jc.DeepEquals, "")
-	c.Check(err.Error(), gc.Matches, "foo")
 }

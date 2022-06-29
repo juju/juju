@@ -83,26 +83,6 @@ func newUpgradeJujuCommand() cmd.Command {
 	return modelcmd.Wrap(command)
 }
 
-func newUpgradeJujuCommandForTest(
-	store jujuclient.ClientStore,
-	jujuClientAPI ClientAPI,
-	modelConfigAPI modelConfigAPI,
-	modelManagerAPI modelManagerAPI,
-	controllerAPI ControllerAPI,
-	options ...modelcmd.WrapOption,
-) cmd.Command {
-	command := &upgradeJujuCommand{
-		baseUpgradeCommand: baseUpgradeCommand{
-			modelConfigAPI:  modelConfigAPI,
-			modelManagerAPI: modelManagerAPI,
-			controllerAPI:   controllerAPI,
-		},
-		jujuClientAPI: jujuClientAPI,
-	}
-	command.SetClientStore(store)
-	return modelcmd.Wrap(command, options...)
-}
-
 // baseUpgradeCommand is used by both the
 // upgradeJujuCommand and upgradeControllerCommand
 // to hold flags common to both.
@@ -295,7 +275,6 @@ type toolsAPI interface {
 }
 
 type upgradeJujuAPI interface {
-	BestAPIVersion() int
 	AbortCurrentUpgrade() error
 	SetModelAgentVersion(version version.Number, stream string, ignoreAgentVersion bool) error
 	Close() error
@@ -384,12 +363,6 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	return c.upgradeModel(ctx, implicitAgentUploadAllowed, c.timeout)
 }
 
-const unsupportedStreamMsg = `
-this version of Juju does not support specifying an agent-stream value
-different to that of the controller model. If you want to use %q agents,
-you must first 'juju model-config -m controller agent-stream=%s'.
-`
-
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration) (err error) {
 	defer func() {
 		if err != nil {
@@ -457,10 +430,6 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		}
 		if !isControllerModel {
 			return errors.Errorf("--build-agent can only be used with the controller model")
-		}
-	} else if isControllerModel {
-		if modelStream != wantStream && client.BestAPIVersion() < 5 {
-			return errors.Errorf(unsupportedStreamMsg, wantStream, wantStream)
 		}
 	}
 

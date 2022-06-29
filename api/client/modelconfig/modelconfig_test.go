@@ -10,6 +10,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/modelconfig"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -181,20 +182,6 @@ func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
 	c.Assert(level, gc.Equals, "level")
 }
 
-func (s *modelconfigSuite) TestSequencesV1(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		basetesting.APICallerFunc(
-			func(_ string, _ int, _, _ string, _, _ interface{}) error {
-				c.Errorf("shoulnd't be called")
-				return nil
-			},
-		), 1} // facade version one
-	client := modelconfig.NewClient(apiCaller)
-	sequences, err := client.Sequences()
-	c.Assert(err, gc.ErrorMatches, "Sequences on v1 facade not supported")
-	c.Assert(sequences, gc.IsNil)
-}
-
 func (s *modelconfigSuite) TestSequences(c *gc.C) {
 	called := false
 	apiCaller := basetesting.BestVersionCaller{
@@ -219,4 +206,49 @@ func (s *modelconfigSuite) TestSequences(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(sequences, jc.DeepEquals, map[string]int{"foo": 5, "bar": 2})
+}
+
+func (s *modelconfigSuite) TestGetModelConstraints(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "GetModelConstraints")
+			c.Check(a, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.GetConstraintsResults{})
+			results := result.(*params.GetConstraintsResults)
+			results.Constraints = constraints.MustParse("arch=amd64")
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	result, err := client.GetModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, constraints.MustParse("arch=amd64"))
+}
+
+func (s *modelconfigSuite) TestSetModelConstraints(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SetModelConstraints")
+			c.Check(a, jc.DeepEquals, params.SetConstraints{
+				Constraints: constraints.MustParse("arch=amd64"),
+			})
+			c.Assert(result, gc.IsNil)
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	err := client.SetModelConstraints(constraints.MustParse("arch=amd64"))
+	c.Assert(err, jc.ErrorIsNil)
 }

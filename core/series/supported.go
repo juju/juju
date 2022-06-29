@@ -291,7 +291,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "16.04",
 		LTS:          true,
-		Supported:    true,
 		ESMSupported: true,
 	},
 	Yakkety: {
@@ -360,97 +359,6 @@ const (
 	OpenSUSELeap SeriesName = "opensuseleap"
 	Kubernetes   SeriesName = "kubernetes"
 )
-
-var windowsVersions = map[string]seriesVersion{
-	"Windows Server 2008 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2008r2",
-		Supported:    true,
-	},
-	"Hyper-V Server 2012 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012hvr2",
-		Supported:    true,
-	},
-	"Hyper-V Server 2012": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012hv",
-		Supported:    true,
-	},
-	"Windows Server 2012 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012r2",
-		Supported:    true,
-	},
-	"Windows Storage Server 2012 R2": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012r2",
-		Supported:    true,
-	},
-	"Windows Server 2012": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012",
-		Supported:    true,
-	},
-	"Windows Storage Server 2012": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2012",
-		Supported:    true,
-	},
-	"Windows Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016",
-		Supported:    true,
-	},
-	"Windows Storage Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016",
-		Supported:    true,
-	},
-	"Hyper-V Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016hv",
-		Supported:    true,
-	},
-	"Windows Server 2019": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2019",
-		Supported:    true,
-	},
-	"Windows Storage Server 2019": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2019",
-		Supported:    true,
-	},
-	"Windows 7": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win7",
-		Supported:    true,
-	},
-	"Windows 8": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win8",
-		Supported:    true,
-	},
-	"Windows 8.1": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win81",
-		Supported:    true,
-	},
-	"Windows 10": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win10",
-		Supported:    true,
-	},
-}
-
-var windowsNanoVersions = map[SeriesName]seriesVersion{
-	"Windows Server 2016": {
-		WorkloadType: OtherWorkloadType,
-		Version:      "win2016nano",
-		Supported:    true,
-	},
-}
 
 var centosSeries = map[SeriesName]seriesVersion{
 	Centos7: {

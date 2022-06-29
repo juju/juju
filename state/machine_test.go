@@ -2551,11 +2551,11 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 		expectedPayload map[string]interface{}
 	}{
 		{
-			actionName: "juju-run",
+			actionName: "juju-exec",
 			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
 		},
 		{
-			actionName:      "juju-run",
+			actionName:      "juju-exec",
 			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 		},
@@ -2569,7 +2569,7 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 		c.Logf("running test %d", i)
 		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model.AddAction(m, operationID, t.actionName, t.givenPayload)
+		action, err := s.Model.AddAction(m, operationID, t.actionName, t.givenPayload, nil, nil)
 		if t.errString != "" {
 			c.Assert(err.Error(), gc.Equals, t.errString)
 			continue
@@ -2586,7 +2586,7 @@ func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(m, operationID, "benchmark", nil)
+	_, err = s.Model.AddAction(m, operationID, "benchmark", nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
 	op, err := s.Model.Operation(operationID)
 	c.Assert(err, jc.ErrorIsNil)

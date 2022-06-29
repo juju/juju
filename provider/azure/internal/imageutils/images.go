@@ -4,14 +4,12 @@
 package imageutils
 
 import (
-	stdcontext "context"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -34,12 +32,6 @@ const (
 	ubuntuPublisher = "Canonical"
 	ubuntuOffering  = "UbuntuServer"
 
-	windowsServerPublisher = "MicrosoftWindowsServer"
-	windowsServerOffering  = "WindowsServer"
-
-	windowsPublisher = "MicrosoftVisualStudio"
-	windowsOffering  = "Windows"
-
 	dailyStream = "daily"
 )
 
@@ -52,7 +44,7 @@ const (
 func SeriesImage(
 	ctx context.ProviderCallContext,
 	series, stream, location string,
-	client compute.VirtualMachineImagesClient,
+	client *armcompute.VirtualMachineImagesClient,
 ) (*instances.Image, error) {
 	seriesOS, err := jujuseries.GetOSFromSeries(series)
 	if err != nil {
@@ -66,28 +58,6 @@ func SeriesImage(
 		sku, offering, err = ubuntuSKU(ctx, series, stream, location, client)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", series)
-		}
-
-	case os.Windows:
-		switch series {
-		case "win81":
-			publisher = windowsPublisher
-			offering = windowsOffering
-			sku = "8.1-Enterprise-N"
-		case "win10":
-			publisher = windowsPublisher
-			offering = windowsOffering
-			sku = "10-Enterprise"
-		case "win2012":
-			publisher = windowsServerPublisher
-			offering = windowsServerOffering
-			sku = "2012-Datacenter"
-		case "win2012r2":
-			publisher = windowsServerPublisher
-			offering = windowsServerOffering
-			sku = "2012-R2-Datacenter"
-		default:
-			return nil, errors.NotSupportedf("deploying %s", series)
 		}
 
 	case os.CentOS:
@@ -128,24 +98,20 @@ func offerForUbuntuSeries(series string) (string, string, error) {
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
 // matching the given series.
-func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client compute.VirtualMachineImagesClient) (string, string, error) {
+func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
 	offer, seriesVersion, err := offerForUbuntuSeries(series)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
-	sdkCtx := stdcontext.Background()
-	result, err := client.ListSkus(sdkCtx, location, ubuntuPublisher, offer)
+	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
-	if result.Value == nil || len(*result.Value) == 0 {
-		return "", "", errors.NotFoundf("Ubuntu SKUs")
-	}
 	skuNamesByVersion := make(map[ubuntuVersion]string)
 	var versions ubuntuVersions
-	for _, result := range *result.Value {
-		skuName := to.String(result.Name)
+	for _, img := range result.VirtualMachineImageResourceArray {
+		skuName := *img.Name
 		logger.Debugf("Found Azure SKU Name: %v", skuName)
 		if !strings.HasPrefix(skuName, seriesVersion) {
 			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)

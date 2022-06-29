@@ -21,8 +21,6 @@ type fromHostSuite struct {
 	tempCloudCfgDir   string
 	tempCloudInitDir  string
 	tempCurtinCfgFile string
-
-	reader *cloudconfig.MachineInitReader
 }
 
 var _ = gc.Suite(&fromHostSuite{})
@@ -57,7 +55,6 @@ type cloudinitDataVerifyTest struct {
 	description     string
 	machineSeries   string
 	containerSeries string
-	err             string
 	result          map[string]interface{}
 }
 
@@ -96,11 +93,6 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 		machineSeries:   "centos8",
 		containerSeries: "centos8",
 		result:          expectedResult,
-	},
-	{
-		description:     "win2012 on win2012",
-		machineSeries:   "win2012",
-		containerSeries: "win2012",
 	},
 	{
 		description:     "highsierra on highsierra",

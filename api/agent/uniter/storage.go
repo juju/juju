@@ -25,9 +25,6 @@ func NewStorageAccessor(facade base.FacadeCaller) *StorageAccessor {
 
 // UnitStorageAttachments returns the IDs of a unit's storage attachments.
 func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error) {
-	if sa.facade.BestAPIVersion() < 2 {
-		return nil, errors.NotImplementedf("UnitStorageAttachments() (need V2+)")
-	}
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: unitTag.String()}},
 	}
@@ -49,9 +46,6 @@ func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]para
 // DestroyUnitStorageAttachments ensures that the specified unit's storage
 // attachments will be removed at some point in the future.
 func (sa *StorageAccessor) DestroyUnitStorageAttachments(unitTag names.UnitTag) error {
-	if sa.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("DestroyUnitStorageAttachments() (need V2+)")
-	}
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: unitTag.String()}},
 	}
@@ -96,9 +90,6 @@ func (sa *StorageAccessor) WatchUnitStorageAttachments(unitTag names.UnitTag) (w
 // StorageAttachment returns the storage attachment with the specified
 // unit and storage tags.
 func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error) {
-	if sa.facade.BestAPIVersion() < 2 {
-		return params.StorageAttachment{}, errors.NotImplementedf("StorageAttachment() (need V2+)")
-	}
 	args := params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
@@ -123,9 +114,6 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 // StorageAttachmentLife returns the lifecycle state of the storage attachments
 // with the specified IDs.
 func (sa *StorageAccessor) StorageAttachmentLife(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
-	if sa.facade.BestAPIVersion() < 2 {
-		return nil, errors.NotImplementedf("StorageAttachmentLife() (need V2+)")
-	}
 	args := params.StorageAttachmentIds{ids}
 	var results params.LifeResults
 	err := sa.facade.FacadeCall("StorageAttachmentLife", args, &results)

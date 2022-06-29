@@ -19,9 +19,10 @@ func SetPrecheckResult(p patcher, err error) {
 	})
 }
 
+func NewControllerAPIForTest(backend Backend) *ControllerAPI {
+	return &ControllerAPI{state: backend}
+}
+
 var (
-	NewControllerAPIv3  = newControllerAPIv3
-	NewControllerAPIv4  = newControllerAPIv4
-	NewControllerAPIv5  = newControllerAPIv5
 	NewControllerAPIv11 = newControllerAPIv11
 )

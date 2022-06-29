@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -914,9 +914,9 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a couple actions to the unit
-	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil)
+	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil)
+	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure unit still has actions
@@ -966,7 +966,7 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 		// Add a completed action to the unit.
 		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
+		action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		action, err = action.Finish(state.ActionResults{
 			Status:  status,

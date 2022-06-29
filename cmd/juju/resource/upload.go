@@ -6,7 +6,7 @@ package resource
 import (
 	"io"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"

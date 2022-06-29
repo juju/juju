@@ -4,7 +4,7 @@
 package instancemutater
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -103,7 +103,7 @@ type applicationShim struct {
 	*state.Application
 }
 
-func (a *applicationShim) CharmURL() *charm.URL {
+func (a *applicationShim) CharmURL() *string {
 	curl, _ := a.Application.CharmURL()
 	return curl
 }

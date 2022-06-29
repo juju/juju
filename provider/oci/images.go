@@ -36,9 +36,8 @@ const (
 	// ImageTypeGeneric should work on any type of instance (bare metal or virtual)
 	ImageTypeGeneric ImageType = "generic"
 
-	windowsOS = "Windows"
-	centOS    = "CentOS"
-	ubuntuOS  = "Canonical Ubuntu"
+	centOS   = "CentOS"
+	ubuntuOS = "Canonical Ubuntu"
 
 	staleImageCacheTimeoutInMinutes = 30
 )
@@ -260,10 +259,6 @@ func getCentOSSeries(img ociCore.Image) (string, error) {
 func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType InstanceImage, err error) {
 	var imgSeries string
 	switch osVersion := *img.OperatingSystem; osVersion {
-	case windowsOS:
-		tmp := fmt.Sprintf("%s %s", *img.OperatingSystem, *img.OperatingSystemVersion)
-		logger.Tracef("Determining Windows series for: %s", tmp)
-		imgSeries, err = series.WindowsVersionSeries(tmp)
 	case centOS:
 		imgSeries, err = getCentOSSeries(img)
 	case ubuntuOS:

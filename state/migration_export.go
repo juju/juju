@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
@@ -839,7 +839,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Type:                 e.model.Type(),
 		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
-		CharmURL:             application.doc.CharmURL.String(),
+		CharmURL:             *application.doc.CharmURL,
 		Channel:              application.doc.Channel,
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
@@ -1657,17 +1657,19 @@ func (e *exporter) actions() error {
 	for _, a := range actions {
 		results, message := a.Results()
 		arg := description.ActionArgs{
-			Receiver:   a.Receiver(),
-			Name:       a.Name(),
-			Operation:  a.(*action).doc.Operation,
-			Parameters: a.Parameters(),
-			Enqueued:   a.Enqueued(),
-			Started:    a.Started(),
-			Completed:  a.Completed(),
-			Status:     string(a.Status()),
-			Results:    results,
-			Message:    message,
-			Id:         a.Id(),
+			Receiver:       a.Receiver(),
+			Name:           a.Name(),
+			Operation:      a.(*action).doc.Operation,
+			Parameters:     a.Parameters(),
+			Enqueued:       a.Enqueued(),
+			Started:        a.Started(),
+			Completed:      a.Completed(),
+			Status:         string(a.Status()),
+			Results:        results,
+			Message:        message,
+			Id:             a.Id(),
+			Parallel:       a.Parallel(),
+			ExecutionGroup: a.ExecutionGroup(),
 		}
 		messages := a.Messages()
 		arg.Messages = make([]description.ActionMessage, len(messages))
@@ -1983,9 +1985,10 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	}, nil
 }
 
-func deduceOrigin(url *charm.URL) (description.CharmOriginArgs, error) {
-	if url == nil {
-		return description.CharmOriginArgs{}, errors.NotValidf("charm url")
+func deduceOrigin(cURL *string) (description.CharmOriginArgs, error) {
+	url, err := charm.ParseURL(*cURL)
+	if err != nil {
+		return description.CharmOriginArgs{}, errors.NewNotValid(err, "charm url")
 	}
 
 	switch url.Schema {

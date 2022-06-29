@@ -10,10 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
@@ -32,6 +35,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service/upstart"
@@ -41,6 +45,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -56,6 +61,8 @@ var fastDialOpts = api.DialOpts{
 type commonMachineSuite struct {
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
+
+	cmdRunner *mocks.MockCommandRunner
 }
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
@@ -77,7 +84,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
@@ -157,41 +164,58 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 }
 
 func NewTestMachineAgentFactory(
+	c *gc.C,
 	agentConfWriter agentconf.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
+	cmdRunner CommandRunner,
 ) machineAgentFactoryFnType {
 	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isCaas bool) error {
 		return nil
 	}
+
 	return func(agentTag names.Tag, isCAAS bool) (*MachineAgent, error) {
-		return NewMachineAgent(
-			agentTag,
-			agentConfWriter,
-			bufferedLogger,
-			worker.NewRunner(worker.RunnerParams{
+		prometheusRegistry, err := addons.NewPrometheusRegistry()
+		c.Assert(err, jc.ErrorIsNil)
+		a := &MachineAgent{
+			agentTag:          agentTag,
+			AgentConfigWriter: agentConfWriter,
+			configChangedVal:  voyeur.NewValue(true),
+			bufferedLogger:    bufferedLogger,
+			workersStarted:    make(chan struct{}),
+			dead:              make(chan struct{}),
+			runner: worker.NewRunner(worker.RunnerParams{
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
 			}),
-			&mockLoopDeviceManager{},
-			addons.DefaultIntrospectionSocketName,
-			preUpgradeSteps,
-			rootDir,
-			isCAAS,
-		)
+			rootDir:                     rootDir,
+			initialUpgradeCheckComplete: gate.NewLock(),
+			loopDeviceManager:           &mockLoopDeviceManager{},
+			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
+			prometheusRegistry:          prometheusRegistry,
+			mongoTxnCollector:           mongometrics.NewTxnCollector(),
+			mongoDialCollector:          mongometrics.NewDialCollector(),
+			preUpgradeSteps:             preUpgradeSteps,
+			isCaasAgent:                 isCAAS,
+			cmdRunner:                   cmdRunner,
+		}
+		return a, nil
 	}
 }
 
 // newAgent returns a new MachineAgent instance
-func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
+func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) (*gomock.Controller, *MachineAgent) {
+	ctrl := gomock.NewController(c)
+	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
+
 	agentConf := agentconf.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
-	machineAgentFactory := NewTestMachineAgentFactory(agentConf, logger, c.MkDir())
+	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, logger, c.MkDir(), s.cmdRunner)
 	machineAgent, err := machineAgentFactory(m.Tag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	return machineAgent
+	return ctrl, machineAgent
 }
 
 func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {

@@ -5,7 +5,7 @@ package charms_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
@@ -39,6 +39,7 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Metrics().Return(&charm.Metrics{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
 	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
+	ch.EXPECT().String().Return("ch:foo-1")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(true)

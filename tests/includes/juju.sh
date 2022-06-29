@@ -1,10 +1,15 @@
 #!/bin/bash -e
-# juju_version will return only the version and not the architecture/substrait
-# of the juju version.
-# This will use any juju on $PATH
+# juju_version will return only the version and not the architecture/substrate
+# of the juju version. If JUJU_VERSION is defined in CI this value will be used
+# otherwise we interrogate the juju binary on path.
 juju_version() {
-	version=$(juju version | cut -f1 -d '-')
-	echo "${version}"
+  # Match only major, minor, and patch or tag + build number
+  if [ -n "${JUJU_VERSION:-}" ]; then
+    version=${JUJU_VERSION}
+  else
+    version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
+  fi
+  echo "${version}"
 }
 
 jujud_version() {
@@ -177,6 +182,7 @@ add_model() {
 # add_images_for_vsphere is used to add-image with known vSphere template paths for LTS series
 # and shouldn't be used by any of the tests directly.
 add_images_for_vsphere() {
+	juju metadata add-image juju-ci-root/templates/jammy-test-template --series jammy
 	juju metadata add-image juju-ci-root/templates/focal-test-template --series focal
 	juju metadata add-image juju-ci-root/templates/bionic-test-template --series bionic
 	juju metadata add-image juju-ci-root/templates/xenial-test-template --series xenial
@@ -243,7 +249,7 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${model_default_series} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${model_default_series} ${cloud_region} ${name} --add-model ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"

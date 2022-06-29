@@ -13,19 +13,19 @@ import (
 
 const apiName = "ActionPruner"
 
-// Facade allows calls to "ActionPruner" endpoints
+// Facade allows calls to "ActionPruner" endpoints.
 type Facade struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
 }
 
-// NewFacade builds a facade for the action pruner endpoints
-func NewFacade(caller base.APICaller) *Facade {
+// NewPruner builds a facade for the action pruner endpoints.
+func NewPruner(caller base.APICaller) *Facade {
 	facadeCaller := base.NewFacadeCaller(caller, apiName)
 	return &Facade{facade: facadeCaller, ModelWatcher: common.NewModelWatcher(facadeCaller)}
 }
 
-// Prunes action entries by specified age and size
+// Prune prunes action entries by specified age and size.
 func (s *Facade) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
 	p := params.ActionPruneArgs{
 		MaxHistoryTime: maxHistoryTime,

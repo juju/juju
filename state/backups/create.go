@@ -8,7 +8,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -119,7 +118,7 @@ func newBuilder(destinationDir string, filesToBackUp []string, db DBDumper) (b *
 	// specified backup dir - by default we'll write to
 	// a directory under "/tmp".
 
-	stagingDir, err := ioutil.TempDir(destinationDir, tempPrefix)
+	stagingDir, err := os.MkdirTemp(destinationDir, tempPrefix)
 	if err != nil {
 		return nil, errors.Annotate(err, "while making backups staging directory")
 	}

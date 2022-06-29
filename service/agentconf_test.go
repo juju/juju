@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
@@ -91,7 +90,6 @@ func (s *agentConfSuite) setUpAgentConf(c *gc.C) {
 		Password:          "fake",
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		MongoVersion:      mongo.Mongo32wt,
 	}
 
 	agentConf, err := agent.NewAgentConfig(configParams)

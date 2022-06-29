@@ -4,8 +4,8 @@
 package resolver
 
 import (
-	corecharm "github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	corecharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/mutex/v2"
 
@@ -236,6 +236,8 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 		}
 	}
 
+	// TODO (hmlanigan) 2022-06-08
+	// Is there any reason for the local and remote CharmURL to not be string pointers?
 	sameCharm := *local.CharmURL == *remote.CharmURL
 	if haveCharmDir && (!local.State.Started || sameCharm) {
 		return nil

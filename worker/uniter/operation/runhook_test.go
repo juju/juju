@@ -4,7 +4,9 @@
 package operation_test
 
 import (
-	"github.com/juju/charm/v8/hooks"
+	"time"
+
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -875,4 +877,60 @@ func (s *RunHookSuite) TestRunningHookMessageForRelationHooks(c *gc.C) {
 		},
 	)
 	c.Assert(msg, gc.Equals, "running install hook", gc.Commentf("expected remote unit not to be included for a non-relation hook"))
+}
+
+func (s *RunHookSuite) TestRunningHookMessageForSecretsHooks(c *gc.C) {
+	msg := operation.RunningHookMessage(
+		"secret-rotate",
+		hook.Info{
+			Kind:      hooks.SecretRotate,
+			SecretURL: "secret://app/mariadb/password",
+		},
+	)
+	c.Assert(msg, gc.Equals, `running secret-rotate hook for secret://app/mariadb/password`)
+}
+
+func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
+	callbacks := &CommitHookCallbacks{
+		MockCommitHook: &MockCommitHook{},
+	}
+	factory := newOpFactory(nil, callbacks)
+	op, err := factory.NewRunHook(hook.Info{
+		Kind: hooks.SecretRotate, SecretURL: "secret://app/mariadb/password",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectState := &operation.State{
+		Kind: operation.Continue,
+		Step: operation.Pending,
+	}
+
+	now := time.Now()
+	newState, err := op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState, jc.DeepEquals, expectState)
+	c.Assert(callbacks.rotatedSecretURL, gc.Equals, "secret://app/mariadb/password")
+	c.Assert(callbacks.rotatedSecretTime.After(now), jc.IsTrue)
+}
+
+func (s *RunHookSuite) TestPrepareHookError_SecretRotate_NotLeader(c *gc.C) {
+	callbacks := &PrepareHookCallbacks{
+		MockPrepareHook: &MockPrepareHook{nil, string(hooks.SecretRotate), nil},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: &MockContext{isLeader: false},
+			},
+		},
+	}
+	factory := newOpFactory(runnerFactory, callbacks)
+
+	op, err := factory.NewRunHook(hook.Info{
+		Kind: hooks.SecretRotate, SecretURL: "secret://app/mariadb/password",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 }

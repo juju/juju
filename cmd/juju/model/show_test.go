@@ -435,9 +435,11 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *gc.C
 
 func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsYaml(c *gc.C) {
 	basicAndUsersInfo := createBasicModelInfo()
-	basicAndUsersInfo.Users = []params.ModelUserInfo{
-		{"admin", "display name", nil, params.UserAccessPermission("admin")},
-	}
+	basicAndUsersInfo.Users = []params.ModelUserInfo{{
+		UserName:    "admin",
+		DisplayName: "display name",
+		Access:      "admin",
+	}}
 	s.fake.infos = []params.ModelInfoResult{
 		{Result: basicAndUsersInfo},
 	}
@@ -465,9 +467,11 @@ basic-model:
 
 func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *gc.C) {
 	basicAndUsersInfo := createBasicModelInfo()
-	basicAndUsersInfo.Users = []params.ModelUserInfo{
-		{"admin", "display name", nil, params.UserAccessPermission("admin")},
-	}
+	basicAndUsersInfo.Users = []params.ModelUserInfo{{
+		UserName:    "admin",
+		DisplayName: "display name",
+		Access:      "admin",
+	}}
 
 	s.fake.infos = []params.ModelInfoResult{
 		{Result: basicAndUsersInfo},

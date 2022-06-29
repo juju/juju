@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -137,9 +137,10 @@ func (m *mockApplication) Charm() (application.Charm, bool, error) {
 	return m.charm, true, nil
 }
 
-func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+func (m *mockApplication) CharmURL() (curl *string, force bool) {
 	m.MethodCall(m, "CharmURL")
-	return m.curl, true
+	str := m.curl.String()
+	return &str, true
 }
 
 func (m *mockApplication) CharmConfig(branchName string) (charm.Settings, error) {
@@ -1219,20 +1220,6 @@ type mockGeneration struct {
 func (g *mockGeneration) AssignApplication(appName string) error {
 	g.MethodCall(g, "AssignApplication", appName)
 	return g.NextErr()
-}
-
-type mockRepo struct {
-	application.Repository
-	*jtesting.CallMocker
-	revisions map[string]int
-}
-
-func (m *mockRepo) DownloadCharm(resourceURL, _ string) (*charm.CharmArchive, error) {
-	results := m.MethodCall(m, "DownloadCharm", resourceURL)
-	if results == nil {
-		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, resourceURL)
-	}
-	return results[0].(*charm.CharmArchive), jtesting.TypeAssertError(results[1])
 }
 
 type mockUpdateSeries struct {

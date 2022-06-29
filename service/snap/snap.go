@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -63,7 +62,7 @@ type BackgroundService struct {
 func (backgroundService *BackgroundService) Validate() error {
 	name := backgroundService.Name
 	if name == "" {
-		return errors.NotValidf("background service name")
+		return errors.NotValidf("empty background service name")
 	}
 
 	if !snapNameRe.MatchString(name) {
@@ -71,27 +70,6 @@ func (backgroundService *BackgroundService) Validate() error {
 	}
 
 	return nil
-}
-
-// IsRunning indicates whether Snap is currently running on the system.
-// When the snap command (normally installed to /usr/bin/snap) cannot be
-// detected, IsRunning returns (false, nil). Other errors result in (false, err).
-func IsRunning() (bool, error) {
-	if runtime.GOOS == "windows" {
-		return false, nil
-	}
-
-	cmd := exec.Command(Command, "version")
-	out, err := cmd.CombinedOutput()
-	logger.Debugf("snap version output: %#v", string(out[:]))
-	if err == nil {
-		return true, nil
-	}
-	if common.IsCmdNotFoundErr(err) {
-		return false, nil
-	}
-
-	return false, errors.Annotatef(err, "exec %q failed", Command)
 }
 
 // SetSnapConfig sets a snap's key to value.
@@ -126,6 +104,7 @@ func ListServices() ([]string, error) {
 	return strings.Split(services, "\n"), nil
 }
 
+// Installable represents an installable snap.
 type Installable interface {
 	// Name returns the name of the application
 	Name() string
@@ -170,7 +149,7 @@ type Service struct {
 //
 // If no BackgroundServices are provided, Service will wrap all of the snap's
 // background services.
-func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath string, channel string, confinementPolicy ConfinementPolicy, backgroundServices []BackgroundService, prerequisites []Installable) (Service, error) {
+func NewService(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy ConfinementPolicy, backgroundServices []BackgroundService, prerequisites []Installable) (Service, error) {
 	if serviceName == "" {
 		serviceName = mainSnap
 	}
@@ -197,7 +176,7 @@ func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath 
 		executable:     snapPath,
 		app:            app,
 		conf:           conf,
-		configDir:      systemd.EtcSystemdDir,
+		configDir:      configDir,
 	}, nil
 }
 
@@ -210,7 +189,7 @@ func NewServiceFromName(name string, conf common.Conf) (Service, error) {
 	var prerequisites []Installable
 	var backgroundServices []BackgroundService
 
-	return NewService(name, name, conf, Command, "", "", backgroundServices, prerequisites)
+	return NewService(name, name, conf, Command, systemd.EtcSystemdDir, "", "", backgroundServices, prerequisites)
 
 }
 
@@ -263,7 +242,7 @@ func (s Service) Running() (bool, error) {
 //
 // Exists is part of the service.Service interface.
 func (s Service) Exists() (bool, error) {
-	return s.Installed()
+	return false, errors.NotImplementedf("snap service Exists")
 }
 
 // Install installs the snap and its background services.

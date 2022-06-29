@@ -6,7 +6,7 @@ package operation
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/errors"
 )
 

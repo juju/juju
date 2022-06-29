@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -60,10 +59,10 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	// Set up a CAAS model to replace the IAAS one.
-	// Ensure an older major version is used to prevent an upgrade
+	// Ensure major version 1 is used to prevent an upgrade
 	// from being attempted.
 	modelVers := jujuversion.Current
-	modelVers.Major--
+	modelVers.Major = 1
 	extraAttrs := coretesting.Attrs{
 		"agent-version": modelVers.String(),
 	}
@@ -197,9 +196,6 @@ var (
 
 func sockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
-	}
 	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 

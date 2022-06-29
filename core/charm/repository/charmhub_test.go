@@ -5,12 +5,11 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -75,6 +74,12 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 			Series:       "focal",
 		},
 		Channel: &channel,
+	}
+	if id != "" {
+		origin.InstanceKey = "instance-key"
+	}
+	if id != "" {
+		origin.InstanceKey = "instance-key"
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
@@ -449,15 +454,15 @@ func (s *charmHubRepositorySuite) expectCharmRefresh(c *gc.C, cfg charmhub.Refre
 						Channel:      "20.04",
 					},
 				},
-				MetadataYAML: json.RawMessage([]byte(`
+				MetadataYAML: `
 name: wordpress
 summary: Blog engine
 description: Blog engine
-`[1:])),
-				ConfigYAML: json.RawMessage([]byte(`
+`[1:],
+				ConfigYAML: `
 options:
   blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
-`[1:])),
+`[1:],
 			},
 			EffectiveChannel: "latest/stable",
 		}}, nil
@@ -685,11 +690,12 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
 	channel := corecharm.MustParseChannel("stable")
 	origin := corecharm.Origin{
-		Type:     transport.CharmType.String(),
-		ID:       id,
-		Platform: platform,
-		Revision: &revision,
-		Channel:  &channel,
+		Type:        transport.CharmType.String(),
+		ID:          id,
+		Platform:    platform,
+		Revision:    &revision,
+		Channel:     &channel,
+		InstanceKey: "instance-key",
 	}
 
 	cfg, err := refreshConfig(curl, origin)
@@ -754,7 +760,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 			Architecture: "amd64",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `base: empty channel not valid`)
+	c.Assert(err, gc.ErrorMatches, `base: channel cannot be empty`)
 }
 
 func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {

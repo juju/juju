@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
@@ -570,10 +570,10 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // CharmURL mocks base method.
-func (m *MockApplication) CharmURL() *charm.URL {
+func (m *MockApplication) CharmURL() *string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
-	ret0, _ := ret[0].(*charm.URL)
+	ret0, _ := ret[0].(*string)
 	return ret0
 }
 
@@ -618,4 +618,18 @@ func (m *MockCharm) LXDProfile() lxdprofile.Profile {
 func (mr *MockCharmMockRecorder) LXDProfile() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfile", reflect.TypeOf((*MockCharm)(nil).LXDProfile))
+}
+
+// Revision mocks base method.
+func (m *MockCharm) Revision() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revision")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Revision indicates an expected call of Revision.
+func (mr *MockCharmMockRecorder) Revision() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revision", reflect.TypeOf((*MockCharm)(nil).Revision))
 }

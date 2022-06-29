@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -17,8 +16,6 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
-	"github.com/juju/utils/v3"
-	"github.com/juju/version/v2"
 
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -27,13 +24,7 @@ const (
 	actionMarker = "_a_"
 )
 
-var (
-	actionLogger = loggo.GetLogger("juju.state.action")
-
-	// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
-	// facilitate patching.
-	NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
-)
+var actionLogger = loggo.GetLogger("juju.state.action")
 
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
@@ -113,6 +104,15 @@ type actionDoc struct {
 	// Parameters holds the action's parameters, if any; it should validate
 	// against the schema defined by the named action in the unit's charm.
 	Parameters map[string]interface{} `bson:"parameters"`
+
+	// Parallel is true if this action can run in parallel with others
+	// without requiring the mandatory acquisition of the machine lock.
+	Parallel bool `bson:"parallel,omitempty"`
+
+	// ExecutionGroup is used to group all actions which require the
+	// same machine lock, ie actions in the same group cannot run in
+	// in parallel with each other.
+	ExecutionGroup string `bson:"execution-group,omitempty"`
 
 	// Enqueued is the time the action was added.
 	Enqueued time.Time `bson:"enqueued"`
@@ -202,6 +202,18 @@ func (a *action) Name() string {
 // definition of the Action.
 func (a *action) Parameters() map[string]interface{} {
 	return a.doc.Parameters
+}
+
+// Parallel returns true if the action can run without
+// needed to acquire the machine lock.
+func (a *action) Parallel() bool {
+	return a.doc.Parallel
+}
+
+// ExecutionGroup is the group of actions which cannot
+// execute in parallel with each other.
+func (a *action) ExecutionGroup() string {
+	return a.doc.ExecutionGroup
 }
 
 // Enqueued returns the time the action was added to state as a pending
@@ -574,43 +586,28 @@ func newAction(st *State, adoc actionDoc) Action {
 	}
 }
 
-// MinVersionSupportNewActionID should be un-exposed after 2.7 released.
-// TODO(action): un-expose MinVersionSupportNewActionID and IsNewActionIDSupported and remove those helper functions using these two vars in tests from 2.7.0.
-var MinVersionSupportNewActionID = version.MustParse("2.6.999")
-
-// IsNewActionIDSupported checks if new action ID is supported for the specified version.
-func IsNewActionIDSupported(ver version.Number) bool {
-	return ver.Compare(MinVersionSupportNewActionID) >= 0
-}
-
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag,
+	actionName string, parameters map[string]interface{}, parallel bool, executionGroup string) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	var actionId string
-	if IsNewActionIDSupported(modelAgentVersion) {
-		id, err := sequenceWithMin(mb, "task", 1)
-		if err != nil {
-			return actionDoc{}, actionNotificationDoc{}, err
-		}
-		actionId = strconv.Itoa(id)
-	} else {
-		actionUUID, err := NewUUID()
-		if err != nil {
-			return actionDoc{}, actionNotificationDoc{}, err
-		}
-		actionId = actionUUID.String()
+	id, err := sequenceWithMin(mb, "task", 1)
+	if err != nil {
+		return actionDoc{}, actionNotificationDoc{}, err
 	}
+	actionId := strconv.Itoa(id)
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
 	modelUUID := mb.modelUUID()
 	return actionDoc{
-			DocId:      mb.docID(actionId),
-			ModelUUID:  modelUUID,
-			Receiver:   receiverTag.Id(),
-			Name:       actionName,
-			Parameters: parameters,
-			Enqueued:   mb.nowToTheSecond(),
-			Operation:  operationID,
-			Status:     ActionPending,
+			DocId:          mb.docID(actionId),
+			ModelUUID:      modelUUID,
+			Receiver:       receiverTag.Id(),
+			Name:           actionName,
+			Parameters:     parameters,
+			Parallel:       parallel,
+			ExecutionGroup: executionGroup,
+			Enqueued:       mb.nowToTheSecond(),
+			Operation:      operationID,
+			Status:         ActionPending,
 		}, actionNotificationDoc{
 			DocId:     mb.docID(prefix + actionId),
 			ModelUUID: modelUUID,
@@ -663,55 +660,6 @@ func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
 	return m.Action(tag.Id())
 }
 
-// FindActionTagsById finds Actions with ids that either
-// share the supplied prefix (for deprecated UUIDs), or match
-// the supplied id (for newer id integers). If passed an empty string
-// match all Actions.
-// It returns a list of corresponding ActionTags.
-func (m *Model) FindActionTagsById(idValue string) ([]names.ActionTag, error) {
-	actionLogger.Tracef("FindActionTagsById() %q", idValue)
-	var results []names.ActionTag
-	var doc struct {
-		Id string `bson:"_id"`
-	}
-
-	actions, closer := m.st.db().GetCollection(actionsC)
-	defer closer()
-
-	matchValue := m.st.docID(idValue)
-	agentVersion, err := m.AgentVersion()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newIdsSupported := IsNewActionIDSupported(agentVersion)
-	maybeOldId := strings.ContainsAny(idValue, "-abcdef")
-	var filter bson.D
-	if idValue == "" {
-		// Match all when passed an empty id prefix for
-		// legacy behaviour.
-		filter = nil
-	} else if !newIdsSupported || maybeOldId {
-		filter = bson.D{{
-			"_id", bson.D{{"$regex", "^" + matchValue}},
-		}}
-	} else {
-		filter = bson.D{{
-			"_id", matchValue,
-		}}
-	}
-	iter := actions.Find(filter).Iter()
-	defer iter.Close()
-	for iter.Next(&doc) {
-		actionLogger.Tracef("FindActionTagsById() iter doc %+v", doc)
-		localID := m.st.localID(doc.Id)
-		if names.IsValidAction(localID) {
-			results = append(results, names.NewActionTag(localID))
-		}
-	}
-	actionLogger.Tracef("FindActionTagsById() %q found %+v", idValue, results)
-	return results, nil
-}
-
 // FindActionsByName finds Actions with the given name.
 func (m *Model) FindActionsByName(name string) ([]Action, error) {
 	var results []Action
@@ -728,7 +676,8 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 }
 
 // EnqueueAction caches the action doc to the database.
-func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName string, payload map[string]interface{}, actionError error) (Action, error) {
+func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
+	actionName string, payload map[string]interface{}, parallel bool, executionGroup string, actionError error) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
@@ -737,11 +686,7 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentVersion, err := m.AgentVersion()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, agentVersion)
+	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, parallel, executionGroup)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -795,16 +740,16 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName
 
 // AddAction adds a new Action of type name and using arguments payload to
 // the receiver, and returns its ID.
-func (m *Model) AddAction(receiver ActionReceiver, operationID, name string, payload map[string]interface{}) (Action, error) {
-	payload, err := receiver.PrepareActionPayload(name, payload)
+func (m *Model) AddAction(receiver ActionReceiver, operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (Action, error) {
+	payload, runParallel, runExecutionGroup, err := receiver.PrepareActionPayload(name, payload, parallel, executionGroup)
 	if err != nil {
-		_, err2 := m.EnqueueAction(operationID, receiver.Tag(), name, payload, err)
+		_, err2 := m.EnqueueAction(operationID, receiver.Tag(), name, payload, runParallel, runExecutionGroup, err)
 		if err2 != nil {
 			err = err2
 		}
 		return nil, errors.Trace(err)
 	}
-	return m.EnqueueAction(operationID, receiver.Tag(), name, payload, nil)
+	return m.EnqueueAction(operationID, receiver.Tag(), name, payload, runParallel, runExecutionGroup, nil)
 }
 
 // matchingActions finds actions that match ActionReceiver.
@@ -877,13 +822,15 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 // PruneOperations removes operation entries and their sub-tasks until
 // only logs newer than <maxLogTime> remain and also ensures
 // that the actions collection is smaller than <maxLogsMB> after the deletion.
-func PruneOperations(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+func PruneOperations(stop <-chan struct{}, st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
 	// There may be older actions without parent operations so try those first.
 	hasNoOperation := bson.D{{"$or", []bson.D{
 		{{"operation", ""}},
 		{{"operation", bson.D{{"$exists", false}}}},
 	}}}
-	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, actionsC, "completed", hasNoOperation, GoTime)
+	coll, closer := st.db().GetRawCollection(actionsC)
+	defer closer()
+	err := pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "completed", hasNoOperation, GoTime)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -906,6 +853,6 @@ func PruneOperations(st *State, maxHistoryTime time.Duration, maxHistoryMB int) 
 	}
 	sizeFactor := float64(actionsCount) / float64(operationsCount)
 
-	err = pruneCollectionAndChildren(st, maxHistoryTime, maxHistoryMB, operationsC, "completed", actionsC, "operation", nil, sizeFactor, GoTime)
+	err = pruneCollectionAndChildren(stop, st, maxHistoryTime, maxHistoryMB, operationsColl, actionsColl, "completed", "operation", nil, sizeFactor, GoTime)
 	return errors.Trace(err)
 }

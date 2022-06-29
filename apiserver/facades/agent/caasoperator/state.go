@@ -4,7 +4,7 @@
 package caasoperator
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/leadership"
@@ -54,7 +54,7 @@ type Application interface {
 // Charm provides the subset of charm state required by the
 // CAAS operator facade.
 type Charm interface {
-	URL() *charm.URL
+	String() string
 	BundleSha256() string
 	Meta() *charm.Meta
 }

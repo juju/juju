@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/juju/gnuflag"
@@ -15,7 +16,7 @@ import (
 
 func main() {
 	gnuflag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [modeluuid agent|--user <username>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s <modeluuid> <agent> [<password>] | --user <username>\n", os.Args[0])
 		gnuflag.PrintDefaults()
 	}
 	user := gnuflag.String("user", "", "supply a username to generate a password instead of modeluuid and agent")
@@ -23,6 +24,7 @@ func main() {
 	args := gnuflag.Args()
 	var modelUUID string
 	var agent string
+	var passwd string
 	if *user == "" {
 		if len(args) < 2 {
 			gnuflag.Usage()
@@ -30,10 +32,15 @@ func main() {
 		}
 		modelUUID = args[0]
 		agent = args[1]
-	}
-	passwd, err := utils.RandomPassword()
-	if err != nil {
-		log.Fatal(err)
+		if len(args) > 2 {
+			passwd = args[2]
+		} else {
+			var err error
+			passwd, err = utils.RandomPassword()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
 	if *user != "" {
 		salt, err := utils.RandomSalt()
@@ -46,15 +53,19 @@ func main() {
 		fmt.Printf(`db.users.update({"_id": "%s"}, {"$set": {"passwordsalt": "%s", "passwordhash": "%s"}})`+"\n",
 			*user, salt, hash)
 	} else {
-		hash := utils.AgentPasswordHash(passwd)
-		fmt.Printf("oldpassword: %s\n", passwd)
 		var collection string
 		if strings.Index(agent, "/") < 0 {
 			// must be a machine
 			collection = "machines"
+			if _, err := strconv.Atoi(agent); err != nil {
+				fmt.Fprintf(os.Stderr, "Agent %q isn't a unit agent (with /) nor an integer machine id\n", agent)
+				os.Exit(1)
+			}
 		} else {
 			collection = "units"
 		}
+		hash := utils.AgentPasswordHash(passwd)
+		fmt.Printf("oldpassword: %s\n", passwd)
 		fmt.Printf(`db.%s.update({"_id": "%s:%s"}, {$set: {"passwordhash": "%s"}})`+"\n",
 			collection, modelUUID, agent, hash)
 	}

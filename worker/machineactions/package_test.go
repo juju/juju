@@ -13,3 +13,6 @@ import (
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_facade.go github.com/juju/juju/worker/machineactions Facade
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_lock.go github.com/juju/juju/core/machinelock Lock

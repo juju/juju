@@ -4,8 +4,6 @@
 package context_test
 
 import (
-	"path/filepath"
-	"runtime"
 	"sort"
 
 	"github.com/juju/names/v4"
@@ -17,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -128,6 +127,14 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 	}), expected
 }
 
+func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
+	url := secrets.NewSimpleURL("app/mariadb/password")
+	context.SetEnvironmentHookContextSecret(ctx, url.ID())
+	return []string{
+		"JUJU_SECRET_URL=" + url.ID(),
+	}
+}
+
 func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
 	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "")
 	return []string{
@@ -173,53 +180,7 @@ func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 	vars, err := keyvalues.Parse(paths, true)
 	c.Assert(err, jc.ErrorIsNil)
 	key := "PATH"
-	if runtime.GOOS == "windows" {
-		key = "Path"
-	}
 	c.Assert(vars[key], gc.Not(gc.Equals), "")
-}
-
-func (s *EnvSuite) TestEnvWindows(c *gc.C) {
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-	windowsVars := []string{
-		"Path=path-to-tools;foo;bar",
-		"PSModulePath=ping;pong;" + filepath.FromSlash("path-to-charm/lib/Modules"),
-	}
-
-	environmenter := context.NewRemoteEnvironmenter(
-		func() []string { return []string{} },
-		func(k string) string {
-			switch k {
-			case "Path":
-				return "foo;bar"
-			case "PSModulePath":
-				return "ping;pong"
-			}
-			return ""
-		},
-		func(k string) (string, bool) {
-			switch k {
-			case "Path":
-				return "foo;bar", true
-			case "PSModulePath":
-				return "ping;pong", true
-			}
-			return "", false
-		},
-	)
-
-	ctx, contextVars := s.getContext(false)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
-
-	relationVars := s.setRelation(ctx)
-	storageVars := s.setStorage(ctx)
-	actualVars, err = ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars, storageVars)
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
@@ -267,10 +228,11 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 		relationVars := s.setDepartingRelation(ctx)
+		secretVars := s.setSecret(ctx)
 		storageVars := s.setStorage(ctx)
 		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, storageVars)
+		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars)
 	}
 }
 
@@ -317,9 +279,10 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
 
 		relationVars := s.setRelation(ctx)
+		secretVars := s.setSecret(ctx)
 		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars)
+		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars, secretVars)
 	}
 }
 
@@ -366,9 +329,10 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars)
 
 		relationVars := s.setRelation(ctx)
+		secretVars := s.setSecret(ctx)
 		actualVars, err = ctx.HookVars(paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars)
+		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars, secretVars)
 	}
 }
 
@@ -407,9 +371,10 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
 
 	relationVars := s.setRelation(ctx)
+	secretVars := s.setSecret(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars)
 }
 
 func (s *EnvSuite) TestHostEnv(c *gc.C) {
@@ -449,9 +414,10 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, []string{"KUBERNETES_SERVICE=test"})
 
 	relationVars := s.setRelation(ctx)
+	secretVars := s.setSecret(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars, []string{"KUBERNETES_SERVICE=test"})
 }
 
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *gc.C) {
