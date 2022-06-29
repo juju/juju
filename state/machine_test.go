@@ -345,11 +345,11 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 
 	err = s.machine.Destroy()
 	c.Assert(errors.Cause(err), jc.Satisfies, state.IsHasContainersError)
-	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
+	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting container\(s\) "1/lxd/0"`)
 
 	err = s.machine.EnsureDead()
 	c.Assert(errors.Cause(err), jc.Satisfies, state.IsHasContainersError)
-	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
+	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting container\(s\) "1/lxd/0"`)
 
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 }
@@ -375,11 +375,11 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
-	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
+	c.Assert(err, gc.ErrorMatches, `machine 1 has unit\(s\) "wordpress/0" assigned`)
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
-	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
+	c.Assert(err, gc.ErrorMatches, `machine 1 has unit\(s\) "wordpress/0" assigned`)
 
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 
