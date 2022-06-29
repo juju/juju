@@ -128,7 +128,7 @@ bootcmd:
 `
 	s.expectedSampleConfigWriting = `- install -D -m 644 /dev/null '%[1]s.templ'
 - |-
-  printf '%%s\n' '
+  echo '
   auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3} {ethaa_bb_cc_dd_ee_f5}
 
   iface lo inet loopback
@@ -191,7 +191,7 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
 
 	s.expectedSampleUserData = `- install -D -m 744 /dev/null '%[2]s'
 - |-
-  printf '%%s\n' '` + networkInterfacesScriptYamled + ` ' > '%[2]s'
+  echo '` + networkInterfacesScriptYamled + ` ' > '%[2]s'
 - |2
 
   if [ ! -f /sbin/ifup ]; then
@@ -222,7 +222,7 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
 	s.expectedFullNetplanYaml = `
 - install -D -m 644 /dev/null '%[1]s'
 - |-
-  printf '%%s\n' 'network:
+  echo 'network:
     version: 2
     ethernets:
       any0:
