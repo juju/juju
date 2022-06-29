@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
@@ -92,11 +93,6 @@ func (sl *ServiceLocator) Params() map[string]interface{} {
 	return sl.doc.Params
 }
 
-func validateServiceLocatorParams(args params.AddServiceLocatorParams) (err error) {
-	// No Sanity checks.
-	return nil
-}
-
 // AddServiceLocator creates a new service locator record, which records details about a
 // network service provided to related units.
 func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLocatorParams) (*ServiceLocator, error) {
@@ -106,10 +102,6 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot add service locator %q", args.Name)
 
-	if err := validateServiceLocatorParams(args); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	model, err := sp.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -118,6 +110,7 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 	}
 
 	serviceLocatorDoc := serviceLocatorDoc{
+		DocId:              fmt.Sprintf("%s.%s", args.Name, args.UnitId),
 		Id:                 id,
 		Name:               args.Name,
 		Type:               args.Type,
@@ -133,13 +126,13 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 			if err := checkModelActive(sp.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return nil, errors.AlreadyExistsf("service locator Name: %s ID: %s", args.Name)
+			return nil, errors.AlreadyExistsf("service locator name: %s unit-id: %s", args.Name, args.UnitId)
 		}
 		ops := []txn.Op{
 			model.assertActiveOp(),
 			{
 				C:      serviceLocatorsC,
-				Id:     serviceLocatorDoc.Id,
+				Id:     serviceLocatorDoc.DocId,
 				Assert: txn.DocMissing,
 				Insert: &serviceLocatorDoc,
 			},

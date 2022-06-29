@@ -18,7 +18,6 @@ var _ = gc.Suite(&serviceLocatorsSuite{})
 
 func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	sl, err := s.State.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
-		ServiceLocatorUUID: "test-service-locator-uuid",
 		Name:               "test-locator",
 		Type:               "l4-service",
 		UnitId:             "mysql/17",
@@ -35,10 +34,9 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	c.Assert(sl.ConsumerRelationId(), gc.Equals, 19)
 
 	sl2, err := s.State.ServiceLocatorsState().AddServiceLocator(params.AddServiceLocatorParams{
-		ServiceLocatorUUID: "test-service-locator-uuid2",
 		Name:               "test-locator2",
 		Type:               "l4-service",
-		UnitId:             "mysql/18",
+		UnitId:             "mysql/17",
 		ConsumerUnitId:     "mediawiki/19",
 		ConsumerRelationId: 20,
 		Params:             map[string]interface{}{"ip-address": "2.2.2.2"},
@@ -47,7 +45,7 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 	c.Assert(sl2.Id(), gc.Equals, 2)
 	c.Assert(sl2.Name(), gc.Equals, "test-locator2")
 	c.Assert(sl2.Type(), gc.Equals, "l4-service")
-	c.Assert(sl2.UnitId(), gc.Equals, "mysql/18")
+	c.Assert(sl2.UnitId(), gc.Equals, "mysql/17")
 	c.Assert(sl2.ConsumerUnitId(), gc.Equals, "mediawiki/19")
 	c.Assert(sl2.ConsumerRelationId(), gc.Equals, 20)
 
