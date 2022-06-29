@@ -596,6 +596,7 @@ func (st *State) CloudSpec() (*params.CloudSpec, error) {
 	return result.Result, nil
 }
 
+// AddServiceLocator add service locators to state, return result strings with service locators IDs .
 func (st *State) AddServiceLocator(locators params.AddServiceLocators) (params.StringResult, error) {
 	var result params.StringResult
 	err := st.facade.FacadeCall("AddServiceLocator", locators, &result)

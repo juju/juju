@@ -57,16 +57,14 @@ func (s *serviceLocatorSuite) TestAddServiceLocator(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockBackend.EXPECT().AddServiceLocator(params.AddServiceLocatorParams{
-		ServiceLocatorUUID: "id",
-		Name:               "name",
-		Type:               "type",
+		Name: "name",
+		Type: "type",
 	}).Return("id", nil)
 
 	sl, err := api.AddServiceLocator(params.AddServiceLocators{
 		ServiceLocators: []params.AddServiceLocatorParams{{
-			ServiceLocatorUUID: "id",
-			Name:               "name",
-			Type:               "type",
+			Name: "name",
+			Type: "type",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
