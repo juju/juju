@@ -99,8 +99,12 @@ func validateServiceLocatorParams(args params.AddServiceLocatorParams) (err erro
 
 // AddServiceLocator creates a new service locator record, which records details about a
 // network service provided to related units.
-func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLocatorParams) (_ *ServiceLocator, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service locator for %q", args.Name)
+func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLocatorParams) (*ServiceLocator, error) {
+	id, err := sequenceWithMin(sp.st, "service-locator", 1)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer errors.DeferredAnnotatef(&err, "cannot add service locator %q", args.Name)
 
 	if err := validateServiceLocatorParams(args); err != nil {
 		return nil, errors.Trace(err)
@@ -114,6 +118,7 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 	}
 
 	serviceLocatorDoc := serviceLocatorDoc{
+		Id:                 id,
 		Name:               args.Name,
 		Type:               args.Type,
 		UnitId:             args.UnitId,
@@ -148,7 +153,7 @@ func (sp *serviceLocatorPersistence) AddServiceLocator(args params.AddServiceLoc
 }
 
 // RemoveServiceLocator removes a service locator record
-func RemoveServiceLocator(slId string) []txn.Op {
+func (sp *serviceLocatorPersistence) RemoveServiceLocator(slId string) []txn.Op {
 	op := txn.Op{
 		C:      serviceLocatorsC,
 		Id:     slId,

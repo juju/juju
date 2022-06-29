@@ -27,7 +27,7 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 		Params:             map[string]interface{}{"ip-address": "1.1.1.1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sl.Id(), gc.Equals, "test-service-locator-uuid")
+	c.Assert(sl.Id(), gc.Equals, 1)
 	c.Assert(sl.Name(), gc.Equals, "test-locator")
 	c.Assert(sl.Type(), gc.Equals, "l4-service")
 	c.Assert(sl.UnitId(), gc.Equals, "mysql/17")
@@ -44,7 +44,7 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 		Params:             map[string]interface{}{"ip-address": "2.2.2.2"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sl2.Id(), gc.Equals, "test-service-locator-uuid2")
+	c.Assert(sl2.Id(), gc.Equals, 2)
 	c.Assert(sl2.Name(), gc.Equals, "test-locator2")
 	c.Assert(sl2.Type(), gc.Equals, "l4-service")
 	c.Assert(sl2.UnitId(), gc.Equals, "mysql/18")
@@ -53,8 +53,7 @@ func (s *serviceLocatorsSuite) TestServiceLocator(c *gc.C) {
 
 	all, err := s.State.ServiceLocatorsState().AllServiceLocators()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.HasLen, 2)
-	c.Assert(all[0].Id(), gc.Equals, "test-service-locator-uuid")
+	c.Assert(all[0].Id(), gc.Equals, 1)
 	c.Assert(all[0].Name(), gc.Equals, "test-locator")
 	c.Assert(all[0].Type(), gc.Equals, "l4-service")
 	c.Assert(all[0].UnitId(), gc.Equals, "mysql/17")
