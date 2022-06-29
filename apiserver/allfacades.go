@@ -86,6 +86,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
+	"github.com/juju/juju/apiserver/facades/controller/environupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
@@ -96,7 +97,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
-	"github.com/juju/juju/apiserver/facades/controller/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/raftlease"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/resumer"
@@ -152,6 +152,7 @@ func AllFacades() *facade.Registry {
 	externalcontrollerupdater.Register(registry)
 	deployer.Register(registry)
 	diskmanager.Register(registry)
+	environupgrader.Register(registry)
 	fanconfigurer.Register(registry)
 	firewaller.Register(registry)
 	firewallrules.Register(registry)
@@ -183,7 +184,6 @@ func AllFacades() *facade.Registry {
 	modelconfig.Register(registry)
 	modelgeneration.Register(registry)
 	modelmanager.Register(registry)
-	modelupgrader.Register(registry)
 	payloads.Register(registry)
 	payloadshookcontext.Register(registry)
 	provisioner.Register(registry)

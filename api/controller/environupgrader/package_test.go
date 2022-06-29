@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader_test
+package environupgrader_test
 
 import (
 	"testing"
