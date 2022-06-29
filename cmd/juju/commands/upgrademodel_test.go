@@ -135,7 +135,7 @@ var upgradeJujuTests = []upgradeTest{{
 	currentVersion: "2.0.0-ubuntu-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--agent-version", "5.2.0"},
-	expectErr:      `cannot upgrade/migrate to "5.2.0"`,
+	expectErr:      `"5.2.0" is not a supported version`,
 }, {
 	about:          "version downgrade",
 	available:      []string{"4.2-beta2-ubuntu-amd64"},

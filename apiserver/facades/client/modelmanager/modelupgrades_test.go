@@ -438,16 +438,16 @@ func (s *modelManagerSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `
-cannot upgrade, issues need to be fixed:
-model "admin/controller":
-	upgrade current model ("2.9.1") to at least "2.9.2" before upgrading/migrating to "3.0-beta1"
-	unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
-	mongo version has to be "4.4" at least, but current version is "4.3"
-	model hosts 8 windows machine(s)
-model "admin/model-1":
-	upgrade current model ("2.9.0") to at least "2.9.2" before upgrading/migrating to "3.0-beta1"
-	model is under "exporting" mode, upgrade blocked
-	model hosts 6 windows machine(s)`[1:])
+cannot upgrade to "3.0-beta1" due to issues with these models:
+"admin/controller":
+- current model ("2.9.1") has to be upgraded to "2.9.2" at least
+- unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
+- mongo version has to be "4.4" at least, but current version is "4.3"
+- windows is not supported but the model hosts 8 windows machine(s)
+"admin/model-1":
+- current model ("2.9.0") has to be upgraded to "2.9.2" at least
+- model is under "exporting" mode, upgrade blocked
+- windows is not supported but the model hosts 6 windows machine(s)`[1:])
 }
 
 func (s *modelManagerSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
@@ -544,10 +544,10 @@ func (s *modelManagerSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	)
 	c.Logf(err.Error())
 	c.Assert(err.Error(), gc.Equals, `
-cannot upgrade, issues need to be fixed:
-model "admin/model-1":
-	unexpected upgrade series lock found
-	model hosts 10 windows machine(s)`[1:])
+cannot upgrade to "3.0-beta1" due to issues with these models:
+"admin/model-1":
+- unexpected upgrade series lock found
+- windows is not supported but the model hosts 10 windows machine(s)`[1:])
 }
 
 func (s *modelManagerSuite) TestAbortCurrentUpgrade(c *gc.C) {

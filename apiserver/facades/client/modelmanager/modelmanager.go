@@ -1731,7 +1731,7 @@ func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelT
 	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
 		if err == nil && blockers != nil {
-			err = errors.NewNotSupported(nil, fmt.Sprintf("cannot upgrade, issues need to be fixed:\n%s", blockers))
+			err = errors.NewNotSupported(nil, fmt.Sprintf("cannot upgrade to %q due to issues with these models:\n%s", targetVersion, blockers))
 		}
 	}()
 
@@ -1819,6 +1819,3 @@ func (*ModelManagerAPIV8) ValidateModelUpgrades(_, _ struct{}) {}
 
 // UpgradeModel did not exist prior to v10.
 func (*ModelManagerAPIV9) UpgradeModel(_, _ struct{}) {}
-
-// ValidateModelUpgrades is removed in v10.
-func (*ModelManagerAPI) ValidateModelUpgrades(_, _ struct{}) {}

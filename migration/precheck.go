@@ -203,7 +203,7 @@ func (ctx *precheckContext) checkModel() error {
 	if blockers == nil {
 		return nil
 	}
-	return errors.NewNotSupported(nil, fmt.Sprintf("cannot migrate, issues need to be fixed:\n%s", blockers))
+	return errors.NewNotSupported(nil, fmt.Sprintf("cannot migrate to controller (%q) due to issues:\n%s", ctx.targetControllerVersion, blockers))
 }
 
 // TargetPrecheck checks the state of the target controller to make

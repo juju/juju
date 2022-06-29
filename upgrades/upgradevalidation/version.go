@@ -47,7 +47,7 @@ func versionCheck(from, to version.Number, versionMap map[int]version.Number) (b
 	minVer, ok := versionMap[to.Major]
 	logger.Debugf("from %q, to %q, versionMap %#v", from, to, versionMap)
 	if !ok {
-		return false, version.Number{}, errors.Errorf("cannot upgrade/migrate to %q", to)
+		return false, version.Number{}, errors.Errorf("%q is not a supported version", to)
 	}
 	// Allow upgrades from rc etc.
 	from.Tag = ""

@@ -32,7 +32,7 @@ func NewBlocker(format string, a ...any) *Blocker {
 
 // String returns the Blocker as a string.
 func (b Blocker) String() string {
-	return fmt.Sprintf("\n\t%s", b.reason)
+	return fmt.Sprintf("\n- %s", b.reason)
 }
 
 func (b Blocker) Error() string {
@@ -85,7 +85,7 @@ func (e ModelUpgradeBlockers) string() string {
 	if len(e.blockers) == 0 {
 		return ""
 	}
-	errString := fmt.Sprintf("model %q:", e.modelName)
+	errString := fmt.Sprintf("%q:", e.modelName)
 	for _, b := range e.blockers {
 		errString += b.String()
 	}
@@ -157,7 +157,7 @@ func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, mode
 		return nil, errors.Annotatef(err, "cannot count machines for series %v", winSeries)
 	}
 	if winMachineCount > 0 {
-		return NewBlocker("model hosts %d windows machine(s)", winMachineCount), nil
+		return NewBlocker("windows is not supported but the model hosts %d windows machine(s)", winMachineCount), nil
 	}
 	return nil, nil
 }
@@ -180,8 +180,7 @@ func getCheckTargetVersionForModel(
 			return nil, nil
 		}
 		return NewBlocker(
-			"upgrade current model (%q) to at least %q before upgrading/migrating to %q",
-			agentVersion, minVer, targetVersion,
+			"current model (%q) has to be upgraded to %q at least", agentVersion, minVer,
 		), nil
 	}
 }

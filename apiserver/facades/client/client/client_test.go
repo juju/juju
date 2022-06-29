@@ -217,7 +217,7 @@ func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
 	// 	c.Assert(err, gc.ErrorMatches, `
 	// these models must first be upgraded to at least 2.8.9 before upgrading the controller:
 	//  -admin/controller`[1:])
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade/migrate to "3.0.0"`)
+	c.Assert(err, gc.ErrorMatches, `"3.0.0" is not a supported version`)
 }
 
 func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {

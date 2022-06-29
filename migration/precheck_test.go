@@ -82,11 +82,11 @@ func (*SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend.model.owner = names.NewUserTag("foo")
 	err := migration.SourcePrecheck(backend, version.MustParse("3.0-beta1"), allAlivePresence(), allAlivePresence())
 	c.Assert(err.Error(), gc.Equals, `
-cannot migrate, issues need to be fixed:
-model "foo/model-1":
-	upgrade current model ("2.9.31") to at least "2.9.32" before upgrading/migrating to "3.0-beta1"
-	unexpected upgrade series lock found
-	model hosts 10 windows machine(s)`[1:])
+cannot migrate to controller ("3.0-beta1") due to issues:
+"foo/model-1":
+- current model ("2.9.31") has to be upgraded to "2.9.32" at least
+- unexpected upgrade series lock found
+- windows is not supported but the model hosts 10 windows machine(s)`[1:])
 }
 
 func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
@@ -101,9 +101,9 @@ func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend.model.owner = names.NewUserTag("foo")
 	err := migration.SourcePrecheck(backend, version.MustParse("2.9.99"), allAlivePresence(), allAlivePresence())
 	c.Assert(err.Error(), gc.Equals, `
-cannot migrate, issues need to be fixed:
-model "foo/model-1":
-	unexpected upgrade series lock found`[1:])
+cannot migrate to controller ("2.9.99") due to issues:
+"foo/model-1":
+- unexpected upgrade series lock found`[1:])
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {

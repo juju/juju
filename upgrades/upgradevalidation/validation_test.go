@@ -42,21 +42,21 @@ func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
 		blockers1.Join(blockers)
 	}
 	c.Assert(blockers1.String(), gc.Equals, `
-model "controller":
-	model migration is in process
-	unexpected upgrade series lock found
-model "model-1":
-	unexpected upgrade series lock found
-	model migration is in process
-model "model-2":
-	unexpected upgrade series lock found
-	model migration is in process
-model "model-3":
-	unexpected upgrade series lock found
-	model migration is in process
-model "model-4":
-	unexpected upgrade series lock found
-	model migration is in process`[1:])
+"controller":
+- model migration is in process
+- unexpected upgrade series lock found
+"model-1":
+- unexpected upgrade series lock found
+- model migration is in process
+"model-2":
+- unexpected upgrade series lock found
+- model migration is in process
+"model-3":
+- unexpected upgrade series lock found
+- model migration is in process
+"model-4":
+- unexpected upgrade series lock found
+- model migration is in process`[1:])
 }
 
 func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
@@ -105,9 +105,9 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers.String(), gc.Equals, `
-model "admin/model-1":
-	model migration is in process
-	unexpected upgrade series lock found`[1:])
+"admin/model-1":
+- model migration is in process
+- unexpected upgrade series lock found`[1:])
 }
 
 func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
@@ -132,7 +132,7 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 
 	blocker, err = upgradevalidation.CheckNoWinMachinesForModel("", nil, state, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `model hosts 1 windows machine(s)`)
+	c.Assert(blocker.Error(), gc.Equals, `windows is not supported but the model hosts 1 windows machine(s)`)
 }
 
 func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {
@@ -180,7 +180,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `upgrade current model ("2.9.29") to at least "2.9.30" before upgrading/migrating to "3.0-beta1"`)
+	c.Assert(blocker.Error(), gc.Equals, `current model ("2.9.29") has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("3.0-beta1"),
@@ -200,7 +200,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 		version.MustParse("4.1.1"),
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade/migrate to "4.1.1"`)
+	c.Assert(err, gc.ErrorMatches, `"4.1.1" is not a supported version`)
 	c.Assert(blocker, gc.IsNil)
 }
 
