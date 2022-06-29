@@ -542,15 +542,14 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 	return nil
 }
 
-func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
-	// The following is only required for testing, as we generate a new http
-	// client here for production.
+// getRepoFactory returns the repository factory, caching it after first call.
+func (a *API) getRepoFactory() corecharm.RepositoryFactory {
 	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	if a.repoFactory != nil {
-		defer a.mu.Unlock()
-		return a.repoFactory.GetCharmRepository(src)
+		return a.repoFactory
 	}
-	a.mu.Unlock()
 
 	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
@@ -559,8 +558,12 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 		StateBackend: a.backendState,
 		ModelBackend: a.backendModel,
 	})
+	a.repoFactory = repoFactory
+	return repoFactory
+}
 
-	return repoFactory.GetCharmRepository(src)
+func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	return a.getRepoFactory().GetCharmRepository(src)
 }
 
 // IsMetered returns whether or not the charm is metered.
