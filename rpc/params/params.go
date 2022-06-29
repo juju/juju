@@ -1501,9 +1501,6 @@ type CLICommandStatus struct {
 
 // AddServiceLocatorParams contains the parameters for adding a service locator.
 type AddServiceLocatorParams struct {
-	// ServiceLocatorUUID is the UUID of the service locator.
-	ServiceLocatorUUID string `json:"id"`
-
 	// Name is the name of the service locator.
 	Name string `json:"name"`
 
