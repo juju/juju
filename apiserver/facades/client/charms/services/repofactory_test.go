@@ -90,10 +90,10 @@ func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelBackend = NewMockModelBackend(ctrl)
 
 	s.repoFactory = NewCharmRepoFactory(CharmRepoFactoryConfig{
-		Logger:       loggo.GetLogger("test"),
-		StateBackend: s.stateBackend,
-		ModelBackend: s.modelBackend,
-		Transport:    http.DefaultClient,
+		Logger:            loggo.GetLogger("test"),
+		StateBackend:      s.stateBackend,
+		ModelBackend:      s.modelBackend,
+		CharmhubTransport: http.DefaultClient,
 	})
 	return ctrl
 }

@@ -137,10 +137,10 @@ func populateStoreControllerCharm(st *state.State, charmRisk, series, arch strin
 
 	stateBackend := &stateShim{st}
 	charmRepo, err := newCharmRepo(services.CharmRepoFactoryConfig{
-		Logger:       logger,
-		Transport:    charmhub.DefaultHTTPTransport(logger),
-		StateBackend: stateBackend,
-		ModelBackend: model,
+		Logger:            logger,
+		CharmhubTransport: charmhub.DefaultHTTPTransport(logger),
+		StateBackend:      stateBackend,
+		ModelBackend:      model,
 	})
 	if err != nil {
 		return nil, nil, err

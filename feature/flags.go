@@ -50,8 +50,5 @@ const Secrets = "secrets"
 // handled by Pubsub to facade API interaction.
 const RaftAPILeases = "raft-api-leases"
 
-// AsynchronousCharmDownloads enables support for asynchronous charm downloads.
-const AsynchronousCharmDownloads = "async-charm-downloads"
-
 // LoggingOutput enables the ability to configure different logging backends.
 const LoggingOutput = "logging-output"
