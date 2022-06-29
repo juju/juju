@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/usermanager"
 	controllerclient "github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/api/controller/migrationmaster"
 	"github.com/juju/juju/api/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -866,12 +865,16 @@ func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, userList, 
 }
 
 func getTargetControllerVersion(conn api.Connection) (version.Number, error) {
-	client := migrationmaster.NewClient(conn, nil)
-	model, err := client.ModelInfo()
+	client := controllerclient.NewClient(conn)
+	result, err := client.ControllerVersion()
 	if err != nil {
-		return version.Number{}, errors.Annotate(err, "failed to obtain model info during prechecks")
+		return version.Number{}, errors.Annotate(err, "failed to obtain target controller version during prechecks")
 	}
-	return model.ControllerAgentVersion, nil
+	number, err := version.Parse(result.Version)
+	if err != nil {
+		return version.Number{}, errors.Trace(err)
+	}
+	return number, nil
 }
 
 func getTargetControllerUsers(conn api.Connection) (userList, error) {

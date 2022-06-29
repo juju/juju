@@ -122,7 +122,7 @@ var (
 	prechecksCalls = []jujutesting.StubCall{
 		{"facade.ModelInfo", nil},
 		apiOpenControllerCall,
-		{"MigrationMaster.ModelInfo", []interface{}{nil}},
+		{"Controller.ControllerVersion", []interface{}{nil}},
 		{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 		{"MigrationTarget.Prechecks", []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
@@ -158,9 +158,8 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		stub:          s.stub,
 		controllerTag: targetControllerTag,
 		logStream:     &mockStream{},
-		migrationMasterModelInfo: params.MigrationModelInfo{
-			OwnerTag:               names.NewUserTag("foo").String(),
-			ControllerAgentVersion: version.MustParse("2.9.99"),
+		controllerVersion: params.ControllerVersionResults{
+			Version: "2.9.99",
 		},
 	}
 	s.connectionErr = nil
@@ -438,7 +437,7 @@ func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
 			{"facade.MinionReportTimeout", nil},
 			{"facade.ModelInfo", nil},
 			apiOpenControllerCall,
-			{"MigrationMaster.ModelInfo", []interface{}{nil}},
+			{"Controller.ControllerVersion", []interface{}{nil}},
 			{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 			apiCloseCall,
 		},
@@ -457,7 +456,7 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
 			{"facade.MinionReportTimeout", nil},
 			{"facade.ModelInfo", nil},
 			apiOpenControllerCall,
-			{"MigrationMaster.ModelInfo", []interface{}{nil}},
+			{"Controller.ControllerVersion", []interface{}{nil}},
 			{"facade.Prechecks", []interface{}{version.MustParse("2.9.99")}},
 			apiCloseCall,
 		},
@@ -1338,7 +1337,7 @@ type stubConnection struct {
 	machineErrs     []string
 	checkMachineErr error
 
-	migrationMasterModelInfo params.MigrationModelInfo
+	controllerVersion params.ControllerVersionResults
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
@@ -1373,12 +1372,12 @@ func (c *stubConnection) APICall(objType string, _ int, _, request string, args,
 			}
 			return c.checkMachineErr
 		}
-	} else if objType == "MigrationMaster" {
+	} else if objType == "Controller" {
 		switch request {
-		case "ModelInfo":
+		case "ControllerVersion":
 			c.c.Logf("objType %q request %q, args %#v", objType, request, args)
-			modelInfo := response.(*params.MigrationModelInfo)
-			*modelInfo = c.migrationMasterModelInfo
+			controllerVersion := response.(*params.ControllerVersionResults)
+			*controllerVersion = c.controllerVersion
 			return nil
 		}
 	}
