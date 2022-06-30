@@ -171,7 +171,7 @@ func checkNoXenialMachinesForModel(modelUUID string, pool StatePool, st State, m
 		return nil, errors.Annotatef(err, "cannot count machines for series %v", xenial)
 	}
 	if count > 0 {
-		return NewBlocker("%s is not supported but the model hosts %d windows machine(s)", xenial, count), nil
+		return NewBlocker("%s is not supported but the model hosts %d %s machine(s)", xenial, count, xenial), nil
 	}
 	return nil, nil
 }

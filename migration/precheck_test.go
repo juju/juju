@@ -86,7 +86,8 @@ cannot migrate to controller ("3.0.0") due to issues:
 "foo/model-1":
 - current model ("2.9.31") has to be upgraded to "2.9.32" at least
 - unexpected upgrade series lock found
-- windows is not supported but the model hosts 10 windows machine(s)`[1:])
+- windows is not supported but the model hosts 10 windows machine(s)
+- xenial is not supported but the model hosts 10 xenial machine(s)`[1:])
 }
 
 func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {

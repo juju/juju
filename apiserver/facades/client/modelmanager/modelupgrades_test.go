@@ -315,6 +315,10 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
 		).Return(0, nil),
+		// - check if the model has xenial machines;
+		ctrlState.EXPECT().MachineCountForSeries(
+			"xenial",
+		).Return(0, nil),
 		ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID}, nil),
 
 		// 2. Check other models.
@@ -328,6 +332,10 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 		state1.EXPECT().MachineCountForSeries(
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(0, nil),
+		// - check if the model has xenial machines;
+		state1.EXPECT().MachineCountForSeries(
+			"xenial",
 		).Return(0, nil),
 	}
 	if !dryRun {
@@ -411,6 +419,10 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
 		).Return(8, nil),
+		// - check if the model has xenial machines;
+		ctrlState.EXPECT().MachineCountForSeries(
+			"xenial",
+		).Return(2, nil),
 		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		ctrlModel.EXPECT().Name().Return("controller"),
 
@@ -427,6 +439,10 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
 		).Return(6, nil),
+		// - check if the model has xenial machines;
+		state1.EXPECT().MachineCountForSeries(
+			"xenial",
+		).Return(3, nil),
 		model1.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model1.EXPECT().Name().Return("model-1"),
 	)
@@ -444,10 +460,12 @@ cannot upgrade to "3.0.0" due to issues with these models:
 - unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
 - mongo version has to be "4.4" at least, but current version is "4.3"
 - windows is not supported but the model hosts 8 windows machine(s)
+- xenial is not supported but the model hosts 2 xenial machine(s)
 "admin/model-1":
 - current model ("2.9.0") has to be upgraded to "2.9.2" at least
 - model is under "exporting" mode, upgrade blocked
-- windows is not supported but the model hosts 6 windows machine(s)`[1:])
+- windows is not supported but the model hosts 6 windows machine(s)
+- xenial is not supported but the model hosts 3 xenial machine(s)`[1:])
 }
 
 func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
@@ -477,6 +495,10 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool)
 		state.EXPECT().MachineCountForSeries(
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
+		).Return(0, nil),
+		// - check if the model has xenial machines;
+		state.EXPECT().MachineCountForSeries(
+			"xenial",
 		).Return(0, nil),
 	}
 	if !dryRun {
@@ -533,6 +555,10 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
 			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
 		).Return(10, nil),
+		// - check if the model has xenial machines;
+		state.EXPECT().MachineCountForSeries(
+			"xenial",
+		).Return(3, nil),
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
@@ -547,7 +573,8 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 cannot upgrade to "3.0.0" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
-- windows is not supported but the model hosts 10 windows machine(s)`[1:])
+- windows is not supported but the model hosts 10 windows machine(s)
+- xenial is not supported but the model hosts 3 xenial machine(s)`[1:])
 }
 
 func (s *modelManagerUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {

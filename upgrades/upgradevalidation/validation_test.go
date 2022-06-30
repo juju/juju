@@ -151,7 +151,7 @@ func (s *upgradeValidationSuite) TestcheckNoXenialMachinesForModel(c *gc.C) {
 
 	blocker, err = upgradevalidation.CheckNoXenialMachinesForModel("", nil, state, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `xenial is not supported but the model hosts 1 windows machine(s)`)
+	c.Assert(blocker.Error(), gc.Equals, `xenial is not supported but the model hosts 1 xenial machine(s)`)
 }
 
 func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {
