@@ -51,9 +51,9 @@ func addFileCmds(filename string, data []byte, mode uint, binary bool) []string 
 	// dash. Instead, we use printf (or we could use /bin/echo).
 	if binary {
 		encoded := base64.StdEncoding.EncodeToString(data)
-		cmds = append(cmds, fmt.Sprintf(`printf %%s %s | base64 -d > %s`, encoded, p))
+		cmds = append(cmds, fmt.Sprintf(`echo -n %s | base64 -d > %s`, encoded, p))
 	} else {
-		cmds = append(cmds, fmt.Sprintf(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), p))
+		cmds = append(cmds, fmt.Sprintf(`echo %s > %s`, utils.ShQuote(string(data)), p))
 	}
 
 	return cmds

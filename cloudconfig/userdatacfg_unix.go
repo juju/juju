@@ -327,11 +327,11 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
-				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+				`(echo %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
 				shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment())))
 
 		// Write out systemd proxy settings
-		w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
+		w.conf.AddScripts(fmt.Sprintf(`echo %[1]s > /etc/juju-proxy-systemd.conf`,
 			shquote(w.icfg.LegacyProxySettings.AsSystemdDefaultEnv())))
 	}
 
@@ -636,7 +636,7 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 		return err
 	}
 	w.conf.AddScripts(
-		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
+		fmt.Sprintf("echo -n %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
 	)
 
 	return nil

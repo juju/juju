@@ -167,7 +167,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		if !strings.HasPrefix(src.URL, "ppa:") {
 			if src.Key != "" {
 				key := utils.ShQuote(src.Key)
-				cmd := fmt.Sprintf("printf '%%s\\n' %s | apt-key add -", key)
+				cmd := fmt.Sprintf("echo %s | apt-key add -", key)
 				cmds = append(cmds, cmd)
 			}
 		}
@@ -298,7 +298,7 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 		pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
 		filename := config.AptProxyConfigFile
 		cfg.AddBootCmd(fmt.Sprintf(
-			`printf '%%s\n' %s > %s`,
+			`echo %s > %s`,
 			utils.ShQuote(pkgCmder.ProxyConfigContents(aptProxy)),
 			filename))
 	}
