@@ -6777,6 +6777,42 @@ func (s *upgradesSuite) TestFixCharmhubLastPollTime(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestRemoveUseFloatingIPConfigFalse(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{"use-floating-ip": true})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{"use-floating-ip": false})
+	model3 := s.makeModel(c, "model-3", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+		_ = model3.Close()
+	}()
+
+	err := RemoveUseFloatingIPConfigFalse(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m1, _, err := s.pool.GetModel(model1.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := m1.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	m1Val, ok := cfg1.AllAttrs()["use-floating-ip"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(m1Val, jc.IsTrue)
+
+	m2, _, err := s.pool.GetModel(model2.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2, err := m2.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok = cfg2.AllAttrs()["use-floating-ip"]
+	c.Assert(ok, jc.IsFalse)
+
+	m3, _, err := s.pool.GetModel(model3.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	cfg3, err := m3.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok = cfg3.AllAttrs()["use-floating-ip"]
+	c.Assert(ok, jc.IsFalse)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
