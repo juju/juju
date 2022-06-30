@@ -174,7 +174,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, nil, nil, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, nil, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,7 +192,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, nil, nil,
+		s.st, s.ctlrSt, nil, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,9 +201,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV7{
 		&modelmanager.ModelManagerAPIV8{
-			&modelmanager.ModelManagerAPIV9{
-				s.modelmanager,
-			},
+			s.modelmanager,
 		},
 	}
 

@@ -9,7 +9,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	names "github.com/juju/names/v4"
-	version "github.com/juju/version/v2"
 )
 
 // MockModelManagerAPI is a mock of ModelManagerAPI interface.
@@ -33,20 +32,6 @@ func NewMockModelManagerAPI(ctrl *gomock.Controller) *MockModelManagerAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelManagerAPI) EXPECT() *MockModelManagerAPIMockRecorder {
 	return m.recorder
-}
-
-// AbortCurrentUpgrade mocks base method.
-func (m *MockModelManagerAPI) AbortCurrentUpgrade() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AbortCurrentUpgrade")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AbortCurrentUpgrade indicates an expected call of AbortCurrentUpgrade.
-func (mr *MockModelManagerAPIMockRecorder) AbortCurrentUpgrade() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortCurrentUpgrade", reflect.TypeOf((*MockModelManagerAPI)(nil).AbortCurrentUpgrade))
 }
 
 // BestAPIVersion mocks base method.
@@ -75,20 +60,6 @@ func (m *MockModelManagerAPI) Close() error {
 func (mr *MockModelManagerAPIMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockModelManagerAPI)(nil).Close))
-}
-
-// UpgradeModel mocks base method.
-func (m *MockModelManagerAPI) UpgradeModel(arg0 names.ModelTag, arg1 version.Number, arg2 string, arg3, arg4 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpgradeModel", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpgradeModel indicates an expected call of UpgradeModel.
-func (mr *MockModelManagerAPIMockRecorder) UpgradeModel(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeModel", reflect.TypeOf((*MockModelManagerAPI)(nil).UpgradeModel), arg0, arg1, arg2, arg3, arg4)
 }
 
 // ValidateModelUpgrade mocks base method.

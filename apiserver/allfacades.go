@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 
 	// ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
@@ -184,6 +185,7 @@ func AllFacades() *facade.Registry {
 	modelconfig.Register(registry)
 	modelgeneration.Register(registry)
 	modelmanager.Register(registry)
+	modelupgrader.Register(registry)
 	payloads.Register(registry)
 	payloadshookcontext.Register(registry)
 	provisioner.Register(registry)
