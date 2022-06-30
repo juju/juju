@@ -1299,7 +1299,7 @@ func (e *Environ) startInstance(
 		runOpts:      &opts,
 	}
 	logger.Infof("started instance %q", inst.Id())
-	withPublicIP := e.ecfg().useFloatingIP()
+	var withPublicIP bool
 	// Any machine constraint for allocating a public IP address
 	// overrides the (deprecated) model config.
 	if args.Constraints.HasAllocatePublicIP() {
@@ -1307,7 +1307,7 @@ func (e *Environ) startInstance(
 	}
 	if withPublicIP {
 		// If we don't lock here, AllocatePublicIP() can return the same
-		// public IP for 2 different instances.  Only one will successfully
+		// public IP for 2 different instances. Only one will successfully
 		// be assigned the public IP, the other will not have one.
 		e.publicIPMutex.Lock()
 		defer e.publicIPMutex.Unlock()
