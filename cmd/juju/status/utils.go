@@ -5,9 +5,12 @@ package status
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 
 	"github.com/juju/naturalsort"
+	"github.com/mattn/go-isatty"
 )
 
 // stringKeysFromMap takes a map with keys which are strings and returns
@@ -45,4 +48,14 @@ func indexOf(element interface{}, data []interface{}) int {
 		}
 	}
 	return -1 //not found.
+}
+
+// isTerminal checks if the file descriptor is a terminal.
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+
+	return isatty.IsTerminal(f.Fd())
 }

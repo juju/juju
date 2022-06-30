@@ -172,7 +172,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display timestamps in the UTC timezone")
 
-	f.BoolVar(&c.color, "color", true, "Use ANSI color codes in tabular output")
+	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
 	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
 	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section in tabular output")
 	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section in tabular output")
@@ -226,13 +226,12 @@ func (c *statusCommand) Init(args []string) error {
 			}
 		}
 	}
-
-	if c.watch < 0 {
-		return errors.Errorf("invalid value %q, expected a positive value", c.watch)
-	}
-
 	if c.clock == nil {
 		c.clock = clock.WallClock
+	}
+
+	if c.color && c.noColor {
+		return errors.Errorf("cannot mix --no-color and --color")
 	}
 
 	return nil
@@ -436,9 +435,13 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
 	if c.noColor {
-		return FormatTabular(writer, false, value)
+		return FormatTabular(writer, !c.noColor, value)
 	}
 
-	//color mode enabled by default
+	// color mode enabled by default if on tty, overrides --color=false
+	if isTerminal(writer) {
+		c.color = true
+	}
+
 	return FormatTabular(writer, c.color, value)
 }
