@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader
+package environupgrader
 
 import (
 	"github.com/juju/errors"
@@ -15,7 +15,7 @@ import (
 )
 
 // Client provides methods that the Juju client command uses to interact
-// with models stored in the Juju Server.
+// with environs stored in the Juju Server.
 type Client struct {
 	facade base.FacadeCaller
 }
@@ -23,7 +23,7 @@ type Client struct {
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
 func NewClient(caller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(caller, "ModelUpgrader")}
+	return &Client{base.NewFacadeCaller(caller, "EnvironUpgrader")}
 }
 
 // ModelEnvironVersion returns the current version of the environ corresponding

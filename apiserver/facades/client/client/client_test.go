@@ -4,15 +4,12 @@
 package client_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -49,10 +46,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
-
-var validVersion = version.MustParse(fmt.Sprintf("%d.66.666", jujuversion.Current.Major))
 
 type serverSuite struct {
 	baseSuite
@@ -90,20 +84,6 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
 		return s.newEnviron()
 	})
-	// Wrap in a happy replicaset.
-	session := &fakeSession{
-		status: &replicaset.Status{
-			Name: "test",
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					State:   replicaset.PrimaryState,
-					Address: "192.168.42.1",
-				},
-			},
-		},
-	}
-	client.OverrideClientBackendMongoSession(apiserverClient, session)
 	return apiserverClient
 }
 
@@ -139,160 +119,6 @@ func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expectedVersi
 
 }
 
-func (s *serverSuite) TestSetModelAgentVersion(c *gc.C) {
-	args := params.SetModelAgentVersion{
-		Version:     version.MustParse(validVersion.String()),
-		AgentStream: "proposed",
-	}
-	err := s.client.SetModelAgentVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertModelVersion(c, s.State, validVersion.String(), "proposed")
-}
-
-func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
-	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(fmt.Sprintf("%d.0.0", jujuversion.Current.Major)),
-	}
-	err = s.client.SetModelAgentVersion(args)
-	c.Assert(err, gc.ErrorMatches, `
-these models must first be upgraded to at least 2.9.17 before upgrading the controller:
- -admin/controller`[1:])
-}
-
-func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
-	// Get the agent-version set in the model.
-	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := cfg.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	currentVersion := agentVersion.String()
-
-	// Add a machine with the current version and a unit with a different version
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err := service.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-ubuntu-amd64"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetAgentVersion(version.MustParseBinary("1.0.2-ubuntu-amd64"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// This should be refused because an agent doesn't match "currentVersion"
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err = s.client.SetModelAgentVersion(args)
-	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: unit-wordpress-0")
-	// Version hasn't changed
-	s.assertModelVersion(c, s.State, currentVersion, "released")
-	// But we can force it
-	to := validVersion
-	to.Minor++
-	args = params.SetModelAgentVersion{
-		Version:             to,
-		IgnoreAgentVersions: true,
-	}
-	err = s.client.SetModelAgentVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertModelVersion(c, s.State, to.String(), "released")
-}
-
-func (s *serverSuite) makeMigratingModel(c *gc.C, name string, mode state.MigrationMode) {
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:  name,
-		Owner: names.NewUserTag("some-user"),
-	})
-	defer otherSt.Close()
-	model, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(mode)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestControllerModelSetModelAgentVersionBlockedByImportingModel(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
-	s.makeMigratingModel(c, "to-migrate", state.MigrationModeImporting)
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err := s.client.SetModelAgentVersion(args)
-	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is importing, upgrade blocked`)
-}
-
-func (s *serverSuite) TestControllerModelSetModelAgentVersionBlockedByExportingModel(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
-	s.makeMigratingModel(c, "to-migrate", state.MigrationModeExporting)
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err := s.client.SetModelAgentVersion(args)
-	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is exporting, upgrade blocked`)
-}
-
-func (s *serverSuite) TestUserModelSetModelAgentVersionNotAffectedByMigration(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
-
-	s.makeMigratingModel(c, "exporting-model", state.MigrationModeExporting)
-	s.makeMigratingModel(c, "importing-model", state.MigrationModeImporting)
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse("2.0.4"),
-	}
-	client := s.clientForState(c, otherSt)
-
-	s.newEnviron = func() (environs.BootstrapEnviron, error) {
-		return &mockEnviron{}, nil
-	}
-
-	err := client.SetModelAgentVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertModelVersion(c, otherSt, "2.0.4", "released")
-}
-
-func (s *serverSuite) TestControllerModelSetModelAgentVersionChecksReplicaset(c *gc.C) {
-	// Wrap in a very unhappy replicaset.
-	session := &fakeSession{
-		err: errors.New("boom"),
-	}
-	client.OverrideClientBackendMongoSession(s.client, session)
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err := s.client.SetModelAgentVersion(args)
-	c.Assert(err.Error(), gc.Equals, "checking replicaset status: boom")
-}
-
-func (s *serverSuite) TestUserModelSetModelAgentVersionSkipsMongoCheck(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
-
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse("2.0.4"),
-	}
-	apiserverClient := s.clientForState(c, otherSt)
-	// Wrap in a very unhappy replicaset.
-	session := &fakeSession{
-		err: errors.New("boom"),
-	}
-	client.OverrideClientBackendMongoSession(apiserverClient, session)
-	s.newEnviron = func() (environs.BootstrapEnviron, error) {
-		return &mockEnviron{}, nil
-	}
-
-	err := apiserverClient.SetModelAgentVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertModelVersion(c, otherSt, "2.0.4", "released")
-}
-
 type mockEnviron struct {
 	environs.Environ
 	validateCloudEndpointCalled bool
@@ -302,144 +128,6 @@ type mockEnviron struct {
 func (m *mockEnviron) ValidateCloudEndpoint(context.ProviderCallContext) error {
 	m.validateCloudEndpointCalled = true
 	return m.err
-}
-
-func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr string) {
-	env := &mockEnviron{err: envError}
-	s.newEnviron = func() (environs.BootstrapEnviron, error) {
-		return env, nil
-	}
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err := s.client.SetModelAgentVersion(args)
-	c.Assert(env.validateCloudEndpointCalled, jc.IsTrue)
-	if expectErr != "" {
-		c.Assert(err, gc.ErrorMatches, expectErr)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *serverSuite) TestCheckProviderAPISuccess(c *gc.C) {
-	s.assertCheckProviderAPI(c, nil, "")
-}
-
-func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
-	s.assertCheckProviderAPI(c, errors.New("failme"), "cannot make API call to provider: failme")
-}
-
-func (s *serverSuite) assertSetModelAgentVersion(c *gc.C) {
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err := s.client.SetModelAgentVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, validVersion.String())
-}
-
-func (s *serverSuite) assertSetModelAgentVersionBlocked(c *gc.C, msg string) {
-	args := params.SetModelAgentVersion{
-		Version: version.MustParse(validVersion.String()),
-	}
-	err := s.client.SetModelAgentVersion(args)
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *serverSuite) TestBlockDestroySetModelAgentVersion(c *gc.C) {
-	s.BlockDestroyModel(c, "TestBlockDestroySetModelAgentVersion")
-	s.assertSetModelAgentVersion(c)
-}
-
-func (s *serverSuite) TestBlockRemoveSetModelAgentVersion(c *gc.C) {
-	s.BlockRemoveObject(c, "TestBlockRemoveSetModelAgentVersion")
-	s.assertSetModelAgentVersion(c)
-}
-
-func (s *serverSuite) TestBlockChangesSetModelAgentVersion(c *gc.C) {
-	s.BlockAllChanges(c, "TestBlockChangesSetModelAgentVersion")
-	s.assertSetModelAgentVersionBlocked(c, "TestBlockChangesSetModelAgentVersion")
-}
-
-func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	// Create a provisioned controller.
-	machine, err := s.State.AddMachine("series", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Start an upgrade.
-	_, err = s.State.EnsureUpgradeInfo(
-		machine.Id(),
-		version.MustParse("2.0.0"),
-		version.MustParse(validVersion.String()),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	isUpgrading, err := s.State.IsUpgrading()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isUpgrading, jc.IsTrue)
-
-	// Abort it.
-	err = s.client.AbortCurrentUpgrade()
-	c.Assert(err, jc.ErrorIsNil)
-
-	isUpgrading, err = s.State.IsUpgrading()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isUpgrading, jc.IsFalse)
-}
-
-func (s *serverSuite) assertAbortCurrentUpgradeBlocked(c *gc.C, msg string) {
-	err := s.client.AbortCurrentUpgrade()
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *serverSuite) assertAbortCurrentUpgrade(c *gc.C) {
-	err := s.client.AbortCurrentUpgrade()
-	c.Assert(err, jc.ErrorIsNil)
-	isUpgrading, err := s.State.IsUpgrading()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isUpgrading, jc.IsFalse)
-}
-
-func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
-	// Create a provisioned controller.
-	machine, err := s.State.AddMachine("series", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Start an upgrade.
-	_, err = s.State.EnsureUpgradeInfo(
-		machine.Id(),
-		version.MustParse("2.0.0"),
-		version.MustParse(validVersion.String()),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	isUpgrading, err := s.State.IsUpgrading()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isUpgrading, jc.IsTrue)
-}
-
-func (s *serverSuite) TestBlockDestroyAbortCurrentUpgrade(c *gc.C) {
-	s.setupAbortCurrentUpgradeBlocked(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyAbortCurrentUpgrade")
-	s.assertAbortCurrentUpgrade(c)
-}
-
-func (s *serverSuite) TestBlockRemoveAbortCurrentUpgrade(c *gc.C) {
-	s.setupAbortCurrentUpgradeBlocked(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveAbortCurrentUpgrade")
-	s.assertAbortCurrentUpgrade(c)
-}
-
-func (s *serverSuite) TestBlockChangesAbortCurrentUpgrade(c *gc.C) {
-	s.setupAbortCurrentUpgradeBlocked(c)
-	s.BlockAllChanges(c, "TestBlockChangesAbortCurrentUpgrade")
-	s.assertAbortCurrentUpgradeBlocked(c, "TestBlockChangesAbortCurrentUpgrade")
 }
 
 type clientSuite struct {
@@ -766,107 +454,6 @@ func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
 		Message: msg,
 		Code:    "operation is blocked",
 	})
-}
-
-func (s *serverSuite) TestCheckMongoStatusForUpgradeNonHAGood(c *gc.C) {
-	session := &fakeSession{
-		status: &replicaset.Status{
-			Name: "test",
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					State:   replicaset.PrimaryState,
-					Address: "192.168.42.1",
-				},
-			},
-		},
-	}
-	err := s.client.CheckMongoStatusForUpgrade(session)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestCheckMongoStatusForUpgradeHAGood(c *gc.C) {
-	session := &fakeSession{
-		status: &replicaset.Status{
-			Name: "test",
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					State:   replicaset.PrimaryState,
-					Address: "192.168.42.1",
-				}, {
-					Id:      2,
-					State:   replicaset.SecondaryState,
-					Address: "192.168.42.2",
-				}, {
-					Id:      3,
-					State:   replicaset.SecondaryState,
-					Address: "192.168.42.3",
-				},
-			},
-		},
-	}
-	err := s.client.CheckMongoStatusForUpgrade(session)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeDown(c *gc.C) {
-	session := &fakeSession{
-		status: &replicaset.Status{
-			Name: "test",
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					State:   replicaset.PrimaryState,
-					Address: "192.168.42.1",
-				}, {
-					Id:      2,
-					State:   replicaset.DownState,
-					Address: "192.168.42.2",
-				}, {
-					Id:      3,
-					State:   replicaset.SecondaryState,
-					Address: "192.168.42.3",
-				},
-			},
-		},
-	}
-	err := s.client.CheckMongoStatusForUpgrade(session)
-	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 2 (192.168.42.2) has state DOWN")
-}
-
-func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeRecovering(c *gc.C) {
-	session := &fakeSession{
-		status: &replicaset.Status{
-			Name: "test",
-			Members: []replicaset.MemberStatus{
-				{
-					Id:      1,
-					State:   replicaset.RecoveringState,
-					Address: "192.168.42.1",
-				}, {
-					Id:      2,
-					State:   replicaset.PrimaryState,
-					Address: "192.168.42.2",
-				}, {
-					Id:      3,
-					State:   replicaset.SecondaryState,
-					Address: "192.168.42.3",
-				},
-			},
-		},
-	}
-	err := s.client.CheckMongoStatusForUpgrade(session)
-	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 1 (192.168.42.1) has state RECOVERING")
-}
-
-type fakeSession struct {
-	status *replicaset.Status
-	err    error
-}
-
-func (s fakeSession) CurrentStatus() (*replicaset.Status, error) {
-	return s.status, s.err
 }
 
 type findToolsSuite struct {

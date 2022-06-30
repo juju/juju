@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader_test
+package environupgrader_test
 
 import (
 	"sync"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/modelupgrader"
+	"github.com/juju/juju/worker/environupgrader"
 )
 
 type WorkerSuite struct {
@@ -31,7 +31,7 @@ type WorkerSuite struct {
 var _ = gc.Suite(&WorkerSuite{})
 
 func (*WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
-	_, err := modelupgrader.NewWorker(modelupgrader.Config{})
+	_, err := environupgrader.NewWorker(environupgrader.Config{})
 	c.Assert(err, gc.ErrorMatches, "nil Facade not valid")
 }
 
@@ -39,7 +39,7 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockEnviron := mockEnviron{}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+	w, err := environupgrader.NewWorker(environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -65,7 +65,7 @@ func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *gc.C) {
 	mockFacade.SetErrors(&params.Error{Code: params.CodeNotFound})
 	mockEnviron := mockEnviron{}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+	w, err := environupgrader.NewWorker(environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -74,7 +74,7 @@ func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, modelupgrader.ErrModelRemoved.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, environupgrader.ErrModelRemoved.Error())
 	workertest.CheckNilOrKill(c, w)
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
@@ -87,7 +87,7 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockEnviron := struct{ environs.Environ }{} // not an Upgrader
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+	w, err := environupgrader.NewWorker(environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -140,7 +140,7 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		}},
 	}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+	w, err := environupgrader.NewWorker(environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -188,7 +188,7 @@ func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
 		}},
 	}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+	w, err := environupgrader.NewWorker(environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -219,7 +219,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 		watcher: newMockNotifyWatcher(ch),
 	}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+	w, err := environupgrader.NewWorker(environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       nil, // not responsible for running upgrades
 		GateUnlocker:  &mockGateUnlocker,
@@ -271,7 +271,7 @@ func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
 		target:  125,
 		watcher: newMockNotifyWatcher(ch),
 	}
-	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+	w, err := environupgrader.NewWorker(environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       nil, // not responsible for running upgrades
 		GateUnlocker:  &mockGateUnlocker{},
@@ -286,7 +286,7 @@ func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
 	ch <- struct{}{}
 
 	err = workertest.CheckKill(c, w)
-	// We expect NotFound to be changed to modelupgrader.ErrModelRemoved.
+	// We expect NotFound to be changed to environupgrader.ErrModelRemoved.
 	c.Check(err, gc.ErrorMatches, "model has been removed")
 }
 

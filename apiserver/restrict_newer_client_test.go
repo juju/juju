@@ -69,13 +69,11 @@ func (r *restrictNewerClientSuite) TestNewClientAllowedMethods(c *gc.C) {
 	// For migrations.
 	checkAllowed("MigrationTarget", "Prechecks", 1)
 	checkAllowed("UserManager", "UserInfo", userManagerFacadeVersion)
-	// For upgrades.
-	checkAllowed("Client", "SetModelAgentVersion", clientFacadeVersion)
 }
 
 func (r *restrictNewerClientSuite) TestOldClientDisallowedMethod(c *gc.C) {
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.olderVersion)
-	caller, err := root.FindMethod("Client", clientFacadeVersion, "SetModelAgentVersion")
+	caller, err := root.FindMethod("ModelUpgrader", clientFacadeVersion, "UpgradeModel")
 	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
 	c.Assert(caller, gc.IsNil)
 }

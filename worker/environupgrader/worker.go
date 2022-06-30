@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader
+package environupgrader
 
 import (
 	stdcontext "context"
@@ -244,8 +244,8 @@ func runEnvironUpgradeSteps(
 	callCtxFunc common.CloudCallContextFunc,
 	logger Logger,
 ) error {
-	if wrench.IsActive("modelupgrader", "fail-all") ||
-		wrench.IsActive("modelupgrader", "fail-model-"+modelTag.Id()) {
+	if wrench.IsActive("environupgrader", "fail-all") ||
+		wrench.IsActive("environupgrader", "fail-model-"+modelTag.Id()) {
 		return errors.New("wrench active")
 	}
 	upgrader, ok := env.(environs.Upgrader)

@@ -168,16 +168,16 @@ class Base(object):
         # returns the newly added CAAS model.
         return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
 
-    def add_k8s(self, is_local=False, juju_home=None, storage=None):
+    def add_k8s(self, is_client=False, juju_home=None, storage=None):
         args = (
             self.cloud_name,
         )
         juju_home = juju_home or self.client.env.juju_home
         if storage is not None:
             args += ('--storage', storage)
-        if is_local:
+        if is_client:
             args += (
-                '--local',
+                '--client',
                 '--cluster-name', self.kubeconfig_cluster_name,
             )
             # use this local cloud to bootstrap later.

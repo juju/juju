@@ -215,10 +215,16 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		return s.caasBroker, nil
 	}
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(
+		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
+		s.authoriser, s.st.model, s.callContext,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
-	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext)
+	caasApi, err := modelmanager.NewModelManagerAPI(
+		s.caasSt, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.caasSt),
+		s.authoriser, s.st.model, s.callContext,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
 
@@ -236,7 +242,10 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	newBroker := func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 		return s.caasBroker, nil
 	}
-	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext)
+	mm, err := modelmanager.NewModelManagerAPI(
+		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
+		s.authoriser, s.st.model, s.callContext,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -272,8 +281,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c,
 		"ControllerTag",
-		"ModelUUID",
-		"Model",
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
@@ -462,8 +469,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasSt.CheckCallNames(c,
 		"ControllerTag",
-		"ModelUUID",
-		"Model",
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
@@ -740,8 +745,6 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	results := s.api.DumpModels(models)
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"GetBackend", []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -799,8 +802,6 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"ModelTag", nil},
 		{"GetBackend", []interface{}{tag.Id()}},
 	})
@@ -873,12 +874,19 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
+	st := common.NewModelManagerBackend(s.Model, s.StatePool)
+	ctlrSt := common.NewModelManagerBackend(s.Model, s.StatePool)
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: s.Model}
+	newEnviron := common.EnvironFuncForModel(model, configGetter)
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
-		common.NewModelManagerBackend(s.Model, s.StatePool),
+		st, ctlrSt,
+		toolsFinder,
 		nil,
-		stateenvirons.EnvironConfigGetter{Model: s.Model},
-		nil,
+		common.NewBlockChecker(st),
 		s.authoriser,
 		s.Model,
 		s.callContext,
@@ -890,11 +898,11 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
+	st := common.NewModelManagerBackend(s.Model, s.StatePool)
 	endPoint, err := modelmanager.NewModelManagerAPI(
+		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
-		nil, nil, anAuthoriser,
+		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
 	)
@@ -905,11 +913,11 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
+	st := common.NewModelManagerBackend(s.Model, s.StatePool)
 	endPoint, err := modelmanager.NewModelManagerAPI(
+		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
-		nil, nil, anAuthoriser, s.Model,
+		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.Model,
 		s.callContext,
 	)
 	c.Assert(endPoint, gc.IsNil)
@@ -1108,12 +1116,11 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer st.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-
+	backend := common.NewModelManagerBackend(model, s.StatePool)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(model, s.StatePool),
+		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
-		nil, nil, s.authoriser,
+		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
 	)
@@ -1157,11 +1164,11 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authoriser.Tag = s.AdminUserTag(c)
+	backend := common.NewModelManagerBackend(model, s.StatePool)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(model, s.StatePool),
+		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
-		nil, nil, s.authoriser,
+		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
 	)
@@ -1194,11 +1201,11 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	backend := common.NewModelManagerBackend(model, s.StatePool)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(model, s.StatePool),
+		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
-		nil, nil, s.authoriser, s.Model,
+		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1625,11 +1632,11 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = user
+	st := common.NewUserAwareModelManagerBackend(model, s.StatePool, user)
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewUserAwareModelManagerBackend(model, s.StatePool, user),
+		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
-		nil, nil, anAuthoriser,
+		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
 	)
@@ -1764,7 +1771,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `getting model`)
-	s.st.CheckCallNames(c, "ControllerTag", "ModelUUID", "Model", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
+	s.st.CheckCallNames(c, "ControllerTag", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {

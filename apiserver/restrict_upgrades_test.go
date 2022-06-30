@@ -27,7 +27,6 @@ func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
 		c.Check(caller, gc.NotNil)
 	}
 	checkAllowed("Client", "FullStatus", clientFacadeVersion)
-	checkAllowed("Client", "AbortCurrentUpgrade", clientFacadeVersion)
 	checkAllowed("SSHClient", "PublicAddress", sshClientFacadeVersion)
 	checkAllowed("SSHClient", "Proxy", sshClientFacadeVersion)
 	checkAllowed("Pinger", "Ping", pingerFacadeVersion)
