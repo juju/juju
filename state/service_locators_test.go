@@ -78,6 +78,6 @@ func (s *serviceLocatorsSuite) TestServiceLocatorDuplication(c *gc.C) {
 		ConsumerRelationId: 20,
 		Params:             map[string]interface{}{"ip-address": "2.2.2.2"},
 	})
-	c.Assert(err.Error(), gc.Equals, "service locator name: test-locator unit-id: mysql/17 already exists")
+	c.Assert(err, gc.ErrorMatches, "service locator name: test-locator unit-id: mysql/17 already exists")
 
 }
