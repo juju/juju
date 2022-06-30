@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -34,7 +35,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {
@@ -172,7 +173,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, &s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		s.st, s.ctlrSt, nil, nil, nil, nil, common.NewBlockChecker(s.st),
+		&s.authorizer, s.st.model, s.callContext,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
@@ -187,14 +191,19 @@ func (s *modelInfoSuite) TearDownTest(c *gc.C) {
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		s.st, s.ctlrSt, nil, nil, nil, nil,
+		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	api := &modelmanager.ModelManagerAPIV7{
 		&modelmanager.ModelManagerAPIV8{
-			s.modelmanager,
+			&modelmanager.ModelManagerAPIV9{
+				s.modelmanager,
+			},
 		},
 	}
 
@@ -210,8 +219,6 @@ func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	s.assertModelInfo(c, *results.Results[0].Result, s.expectedModelInfo(c, nil))
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -236,7 +243,7 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
-		DefaultSeries:      version.DefaultSupportedLTS(),
+		DefaultSeries:      jujuversion.DefaultSupportedLTS(),
 		Life:               life.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,
@@ -290,8 +297,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
-		{"ModelUUID", nil},
-		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -306,8 +311,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
 	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
-		{"UUID", nil},
-		{"Type", nil},
 		{"Name", nil},
 		{"Type", nil},
 		{"UUID", nil},
@@ -842,6 +845,14 @@ func (st *mockState) AllMachines() ([]common.Machine, error) {
 func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	st.MethodCall(st, "Clouds")
 	return st.clouds, st.NextErr()
+}
+
+func (st *mockState) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error {
+	return errors.NotImplementedf("SetModelAgentVersion")
+}
+
+func (st *mockState) AbortCurrentUpgrade() error {
+	return errors.NotImplementedf("AbortCurrentUpgrade")
 }
 
 func (st *mockState) Cloud(name string) (cloud.Cloud, error) {

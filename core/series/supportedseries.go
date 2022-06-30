@@ -306,10 +306,6 @@ func WindowsVersions() map[string]string {
 	for seriesName, val := range windowsVersions {
 		save[seriesName] = val.Version
 	}
-
-	for seriesName, val := range windowsVersions {
-		save[seriesName] = val.Version
-	}
 	return save
 }
 

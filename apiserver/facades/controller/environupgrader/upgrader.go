@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader
+package environupgrader
 
 import (
 	"github.com/juju/errors"

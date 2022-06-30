@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader_test
+package environupgrader_test
 
 import (
 	"github.com/juju/errors"
@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/controller/modelupgrader"
+	"github.com/juju/juju/apiserver/facades/controller/environupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -23,7 +23,7 @@ var (
 	modelTag2 = names.NewModelTag("631d2cbe-1085-4b74-ab76-41badfc73d9a")
 )
 
-type ModelUpgraderSuite struct {
+type EnvironUpgraderSuite struct {
 	testing.IsolationSuite
 	backend      mockBackend
 	pool         mockPool
@@ -33,9 +33,9 @@ type ModelUpgraderSuite struct {
 	authorizer   apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&ModelUpgraderSuite{})
+var _ = gc.Suite(&EnvironUpgraderSuite{})
 
-func (s *ModelUpgraderSuite) SetUpTest(c *gc.C) {
+func (s *EnvironUpgraderSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Controller: true,
@@ -62,20 +62,20 @@ func (s *ModelUpgraderSuite) SetUpTest(c *gc.C) {
 	s.statusSetter = mockStatusSetter{}
 }
 
-func (s *ModelUpgraderSuite) TestAuthController(c *gc.C) {
-	_, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+func (s *EnvironUpgraderSuite) TestAuthController(c *gc.C) {
+	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelUpgraderSuite) TestAuthNonController(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestAuthNonController(c *gc.C) {
 	s.authorizer.Controller = false
 	s.authorizer.Tag = names.NewUserTag("admin")
-	_, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelEnvironVersion(params.Entities{
 		Entities: []params.Entity{
@@ -102,9 +102,9 @@ func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 	s.pool.models[modelTag2.Id()].CheckCallNames(c, "EnvironVersion")
 }
 
-func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	s.providers.SetErrors(nil, errors.New("blargh"))
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelTargetEnvironVersion(params.Entities{
 		Entities: []params.Entity{
@@ -140,8 +140,8 @@ func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	s.providers.providers["foo-provider"].CheckCallNames(c, "Version")
 }
 
-func (s *ModelUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelEnvironVersion(params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{
@@ -164,7 +164,7 @@ func (s *ModelUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
 	})
 }
 
-func (s *ModelUpgraderSuite) TestSetModelStatus(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    "machine-0",
@@ -181,7 +181,7 @@ func (s *ModelUpgraderSuite) TestSetModelStatus(c *gc.C) {
 		},
 	}
 
-	facade, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,7 +208,7 @@ type mockPool struct {
 	models map[string]*mockModel
 }
 
-func (p *mockPool) GetModel(uuid string) (modelupgrader.Model, func(), error) {
+func (p *mockPool) GetModel(uuid string) (environupgrader.Model, func(), error) {
 	p.MethodCall(p, "GetModel", uuid)
 	return p.models[uuid], func() {}, p.NextErr()
 }

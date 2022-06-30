@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader
+package environupgrader
 
 import (
 	"reflect"
@@ -15,7 +15,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ModelUpgrader", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("EnvironUpgrader", 1, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }

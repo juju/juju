@@ -488,3 +488,12 @@ type ValidateModelUpgradeParam struct {
 	// ModelTag is a tag for the model that you want to upgrade.
 	ModelTag string `json:"model-tag"`
 }
+
+// UpgradeModel contains the arguments for UpgradeModel API call.
+type UpgradeModel struct {
+	ModelTag            string         `json:"model-tag"`
+	ToVersion           version.Number `json:"to-version"`
+	AgentStream         string         `json:"agent-stream,omitempty"`
+	IgnoreAgentVersions bool           `json:"ignore-agent-versions,omitempty"`
+	DryRun              bool           `json:"dry-run,omitempty"`
+}

@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 var (
@@ -48,6 +49,14 @@ var (
 	// Overridden by tests.
 	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
+
+// ModelManagerV10 defines the methods on the version 10 facade for the
+// modelmanager API endpoint.
+type ModelManagerV10 interface {
+	ModelManagerV8
+	// ValidateModelUpgrades is removed.
+	UpgradeModel(args params.UpgradeModel) error
+}
 
 // ModelManagerV9 defines the methods on the version 9 facade for the
 // modelmanager API endpoint.
@@ -129,24 +138,6 @@ type ModelManagerV2 interface {
 
 type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
 
-// StatePool represents a point of use interface for getting the state from the
-// pool.
-type StatePool interface {
-	Get(string) (State, error)
-}
-
-// State represents a point of use interface for modelling a current model.
-type State interface {
-	Model() (Model, error)
-	HasUpgradeSeriesLocks() (bool, error)
-	Release() bool
-}
-
-// Model defines a point of use interface for the model from state.
-type Model interface {
-	IsControllerModel() bool
-}
-
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
@@ -154,7 +145,7 @@ type ModelManagerAPI struct {
 	state       common.ModelManagerBackend
 	statePool   StatePool
 	ctlrState   common.ModelManagerBackend
-	check       *common.BlockChecker
+	check       common.BlockCheckerInterface
 	authorizer  facade.Authorizer
 	toolsFinder common.ToolsFinder
 	apiUser     names.UserTag
@@ -162,12 +153,19 @@ type ModelManagerAPI struct {
 	model       common.Model
 	getBroker   newCaasBrokerFunc
 	callContext context.ProviderCallContext
+	newEnviron  common.NewEnvironFunc
+}
+
+// ModelManagerAPIV9 provides a way to wrap the different calls between
+// version 9 and version 9 of the model manager API
+type ModelManagerAPIV9 struct {
+	*ModelManagerAPI
 }
 
 // ModelManagerAPIV8 provides a way to wrap the different calls between
 // version 8 and version 8 of the model manager API
 type ModelManagerAPIV8 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV9
 }
 
 // ModelManagerAPIV7 provides a way to wrap the different calls between
@@ -207,14 +205,15 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
-	_ ModelManagerV8 = (*ModelManagerAPIV8)(nil)
-	_ ModelManagerV7 = (*ModelManagerAPIV7)(nil)
-	_ ModelManagerV6 = (*ModelManagerAPIV6)(nil)
-	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
-	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
-	_ ModelManagerV3 = (*ModelManagerAPIV3)(nil)
-	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
+	_ ModelManagerV10 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV9  = (*ModelManagerAPIV9)(nil)
+	_ ModelManagerV8  = (*ModelManagerAPIV8)(nil)
+	_ ModelManagerV7  = (*ModelManagerAPIV7)(nil)
+	_ ModelManagerV6  = (*ModelManagerAPIV6)(nil)
+	_ ModelManagerV5  = (*ModelManagerAPIV5)(nil)
+	_ ModelManagerV4  = (*ModelManagerAPIV4)(nil)
+	_ ModelManagerV3  = (*ModelManagerAPIV3)(nil)
+	_ ModelManagerV2  = (*ModelManagerAPIV2)(nil)
 )
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -223,8 +222,10 @@ func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
 	stPool StatePool,
-	configGetter environs.EnvironConfigGetter,
+	toolsFinder common.ToolsFinder,
+	newEnviron common.NewEnvironFunc,
 	getBroker newCaasBrokerFunc,
+	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	m common.Model,
 	callCtx context.ProviderCallContext,
@@ -241,13 +242,6 @@ func NewModelManagerAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
-
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newEnviron := common.EnvironFuncForModel(model, configGetter)
 
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
@@ -255,13 +249,14 @@ func NewModelManagerAPI(
 		ctlrState:      ctlrSt,
 		statePool:      stPool,
 		getBroker:      getBroker,
-		check:          common.NewBlockChecker(st),
+		check:          blockChecker,
 		authorizer:     authorizer,
-		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
+		toolsFinder:    toolsFinder,
 		apiUser:        apiUser,
 		isAdmin:        isAdmin,
 		model:          m,
 		callContext:    callCtx,
+		newEnviron:     newEnviron,
 	}, nil
 }
 
@@ -1596,12 +1591,7 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 	return params.ErrorResults{Results: results}, nil
 }
 
-// ValidateModelUpgrades validates if a model is allowed to perform an upgrade.
-// Examples of why you would want to block a model upgrade, would be situations
-// like upgrade-series. If performing an upgrade-series we don't know the
-// current status of the machine, so performing an upgrade-model can lead to
-// bad unintended errors down the line.
-func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error) {
+func (m *ModelManagerAPIV9) ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error) {
 	if err := m.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -1679,6 +1669,142 @@ func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
 	return nil
 }
 
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (m *ModelManagerAPI) AbortCurrentUpgrade() error {
+	if canWrite, err := m.hasWriteAccess(m.model.ModelTag()); err != nil {
+		return errors.Trace(err)
+	} else if !canWrite {
+		return apiservererrors.ErrPerm
+	}
+
+	if err := m.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	st, err := m.statePool.Get(m.model.ModelTag().Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Release()
+	return st.AbortCurrentUpgrade()
+}
+
+// UpgradeModel upgrades a model.
+func (m *ModelManagerAPI) UpgradeModel(arg params.UpgradeModel) error {
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if canWrite, err := m.hasWriteAccess(modelTag); err != nil {
+		return errors.Trace(err)
+	} else if !canWrite && !m.isAdmin {
+		return apiservererrors.ErrPerm
+	}
+
+	if err := m.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Before changing the agent version to trigger an upgrade or downgrade,
+	// we'll do a very basic check to ensure the environment is accessible.
+	envOrBroker, err := m.newEnviron()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := environs.CheckProviderAPI(envOrBroker, m.callContext); err != nil {
+		return errors.Trace(err)
+	}
+	if err := m.validateModelUpgrade(false, modelTag, arg.ToVersion); err != nil {
+		return errors.Trace(err)
+	}
+	if arg.DryRun {
+		return nil
+	}
+	st, err := m.statePool.Get(modelTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Release()
+	return st.SetModelAgentVersion(arg.ToVersion, &arg.AgentStream, arg.IgnoreAgentVersions)
+}
+
+func (m *ModelManagerAPI) validateModelUpgrade(force bool, modelTag names.ModelTag, targetVersion version.Number) (err error) {
+	var blockers *upgradevalidation.ModelUpgradeBlockers
+	defer func() {
+		if err == nil && blockers != nil {
+			err = errors.NewNotSupported(nil, fmt.Sprintf("cannot upgrade to %q due to issues with these models:\n%s", targetVersion, blockers))
+		}
+	}()
+
+	// We now need to access the state pool for that given model.
+	st, err := m.statePool.Get(modelTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Release()
+
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	isControllerModel := model.IsControllerModel()
+	if !isControllerModel {
+		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion)
+		checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, model, validators...)
+		blockers, err = checker.Validate()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return
+	}
+
+	checker := upgradevalidation.NewModelUpgradeCheck(
+		modelTag.Id(), m.statePool, st, model,
+		upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion)...,
+	)
+	blockers, err = checker.Validate()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelUUIDs, err := st.AllModelUUIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion)
+	for _, modelUUID := range modelUUIDs {
+		if modelUUID == modelTag.Id() {
+			// We have done checks for controller model above already.
+			continue
+		}
+		st, err := m.statePool.Get(modelUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer st.Release()
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		checker := upgradevalidation.NewModelUpgradeCheck(modelUUID, m.statePool, st, model, validators...)
+		blockersForModel, err := checker.Validate()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if blockersForModel == nil {
+			// all good.
+			continue
+		}
+		if blockers == nil {
+			blockers = blockersForModel
+			continue
+		}
+		blockers.Join(blockersForModel)
+	}
+	return
+}
+
 // Mask out new methods from the old API versions. The API reflection
 // code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
 // so this removes the method as far as the RPC machinery is concerned.
@@ -1689,5 +1815,8 @@ func (*ModelManagerAPIV4) ChangeModelCredential(_, _ struct{}) {}
 // ModelDefaultsForClouds did not exist prior to v6.
 func (*ModelManagerAPIV5) ModelDefaultsForClouds(_, _ struct{}) {}
 
-// ValidateModelUpgrade did not exist prior to v9.
-func (*ModelManagerAPIV8) ValidateModelUpgrade(_, _ struct{}) {}
+// ValidateModelUpgrades did not exist prior to v9.
+func (*ModelManagerAPIV8) ValidateModelUpgrades(_, _ struct{}) {}
+
+// UpgradeModel did not exist prior to v10.
+func (*ModelManagerAPIV9) UpgradeModel(_, _ struct{}) {}

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,7 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 // PrecheckBackend defines the interface to query Juju's state
@@ -34,6 +35,9 @@ type PrecheckBackend interface {
 	AllRelations() ([]PrecheckRelation, error)
 	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
+	HasUpgradeSeriesLocks() (bool, error)
+	MachineCountForSeries(series ...string) (int, error)
+	MongoCurrentStatus() (*replicaset.Status, error)
 }
 
 // Pool defines the interface to a StatePool used by the migration
@@ -51,6 +55,7 @@ type PrecheckModel interface {
 	Owner() names.UserTag
 	Life() state.Life
 	MigrationMode() state.MigrationMode
+	AgentVersion() (version.Number, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 }
 
@@ -115,10 +120,14 @@ type ModelPresence interface {
 // backend provided must be for the model to be migrated.
 func SourcePrecheck(
 	backend PrecheckBackend,
-	modelPresence ModelPresence,
-	controllerPresence ModelPresence,
+	targetControllerVersion version.Number,
+	modelPresence ModelPresence, controllerPresence ModelPresence,
 ) error {
-	ctx := precheckContext{backend, modelPresence}
+	ctx := precheckContext{
+		backend:                 backend,
+		presence:                modelPresence,
+		targetControllerVersion: targetControllerVersion,
+	}
 	if err := ctx.checkModel(); err != nil {
 		return errors.Trace(err)
 	}
@@ -147,7 +156,11 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := precheckContext{controllerBackend, controllerPresence}
+	controllerCtx := precheckContext{
+		backend:                 controllerBackend,
+		presence:                controllerPresence,
+		targetControllerVersion: targetControllerVersion,
+	}
 	if err := controllerCtx.checkController(); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -155,8 +168,9 @@ func SourcePrecheck(
 }
 
 type precheckContext struct {
-	backend  PrecheckBackend
-	presence ModelPresence
+	backend                 PrecheckBackend
+	presence                ModelPresence
+	targetControllerVersion version.Number
 }
 
 func (ctx *precheckContext) checkModel() error {
@@ -179,7 +193,17 @@ func (ctx *precheckContext) checkModel() error {
 			return errors.New("model has revoked credentials")
 		}
 	}
-	return nil
+
+	validators := upgradevalidation.ValidatorsForModelMigrationSource(ctx.targetControllerVersion)
+	checker := upgradevalidation.NewModelUpgradeCheck(model.UUID(), nil, ctx.backend, model, validators...)
+	blockers, err := checker.Validate()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if blockers == nil {
+		return nil
+	}
+	return errors.NewNotSupported(nil, fmt.Sprintf("cannot migrate to controller (%q) due to issues:\n%s", ctx.targetControllerVersion, blockers))
 }
 
 // TargetPrecheck checks the state of the target controller to make
@@ -218,9 +242,9 @@ func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	// The UpgradeAllowed check is the same as validating if a model can be migrated
+	// The MigrateToAllowed check is the same as validating if a model can be migrated
 	// to a controller running a newer Juju version.
-	allowed, minVer, err := upgrades.UpgradeAllowed(modelInfo.AgentVersion, controllerVersion)
+	allowed, minVer, err := upgradevalidation.MigrateToAllowed(modelInfo.AgentVersion, controllerVersion)
 	if err != nil {
 		return errors.Maskf(err, "unknown target controller version %v", controllerVersion)
 	}
@@ -228,7 +252,11 @@ func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.
 		return errors.Errorf("model must be upgraded to at least version %s before being migrated to a controller with version %s", minVer, controllerVersion)
 	}
 
-	controllerCtx := precheckContext{backend, presence}
+	controllerCtx := precheckContext{
+		backend:                 backend,
+		presence:                presence,
+		targetControllerVersion: controllerVersion,
+	}
 	if err := controllerCtx.checkController(); err != nil {
 		return errors.Trace(err)
 	}

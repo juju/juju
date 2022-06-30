@@ -21,6 +21,7 @@ import (
 // For upgrademodel:
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/controller_mock.go github.com/juju/juju/cmd/juju/commands ControllerAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/cmd/juju/commands ClientAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelmanager_mock.go github.com/juju/juju/cmd/juju/commands ModelManagerAPI
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)

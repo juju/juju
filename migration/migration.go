@@ -178,13 +178,13 @@ func UploadBinaries(config UploadBinariesConfig) error {
 		return errors.Trace(err)
 	}
 	if err := uploadCharms(config); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot upload charms")
 	}
 	if err := uploadTools(config); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot upload agent binaries")
 	}
 	if err := uploadResources(config); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot upload resources")
 	}
 	return nil
 }

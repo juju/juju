@@ -725,6 +725,17 @@ func (st *State) AllMachines() ([]*Machine, error) {
 	return st.allMachines(machinesCollection)
 }
 
+// MachineCountForSeries counts the machines for the provided series in the model.
+func (st *State) MachineCountForSeries(series ...string) (int, error) {
+	machinesCollection, closer := st.db().GetCollection(machinesC)
+	defer closer()
+	count, err := machinesCollection.Find(bson.M{"series": bson.M{"$in": series}}).Count()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return count, nil
+}
+
 type machineDocSlice []machineDoc
 
 func (ms machineDocSlice) Len() int      { return len(ms) }

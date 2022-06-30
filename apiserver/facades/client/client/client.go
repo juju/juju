@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -691,6 +691,7 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 
 // SetModelAgentVersion sets the model agent version.
 func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
+	// TODO: remove in juju3.
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
@@ -734,7 +735,7 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			allowed, minVer, err := upgrades.UpgradeAllowed(vers, args.Version)
+			allowed, minVer, err := upgradevalidation.UpgradeToAllowed(vers, args.Version)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -794,6 +795,7 @@ func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (c *Client) AbortCurrentUpgrade() error {
+	// TODO: remove in juju3.
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
