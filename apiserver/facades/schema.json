@@ -33107,7 +33107,7 @@
     {
         "Name": "ModelManager",
         "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.",
-        "Version": 10,
+        "Version": 9,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -33117,10 +33117,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "AbortCurrentUpgrade": {
-                    "type": "object",
-                    "description": "AbortCurrentUpgrade aborts and archives the current upgrade\nsynchronisation record, if any."
-                },
                 "ChangeModelCredential": {
                     "type": "object",
                     "properties": {
@@ -33277,14 +33273,17 @@
                     },
                     "description": "UnsetModelDefaults removes the specified default model settings."
                 },
-                "UpgradeModel": {
+                "ValidateModelUpgrades": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpgradeModel"
+                            "$ref": "#/definitions/ValidateModelUpgradeParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "UpgradeModel upgrades a model."
+                    "description": "ValidateModelUpgrades validates if a model is allowed to perform an upgrade.\nExamples of why you would want to block a model upgrade, would be situations\nlike upgrade-series. If performing an upgrade-series we don't know the\ncurrent status of the machine, so performing an upgrade-model can lead to\nbad unintended errors down the line."
                 }
             },
             "definitions": {
@@ -33899,6 +33898,18 @@
                         "start"
                     ]
                 },
+                "ModelParam": {
+                    "type": "object",
+                    "properties": {
+                        "model-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag"
+                    ]
+                },
                 "ModelSLAInfo": {
                     "type": "object",
                     "properties": {
@@ -34348,31 +34359,6 @@
                         "keys"
                     ]
                 },
-                "UpgradeModel": {
-                    "type": "object",
-                    "properties": {
-                        "agent-stream": {
-                            "type": "string"
-                        },
-                        "dry-run": {
-                            "type": "boolean"
-                        },
-                        "ignore-agent-versions": {
-                            "type": "boolean"
-                        },
-                        "model-tag": {
-                            "type": "string"
-                        },
-                        "to-version": {
-                            "$ref": "#/definitions/Number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "model-tag",
-                        "to-version"
-                    ]
-                },
                 "UserModel": {
                     "type": "object",
                     "properties": {
@@ -34403,6 +34389,25 @@
                     "additionalProperties": false,
                     "required": [
                         "user-models"
+                    ]
+                },
+                "ValidateModelUpgradeParams": {
+                    "type": "object",
+                    "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "model": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model",
+                        "force"
                     ]
                 }
             }
@@ -34539,6 +34544,107 @@
                     "additionalProperties": false,
                     "required": [
                         "models"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "ModelUpgrader",
+        "Description": "ModelUpgraderAPI implements the model upgrader interface and is\nthe concrete implementation of the api end point.",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "controller-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "AbortModelUpgrade": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ModelParam"
+                        }
+                    },
+                    "description": "AbortModelUpgrade aborts and archives the model upgrade\nsynchronisation record, if any."
+                },
+                "UpgradeModel": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpgradeModel"
+                        }
+                    },
+                    "description": "UpgradeModel upgrades a model."
+                }
+            },
+            "definitions": {
+                "ModelParam": {
+                    "type": "object",
+                    "properties": {
+                        "model-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag"
+                    ]
+                },
+                "Number": {
+                    "type": "object",
+                    "properties": {
+                        "Build": {
+                            "type": "integer"
+                        },
+                        "Major": {
+                            "type": "integer"
+                        },
+                        "Minor": {
+                            "type": "integer"
+                        },
+                        "Patch": {
+                            "type": "integer"
+                        },
+                        "Tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Major",
+                        "Minor",
+                        "Tag",
+                        "Patch",
+                        "Build"
+                    ]
+                },
+                "UpgradeModel": {
+                    "type": "object",
+                    "properties": {
+                        "agent-stream": {
+                            "type": "string"
+                        },
+                        "dry-run": {
+                            "type": "boolean"
+                        },
+                        "ignore-agent-versions": {
+                            "type": "boolean"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "to-version": {
+                            "$ref": "#/definitions/Number"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "to-version"
                     ]
                 }
             }

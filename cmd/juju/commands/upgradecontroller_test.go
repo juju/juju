@@ -276,7 +276,7 @@ var upgradeCAASControllerTests = []upgradeTest{{
 }}
 
 func (s *UpgradeCAASControllerSuite) upgradeModelCommand(*gc.C, *upgradeTest) (*gomock.Controller, cmd.Command) {
-	return nil, newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil)
+	return nil, newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil, nil)
 }
 
 func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {
