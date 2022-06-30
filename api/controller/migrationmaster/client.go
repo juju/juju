@@ -153,8 +153,11 @@ func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 
 // Prechecks verifies that the source controller and model are healthy
 // and able to participate in a migration.
-func (c *Client) Prechecks() error {
-	return c.caller.FacadeCall("Prechecks", nil, nil)
+func (c *Client) Prechecks(targetControllerVersion version.Number) error {
+	args := params.PrechecksArgs{
+		TargetControllerVersion: targetControllerVersion,
+	}
+	return c.caller.FacadeCall("Prechecks", args, nil)
 }
 
 // Export returns a serialized representation of the model associated

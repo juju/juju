@@ -14,6 +14,13 @@ type BlockGetter interface {
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 }
 
+// BlockCheckerInterface defines methods of BlockChecker.
+type BlockCheckerInterface interface {
+	ChangeAllowed() error
+	RemoveAllowed() error
+	DestroyAllowed() error
+}
+
 // BlockChecker checks for current blocks if any.
 type BlockChecker struct {
 	getter BlockGetter

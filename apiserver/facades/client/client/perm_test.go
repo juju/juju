@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -90,7 +89,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientApplicationGet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.Resolved",
+		about: "Application.ResolveUnitErrors",
 		op:    opClientResolved,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -152,10 +151,6 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 	}, {
 		about: "Client.ModelSet",
 		op:    opClientModelSet,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
-		about: "Client.SetModelAgentVersion",
-		op:    opClientSetModelAgentVersion,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.WatchAll",
@@ -394,26 +389,6 @@ func opClientModelSet(c *gc.C, st api.Connection, mst *state.State) (func(), err
 	return func() {
 		args["some-key"] = nil
 		modelconfig.NewClient(st).ModelSet(args)
-	}, nil
-}
-
-func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	attrs, err := modelconfig.NewClient(st).ModelGet()
-	if err != nil {
-		return func() {}, err
-	}
-	ver := version.Number{Major: 2, Minor: 0, Patch: 0}
-	err = apiclient.NewClient(st).SetModelAgentVersion(ver, "released", false)
-	if err != nil {
-		return func() {}, err
-	}
-
-	return func() {
-		oldAgentVersion, found := attrs["agent-version"]
-		if found {
-			versionString := oldAgentVersion.(string)
-			apiclient.NewClient(st).SetModelAgentVersion(version.MustParse(versionString), "released", false)
-		}
 	}, nil
 }
 

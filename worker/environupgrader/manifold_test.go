@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelupgrader_test
+package environupgrader_test
 
 import (
 	"github.com/juju/errors"
@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/environupgrader"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/modelupgrader"
 )
 
 type ManifoldSuite struct {
@@ -26,7 +26,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (*ManifoldSuite) TestInputs(c *gc.C) {
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "boris",
 		EnvironName:   "nikolayevich",
 		GateName:      "yeltsin",
@@ -40,7 +40,7 @@ func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 		"environ":    struct{ environs.Environ }{},
 		"gate":       struct{ gate.Unlocker }{},
 	})
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
 		GateName:      "gate",
@@ -57,7 +57,7 @@ func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 		"environ":    struct{ environs.Environ }{},
 		"gate":       dependency.ErrMissing,
 	})
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
 		GateName:      "gate",
@@ -77,11 +77,11 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 		"environ":    expectEnviron,
 		"gate":       expectGate,
 	})
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
 		GateName:      "gate",
-		NewFacade: func(actual base.APICaller) (modelupgrader.Facade, error) {
+		NewFacade: func(actual base.APICaller) (environupgrader.Facade, error) {
 			c.Check(actual, gc.Equals, expectAPICaller)
 			return nil, errors.New("splort")
 		},
@@ -93,20 +93,20 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
-	expectFacade := struct{ modelupgrader.Facade }{}
+	expectFacade := struct{ environupgrader.Facade }{}
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    struct{ environs.Environ }{},
 		"gate":       struct{ gate.Unlocker }{},
 	})
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
 		GateName:      "gate",
-		NewFacade: func(_ base.APICaller) (modelupgrader.Facade, error) {
+		NewFacade: func(_ base.APICaller) (environupgrader.Facade, error) {
 			return expectFacade, nil
 		},
-		NewWorker: func(config modelupgrader.Config) (worker.Worker, error) {
+		NewWorker: func(config environupgrader.Config) (worker.Worker, error) {
 			c.Check(config.Facade, gc.Equals, expectFacade)
 			return nil, errors.New("boof")
 		},
@@ -126,15 +126,15 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
 		"environ":    expectEnviron,
 		"gate":       struct{ gate.Unlocker }{},
 	})
-	var newWorkerConfig modelupgrader.Config
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+	var newWorkerConfig environupgrader.Config
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
 		GateName:      "gate",
-		NewFacade: func(_ base.APICaller) (modelupgrader.Facade, error) {
-			return struct{ modelupgrader.Facade }{}, nil
+		NewFacade: func(_ base.APICaller) (environupgrader.Facade, error) {
+			return struct{ environupgrader.Facade }{}, nil
 		},
-		NewWorker: func(config modelupgrader.Config) (worker.Worker, error) {
+		NewWorker: func(config environupgrader.Config) (worker.Worker, error) {
 			newWorkerConfig = config
 			return expectWorker, nil
 		},
@@ -154,15 +154,15 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 		"environ":    dependency.ErrMissing,
 		"gate":       struct{ gate.Unlocker }{},
 	})
-	var newWorkerConfig modelupgrader.Config
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+	var newWorkerConfig environupgrader.Config
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "api-caller",
 		EnvironName:   "environ",
 		GateName:      "gate",
-		NewFacade: func(_ base.APICaller) (modelupgrader.Facade, error) {
-			return struct{ modelupgrader.Facade }{}, nil
+		NewFacade: func(_ base.APICaller) (environupgrader.Facade, error) {
+			return struct{ environupgrader.Facade }{}, nil
 		},
-		NewWorker: func(config modelupgrader.Config) (worker.Worker, error) {
+		NewWorker: func(config environupgrader.Config) (worker.Worker, error) {
 			newWorkerConfig = config
 			return expectWorker, nil
 		},
@@ -176,13 +176,13 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestFilterNil(c *gc.C) {
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{})
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{})
 	err := manifold.Filter(nil)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (*ManifoldSuite) TestFilterErrModelRemoved(c *gc.C) {
-	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{})
-	err := manifold.Filter(modelupgrader.ErrModelRemoved)
+	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{})
+	err := manifold.Filter(environupgrader.ErrModelRemoved)
 	c.Check(err, gc.Equals, dependency.ErrUninstall)
 }

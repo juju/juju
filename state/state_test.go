@@ -1450,6 +1450,38 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
+	add_machine := func(series string) {
+		m, err := s.State.AddMachine(series, state.JobHostUnits)
+		c.Check(err, jc.ErrorIsNil)
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%s", series)), "", "fake_nonce", nil)
+		c.Check(err, jc.ErrorIsNil)
+		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-ubuntu-amd64"))
+		c.Check(err, jc.ErrorIsNil)
+		err = m.Destroy()
+		c.Check(err, jc.ErrorIsNil)
+	}
+
+	var windowsSeries = []string{
+		"win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+		"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81", "win10",
+	}
+	for _, winSeries := range windowsSeries {
+		add_machine(winSeries)
+	}
+	add_machine("quantal")
+
+	s.AssertMachineCount(c, len(windowsSeries)+1)
+
+	count, err := s.State.MachineCountForSeries(windowsSeries...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, len(windowsSeries))
+
+	count, err = s.State.MachineCountForSeries("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 1)
+}
+
 func (s *StateSuite) TestAllRelations(c *gc.C) {
 	const numRelations = 32
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -2725,7 +2757,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	// Make the container Dying: cannot because of nested container.
 	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers ".*"`)
+	c.Assert(err, gc.ErrorMatches, `machine .* is hosting container\(s\) ".*"`)
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -533,10 +534,10 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 }
 
 // ValidateModelUpgrade checks to see if it's possible to upgrade a model,
-// before actually attempting to do the real model-upgrade.
+// before actually attempting to do the real environ-upgrade.
 func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
 	args := params.ValidateModelUpgradeParams{
-		Models: []params.ValidateModelUpgradeParam{{
+		Models: []params.ModelParam{{
 			ModelTag: model.String(),
 		}},
 		Force: force,
@@ -548,5 +549,5 @@ func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
 	if num := len(results.Results); num != 1 {
 		return errors.Errorf("expected one result, got %d", num)
 	}
-	return results.OneError()
+	return apiservererrors.RestoreError(results.OneError())
 }

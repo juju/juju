@@ -47,50 +47,15 @@ var (
 	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
 
-// ModelManagerV9 defines the methods on the version 9 facade for the
-// modelmanager API endpoint.
-type ModelManagerV9 interface {
-	ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error)
-	ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error)
-	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
-	DumpModels(args params.DumpModelRequest) params.StringResults
-	DumpModelsDB(args params.Entities) params.MapResults
-	ListModelSummaries(request params.ModelSummariesRequest) (params.ModelSummaryResults, error)
-	ListModels(user params.Entity) (params.UserModelList, error)
-	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
-	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
-	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
-	ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error)
-}
-
 type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
-
-// StatePool represents a point of use interface for getting the state from the
-// pool.
-type StatePool interface {
-	Get(string) (State, error)
-}
-
-// State represents a point of use interface for modelling a current model.
-type State interface {
-	Model() (Model, error)
-	HasUpgradeSeriesLocks() (bool, error)
-	Release() bool
-}
-
-// Model defines a point of use interface for the model from state.
-type Model interface {
-	IsControllerModel() bool
-}
 
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
-	statePool   StatePool
 	ctlrState   common.ModelManagerBackend
-	check       *common.BlockChecker
+	check       common.BlockCheckerInterface
 	authorizer  facade.Authorizer
 	toolsFinder common.ToolsFinder
 	apiUser     names.UserTag
@@ -100,18 +65,14 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
-var (
-	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
-)
-
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
-	stPool StatePool,
-	configGetter environs.EnvironConfigGetter,
+	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
+	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	m common.Model,
 	callCtx context.ProviderCallContext,
@@ -128,23 +89,15 @@ func NewModelManagerAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
-
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newEnviron := common.EnvironFuncForModel(model, configGetter)
 
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
 		ctlrState:      ctlrSt,
-		statePool:      stPool,
 		getBroker:      getBroker,
-		check:          common.NewBlockChecker(st),
+		check:          blockChecker,
 		authorizer:     authorizer,
-		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
+		toolsFinder:    toolsFinder,
 		apiUser:        apiUser,
 		isAdmin:        isAdmin,
 		model:          m,
@@ -1375,87 +1328,4 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 		}
 	}
 	return params.ErrorResults{Results: results}, nil
-}
-
-// ValidateModelUpgrades validates if a model is allowed to perform an upgrade.
-// Examples of why you would want to block a model upgrade, would be situations
-// like upgrade-series. If performing an upgrade-series we don't know the
-// current status of the machine, so performing an upgrade-model can lead to
-// bad unintended errors down the line.
-func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error) {
-	if err := m.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	controllerAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	// Only controller or model admin can change cloud credential on a model.
-	checkModelAccess := func(tag names.ModelTag) error {
-		if controllerAdmin {
-			return nil
-		}
-		modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if modelAdmin {
-			return nil
-		}
-		return apiservererrors.ErrPerm
-	}
-
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Models)),
-	}
-	for i, arg := range args.Models {
-		modelTag, err := names.ParseModelTag(arg.ModelTag)
-		if err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-		if err := checkModelAccess(modelTag); err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-
-		// We now need to access the state pool for that given model.
-		st, err := m.statePool.Get(modelTag.Id())
-		if err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-		defer st.Release()
-
-		model, err := st.Model()
-		if err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-
-		// If it's a controller model then we don't require certain validation
-		// checks.
-		if model.IsControllerModel() {
-			continue
-		}
-
-		// Now check for the validation of a model upgrade.
-		if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
-			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
-			continue
-		}
-	}
-	return results, nil
-}
-
-func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
-	locked, err := st.HasUpgradeSeriesLocks()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if locked && !force {
-		return errors.Errorf("unexpected upgrade series lock found")
-	}
-	return nil
 }
