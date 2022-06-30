@@ -175,7 +175,7 @@ def main(argv=None):
         cluster_name=args.temp_env_name,
         enable_rbac=args.enable_rbac,
     ).substrate_context() as caas_client:
-        # add-k8s --local
+        # add-k8s --client
         is_mk8s = args.caas_provider == K8sProviderType.MICROK8S.name
         if args.k8s_controller and not is_mk8s:
             # microk8s is built-in cloud, no need run add-k8s for bootstrapping
