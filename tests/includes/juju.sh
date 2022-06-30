@@ -3,13 +3,13 @@
 # of the juju version. If JUJU_VERSION is defined in CI this value will be used
 # otherwise we interrogate the juju binary on path.
 juju_version() {
-  # Match only major, minor, and patch or tag + build number
-  if [ -n "${JUJU_VERSION:-}" ]; then
-    version=${JUJU_VERSION}
-  else
-    version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
-  fi
-  echo "${version}"
+	# Match only major, minor, and patch or tag + build number
+	if [ -n "${JUJU_VERSION:-}" ]; then
+		version=${JUJU_VERSION}
+	else
+		version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
+	fi
+	echo "${version}"
 }
 
 jujud_version() {
