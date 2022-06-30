@@ -16044,9 +16044,6 @@
                         },
                         "os-type": {
                             "type": "string"
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -16055,7 +16052,6 @@
                         "major",
                         "minor",
                         "arch",
-                        "series",
                         "os-type",
                         "agentstream"
                     ]
@@ -34178,9 +34174,6 @@
                         },
                         "os-type": {
                             "type": "string"
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -34189,7 +34182,6 @@
                         "major",
                         "minor",
                         "arch",
-                        "series",
                         "os-type",
                         "agentstream"
                     ]

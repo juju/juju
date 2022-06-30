@@ -742,21 +742,6 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
-func (s *controllerSuite) TestRevokeAddModelBackwardCompatibility(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-
-	controllerInfo, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.CreateCloudAccess(controllerInfo.CloudName, user.UserTag(), permission.AddModelAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.controllerRevoke(c, user.UserTag(), string(permission.AddModelAccess))
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.GetCloudAccess(controllerInfo.CloudName, user.UserTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
 	err := s.controllerRevoke(c, user, string(permission.SuperuserAccess))
@@ -790,19 +775,6 @@ func (s *controllerSuite) TestGrantControllerAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
-}
-
-func (s *controllerSuite) TestGrantAddModelBackwardCompatibility(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-
-	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerInfo, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	perm, err := s.State.GetCloudAccess(controllerInfo.CloudName, user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(perm, gc.Equals, permission.AddModelAccess)
 }
 
 func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {

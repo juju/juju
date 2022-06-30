@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type LogSenderSuite struct {
@@ -107,8 +106,7 @@ type mockConnector struct {
 func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stream, error) {
 	c.c.Assert(path, gc.Equals, "/logsink")
 	c.c.Assert(values, jc.DeepEquals, url.Values{
-		"jujuclientversion": []string{version.Current.String()},
-		"version":           []string{"1"},
+		"version": []string{"1"},
 	})
 
 	if c.connectError != nil {
