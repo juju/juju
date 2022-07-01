@@ -11,20 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
 	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/date"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
 	"github.com/juju/juju/provider/azure/internal/useragent"
 )
@@ -63,9 +62,12 @@ type ServicePrincipalParams struct {
 	// used when acquiring access tokens.
 	GraphResourceId string
 
-	// GraphAuthorizer is the authorization needed to contact the
+	// GraphTokenProvider is the authorization needed to contact the
 	// Azure graph API.
-	GraphAuthorizer autorest.Authorizer
+	GraphTokenProvider adal.OAuthTokenProvider
+
+	// AuthEndpoint is the endpoint for auth requests.
+	AuthEndpoint string
 
 	// ResourceManagerEndpoint is the endpoint of the azure resource
 	// manager API.
@@ -75,9 +77,9 @@ type ServicePrincipalParams struct {
 	// used when acquiring access tokens.
 	ResourceManagerResourceId string
 
-	// ResourceManagerAuthorizer is the authorization needed to
+	// ResourceManagerTokenProvider is the authorization needed to
 	// contact the Azure resource manager API.
-	ResourceManagerAuthorizer autorest.Authorizer
+	ResourceManagerTokenProvider adal.OAuthTokenProvider
 
 	// SubscriptionId is the subscription ID of the account creating
 	// the service principal.
@@ -90,16 +92,16 @@ type ServicePrincipalParams struct {
 
 func (p ServicePrincipalParams) directoryClient(sender autorest.Sender, requestInspector autorest.PrepareDecorator) graphrbac.BaseClient {
 	directoryClient := graphrbac.NewWithBaseURI(p.GraphEndpoint, p.TenantId)
-	directoryClient.Authorizer = p.GraphAuthorizer
+	directoryClient.Authorizer = autorest.NewBearerAuthorizer(p.GraphTokenProvider)
 	directoryClient.Sender = sender
-	setClientInspectors(&directoryClient.Client, requestInspector, errorutils.CheckForGraphError, "azure.directory")
+	setClientInspectors(&directoryClient.Client, requestInspector, CheckForGraphError, "azure.directory")
 	return directoryClient
 }
 
 func (p ServicePrincipalParams) authorizationClient(sender autorest.Sender, requestInspector autorest.PrepareDecorator) authorization.BaseClient {
 	authorizationClient := authorization.NewWithBaseURI(p.ResourceManagerEndpoint, p.SubscriptionId)
 	useragent.UpdateClient(&authorizationClient.Client)
-	authorizationClient.Authorizer = p.ResourceManagerAuthorizer
+	authorizationClient.Authorizer = autorest.NewBearerAuthorizer(p.ResourceManagerTokenProvider)
 	authorizationClient.Sender = sender
 	setClientInspectors(&authorizationClient.Client, requestInspector, nil, "azure.authorization")
 	return authorizationClient
@@ -146,20 +148,13 @@ type ServicePrincipalCreator struct {
 // and SubscriptionId need to be specified in params, the other values
 // will be derived.
 func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stderr io.Writer, params ServicePrincipalParams) (appid, spid, password string, _ error) {
-	subscriptionsClient := subscriptions.Client{
-		subscriptions.NewWithBaseURI(params.ResourceManagerEndpoint),
+	adEndpoint := params.AuthEndpoint
+	if adEndpoint == "" {
+		adEndpoint = "https://login.windows.net"
 	}
-	useragent.UpdateClient(&subscriptionsClient.Client)
-	subscriptionsClient.Sender = c.Sender
-	setClientInspectors(&subscriptionsClient.Client, c.RequestInspector, nil, "azure.subscriptions")
-
-	oauthConfig, tenantId, err := OAuthConfig(
-		sdkCtx,
-		subscriptionsClient,
-		params.SubscriptionId,
-	)
+	oauthConfig, err := adal.NewOAuthConfig(adEndpoint, params.TenantId)
 	if err != nil {
-		return "", "", "", errors.Trace(err)
+		return "", "", "", errors.Annotate(err, "getting OAuth configuration")
 	}
 
 	client := autorest.NewClientWithUserAgent("")
@@ -178,7 +173,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	if err != nil {
 		return "", "", "", errors.Annotate(err, "initiating interactive authentication")
 	}
-	fmt.Fprintln(stderr, to.String(deviceCode.Message)+"\n")
+	fmt.Fprintln(stderr, toValue(deviceCode.Message)+"\n")
 	token, err := adal.WaitForUserCompletionWithContext(sdkCtx, &client, deviceCode)
 	if err != nil {
 		return "", "", "", errors.Annotate(err, "waiting for interactive authentication to completed")
@@ -209,15 +204,14 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	if err := graphSpt.Refresh(); err != nil {
 		return "", "", "", errors.Trace(err)
 	}
-	params.GraphAuthorizer = autorest.NewBearerAuthorizer(graphSpt)
-	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(armSpt)
-	params.TenantId = tenantId
+	params.GraphTokenProvider = graphSpt
+	params.ResourceManagerTokenProvider = armSpt
 
 	userObject, err := graphrbac.SignedInUserClient{params.directoryClient(c.Sender, c.RequestInspector)}.Get(sdkCtx)
 	if err != nil {
 		return "", "", "", errors.Trace(err)
 	}
-	fmt.Fprintf(stderr, "Authenticated as %q.\n", to.String(userObject.DisplayName))
+	fmt.Fprintf(stderr, "Authenticated as %q.\n", toValue(userObject.DisplayName))
 
 	return c.Create(sdkCtx, params)
 }
@@ -255,8 +249,8 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 		servicePrincipal, err = client.Create(
 			sdkCtx,
 			graphrbac.ServicePrincipalCreateParameters{
-				AppID:               to.StringPtr(jujuApplicationId),
-				AccountEnabled:      to.BoolPtr(true),
+				AppID:               to.Ptr(jujuApplicationId),
+				AccountEnabled:      to.Ptr(true),
 				PasswordCredentials: &creds,
 			},
 		)
@@ -265,7 +259,7 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 	retryArgs := retry.CallArgs{
 		Func: createServicePrincipal,
 		IsFatalError: func(err error) bool {
-			if ge := errorutils.AsGraphError(err); ge != nil {
+			if ge := AsGraphError(err); ge != nil {
 				if strings.Contains(ge.Message(), " does not reference ") || strings.Contains(ge.Message(), " does not exist ") {
 					// The application doesn't exist yet, retry later.
 					return false
@@ -286,7 +280,7 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 	} else {
 		// The service principal was created successfully, with the
 		// requested password credential.
-		return to.String(servicePrincipal.ObjectID), to.String(passwordCredential.Value), nil
+		return toValue(servicePrincipal.ObjectID), toValue(passwordCredential.Value), nil
 	}
 
 	// The service principal already exists, so we need to query
@@ -299,16 +293,16 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 	if err := addServicePrincipalPasswordCredential(
 		sdkCtx,
 		client,
-		to.String(servicePrincipal.ObjectID),
+		toValue(servicePrincipal.ObjectID),
 		passwordCredential,
 	); err != nil {
 		return "", "", errors.Annotate(err, "updating password credentials")
 	}
-	return to.String(servicePrincipal.ObjectID), to.String(passwordCredential.Value), nil
+	return toValue(servicePrincipal.ObjectID), toValue(passwordCredential.Value), nil
 }
 
 func isMultipleObjectsWithSameKeyValueErr(err error) bool {
-	if ge := errorutils.AsGraphError(err); ge != nil {
+	if ge := AsGraphError(err); ge != nil {
 		return ge.Code() == "Request_MultipleObjectsWithSameKeyValue"
 	}
 	return false
@@ -326,9 +320,9 @@ func (c *ServicePrincipalCreator) preparePasswordCredential() (graphrbac.Passwor
 	startDate := c.clock().Now().UTC()
 	endDate := startDate.Add(passwordExpiryDuration)
 	return graphrbac.PasswordCredential{
-		CustomKeyIdentifier: to.ByteSlicePtr([]byte("juju-" + startDate.Format("20060102"))),
-		KeyID:               to.StringPtr(passwordKeyUUID.String()),
-		Value:               to.StringPtr(password.String()),
+		CustomKeyIdentifier: to.Ptr([]byte("juju-" + startDate.Format("20060102"))),
+		KeyID:               to.Ptr(passwordKeyUUID.String()),
+		Value:               to.Ptr(password.String()),
 		StartDate:           &date.Time{startDate},
 		EndDate:             &date.Time{endDate},
 	}, nil
@@ -368,7 +362,7 @@ func getServicePrincipal(sdkCtx context.Context, client graphrbac.ServicePrincip
 	}
 	for it.NotDone() {
 		sp := it.Value()
-		if to.String(sp.AppID) == appID {
+		if toValue(sp.AppID) == appID {
 			return sp, nil
 		}
 		if err := it.NextWithContext(sdkCtx); err != nil {
@@ -410,14 +404,14 @@ func (c *ServicePrincipalCreator) createRoleAssignment(sdkCtx context.Context, p
 				authorization.RoleAssignmentCreateParameters{
 					Properties: &authorization.RoleAssignmentProperties{
 						RoleDefinitionID: roleDefinitionId,
-						PrincipalID:      to.StringPtr(servicePrincipalObjectId),
+						PrincipalID:      to.Ptr(servicePrincipalObjectId),
 					},
 				},
 			)
 			return err
 		},
 		IsFatalError: func(err error) bool {
-			serviceErr, ok := errorutils.ServiceError(err)
+			serviceErr, ok := serviceError(err)
 			if ok && strings.Contains(serviceErr.Message, " does not exist in the directory ") {
 				// The service principal doesn't exist yet, retry later.
 				return false
@@ -429,7 +423,7 @@ func (c *ServicePrincipalCreator) createRoleAssignment(sdkCtx context.Context, p
 		MaxDuration: time.Minute,
 	}
 	if err := retry.Call(retryArgs); err != nil {
-		if err, ok := errorutils.ServiceError(err); ok {
+		if err, ok := serviceError(err); ok {
 			const serviceErrorCodeRoleAssignmentExists = "RoleAssignmentExists"
 			if err.Code == serviceErrorCodeRoleAssignmentExists {
 				return nil
@@ -452,4 +446,39 @@ func (c *ServicePrincipalCreator) newUUID() (utils.UUID, error) {
 		return utils.NewUUID()
 	}
 	return c.NewUUID()
+}
+
+// serviceError returns the *azure.ServiceError underlying the
+// supplied error, if any, and a bool indicating whether one
+// was found.
+func serviceError(err error) (*azure.ServiceError, bool) {
+	if err == nil {
+		return nil, false
+	}
+	err = errors.Cause(err)
+	if d, ok := err.(autorest.DetailedError); ok {
+		err = errors.Cause(d.Original)
+	}
+	if se, ok := err.(*azure.ServiceError); ok {
+		return se, true
+	}
+	if r, ok := err.(*azure.RequestError); ok {
+		return r.ServiceError, true
+	}
+	// The error Azure gives us back can also be a struct
+	// not a pointer.
+	if se, ok := err.(azure.ServiceError); ok {
+		return &se, true
+	}
+	if r, ok := err.(azure.RequestError); ok {
+		return r.ServiceError, true
+	}
+	return nil, false
+}
+
+func toValue[T any](v *T) T {
+	if v == nil {
+		return *new(T)
+	}
+	return *v
 }

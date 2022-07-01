@@ -60,9 +60,10 @@ type Unit interface {
 // Charm represents point of use methods from the state Charm object.
 type Charm interface {
 	LXDProfile() lxdprofile.Profile
+	Revision() int
 }
 
 // Application represents point of use methods from the state Application object.
 type Application interface {
-	CharmURL() *charm.URL
+	CharmURL() *string
 }

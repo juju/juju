@@ -5,7 +5,6 @@ package machine
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/v3/winrm"
 
 	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
@@ -27,8 +25,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -134,9 +130,6 @@ Examples:
 	# connection
 	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub --private-key /tmp/id_rsa
 
-	# Allocate a machine to the model via WinRM
-	juju add-machine winrm:user@10.10.0.3
-
 	# Allocate a machine to the model. Note: specific to MAAS.
 	juju add-machine host.internal
 
@@ -159,7 +152,6 @@ func NewAddCommand() cmd.Command {
 // addCommand starts a new machine and registers it in the model.
 type addCommand struct {
 	baseMachinesCommand
-	api               AddMachineAPI
 	modelConfigAPI    ModelConfigAPI
 	machineManagerAPI MachineManagerAPI
 	// If specified, use this series, else use the model default-series
@@ -185,7 +177,7 @@ type addCommand struct {
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container-type>[:<machine-id>] | (ssh|winrm):[<user>@]<host> | <placement>] | <private-key> | <public-key>",
+		Args:    "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
 		Purpose: "Provision a new machine or assign one to the model.",
 		Doc:     addMachineDoc,
 	})
@@ -223,15 +215,6 @@ func (c *addCommand) Init(args []string) error {
 	return nil
 }
 
-type AddMachineAPI interface {
-	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	Close() error
-	ForceDestroyMachines(machines ...string) error
-	DestroyMachinesWithParams(force, keep bool, machines ...string) error
-	ModelUUID() (string, bool)
-	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
-}
-
 type ModelConfigAPI interface {
 	ModelGet() (map[string]interface{}, error)
 	Close() error
@@ -239,6 +222,9 @@ type ModelConfigAPI interface {
 
 type MachineManagerAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	ModelUUID() (string, bool)
+	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 	Close() error
 }
 
@@ -249,13 +235,6 @@ func splitUserHost(host string) (string, string) {
 		return host[:at], host[at+1:]
 	}
 	return "", host
-}
-
-func (c *addCommand) getClientAPI() (AddMachineAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	return c.NewAPIClient()
 }
 
 func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
@@ -270,7 +249,7 @@ func (c *addCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 
 }
 
-func (c *addCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
+func (c *addCommand) newMachineManagerClient() (*machinemanager.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -282,7 +261,7 @@ func (c *addCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
 	if c.machineManagerAPI != nil {
 		return c.machineManagerAPI, nil
 	}
-	return c.NewMachineManagerClient()
+	return c.newMachineManagerClient()
 }
 
 func (c *addCommand) Run(ctx *cmd.Context) error {
@@ -291,12 +270,6 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	client, err := c.getClientAPI()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer client.Close()
-
 	machineManager, err := c.getMachineManagerAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -322,7 +295,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Placement != nil {
-		err := c.tryManualProvision(client, cfg, ctx)
+		err := c.tryManualProvision(machineManager, cfg, ctx)
 		if err != errNonManualScope {
 			return err
 		}
@@ -330,7 +303,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	logger.Infof("model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
-		uuid, ok := client.ModelUUID()
+		uuid, ok := machineManager.ModelUUID()
 		if !ok {
 			return errors.New("API connection is controller-only (should never happen)")
 		}
@@ -395,20 +368,16 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 var (
 	sshProvisioner    = sshprovisioner.ProvisionMachine
-	winrmProvisioner  = winrmprovisioner.ProvisionMachine
 	errNonManualScope = errors.New("non-manual scope")
 	sshScope          = "ssh"
-	winrmScope        = "winrm"
 )
 
-func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Config, ctx *cmd.Context) error {
+func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, config *config.Config, ctx *cmd.Context) error {
 
 	var provisionMachine manual.ProvisionMachineFunc
 	switch c.Placement.Scope {
 	case sshScope:
 		provisionMachine = sshProvisioner
-	case winrmScope:
-		provisionMachine = c.provisionWinRM
 	default:
 		return errNonManualScope
 	}
@@ -440,44 +409,4 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 	}
 	ctx.Infof("created machine %v", machineId)
 	return nil
-}
-
-func (c *addCommand) provisionWinRM(args manual.ProvisionMachineArgs) (string, error) {
-	base := osenv.JujuXDGDataHomePath("x509")
-	keyPath := filepath.Join(base, "winrmkey.pem")
-	certPath := filepath.Join(base, "winrmcert.crt")
-	cert := winrm.NewX509()
-	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
-		return "", errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
-	}
-	if err := cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
-		logger.Infof("cannot not find any CA cert to load")
-	}
-
-	cfg := winrm.ClientConfig{
-		User:    args.User,
-		Host:    args.Host,
-		Key:     cert.ClientKey(),
-		Cert:    cert.ClientCert(),
-		Timeout: 25 * time.Second,
-		Secure:  true,
-	}
-
-	caCert := cert.CACert()
-	if caCert == nil {
-		logger.Infof("Skipping winrm CA validation")
-		cfg.Insecure = true
-	} else {
-		cfg.CACert = caCert
-	}
-
-	client, err := winrm.NewClient(cfg)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot create WinRM client connection")
-	}
-	args.WinRM = manual.WinRMArgs{
-		Keys:   cert,
-		Client: client,
-	}
-	return winrmProvisioner(args)
 }

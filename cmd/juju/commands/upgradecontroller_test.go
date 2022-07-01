@@ -5,7 +5,9 @@ package commands
 
 import (
 	"fmt"
+	"runtime"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
@@ -73,16 +75,16 @@ var upgradeIAASControllerPassthroughTests = []upgradeTest{{
 	expectUploaded: []string{"2.7.3.1-ubuntu-amd64"},
 }}
 
-func (s *UpgradeControllerBaseSuite) upgradeControllerCommand(*upgradeTest) cmd.Command {
+func (s *UpgradeControllerBaseSuite) upgradeControllerCommand(*gc.C, *upgradeTest) (*gomock.Controller, cmd.Command) {
 	cmd := &upgradeControllerCommand{}
 	cmd.SetClientStore(s.ControllerStore)
-	return modelcmd.WrapController(cmd)
+	return nil, modelcmd.WrapController(cmd)
 }
 
 func (s *UpgradeControllerBaseSuite) TestUpgradeWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
-	cmd := s.upgradeControllerCommand(nil)
+	_, cmd := s.upgradeControllerCommand(c, nil)
 	_, err := cmdtesting.RunCommand(c, cmd, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := coretesting.CurrentVersion(c)
@@ -93,7 +95,7 @@ func (s *UpgradeControllerBaseSuite) TestUpgradeWithRealUpload(c *gc.C) {
 func (s *UpgradeControllerBaseSuite) TestUpgradeCorrectController(c *gc.C) {
 	badControllerName := "not-the-right-controller"
 	badControllerSelected := errors.New("bad controller selected")
-	upgradeCommand := func(test *upgradeTest) cmd.Command {
+	upgradeCommand := func(c *gc.C, test *upgradeTest) (*gomock.Controller, cmd.Command) {
 		backingStore := s.ControllerStore
 		store := jujuclienttesting.WrapClientStore(backingStore)
 		store.ControllerByNameFunc = func(name string) (*jujuclient.ControllerDetails, error) {
@@ -106,7 +108,7 @@ func (s *UpgradeControllerBaseSuite) TestUpgradeCorrectController(c *gc.C) {
 			return badControllerName, nil
 		}
 		s.ControllerStore = store
-		return s.upgradeControllerCommand(test)
+		return s.upgradeControllerCommand(c, test)
 	}
 
 	tests := []upgradeTest{
@@ -141,7 +143,7 @@ func (s *UpgradeControllerBaseSuite) TestUpgradeWrongPermissions(c *gc.C) {
 	details.LastKnownAccess = string(permission.ReadAccess)
 	err = s.ControllerStore.UpdateAccount("kontroll", *details)
 	c.Assert(err, jc.ErrorIsNil)
-	com := s.upgradeControllerCommand(nil)
+	_, com := s.upgradeControllerCommand(c, nil)
 	err = cmdtesting.InitCommand(com, []string{})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
@@ -184,6 +186,9 @@ type UpgradeIAASControllerSuite struct {
 }
 
 func (s *UpgradeIAASControllerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.UpgradeControllerBaseSuite.SetUpTest(c)
 	err := s.ControllerStore.RemoveModel(jujutesting.ControllerName, "admin/controller")
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,6 +218,9 @@ type UpgradeCAASControllerSuite struct {
 var _ = gc.Suite(&UpgradeCAASControllerSuite{})
 
 func (s *UpgradeCAASControllerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.UpgradeBaseSuite.SetUpTest(c)
 	err := s.ControllerStore.RemoveModel(jujutesting.ControllerName, "admin/controller")
 	c.Assert(err, jc.ErrorIsNil)
@@ -267,8 +275,8 @@ var upgradeCAASControllerTests = []upgradeTest{{
 	expectVersion:  "1.21.4",
 }}
 
-func (s *UpgradeCAASControllerSuite) upgradeModelCommand(*upgradeTest) cmd.Command {
-	return newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil)
+func (s *UpgradeCAASControllerSuite) upgradeModelCommand(*gc.C, *upgradeTest) (*gomock.Controller, cmd.Command) {
+	return nil, newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil)
 }
 
 func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {

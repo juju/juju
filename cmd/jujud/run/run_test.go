@@ -6,8 +6,8 @@ package run
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/core/machinelock"
-	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
@@ -272,9 +271,6 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Current implementation of named pipes loops if the socket is missing")
-	}
 	agentDir := filepath.Join(config.DataDir, "agents", "unit-foo-1")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,13 +373,8 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	socket := sockets.Socket{}
-	switch jujuos.HostOS() {
-	case jujuos.Windows:
-		socket.Address = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
-	default:
-		socket.Network = "unix"
-		socket.Address = fmt.Sprintf("%s/run.socket", agentDir)
-	}
+	socket.Network = "unix"
+	socket.Address = path.Join(agentDir, "run.socket")
 	listener, err := uniter.NewRunListener(socket, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	listener.RegisterRunner("foo/1", &mockRunner{c})

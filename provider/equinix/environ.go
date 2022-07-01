@@ -271,7 +271,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.Trace(err)
 	}
 	spec, err := e.findInstanceSpec(
-		args.InstanceConfig.Controller != nil,
+		args.InstanceConfig.IsController(),
 		args.ImageMetadata,
 		instanceTypes.InstanceTypes,
 		&instances.InstanceConstraint{
@@ -772,11 +772,6 @@ func isDistroSupported(os packngo.OS, ic *instances.InstanceConstraint) bool {
 		}
 	case "centos":
 		series, err := series.CentOSVersionSeries(os.Version)
-		if err != nil || ic.Series != series {
-			return false
-		}
-	case "windows":
-		series, err := series.WindowsVersionSeries(os.Version)
 		if err != nil || ic.Series != series {
 			return false
 		}

@@ -39,7 +39,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR unit "foo" not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, cmdString("secret-revoke"))
+		com, err := jujuc.NewCommand(hctx, "secret-revoke")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -52,7 +52,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *gc.C) {
 func (s *SecretRevokeSuite) TestRevokeSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, cmdString("secret-revoke"))
+	com, err := jujuc.NewCommand(hctx, "secret-revoke")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{

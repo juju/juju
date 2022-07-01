@@ -12,7 +12,7 @@ import (
 )
 
 type interfacesSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 var _ = gc.Suite(&interfacesSuite{})
@@ -628,7 +628,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expected)
 }
 
-func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
+func (s *interfacesSuite) TestMAASNetworkInterfaces(c *gc.C) {
 	vlan0 := fakeVLAN{
 		id:  5001,
 		vid: 0,
@@ -997,14 +997,14 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Origin:            network.OriginProvider,
 	}}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 
 	infos, err := maasNetworkInterfaces(s.callCtx, instance, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
 
-func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
+func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *gc.C) {
 	vlan0 := fakeVLAN{
 		id:  5001,
 		vid: 0,
@@ -1039,7 +1039,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		},
 	}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
-	instance := &maas2Instance{machine: machine}
+	instance := &maasInstance{machine: machine}
 
 	expected := network.InterfaceInfos{{
 		DeviceIndex:       0,

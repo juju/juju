@@ -105,7 +105,12 @@ func NewDiffBundleCommand() cmd.Command {
 		return modelconfig.NewClient(api)
 	}
 	cmd.modelConstraintsClientFunc = func() (ModelConstraintsClient, error) {
-		return cmd.NewAPIClient()
+		root, err := cmd.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		client := modelconfig.NewClient(root)
+		return client, nil
 	}
 	return modelcmd.Wrap(cmd)
 }

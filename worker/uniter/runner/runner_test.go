@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -35,12 +34,6 @@ type RunCommandSuite struct {
 var _ = gc.Suite(&RunCommandSuite{})
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
-	// TODO(bogdanteleaga): powershell throws another exit status code when
-	// outputting to stderr using Write-Error. Either find another way to
-	// output to stderr or change the checks
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Have to figure out a good way to output to stderr from powershell")
-	}
 	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	paths := runnertesting.NewRealPaths(c)
@@ -252,14 +245,8 @@ func (ctx *MockContext) HookVars(
 	_ bool,
 	envVars context.Environmenter,
 ) ([]string, error) {
-	pathKey := ""
-	if runtime.GOOS == "windows" {
-		pathKey = "Path"
-	} else {
-		pathKey = "PATH"
-	}
-	path := envVars.Getenv(pathKey)
-	newPath := fmt.Sprintf("%s=pathypathpath;%s", pathKey, path)
+	path := envVars.Getenv("PATH")
+	newPath := fmt.Sprintf("PATH=pathypathpath;%s", path)
 	return []string{"VAR=value", newPath}, nil
 }
 

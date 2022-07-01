@@ -116,15 +116,14 @@ type BaseSuiteUnpatched struct {
 	EnvConfig      *environConfig
 	Env            *environ
 
-	Addresses       network.ProviderAddresses
-	BaseInstance    *google.Instance
-	BaseDisk        *google.Disk
-	Instance        *environInstance
-	InstName        string
-	UbuntuMetadata  map[string]string
-	WindowsMetadata map[string]string
-	StartInstArgs   environs.StartInstanceParams
-	InstanceType    instances.InstanceType
+	Addresses      network.ProviderAddresses
+	BaseInstance   *google.Instance
+	BaseDisk       *google.Disk
+	Instance       *environInstance
+	InstName       string
+	UbuntuMetadata map[string]string
+	StartInstArgs  environs.StartInstanceParams
+	InstanceType   instances.InstanceType
 
 	Rules firewall.IngressRules
 }
@@ -183,10 +182,6 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig.Tags = map[string]string{
 		tags.JujuIsController: "true",
 		tags.JujuController:   s.ControllerUUID,
-	}
-	s.WindowsMetadata = map[string]string{
-		metadataKeyWindowsUserdata: string(userData),
-		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
 	s.Addresses = []network.ProviderAddress{
 		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),

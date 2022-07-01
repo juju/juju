@@ -13,9 +13,9 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/http"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
@@ -26,7 +26,7 @@ type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 
-	httpClient api.HTTPDoer
+	httpClient http.HTTPDoer
 }
 
 // NewClient returns a new Client for the given raw API caller.

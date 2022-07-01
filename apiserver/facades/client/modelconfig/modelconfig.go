@@ -24,13 +24,13 @@ type ModelConfigAPI struct {
 	check   *common.BlockChecker
 }
 
-// ModelConfigAPIV2 is currently the latest.
-type ModelConfigAPIV2 struct {
+// ModelConfigAPIV3 is currently the latest.
+type ModelConfigAPIV3 struct {
 	*ModelConfigAPI
 }
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
-func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelConfigAPIV2, error) {
+func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelConfigAPIV3, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -39,7 +39,7 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 		auth:    authorizer,
 		check:   common.NewBlockChecker(backend),
 	}
-	return &ModelConfigAPIV2{client}, nil
+	return &ModelConfigAPIV3{client}, nil
 }
 
 func (c *ModelConfigAPI) checkCanWrite() error {
@@ -246,6 +246,31 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 		return errors.Trace(err)
 	}
 	return c.backend.UpdateModelConfig(nil, args.Keys)
+}
+
+// GetModelConstraints returns the constraints for the model.
+func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, error) {
+	if err := c.canReadModel(); err != nil {
+		return params.GetConstraintsResults{}, err
+	}
+
+	cons, err := c.backend.ModelConstraints()
+	if err != nil {
+		return params.GetConstraintsResults{}, err
+	}
+	return params.GetConstraintsResults{cons}, nil
+}
+
+// SetModelConstraints sets the constraints for the model.
+func (c *ModelConfigAPI) SetModelConstraints(args params.SetConstraints) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	return c.backend.SetModelConstraints(args.Constraints)
 }
 
 // SetSLALevel sets the sla level on the model.

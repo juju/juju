@@ -1,9 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:build !windows
-// +build !windows
-
 package unit_test
 
 import (
@@ -167,7 +164,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"service/snap",
 		"service/systemd",
 		"service/upstart",
-		"service/windows",
 		"state/errors",
 		"storage",
 		"storage/provider",

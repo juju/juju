@@ -6,9 +6,7 @@ package azure
 import (
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
@@ -55,18 +53,19 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 	// We will add these, excluding the SSH/API rules, to the
 	// network security group template created in the deployment
 	// below.
-	nsgClient := network.SecurityGroupsClient{
-		BaseClient: env.network,
+	securityGroups, err := env.securityGroupsClient()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	allRules, err := existingSecurityRules(ctx, nsgClient, env.resourceGroup)
+	allRules, err := existingSecurityRules(ctx, securityGroups, env.resourceGroup)
 	if errors.IsNotFound(err) {
 		allRules = nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	rules := make([]network.SecurityRule, 0, len(allRules))
+	rules := make([]*armnetwork.SecurityRule, 0, len(allRules))
 	for _, rule := range allRules {
-		name := to.String(rule.Name)
+		name := toValue(rule.Name)
 		if name == sshSecurityRuleName || strings.HasPrefix(name, apiSecurityRulePrefix) {
 			continue
 		}
@@ -82,45 +81,39 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 // satisfying errors.IsNotFound.
 func existingSecurityRules(
 	ctx context.ProviderCallContext,
-	nsgClient network.SecurityGroupsClient,
+	nsgClient *armnetwork.SecurityGroupsClient,
 	resourceGroup string,
-) ([]network.SecurityRule, error) {
-	nsg, err := nsgClient.Get(ctx, resourceGroup, internalSecurityGroupName, "")
+) ([]*armnetwork.SecurityRule, error) {
+	nsg, err := nsgClient.Get(ctx, resourceGroup, internalSecurityGroupName, nil)
 	if err != nil {
-		if isNotFoundResult(nsg.Response) {
+		if errorutils.IsNotFoundError(err) {
 			return nil, errors.NotFoundf("security group")
 		}
 		return nil, errors.Annotate(err, "querying network security group")
 	}
-	var rules []network.SecurityRule
-	if nsg.SecurityRules != nil {
-		rules = *nsg.SecurityRules
+	var rules []*armnetwork.SecurityRule
+	if nsg.Properties != nil {
+		rules = nsg.Properties.SecurityRules
 	}
 	return rules, nil
 }
 
 func isControllerEnviron(env *azureEnviron, ctx context.ProviderCallContext) (bool, error) {
-	// Look for a machine with the "juju-is-controller" tag set to "true".
-	client := compute.VirtualMachinesClient{env.compute}
-	result, err := client.ListComplete(ctx, env.resourceGroup, "")
+	compute, err := env.computeClient()
 	if err != nil {
-		return false, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
+		return false, errors.Trace(err)
 	}
-
-	if result.Response().IsEmpty() {
-		// No machines implies this is not the controller model, as
-		// there must be a controller machine for the upgrades to be
-		// running!
-		return false, nil
-	}
-
-	for ; result.NotDone(); err = result.NextWithContext(ctx) {
+	// Look for a machine with the "juju-is-controller" tag set to "true".
+	pager := compute.NewListPager(env.resourceGroup, nil)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return false, errors.Annotate(err, "iterating machines")
+			return false, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
 		}
-		vm := result.Value()
-		if to.String(vm.Tags[tags.JujuIsController]) == "true" {
-			return true, nil
+		for _, vm := range next.Value {
+			if toValue(vm.Tags[tags.JujuIsController]) == "true" {
+				return true, nil
+			}
 		}
 	}
 	return false, nil

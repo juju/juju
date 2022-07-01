@@ -174,7 +174,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 	return volumes, nil
 }
 
-func (mi *maas2Instance) volumes(
+func (mi *maasInstance) volumes(
 	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,

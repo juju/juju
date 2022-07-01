@@ -206,13 +206,11 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 		return errors.Trace(err)
 	}
 	if isController {
-		instanceConfig.Controller = &instancecfg.ControllerConfig{
-			Config: testing.FakeControllerConfig(),
-		}
+		instanceConfig.ControllerConfig = testing.FakeControllerConfig()
 		instanceConfig.Jobs = []model.MachineJob{model.JobHostUnits, model.JobManageModel}
 	}
 	cfg := env.Config()
-	instanceConfig.Tags = instancecfg.InstanceTags(env.Config().UUID(), params.ControllerUUID, cfg, nil)
+	instanceConfig.Tags = instancecfg.InstanceTags(env.Config().UUID(), params.ControllerUUID, cfg, false)
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	if params.StatusCallback == nil {

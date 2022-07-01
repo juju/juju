@@ -145,7 +145,7 @@ func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, `"test" does not support series "focal" in channel "stable".  Supported series are: bionic, trusty, xenial.`)
+	c.Assert(err, gc.ErrorMatches, `"test" does not support series "jammy" in channel "stable".  Supported series are: bionic, trusty, xenial.`)
 }
 
 func (s *downloadSuite) TestRunWithNoStableRelease(c *gc.C) {

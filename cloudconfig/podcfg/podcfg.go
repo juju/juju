@@ -49,7 +49,7 @@ type ControllerPodConfig struct {
 
 	// Controller contains controller-specific configuration. If this is
 	// set, then the instance will be configured as a controller pod.
-	Controller *ControllerConfig
+	Controller controller.Config
 
 	// APIInfo holds the means for the new pod to communicate with the
 	// juju state API. Unless the new pod is running a controller (Controller is
@@ -92,12 +92,6 @@ type BootstrapConfig struct {
 	instancecfg.BootstrapConfig
 }
 
-// ControllerConfig represents controller-specific initialization information
-// for a new juju caas pod. This is only relevant for controller pod.
-type ControllerConfig struct {
-	instancecfg.ControllerConfig
-}
-
 // AgentConfig returns an agent config.
 func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWriter, error) {
 	configParams := agent.AgentConfigParams{
@@ -114,7 +108,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Values:             cfg.AgentEnvironment,
 		Controller:         cfg.ControllerTag,
 		Model:              cfg.APIInfo.ModelTag,
-		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.Config.MongoMemoryProfile()),
+		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.MongoMemoryProfile()),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }
@@ -241,12 +235,12 @@ func (cfg *ControllerPodConfig) GetPodName() string {
 	return "controller-" + cfg.ControllerId
 }
 
-// GetHostedModel checks if hosted model was requested to create.
-func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
-	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
-	if hasHostedModel {
-		modelName := cfg.Bootstrap.HostedModelConfig[config.NameKey].(string)
-		logger.Debugf("configured hosted model %q for bootstrapping", modelName)
+// GetInitialModel checks if hosted model was requested to create.
+func (cfg *ControllerPodConfig) GetInitialModel() (string, bool) {
+	hasInitialModel := len(cfg.Bootstrap.InitialModelConfig) > 0
+	if hasInitialModel {
+		modelName := cfg.Bootstrap.InitialModelConfig[config.NameKey].(string)
+		logger.Debugf("configured initial model %q for bootstrapping", modelName)
 		return modelName, true
 	}
 	return "", false
@@ -318,10 +312,9 @@ func NewBootstrapControllerPodConfig(
 	if err != nil {
 		return nil, err
 	}
-	pcfg.Controller = &ControllerConfig{}
-	pcfg.Controller.Config = make(map[string]interface{})
+	pcfg.Controller = make(map[string]interface{})
 	for k, v := range config {
-		pcfg.Controller.Config[k] = v
+		pcfg.Controller[k] = v
 	}
 	pcfg.Bootstrap = &BootstrapConfig{
 		BootstrapConfig: instancecfg.BootstrapConfig{

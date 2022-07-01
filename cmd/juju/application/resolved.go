@@ -23,7 +23,6 @@ func NewResolvedCommand() cmd.Command {
 type resolvedCommand struct {
 	modelcmd.ModelCommandBase
 	applicationResolveAPI applicationResolveAPI
-	clientAPI             clientAPI
 
 	UnitNames []string
 	NoRetry   bool
@@ -70,11 +69,6 @@ type applicationResolveAPI interface {
 	ResolveUnitErrors(units []string, all, retry bool) error
 }
 
-type clientAPI interface {
-	Resolved(unit string, retry bool) error
-	Close() error
-}
-
 func (c *resolvedCommand) getapplicationResolveAPI() (applicationResolveAPI, error) {
 	if c.applicationResolveAPI != nil {
 		return c.applicationResolveAPI, nil
@@ -85,13 +79,6 @@ func (c *resolvedCommand) getapplicationResolveAPI() (applicationResolveAPI, err
 		return nil, errors.Trace(err)
 	}
 	return application.NewClient(root), nil
-}
-
-func (c *resolvedCommand) getClientAPI() (clientAPI, error) {
-	if c.clientAPI != nil {
-		return c.clientAPI, nil
-	}
-	return c.NewAPIClient()
 }
 
 func (c *resolvedCommand) Run(ctx *cmd.Context) error {

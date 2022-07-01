@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -77,9 +76,6 @@ func (s *OSSearchToolsSuite) TestExists(c *gc.C) {
 }
 
 func (s *OSSearchToolsSuite) TestGetCommandOutputValid(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not running 'echo' on windows")
-	}
 	tools := mongo.OSSearchTools{}
 	out, err := tools.GetCommandOutput("/bin/echo", "argument")
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,9 +83,6 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputValid(c *gc.C) {
 }
 
 func (s *OSSearchToolsSuite) TestGetCommandOutputExitNonzero(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not running 'bash' on windows")
-	}
 	dir := c.MkDir()
 	path := filepath.Join(dir, "failing")
 	err := ioutil.WriteFile(path, []byte(`#!/bin/bash --norc
@@ -104,9 +97,6 @@ exit 1
 }
 
 func (s *OSSearchToolsSuite) TestGetCommandOutputNonExecutable(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("not running 'bash' on windows")
-	}
 	dir := c.MkDir()
 	path := filepath.Join(dir, "failing")
 	err := ioutil.WriteFile(path, []byte(`#!/bin/bash --norc

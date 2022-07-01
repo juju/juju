@@ -10,6 +10,7 @@ package ssh
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -159,6 +160,13 @@ var sshTests = []struct {
 			argsMatch:       `ubuntu@0.private`,
 		},
 	},
+}
+
+func (s *SSHSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
+	s.SSHMachineSuite.SetUpTest(c)
 }
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {

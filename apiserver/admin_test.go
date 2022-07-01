@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	apiclient "github.com/juju/juju/api/client/client"
+	machineclient "github.com/juju/juju/api/client/machinemanager"
+	"github.com/juju/juju/api/client/modelconfig"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -53,7 +55,8 @@ import (
 
 const (
 	clientFacadeVersion           = 5
-	userManagerFacadeVersion      = 2
+	machineManagerFacadeVersion   = 7
+	userManagerFacadeVersion      = 3
 	sshClientFacadeVersion        = 3
 	pingerFacadeVersion           = 1
 	modelManagerFacadeVersion     = 9
@@ -933,12 +936,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(tag, gc.Equals, expected)
 	// Look at what the api Client thinks it has.
-	client := apiclient.NewClient(conn)
-
-	// ModelUUID looks at the model tag on the api state connection.
-	uuid, ok := client.ModelUUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, expected.Id())
+	client := modelconfig.NewClient(conn)
 
 	// The code below is to verify that the API connection is operating on
 	// the expected model. We make a change in state on that model, and
@@ -1024,7 +1022,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", clientFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
@@ -1050,9 +1048,9 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	auditReq.RequestID = 0
 	c.Assert(auditReq, gc.Equals, auditlog.Request{
 		When:    s.Clock.Now().Format(time.RFC3339),
-		Facade:  "Client",
+		Facade:  "MachineManager",
 		Method:  "AddMachines",
-		Version: clientFacadeVersion,
+		Version: machineManagerFacadeVersion,
 	})
 }
 
@@ -1091,7 +1089,7 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", clientFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, gc.ErrorMatches, "bad news bears")
 }
 
@@ -1100,7 +1098,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	s.cfg.GetAuditConfig = func() auditlog.Config {
 		return auditlog.Config{
 			Enabled:        true,
-			ExcludeMethods: set.NewStrings("Client.AddMachines"),
+			ExcludeMethods: set.NewStrings("MachineManager.AddMachines"),
 			Target:         log,
 		}
 	}
@@ -1132,29 +1130,29 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", clientFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Still nothing logged - the AddMachines call has been filtered out.
 	log.CheckCallNames(c)
 
 	// Call something else.
-	destroyReq := &params.DestroyMachines{
-		MachineNames: []string{addResults.Machines[0].Machine},
+	destroyReq := &params.DestroyMachinesParams{
+		MachineTags: []string{addResults.Machines[0].Machine},
 	}
-	err = conn.APICall("Client", clientFacadeVersion, "", "DestroyMachines", destroyReq, nil)
+	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now the conversation and both requests are logged.
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse", "AddRequest", "AddResponse")
 
 	req1 := log.Calls()[1].Args[0].(auditlog.Request)
-	c.Assert(req1.Facade, gc.Equals, "Client")
+	c.Assert(req1.Facade, gc.Equals, "MachineManager")
 	c.Assert(req1.Method, gc.Equals, "AddMachines")
 
 	req2 := log.Calls()[3].Args[0].(auditlog.Request)
-	c.Assert(req2.Facade, gc.Equals, "Client")
-	c.Assert(req2.Method, gc.Equals, "DestroyMachines")
+	c.Assert(req2.Facade, gc.Equals, "MachineManager")
+	c.Assert(req2.Method, gc.Equals, "DestroyMachineWithParams")
 }
 
 var _ = gc.Suite(&macaroonLoginSuite{})
@@ -1470,7 +1468,7 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
-	err = apiclient.NewClient(userConn).DestroyMachines("42")
+	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(false, false, nil, "42")
 	c.Check(err, gc.ErrorMatches, "model migration in progress")
 }
 
@@ -1486,7 +1484,7 @@ func (s *loginV3Suite) TestClientLoginToModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
-	client := apiclient.NewClient(apiState)
+	client := modelconfig.NewClient(apiState)
 	_, err = client.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1498,10 +1496,10 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
-	client := apiclient.NewClient(apiState)
-	_, err = client.GetModelConstraints()
+	client := machineclient.NewClient(apiState)
+	_, err = client.RetryProvisioning(names.NewMachineTag("machine-0"))
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `facade "Client" not supported for controller API connection`,
+		Message: `facade "MachineManager" not supported for controller API connection`,
 		Code:    "not supported",
 	})
 }

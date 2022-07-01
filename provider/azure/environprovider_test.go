@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -35,9 +37,11 @@ var _ = gc.Suite(&environProviderSuite{})
 func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                     &s.sender,
-		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
-		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		Sender:           &s.sender,
+		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
+		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
+			return &azuretesting.FakeCredential{}, nil
+		},
 	})
 	s.spec = environscloudspec.CloudSpec{
 		Type:             "azure",
@@ -76,6 +80,7 @@ func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 
 func (s *environProviderSuite) TestOpen(c *gc.C) {
 	s.sender = azuretesting.Senders{
+		discoverAuthSender(),
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
@@ -120,9 +125,12 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 	if config.AzureCLI == nil {
 		config.AzureCLI = azurecli.AzureCLI{}
 	}
-	config.RandomWindowsAdminPassword = func() string { return "sorandom" }
 	config.GenerateSSHKey = func(string) (string, string, error) {
 		return "private", "public", nil
+	}
+	config.Retry = policy.RetryOptions{
+		RetryDelay: 0,
+		MaxRetries: -1,
 	}
 	environProvider, err := azure.NewProvider(config)
 	c.Assert(err, jc.ErrorIsNil)

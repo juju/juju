@@ -6,7 +6,6 @@ package broker_test
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -45,9 +44,6 @@ type kvmBrokerSuite struct {
 var _ = gc.Suite(&kvmBrokerSuite{})
 
 func (s *kvmSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping kvm tests on windows")
-	}
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
@@ -67,9 +63,6 @@ func (s *kvmSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping kvm tests on windows")
-	}
 	s.kvmSuite.SetUpTest(c)
 	broker.PatchNewMachineInitReader(s, newBlankMachineInitReader)
 

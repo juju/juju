@@ -485,8 +485,6 @@ type fakeClientSuite struct {
 	mockClusterRoleBindings rbacv1.ClusterRoleBindingInterface
 
 	mockDiscovery discovery.DiscoveryInterface
-
-	watchers []k8swatcher.KubernetesNotifyWatcher
 }
 
 func (s *fakeClientSuite) ensureJujuNamespaceAnnotations(isController bool, ns *core.Namespace) *core.Namespace {
@@ -525,12 +523,7 @@ func (s *fakeClientSuite) SetUpTest(c *gc.C) {
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	s.setupBroker(c, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
-}
-
-func (s *fakeClientSuite) TearDownTest(c *gc.C) {
-	s.watchers = nil
-	s.IsolationSuite.TearDownTest(c)
+	s.setupBroker(c, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, nil)
 }
 
 func (s *fakeClientSuite) getNamespace() string {
@@ -541,10 +534,11 @@ func (s *fakeClientSuite) getNamespace() string {
 }
 
 func (s *fakeClientSuite) setupBroker(
-	c *gc.C, controllerUUID string,
+	c *gc.C,
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
 	randomPrefixFunc utils.RandomPrefixFunc,
+	watchers *[]k8swatcher.KubernetesNotifyWatcher,
 ) {
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		if s.k8sWatcherFn == nil {
@@ -552,8 +546,8 @@ func (s *fakeClientSuite) setupBroker(
 		}
 
 		w, err := s.k8sWatcherFn(i, n, c)
-		if err == nil {
-			s.watchers = append(s.watchers, w)
+		if err == nil && watchers != nil {
+			*watchers = append(*watchers, w)
 		}
 		return w, err
 	})

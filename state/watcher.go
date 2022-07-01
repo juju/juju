@@ -2058,13 +2058,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	charmConfigKey := applicationCharmConfigKey(u.doc.Application, cURL)
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
 }
 
@@ -2083,13 +2077,7 @@ func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	charmConfigKey := applicationCharmConfigKey(u.doc.Application, cURL)
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newSettingsHashWatcher(u.st, charmConfigKey), nil
 }
 
@@ -2153,7 +2141,7 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 		if err := query.One(&doc); err != nil {
 			return "", err
 		}
-		return doc.CharmURL.String(), nil
+		return *doc.CharmURL, nil
 	}
 	transform := func(value string) string {
 		return lxdprofile.NotRequiredStatus

@@ -24,6 +24,7 @@ var logger = loggo.GetLogger("juju.apiserver.usermanager")
 // implementation of the api end point.
 type UserManagerAPI struct {
 	state      *state.State
+	pool       *state.StatePool
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
 	apiUser    names.UserTag
@@ -313,6 +314,64 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		results.Results = append(results.Results, infoForUser(user))
 	}
 
+	return results, nil
+}
+
+func (api *UserManagerAPI) checkCanRead(modelTag names.Tag) error {
+	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, modelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return apiservererrors.ErrPerm
+	}
+	return nil
+}
+
+// ModelUserInfo returns information on all users in the model.
+func (api *UserManagerAPI) ModelUserInfo(args params.Entities) (params.ModelUserInfoResults, error) {
+	var result params.ModelUserInfoResults
+	for _, entity := range args.Entities {
+		modelTag, err := names.ParseModelTag(entity.Tag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		infos, err := api.modelUserInfo(modelTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		result.Results = append(result.Results, infos...)
+	}
+	return result, nil
+}
+
+func (api *UserManagerAPI) modelUserInfo(modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
+	var results []params.ModelUserInfoResult
+	model, closer, err := api.pool.GetModel(modelTag.Id())
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	defer closer.Release()
+	if err := api.checkCanRead(model.ModelTag()); err != nil {
+		return results, err
+	}
+
+	users, err := model.Users()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	for _, user := range users {
+		var result params.ModelUserInfoResult
+		userInfo, err := common.ModelUserInfo(user, model)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			userInfo.ModelTag = modelTag.String()
+			result.Result = &userInfo
+		}
+		results = append(results, result)
+	}
 	return results, nil
 }
 

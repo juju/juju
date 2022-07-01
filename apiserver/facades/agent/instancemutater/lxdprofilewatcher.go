@@ -226,9 +226,13 @@ func (w *machineLXDProfileWatcher) init() error {
 			}
 		}
 
-		chURL := app.CharmURL()
+		cURL := app.CharmURL()
+		chURL, err := charm.ParseURL(*cURL)
+		if err != nil {
+			return err
+		}
 		info := appInfo{
-			charmURL: chURL.String(),
+			charmURL: *cURL,
 			units:    set.NewStrings(unitName),
 		}
 
@@ -271,19 +275,24 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) err
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	chURL := app.CharmURL()
+
 	info, ok := w.applications[appName]
 	if ok {
+		cURL := app.CharmURL()
 		// Have we already seen this charm URL change?
-		if info.charmURL == chURL.String() {
+		if info.charmURL == *cURL {
 			return nil
+		}
+		chURL, err := charm.ParseURL(*cURL)
+		if err != nil {
+			return errors.Trace(err)
 		}
 		ch, err := w.backend.Charm(chURL)
 		if errors.IsNotFound(err) {
-			logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, chURL, w.machine.Id())
+			logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *cURL, w.machine.Id())
 			return nil
 		} else if err != nil {
-			return errors.Annotatef(err, "error getting charm %s to evaluate for lxd profile notification", chURL)
+			return errors.Annotatef(err, "error getting charm %s to evaluate for lxd profile notification", *cURL)
 		}
 
 		// notify if:
@@ -298,7 +307,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) err
 		}
 
 		info.charmProfile = lxdProfile
-		info.charmURL = chURL.String()
+		info.charmURL = *cURL
 		w.applications[appName] = info
 	} else {
 		logger.Tracef("not watching %s on machine-%s", appName, w.machine.Id())
@@ -454,7 +463,11 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 			} else if err != nil {
 				return false, errors.Annotatef(err, "failed to get application %s for machine-%s", appName, w.machine.Id())
 			}
-			curl = app.CharmURL()
+			cURL := app.CharmURL()
+			curl, err = charm.ParseURL(*cURL)
+			if err != nil {
+				return false, errors.Annotatef(err, "application charm url")
+			}
 		}
 
 		ch, err := w.backend.Charm(curl)

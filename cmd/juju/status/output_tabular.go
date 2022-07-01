@@ -46,15 +46,14 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
 
-	// NO_COLOR; regardless of its value,is required by ansiterm to enable
-	// toggling color capability on or off
-	os.Setenv("NO_COLOR", "")
+	// overrides the --color=true
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		forceColor = false
+	}
 
 	// To format things into columns.
 	tw := output.TabWriter(writer)
-	if forceColor {
-		tw.SetColorCapable(forceColor)
-	}
+	tw.SetColorCapable(forceColor)
 
 	cloudRegion := fs.Model.Cloud
 	if fs.Model.CloudRegion != "" {
@@ -470,7 +469,7 @@ func getModelMessage(model modelStatus) string {
 }
 
 func printMachines(tw *ansiterm.TabWriter, standAlone bool, machines map[string]machineStatus) {
-	w := startSection(tw, standAlone, "Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
+	w := startSection(tw, standAlone, "Machine", "State", "Address", "Inst id", "Series", "AZ", "Message")
 	for _, name := range naturalsort.Sort(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}

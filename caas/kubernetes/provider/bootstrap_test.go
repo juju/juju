@@ -98,8 +98,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	pcfg.Bootstrap.ControllerModelConfig = s.cfg
 	pcfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
-	pcfg.Bootstrap.HostedModelConfig = map[string]interface{}{
-		"name": "hosted-model",
+	pcfg.Bootstrap.InitialModelConfig = map[string]interface{}{
+		"name": "my-model",
 	}
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
@@ -336,7 +336,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
-	s.setupBroker(c, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &bootstrapWatchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
@@ -527,8 +528,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName:           "controller",
-					AutomountServiceAccountToken: pointer.BoolPtr(true),
+					ServiceAccountName:            "controller",
+					AutomountServiceAccountToken:  pointer.BoolPtr(true),
+					TerminationGracePeriodSeconds: int64Ptr(300),
 					Volumes: []core.Volume{
 						{
 							Name: "charm-data",
@@ -624,7 +626,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "charm",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/charm-base:ubuntu-20.04",
+			Image:           "jujusolutions/charm-base:ubuntu-22.04",
 			WorkingDir:      "/var/lib/juju",
 			Command:         []string{"/charm/bin/containeragent"},
 			Args: []string{
@@ -685,7 +687,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/juju-db:5.3",
+			Image:           "test-account/juju-db:4.4",
 			Command: []string{
 				"/bin/sh",
 			},
@@ -1016,9 +1018,9 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(crb, gc.DeepEquals, controllerServiceCRB)
 
-		c.Assert(s.watchers, gc.HasLen, 2)
-		c.Assert(workertest.CheckKilled(c, s.watchers[0]), jc.ErrorIsNil)
-		c.Assert(workertest.CheckKilled(c, s.watchers[1]), jc.ErrorIsNil)
+		c.Assert(bootstrapWatchers, gc.HasLen, 2)
+		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[0]), jc.ErrorIsNil)
+		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[1]), jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
@@ -1037,7 +1039,8 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
-	s.setupBroker(c, coretesting.ControllerTag.Id(), newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+	var watchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &watchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
@@ -1089,7 +1092,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	select {
 	case err := <-errChan:
 		c.Assert(err, gc.ErrorMatches, `creating service for controller: waiting for controller service address fully provisioned timeout`)
-		c.Assert(s.watchers, gc.HasLen, 0)
+		c.Assert(watchers, gc.HasLen, 0)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}

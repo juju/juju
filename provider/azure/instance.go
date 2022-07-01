@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -25,11 +25,11 @@ import (
 
 type azureInstance struct {
 	vmName            string
-	provisioningState compute.ProvisioningState
+	provisioningState armresources.ProvisioningState
 	provisioningError string
 	env               *azureEnviron
-	networkInterfaces []network.Interface
-	publicIPAddresses []network.PublicIPAddress
+	networkInterfaces []*armnetwork.Interface
+	publicIPAddresses []*armnetwork.PublicIPAddress
 }
 
 // Id is specified in the Instance interface.
@@ -45,7 +45,7 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Stat
 	var instanceStatus status.Status
 	message := string(inst.provisioningState)
 	switch inst.provisioningState {
-	case compute.ProvisioningStateSucceeded:
+	case armresources.ProvisioningStateSucceeded:
 		// TODO(axw) once a VM has been started, we should
 		// start using its power state to show if it's
 		// really running or not. This is just a nice to
@@ -53,10 +53,10 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Stat
 		// be stopped.
 		instanceStatus = status.Running
 		message = ""
-	case compute.ProvisioningStateDeleting, compute.ProvisioningStateFailed:
+	case armresources.ProvisioningStateDeleting, armresources.ProvisioningStateFailed:
 		instanceStatus = status.ProvisioningError
 		message = inst.provisioningError
-	case compute.ProvisioningStateCreating:
+	case armresources.ProvisioningStateCreating:
 		message = ""
 		fallthrough
 	default:
@@ -72,18 +72,16 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Stat
 // with the given set of instances. This assumes that the instances'
 // VirtualMachines are up-to-date, and that there are no concurrent accesses
 // to the instances.
-func setInstanceAddresses(
+func (env *azureEnviron) setInstanceAddresses(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
-	nicClient network.InterfacesClient,
-	pipClient network.PublicIPAddressesClient,
 	instances []*azureInstance,
 ) (err error) {
-	instanceNics, err := instanceNetworkInterfaces(ctx, resourceGroup, nicClient)
+	instanceNics, err := env.instanceNetworkInterfaces(ctx, resourceGroup)
 	if err != nil {
 		return errors.Annotate(err, "listing network interfaces")
 	}
-	instancePips, err := instancePublicIPAddresses(ctx, resourceGroup, pipClient)
+	instancePips, err := env.instancePublicIPAddresses(ctx, resourceGroup)
 	if err != nil {
 		return errors.Annotate(err, "listing public IP addresses")
 	}
@@ -97,26 +95,25 @@ func setInstanceAddresses(
 // instanceNetworkInterfaces lists all network interfaces in the resource
 // group, and returns a mapping from instance ID to the network interfaces
 // associated with that instance.
-func instanceNetworkInterfaces(
+func (env *azureEnviron) instanceNetworkInterfaces(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
-	nicClient network.InterfacesClient,
-) (map[instance.Id][]network.Interface, error) {
-	nicsResult, err := nicClient.ListComplete(ctx, resourceGroup)
+) (map[instance.Id][]*armnetwork.Interface, error) {
+	nicClient, err := env.interfacesClient()
 	if err != nil {
-		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing network interfaces"), ctx)
+		return nil, errors.Trace(err)
 	}
-	if nicsResult.Response().IsEmpty() {
-		return nil, nil
-	}
-	instanceNics := make(map[instance.Id][]network.Interface)
-	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(ctx) {
+	pager := nicClient.NewListPager(resourceGroup, nil)
+	instanceNics := make(map[instance.Id][]*armnetwork.Interface)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing network interfaces"), ctx)
 		}
-		nic := nicsResult.Value()
-		instanceId := instance.Id(to.String(nic.Tags[jujuMachineNameTag]))
-		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
+		for _, nic := range next.Value {
+			instanceId := instance.Id(toValue(nic.Tags[jujuMachineNameTag]))
+			instanceNics[instanceId] = append(instanceNics[instanceId], nic)
+		}
 	}
 	return instanceNics, nil
 }
@@ -124,26 +121,25 @@ func instanceNetworkInterfaces(
 // interfacePublicIPAddresses lists all public IP addresses in the resource
 // group, and returns a mapping from instance ID to the public IP addresses
 // associated with that instance.
-func instancePublicIPAddresses(
+func (env *azureEnviron) instancePublicIPAddresses(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
-	pipClient network.PublicIPAddressesClient,
-) (map[instance.Id][]network.PublicIPAddress, error) {
-	pipsResult, err := pipClient.ListComplete(ctx, resourceGroup)
+) (map[instance.Id][]*armnetwork.PublicIPAddress, error) {
+	pipClient, err := env.publicAddressesClient()
 	if err != nil {
-		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing public IP addresses"), ctx)
+		return nil, errors.Trace(err)
 	}
-	if pipsResult.Response().IsEmpty() {
-		return nil, nil
-	}
-	instancePips := make(map[instance.Id][]network.PublicIPAddress)
-	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(ctx) {
+	pager := pipClient.NewListPager(resourceGroup, nil)
+	instancePips := make(map[instance.Id][]*armnetwork.PublicIPAddress)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing public IP addresses"), ctx)
 		}
-		pip := pipsResult.Value()
-		instanceId := instance.Id(to.String(pip.Tags[jujuMachineNameTag]))
-		instancePips[instanceId] = append(instancePips[instanceId], pip)
+		for _, pip := range next.Value {
+			instanceId := instance.Id(toValue(pip.Tags[jujuMachineNameTag]))
+			instancePips[instanceId] = append(instancePips[instanceId], pip)
+		}
 	}
 	return instancePips, nil
 }
@@ -152,26 +148,26 @@ func instancePublicIPAddresses(
 func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	addresses := make([]corenetwork.ProviderAddress, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
-		if nic.IPConfigurations == nil {
+		if nic.Properties == nil {
 			continue
 		}
-		for _, ipConfiguration := range *nic.IPConfigurations {
-			privateIpAddress := ipConfiguration.PrivateIPAddress
-			if privateIpAddress == nil {
+		for _, ipConfiguration := range nic.Properties.IPConfigurations {
+			if ipConfiguration.Properties == nil || ipConfiguration.Properties.PrivateIPAddress == nil {
 				continue
 			}
+			privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
 			addresses = append(addresses, corenetwork.NewMachineAddress(
-				to.String(privateIpAddress),
+				toValue(privateIpAddress),
 				corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			).AsProviderAddress())
 		}
 	}
 	for _, pip := range inst.publicIPAddresses {
-		if pip.IPAddress == nil {
+		if pip.Properties == nil || pip.Properties.IPAddress == nil {
 			continue
 		}
 		addresses = append(addresses, corenetwork.NewMachineAddress(
-			to.String(pip.IPAddress),
+			toValue(pip.Properties.IPAddress),
 			corenetwork.WithScope(corenetwork.ScopePublic),
 		).AsProviderAddress())
 	}
@@ -180,50 +176,57 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwo
 
 type securityGroupInfo struct {
 	resourceGroup  string
-	securityGroup  *network.SecurityGroup
+	securityGroup  *armnetwork.SecurityGroup
 	primaryAddress corenetwork.SpaceAddress
 }
 
 // primarySecurityGroupInfo returns info for the NIC's primary corenetwork.Address
 // for the internal virtual network, and any security group on the subnet.
 // The address is used to identify the machine in network security rules.
-func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic network.Interface) (*securityGroupInfo, error) {
-	if nic.IPConfigurations == nil {
+func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic *armnetwork.Interface) (*securityGroupInfo, error) {
+	if nic == nil || nic.Properties == nil {
 		return nil, errors.NotFoundf("internal network address or security group")
 	}
-	for _, ipConfiguration := range *nic.IPConfigurations {
-		if ipConfiguration.Subnet == nil {
+	subnets, err := env.subnetsClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, ipConfiguration := range nic.Properties.IPConfigurations {
+		if ipConfiguration.Properties == nil {
 			continue
 		}
-		if !to.Bool(ipConfiguration.Primary) {
+		if !toValue(ipConfiguration.Properties.Primary) {
 			continue
 		}
-		privateIpAddress := ipConfiguration.PrivateIPAddress
+		privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
 		if privateIpAddress == nil {
 			continue
 		}
-		securityGroup := nic.NetworkSecurityGroup
-		if securityGroup == nil {
-			idParts := strings.Split(to.String(ipConfiguration.Subnet.ID), "/")
+		securityGroup := nic.Properties.NetworkSecurityGroup
+		if securityGroup == nil && ipConfiguration.Properties.Subnet != nil {
+			idParts := strings.Split(toValue(ipConfiguration.Properties.Subnet.ID), "/")
 			lenParts := len(idParts)
-			subnetClient := network.SubnetsClient{BaseClient: env.network}
-			subnet, err := subnetClient.Get(ctx, idParts[lenParts-7], idParts[lenParts-3], idParts[lenParts-1], "networkSecurityGroup")
+			subnet, err := subnets.Get(ctx, idParts[lenParts-7], idParts[lenParts-3], idParts[lenParts-1], &armnetwork.SubnetsClientGetOptions{
+				Expand: to.Ptr("networkSecurityGroup"),
+			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			securityGroup = subnet.NetworkSecurityGroup
+			if subnet.Properties != nil {
+				securityGroup = subnet.Properties.NetworkSecurityGroup
+			}
 		}
 		if securityGroup == nil {
 			continue
 		}
 
-		idParts := strings.Split(to.String(securityGroup.ID), "/")
+		idParts := strings.Split(toValue(securityGroup.ID), "/")
 		resourceGroup := idParts[len(idParts)-5]
 		return &securityGroupInfo{
 			resourceGroup: resourceGroup,
 			securityGroup: securityGroup,
 			primaryAddress: corenetwork.NewSpaceAddress(
-				to.String(privateIpAddress),
+				toValue(privateIpAddress),
 				corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			),
 		}, nil
@@ -237,7 +240,7 @@ func (inst *azureInstance) getSecurityGroupInfo(ctx stdcontext.Context) ([]secur
 	return getSecurityGroupInfoForInterfaces(ctx, inst.env, inst.networkInterfaces)
 }
 
-func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron, networkInterfaces []network.Interface) ([]securityGroupInfo, error) {
+func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron, networkInterfaces []*armnetwork.Interface) ([]securityGroupInfo, error) {
 	groupsByName := make(map[string]securityGroupInfo)
 	for _, nic := range networkInterfaces {
 		info, err := primarySecurityGroupInfo(ctx, env, nic)
@@ -247,7 +250,7 @@ func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		name := to.String(info.securityGroup.Name)
+		name := toValue(info.securityGroup.Name)
 		if _, ok := groupsByName[name]; ok {
 			continue
 		}
@@ -267,22 +270,21 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 		return errors.Trace(err)
 	}
 	for _, info := range securityGroupInfos {
-		if err := inst.openPortsOnGroup(ctx, ctx, machineId, info, rules); err != nil {
+		if err := inst.openPortsOnGroup(ctx, machineId, info, rules); err != nil {
 			return errors.Annotatef(err,
-				"opening ports on security group %q on machine %q", to.String(info.securityGroup.Name), machineId)
+				"opening ports on security group %q on machine %q", toValue(info.securityGroup.Name), machineId)
 		}
 	}
 	return nil
 }
 
 func (inst *azureInstance) openPortsOnGroup(
-	sdkCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
 	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
 ) error {
 	nsg := nsgInfo.securityGroup
-	if nsg.SecurityRules == nil {
-		nsg.SecurityRules = new([]network.SecurityRule)
+	if nsg.Properties == nil {
+		nsg.Properties = &armnetwork.SecurityGroupPropertiesFormat{}
 	}
 
 	// Create rules one at a time; this is necessary to avoid trampling
@@ -291,15 +293,18 @@ func (inst *azureInstance) openPortsOnGroup(
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
 
+	securityRules, err := inst.env.securityRulesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	singleSourceIngressRules := explodeIngressRules(rules)
-	securityRuleClient := network.SecurityRulesClient{inst.env.network}
 	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
 
 		// Check if the rule already exists; OpenPorts must be idempotent.
 		var found bool
-		for _, rule := range *nsg.SecurityRules {
-			if to.String(rule.Name) == ruleName {
+		for _, rule := range nsg.Properties.SecurityRules {
+			if toValue(rule.Name) == ruleName {
 				found = true
 				break
 			}
@@ -315,12 +320,12 @@ func (inst *azureInstance) openPortsOnGroup(
 			return errors.Annotatef(err, "getting security rule priority for %q", rule)
 		}
 
-		var protocol network.SecurityRuleProtocol
+		var protocol armnetwork.SecurityRuleProtocol
 		switch rule.PortRange.Protocol {
 		case "tcp":
-			protocol = network.SecurityRuleProtocolTCP
+			protocol = armnetwork.SecurityRuleProtocolTCP
 		case "udp":
-			protocol = network.SecurityRuleProtocolUDP
+			protocol = armnetwork.SecurityRuleProtocolUDP
 		default:
 			return errors.Errorf("invalid protocol %q", rule.PortRange.Protocol)
 		}
@@ -334,27 +339,31 @@ func (inst *azureInstance) openPortsOnGroup(
 
 		// rule has a single source CIDR
 		from := rule.SourceCIDRs.SortedValues()[0]
-		securityRule := network.SecurityRule{
-			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				Description:              to.StringPtr(rule.String()),
-				Protocol:                 protocol,
-				SourcePortRange:          to.StringPtr("*"),
-				DestinationPortRange:     to.StringPtr(portRange),
-				SourceAddressPrefix:      to.StringPtr(from),
-				DestinationAddressPrefix: to.StringPtr(nsgInfo.primaryAddress.Value),
-				Access:                   network.SecurityRuleAccessAllow,
-				Priority:                 to.Int32Ptr(priority),
-				Direction:                network.SecurityRuleDirectionInbound,
+		securityRule := armnetwork.SecurityRule{
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Description:              to.Ptr(rule.String()),
+				Protocol:                 to.Ptr(protocol),
+				SourcePortRange:          to.Ptr("*"),
+				DestinationPortRange:     to.Ptr(portRange),
+				SourceAddressPrefix:      to.Ptr(from),
+				DestinationAddressPrefix: to.Ptr(nsgInfo.primaryAddress.Value),
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Priority:                 to.Ptr(priority),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		}
-		_, err = securityRuleClient.CreateOrUpdate(
-			sdkCtx,
-			nsgInfo.resourceGroup, to.String(nsg.Name), ruleName, securityRule,
+		poller, err := securityRules.BeginCreateOrUpdate(
+			ctx,
+			nsgInfo.resourceGroup, toValue(nsg.Name), ruleName, securityRule,
+			nil,
 		)
+		if err == nil {
+			_, err = poller.PollUntilDone(ctx, nil)
+		}
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "creating security rule for %q", ruleName), ctx)
 		}
-		*nsg.SecurityRules = append(*nsg.SecurityRules, securityRule)
+		nsg.Properties.SecurityRules = append(nsg.Properties.SecurityRules, to.Ptr(securityRule))
 	}
 	return nil
 }
@@ -366,46 +375,40 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 		return errors.Trace(err)
 	}
 	for _, info := range securityGroupInfos {
-		if err := inst.closePortsOnGroup(ctx, ctx, machineId, info, rules); err != nil {
+		if err := inst.closePortsOnGroup(ctx, machineId, info, rules); err != nil {
 			return errors.Annotatef(err,
-				"closing ports on security group %q on machine %q", to.String(info.securityGroup.Name), machineId)
+				"closing ports on security group %q on machine %q", toValue(info.securityGroup.Name), machineId)
 		}
 	}
 	return nil
 }
 
 func (inst *azureInstance) closePortsOnGroup(
-	sdkCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
 	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
 ) error {
-	securityRuleClient := network.SecurityRulesClient{inst.env.network}
-
 	// Delete rules one at a time; this is necessary to avoid trampling
 	// on changes made by the provisioner.
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
 
+	securityRules, err := inst.env.securityRulesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	singleSourceIngressRules := explodeIngressRules(rules)
 	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
 		logger.Debugf("deleting security rule %q", ruleName)
-		future, err := securityRuleClient.Delete(
-			stdcontext.Background(),
-			nsgInfo.resourceGroup, to.String(nsgInfo.securityGroup.Name), ruleName,
+		poller, err := securityRules.BeginDelete(
+			ctx,
+			nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), ruleName,
+			nil,
 		)
-		if err != nil {
-			if !isNotFoundResponse(future.Response()) {
-				return errors.Annotatef(err, "deleting security rule %q", ruleName)
-			}
-			continue
+		if err == nil {
+			_, err = poller.PollUntilDone(ctx, nil)
 		}
-		err = future.WaitForCompletionRef(sdkCtx, securityRuleClient.Client)
-		if err != nil {
-			return errors.Annotatef(err, "deleting security rule %q", ruleName)
-		}
-		result, err := future.Result(securityRuleClient)
-		if err != nil && !isNotFoundResult(result) {
+		if err != nil && !errorutils.IsNotFoundError(err) {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}
@@ -417,7 +420,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 	// The rules to use will be those on the primary network interface.
 	var info *securityGroupInfo
 	for _, nic := range inst.networkInterfaces {
-		if !to.Bool(nic.Primary) {
+		if nic.Properties == nil || !toValue(nic.Properties.Primary) {
 			continue
 		}
 		var err error
@@ -442,12 +445,15 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 }
 
 func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext, machineId string, nsgInfo *securityGroupInfo) (rules firewall.IngressRules, err error) {
-	nsgClient := network.SecurityGroupsClient{inst.env.network}
-	nsg, err := nsgClient.Get(stdcontext.Background(), nsgInfo.resourceGroup, to.String(nsgInfo.securityGroup.Name), "")
+	securityGroups, err := inst.env.securityGroupsClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nsg, err := securityGroups.Get(ctx, nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), nil)
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
-	if nsg.SecurityRules == nil {
+	if nsg.Properties == nil || len(nsg.Properties.SecurityRules) == 0 {
 		return nil, nil
 	}
 
@@ -456,48 +462,51 @@ func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext,
 
 	// Keep track of all the SourceAddressPrefixes for each port range.
 	portSourceCIDRs := make(map[corenetwork.PortRange]*[]string)
-	for _, rule := range *nsg.SecurityRules {
-		if rule.Direction != network.SecurityRuleDirectionInbound {
+	for _, rule := range nsg.Properties.SecurityRules {
+		if rule.Properties == nil {
 			continue
 		}
-		if rule.Access != network.SecurityRuleAccessAllow {
+		if toValue(rule.Properties.Direction) != armnetwork.SecurityRuleDirectionInbound {
 			continue
 		}
-		if to.Int32(rule.Priority) <= securityRuleInternalMax {
+		if toValue(rule.Properties.Access) != armnetwork.SecurityRuleAccessAllow {
 			continue
 		}
-		if !strings.HasPrefix(to.String(rule.Name), prefix) {
+		if toValue(rule.Properties.Priority) <= securityRuleInternalMax {
+			continue
+		}
+		if !strings.HasPrefix(toValue(rule.Name), prefix) {
 			continue
 		}
 
 		var portRange corenetwork.PortRange
-		if *rule.DestinationPortRange == "*" {
+		if toValue(rule.Properties.DestinationPortRange) == "*" {
 			portRange.FromPort = 1
 			portRange.ToPort = 65535
 		} else {
 			portRange, err = corenetwork.ParsePortRange(
-				*rule.DestinationPortRange,
+				toValue(rule.Properties.DestinationPortRange),
 			)
 			if err != nil {
 				return nil, errors.Annotatef(
 					err, "parsing port range for security rule %q",
-					to.String(rule.Name),
+					toValue(rule.Name),
 				)
 			}
 		}
 
 		var protocols []string
-		switch rule.Protocol {
-		case network.SecurityRuleProtocolTCP:
+		switch toValue(rule.Properties.Protocol) {
+		case armnetwork.SecurityRuleProtocolTCP:
 			protocols = []string{"tcp"}
-		case network.SecurityRuleProtocolUDP:
+		case armnetwork.SecurityRuleProtocolUDP:
 			protocols = []string{"udp"}
 		default:
 			protocols = []string{"tcp", "udp"}
 		}
 
 		// Record the SourceAddressPrefix for the port range.
-		remotePrefix := to.String(rule.SourceAddressPrefix)
+		remotePrefix := toValue(rule.Properties.SourceAddressPrefix)
 		if remotePrefix == "" || remotePrefix == "*" {
 			remotePrefix = "0.0.0.0/0"
 		}
@@ -530,16 +539,21 @@ func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext,
 func deleteInstanceNetworkSecurityRules(
 	ctx context.ProviderCallContext,
 	env *azureEnviron, id instance.Id,
-	networkInterfaces []network.Interface,
+	networkInterfaces []*armnetwork.Interface,
 ) error {
 	securityGroupInfos, err := getSecurityGroupInfoForInterfaces(ctx, env, networkInterfaces)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	securityRules, err := env.securityRulesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, info := range securityGroupInfos {
 		if err := deleteSecurityRules(
-			ctx, ctx, id, info,
-			network.SecurityRulesClient{env.network},
+			ctx, id, info,
+			securityRules,
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -548,40 +562,33 @@ func deleteInstanceNetworkSecurityRules(
 }
 
 func deleteSecurityRules(
-	sdkCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
 	id instance.Id,
 	nsgInfo securityGroupInfo,
-	securityRuleClient network.SecurityRulesClient,
+	securityRuleClient *armnetwork.SecurityRulesClient,
 ) error {
 	nsg := nsgInfo.securityGroup
-	if nsg.SecurityRules == nil {
+	if nsg.Properties == nil {
 		return nil
 	}
 	prefix := instanceNetworkSecurityRulePrefix(id)
-	for _, rule := range *nsg.SecurityRules {
-		ruleName := to.String(rule.Name)
+	for _, rule := range nsg.Properties.SecurityRules {
+		ruleName := toValue(rule.Name)
 		if !strings.HasPrefix(ruleName, prefix) {
 			continue
 		}
-		future, err := securityRuleClient.Delete(
-			sdkCtx,
+		poller, err := securityRuleClient.BeginDelete(
+			ctx,
 			nsgInfo.resourceGroup,
 			*nsg.Name,
 			ruleName,
+			nil,
 		)
-		if err != nil {
-			if !isNotFoundResponse(future.Response()) {
-				return errors.Annotatef(err, "deleting security rule %q", ruleName)
-			}
-			continue
-		}
-		err = future.WaitForCompletionRef(sdkCtx, securityRuleClient.Client)
 		if err != nil {
 			return errors.Annotatef(err, "deleting security rule %q", ruleName)
 		}
-		result, err := future.Result(securityRuleClient)
-		if err != nil && !isNotFoundResult(result) {
+		_, err = poller.PollUntilDone(ctx, nil)
+		if err != nil && !errorutils.IsNotFoundError(err) {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
 		}
 	}

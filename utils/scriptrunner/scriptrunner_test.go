@@ -5,7 +5,6 @@ package scriptrunner_test
 
 import (
 	"os"
-	"runtime"
 	stdtesting "testing"
 	"time"
 
@@ -30,9 +29,6 @@ type ScriptRunnerSuite struct {
 var _ = gc.Suite(&ScriptRunnerSuite{})
 
 func (s *ScriptRunnerSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("skipping ScriptRunnerSuite tests on windows")
-	}
 	s.IsolationSuite.SetUpSuite(c)
 }
 

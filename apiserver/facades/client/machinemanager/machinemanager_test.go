@@ -24,13 +24,18 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -203,66 +208,10 @@ func (s *MachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	c.Assert(s.st.calls, gc.Equals, 1)
 }
 
-func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectUnpinAppLeaders("0")
-
-	s.st.machines["0"] = &mockMachine{}
-	results, err := s.api.DestroyMachine(params.Entities{
-		Entities: []params.Entity{{Tag: "machine-0"}},
+func (s *MachineManagerSuite) assertMachinesDestroyed(c *gc.C, in []string, out params.DestroyMachineResults, expectedCalls ...string) {
+	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+		MachineTags: in,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
-}
-
-func (s *MachineManagerSuite) TestForceDestroyMachine(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectUnpinAppLeaders("0")
-
-	s.st.machines["0"] = &mockMachine{}
-	results, err := s.api.ForceDestroyMachine(params.Entities{
-		Entities: []params.Entity{{Tag: "machine-0"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
-}
-
-func (s *MachineManagerSuite) assertMachinesDestroyed(c *gc.C, in []params.Entity, out params.DestroyMachineResults, expectedCalls ...string) {
-	results, err := s.api.DestroyMachine(params.Entities{in})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.st.CheckCallNames(c, expectedCalls...)
@@ -278,7 +227,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.
 		return nil, errors.New("kaboom")
 	}
 	s.assertMachinesDestroyed(c,
-		[]params.Entity{{Tag: "machine-0"}},
+		[]string{"machine-0"},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
 				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
@@ -301,7 +250,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c
 		errors.New("boom"),
 	)
 	s.assertMachinesDestroyed(c,
-		[]params.Entity{{Tag: "machine-0"}},
+		[]string{"machine-0"},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
 				Error: apiservererrors.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
@@ -337,7 +286,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c
 	}
 
 	s.assertMachinesDestroyed(c,
-		[]params.Entity{{Tag: "machine-0"}},
+		[]string{"machine-0"},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
 				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
@@ -382,14 +331,12 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 	}
 
 	s.assertMachinesDestroyed(c,
-		[]params.Entity{
-			{Tag: "machine-0"},
-			{Tag: "machine-1"},
-		},
+		[]string{"machine-0", "machine-1"},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{
 				{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
 				{Info: &params.DestroyMachineInfo{
+					MachineId: "1",
 					DestroyedUnits: []params.Entity{
 						{"unit-bar-0"},
 					},
@@ -444,6 +391,7 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
 				Info: &params.DestroyMachineInfo{
+					MachineId: "0",
 					DestroyedUnits: []params.Entity{
 						{"unit-foo-0"},
 						{"unit-foo-1"},
@@ -475,6 +423,7 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
 				Info: &params.DestroyMachineInfo{
+					MachineId: "0",
 					DestroyedUnits: []params.Entity{
 						{"unit-foo-0"},
 						{"unit-foo-1"},
@@ -489,6 +438,109 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
 				},
 			}},
 		})
+}
+
+func (s *MachineManagerSuite) TestProvisioningScript(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.machines["0"] = &mockMachine{id: "0", series: "focal"}
+	result, err := s.api.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: "0",
+		Nonce:     "nonce",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	scriptLines := strings.Split(result.Script, "\n")
+	provisioningScriptLines := strings.Split(result.Script, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
+	for i, line := range scriptLines {
+		if strings.Contains(line, "oldpassword") {
+			continue
+		}
+		c.Assert(line, gc.Equals, provisioningScriptLines[i])
+	}
+}
+
+func (s *MachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.disableOSUpgrade = true
+	s.st.disableOSRefresh = true
+	s.st.machines["0"] = &mockMachine{id: "0", series: "focal"}
+	result, err := s.api.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: "0",
+		Nonce:     "nonce",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get update")
+	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get upgrade")
+}
+
+func (s *MachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.leadership.EXPECT().GetMachineApplicationNames("0").Return([]string{"foo-app-1"}, nil)
+
+	s.st.machines["0"] = &mockMachine{id: "0", containers: []string{"0/lxd/0"}}
+	s.st.machines["0/lxd/0"] = &mockMachine{}
+	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+		Force:       false,
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Error: apiservererrors.ServerError(stateerrors.NewHasContainersError("0", []string{"0/lxd/0"})),
+		}},
+	})
+}
+
+func (s *MachineManagerSuite) TestDestroyMachineWithContainersWithForce(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectUnpinAppLeaders("0")
+	s.expectUnpinAppLeaders("0/lxd/0")
+
+	s.st.machines["0"] = &mockMachine{containers: []string{"0/lxd/0"}}
+	s.st.machines["0/lxd/0"] = &mockMachine{}
+	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+		Force:       true,
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				MachineId: "0",
+				DestroyedUnits: []params.Entity{
+					{"unit-foo-0"},
+					{"unit-foo-1"},
+					{"unit-foo-2"},
+				},
+				DetachedStorage: []params.Entity{
+					{"storage-disks-0"},
+				},
+				DestroyedStorage: []params.Entity{
+					{"storage-disks-1"},
+				},
+				DestroyedContainers: []params.DestroyMachineResult{{
+					Info: &params.DestroyMachineInfo{
+						MachineId: "0/lxd/0",
+						DestroyedUnits: []params.Entity{
+							{"unit-foo-0"},
+							{"unit-foo-1"},
+							{"unit-foo-2"},
+						},
+						DetachedStorage: []params.Entity{
+							{"storage-disks-0"},
+						},
+						DestroyedStorage: []params.Entity{
+							{"storage-disks-1"},
+						},
+					},
+				}},
+			},
+		}},
+	})
 }
 
 func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
@@ -906,7 +958,43 @@ type mockState struct {
 	blockMsg         string
 	block            state.BlockType
 
+	disableOSUpgrade bool
+	disableOSRefresh bool
+
 	unitStorageAttachmentsF func(tag names.UnitTag) ([]state.StorageAttachment, error)
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	return coretesting.ControllerTag
+}
+
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
+}
+
+func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+	return []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
+		NetPort:      1,
+	}}}, nil
+}
+
+func (st *mockState) ToolsStorage() (binarystorage.StorageCloser, error) {
+	return &mockToolsStorage{}, nil
+}
+
+type mockToolsStorage struct {
+	binarystorage.StorageCloser
+}
+
+func (*mockToolsStorage) Close() error {
+	return nil
+}
+
+func (*mockToolsStorage) AllMetadata() ([]binarystorage.Metadata, error) {
+	return []binarystorage.Metadata{{
+		Version: "2.6.6-ubuntu-amd64",
+	}}, nil
 }
 
 type mockVolumeAccess struct {
@@ -971,7 +1059,10 @@ func (st *mockState) ModelTag() names.ModelTag {
 
 func (st *mockState) Model() (machinemanager.Model, error) {
 	st.MethodCall(st, "Model")
-	return &mockModel{}, nil
+	return &mockModel{
+		disableOSUpgrade: st.disableOSUpgrade,
+		disableOSRefresh: st.disableOSRefresh,
+	}, nil
 }
 
 func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
@@ -1049,6 +1140,7 @@ type mockMachine struct {
 	keep                     bool
 	series                   string
 	units                    []string
+	containers               []string
 	unitAgentState           status.Status
 	unitState                status.Status
 	isManager                bool
@@ -1069,6 +1161,12 @@ func (m *mockMachine) Tag() names.Tag {
 
 func (m *mockMachine) Destroy() error {
 	m.MethodCall(m, "Destroy")
+	if len(m.containers) > 0 {
+		return stateerrors.NewHasContainersError(m.id, m.containers)
+	}
+	if len(m.units) > 0 {
+		return stateerrors.NewHasAssignedUnitsError(m.id, m.units)
+	}
 	return nil
 }
 
@@ -1091,6 +1189,11 @@ func (m *mockMachine) SetKeepInstance(keep bool) error {
 func (m *mockMachine) Series() string {
 	m.MethodCall(m, "Release")
 	return m.series
+}
+
+func (m *mockMachine) Containers() ([]string, error) {
+	m.MethodCall(m, "Containers")
+	return m.containers, nil
 }
 
 func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
@@ -1156,6 +1259,19 @@ func (m *mockMachine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, m
 func (m *mockMachine) ApplicationNames() ([]string, error) {
 	m.MethodCall(m, "ApplicationNames")
 	return []string{"foo"}, nil
+}
+
+func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	m.MethodCall(m, "HardwareCharacteristics")
+	arch := "amd64"
+	return &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil
+}
+
+func (m *mockMachine) SetPassword(p string) error {
+	m.MethodCall(m, "SetPassword")
+	return nil
 }
 
 type mockApplication struct {

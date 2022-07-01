@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	jujucharm "github.com/juju/charm/v9"
-
 	"github.com/juju/juju/worker/uniter/charm"
 )
 
@@ -19,14 +17,13 @@ type mockDeployer struct {
 	bundles   charm.BundleReader
 
 	bundle   charm.Bundle
-	staged   *jujucharm.URL
-	curl     *jujucharm.URL
+	staged   string
 	deployed bool
 	err      error
 }
 
 func (m *mockDeployer) Stage(info charm.BundleInfo, abort <-chan struct{}) error {
-	m.staged = info.URL()
+	m.staged = info.String()
 	var err error
 	m.bundle, err = m.bundles.Read(info, abort)
 	return err
@@ -46,6 +43,5 @@ func (m *mockDeployer) Deploy() error {
 		return err
 	}
 	m.deployed = true
-	m.curl = m.staged
 	return nil
 }

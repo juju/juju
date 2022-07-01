@@ -162,6 +162,29 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 	return info, nil
 }
 
+// ModelUserInfo returns information on all users in the model.
+func (c *Client) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error) {
+	var results params.ModelUserInfoResults
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewModelTag(modelUUID).String(),
+		}},
+	}
+	err := c.facade.FacadeCall("ModelUserInfo", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := []params.ModelUserInfo{}
+	for i, result := range results.Results {
+		if result.Result == nil {
+			return nil, errors.Errorf("unexpected nil result at position %d", i)
+		}
+		info = append(info, *result.Result)
+	}
+	return info, nil
+}
+
 // SetPassword changes the password for the specified user.
 func (c *Client) SetPassword(username, password string) error {
 	if !names.IsValidUser(username) {

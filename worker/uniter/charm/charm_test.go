@@ -37,7 +37,7 @@ func (br *bundleReader) EnableWaitForAbort() (stopWaiting chan struct{}) {
 
 // Read implements the BundleReader interface.
 func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (charm.Bundle, error) {
-	bundle, ok := br.bundles[info.URL().String()]
+	bundle, ok := br.bundles[info.String()]
 	if !ok {
 		return nil, fmt.Errorf("no such charm!")
 	}
@@ -67,28 +67,28 @@ func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize f
 	bunpath := filepath.Join(base, "bundle")
 	file, err := os.Create(bunpath)
 	c.Assert(err, jc.ErrorIsNil)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	err = dir.ArchiveTo(file)
 	c.Assert(err, jc.ErrorIsNil)
 	bundle, err := corecharm.ReadCharmArchive(bunpath)
 	c.Assert(err, jc.ErrorIsNil)
-	return br.AddBundle(c, url, bundle)
+	return br.AddBundle(url, bundle)
 }
 
-func (br *bundleReader) AddBundle(c *gc.C, url *corecharm.URL, bundle charm.Bundle) charm.BundleInfo {
+func (br *bundleReader) AddBundle(url *corecharm.URL, bundle charm.Bundle) charm.BundleInfo {
 	if br.bundles == nil {
 		br.bundles = map[string]charm.Bundle{}
 	}
 	br.bundles[url.String()] = bundle
-	return &bundleInfo{nil, url}
+	return &bundleInfo{nil, url.String()}
 }
 
 type bundleInfo struct {
 	charm.BundleInfo
-	url *corecharm.URL
+	url string
 }
 
-func (info *bundleInfo) URL() *corecharm.URL {
+func (info *bundleInfo) String() string {
 	return info.url
 }
 

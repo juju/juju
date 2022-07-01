@@ -563,32 +563,25 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
-	adder := &charmAdderShim{
-		api:    &apiClient{Client: apiclient.NewClient(conn)},
-		charms: &charmsClient{Client: apicharms.NewClient(conn)},
+	return &charmAdderShim{
+		api:               &apiClient{Client: apiclient.NewClient(conn)},
+		charmsClient:      &charmsClient{Client: apicharms.NewClient(conn)},
+		modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(conn)},
 	}
-	return adder
 }
 
 type charmAdderShim struct {
-	charms *charmsClient
-	api    *apiClient
+	*charmsClient
+	*modelConfigClient
+	api *apiClient
 }
 
 func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
-	return c.api.AddLocalCharm(curl, ch, force)
-}
-
-func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	return c.charms.AddCharm(curl, origin, force)
-}
-
-func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
-	return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
-}
-
-func (c *charmAdderShim) CheckCharmPlacement(appName string, curl *charm.URL) error {
-	return c.charms.CheckCharmPlacement(appName, curl)
+	agentVersion, err := agentVersion(c.modelConfigClient)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.charmsClient.AddLocalCharm(curl, ch, force, agentVersion)
 }
 
 func getCharmStore(

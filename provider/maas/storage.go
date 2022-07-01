@@ -11,7 +11,7 @@ import (
 )
 
 func NewStorage(env *maasEnviron) storage.Storage {
-	return &maas2Storage{
+	return &maasStorage{
 		environ:        env,
 		maasController: env.maasController,
 	}

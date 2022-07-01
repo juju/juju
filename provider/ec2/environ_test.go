@@ -85,30 +85,6 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(21)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"win2012r2",
-		"nil constraint windows",
-		nil,
-		nil,
-		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(40)}, DeviceName: aws.String("/dev/sda1")},
-	}, {
-		"win2012r2",
-		"too small constraint windows",
-		pInt(30 * 1024),
-		nil,
-		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(40)}, DeviceName: aws.String("/dev/sda1")},
-	}, {
-		"win2012r2",
-		"big constraint windows",
-		pInt(50 * 1024),
-		nil,
-		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(50)}, DeviceName: aws.String("/dev/sda1")},
-	}, {
-		"win2012r2",
-		"round up constraint windows",
-		pInt(50*1024 + 1),
-		nil,
-		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(51)}, DeviceName: aws.String("/dev/sda1")},
-	}, {
 		"trusty",
 		"nil constraint ubuntu with root encryption",
 		nil,

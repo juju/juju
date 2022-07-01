@@ -194,6 +194,31 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "foo: first error, bar: second error")
 }
 
+func (s *usermanagerSuite) TestModelUserInfo(c *gc.C) {
+	usermanager.PatchResponses(s, s.usermanager,
+		func(result interface{}) error {
+			if response, ok := result.(*params.ModelUserInfoResults); ok {
+				response.Results = []params.ModelUserInfoResult{
+					{Result: &params.ModelUserInfo{UserName: "one"}},
+					{Result: &params.ModelUserInfo{UserName: "two"}},
+					{Result: &params.ModelUserInfo{UserName: "three"}},
+				}
+				return nil
+			}
+			return errors.New("wrong result type")
+		},
+	)
+
+	obtained, err := s.usermanager.ModelUserInfo(s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
+		{UserName: "one"},
+		{UserName: "two"},
+		{UserName: "three"},
+	})
+}
+
 func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 	tag := s.AdminUserTag(c)
 	err := s.usermanager.SetPassword(tag.Name(), "new-password")

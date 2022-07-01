@@ -118,8 +118,7 @@ func (st *State) ControllerUUID() string {
 	return st.controllerTag.Id()
 }
 
-// ControllerTag returns the tag form of the the return value of
-// ControllerUUID.
+// ControllerTag returns the tag form of the ControllerUUID.
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }
@@ -716,6 +715,17 @@ func (st *State) AllMachines() ([]*Machine, error) {
 	return st.allMachines(machinesCollection)
 }
 
+// MachineCountForSeries counts the machines for the provided series in the model.
+func (st *State) MachineCountForSeries(series ...string) (int, error) {
+	machinesCollection, closer := st.db().GetCollection(machinesC)
+	defer closer()
+	count, err := machinesCollection.Find(bson.M{"series": bson.M{"$in": series}}).Count()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return count, nil
+}
+
 type machineDocSlice []machineDoc
 
 func (ms machineDocSlice) Len() int      { return len(ms) }
@@ -1229,13 +1239,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
+	cURL := args.Charm.String()
 	appDoc := &applicationDoc{
 		DocID:         applicationID,
 		Name:          args.Name,
 		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
 		Subordinate:   subordinate,
-		CharmURL:      args.Charm.URL(),
+		CharmURL:      &cURL,
 		CharmOrigin:   args.CharmOrigin,
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
@@ -2148,7 +2159,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
-					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
+					Assert: bson.D{{"life", Alive}, {"charmurl", ch.String()}},
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			}

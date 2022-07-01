@@ -5,7 +5,6 @@ package broker_test
 
 import (
 	"fmt"
-	"runtime"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
@@ -46,9 +45,6 @@ var _ = gc.Suite(&lxdBrokerSuite{})
 
 func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping lxd tests on windows")
-	}
 
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })

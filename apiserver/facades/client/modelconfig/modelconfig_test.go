@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/dummy"
@@ -26,7 +27,7 @@ type modelconfigSuite struct {
 	gitjujutesting.IsolationSuite
 	backend    *mockBackend
 	authorizer apiservertesting.FakeAuthorizer
-	api        *modelconfig.ModelConfigAPIV2
+	api        *modelconfig.ModelConfigAPIV3
 }
 
 var _ = gc.Suite(&modelconfigSuite{})
@@ -243,12 +244,60 @@ func (s *modelconfigSuite) TestSetSupportCredentals(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
+	// Set constraints for the model.
+	cons, err := constraints.Parse("mem=4096", "cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.api.SetModelConstraints(params.SetConstraints{
+		ApplicationName: "app",
+		Constraints:     cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.backend.cons, gc.DeepEquals, cons)
+}
+
+func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
+	// Set constraints for the model.
+	cons, err := constraints.Parse("mem=4096", "cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.api.SetModelConstraints(params.SetConstraints{
+		ApplicationName: "app",
+		Constraints:     cons,
+	})
+	s.assertBlocked(c, err, msg)
+}
+
+func (s *modelconfigSuite) TestBlockChangesClientSetModelConstraints(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockChangesClientSetModelConstraints")
+	s.assertSetModelConstraintsBlocked(c, "TestBlockChangesClientSetModelConstraints")
+}
+
+func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
+	// Set constraints for the model.
+	cons, err := constraints.Parse("mem=4096", "cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.cons = cons
+	obtained, err := s.api.GetModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained.Constraints, gc.DeepEquals, cons)
+}
+
 type mockBackend struct {
 	cfg      config.ConfigValues
 	old      *config.Config
 	b        state.BlockType
 	features string
 	msg      string
+	cons     constraints.Value
+}
+
+func (m *mockBackend) SetModelConstraints(value constraints.Value) error {
+	m.cons = value
+	return nil
+}
+
+func (m *mockBackend) ModelConstraints() (constraints.Value, error) {
+	return m.cons, nil
 }
 
 func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {

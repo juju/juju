@@ -18,8 +18,6 @@ func MinRootDiskSizeGiB(series string) uint64 {
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS, jujuos.OpenSUSE:
 		return 8
-	case jujuos.Windows:
-		return 40
 	// By default we just return a "sane" default, since the error will just
 	// be returned by the api and seen in juju status
 	default:

@@ -123,7 +123,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 			continue // unknown instance ID
 		}
 
-		ifList, err := maasNetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
+		ifList, err := maasNetworkInterfaces(ctx, inst.(*maasInstance), subnetsMap, dnsSearchDomains...)
 		if err != nil {
 			return nil, errors.Annotatef(err, "obtaining network interfaces for instance %v", ids[idx])
 		}
@@ -149,12 +149,12 @@ func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallCon
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return maasNetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
+	return maasNetworkInterfaces(ctx, inst.(*maasInstance), subnetsMap, dnsSearchDomains...)
 }
 
 func maasNetworkInterfaces(
 	_ context.ProviderCallContext,
-	instance *maas2Instance,
+	instance *maasInstance,
 	subnetsMap map[string]corenetwork.Id,
 	dnsSearchDomains ...string,
 ) (corenetwork.InterfaceInfos, error) {

@@ -7,18 +7,18 @@ import (
 	stdcontext "context"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/go-autorest/autorest/mocks"
-	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 )
@@ -43,9 +43,11 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 	s.requests = nil
 
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                     azuretesting.NewSerialSender(&s.sender),
-		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
-		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		Sender:           azuretesting.NewSerialSender(&s.sender),
+		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
+		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
+			return &azuretesting.FakeCredential{}, nil
+		},
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.requests = nil
@@ -80,108 +82,57 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	// and an application-specific rule. Only the latter should
 	// be preserved; we will recreate the "builtin" SSH rule,
 	// and the API rule is not needed for non-controller models.
-	customRule := network.SecurityRule{
-		Name: to.StringPtr("machine-0-tcp-1234"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("custom rule"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr("*"),
-			DestinationPortRange:     to.StringPtr("1234"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(102),
-			Direction:                network.SecurityRuleDirectionInbound,
+	customRule := &armnetwork.SecurityRule{
+		Name: to.Ptr("machine-0-tcp-1234"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr("custom rule"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourceAddressPrefix:      to.Ptr("*"),
+			SourcePortRange:          to.Ptr("*"),
+			DestinationAddressPrefix: to.Ptr("*"),
+			DestinationPortRange:     to.Ptr("1234"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(102)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}
-	securityRules := []network.SecurityRule{{
-		Name: to.StringPtr("JujuAPIInbound"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("Allow API connections to controller machines"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
-			DestinationPortRange:     to.StringPtr("17777"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(101),
-			Direction:                network.SecurityRuleDirectionInbound,
+	securityRules := []*armnetwork.SecurityRule{{
+		Name: to.Ptr("JujuAPIInbound"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              to.Ptr("Allow API connections to controller machines"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourceAddressPrefix:      to.Ptr("*"),
+			SourcePortRange:          to.Ptr("*"),
+			DestinationAddressPrefix: to.Ptr("192.168.16.0/20"),
+			DestinationPortRange:     to.Ptr("17777"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 to.Ptr(int32(101)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, customRule}
-	nsg := network.SecurityGroup{
-		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &securityRules,
+	nsg := armnetwork.SecurityGroup{
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: securityRules,
 		},
 	}
 
-	vmListSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{})
+	vmListSender := azuretesting.NewSenderWithValue(&armcompute.VirtualMachineListResult{})
 	vmListSender.PathPattern = ".*/virtualMachines"
 	nsgSender := azuretesting.NewSenderWithValue(&nsg)
 	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal-nsg"
-	deploymentSender := azuretesting.NewSenderWithValue(&resources.Deployment{})
+	deploymentSender := azuretesting.NewSenderWithValue(&armresources.Deployment{})
 	deploymentSender.PathPattern = ".*/deployments/common"
 	s.sender = append(s.sender, vmListSender, nsgSender, deploymentSender)
 	c.Assert(op0.Steps[0].Run(s.callCtx), jc.ErrorIsNil)
 	c.Assert(s.requests, gc.HasLen, 3)
 
-	expectedSecurityRules := []network.SecurityRule{{
-		Name: to.StringPtr("SSHInbound"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("Allow SSH access to all machines"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr("*"),
-			DestinationPortRange:     to.StringPtr("22"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(100),
-			Direction:                network.SecurityRuleDirectionInbound,
-		},
-	}, customRule}
-	nsgId := `[resourceId('Microsoft.Network/networkSecurityGroups', 'juju-internal-nsg')]`
-	subnets := []network.Subnet{{
-		Name: to.StringPtr("juju-internal-subnet"),
-		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr("192.168.0.0/20"),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr(nsgId),
-			},
-		},
-	}, {
-		Name: to.StringPtr("juju-controller-subnet"),
-		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr("192.168.16.0/20"),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr(nsgId),
-			},
-		},
-	}}
-	addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
-	templateResources := []armtemplates.Resource{{
-		Type:     "Microsoft.Network/networkSecurityGroups",
-		Name:     "juju-internal-nsg",
-		Location: "westus",
-		Properties: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &expectedSecurityRules,
-		},
-	}, {
-		Type:     "Microsoft.Network/virtualNetworks",
-		Name:     "juju-internal-network",
-		Location: "westus",
-		Properties: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace: &network.AddressSpace{&addressPrefixes},
-			Subnets:      &subnets,
-		},
-		DependsOn: []string{nsgId},
-	}}
-
-	var actual resources.Deployment
+	var actual armresources.Deployment
 	unmarshalRequestBody(c, s.requests[2], &actual)
 	c.Assert(actual.Properties, gc.NotNil)
 	c.Assert(actual.Properties.Template, gc.NotNil)
 	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(resources, gc.HasLen, len(templateResources))
+	c.Assert(resources, gc.HasLen, 2)
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModel(c *gc.C) {
@@ -193,13 +144,13 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	controllerTags := make(map[string]*string)
 	trueString := "true"
 	controllerTags["juju-is-controller"] = &trueString
-	vms := []compute.VirtualMachine{{
+	vms := []*armcompute.VirtualMachine{{
 		Tags: nil,
 	}, {
 		Tags: controllerTags,
 	}}
-	vmListSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{
-		Value: &vms,
+	vmListSender := azuretesting.NewSenderWithValue(&armcompute.VirtualMachineListResult{
+		Value: vms,
 	})
 	vmListSender.PathPattern = ".*/virtualMachines"
 	s.sender = append(s.sender, vmListSender)
@@ -220,7 +171,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 
 	unauthSender := mocks.NewSender()
 	unauthSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
-	s.sender = append(s.sender, unauthSender, tokenRefreshSender(), unauthSender, unauthSender)
+	s.sender = append(s.sender, unauthSender, unauthSender, unauthSender)
 
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	op0 := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})[0]

@@ -18,13 +18,14 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	pacconf "github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -37,13 +38,13 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/os/v2/series"
 )
 
 type cloudinitSuite struct {
@@ -179,7 +180,7 @@ func (cfg *testInstanceConfig) setControllerCharm(path string) *testInstanceConf
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
 	if envConfig != nil && cfg.Bootstrap != nil {
 		cfg.Bootstrap.ControllerModelConfig = envConfig
-		cfg.Bootstrap.HostedModelConfig = map[string]interface{}{"name": "hosted-model"}
+		cfg.Bootstrap.InitialModelConfig = map[string]interface{}{"name": "my-model"}
 	}
 	return cfg
 }
@@ -220,7 +221,7 @@ func (cfg *testInstanceConfig) setSeries(series string, vers version.Number, bui
 // a controller instance.
 func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 	cfg.setMachineID("0")
-	cfg.Controller = &instancecfg.ControllerConfig{}
+	cfg.ControllerConfig = controller.Config{}
 	cfg.Bootstrap = &instancecfg.BootstrapConfig{
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineInstanceId:  "i-bootstrap",
@@ -324,12 +325,12 @@ var cloudinitTests = []cloudinitTest{
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
 install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
-printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
+echo '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 set -xe
 install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
-printf '%s\\n' '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
+echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
-printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
+echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
 \[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
@@ -343,16 +344,16 @@ curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
-printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
+echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
 install -D -m 755 /dev/null '/sbin/remove-juju-services'
-printf '%s\\n' '.*' > '/sbin/remove-juju-services'
+echo '.*' > '/sbin/remove-juju-services'
 ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(service jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:adm /var/log/juju/machine-0\.log\\n  chmod 0640 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
@@ -368,12 +369,12 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 		upgradedToVersion: "1.2.3.123",
 		expectScripts: `
 install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
-printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
+echo '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 set -xe
 install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
-printf '%s\\n' '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
+echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
-printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
+echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
 \[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
@@ -387,16 +388,16 @@ curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3\.123-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3\.123-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+echo -n '{"version":"1\.2\.3\.123-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
-printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
+echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
 install -D -m 755 /dev/null '/sbin/remove-juju-services'
-printf '%s\\n' '.*' > '/sbin/remove-juju-services'
+echo '.*' > '/sbin/remove-juju-services'
 ln -s 1\.2\.3\.123-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(service jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:adm /var/log/juju/machine-0\.log\\n  chmod 0640 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
@@ -416,9 +417,9 @@ bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
 curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-printf %s '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
-printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
+echo '.*' > '/var/lib/juju/bootstrap-params'
 /var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
 ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
@@ -432,9 +433,9 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 		expectScripts: `
 set -xe
 install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
-printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
+echo '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
-printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
+echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
 \[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
@@ -448,12 +449,12 @@ curl -sSfw '.*' --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.t
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
 install -D -m 755 /dev/null '/sbin/remove-juju-services'
-printf '%s\\n' '.*' > '/sbin/remove-juju-services'
+echo '.*' > '/sbin/remove-juju-services'
 ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-99'
 echo 'Starting Juju machine agent \(service jujud-machine-99\)'.*
 cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:adm /var/log/juju/machine-99\.log\\n  chmod 0640 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
@@ -470,7 +471,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 		expectScripts: `
 set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
-printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
+echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 .*
 `,
 	},
@@ -536,7 +537,7 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
-printf '%s\\n' '.*bootstrap-machine-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
+echo '.*bootstrap-machine-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
 `,
 	},
 
@@ -549,7 +550,7 @@ printf '%s\\n' '.*bootstrap-machine-constraints: {}.*' > '/var/lib/juju/bootstra
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
-printf '%s\\n' '.*model-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
+echo '.*model-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
 `,
 	},
 
@@ -569,21 +570,21 @@ printf '%s\\n' '.*model-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
-printf '%s\\n' '.*custom-image-metadata:.*us-east1.*.*' > '/var/lib/juju/bootstrap-params'
+echo '.*custom-image-metadata:.*us-east1.*.*' > '/var/lib/juju/bootstrap-params'
 `,
 	},
 
 	// custom image metadata signing key.
 	{
 		cfg: makeBootstrapConfig("trusty", 0).mutate(func(cfg *testInstanceConfig) {
-			cfg.Controller.PublicImageSigningKey = "publickey"
+			cfg.PublicImageSigningKey = "publickey"
 		}),
 		setEnvConfig:      true,
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
 install -D -m 644 /dev/null '.*publicsimplestreamskey'
-printf '%s\\n' 'publickey' > '.*publicsimplestreamskey'
+echo 'publickey' > '.*publicsimplestreamskey'
 `,
 	},
 
@@ -598,7 +599,7 @@ sha256sum \$bin/tools.tar.gz > \$bin/juju2.8.0-ubuntu-amd64.sha256
 grep '1234' \$bin/juju2.8.0-ubuntu-amd64.sha256 .*
 tar zxf \$bin/tools.tar.gz -C \$bin
 ln -s \$bin /var/lib/juju/tools/2.8.0-bionic-amd64
-printf %s '{"version":"2.8.0-ubuntu-amd64".*
+echo -n '{"version":"2.8.0-ubuntu-amd64".*
 mkdir -p '/var/lib/juju/agents/machine-1'
 `,
 	},
@@ -638,7 +639,7 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, scripts []string) {
 func getStateInitializationParams(c *gc.C, scripts []string) instancecfg.StateInitializationParams {
 	var args instancecfg.StateInitializationParams
 	c.Assert(scripts, gc.Not(gc.HasLen), 0)
-	re := regexp.MustCompile(`printf '%s\\n' '(?s:(.+))' > '/var/lib/juju/bootstrap-params'`)
+	re := regexp.MustCompile(`echo '(?s:(.+))' > '/var/lib/juju/bootstrap-params'`)
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
 		if m == nil {
@@ -753,7 +754,7 @@ func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *gc.C) {
 	base64Content := base64.StdEncoding.EncodeToString(content)
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
 install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
-printf %%s %s | base64 -d > '/var/lib/juju/charms/controller.charm'
+echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 `, base64Content))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
@@ -777,7 +778,7 @@ func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *gc.C) {
 	base64Content := base64.StdEncoding.EncodeToString(content)
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
 install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
-printf %%s %s | base64 -d > '/var/lib/juju/charms/controller.charm'
+echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 `, base64Content))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
@@ -1139,11 +1140,11 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 				StateInitializationParams: instancecfg.StateInitializationParams{
 					BootstrapMachineInstanceId: "i-bootstrap",
 					ControllerModelConfig:      minimalModelConfig(c),
-					HostedModelConfig:          map[string]interface{}{"name": "hosted-model"},
+					InitialModelConfig:         map[string]interface{}{"name": "my-model"},
 				},
 				StateServingInfo: stateServingInfo,
 			},
-			Controller:       &instancecfg.ControllerConfig{},
+			ControllerConfig: controller.Config{},
 			ControllerTag:    testing.ControllerTag,
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
@@ -1242,7 +1243,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
-	expected := "printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/95-juju-proxy-settings"
+	expected := "echo 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/95-juju-proxy-settings"
 	c.Assert(cmds, jc.DeepEquals, []string{expected})
 }
 
@@ -1269,12 +1270,12 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		`export no_proxy=0.1.2.3,10.0.3.1,localhost`,
 		`export NO_PROXY=0.1.2.3,10.0.3.1,localhost`,
 		``,
-		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+		`(echo 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=0.1.2.3,10.0.3.1,localhost
 export NO_PROXY=0.1.2.3,10.0.3.1,localhost
 ' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-		`printf '%s\n' '# To allow juju to control the global systemd proxy settings,
+		`echo '# To allow juju to control the global systemd proxy settings,
 # create symbolic links to this file from within /etc/systemd/system.conf.d/
 # and /etc/systemd/users.conf.d/.
 [Manager]
@@ -1389,42 +1390,6 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 -----END RSA PRIVATE KEY-----
 `[1:])
 
-var windowsCloudinitTests = []cloudinitTest{{
-	cfg: makeNormalConfig("win8", 0).setMachineID("10").mutate(func(cfg *testInstanceConfig) {
-		cfg.APIInfo.CACert = "CA CERT\n" + string(serverCert)
-	}),
-	setEnvConfig:  false,
-	expectScripts: WindowsUserdata,
-}}
-
-func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
-	for i, test := range windowsCloudinitTests {
-		testConfig := test.cfg.render()
-		c.Logf("test %d", i)
-		ci, err := cloudinit.New("win8")
-		c.Assert(err, jc.ErrorIsNil)
-		udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
-
-		c.Assert(err, jc.ErrorIsNil)
-		err = udata.Configure()
-
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(ci, gc.NotNil)
-		data, err := ci.RenderYAML()
-		c.Assert(err, jc.ErrorIsNil)
-
-		stringData := strings.Replace(string(data), "\r\n", "\n", -1)
-		stringData = strings.Replace(stringData, "\t", " ", -1)
-		stringData = strings.TrimSpace(stringData)
-
-		compareString := strings.Replace(test.expectScripts, "\r\n", "\n", -1)
-		compareString = strings.Replace(compareString, "\t", " ", -1)
-		compareString = strings.TrimSpace(compareString)
-
-		testing.CheckString(c, stringData, compareString)
-	}
-}
-
 func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 	command := cloudconfig.ToolsDownloadCommand("download", []string{"a", "b", "c"})
 
@@ -1513,10 +1478,11 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 	instConfig := makeBootstrapConfig("quantal", 0).maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()
-	instConfig.Bootstrap.InitialSSHHostKeys.RSA = &instancecfg.SSHKeyPair{
-		Private: "private",
-		Public:  "public",
-	}
+	instConfig.Bootstrap.InitialSSHHostKeys = instancecfg.SSHHostKeys{{
+		Private:            "private",
+		Public:             "public",
+		PublicKeyAlgorithm: ssh.KeyAlgoRSA,
+	}}
 	cloudcfg, err := cloudinit.New(instConfig.Series)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1537,11 +1503,11 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 
 	cmds := cloudcfg.BootCmds()
 	c.Assert(cmds, jc.DeepEquals, []string{
-		`echo 'Regenerating SSH RSA host key' >&$JUJU_PROGRESS_FD`,
-		`rm /etc/ssh/ssh_host_rsa_key*`,
+		`echo 'Regenerating SSH host keys' >&$JUJU_PROGRESS_FD`,
+		`rm /etc/ssh/ssh_host_*_key*`,
 		`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`,
-		`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`,
 		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
+		`ssh-keygen -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key || true`,
 	})
 }
 

@@ -27,6 +27,10 @@ import (
 
 var envtoolsFindTools = envtools.FindTools
 
+type ToolsFindEntity interface {
+	FindEntity(tag names.Tag) (state.Entity, error)
+}
+
 // ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
@@ -49,13 +53,24 @@ type ToolsStorageGetter interface {
 	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
+// AgentTooler is implemented by entities
+// that have associated agent tools.
+type AgentTooler interface {
+	AgentTools() (*coretools.Tools, error)
+	SetAgentVersion(version.Binary) error
+
+	// Tag is included in this interface only so the generated mock of
+	// AgentTooler implements state.Entity, returned by FindEntity
+	Tag() names.Tag
+}
+
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
-	newEnviron         NewEnvironFunc
-	entityFinder       state.EntityFinder
+	entityFinder       ToolsFindEntity
 	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
+	toolsFinder        ToolsFinder
 	urlGetter          ToolsURLGetter
 	getCanRead         GetAuthFunc
 }
@@ -63,19 +78,19 @@ type ToolsGetter struct {
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
 func NewToolsGetter(
-	f state.EntityFinder,
-	c environs.EnvironConfigGetter,
-	s ToolsStorageGetter,
-	t ToolsURLGetter,
+	entityFinder ToolsFindEntity,
+	configGetter environs.EnvironConfigGetter,
+	toolsStorageGetter ToolsStorageGetter,
+	urlGetter ToolsURLGetter,
+	toolsFinder ToolsFinder,
 	getCanRead GetAuthFunc,
-	newEnviron NewEnvironFunc,
 ) *ToolsGetter {
 	return &ToolsGetter{
-		newEnviron:         newEnviron,
-		entityFinder:       f,
-		configGetter:       c,
-		toolsStorageGetter: s,
-		urlGetter:          t,
+		entityFinder:       entityFinder,
+		configGetter:       configGetter,
+		toolsStorageGetter: toolsStorageGetter,
+		urlGetter:          urlGetter,
+		toolsFinder:        toolsFinder,
 		getCanRead:         getCanRead,
 	}
 }
@@ -131,7 +146,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	tooler, ok := entity.(state.AgentTooler)
+	tooler, ok := entity.(AgentTooler)
 	if !ok {
 		return nil, apiservererrors.NotSupportedError(tag, "agent binaries")
 	}
@@ -147,36 +162,24 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		OSType:       existingTools.Version.Release,
 		Arch:         existingTools.Version.Arch,
 	}
-	// Older agents will ask for tools based on series.
-	// We now store tools based on OS name so update the find params
-	// if needed to ensure the correct search is done.
-	allSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if allSeries.Contains(existingTools.Version.Release) {
-		findParams.Series = existingTools.Version.Release
-		findParams.OSType = ""
-	}
 
-	toolsFinder := newToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter, t.newEnviron)
-	list, err := toolsFinder.findTools(findParams)
+	tools, err := t.toolsFinder.FindTools(findParams)
 	if err != nil {
 		return nil, err
 	}
-	return list, nil
+	return tools.List, nil
 }
 
 // ToolsSetter implements a common Tools method for use by various
 // facades.
 type ToolsSetter struct {
-	st          state.EntityFinder
+	st          ToolsFindEntity
 	getCanWrite GetAuthFunc
 }
 
 // NewToolsSetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsSetter(st state.EntityFinder, getCanWrite GetAuthFunc) *ToolsSetter {
+func NewToolsSetter(st ToolsFindEntity, getCanWrite GetAuthFunc) *ToolsSetter {
 	return &ToolsSetter{
 		st:          st,
 		getCanWrite: getCanWrite,
@@ -212,7 +215,7 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 	if err != nil {
 		return err
 	}
-	entity, ok := entity0.(state.AgentTooler)
+	entity, ok := entity0.(AgentTooler)
 	if !ok {
 		return apiservererrors.NotSupportedError(tag, "agent binaries")
 	}
@@ -234,17 +237,12 @@ type toolsFinder struct {
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
 func NewToolsFinder(
-	c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter,
-	newEnviron NewEnvironFunc,
-) ToolsFinder {
-	return newToolsFinder(c, s, t, newEnviron)
-}
-
-func newToolsFinder(
-	c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter,
+	configGetter environs.EnvironConfigGetter,
+	toolsStorageGetter ToolsStorageGetter,
+	urlGetter ToolsURLGetter,
 	newEnviron NewEnvironFunc,
 ) *toolsFinder {
-	return &toolsFinder{c, s, t, newEnviron}
+	return &toolsFinder{configGetter, toolsStorageGetter, urlGetter, newEnviron}
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
@@ -263,22 +261,6 @@ func (f *toolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	list, err := f.findMatchingTools(args)
 	if err != nil {
 		return nil, err
-	}
-
-	// This handles clients and agents that may be attempting to find tools in
-	// the context of series instead of OS type.
-	// If we get a request by series we ensure that any matched OS tools are
-	// converted to the requested series.
-	// Conversely, if we get a request by OS type, matching series tools are
-	// converted to match the OS.
-	// TODO: Remove this block and the called methods for Juju 3/4.
-	if args.Number.Major == 2 && args.Number.Minor <= 8 && (args.OSType != "" || args.Series != "") {
-		if args.OSType != "" {
-			list = f.resultForOSTools(list, args.OSType)
-		}
-		if args.Series != "" {
-			list = f.resultForSeriesTools(list, args.Series)
-		}
 	}
 
 	// Rewrite the URLs so they point at the API servers. If the
@@ -359,10 +341,10 @@ func (f *toolsFinder) resultForSeriesTools(list coretools.List, series string) c
 
 // findMatchingTools searches tools storage and simplestreams for tools
 // matching the given parameters.
-// If an exact match is specified (number, series and arch) and is found in
+// If an exact match is specified (number, ostype and arch) and is found in
 // tools storage, then simplestreams will not be searched.
 func (f *toolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
-	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
+	exactMatch := args.Number != version.Zero && args.OSType != "" && args.Arch != ""
 
 	storageList, err := f.matchingStorageTools(args)
 	if err != nil && err != coretools.ErrNoMatches {
@@ -454,17 +436,10 @@ func (f *toolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 }
 
 func toolsFilter(args params.FindToolsParams) coretools.Filter {
-	var release string
-	if args.Series != "" {
-		release = coreseries.DefaultOSTypeNameFromSeries(args.Series)
-	}
-	if args.OSType != "" {
-		release = args.OSType
-	}
 	return coretools.Filter{
 		Number: args.Number,
 		Arch:   args.Arch,
-		OSType: release,
+		OSType: args.OSType,
 	}
 }
 

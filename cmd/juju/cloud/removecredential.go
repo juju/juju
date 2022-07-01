@@ -69,10 +69,10 @@ see ' + "'juju set-credential'" + ' for more information.
 Use --client option to remove credentials from the current client.
 
 Examples:
-    juju remove-credential rackspace credential_name
-    juju remove-credential rackspace credential_name --client
-    juju remove-credential rackspace credential_name -c mycontroller
-    juju remove-credential rackspace credential_name -c mycontroller --force
+    juju remove-credential google credential_name
+    juju remove-credential google credential_name --client
+    juju remove-credential google credential_name -c mycontroller
+    juju remove-credential google credential_name -c mycontroller --force
 
 See also: 
     add-credential

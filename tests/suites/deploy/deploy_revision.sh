@@ -11,7 +11,7 @@ run_deploy_revision() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
 
 	# check resource revision per channel specified.
-	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "3"'
+	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "1"'
 
 	destroy_model "${model_name}"
 }
@@ -44,7 +44,7 @@ run_deploy_revision_fail() {
 
 	got=$(juju deploy juju-qa-test --revision 9 2>&1 || true)
 	# bad request should be caught by client
-	check_contains "${got}" 'ERROR when using --revision option, you must also use --channel option'
+	check_contains "${got}" 'ERROR invalid channel for "ch:juju-qa-test": channel cannot be empty'
 
 	destroy_model "${model_name}"
 }

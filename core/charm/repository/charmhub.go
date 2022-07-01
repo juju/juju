@@ -4,7 +4,6 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -426,20 +425,26 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 
 	var metaRes = make([]corecharm.EssentialMetadata, len(reqs))
 	for resIdx, refreshResult := range refreshResults {
-		if len(refreshResult.Entity.MetadataYAML) == 0 {
+		if refreshResult.Entity.MetadataYAML == "" {
 			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of metadata.yaml", reqs[resIdx].CharmURL)
 		}
-		chMeta, err := charm.ReadMeta(bytes.NewReader(refreshResult.Entity.MetadataYAML))
+		chMeta, err := charm.ReadMeta(strings.NewReader(refreshResult.Entity.MetadataYAML))
 		if err != nil {
 			return nil, errors.Annotatef(err, "parsing metadata.yaml for %q", reqs[resIdx].CharmURL)
 		}
 
-		if len(refreshResult.Entity.ConfigYAML) == 0 {
-			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of config.yaml", reqs[resIdx].CharmURL)
-		}
-		chConfig, err := charm.ReadConfig(bytes.NewReader(refreshResult.Entity.ConfigYAML))
-		if err != nil {
-			return nil, errors.Annotatef(err, "parsing config.yaml for %q", reqs[resIdx].CharmURL)
+		// It's okay for a charm not to have a config.yaml. But the CharmHub
+		// API currently returns "{}\n" for charms that have no config.yaml,
+		// so handle that as no config as well.
+		var chConfig *charm.Config
+		configYAML := refreshResult.Entity.ConfigYAML
+		if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
+			chConfig = charm.NewConfig()
+		} else {
+			chConfig, err = charm.ReadConfig(strings.NewReader(configYAML))
+			if err != nil {
+				return nil, errors.Annotatef(err, "parsing config.yaml for %q", reqs[resIdx].CharmURL)
+			}
 		}
 
 		chManifest := new(charm.Manifest)

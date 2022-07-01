@@ -71,7 +71,7 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["2.8/stable"]
+        snap_version: ["3.0/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
@@ -88,6 +88,8 @@ jobs:
         OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
         set -e
         if [ "$OUT" = "NOT FOUND" ]; then
+          echo "RUN_TEST=NO_BASE_VERSION" >> $GITHUB_ENV
+        else
           echo "RUN_TEST=RUN" >> $GITHUB_ENV
         fi
 
@@ -238,6 +240,7 @@ jobs:
     # However we just need to install the `wait-for` binary ourselves,
     # and then Juju 2.8 can use it (amazing!)
     - name: Add `wait-for` plugin
+      if: env.RUN_TEST == 'RUN'
       shell: bash
       run: |
         # Download a stable version of Juju
@@ -260,7 +263,7 @@ jobs:
 
         juju wait-for application ${CHARM_${{ matrix.model_type }}}
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 10
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
     - name: Build snap
       if: env.RUN_TEST == 'RUN'
@@ -367,7 +370,7 @@ jobs:
             exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
     - name: Test upgrade model
       if: env.RUN_TEST == 'RUN'
@@ -406,7 +409,7 @@ jobs:
           exit 1
         fi
 
-        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 5
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
     - name: Wrap up
       if: env.RUN_TEST == 'RUN'

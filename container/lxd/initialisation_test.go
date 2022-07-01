@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"runtime"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/packaging/v2/commands"
@@ -205,10 +204,6 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 }
 
 func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("no lxd on windows")
-	}
-
 	PatchHostSeries(s, "")
 
 	ctrl := gomock.NewController(c)

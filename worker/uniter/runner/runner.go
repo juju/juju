@@ -27,7 +27,6 @@ import (
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/model"
-	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
@@ -431,12 +430,6 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
-	if jujuos.HostOS() == jujuos.Windows {
-		// TODO(fwereade): somehow consolidate with utils/exec?
-		// We don't do this on the other code path, which uses exec.RunCommands,
-		// because that already has handling for windows environment requirements.
-		env = mergeWindowsEnvironment(env, os.Environ())
-	}
 	if rMode == runOnRemote {
 		env = append(env, "JUJU_AGENT_TOKEN="+token)
 	}
@@ -596,8 +589,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 
 // Check still tested
 func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, env []string) error {
-	hookCmd := hookCommand(hook)
-	ps := exec.Command(hookCmd[0], hookCmd[1:]...)
+	ps := exec.Command(hook)
 	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()

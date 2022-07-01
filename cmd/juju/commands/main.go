@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/juju/waitfor"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -80,7 +81,7 @@ See https://juju.is for getting started tutorials and additional documentation.
 Starter commands:
 
     bootstrap           Initializes a cloud environment.
-    add-model           Adds a hosted model.
+    add-model           Adds a workload model.
     deploy              Deploys a new application.
     status              Displays the current status of Juju, applications, and units.
     add-unit            Adds extra units of a deployed application.
@@ -574,6 +575,7 @@ func registerCommands(r commandRegistry) {
 
 	// Payload commands.
 	r.Register(payload.NewListCommand())
+	r.Register(waitfor.NewWaitForCommand())
 
 	rcmd.RegisterAll(r)
 }
