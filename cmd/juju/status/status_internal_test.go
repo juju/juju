@@ -5435,6 +5435,123 @@ foo/0  waiting   allocating  10.0.0.1  80/TCP
 `[1:])
 }
 
+func (s *StatusSuite) TestFormatTabularManyPorts(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"1555/TCP", "123/UDP", "ICMP", "80/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo                     0/1                    0  54.32.1.2  no       
+
+Unit   Workload  Agent       Address   Ports                     Message
+foo/0  waiting   allocating  10.0.0.1  80,1555/TCP 123/UDP ICMP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularManyPortsGrouped(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"1557/TCP", "1555/TCP", "80/TCP", "ICMP", "1556/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo                     0/1                    0  54.32.1.2  no       
+
+Unit   Workload  Agent       Address   Ports                  Message
+foo/0  waiting   allocating  10.0.0.1  80,1555-1557/TCP ICMP  
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularManyPortsCommonGrouped(c *gc.C) {
+	fStatus := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Scale:   1,
+				Address: "54.32.1.2",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"1557/TCP", "1555/TCP", "1558/TCP", "1559/TCP", "80/TCP", "1556/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Waiting,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, fStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Channel  Rev  Address    Exposed  Message
+foo                     0/1                    0  54.32.1.2  no       
+
+Unit   Workload  Agent       Address   Ports             Message
+foo/0  waiting   allocating  10.0.0.1  80,1555-1559/TCP  
+`[1:])
+}
+
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
