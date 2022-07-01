@@ -17,15 +17,15 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	svctesting "github.com/juju/juju/service/common/testing"
-	"github.com/juju/juju/testing"
-	coretest "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/agent"
+	agenttools "github.com/juju/juju/v2/agent/tools"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/service/common"
+	svctesting "github.com/juju/juju/v2/service/common/testing"
+	"github.com/juju/juju/v2/testing"
+	coretest "github.com/juju/juju/v2/tools"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 type agentConfSuite struct {

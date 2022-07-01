@@ -11,9 +11,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/resources"
+	providerutils "github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v2/environs/bootstrap"
 )
 
 type upgradeCAASControllerBridge struct {

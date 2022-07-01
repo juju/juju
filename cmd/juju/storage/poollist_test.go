@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/juju/storage"
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/cmd/juju/storage"
+	_ "github.com/juju/juju/v2/provider/dummy"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type poolListSuite struct {

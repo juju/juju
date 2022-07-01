@@ -9,10 +9,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/service"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v2/service"
 )
 
 // ManifoldConfig holds the information necessary for the dependency engine to

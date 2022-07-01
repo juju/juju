@@ -24,12 +24,12 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/common/apihttp"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
-	jujuversion "github.com/juju/juju/version"
+	agenttools "github.com/juju/juju/v2/agent/tools"
+	"github.com/juju/juju/v2/apiserver/common/apihttp"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/binarystorage"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 const (

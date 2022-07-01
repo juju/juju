@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	corelogger "github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/v2/core/logger"
 )
 
 // newModelLogger returns a buffered database logger that uses the name

@@ -6,7 +6,7 @@ package agentbootstrap_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 func Test(t *stdtesting.T) {

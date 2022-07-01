@@ -25,12 +25,12 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/resources"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasoperatorprovisioner"
+	"github.com/juju/juju/v2/agent"
+	apicaasprovisioner "github.com/juju/juju/v2/api/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/core/resources"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/caasoperatorprovisioner"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})

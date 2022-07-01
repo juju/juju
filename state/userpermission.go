@@ -11,7 +11,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/v2/core/permission"
 )
 
 // permission represents the permission a user has

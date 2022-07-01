@@ -10,11 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service"
-	svctesting "github.com/juju/juju/service/common/testing"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
+	"github.com/juju/juju/v2/service"
+	svctesting "github.com/juju/juju/v2/service/common/testing"
+	"github.com/juju/juju/v2/service/systemd"
+	"github.com/juju/juju/v2/service/upstart"
+	"github.com/juju/juju/v2/service/windows"
 )
 
 type serviceSuite struct {

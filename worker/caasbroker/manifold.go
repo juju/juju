@@ -8,13 +8,13 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/agent/caasagent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/caasadmission"
-	"github.com/juju/juju/worker/caasrbacmapper"
+	"github.com/juju/juju/v2/api/agent/caasagent"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/worker/caasadmission"
+	"github.com/juju/juju/v2/worker/caasrbacmapper"
 )
 
 // Logger represents the methods used by the worker to log details.

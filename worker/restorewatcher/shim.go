@@ -3,7 +3,7 @@
 
 package restorewatcher
 
-import "github.com/juju/juju/state"
+import "github.com/juju/juju/v2/state"
 
 type RestoreInfoWatcherShim struct {
 	*state.State

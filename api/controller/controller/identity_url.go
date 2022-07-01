@@ -5,7 +5,7 @@ package controller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // IdentityProviderURL returns the URL of the configured external identity

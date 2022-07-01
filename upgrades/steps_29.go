@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/service/common"
 )
 
 var serviceDiscovery = service.DiscoverService

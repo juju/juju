@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/state"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	"github.com/juju/juju/v2/cmd/juju/action"
+	"github.com/juju/juju/v2/state"
 )
 
 type ListSuite struct {

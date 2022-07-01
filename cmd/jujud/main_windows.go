@@ -12,9 +12,9 @@ import (
 	"github.com/juju/featureflag"
 	"golang.org/x/sys/windows/svc"
 
-	"github.com/juju/juju/cmd/service"
-	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/v2/cmd/service"
+	"github.com/juju/juju/v2/juju/names"
+	"github.com/juju/juju/v2/juju/osenv"
 )
 
 func init() {

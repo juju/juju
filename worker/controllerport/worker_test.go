@@ -16,10 +16,10 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
-	pscontroller "github.com/juju/juju/pubsub/controller"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/controllerport"
+	"github.com/juju/juju/v2/controller"
+	pscontroller "github.com/juju/juju/v2/pubsub/controller"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/controllerport"
 )
 
 type WorkerSuite struct {

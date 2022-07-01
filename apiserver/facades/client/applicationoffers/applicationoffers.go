@@ -12,14 +12,14 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/txn/v2"
 
-	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/v2/apiserver/common/crossmodel"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	jujucrossmodel "github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.applicationoffers")

@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/storage"
 )
 
 // RestHTTPHandler creates is a http.Handler which serves ReST requests.

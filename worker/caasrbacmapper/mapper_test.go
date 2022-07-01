@@ -18,10 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasrbacmapper"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/mocks"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/caasrbacmapper"
 )
 
 type MapperSuite struct {

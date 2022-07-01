@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/v2/api/base/testing"
 )
 
 // PatchFacadeCall patches the State's facade such that

@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	model "github.com/juju/juju/core/model"
+	model "github.com/juju/juju/v2/core/model"
 )
 
 // MockDiffCommandAPI is a mock of DiffCommandAPI interface.

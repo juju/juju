@@ -11,10 +11,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/voyeur"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/containeragent/utils"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/cmd/containeragent/utils"
+	"github.com/juju/juju/v2/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/v2/worker/logsender"
 )
 
 type (

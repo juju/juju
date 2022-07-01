@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/retry.v1"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v2/core/lease"
 )
 
 const (

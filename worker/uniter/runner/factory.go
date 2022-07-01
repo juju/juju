@@ -8,12 +8,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v2/api/agent/uniter"
+	"github.com/juju/juju/v2/core/actions"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/common/charmrunner"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/runner/context"
 )
 
 // Factory represents a long-lived object that can create runners

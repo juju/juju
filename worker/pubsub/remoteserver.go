@@ -16,9 +16,9 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/pubsub/forwarder"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/pubsub/forwarder"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // RemoteServer represents the public interface of the worker

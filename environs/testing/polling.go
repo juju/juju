@@ -11,8 +11,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/provider/common"
 )
 
 // impatientAttempt is an extremely short polling time suitable for tests.

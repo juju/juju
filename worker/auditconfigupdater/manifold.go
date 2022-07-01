@@ -8,10 +8,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	jujuagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/worker/common"
-	workerstate "github.com/juju/juju/worker/state"
+	jujuagent "github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/core/auditlog"
+	"github.com/juju/juju/v2/worker/common"
+	workerstate "github.com/juju/juju/v2/worker/state"
 )
 
 // ManifoldConfig holds the information needed to run an

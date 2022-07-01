@@ -4,10 +4,10 @@
 package credentialmanager
 
 import (
-	"github.com/juju/juju/apiserver/common/credentialcommon"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/apiserver/common/credentialcommon"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // CredentialManager defines the methods on credentialmanager API endpoint.

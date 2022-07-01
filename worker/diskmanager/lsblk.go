@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/storage"
 )
 
 var pairsRE = regexp.MustCompile(`([A-Z:]+)=(?:"(.*?)")`)

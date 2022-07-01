@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreos "github.com/juju/juju/core/os"
+	coreos "github.com/juju/juju/v2/core/os"
 )
 
 const distroInfoContents = `version,codename,series,created,release,eol,eol-server

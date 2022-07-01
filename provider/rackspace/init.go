@@ -7,8 +7,8 @@ import (
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/provider/openstack"
 )
 
 const (

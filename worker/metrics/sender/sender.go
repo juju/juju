@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/agent/metricsadder"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/v2/api/agent/metricsadder"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/metrics/spool"
 )
 
 const (

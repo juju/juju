@@ -4,8 +4,8 @@
 package caasenvironupgrader
 
 import (
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/environupgrader"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/environupgrader"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {

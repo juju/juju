@@ -6,8 +6,8 @@ package cache_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/v2/core/cache"
+	"github.com/juju/juju/v2/core/lxdprofile"
 )
 
 type CharmSuite struct {

@@ -15,7 +15,7 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/juju/juju/caas/specs"
+	"github.com/juju/juju/v2/caas/specs"
 )
 
 type fieldSelector struct {

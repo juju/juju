@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/state"
+	stateerrors "github.com/juju/juju/v2/state/errors"
 )
 
 // modelUserEntityFinder implements state.EntityFinder by returning

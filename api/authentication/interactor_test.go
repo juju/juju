@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api/authentication"
+	"github.com/juju/juju/v2/api/authentication"
 )
 
 type InteractorSuite struct {

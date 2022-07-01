@@ -4,10 +4,10 @@
 package upgradesteps
 
 import (
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/state"
 )
 
 type UpgradeStepsState interface {

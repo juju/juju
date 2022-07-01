@@ -6,10 +6,10 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/devices"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/storage"
 )
 
 // ApplicationsDeploy holds the parameters for deploying one or more applications.

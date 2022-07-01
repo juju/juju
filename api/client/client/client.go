@@ -18,14 +18,14 @@ import (
 	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/common"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/tools"
 )
 
 // Client represents the client-accessible part of the state.

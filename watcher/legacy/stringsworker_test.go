@@ -12,10 +12,10 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher/legacy"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/watcher"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/watcher/legacy"
 )
 
 type stringsWorkerSuite struct {

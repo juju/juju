@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v2/core/life"
 )
 
 type ctrData struct {

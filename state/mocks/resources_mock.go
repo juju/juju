@@ -11,8 +11,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/charm/v8/resource"
-	resources "github.com/juju/juju/core/resources"
-	state "github.com/juju/juju/state"
+	resources "github.com/juju/juju/v2/core/resources"
+	state "github.com/juju/juju/v2/state"
 	txn "github.com/juju/mgo/v2/txn"
 )
 

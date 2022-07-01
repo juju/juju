@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
 )
 
 var _ = gc.Suite(&secretsSuite{})

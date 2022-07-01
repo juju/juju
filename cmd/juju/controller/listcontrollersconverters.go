@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/jujuclient"
+	k8sconstants "github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 // ControllerSet contains the set of controllers known to the client,

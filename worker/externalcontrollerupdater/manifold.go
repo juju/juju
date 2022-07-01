@@ -9,8 +9,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/externalcontrollerupdater"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/externalcontrollerupdater"
 )
 
 // ManifoldConfig describes the resources used by an

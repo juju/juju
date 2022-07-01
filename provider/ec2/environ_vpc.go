@@ -14,9 +14,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
 )
 
 const (

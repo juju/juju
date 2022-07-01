@@ -12,17 +12,17 @@ import (
 	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 
-	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/caas/specs"
+	"github.com/juju/juju/v2/core/config"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/devices"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/resources"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/docker"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/storage"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker

@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/subnet"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cmd/juju/subnet"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type SubnetCommandSuite struct {

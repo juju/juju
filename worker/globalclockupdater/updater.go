@@ -9,9 +9,9 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/globalclock"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/v2/core/globalclock"
+	"github.com/juju/juju/v2/core/lease"
+	"github.com/juju/juju/v2/core/raftlease"
 )
 
 const (

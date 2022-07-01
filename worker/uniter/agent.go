@@ -4,8 +4,8 @@
 package uniter
 
 import (
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/status"
 )
 
 // setAgentStatus sets the unit's status if it has changed since last time this method was called.

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	corelogger "github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/v2/core/logger"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will

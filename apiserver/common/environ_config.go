@@ -4,12 +4,12 @@
 package common
 
 import (
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/stateenvirons"
 )
 
 // EnvironConfigGetterFuncs holds implements environs.EnvironConfigGetter

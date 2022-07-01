@@ -10,11 +10,11 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/operation"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/resolver"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

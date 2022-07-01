@@ -14,13 +14,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/testing"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 type suite struct {

@@ -6,10 +6,10 @@ package rackspace
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/instances"
 )
 
 var _ environs.InstanceTypesFetcher = (*environ)(nil)

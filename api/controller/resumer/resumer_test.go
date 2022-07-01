@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/resumer"
-	coretesting "github.com/juju/juju/testing"
+	apitesting "github.com/juju/juju/v2/api/base/testing"
+	"github.com/juju/juju/v2/api/controller/resumer"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type ResumerSuite struct {

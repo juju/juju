@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/devices"
+	"github.com/juju/juju/v2/storage"
 )
 
 type storageFlag struct {

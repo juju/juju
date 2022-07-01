@@ -13,10 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/informers"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	k8sannotations "github.com/juju/juju/v2/core/annotations"
+	"github.com/juju/juju/v2/core/watcher"
 )
 
 func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]string) error {

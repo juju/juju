@@ -6,7 +6,7 @@ package testing
 import (
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/state"
 )
 
 // SetAgentVersion sets the current agent version in the state's

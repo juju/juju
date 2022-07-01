@@ -6,7 +6,7 @@ package meterstatus
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/state"
 )
 
 // MeterStatusWrapper takes a MeterStatus and converts it into an 'api friendly' form where

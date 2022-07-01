@@ -4,7 +4,7 @@
 package jujuctesting
 
 import (
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/storage"
 	"github.com/juju/names/v4"
 )
 

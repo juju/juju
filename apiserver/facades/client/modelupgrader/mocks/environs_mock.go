@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	constraints "github.com/juju/juju/core/constraints"
-	environs "github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
-	storage "github.com/juju/juju/storage"
+	constraints "github.com/juju/juju/v2/core/constraints"
+	environs "github.com/juju/juju/v2/environs"
+	config "github.com/juju/juju/v2/environs/config"
+	context "github.com/juju/juju/v2/environs/context"
+	storage "github.com/juju/juju/v2/storage"
 )
 
 // MockBootstrapEnviron is a mock of BootstrapEnviron interface.

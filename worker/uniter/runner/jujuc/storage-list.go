@@ -9,7 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	jujucmd "github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/v2/cmd"
 )
 
 // StorageListCommand implements the storage-list command.

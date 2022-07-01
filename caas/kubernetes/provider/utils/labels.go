@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	core "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/constants"
 )
 
 var (

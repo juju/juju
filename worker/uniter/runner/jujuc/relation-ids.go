@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/core/life"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/core/life"
 )
 
 // RelationIdsCommand implements the relation-ids command.

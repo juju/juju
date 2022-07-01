@@ -6,8 +6,8 @@ package vsphere
 import (
 	"golang.org/x/net/context"
 
-	"github.com/juju/juju/core/network"
-	callcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v2/core/network"
+	callcontext "github.com/juju/juju/v2/environs/context"
 )
 
 // sessionEnviron implements common.ZonedEnviron. An instance of

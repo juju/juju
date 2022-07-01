@@ -10,14 +10,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/testing"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/poolmanager"
+	"github.com/juju/juju/v2/storage/provider"
+	dummystorage "github.com/juju/juju/v2/storage/provider/dummy"
 )
 
 type VolumeStateSuite struct {

@@ -5,8 +5,8 @@ package oci
 
 import (
 	"github.com/juju/clock"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	"github.com/juju/juju/v2/provider/common"
 	"github.com/oracle/oci-go-sdk/v47/core"
 )
 

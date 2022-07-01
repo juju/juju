@@ -7,13 +7,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/plans"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/plans"
+	"github.com/juju/juju/v2/wrench"
 )
 
 // volumesChanged is called when the lifecycle states of the volumes

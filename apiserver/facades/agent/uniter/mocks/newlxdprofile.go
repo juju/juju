@@ -9,11 +9,11 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
-	instance "github.com/juju/juju/core/instance"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
-	config "github.com/juju/juju/environs/config"
-	state "github.com/juju/juju/state"
+	uniter "github.com/juju/juju/v2/apiserver/facades/agent/uniter"
+	instance "github.com/juju/juju/v2/core/instance"
+	lxdprofile "github.com/juju/juju/v2/core/lxdprofile"
+	config "github.com/juju/juju/v2/environs/config"
+	state "github.com/juju/juju/v2/state"
 	names "github.com/juju/names/v4"
 )
 

@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -26,7 +26,7 @@ var _ = gc.Suite(&importSuite{})
 
 func (*importSuite) TestImports(c *gc.C) {
 	found := set.NewStrings(
-		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/containeragent/initialize")...)
+		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/v2/cmd/containeragent/initialize")...)
 
 	expected := set.NewStrings(
 		"agent",

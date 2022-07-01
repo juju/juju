@@ -9,8 +9,8 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
-	"github.com/juju/juju/core/watcher"
+	caasoperatorapi "github.com/juju/juju/v2/api/agent/caasoperator"
+	"github.com/juju/juju/v2/core/watcher"
 )
 
 func newMockWatcher() *mockWatcher {

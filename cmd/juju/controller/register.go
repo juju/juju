@@ -27,16 +27,16 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/modelmanager"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/client/modelmanager"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var noModelsMessage = `

@@ -11,7 +11,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	base "github.com/juju/juju/api/base"
+	base "github.com/juju/juju/v2/api/base"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
 )

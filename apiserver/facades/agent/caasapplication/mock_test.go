@@ -11,14 +11,14 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
-	"github.com/juju/juju/caas"
-	_ "github.com/juju/juju/caas/kubernetes/provider"
-	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
-	jtesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/facades/agent/caasapplication"
+	"github.com/juju/juju/v2/caas"
+	_ "github.com/juju/juju/v2/caas/kubernetes/provider"
+	jujucontroller "github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/state"
+	jtesting "github.com/juju/juju/v2/testing"
 )
 
 type mockState struct {

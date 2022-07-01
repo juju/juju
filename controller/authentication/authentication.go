@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/api"
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
+	"github.com/juju/juju/v2/api"
+	apiprovisioner "github.com/juju/juju/v2/api/agent/provisioner"
 )
 
 // TaggedPasswordChanger defines an interface for a entity with a

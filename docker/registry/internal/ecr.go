@@ -18,8 +18,8 @@ import (
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/docker"
+	"github.com/juju/juju/v2/tools"
 )
 
 // The ECR auth token expires after 12 hours.

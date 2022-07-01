@@ -4,8 +4,8 @@
 package maas
 
 import (
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	"github.com/juju/juju/v2/environs"
 )
 
 func NewCloudinitConfig(env environs.Environ, hostname, series string) (cloudinit.CloudConfig, error) {

@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v8 "github.com/juju/charm/v8"
-	charm "github.com/juju/juju/api/common/charm"
+	charm "github.com/juju/juju/v2/api/common/charm"
 )
 
 // MockRefresherFactory is a mock of RefresherFactory interface.

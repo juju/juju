@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/meterstatus"
-	"github.com/juju/juju/worker/meterstatus/mocks"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/meterstatus"
+	"github.com/juju/juju/v2/worker/meterstatus/mocks"
 )
 
 type DiskBackedStateSuite struct {

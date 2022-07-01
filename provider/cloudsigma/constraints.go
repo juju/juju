@@ -8,8 +8,8 @@ import (
 
 	"github.com/altoros/gosigma"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/environs/imagemetadata"
 )
 
 type sigmaConstraints struct {

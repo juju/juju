@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cloudconfig"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit/cloudinittest"
+	"github.com/juju/juju/v2/cloudconfig/providerinit/renderers"
+	"github.com/juju/juju/v2/testing"
 )
 
 type RenderersSuite struct {

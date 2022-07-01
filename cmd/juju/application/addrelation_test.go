@@ -12,12 +12,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/rpc/params"
-	jtesting "github.com/juju/juju/testing"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/cmd/juju/application"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v2/rpc/params"
+	jtesting "github.com/juju/juju/v2/testing"
 )
 
 type AddRelationSuite struct {

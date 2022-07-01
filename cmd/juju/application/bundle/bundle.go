@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	bundlechanges "github.com/juju/juju/core/bundle/changes"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	bundlechanges "github.com/juju/juju/v2/core/bundle/changes"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/devices"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
 )
 
 // This file contains functionality required by both the application

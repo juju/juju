@@ -14,8 +14,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/v2/core/settings"
+	"github.com/juju/juju/v2/mongo/utils"
 )
 
 // settingsDoc is the mongo document representation for

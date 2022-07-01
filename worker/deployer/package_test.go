@@ -15,9 +15,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent/tools"
-	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/agent/tools"
+	coretesting "github.com/juju/juju/v2/testing"
+	coretools "github.com/juju/juju/v2/tools"
 )
 
 func TestPackage(t *stdtesting.T) {

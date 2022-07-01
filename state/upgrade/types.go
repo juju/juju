@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v2/core/network"
 )
 
 var logger = loggo.GetLogger("juju.state.upgrade")

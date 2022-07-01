@@ -17,13 +17,13 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/upgradesteps"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/worker/common/reboot"
-	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api/agent/upgradesteps"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/worker/common/reboot"
+	"github.com/juju/juju/v2/worker/uniter/operation"
 )
 
 // stateStepsFor28 returns upgrade steps for Juju 2.8.0.

@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/agent"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/mongo"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v2/agent"
+	agenterrors "github.com/juju/juju/v2/cmd/jujud/agent/errors"
+	"github.com/juju/juju/v2/mongo"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 var (

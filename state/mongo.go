@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/mongo"
 	jujutxn "github.com/juju/txn/v2"
 )
 

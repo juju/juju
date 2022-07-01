@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/agent"
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v2/api/agent/agent"
+	"github.com/juju/juju/v2/core/lease"
 )
 
 // SingularSecretary implements Secretary to restrict claims to either

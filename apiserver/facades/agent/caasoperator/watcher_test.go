@@ -7,11 +7,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver/facades/agent/caasoperator"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 var _ = gc.Suite(&IDWatcherSuite{})

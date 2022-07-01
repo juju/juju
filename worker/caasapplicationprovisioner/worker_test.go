@@ -16,13 +16,13 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasapplicationprovisioner"
-	"github.com/juju/juju/worker/caasapplicationprovisioner/mocks"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/caasapplicationprovisioner"
+	"github.com/juju/juju/v2/worker/caasapplicationprovisioner/mocks"
 )
 
 var _ = gc.Suite(&CAASApplicationSuite{})

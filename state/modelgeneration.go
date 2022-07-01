@@ -18,9 +18,9 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/mongo/utils"
-	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/v2/core/settings"
+	"github.com/juju/juju/v2/mongo/utils"
+	stateerrors "github.com/juju/juju/v2/state/errors"
 )
 
 // itemChange is the state representation of a core settings ItemChange.

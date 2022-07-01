@@ -23,12 +23,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
-	corenames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/agent"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/jujud/agent/agentconf"
+	corenames "github.com/juju/juju/v2/juju/names"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/state"
 )
 
 // NewCommand returns a new Command instance which implements the

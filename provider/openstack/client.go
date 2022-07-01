@@ -16,8 +16,8 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 
-	corelogger "github.com/juju/juju/core/logger"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
 )
 
 // ClientOption to be passed into the transport construction to customize the

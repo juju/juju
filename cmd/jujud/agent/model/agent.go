@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
 )
 
 // WrapAgent wraps an agent.Agent (expected to be a machine agent, fwiw)

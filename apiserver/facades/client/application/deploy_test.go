@@ -13,17 +13,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/controller"
-	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver/facades/client/application"
+	"github.com/juju/juju/v2/controller"
+	coreconfig "github.com/juju/juju/v2/core/config"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testcharms"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each

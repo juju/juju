@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/v2/cmd/output"
 )
 
 func formatMetadataListTabular(writer io.Writer, value interface{}) error {

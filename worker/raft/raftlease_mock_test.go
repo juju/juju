@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	lease "github.com/juju/juju/core/lease"
-	raftlease "github.com/juju/juju/core/raftlease"
+	lease "github.com/juju/juju/v2/core/lease"
+	raftlease "github.com/juju/juju/v2/core/raftlease"
 )
 
 // MockNotifyTarget is a mock of NotifyTarget interface.

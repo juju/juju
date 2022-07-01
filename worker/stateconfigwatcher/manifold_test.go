@@ -16,10 +16,10 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/controller"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/stateconfigwatcher"
+	coreagent "github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/controller"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/stateconfigwatcher"
 )
 
 type ManifoldSuite struct {

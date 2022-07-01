@@ -6,20 +6,20 @@ package upgradesteps_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/controller"
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/controller"
+	jujutesting "github.com/juju/juju/v2/testing"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
-	"github.com/juju/juju/apiserver/facades/agent/upgradesteps/mocks"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	facademocks "github.com/juju/juju/v2/apiserver/facade/mocks"
+	"github.com/juju/juju/v2/apiserver/facades/agent/upgradesteps"
+	"github.com/juju/juju/v2/apiserver/facades/agent/upgradesteps/mocks"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 type upgradeStepsSuite struct {

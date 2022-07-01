@@ -9,8 +9,8 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/testing"
 )
 
 type MachineRemovalSuite struct {

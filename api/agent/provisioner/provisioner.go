@@ -8,16 +8,16 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/life"
-	corenetwork "github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/common"
+	apiwatcher "github.com/juju/juju/v2/api/watcher"
+	"github.com/juju/juju/v2/core/life"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	coreseries "github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/network"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/tools"
 )
 
 // State provides access to the Provisioner API facade.

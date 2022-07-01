@@ -7,7 +7,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/container"
+	"github.com/juju/juju/v2/core/container"
 )
 
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.

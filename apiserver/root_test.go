@@ -16,9 +16,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/testing"
 )
 
 type pingSuite struct {

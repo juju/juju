@@ -12,14 +12,14 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
-	jujuworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/rpc/params"
+	jujuworker "github.com/juju/juju/v2/worker"
+	"github.com/juju/juju/v2/worker/common"
+	"github.com/juju/juju/v2/worker/gate"
+	"github.com/juju/juju/v2/wrench"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

@@ -15,9 +15,9 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/juju/osenv"
 )
 
 // JujuModelsPath is the location where models information is

@@ -8,8 +8,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/core/watcher"
 )
 
 // logger is here to stop the desire of creating a package level logger.

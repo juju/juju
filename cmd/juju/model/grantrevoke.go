@@ -8,13 +8,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/client/applicationoffers"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/api/client/applicationoffers"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/block"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 var usageGrantSummary = `

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	admission "k8s.io/api/admissionregistration/v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pki"
-	"github.com/juju/juju/worker/caasrbacmapper"
-	"github.com/juju/juju/worker/muxhttpserver"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/apiserver/apiserverhttp"
+	"github.com/juju/juju/v2/pki"
+	"github.com/juju/juju/v2/worker/caasrbacmapper"
+	"github.com/juju/juju/v2/worker/muxhttpserver"
 )
 
 // K8sBroker describes a Kubernetes broker interface this worker needs to

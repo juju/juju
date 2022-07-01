@@ -6,7 +6,7 @@ package upgradevalidation
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/modelmanager/upgradevalidation StatePool,State,Model

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/charmrevisionupdater"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/charmrevisionupdater"
 )
 
 // ManifoldConfig describes how to create a worker that checks for updates

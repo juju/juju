@@ -4,9 +4,9 @@
 package common
 
 import (
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // ControllerConfigAPI provides common client-side API functions

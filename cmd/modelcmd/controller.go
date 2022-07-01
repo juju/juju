@@ -14,14 +14,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/usermanager"
-	"github.com/juju/juju/api/controller/controller"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/interact"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/client/modelmanager"
+	"github.com/juju/juju/v2/api/client/usermanager"
+	"github.com/juju/juju/v2/api/controller/controller"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/interact"
+	"github.com/juju/juju/v2/juju/osenv"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 var (

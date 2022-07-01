@@ -12,20 +12,20 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
+	jujuos "github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/juju/osenv"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/service/common"
+	"github.com/juju/juju/v2/service/systemd"
+	"github.com/juju/juju/v2/service/upstart"
+	"github.com/juju/juju/v2/service/windows"
 )
 
 var maybeSystemd = service.InitSystemSystemd

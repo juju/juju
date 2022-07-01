@@ -19,10 +19,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent/addons"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/juju/v2/agent/addons"
+	agenterrors "github.com/juju/juju/v2/cmd/jujud/agent/errors"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/introspection"
 )
 
 type introspectionSuite struct {

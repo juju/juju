@@ -12,10 +12,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/upgrades"
+	"github.com/juju/juju/v2/worker/gate"
 )
 
 // ManifoldConfig defines the configuration on which this manifold depends.

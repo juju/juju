@@ -12,13 +12,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	coremigration "github.com/juju/juju/v2/core/migration"
+	"github.com/juju/juju/v2/core/presence"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/migration"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/tools"
 )
 
 var (

@@ -6,9 +6,9 @@ package common
 import (
 	stdcontext "context"
 
-	"github.com/juju/juju/api/agent/credentialvalidator"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v2/api/agent/credentialvalidator"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/environs/context"
 )
 
 // CredentialAPI exposes functionality of the credential validator API facade to a worker.

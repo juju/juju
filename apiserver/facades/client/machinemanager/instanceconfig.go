@@ -9,16 +9,16 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller/authentication"
-	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/cloudconfig/instancecfg"
+	"github.com/juju/juju/v2/controller/authentication"
+	"github.com/juju/juju/v2/core/network"
+	coreseries "github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state/binarystorage"
+	"github.com/juju/juju/v2/state/stateenvirons"
 )
 
 type backend interface {

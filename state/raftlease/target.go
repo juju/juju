@@ -14,9 +14,9 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/core/lease"
+	"github.com/juju/juju/v2/core/raftlease"
+	"github.com/juju/juju/v2/mongo"
 )
 
 const (

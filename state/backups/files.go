@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/mongo"
 )
 
 // TODO(ericsnow) lp-1392876

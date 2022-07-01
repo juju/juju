@@ -15,9 +15,9 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/lease"
+	corelease "github.com/juju/juju/v2/core/lease"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/lease"
 )
 
 type leaseMap = map[corelease.Key]corelease.Info

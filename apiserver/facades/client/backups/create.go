@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v2"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state/backups"
 )
 
 var waitUntilReady = replicaset.WaitUntilReady

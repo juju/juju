@@ -11,14 +11,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/life"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/life"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	"github.com/juju/juju/v2/core/network/firewall"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/network"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var logger = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodel", corelogger.CMR)

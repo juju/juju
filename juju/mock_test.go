@@ -7,9 +7,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/testing"
 )
 
 type mockAPIState struct {

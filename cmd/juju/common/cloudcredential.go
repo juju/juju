@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // ErrMultipleDetectedCredentials is the error returned by

@@ -13,13 +13,13 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	caasmocks "github.com/juju/juju/caas/mocks"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasfirewallersidecar"
-	"github.com/juju/juju/worker/caasfirewallersidecar/mocks"
+	"github.com/juju/juju/v2/caas"
+	caasmocks "github.com/juju/juju/v2/caas/mocks"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
+	"github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/caasfirewallersidecar"
+	"github.com/juju/juju/v2/worker/caasfirewallersidecar/mocks"
 )
 
 type appWorkerSuite struct {

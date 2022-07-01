@@ -6,8 +6,8 @@ package client
 import (
 	"context"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
 )
 
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/jujud/agent/agentconf"
+	agenterrors "github.com/juju/juju/v2/cmd/jujud/agent/errors"
+	"github.com/juju/juju/v2/worker/apicaller"
 )
 
 // ConnectFunc connects to the API as the given agent.

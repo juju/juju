@@ -20,7 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v2/version"
 )
 
 var logger = loggo.GetLogger("juju.charmstore")

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	config "github.com/juju/juju/environs/config"
+	config "github.com/juju/juju/v2/environs/config"
 )
 
 // MockStateModel is a mock of StateModel interface.

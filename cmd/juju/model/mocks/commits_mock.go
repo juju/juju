@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	model "github.com/juju/juju/core/model"
+	model "github.com/juju/juju/v2/core/model"
 )
 
 // MockCommitsCommandAPI is a mock of CommitsCommandAPI interface.

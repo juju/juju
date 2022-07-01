@@ -16,10 +16,10 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/core/migration"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/mongo"
 )
 
 // This file contains functionality for managing the state documents

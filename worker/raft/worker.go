@@ -19,10 +19,10 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/worker/raft/raftutil"
+	"github.com/juju/juju/v2/core/lease"
+	"github.com/juju/juju/v2/core/raft/queue"
+	"github.com/juju/juju/v2/core/raftlease"
+	"github.com/juju/juju/v2/worker/raft/raftutil"
 )
 
 const (

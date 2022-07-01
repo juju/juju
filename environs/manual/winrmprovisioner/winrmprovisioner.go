@@ -20,14 +20,14 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/winrm"
 
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/cloudconfig"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	"github.com/juju/juju/v2/cloudconfig/instancecfg"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/environs/manual"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // detectJujudProcess powershell script to determine

@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	caas "github.com/juju/juju/caas"
-	watcher "github.com/juju/juju/core/watcher"
+	caas "github.com/juju/juju/v2/caas"
+	watcher "github.com/juju/juju/v2/core/watcher"
 	version "github.com/juju/version/v2"
 )
 

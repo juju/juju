@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/v3/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/runcommands"
+	"github.com/juju/juju/v2/juju/sockets"
+	"github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/uniter"
+	"github.com/juju/juju/v2/worker/uniter/runcommands"
 )
 
 type ListenerSuite struct {

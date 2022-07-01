@@ -10,9 +10,9 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/controller/caasmodeloperator"
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api/controller/caasmodeloperator"
+	"github.com/juju/juju/v2/caas"
 )
 
 type ModelOperatorAPI interface {

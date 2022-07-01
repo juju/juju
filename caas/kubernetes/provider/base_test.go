@@ -40,16 +40,16 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
-	"github.com/juju/juju/cloud"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/mocks"
+	k8sspecs "github.com/juju/juju/v2/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	k8swatcher "github.com/juju/juju/v2/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/v2/cloud"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type BaseSuite struct {

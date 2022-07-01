@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/storage"
 )
 
 type disksFlag struct {

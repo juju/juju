@@ -9,7 +9,7 @@ import (
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/state"
 )
 
 // MockSender implements the metric sender interface.

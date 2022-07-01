@@ -9,9 +9,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/facades/agent/metricsender"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/state"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {

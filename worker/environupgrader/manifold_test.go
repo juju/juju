@@ -12,11 +12,11 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/environupgrader"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/worker/common"
+	"github.com/juju/juju/v2/worker/environupgrader"
+	"github.com/juju/juju/v2/worker/gate"
 )
 
 type ManifoldSuite struct {

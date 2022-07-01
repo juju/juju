@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/jujuclient"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/cmd/juju/controller"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 type enableDestroyControllerSuite struct {

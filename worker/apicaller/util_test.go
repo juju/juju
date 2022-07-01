@@ -13,13 +13,13 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	apiagent "github.com/juju/juju/v2/api/agent/agent"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/rpc/params"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/apicaller"
 )
 
 var errNotProvisioned = &params.Error{Code: params.CodeNotProvisioned}

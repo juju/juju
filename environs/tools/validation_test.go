@@ -10,10 +10,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/environs/filestorage"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	sstesting "github.com/juju/juju/v2/environs/simplestreams/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 type ValidateSuite struct {

@@ -6,9 +6,9 @@ package highavailability
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Client provides access to the high availability service, used to manage controllers.

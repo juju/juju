@@ -5,7 +5,7 @@ package status_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/status"
 )
 
 type UnitCloudStatusSuite struct{}

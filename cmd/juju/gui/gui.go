@@ -20,12 +20,12 @@ import (
 	"github.com/juju/webbrowser"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller/controller"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/proxy"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/controller/controller"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/proxy"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NewGUICommand creates and returns a new dashboard command.

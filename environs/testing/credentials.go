@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/environs"
 )
 
 // AssertProviderAuthTypes asserts that the given provider has credential

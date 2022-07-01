@@ -21,11 +21,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/juju/romulus/sla"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/api"
+	rcmd "github.com/juju/juju/v2/cmd/juju/romulus"
+	"github.com/juju/juju/v2/cmd/juju/romulus/sla"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 func TestPackage(t *stdtesting.T) {

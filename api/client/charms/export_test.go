@@ -4,8 +4,8 @@
 package charms
 
 import (
-	"github.com/juju/juju/api/base"
-	commoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/v2/api/base"
+	commoncharms "github.com/juju/juju/v2/api/common/charms"
 )
 
 var HasHooksOrDispatch = &hasHooksOrDispatch

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/core/relation"
 )
 
 // formatListSummary returns a tabular summary of remote application offers or

@@ -4,8 +4,8 @@
 package manual
 
 import (
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/environs"
 )
 
 type environProviderCredentials struct{}

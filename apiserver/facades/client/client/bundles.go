@@ -6,8 +6,8 @@ package client
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/apiserver/facades/client/bundle"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // GetBundleChanges returns the list of changes required to deploy the given

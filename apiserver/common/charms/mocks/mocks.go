@@ -9,8 +9,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	charms "github.com/juju/juju/apiserver/common/charms"
-	state "github.com/juju/juju/state"
+	charms "github.com/juju/juju/v2/apiserver/common/charms"
+	state "github.com/juju/juju/v2/state"
 	names "github.com/juju/names/v4"
 )
 

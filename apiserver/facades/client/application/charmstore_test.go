@@ -12,12 +12,12 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/facades/client/application/mocks"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/v2/apiserver/facades/client/application"
+	"github.com/juju/juju/v2/apiserver/facades/client/application/mocks"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/storage"
+	"github.com/juju/juju/v2/testcharms"
 )
 
 type CharmStoreSuite struct {

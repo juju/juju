@@ -16,16 +16,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	apicontroller "github.com/juju/juju/api/controller/controller"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/cmdtest"
-	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/environs"
-	_ "github.com/juju/juju/provider/dummy"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
+	apicontroller "github.com/juju/juju/v2/api/controller/controller"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/cmd/cmdtest"
+	"github.com/juju/juju/v2/cmd/juju/controller"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/environs"
+	_ "github.com/juju/juju/v2/provider/dummy"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type KillSuite struct {

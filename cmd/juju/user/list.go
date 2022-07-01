@@ -14,13 +14,13 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/usermanager"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/rpc/params"
+	apiclient "github.com/juju/juju/v2/api/client/client"
+	"github.com/juju/juju/v2/api/client/usermanager"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var usageListUsersSummary = `

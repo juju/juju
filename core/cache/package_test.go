@@ -15,7 +15,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -181,7 +181,7 @@ type ImportSuite struct{}
 var _ = gc.Suite(&ImportSuite{})
 
 func (*ImportSuite) TestImports(c *gc.C) {
-	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/cache")
+	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/v2/core/cache")
 
 	// This package only brings in other core packages.
 	c.Assert(found, jc.SameContents, []string{

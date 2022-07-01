@@ -11,9 +11,9 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	message "github.com/juju/juju/pubsub/agent"
-	"github.com/juju/juju/worker/caasunitsmanager"
-	"github.com/juju/juju/worker/caasunitsmanager/mocks"
+	message "github.com/juju/juju/v2/pubsub/agent"
+	"github.com/juju/juju/v2/worker/caasunitsmanager"
+	"github.com/juju/juju/v2/worker/caasunitsmanager/mocks"
 )
 
 var _ = gc.Suite(&workerSuite{})

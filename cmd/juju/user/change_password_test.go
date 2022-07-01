@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/cmd/juju/user"
+	"github.com/juju/juju/v2/juju"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 type ChangePasswordCommandSuite struct {

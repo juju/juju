@@ -15,9 +15,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	"github.com/juju/juju/v2/testing"
 )
 
 var PrivateKeyPassphrase = "12345"

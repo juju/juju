@@ -19,13 +19,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
-	raftleasestore "github.com/juju/juju/state/raftlease"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/raft/raftforwarder"
+	"github.com/juju/juju/v2/core/raftlease"
+	"github.com/juju/juju/v2/state"
+	raftleasestore "github.com/juju/juju/v2/state/raftlease"
+	statetesting "github.com/juju/juju/v2/state/testing"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/common"
+	"github.com/juju/juju/v2/worker/raft/raftforwarder"
 )
 
 type manifoldSuite struct {

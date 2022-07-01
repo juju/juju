@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v3 "github.com/juju/description/v3"
-	firewall "github.com/juju/juju/core/network/firewall"
+	firewall "github.com/juju/juju/v2/core/network/firewall"
 )
 
 // MockMigrationFirewallRule is a mock of MigrationFirewallRule interface.

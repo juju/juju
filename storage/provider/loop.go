@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/storage"
 )
 
 const (

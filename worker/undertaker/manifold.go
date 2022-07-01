@@ -9,10 +9,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/environs"
+	envcontext "github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/worker/common"
 )
 
 // ManifoldConfig holds the names of the resources used by, and the

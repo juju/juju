@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/testcharms"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	"github.com/juju/juju/v2/testcharms"
 )
 
 type charmPathSuite struct {

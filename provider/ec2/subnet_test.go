@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/v2/provider/ec2"
 )
 
 type subnetMatcherSuite struct{}

@@ -20,12 +20,12 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/cmd/juju/action"
+	"github.com/juju/juju/v2/core/actions"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/testing"
 )
 
 var (

@@ -6,9 +6,9 @@ package backups_test
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/facades/client/backups"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facades/client/backups"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/state"
 )
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be

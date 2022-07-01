@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/v2/core/permission"
 )
 
 type MigrationImportTasksSuite struct{}

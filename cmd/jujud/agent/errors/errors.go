@@ -10,8 +10,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent/tools"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v2/agent/tools"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 // Logger represents the logging methods used by this package.

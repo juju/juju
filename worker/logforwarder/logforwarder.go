@@ -11,9 +11,9 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/logfwd"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // logger is here to stop the desire of creating a package level logger.

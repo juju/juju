@@ -15,12 +15,12 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/docker/registry/image"
-	"github.com/juju/juju/docker/registry/internal"
-	"github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/docker"
+	"github.com/juju/juju/v2/docker/registry"
+	"github.com/juju/juju/v2/docker/registry/image"
+	"github.com/juju/juju/v2/docker/registry/internal"
+	"github.com/juju/juju/v2/docker/registry/mocks"
+	"github.com/juju/juju/v2/tools"
 )
 
 type quayContainerRegistrySuite struct {

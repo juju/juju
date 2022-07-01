@@ -9,10 +9,10 @@ import (
 
 	httpbakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	gomock "github.com/golang/mock/gomock"
-	modelcmd "github.com/juju/juju/cmd/modelcmd"
-	model "github.com/juju/juju/core/model"
-	jujuclient "github.com/juju/juju/jujuclient"
-	params "github.com/juju/juju/rpc/params"
+	modelcmd "github.com/juju/juju/v2/cmd/modelcmd"
+	model "github.com/juju/juju/v2/core/model"
+	jujuclient "github.com/juju/juju/v2/jujuclient"
+	params "github.com/juju/juju/v2/rpc/params"
 )
 
 // MockModelCommand is a mock of ModelCommand interface.

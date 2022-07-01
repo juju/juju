@@ -7,7 +7,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 var NewAPIContext = newAPIContext

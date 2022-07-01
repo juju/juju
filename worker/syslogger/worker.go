@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	corelogger "github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/v2/core/logger"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 )

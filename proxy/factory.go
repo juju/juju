@@ -6,7 +6,7 @@ package proxy
 import (
 	"github.com/juju/errors"
 
-	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
+	k8sproxy "github.com/juju/juju/v2/caas/kubernetes/provider/proxy"
 )
 
 // Factory provides a mechanism for building various type of proxy based on

@@ -25,9 +25,9 @@ import (
 
 	"github.com/juju/blobstore/v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/state"
 )
 
 var logger = loggo.GetLogger("juju.blobstorecleanup")

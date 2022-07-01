@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/provider/azure/internal/errorutils"
+	"github.com/juju/juju/v2/provider/azure/internal/errorutils"
 )
 
 const authenticateHeaderKey = "WWW-Authenticate"

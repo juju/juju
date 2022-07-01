@@ -7,9 +7,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/testing"
 )
 
 type mockConfig struct {

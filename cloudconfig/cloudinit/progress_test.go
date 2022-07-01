@@ -6,7 +6,7 @@ package cloudinit_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
 )
 
 type progressSuite struct{}

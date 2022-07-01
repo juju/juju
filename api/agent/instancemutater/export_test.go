@@ -4,8 +4,8 @@
 package instancemutater
 
 import (
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/core/life"
 	"github.com/juju/names/v4"
 )
 

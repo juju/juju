@@ -16,9 +16,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/state/watcher"
+	"github.com/juju/juju/v2/testing"
 )
 
 type TxnWatcherSuite struct {

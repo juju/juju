@@ -19,7 +19,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/v2/juju/sockets"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")

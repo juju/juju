@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/state"
 )
 
 type DevicesStateSuiteBase struct {

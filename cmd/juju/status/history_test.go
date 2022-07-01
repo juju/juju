@@ -15,8 +15,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	statuscmd "github.com/juju/juju/cmd/juju/status"
-	"github.com/juju/juju/core/status"
+	statuscmd "github.com/juju/juju/v2/cmd/juju/status"
+	"github.com/juju/juju/v2/core/status"
 )
 
 type StatusHistorySuite struct {

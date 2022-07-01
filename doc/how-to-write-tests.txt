@@ -34,7 +34,7 @@ setting up tests for new packages
 ---------------------------------
 
 Lets say we are creating a new provider for "magic" cloud, and we have a package
-called "magic" that lives at "github.com/juju/juju/provider/magic".  The
+called "magic" that lives at "github.com/juju/juju/v2/provider/magic".  The
 general approach for testing in juju is to have the tests in a separate package.
 Continuing with this example the tests would be in a package called "magic_test".
 
@@ -70,7 +70,7 @@ package magic_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -111,7 +111,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 var (

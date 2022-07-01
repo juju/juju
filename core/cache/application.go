@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/pubsub/v2"
 
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/status"
 )
 
 const (

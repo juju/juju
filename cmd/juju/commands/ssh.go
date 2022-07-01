@@ -15,14 +15,14 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/api"
-	apiclient "github.com/juju/juju/api/client/client"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	jujussh "github.com/juju/juju/network/ssh"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api"
+	apiclient "github.com/juju/juju/v2/api/client/client"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/jujuclient"
+	jujussh "github.com/juju/juju/v2/network/ssh"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var usageSSHSummary = `

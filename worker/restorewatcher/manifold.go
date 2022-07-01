@@ -10,8 +10,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/state"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/v2/state"
+	workerstate "github.com/juju/juju/v2/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run a restorewatcher

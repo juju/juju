@@ -8,9 +8,9 @@ import (
 	"github.com/juju/description/v3"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facades/client/bundle"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/state"
 )
 
 type mockCharm struct {

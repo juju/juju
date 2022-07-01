@@ -10,9 +10,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 // Storage holds the values for the hook context.

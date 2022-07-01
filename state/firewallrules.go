@@ -11,7 +11,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/v2/core/network/firewall"
 )
 
 // FirewallRule instances describe the ingress networks

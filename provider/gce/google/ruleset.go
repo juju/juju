@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	corefirewall "github.com/juju/juju/core/network/firewall"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	corefirewall "github.com/juju/juju/v2/core/network/firewall"
 )
 
 // ruleSet is used to manipulate port ranges for a collection of

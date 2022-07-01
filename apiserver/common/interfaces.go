@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/container"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/state"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.

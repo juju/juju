@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
-	environscontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/status"
+	environscontext "github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/wrench"
 )
 
 // createVolumes creates volumes with the specified parameters.

@@ -11,12 +11,12 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v8 "github.com/juju/charm/v8"
-	charmhub "github.com/juju/juju/charmhub"
-	transport "github.com/juju/juju/charmhub/transport"
-	instance "github.com/juju/juju/core/instance"
-	model "github.com/juju/juju/core/model"
-	status "github.com/juju/juju/core/status"
-	state "github.com/juju/juju/state"
+	charmhub "github.com/juju/juju/v2/charmhub"
+	transport "github.com/juju/juju/v2/charmhub/transport"
+	instance "github.com/juju/juju/v2/core/instance"
+	model "github.com/juju/juju/v2/core/model"
+	status "github.com/juju/juju/v2/core/status"
+	state "github.com/juju/juju/v2/state"
 	v4 "github.com/juju/names/v4"
 )
 

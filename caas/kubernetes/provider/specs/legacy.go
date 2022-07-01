@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
-	"github.com/juju/juju/caas/specs"
+	"github.com/juju/juju/v2/caas/specs"
 )
 
 type k8sContainerLegacy struct {

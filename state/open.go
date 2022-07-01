@@ -14,8 +14,8 @@ import (
 	"github.com/juju/txn/v2"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/feature"
 )
 
 // Register the state tracker as a new profile.

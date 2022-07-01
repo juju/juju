@@ -17,10 +17,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/feature"
 )
 
 func NewListCommand() cmd.Command {

@@ -6,7 +6,7 @@ package kvm
 import (
 	"strings"
 
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/v2/environs/instances"
 )
 
 // This file exports internal package implementations so that tests

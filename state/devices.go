@@ -9,7 +9,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 type DeviceType string

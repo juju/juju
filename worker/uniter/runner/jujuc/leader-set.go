@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/keyvalues"
 
-	jujucmd "github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/v2/cmd"
 )
 
 // leaderSetCommand implements the leader-set command.

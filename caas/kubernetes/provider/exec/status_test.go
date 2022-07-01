@@ -13,7 +13,7 @@ import (
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/exec"
 )
 
 type statusSuite struct {

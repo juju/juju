@@ -14,14 +14,14 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/applicationoffers"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/client/application"
+	"github.com/juju/juju/v2/api/client/applicationoffers"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/block"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 const addRelationDoc = `

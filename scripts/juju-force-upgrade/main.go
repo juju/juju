@@ -15,10 +15,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
-	jversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/state"
+	jversion "github.com/juju/juju/v2/version"
 )
 
 var logger = loggo.GetLogger("juju.forceupgrade")

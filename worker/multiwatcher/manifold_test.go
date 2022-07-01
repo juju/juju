@@ -15,9 +15,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/multiwatcher"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/worker/multiwatcher"
+	workerstate "github.com/juju/juju/v2/worker/state"
 )
 
 type ManifoldSuite struct {

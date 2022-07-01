@@ -6,10 +6,10 @@ package gce
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/tags"
+	"github.com/juju/juju/v2/provider/gce/google"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.

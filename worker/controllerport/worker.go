@@ -10,8 +10,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/pubsub/controller"
 )
 
 // Config is the configuration required for running an API server worker.

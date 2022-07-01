@@ -6,7 +6,7 @@ package common
 import (
 	"os"
 
-	"github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/v2/environs/gui"
 )
 
 const guiBaseURLEnvVar = "JUJU_GUI_SIMPLESTREAMS_URL"

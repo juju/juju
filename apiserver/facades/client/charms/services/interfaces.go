@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/charm/v8"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/state"
 )
 
 // StateBackend describes an API for accessing/mutating information in state.

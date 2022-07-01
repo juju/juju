@@ -15,8 +15,8 @@ import (
 	"github.com/juju/idmclient/v2/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
 
-	"github.com/juju/juju/api/authentication"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/api/authentication"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 // apiContext holds the context required for making connections to

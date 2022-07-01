@@ -9,10 +9,10 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/charm/v8"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")

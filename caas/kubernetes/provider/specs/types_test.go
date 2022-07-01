@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	k8sspces "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/specs/mocks"
-	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/testing"
+	k8sspces "github.com/juju/juju/v2/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/specs/mocks"
+	"github.com/juju/juju/v2/caas/specs"
+	"github.com/juju/juju/v2/testing"
 )
 
 type typesSuite struct {

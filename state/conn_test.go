@@ -10,13 +10,13 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/state"
+	statetesting "github.com/juju/juju/v2/state/testing"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/provider"
+	dummystorage "github.com/juju/juju/v2/storage/provider/dummy"
+	"github.com/juju/juju/v2/testing"
 )
 
 // ConnSuite provides the infrastructure for all other

@@ -12,9 +12,9 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/http"
-	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/http"
+	"github.com/juju/juju/v2/downloader"
 )
 
 // NewCharmDownloader returns a new charm downloader that wraps the

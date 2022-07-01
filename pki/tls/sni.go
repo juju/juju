@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v2/pki"
 )
 
 type Logger interface {

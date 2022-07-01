@@ -15,8 +15,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/globalclock"
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v2/core/globalclock"
+	"github.com/juju/juju/v2/core/lease"
 )
 
 const (

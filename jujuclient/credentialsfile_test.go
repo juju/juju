@@ -11,10 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/juju/osenv"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/testing"
 )
 
 type CredentialsFileSuite struct {

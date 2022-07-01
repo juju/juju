@@ -16,8 +16,8 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/testing"
 )
 
 type format_2_0Suite struct {

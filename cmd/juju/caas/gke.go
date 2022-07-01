@@ -12,9 +12,9 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/cmd/juju/interact"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/v2/cmd/juju/interact"
 )
 
 type gke struct {

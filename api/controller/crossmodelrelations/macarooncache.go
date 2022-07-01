@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/v2/charmstore"
 )
 
 // MacaroonCache contains macaroons which are removed at a specified interval.

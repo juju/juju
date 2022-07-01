@@ -11,12 +11,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/modelconfig"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/constraints"
+	apiclient "github.com/juju/juju/v2/api/client/client"
+	"github.com/juju/juju/v2/api/client/modelconfig"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/block"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/constraints"
 )
 
 // getConstraintsDoc is multi-line since we need to use ` to denote

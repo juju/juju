@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	network "github.com/juju/juju/core/network"
+	network "github.com/juju/juju/v2/core/network"
 )
 
 // MockNetworkingConfig is a mock of NetworkingConfig interface.

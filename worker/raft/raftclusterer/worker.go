@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/v2/pubsub/apiserver"
 )
 
 var (

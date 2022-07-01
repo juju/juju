@@ -17,14 +17,14 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	message "github.com/juju/juju/pubsub/agent"
-	jt "github.com/juju/juju/testing"
-	jv "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/v2/cmd/jujud/agent/engine"
+	message "github.com/juju/juju/v2/pubsub/agent"
+	jt "github.com/juju/juju/v2/testing"
+	jv "github.com/juju/juju/v2/version"
+	jworker "github.com/juju/juju/v2/worker"
+	"github.com/juju/juju/v2/worker/deployer"
 )
 
 const veryShortWait = 5 * time.Millisecond

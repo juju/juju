@@ -9,11 +9,11 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/provider/common"
+	"github.com/juju/juju/v2/provider/vsphere/internal/vsphereclient"
 )
 
 type environAvailzonesSuite struct {

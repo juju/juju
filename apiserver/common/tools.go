@@ -12,17 +12,17 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/network"
-	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
-	coretools "github.com/juju/juju/tools"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/network"
+	coreos "github.com/juju/juju/v2/core/os"
+	coreseries "github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	envtools "github.com/juju/juju/v2/environs/tools"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/binarystorage"
+	coretools "github.com/juju/juju/v2/tools"
 )
 
 var envtoolsFindTools = envtools.FindTools

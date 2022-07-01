@@ -3,7 +3,7 @@
 
 package dummy
 
-import "github.com/juju/juju/storage"
+import "github.com/juju/juju/v2/storage"
 
 // StorageProviders returns a provider registry with some
 // well-defined dummy storage providers.

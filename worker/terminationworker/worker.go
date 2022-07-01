@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 // TerminationSignal is the signal that

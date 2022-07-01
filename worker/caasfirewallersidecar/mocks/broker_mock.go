@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	caas "github.com/juju/juju/caas"
+	caas "github.com/juju/juju/v2/caas"
 )
 
 // MockCAASBroker is a mock of CAASBroker interface.

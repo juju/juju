@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/worker/externalcontrollerupdater"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/worker/externalcontrollerupdater"
 )
 
 type ManifoldConfigSuite struct {

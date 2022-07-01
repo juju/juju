@@ -12,11 +12,11 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	"github.com/juju/juju/v2/cloudconfig/instancecfg"
+	"github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/core/series"
 )
 
 const (

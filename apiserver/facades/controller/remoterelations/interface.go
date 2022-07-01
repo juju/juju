@@ -8,10 +8,10 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	common "github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	common "github.com/juju/juju/v2/apiserver/common/crossmodel"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 // RemoteRelationState provides the subset of global state required by the

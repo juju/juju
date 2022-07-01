@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	api "github.com/juju/romulus/api/budget"
 
-	jujucmd "github.com/juju/juju/cmd"
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/modelcmd"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	rcmd "github.com/juju/juju/v2/cmd/juju/romulus"
+	"github.com/juju/juju/v2/cmd/modelcmd"
 )
 
 type setWalletCommand struct {

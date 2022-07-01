@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	workerstate "github.com/juju/juju/worker/state"
+	workerstate "github.com/juju/juju/v2/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run a txn pruner

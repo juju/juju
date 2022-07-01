@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v8 "github.com/juju/charm/v8"
-	charm "github.com/juju/juju/core/charm"
+	charm "github.com/juju/juju/v2/core/charm"
 	macaroon_v2 "gopkg.in/macaroon.v2"
 )
 

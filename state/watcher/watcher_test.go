@@ -9,8 +9,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/state/watcher"
+	"github.com/juju/juju/v2/testing"
 )
 
 // Test tuning parameters.

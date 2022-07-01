@@ -14,13 +14,13 @@ import (
 	"github.com/juju/loggo"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/caasapplication"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/containeragent/utils"
-	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/agent/caasapplication"
+	k8sconstants "github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/containeragent/utils"
+	"github.com/juju/juju/v2/worker/apicaller"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/cmd/containeragent/initialize ApplicationAPI

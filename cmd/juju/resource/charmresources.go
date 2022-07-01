@@ -12,13 +12,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/charms"
-	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/charmstore"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/client/charms"
+	apicharm "github.com/juju/juju/v2/api/common/charm"
+	"github.com/juju/juju/v2/api/controller/controller"
+	"github.com/juju/juju/v2/charmstore"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
 )
 
 // ResourceLister lists resources for the given charm ids.

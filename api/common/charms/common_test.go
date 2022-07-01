@@ -10,10 +10,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	basemocks "github.com/juju/juju/api/base/mocks"
-	apicommoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	basemocks "github.com/juju/juju/v2/api/base/mocks"
+	apicommoncharms "github.com/juju/juju/v2/api/common/charms"
+	"github.com/juju/juju/v2/rpc/params"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type suite struct {

@@ -9,14 +9,14 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	facade "github.com/juju/juju/apiserver/facade"
-	cache "github.com/juju/juju/core/cache"
-	leadership "github.com/juju/juju/core/leadership"
-	lease "github.com/juju/juju/core/lease"
-	multiwatcher "github.com/juju/juju/core/multiwatcher"
-	permission "github.com/juju/juju/core/permission"
-	raftlease "github.com/juju/juju/core/raftlease"
-	state "github.com/juju/juju/state"
+	facade "github.com/juju/juju/v2/apiserver/facade"
+	cache "github.com/juju/juju/v2/core/cache"
+	leadership "github.com/juju/juju/v2/core/leadership"
+	lease "github.com/juju/juju/v2/core/lease"
+	multiwatcher "github.com/juju/juju/v2/core/multiwatcher"
+	permission "github.com/juju/juju/v2/core/permission"
+	raftlease "github.com/juju/juju/v2/core/raftlease"
+	state "github.com/juju/juju/v2/state"
 	names "github.com/juju/names/v4"
 )
 

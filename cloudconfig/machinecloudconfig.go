@@ -14,9 +14,9 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 
-	utilsos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/paths"
-	utilsseries "github.com/juju/juju/core/series"
+	utilsos "github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/core/paths"
+	utilsseries "github.com/juju/juju/v2/core/series"
 )
 
 // InitReader describes methods for extracting machine provisioning config,

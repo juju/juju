@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/v2/core/raftlease"
 )
 
 type OpQueueSuite struct {

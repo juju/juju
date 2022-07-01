@@ -12,12 +12,12 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/stateauthenticator"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/apiserver/stateauthenticator"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/rpc"
+	"github.com/juju/juju/v2/state"
 )
 
 var (

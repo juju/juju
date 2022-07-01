@@ -7,7 +7,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v2/core/network"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )

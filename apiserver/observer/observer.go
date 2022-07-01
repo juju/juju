@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/v2/rpc"
 	"github.com/juju/names/v4"
 )
 

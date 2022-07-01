@@ -20,11 +20,11 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/ssh"
 
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/sshclient"
-	"github.com/juju/juju/core/network"
-	jujussh "github.com/juju/juju/network/ssh"
-	"github.com/juju/juju/rpc/params"
+	apiclient "github.com/juju/juju/v2/api/client/client"
+	"github.com/juju/juju/v2/api/client/sshclient"
+	"github.com/juju/juju/v2/core/network"
+	jujussh "github.com/juju/juju/v2/network/ssh"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // sshMachine implements functionality shared by sshCommand, SCPCommand

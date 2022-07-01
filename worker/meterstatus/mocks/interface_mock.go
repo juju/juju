@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/rpc/params"
-	meterstatus "github.com/juju/juju/worker/meterstatus"
+	params "github.com/juju/juju/v2/rpc/params"
+	meterstatus "github.com/juju/juju/v2/worker/meterstatus"
 )
 
 // MockUnitStateAPI is a mock of UnitStateAPI interface.

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/container"
+	"github.com/juju/juju/v2/container"
 )
 
 type containerInitialiser struct {

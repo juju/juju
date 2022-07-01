@@ -8,8 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 	admission "k8s.io/api/admissionregistration/v1"
 
-	pkitest "github.com/juju/juju/pki/test"
-	"github.com/juju/juju/worker/caasadmission"
+	pkitest "github.com/juju/juju/v2/pki/test"
+	"github.com/juju/juju/v2/worker/caasadmission"
 )
 
 type AdmissionSuite struct {

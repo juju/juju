@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/juju/common"
 )
 
 type FormatTimeSuite struct{}

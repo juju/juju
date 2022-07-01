@@ -4,11 +4,11 @@
 package uniter_test
 
 import (
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/storage"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/uniter/operation"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/resolver"
+	"github.com/juju/juju/v2/worker/uniter/storage"
 	"github.com/juju/names/v4"
 )
 

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/snap"
-	jujupackaging "github.com/juju/juju/packaging"
+	"github.com/juju/juju/v2/core/snap"
+	jujupackaging "github.com/juju/juju/v2/packaging"
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"

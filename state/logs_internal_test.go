@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corelogger "github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/v2/core/logger"
 )
 
 type LogsInternalSuite struct {

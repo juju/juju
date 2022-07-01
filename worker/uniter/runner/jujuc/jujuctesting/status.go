@@ -6,7 +6,7 @@ package jujuctesting
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 // Status  holds the values for the hook context.

@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/storage"
 )
 
 // Destroy is a common implementation of the Destroy method defined on

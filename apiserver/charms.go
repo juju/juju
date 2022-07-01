@@ -23,13 +23,13 @@ import (
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/v3/zip"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/core/charm/downloader"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/v2/apiserver/common"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facades/client/charms/services"
+	"github.com/juju/juju/v2/core/charm/downloader"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/storage"
 )
 
 type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error

@@ -10,15 +10,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/client/storage"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/facades/client/storage"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	jujustorage "github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/poolmanager"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type baseStorageSuite struct {

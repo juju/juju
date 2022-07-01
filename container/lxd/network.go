@@ -14,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/network"
 )
 
 const (

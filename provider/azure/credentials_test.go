@@ -14,13 +14,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
-	"github.com/juju/juju/provider/azure/internal/azurecli"
-	"github.com/juju/juju/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/environs"
+	envtesting "github.com/juju/juju/v2/environs/testing"
+	"github.com/juju/juju/v2/provider/azure"
+	"github.com/juju/juju/v2/provider/azure/internal/azureauth"
+	"github.com/juju/juju/v2/provider/azure/internal/azurecli"
+	"github.com/juju/juju/v2/provider/azure/internal/azuretesting"
 )
 
 type credentialsSuite struct {

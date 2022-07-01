@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/v2/worker/uniter"
+	"github.com/juju/juju/v2/worker/uniter/runner"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor

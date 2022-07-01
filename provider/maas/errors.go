@@ -6,7 +6,7 @@ package maas
 import (
 	"github.com/juju/gomaasapi/v2"
 
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v2/provider/common"
 )
 
 // IsAuthorisationFailure determines if the given error has an authorisation failure.

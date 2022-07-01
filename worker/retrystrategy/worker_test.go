@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/retrystrategy"
+	"github.com/juju/juju/v2/worker/retrystrategy"
 )
 
 type WorkerSuite struct {

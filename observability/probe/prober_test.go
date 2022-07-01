@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/v2/observability/probe"
 )
 
 func TestProbeNotImplemented(t *testing.T) {

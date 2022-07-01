@@ -7,8 +7,8 @@ import (
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
 )
 
 type acceptLeadership struct {

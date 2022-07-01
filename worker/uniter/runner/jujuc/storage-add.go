@@ -7,9 +7,9 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
 )
 
 // StorageAddCommand implements the status-set command.

@@ -6,8 +6,8 @@ package watcher_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
 )
 
 type multiNotifyWatcherSuite struct{}

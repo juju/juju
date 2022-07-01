@@ -11,8 +11,8 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/environs/config"
+	k8sconstants "github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 var (

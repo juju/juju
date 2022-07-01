@@ -15,11 +15,11 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	apiuniter "github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/relation"
-	"github.com/juju/juju/worker/uniter/relation/mocks"
+	apiuniter "github.com/juju/juju/v2/api/agent/uniter"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/relation"
+	"github.com/juju/juju/v2/worker/uniter/relation/mocks"
 )
 
 type relationerSuite struct {

@@ -19,8 +19,8 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/charmhub/path"
-	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/v2/charmhub/path"
+	corelogger "github.com/juju/juju/v2/core/logger"
 )
 
 // MIME represents a MIME type for identifying requests and response bodies.

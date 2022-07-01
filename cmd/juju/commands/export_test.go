@@ -4,8 +4,8 @@
 package commands
 
 import (
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
-	"github.com/juju/juju/environs/cloudspec"
+	k8sexec "github.com/juju/juju/v2/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/v2/environs/cloudspec"
 )
 
 type (

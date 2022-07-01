@@ -15,11 +15,11 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	caasmocks "github.com/juju/juju/caas/mocks"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasfirewallersidecar"
-	"github.com/juju/juju/worker/caasfirewallersidecar/mocks"
+	"github.com/juju/juju/v2/api/base"
+	caasmocks "github.com/juju/juju/v2/caas/mocks"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/caasfirewallersidecar"
+	"github.com/juju/juju/v2/worker/caasfirewallersidecar/mocks"
 )
 
 type manifoldSuite struct {

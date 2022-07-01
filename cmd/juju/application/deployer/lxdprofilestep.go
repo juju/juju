@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	apicharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/core/lxdprofile"
+	apicharms "github.com/juju/juju/v2/api/common/charms"
+	"github.com/juju/juju/v2/core/lxdprofile"
 )
 
 // ValidateLXDProfileCharm implements the DeployStep interface.

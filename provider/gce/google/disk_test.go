@@ -8,7 +8,7 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/v2/provider/gce/google"
 )
 
 type diskSuite struct {

@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/juju/romulus/setwallet"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
+	rcmd "github.com/juju/juju/v2/cmd/juju/romulus"
+	"github.com/juju/juju/v2/cmd/juju/romulus/setwallet"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/jujuclient"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 var _ = gc.Suite(&setWalletSuite{})

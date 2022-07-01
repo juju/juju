@@ -19,12 +19,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/crossmodelrelations"
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/base/testing"
+	"github.com/juju/juju/v2/api/controller/crossmodelrelations"
+	apitesting "github.com/juju/juju/v2/api/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 var _ = gc.Suite(&CrossModelRelationsSuite{})

@@ -10,8 +10,8 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 )

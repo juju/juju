@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	logger "github.com/juju/juju/core/logger"
+	logger "github.com/juju/juju/v2/core/logger"
 )
 
 // MockLogger is a mock of Logger interface.

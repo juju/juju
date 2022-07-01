@@ -19,12 +19,12 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/agent/keyupdater"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/api/agent/keyupdater"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/rpc"
+	"github.com/juju/juju/v2/rpc/params"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 // Login authenticates as the entity with the given name and password

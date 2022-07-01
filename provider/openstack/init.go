@@ -4,8 +4,8 @@
 package openstack
 
 import (
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/tools"
 )
 
 const (

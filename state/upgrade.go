@@ -47,7 +47,7 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/status"
 )
 
 // UpgradeStatus describes the states an upgrade operation may be in.

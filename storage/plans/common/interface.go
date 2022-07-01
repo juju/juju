@@ -4,7 +4,7 @@
 package common
 
 import (
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/storage"
 )
 
 type Plan interface {

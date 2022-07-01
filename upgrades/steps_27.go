@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v2/agent"
+	k8sconstants "github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/core/paths"
 )
 
 // stateStepsFor27 returns upgrade steps for Juju 2.7.0.

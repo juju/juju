@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/v2/core/model"
 )
 
 // Customers and stakeholders want to be able to prevent accidental damage to their Juju deployments.

@@ -8,12 +8,12 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common/networkingcommon"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/state"
 )
 
 // ReloadSpaces offers a version 1 of the ReloadSpacesAPI.

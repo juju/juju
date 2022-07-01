@@ -12,11 +12,11 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/feature"
 )
 
 func NewCancelCommand() cmd.Command {

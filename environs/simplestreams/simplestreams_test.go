@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	sstesting "github.com/juju/juju/v2/environs/simplestreams/testing"
 )
 
 func Test(t *testing.T) {

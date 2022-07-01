@@ -4,8 +4,8 @@
 package arch_test
 
 import (
-	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/v2/core/arch"
+	"github.com/juju/juju/v2/core/constraints"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

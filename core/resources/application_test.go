@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/v2/core/resources"
+	resourcetesting "github.com/juju/juju/v2/core/resources/testing"
 )
 
 type ServiceResourcesSuite struct {

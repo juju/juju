@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 	gc "gopkg.in/check.v1"
 
-	commoncharm "github.com/juju/juju/api/common/charm"
+	commoncharm "github.com/juju/juju/v2/api/common/charm"
 )
 
 type originSuite struct{}

@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/provider/common"
+	"github.com/juju/juju/v2/testing"
 )
 
 type ErrorSuite struct {

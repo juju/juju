@@ -6,17 +6,17 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/v2/core/cache"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
-	"github.com/juju/juju/apiserver/facades/client/modelgeneration/mocks"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/rpc/params"
+	facademocks "github.com/juju/juju/v2/apiserver/facade/mocks"
+	"github.com/juju/juju/v2/apiserver/facades/client/modelgeneration"
+	"github.com/juju/juju/v2/apiserver/facades/client/modelgeneration/mocks"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/settings"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type modelGenerationSuite struct {

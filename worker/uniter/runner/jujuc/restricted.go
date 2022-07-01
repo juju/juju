@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/core/application"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/payloads"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // ErrRestrictedContext indicates a method is not implemented in the given context.

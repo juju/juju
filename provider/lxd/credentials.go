@@ -20,14 +20,14 @@ import (
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/pki"
-	pkiassertion "github.com/juju/juju/pki/assertion"
-	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/container/lxd"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/juju/osenv"
+	"github.com/juju/juju/v2/pki"
+	pkiassertion "github.com/juju/juju/v2/pki/assertion"
+	"github.com/juju/juju/v2/provider/lxd/lxdnames"
 )
 
 const (

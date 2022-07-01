@@ -22,12 +22,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/sockets"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/juju/names"
+	"github.com/juju/juju/v2/juju/sockets"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 func TestPackage(t *stdtesting.T) {

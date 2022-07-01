@@ -19,13 +19,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/apiserver/websocket"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/apiserver/websocket"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/version"
 )
 
 type LogStreamIntSuite struct {

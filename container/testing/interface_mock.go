@@ -8,13 +8,13 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
-	container "github.com/juju/juju/container"
-	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
-	environs "github.com/juju/juju/environs"
-	instances "github.com/juju/juju/environs/instances"
+	instancecfg "github.com/juju/juju/v2/cloudconfig/instancecfg"
+	container "github.com/juju/juju/v2/container"
+	constraints "github.com/juju/juju/v2/core/constraints"
+	instance "github.com/juju/juju/v2/core/instance"
+	lxdprofile "github.com/juju/juju/v2/core/lxdprofile"
+	environs "github.com/juju/juju/v2/environs"
+	instances "github.com/juju/juju/v2/environs/instances"
 )
 
 // MockTestLXDManager is a mock of TestLXDManager interface.

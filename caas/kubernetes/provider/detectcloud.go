@@ -6,10 +6,10 @@ package provider
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/caas/kubernetes/clientconfig"
+	k8scloud "github.com/juju/juju/v2/caas/kubernetes/cloud"
+	"github.com/juju/juju/v2/cloud"
 )
 
 // DetectClouds implements environs.CloudDetector.

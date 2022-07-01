@@ -14,9 +14,9 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	corelogger "github.com/juju/juju/core/logger"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/syslogger"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/syslogger"
 )
 
 type WorkerSuite struct {

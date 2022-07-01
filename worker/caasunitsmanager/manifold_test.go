@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/caasunitsmanager"
-	"github.com/juju/juju/worker/caasunitsmanager/mocks"
+	"github.com/juju/juju/v2/worker/caasunitsmanager"
+	"github.com/juju/juju/v2/worker/caasunitsmanager/mocks"
 )
 
 type manifoldSuite struct {

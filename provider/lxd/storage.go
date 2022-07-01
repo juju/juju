@@ -14,13 +14,13 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/units"
 
-	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/container/lxd"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/tags"
+	"github.com/juju/juju/v2/provider/common"
+	"github.com/juju/juju/v2/storage"
 )
 
 const (

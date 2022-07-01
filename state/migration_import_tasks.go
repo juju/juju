@@ -8,8 +8,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/permission"
 )
 
 // Migration import tasks provide a boundary of isolation between the

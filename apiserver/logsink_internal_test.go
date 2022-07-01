@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/rpc/params"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type loggingStrategySuite struct{}

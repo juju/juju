@@ -4,7 +4,7 @@
 package config
 
 import (
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v2/core/paths"
 )
 
 var (

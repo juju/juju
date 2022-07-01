@@ -10,8 +10,8 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/v2/state"
+	statetesting "github.com/juju/juju/v2/state/testing"
 )
 
 // RestoreInfoSuite is *tremendously* incomplete: this test exists purely to

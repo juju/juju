@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/core/resources"
+	"github.com/juju/juju/v2/docker"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Client is a caas model operator facade client

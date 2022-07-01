@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/charm/repository/mocks"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	"github.com/juju/juju/v2/core/charm/repository/mocks"
 )
 
 type charmStoreRepositorySuite struct {

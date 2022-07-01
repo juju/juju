@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api/base"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api/base"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 // newHTTPFixture creates and returns an HTTP fixture to be used in order to

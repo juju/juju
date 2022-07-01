@@ -12,11 +12,11 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // logger is here to stop the desire of creating a package level logger.

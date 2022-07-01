@@ -9,9 +9,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/lease"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 // mockAuth represents a machine which may or may not be a controller.

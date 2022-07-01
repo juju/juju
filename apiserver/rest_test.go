@@ -18,13 +18,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/apiserver/common"
+	apitesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testcharms"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type restCommonSuite struct {

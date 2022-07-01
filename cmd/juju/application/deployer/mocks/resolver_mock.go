@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	charm0 "github.com/juju/juju/api/common/charm"
+	charm0 "github.com/juju/juju/v2/api/common/charm"
 )
 
 // MockResolver is a mock of Resolver interface.

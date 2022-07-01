@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/permission"
 )
 
 // EveryoneTagName represents a special group that encompasses

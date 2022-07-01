@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/utils/v3/winrm"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var (

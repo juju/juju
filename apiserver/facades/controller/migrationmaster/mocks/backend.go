@@ -9,8 +9,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description/v3"
-	controller "github.com/juju/juju/controller"
-	state "github.com/juju/juju/state"
+	controller "github.com/juju/juju/v2/controller"
+	state "github.com/juju/juju/v2/state"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
 )

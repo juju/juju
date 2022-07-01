@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.txnpruner")

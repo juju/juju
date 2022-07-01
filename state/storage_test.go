@@ -15,17 +15,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/caas"
+	k8sprovider "github.com/juju/juju/v2/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/v2/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/stateenvirons"
+	"github.com/juju/juju/v2/state/testing"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/poolmanager"
+	"github.com/juju/juju/v2/storage/provider"
+	dummystorage "github.com/juju/juju/v2/storage/provider/dummy"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type StorageStateSuiteBase struct {

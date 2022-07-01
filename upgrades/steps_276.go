@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/v2/worker/uniter/operation"
 )
 
 // stateStepsFor276 returns upgrade steps for Juju 2.7.6.

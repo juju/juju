@@ -8,9 +8,9 @@ package metricsdebug
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Client provides access to the metric debug api

@@ -8,10 +8,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
-	network "github.com/juju/juju/core/network"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
-	config "github.com/juju/juju/environs/config"
+	networkingcommon "github.com/juju/juju/v2/apiserver/common/networkingcommon"
+	network "github.com/juju/juju/v2/core/network"
+	cloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	config "github.com/juju/juju/v2/environs/config"
 	names "github.com/juju/names/v4"
 )
 

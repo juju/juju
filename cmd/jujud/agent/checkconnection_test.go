@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/v2/agent"
+	agentcmd "github.com/juju/juju/v2/cmd/jujud/agent"
+	"github.com/juju/juju/v2/cmd/jujud/agent/agentconf"
 )
 
 type checkConnectionSuite struct {

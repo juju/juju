@@ -7,10 +7,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/stateauthenticator"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/apiserverhttp"
+	"github.com/juju/juju/v2/apiserver/httpcontext"
+	"github.com/juju/juju/v2/apiserver/stateauthenticator"
+	"github.com/juju/juju/v2/state"
 )
 
 // NewStateAuthenticatorFunc is a function type satisfied by

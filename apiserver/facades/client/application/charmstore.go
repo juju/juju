@@ -19,15 +19,15 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/state/storage"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/charmstore"
+	"github.com/juju/juju/v2/controller"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	stateerrors "github.com/juju/juju/v2/state/errors"
+	"github.com/juju/juju/v2/state/storage"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this

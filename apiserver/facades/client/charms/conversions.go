@@ -6,8 +6,8 @@ package charms
 import (
 	"github.com/juju/charm/v8"
 
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/rpc/params"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 func convertOrigin(origin corecharm.Origin) params.CharmOrigin {

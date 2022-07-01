@@ -15,8 +15,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/v2/core/status"
 )
 
 type podSuite struct {

@@ -6,11 +6,11 @@ package caas
 import (
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/devices"
+	"github.com/juju/juju/v2/core/resources"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/storage"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/caas Application

@@ -15,12 +15,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/container"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/service/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.reboot")

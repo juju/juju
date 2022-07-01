@@ -6,7 +6,7 @@ package raft_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package raft -destination raft_mock_test.go github.com/juju/juju/worker/raft Raft,ApplierMetrics

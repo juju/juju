@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/controller/firewaller"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/controller/firewaller"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type relationSuite struct {

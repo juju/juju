@@ -25,16 +25,16 @@ import (
 	"gopkg.in/yaml.v2"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	jujucaas "github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/caas"
-	"github.com/juju/juju/cmd/juju/caas/mocks"
-	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	jujucaas "github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/v2/cloud"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/cmd/juju/caas"
+	"github.com/juju/juju/v2/cmd/juju/caas/mocks"
+	jujucmdcloud "github.com/juju/juju/v2/cmd/juju/cloud"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type addCAASSuite struct {

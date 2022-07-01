@@ -13,12 +13,12 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
-	raftleasestore "github.com/juju/juju/state/raftlease"
-	"github.com/juju/juju/worker/common"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/core/raftlease"
+	"github.com/juju/juju/v2/state"
+	raftleasestore "github.com/juju/juju/v2/state/raftlease"
+	"github.com/juju/juju/v2/worker/common"
+	workerstate "github.com/juju/juju/v2/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run a raft

@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
+	commoncharm "github.com/juju/juju/v2/api/common/charm"
+	"github.com/juju/juju/v2/core/arch"
+	corecharm "github.com/juju/juju/v2/core/charm"
 )
 
 type refresherFactorySuite struct{}

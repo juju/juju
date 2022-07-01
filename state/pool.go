@@ -19,9 +19,9 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/state/watcher"
 )
 
 var errPoolClosed = errors.New("pool closed")

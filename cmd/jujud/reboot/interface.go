@@ -4,11 +4,11 @@
 package reboot
 
 import (
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v2/container"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/service/common"
 )
 
 // RebootWaiter describes the functions required by Reboot.

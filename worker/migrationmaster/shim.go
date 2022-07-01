@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/migrationmaster"
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/migrationmaster"
+	"github.com/juju/juju/v2/api/watcher"
 )
 
 // NewFacade attempts to create a new facade for the migration master

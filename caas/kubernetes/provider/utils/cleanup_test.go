@@ -6,7 +6,7 @@ package utils_test
 import (
 	"testing"
 
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/utils"
 )
 
 func TestCleanupsHappenInReverse(t *testing.T) {

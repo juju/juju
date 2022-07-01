@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/v2/rpc"
 )
 
 // Instance is a fake Observer used for testing.

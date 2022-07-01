@@ -6,8 +6,8 @@ package imagemetadata
 import (
 	"fmt"
 
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/utils"
+	"github.com/juju/juju/v2/environs/storage"
+	"github.com/juju/juju/v2/environs/utils"
 )
 
 // ImageMetadataURL returns a valid image metadata URL constructed from source.

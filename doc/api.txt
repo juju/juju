@@ -308,12 +308,12 @@ time.
 
 The Go stack consists of the following levels (high to low):
 
-	client interface ("github.com/juju/juju/state/api".State)
-	rpc package ("github.com/juju/juju/rpc".Client)
+	client interface ("github.com/juju/juju/v2/state/api".State)
+	rpc package ("github.com/juju/juju/v2/rpc".Client)
 	----- (json transport over secure websockets, implemented by 3rd party code)
-	rpc package ("github.com/juju/juju/rpc".Server)
-	server implementation ("github.com/juju/juju/state/api".Server)
-	server backend ("github.com/juju/juju/state")
+	rpc package ("github.com/juju/juju/v2/rpc".Server)
+	server implementation ("github.com/juju/juju/v2/state/api".Server)
+	server backend ("github.com/juju/juju/v2/state")
 	mongo data store
 
 

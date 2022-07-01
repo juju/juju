@@ -17,10 +17,10 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/apiserver/httpcontext"
+	"github.com/juju/juju/v2/apiserver/websocket"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 const (

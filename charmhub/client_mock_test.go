@@ -11,7 +11,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	path "github.com/juju/juju/charmhub/path"
+	path "github.com/juju/juju/v2/charmhub/path"
 	loggo "github.com/juju/loggo"
 )
 

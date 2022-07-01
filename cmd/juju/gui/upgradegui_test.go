@@ -22,13 +22,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/cmd/juju/gui"
-	envgui "github.com/juju/juju/environs/gui"
-	"github.com/juju/juju/environs/simplestreams"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/api/controller/controller"
+	"github.com/juju/juju/v2/cmd/juju/gui"
+	envgui "github.com/juju/juju/v2/environs/gui"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 type upgradeGUISuite struct {

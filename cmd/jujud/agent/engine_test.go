@@ -7,10 +7,10 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/cmd/jujud/agent/model"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/v2/cmd/jujud/agent/machine"
+	"github.com/juju/juju/v2/cmd/jujud/agent/model"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 var (

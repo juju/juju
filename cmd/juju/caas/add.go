@@ -22,17 +22,17 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	cloudapi "github.com/juju/juju/api/client/cloud"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	jujucloud "github.com/juju/juju/cloud"
-	jujucmd "github.com/juju/juju/cmd"
-	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	cloudapi "github.com/juju/juju/v2/api/client/cloud"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/caas/kubernetes/clientconfig"
+	k8scloud "github.com/juju/juju/v2/caas/kubernetes/cloud"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	jujucmdcloud "github.com/juju/juju/v2/cmd/juju/cloud"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.k8s")
