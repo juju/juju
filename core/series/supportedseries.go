@@ -299,6 +299,21 @@ func UbuntuSeriesVersion(series string) (string, error) {
 	return "", errors.Trace(unknownSeriesVersionError(series))
 }
 
+// UbuntuVersions returns the ubuntu versions as a map..
+func UbuntuVersions(supported, esmSupported *bool) map[string]string {
+	save := make(map[string]string)
+	for seriesName, val := range ubuntuSeries {
+		if supported != nil && val.Supported != *supported {
+			continue
+		}
+		if esmSupported != nil && val.ESMSupported != *esmSupported {
+			continue
+		}
+		save[seriesName.String()] = val.Version
+	}
+	return save
+}
+
 // WindowsVersions returns all windows versions as a map
 // If we have nan and windows version in common, nano takes precedence
 func WindowsVersions() map[string]string {

@@ -164,6 +164,40 @@ func (s *SupportedSeriesSuite) TestSeriesVersionEmpty(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "".*`)
 }
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
+	result := UbuntuVersions(nil, nil)
+	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "bionic": "18.04", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "focal": "20.04", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "jammy": "22.04", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "trusty": "14.04", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "xenial": "16.04", "yakkety": "16.10", "zesty": "17.04"})
+
+	result = UbuntuVersions(boolPtr(true), boolPtr(true))
+	c.Check(result, gc.DeepEquals, map[string]string{"bionic": "18.04", "focal": "20.04", "jammy": "22.04"})
+
+	result = UbuntuVersions(boolPtr(false), boolPtr(false))
+	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "yakkety": "16.10", "zesty": "17.04"})
+
+	result = UbuntuVersions(boolPtr(true), boolPtr(false))
+	c.Check(result, gc.DeepEquals, map[string]string{})
+
+	result = UbuntuVersions(boolPtr(false), boolPtr(true))
+	c.Check(result, gc.DeepEquals, map[string]string{"trusty": "14.04", "xenial": "16.04"})
+
+	result = UbuntuVersions(boolPtr(true), nil)
+	c.Check(result, gc.DeepEquals, map[string]string{"bionic": "18.04", "focal": "20.04", "jammy": "22.04"})
+
+	result = UbuntuVersions(boolPtr(false), nil)
+	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "trusty": "14.04", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "xenial": "16.04", "yakkety": "16.10", "zesty": "17.04"})
+
+	result = UbuntuVersions(nil, boolPtr(true))
+	c.Check(result, gc.DeepEquals, map[string]string{"bionic": "18.04", "focal": "20.04", "jammy": "22.04", "trusty": "14.04", "xenial": "16.04"})
+
+	result = UbuntuVersions(nil, boolPtr(false))
+	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "yakkety": "16.10", "zesty": "17.04"})
+
+}
+
 func makeTempFile(c *gc.C, content string) (*os.File, func()) {
 	tmpfile, err := ioutil.TempFile("", "distroinfo")
 	if err != nil {
