@@ -141,7 +141,7 @@ var (
 	}
 	openDestLogStreamCall = jujutesting.StubCall{FuncName: "ConnectControllerStream", Args: []interface{}{
 		"/migrate/logtransfer",
-		url.Values{"jujuclientversion": {jujuversion.Current.String()}},
+		url.Values{},
 		http.Header{
 			textproto.CanonicalMIMEHeaderKey(params.MigrationModelHTTPHeader): {modelUUID},
 		},

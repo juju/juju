@@ -704,7 +704,6 @@ func configDirs() []string {
 	}
 	dirs = append(dirs, filepath.Join(utils.Home(), ".config", "lxc"))
 	if runtime.GOOS == "linux" {
-		// TODO(juju3) - remove "~/snap/lxd/current/.config/lxc"
 		dirs = append(dirs, filepath.Join(utils.Home(), "snap", "lxd", "current", ".config", "lxc"))
 		dirs = append(dirs, filepath.Join(utils.Home(), "snap", "lxd", "common", "config"))
 	}

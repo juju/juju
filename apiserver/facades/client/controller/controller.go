@@ -682,12 +682,8 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 
 		controllerAccess := permission.Access(arg.Access)
 		if err := permission.ValidateControllerAccess(controllerAccess); err != nil {
-			// TODO(wallyworld) - remove in Juju 3.0
-			// Backwards compatibility requires us to accept add-model.
-			if controllerAccess != permission.AddModelAccess {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
@@ -951,48 +947,7 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 	}
 }
 
-// grantControllerCloudAccess exists for backwards compatibility since older clients
-// still set add-model on the controller rather than the controller cloud.
-func grantControllerCloudAccess(accessor ControllerAccess, targetUserTag names.UserTag, access permission.Access) error {
-	controllerInfo, err := accessor.ControllerInfo()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cloud := controllerInfo.CloudName
-	err = accessor.CreateCloudAccess(cloud, targetUserTag, access)
-	if errors.IsAlreadyExists(err) {
-		cloudAccess, err := accessor.GetCloudAccess(cloud, targetUserTag)
-		if errors.IsNotFound(err) {
-			// Conflicts with prior check, must be inconsistent state.
-			err = txn.ErrExcessiveContention
-		}
-		if err != nil {
-			return errors.Annotate(err, "could not look up cloud access for user")
-		}
-
-		// Only set access if greater access is being granted.
-		if cloudAccess.EqualOrGreaterCloudAccessThan(access) {
-			return errors.Errorf("user already has %q access or greater", access)
-		}
-		if _, err = accessor.SetUserAccess(targetUserTag, names.NewCloudTag(cloud), access); err != nil {
-			return errors.Annotate(err, "could not set cloud access for user")
-		}
-		return nil
-
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	// TODO(wallyworld) - remove in Juju 3.0
-	// Older clients still use the controller facade to manage add-model access.
-	if access == permission.AddModelAccess {
-		return grantControllerCloudAccess(accessor, targetUserTag, access)
-	}
-
 	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 	if errors.IsAlreadyExists(err) {
 		controllerTag := accessor.ControllerTag()
@@ -1022,16 +977,6 @@ func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser nam
 }
 
 func revokeControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	// TODO(wallyworld) - remove in Juju 3.0
-	// Older clients still use the controller facade to manage add-model access.
-	if access == permission.AddModelAccess {
-		controllerInfo, err := accessor.ControllerInfo()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return accessor.RemoveCloudAccess(controllerInfo.CloudName, targetUserTag)
-	}
-
 	controllerTag := accessor.ControllerTag()
 	switch access {
 	case permission.LoginAccess:
