@@ -9,10 +9,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/exec"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -97,7 +100,10 @@ After this, reload the user groups either via a reboot or by running 'newgrp sna
 `[1:]
 
 func getLocalMicroK8sConfig(cmdRunner CommandRunner, getKubeConfigDir func() (string, error)) ([]byte, error) {
-	// TODO: fix OSX and Windows - probably still use `microk8s config (need to test)`.
+	if runtime.GOOS != "linux" {
+		return getLocalMicroK8sConfigNonLinux(cmdRunner)
+	}
+
 	_, err := cmdRunner.LookPath("microk8s")
 	if err != nil {
 		return []byte{}, errors.NotFoundf("microk8s")
@@ -122,4 +128,31 @@ func getLocalMicroK8sConfig(cmdRunner CommandRunner, getKubeConfigDir func() (st
 		return nil, errors.Annotatef(err, "cannot read %q", clientConfigPath)
 	}
 	return content, nil
+}
+
+func getLocalMicroK8sConfigNonLinux(cmdRunner CommandRunner) ([]byte, error) {
+	_, err := cmdRunner.LookPath("microk8s")
+	if err != nil {
+		return []byte{}, errors.NotFoundf("microk8s")
+	}
+	execParams := exec.RunParams{
+		Commands: "microk8s config",
+	}
+	result, err := cmdRunner.RunCommands(execParams)
+	if err != nil {
+		return []byte{}, err
+	}
+	if result.Code != 0 {
+		// TODO - confined snaps can't execute other commands.
+		errMessage := strings.ReplaceAll(string(result.Stderr), "\n", "")
+		if strings.HasSuffix(strings.ToLower(errMessage), "permission denied") {
+			return []byte{}, errors.NotFoundf("microk8s")
+		}
+		return []byte{}, errors.New(string(result.Stderr))
+	} else {
+		if strings.HasPrefix(strings.ToLower(string(result.Stdout)), "microk8s is not running") {
+			return []byte{}, errors.NotFoundf("microk8s is not running")
+		}
+	}
+	return result.Stdout, nil
 }
