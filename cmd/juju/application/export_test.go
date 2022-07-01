@@ -93,8 +93,8 @@ func NewBindCommandForTest(
 }
 
 // NewResolvedCommandForTest returns a ResolvedCommand with the api provided as specified.
-func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI, clientAPI: clientAPI}
+func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }

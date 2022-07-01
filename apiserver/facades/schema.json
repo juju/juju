@@ -15630,88 +15630,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "APIHostPorts": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/APIHostPortsResult"
-                        }
-                    },
-                    "description": "APIHostPorts returns the API host/port addresses stored in state."
-                },
-                "AbortCurrentUpgrade": {
-                    "type": "object",
-                    "description": "AbortCurrentUpgrade aborts and archives the current upgrade\nsynchronisation record, if any."
-                },
-                "AddCharm": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddCharm"
-                        }
-                    },
-                    "description": "Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the\nclient/charms facade instead."
-                },
-                "AddCharmWithAuthorization": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddCharmWithAuthorization"
-                        }
-                    },
-                    "description": "Method was deprecated as of juju 2.9 and removed in juju 3.0. Please use the\nclient/charms facade instead."
-                },
-                "AddMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddMachines"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/AddMachinesResults"
-                        }
-                    },
-                    "description": "AddMachines adds new machines with the supplied parameters."
-                },
-                "AddMachinesV2": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddMachines"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/AddMachinesResults"
-                        }
-                    },
-                    "description": "AddMachinesV2 adds new machines with the supplied parameters."
-                },
-                "AgentVersion": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/AgentVersionResult"
-                        }
-                    },
-                    "description": "AgentVersion returns the current version that the API server is running."
-                },
-                "CACert": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/BytesResult"
-                        }
-                    },
-                    "description": "CACert returns the certificate used to validate the state connection."
-                },
-                "DestroyMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/DestroyMachines"
-                        }
-                    },
-                    "description": "DestroyMachines removes a given set of machines."
-                },
                 "FindTools": {
                     "type": "object",
                     "properties": {
@@ -15736,186 +15654,6 @@
                     },
                     "description": "FullStatus gives the information needed for juju status over the api"
                 },
-                "GetModelConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/GetConstraintsResults"
-                        }
-                    },
-                    "description": "GetModelConstraints returns the constraints for the model."
-                },
-                "InjectMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddMachines"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/AddMachinesResults"
-                        }
-                    },
-                    "description": "InjectMachines injects a machine into state with provisioned status."
-                },
-                "ModelGet": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelConfigResults"
-                        }
-                    },
-                    "description": "ModelGet implements the server-side part of the\nmodel-config CLI command."
-                },
-                "ModelInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelInfo"
-                        }
-                    },
-                    "description": "ModelInfo returns information about the current model."
-                },
-                "ModelSet": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelSet"
-                        }
-                    },
-                    "description": "ModelSet implements the server-side part of the\nset-model-config CLI command."
-                },
-                "ModelUnset": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelUnset"
-                        }
-                    },
-                    "description": "ModelUnset implements the server-side part of the\nset-model-config CLI command."
-                },
-                "ModelUserInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelUserInfoResults"
-                        }
-                    },
-                    "description": "ModelUserInfo returns information on all users in the model."
-                },
-                "PrivateAddress": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/PrivateAddress"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/PrivateAddressResults"
-                        }
-                    },
-                    "description": "PrivateAddress implements the server side of Client.PrivateAddress."
-                },
-                "ProvisioningScript": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ProvisioningScriptParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ProvisioningScriptResult"
-                        }
-                    },
-                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
-                },
-                "PublicAddress": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/PublicAddress"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/PublicAddressResults"
-                        }
-                    },
-                    "description": "PublicAddress implements the server side of Client.PublicAddress."
-                },
-                "ResolveCharms": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ResolveCharms"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ResolveCharmResults"
-                        }
-                    },
-                    "description": "ResolveCharms resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
-                },
-                "Resolved": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Resolved"
-                        }
-                    },
-                    "description": "Resolved implements the server side of Client.Resolved."
-                },
-                "RetryProvisioning": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "RetryProvisioning marks a provisioning error as transient on the machines."
-                },
-                "SLALevel": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "SLALevel returns the current sla level for the model."
-                },
-                "Sequences": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelSequencesResult"
-                        }
-                    },
-                    "description": "Sequences returns the model's sequence names and next values."
-                },
-                "SetModelAgentVersion": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetModelAgentVersion"
-                        }
-                    },
-                    "description": "SetModelAgentVersion sets the model agent version."
-                },
-                "SetModelConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetConstraints"
-                        }
-                    },
-                    "description": "SetModelConstraints sets the constraints for the model."
-                },
-                "SetSLALevel": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelSLA"
-                        }
-                    },
-                    "description": "SetSLALevel sets the sla level on the model."
-                },
                 "StatusHistory": {
                     "type": "object",
                     "properties": {
@@ -15939,219 +15677,6 @@
                 }
             },
             "definitions": {
-                "APIHostPortsResult": {
-                    "type": "object",
-                    "properties": {
-                        "servers": {
-                            "type": "array",
-                            "items": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/HostPort"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "servers"
-                    ]
-                },
-                "AddCharm": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "url",
-                        "channel",
-                        "force"
-                    ]
-                },
-                "AddCharmWithAuthorization": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "macaroon": {
-                            "$ref": "#/definitions/Macaroon"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "url",
-                        "channel",
-                        "macaroon",
-                        "force"
-                    ]
-                },
-                "AddMachineParams": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        },
-                        "container-type": {
-                            "type": "string"
-                        },
-                        "disks": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Constraints"
-                            }
-                        },
-                        "hardware-characteristics": {
-                            "$ref": "#/definitions/HardwareCharacteristics"
-                        },
-                        "instance-id": {
-                            "type": "string"
-                        },
-                        "jobs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "nonce": {
-                            "type": "string"
-                        },
-                        "parent-id": {
-                            "type": "string"
-                        },
-                        "placement": {
-                            "$ref": "#/definitions/Placement"
-                        },
-                        "series": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "series",
-                        "constraints",
-                        "jobs",
-                        "parent-id",
-                        "container-type",
-                        "instance-id",
-                        "nonce",
-                        "hardware-characteristics",
-                        "addresses"
-                    ]
-                },
-                "AddMachines": {
-                    "type": "object",
-                    "properties": {
-                        "params": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AddMachineParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "params"
-                    ]
-                },
-                "AddMachinesResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "machine": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine"
-                    ]
-                },
-                "AddMachinesResults": {
-                    "type": "object",
-                    "properties": {
-                        "machines": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AddMachinesResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machines"
-                    ]
-                },
-                "Address": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "config-type": {
-                            "type": "string"
-                        },
-                        "is-secondary": {
-                            "type": "boolean"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "space-id": {
-                            "type": "string"
-                        },
-                        "space-name": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "type",
-                        "scope"
-                    ]
-                },
-                "AgentVersionResult": {
-                    "type": "object",
-                    "properties": {
-                        "version": {
-                            "$ref": "#/definitions/Number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "version"
-                    ]
-                },
                 "AllWatcherId": {
                     "type": "object",
                     "properties": {
@@ -16386,77 +15911,6 @@
                         "created-by"
                     ]
                 },
-                "BytesResult": {
-                    "type": "object",
-                    "properties": {
-                        "result": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "ConfigValue": {
-                    "type": "object",
-                    "properties": {
-                        "source": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "source"
-                    ]
-                },
-                "Constraints": {
-                    "type": "object",
-                    "properties": {
-                        "Count": {
-                            "type": "integer"
-                        },
-                        "Pool": {
-                            "type": "string"
-                        },
-                        "Size": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Pool",
-                        "Size",
-                        "Count"
-                    ]
-                },
-                "DestroyMachines": {
-                    "type": "object",
-                    "properties": {
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "machine-names": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-names",
-                        "force"
-                    ]
-                },
                 "DetailedStatus": {
                     "type": "object",
                     "properties": {
@@ -16527,63 +15981,6 @@
                         "subordinate"
                     ]
                 },
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "EntityStatus": {
-                    "type": "object",
-                    "properties": {
-                        "data": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "info": {
-                            "type": "string"
-                        },
-                        "since": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "status": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "status",
-                        "info",
-                        "since"
-                    ]
-                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -16607,30 +16004,6 @@
                     "required": [
                         "message",
                         "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "ExposedEndpoint": {
@@ -16671,9 +16044,6 @@
                         },
                         "os-type": {
                             "type": "string"
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -16682,7 +16052,6 @@
                         "major",
                         "minor",
                         "arch",
-                        "series",
                         "os-type",
                         "agentstream"
                     ]
@@ -16774,51 +16143,6 @@
                         "branches"
                     ]
                 },
-                "GetConstraintsResults": {
-                    "type": "object",
-                    "properties": {
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "constraints"
-                    ]
-                },
-                "HardwareCharacteristics": {
-                    "type": "object",
-                    "properties": {
-                        "arch": {
-                            "type": "string"
-                        },
-                        "availability-zone": {
-                            "type": "string"
-                        },
-                        "cpu-cores": {
-                            "type": "integer"
-                        },
-                        "cpu-power": {
-                            "type": "integer"
-                        },
-                        "mem": {
-                            "type": "integer"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "root-disk-source": {
-                            "type": "string"
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
                 "History": {
                     "type": "object",
                     "properties": {
@@ -16835,49 +16159,6 @@
                     "additionalProperties": false,
                     "required": [
                         "statuses"
-                    ]
-                },
-                "HostPort": {
-                    "type": "object",
-                    "properties": {
-                        "Address": {
-                            "$ref": "#/definitions/Address"
-                        },
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "config-type": {
-                            "type": "string"
-                        },
-                        "is-secondary": {
-                            "type": "boolean"
-                        },
-                        "port": {
-                            "type": "integer"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "space-id": {
-                            "type": "string"
-                        },
-                        "space-name": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "type",
-                        "scope",
-                        "Address",
-                        "port"
                     ]
                 },
                 "LXDProfile": {
@@ -16914,40 +16195,6 @@
                         "description",
                         "devices"
                     ]
-                },
-                "Macaroon": {
-                    "type": "object",
-                    "additionalProperties": false
-                },
-                "MachineHardware": {
-                    "type": "object",
-                    "properties": {
-                        "arch": {
-                            "type": "string"
-                        },
-                        "availability-zone": {
-                            "type": "string"
-                        },
-                        "cores": {
-                            "type": "integer"
-                        },
-                        "cpu-power": {
-                            "type": "integer"
-                        },
-                        "mem": {
-                            "type": "integer"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "MachineStatus": {
                     "type": "object",
@@ -17065,247 +16312,6 @@
                         "message"
                     ]
                 },
-                "ModelConfigResults": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/ConfigValue"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
-                },
-                "ModelInfo": {
-                    "type": "object",
-                    "properties": {
-                        "agent-version": {
-                            "$ref": "#/definitions/Number"
-                        },
-                        "cloud-credential-tag": {
-                            "type": "string"
-                        },
-                        "cloud-credential-validity": {
-                            "type": "boolean"
-                        },
-                        "cloud-region": {
-                            "type": "string"
-                        },
-                        "cloud-tag": {
-                            "type": "string"
-                        },
-                        "controller-uuid": {
-                            "type": "string"
-                        },
-                        "default-series": {
-                            "type": "string"
-                        },
-                        "is-controller": {
-                            "type": "boolean"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "machines": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ModelMachineInfo"
-                            }
-                        },
-                        "migration": {
-                            "$ref": "#/definitions/ModelMigrationStatus"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "owner-tag": {
-                            "type": "string"
-                        },
-                        "provider-type": {
-                            "type": "string"
-                        },
-                        "sla": {
-                            "$ref": "#/definitions/ModelSLAInfo"
-                        },
-                        "status": {
-                            "$ref": "#/definitions/EntityStatus"
-                        },
-                        "supported-features": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SupportedFeature"
-                            }
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "users": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ModelUserInfo"
-                            }
-                        },
-                        "uuid": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "type",
-                        "uuid",
-                        "controller-uuid",
-                        "is-controller",
-                        "cloud-tag",
-                        "owner-tag",
-                        "life",
-                        "users",
-                        "machines",
-                        "sla",
-                        "agent-version"
-                    ]
-                },
-                "ModelMachineInfo": {
-                    "type": "object",
-                    "properties": {
-                        "display-name": {
-                            "type": "string"
-                        },
-                        "ha-primary": {
-                            "type": "boolean"
-                        },
-                        "hardware": {
-                            "$ref": "#/definitions/MachineHardware"
-                        },
-                        "has-vote": {
-                            "type": "boolean"
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "instance-id": {
-                            "type": "string"
-                        },
-                        "message": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "wants-vote": {
-                            "type": "boolean"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "id"
-                    ]
-                },
-                "ModelMigrationStatus": {
-                    "type": "object",
-                    "properties": {
-                        "end": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "start": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "status": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "status",
-                        "start"
-                    ]
-                },
-                "ModelSLA": {
-                    "type": "object",
-                    "properties": {
-                        "ModelSLAInfo": {
-                            "$ref": "#/definitions/ModelSLAInfo"
-                        },
-                        "creds": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        },
-                        "level": {
-                            "type": "string"
-                        },
-                        "owner": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "level",
-                        "owner",
-                        "ModelSLAInfo",
-                        "creds"
-                    ]
-                },
-                "ModelSLAInfo": {
-                    "type": "object",
-                    "properties": {
-                        "level": {
-                            "type": "string"
-                        },
-                        "owner": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "level",
-                        "owner"
-                    ]
-                },
-                "ModelSequencesResult": {
-                    "type": "object",
-                    "properties": {
-                        "sequences": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "sequences"
-                    ]
-                },
-                "ModelSet": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
-                },
                 "ModelStatusInfo": {
                     "type": "object",
                     "properties": {
@@ -17347,73 +16353,6 @@
                         "model-status",
                         "meter-status",
                         "sla"
-                    ]
-                },
-                "ModelUnset": {
-                    "type": "object",
-                    "properties": {
-                        "keys": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "keys"
-                    ]
-                },
-                "ModelUserInfo": {
-                    "type": "object",
-                    "properties": {
-                        "access": {
-                            "type": "string"
-                        },
-                        "display-name": {
-                            "type": "string"
-                        },
-                        "last-connection": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "user": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "user",
-                        "display-name",
-                        "last-connection",
-                        "access"
-                    ]
-                },
-                "ModelUserInfoResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/ModelUserInfo"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ModelUserInfoResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ModelUserInfoResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "NetworkInterface": {
@@ -17477,106 +16416,6 @@
                         "Tag",
                         "Patch",
                         "Build"
-                    ]
-                },
-                "Placement": {
-                    "type": "object",
-                    "properties": {
-                        "directive": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "scope",
-                        "directive"
-                    ]
-                },
-                "PrivateAddress": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target"
-                    ]
-                },
-                "PrivateAddressResults": {
-                    "type": "object",
-                    "properties": {
-                        "private-address": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "private-address"
-                    ]
-                },
-                "ProvisioningScriptParams": {
-                    "type": "object",
-                    "properties": {
-                        "data-dir": {
-                            "type": "string"
-                        },
-                        "disable-package-commands": {
-                            "type": "boolean"
-                        },
-                        "machine-id": {
-                            "type": "string"
-                        },
-                        "nonce": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-id",
-                        "nonce",
-                        "data-dir",
-                        "disable-package-commands"
-                    ]
-                },
-                "ProvisioningScriptResult": {
-                    "type": "object",
-                    "properties": {
-                        "script": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "script"
-                    ]
-                },
-                "PublicAddress": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target"
-                    ]
-                },
-                "PublicAddressResults": {
-                    "type": "object",
-                    "properties": {
-                        "public-address": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "public-address"
                     ]
                 },
                 "RelationStatus": {
@@ -17682,98 +16521,6 @@
                         "role",
                         "interface",
                         "limit"
-                    ]
-                },
-                "ResolveCharmResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "type": "string"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ResolveCharmResults": {
-                    "type": "object",
-                    "properties": {
-                        "urls": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ResolveCharmResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "urls"
-                    ]
-                },
-                "ResolveCharms": {
-                    "type": "object",
-                    "properties": {
-                        "references": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "references"
-                    ]
-                },
-                "Resolved": {
-                    "type": "object",
-                    "properties": {
-                        "retry": {
-                            "type": "boolean"
-                        },
-                        "unit-name": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "unit-name",
-                        "retry"
-                    ]
-                },
-                "SetConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "application": {
-                            "type": "string"
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application",
-                        "constraints"
-                    ]
-                },
-                "SetModelAgentVersion": {
-                    "type": "object",
-                    "properties": {
-                        "agent-stream": {
-                            "type": "string"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "version": {
-                            "$ref": "#/definitions/Number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "version"
                     ]
                 },
                 "StatusHistoryFilter": {
@@ -17888,40 +16635,6 @@
                         "patterns"
                     ]
                 },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "SupportedFeature": {
-                    "type": "object",
-                    "properties": {
-                        "description": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "version": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "description"
-                    ]
-                },
                 "Tools": {
                     "type": "object",
                     "properties": {
@@ -18001,63 +16714,6 @@
                         "charm",
                         "subordinates"
                     ]
-                },
-                "Value": {
-                    "type": "object",
-                    "properties": {
-                        "allocate-public-ip": {
-                            "type": "boolean"
-                        },
-                        "arch": {
-                            "type": "string"
-                        },
-                        "container": {
-                            "type": "string"
-                        },
-                        "cores": {
-                            "type": "integer"
-                        },
-                        "cpu-power": {
-                            "type": "integer"
-                        },
-                        "instance-role": {
-                            "type": "string"
-                        },
-                        "instance-type": {
-                            "type": "string"
-                        },
-                        "mem": {
-                            "type": "integer"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "root-disk-source": {
-                            "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "virt-type": {
-                            "type": "string"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 }
             }
         }
@@ -22314,6 +20970,290 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "EnvironUpgrader",
+        "Description": "",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "ModelEnvironVersion": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/IntResults"
+                        }
+                    },
+                    "description": "ModelEnvironVersion returns the current version of the environ corresponding\nto each specified model."
+                },
+                "ModelTargetEnvironVersion": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/IntResults"
+                        }
+                    },
+                    "description": "ModelTargetEnvironVersion returns the target version of the environ\ncorresponding to each specified model. The target version is the\nenviron provider's version."
+                },
+                "SetModelEnvironVersion": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetModelEnvironVersions"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SetModelEnvironVersion sets the current version of the environ corresponding\nto each specified model."
+                },
+                "SetModelStatus": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetStatus"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SetModelStatus sets the status of each given model."
+                },
+                "WatchModelEnvironVersion": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "WatchModelEnvironVersion watches for changes to the environ version of the\nspecified models.\n\nNOTE(axw) this is currently implemented in terms of state.Model.Watch, so\nthe client may be notified of changes unrelated to the environ version."
+                }
+            },
+            "definitions": {
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "EntityStatusArgs": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "status",
+                        "info",
+                        "data"
+                    ]
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "IntResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "IntResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/IntResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "NotifyWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "NotifyWatcherId": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "NotifyWatcherId"
+                    ]
+                },
+                "NotifyWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/NotifyWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "SetModelEnvironVersion": {
+                    "type": "object",
+                    "properties": {
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "version"
+                    ]
+                },
+                "SetModelEnvironVersions": {
+                    "type": "object",
+                    "properties": {
+                        "models": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SetModelEnvironVersion"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "SetStatus": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntityStatusArgs"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
                     ]
                 }
             }
@@ -27449,7 +26389,7 @@
     {
         "Name": "MachineManager",
         "Description": "MachineManagerAPI provides access to the MachineManager API facade.",
-        "Version": 6,
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -27471,18 +26411,6 @@
                     },
                     "description": "AddMachines adds new machines with the supplied parameters."
                 },
-                "DestroyMachine": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/DestroyMachineResults"
-                        }
-                    },
-                    "description": "DestroyMachine removes a set of machines from the model."
-                },
                 "DestroyMachineWithParams": {
                     "type": "object",
                     "properties": {
@@ -27494,18 +26422,6 @@
                         }
                     },
                     "description": "DestroyMachineWithParams removes a set of machines from the model."
-                },
-                "ForceDestroyMachine": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/DestroyMachineResults"
-                        }
-                    },
-                    "description": "ForceDestroyMachine forcibly removes a set of machines from the model.\nTODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.\nAlso from ModelManger v6 this call is less useful as it does not support MaxWait customisation."
                 },
                 "GetUpgradeSeriesMessages": {
                     "type": "object",
@@ -27530,6 +26446,30 @@
                         }
                     },
                     "description": "InstanceTypes returns instance type information for the cloud and region\nin which the current model is deployed."
+                },
+                "ProvisioningScript": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ProvisioningScriptParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ProvisioningScriptResult"
+                        }
+                    },
+                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
+                },
+                "RetryProvisioning": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RetryProvisioning marks a provisioning error as transient on the machines."
                 },
                 "UpgradeSeriesComplete": {
                     "type": "object",
@@ -27743,6 +26683,12 @@
                 "DestroyMachineInfo": {
                     "type": "object",
                     "properties": {
+                        "destroyed-containers": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DestroyMachineResult"
+                            }
+                        },
                         "destroyed-storage": {
                             "type": "array",
                             "items": {
@@ -27760,9 +26706,15 @@
                             "items": {
                                 "$ref": "#/definitions/Entity"
                             }
+                        },
+                        "machine-id": {
+                            "type": "string"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-id"
+                    ]
                 },
                 "DestroyMachineResult": {
                     "type": "object",
@@ -27872,6 +26824,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
                 },
                 "HardwareCharacteristics": {
                     "type": "object",
@@ -28051,6 +27018,42 @@
                     "required": [
                         "scope",
                         "directive"
+                    ]
+                },
+                "ProvisioningScriptParams": {
+                    "type": "object",
+                    "properties": {
+                        "data-dir": {
+                            "type": "string"
+                        },
+                        "disable-package-commands": {
+                            "type": "boolean"
+                        },
+                        "machine-id": {
+                            "type": "string"
+                        },
+                        "nonce": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-id",
+                        "nonce",
+                        "data-dir",
+                        "disable-package-commands"
+                    ]
+                },
+                "ProvisioningScriptResult": {
+                    "type": "object",
+                    "properties": {
+                        "script": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "script"
                     ]
                 },
                 "StringsResult": {
@@ -30186,6 +29189,11 @@
                 },
                 "Prechecks": {
                     "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/PrechecksArgs"
+                        }
+                    },
                     "description": "Prechecks performs pre-migration checks on the model and\n(source) controller."
                 },
                 "ProcessRelations": {
@@ -30448,6 +29456,18 @@
                         "Tag",
                         "Patch",
                         "Build"
+                    ]
+                },
+                "PrechecksArgs": {
+                    "type": "object",
+                    "properties": {
+                        "target-controller-version": {
+                            "$ref": "#/definitions/Number"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target-controller-version"
                     ]
                 },
                 "ProcessRelations": {
@@ -31175,8 +30195,8 @@
     },
     {
         "Name": "ModelConfig",
-        "Description": "ModelConfigAPIV2 is currently the latest.",
-        "Version": 2,
+        "Description": "ModelConfigAPIV3 is currently the latest.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -31187,6 +30207,15 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "GetModelConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/GetConstraintsResults"
+                        }
+                    },
+                    "description": "GetModelConstraints returns the constraints for the model."
+                },
                 "ModelGet": {
                     "type": "object",
                     "properties": {
@@ -31231,6 +30260,15 @@
                         }
                     },
                     "description": "Sequences returns the model's sequence names and next values."
+                },
+                "SetModelConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetConstraints"
+                        }
+                    },
+                    "description": "SetModelConstraints sets the constraints for the model."
                 },
                 "SetSLALevel": {
                     "type": "object",
@@ -31283,6 +30321,18 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "GetConstraintsResults": {
+                    "type": "object",
+                    "properties": {
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "constraints"
                     ]
                 },
                 "ModelConfigResults": {
@@ -31395,6 +30445,22 @@
                         "keys"
                     ]
                 },
+                "SetConstraints": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "constraints"
+                    ]
+                },
                 "StringResult": {
                     "type": "object",
                     "properties": {
@@ -31409,6 +30475,63 @@
                     "required": [
                         "result"
                     ]
+                },
+                "Value": {
+                    "type": "object",
+                    "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
+                        "arch": {
+                            "type": "string"
+                        },
+                        "container": {
+                            "type": "string"
+                        },
+                        "cores": {
+                            "type": "integer"
+                        },
+                        "cpu-power": {
+                            "type": "integer"
+                        },
+                        "instance-role": {
+                            "type": "string"
+                        },
+                        "instance-type": {
+                            "type": "string"
+                        },
+                        "mem": {
+                            "type": "integer"
+                        },
+                        "root-disk": {
+                            "type": "integer"
+                        },
+                        "root-disk-source": {
+                            "type": "string"
+                        },
+                        "spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "virt-type": {
+                            "type": "string"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }
@@ -31955,18 +31078,6 @@
                         }
                     },
                     "description": "UnsetModelDefaults removes the specified default model settings."
-                },
-                "ValidateModelUpgrades": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ValidateModelUpgradeParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "ValidateModelUpgrades validates if a model is allowed to perform an upgrade.\nExamples of why you would want to block a model upgrade, would be situations\nlike upgrade-series. If performing an upgrade-series we don't know the\ncurrent status of the machine, so performing an upgrade-model can lead to\nbad unintended errors down the line."
                 }
             },
             "definitions": {
@@ -32827,12 +31938,16 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "model-tag": {
+                            "type": "string"
+                        },
                         "user": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "model-tag",
                         "user",
                         "display-name",
                         "last-connection",
@@ -33057,37 +32172,6 @@
                     "required": [
                         "user-models"
                     ]
-                },
-                "ValidateModelUpgradeParam": {
-                    "type": "object",
-                    "properties": {
-                        "model-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "model-tag"
-                    ]
-                },
-                "ValidateModelUpgradeParams": {
-                    "type": "object",
-                    "properties": {
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "model": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ValidateModelUpgradeParam"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "model",
-                        "force"
-                    ]
                 }
             }
         }
@@ -33230,283 +32314,100 @@
     },
     {
         "Name": "ModelUpgrader",
-        "Description": "",
+        "Description": "ModelUpgraderAPI implements the model upgrader interface and is\nthe concrete implementation of the api end point.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "controller-user"
         ],
         "Schema": {
             "type": "object",
             "properties": {
-                "ModelEnvironVersion": {
+                "AbortModelUpgrade": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/IntResults"
+                            "$ref": "#/definitions/ModelParam"
                         }
                     },
-                    "description": "ModelEnvironVersion returns the current version of the environ corresponding\nto each specified model."
+                    "description": "AbortModelUpgrade aborts and archives the model upgrade\nsynchronisation record, if any."
                 },
-                "ModelTargetEnvironVersion": {
+                "UpgradeModel": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/IntResults"
+                            "$ref": "#/definitions/UpgradeModel"
                         }
                     },
-                    "description": "ModelTargetEnvironVersion returns the target version of the environ\ncorresponding to each specified model. The target version is the\nenviron provider's version."
-                },
-                "SetModelEnvironVersion": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetModelEnvironVersions"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetModelEnvironVersion sets the current version of the environ corresponding\nto each specified model."
-                },
-                "SetModelStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetStatus"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetModelStatus sets the status of each given model."
-                },
-                "WatchModelEnvironVersion": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResults"
-                        }
-                    },
-                    "description": "WatchModelEnvironVersion watches for changes to the environ version of the\nspecified models.\n\nNOTE(axw) this is currently implemented in terms of state.Model.Watch, so\nthe client may be notified of changes unrelated to the environ version."
+                    "description": "UpgradeModel upgrades a model."
                 }
             },
             "definitions": {
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "EntityStatusArgs": {
-                    "type": "object",
-                    "properties": {
-                        "data": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "info": {
-                            "type": "string"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "status",
-                        "info",
-                        "data"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "IntResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "IntResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/IntResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
-                    ]
-                },
-                "NotifyWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/NotifyWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "SetModelEnvironVersion": {
+                "ModelParam": {
                     "type": "object",
                     "properties": {
                         "model-tag": {
                             "type": "string"
-                        },
-                        "version": {
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag"
+                    ]
+                },
+                "Number": {
+                    "type": "object",
+                    "properties": {
+                        "Build": {
                             "type": "integer"
+                        },
+                        "Major": {
+                            "type": "integer"
+                        },
+                        "Minor": {
+                            "type": "integer"
+                        },
+                        "Patch": {
+                            "type": "integer"
+                        },
+                        "Tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Major",
+                        "Minor",
+                        "Tag",
+                        "Patch",
+                        "Build"
+                    ]
+                },
+                "UpgradeModel": {
+                    "type": "object",
+                    "properties": {
+                        "agent-stream": {
+                            "type": "string"
+                        },
+                        "dry-run": {
+                            "type": "boolean"
+                        },
+                        "ignore-agent-versions": {
+                            "type": "boolean"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "to-version": {
+                            "$ref": "#/definitions/Number"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
-                        "version"
-                    ]
-                },
-                "SetModelEnvironVersions": {
-                    "type": "object",
-                    "properties": {
-                        "models": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SetModelEnvironVersion"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "SetStatus": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/EntityStatusArgs"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
+                        "to-version"
                     ]
                 }
             }
@@ -35273,9 +34174,6 @@
                         },
                         "os-type": {
                             "type": "string"
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -35284,7 +34182,6 @@
                         "major",
                         "minor",
                         "arch",
-                        "series",
                         "os-type",
                         "agentstream"
                     ]
@@ -49115,7 +48012,7 @@
     {
         "Name": "UserManager",
         "Description": "UserManagerAPI implements the user manager interface and is the concrete\nimplementation of the api end point.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-user"
         ],
@@ -49157,6 +48054,18 @@
                         }
                     },
                     "description": "EnableUser enables one or more users.  If the user is already enabled,\nthe action is considered a success."
+                },
+                "ModelUserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ModelUserInfoResults"
+                        }
+                    },
+                    "description": "ModelUserInfo returns information on all users in the model."
                 },
                 "RemoveUser": {
                     "type": "object",
@@ -49374,6 +48283,62 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ModelUserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "access": {
+                            "type": "string"
+                        },
+                        "display-name": {
+                            "type": "string"
+                        },
+                        "last-connection": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "user": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "user",
+                        "display-name",
+                        "last-connection",
+                        "access"
+                    ]
+                },
+                "ModelUserInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/ModelUserInfo"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ModelUserInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelUserInfoResult"
                             }
                         }
                     },

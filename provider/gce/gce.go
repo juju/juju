@@ -13,10 +13,8 @@ const (
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
 	// http://cloudinit.readthedocs.org/en/latest/
 	// https://cloud.google.com/compute/docs/metadata
-	metadataKeyCloudInit       = "user-data"
-	metadataKeyEncoding        = "user-data-encoding"
-	metadataKeyWindowsUserdata = "windows-startup-script-ps1"
-	metadataKeyWindowsSysprep  = "sysprep-specialize-script-ps1"
+	metadataKeyCloudInit = "user-data"
+	metadataKeyEncoding  = "user-data-encoding"
 )
 
 const (
@@ -25,7 +23,6 @@ const (
 	// simplestreams)?
 	ubuntuImageBasePath      = "projects/ubuntu-os-cloud/global/images/"
 	ubuntuDailyImageBasePath = "projects/ubuntu-os-cloud-devel/global/images/"
-	windowsImageBasePath     = "projects/windows-cloud/global/images/"
 )
 
 var (

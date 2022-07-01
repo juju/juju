@@ -417,7 +417,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
 		"set -xe",
 		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
+		"echo 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -494,9 +494,9 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
 		"set -xe",
 		"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
-		"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
+		"echo '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
 		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
+		"echo 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -1622,7 +1622,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02004133", "ami-02004135", "ami-02004139"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02204133", "ami-02204135", "ami-02204139"})
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -2345,9 +2345,8 @@ func (t *localServerSuite) TestInstanceGroupsWithAutocert(c *gc.C) {
 	}
 	err := testing.FillInStartInstanceParams(t.Env, "42", true, &params)
 	c.Assert(err, jc.ErrorIsNil)
-	config := params.InstanceConfig.Controller.Config
-	config["api-port"] = 443
-	config["autocert-dns-name"] = "example.com"
+	params.InstanceConfig.ControllerConfig["api-port"] = 443
+	params.InstanceConfig.ControllerConfig["autocert-dns-name"] = "example.com"
 
 	// Bootstrap the controller.
 	result, err := t.Env.StartInstance(t.callCtx, params)

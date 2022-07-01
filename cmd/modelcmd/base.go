@@ -701,14 +701,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 
 	// Add attributes from the controller details.
-
-	// TODO(wallyworld) - remove after beta18
-	controllerModelUUID := bootstrapConfig.ControllerModelUUID
-	if controllerModelUUID == "" {
-		controllerModelUUID = controllerDetails.ControllerUUID
-	}
-
-	bootstrapConfig.Config[config.UUIDKey] = controllerModelUUID
+	bootstrapConfig.Config[config.UUIDKey] = bootstrapConfig.ControllerModelUUID
 	cfg, err := config.New(config.NoDefaults, bootstrapConfig.Config)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

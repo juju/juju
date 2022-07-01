@@ -17,8 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -78,7 +76,7 @@ func (s *CharmSuite) TestDyingCharm(c *gc.C) {
 func (s *CharmSuite) testCharm(c *gc.C) {
 	dummy, err := s.State.Charm(s.curl)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
+	c.Assert(dummy.String(), gc.Equals, s.curl.String())
 	c.Assert(dummy.Revision(), gc.Equals, 1)
 	c.Assert(dummy.StoragePath(), gc.Equals, "dummy-path")
 	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
@@ -295,13 +293,13 @@ func (s *CharmSuite) TestAddCharm(c *gc.C) {
 	info := s.dummyCharm(c, "")
 	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dummy.URL().String(), gc.Equals, info.ID.String())
+	c.Assert(dummy.String(), gc.Equals, info.ID.String())
 
 	doc := state.CharmDoc{}
 	err = s.charms.FindId(state.DocID(s.State, info.ID.String())).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("%#v", doc)
-	c.Assert(doc.URL, gc.DeepEquals, info.ID)
+	c.Assert(*doc.URL, gc.DeepEquals, info.ID.String())
 
 	expVersion := "dummy-146-g725cfd3-dirty"
 	c.Assert(doc.CharmVersion, gc.Equals, expVersion)
@@ -339,14 +337,14 @@ func (s *CharmSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	}
 	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
+	c.Assert(dummy.String(), gc.Equals, curl.String())
 
 	// Charm doc has been updated.
 	var docs []state.CharmDoc
 	err = s.charms.FindId(state.DocID(s.State, curl.String())).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0].URL, gc.DeepEquals, curl)
+	c.Assert(*docs[0].URL, gc.DeepEquals, curl.String())
 	c.Assert(docs[0].StoragePath, gc.DeepEquals, info.StoragePath)
 
 	// No more placeholder charm.
@@ -361,7 +359,7 @@ func (s *CharmSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("%#v", doc)
-	c.Assert(doc.URL, gc.DeepEquals, curl)
+	c.Assert(*doc.URL, gc.DeepEquals, curl.String())
 	c.Assert(doc.PendingUpload, jc.IsTrue)
 	c.Assert(doc.Placeholder, jc.IsFalse)
 	c.Assert(doc.Meta, gc.IsNil)
@@ -456,6 +454,8 @@ func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 	// Try adding it again with the same revision and ensure we get the same document.
 	schCopy, err := s.State.PrepareCharmUpload(testCurl)
 	c.Assert(err, jc.ErrorIsNil)
+	// URL is required to set the charmURL, so the test will succeed.
+	_ = schCopy.URL()
 	c.Assert(sch, jc.DeepEquals, schCopy)
 
 	// Now add a charm and try again - we should get the same result
@@ -561,7 +561,7 @@ func (s *CharmSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 	doc := state.CharmDoc{}
 	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doc.URL, gc.DeepEquals, curl)
+	c.Assert(*doc.URL, gc.DeepEquals, curl.String())
 	c.Assert(doc.PendingUpload, jc.IsFalse)
 	c.Assert(doc.Placeholder, jc.IsTrue)
 	c.Assert(doc.Meta, gc.IsNil)
@@ -699,23 +699,15 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charms, gc.HasLen, 3)
 
-	c.Assert(charms[0].URL().String(), gc.Equals, "local:quantal/quantal-dummy-1")
+	c.Assert(charms[0].String(), gc.Equals, "local:quantal/quantal-dummy-1")
 	c.Assert(charms[1], gc.DeepEquals, sch)
 	c.Assert(charms[2].URL(), gc.DeepEquals, curl2)
 }
 
 func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Check that a charm with missing sha/storage path is flagged as pending
 	// to be uploaded.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1 := s.dummyCharm(c, "ch:quantal/dummy-1")
 	dummy1.SHA256 = ""
 	dummy1.StoragePath = ""
 	ch1, err := s.State.AddCharmMetadata(dummy1)
@@ -730,7 +722,7 @@ func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
 
 	// Check that a charm with populated sha/storage path is flagged as
 	// uploaded.
-	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:quantal/dummy-2")
 	ch2, err := s.State.AddCharmMetadata(dummy2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch2.IsPlaceholder(), jc.IsFalse)

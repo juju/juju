@@ -4,10 +4,7 @@
 package gce
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -143,8 +140,6 @@ func (env *environ) imageURLBase(os jujuos.OSType) (string, error) {
 		} else {
 			base = ubuntuImageBasePath
 		}
-	case jujuos.Windows:
-		base = windowsImageBasePath
 	default:
 		return "", errors.Errorf("os %s is not supported on the gce provider", os.String())
 	}
@@ -241,14 +236,6 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 		// See: http://cloudinit.readthedocs.org
 		metadata[metadataKeyEncoding] = "base64"
 
-	case jujuos.Windows:
-		metadata[metadataKeyWindowsUserdata] = string(userData)
-
-		validChars := append(utils.UpperAlpha, append(utils.LowerAlpha, utils.Digits...)...)
-
-		// The hostname must have maximum 15 characters
-		winHostname := "juju" + utils.RandomString(11, validChars)
-		metadata[metadataKeyWindowsSysprep] = fmt.Sprintf(winSetHostnameScript, winHostname)
 	default:
 		return nil, errors.Errorf("cannot pack metadata for os %s on the gce provider", os.String())
 	}
@@ -279,7 +266,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID s
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
-		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB(ser))
+		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB)
 	}
 	return []google.DiskSpec{dSpec}, nil
 }

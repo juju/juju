@@ -11,7 +11,6 @@ import (
 	"net"
 	"path"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	corecharm "github.com/juju/charm/v9"
@@ -343,9 +342,5 @@ func (c *mockConnection) Read(p []byte) (n int, err error) {
 }
 
 func sockPath(c *gc.C) string {
-	sockPath := path.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
-	}
-	return sockPath
+	return path.Join(c.MkDir(), "test.listener")
 }

@@ -4,9 +4,8 @@
 package kubernetes
 
 import (
-	"fmt"
-
 	"github.com/juju/collections/set"
+	storagev1 "k8s.io/api/storage/v1"
 )
 
 const (
@@ -45,30 +44,14 @@ const (
 type ClusterMetadataChecker interface {
 	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
 	GetClusterMetadata(storageClass string) (result *ClusterMetadata, err error)
-
-	// CheckDefaultWorkloadStorage returns an error if the opinionated storage defined for
-	// the cluster does not match the specified storage.
-	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *StorageProvisioner) error
-
-	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
-	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, bool, error)
 }
 
 // ClusterMetadata defines metadata about a cluster.
 type ClusterMetadata struct {
-	NominatedStorageClass *StorageProvisioner
-	OperatorStorageClass  *StorageProvisioner
-	Cloud                 string
-	Regions               set.Strings
-}
-
-// PreferredStorage defines preferred storage
-// attributes on a given cluster.
-type PreferredStorage struct {
-	Name              string
-	Provisioner       string
-	Parameters        map[string]string
-	VolumeBindingMode string
+	WorkloadStorageClass *storagev1.StorageClass
+	OperatorStorageClass *storagev1.StorageClass
+	Cloud                string
+	Regions              set.Strings
 }
 
 // StorageProvisioner defines the a storage provisioner available on a cluster.
@@ -80,21 +63,5 @@ type StorageProvisioner struct {
 	Model             string
 	ReclaimPolicy     string
 	VolumeBindingMode string
-}
-
-// NonPreferredStorageError is raised when a cluster does not have
-// the opinionated default storage Juju requires.
-type NonPreferredStorageError struct {
-	PreferredStorage
-}
-
-// Error implements error.
-func (e *NonPreferredStorageError) Error() string {
-	return fmt.Sprintf("preferred storage %q not available", e.Provisioner)
-}
-
-// IsNonPreferredStorageError returns true if err is a NonPreferredStorageError.
-func IsNonPreferredStorageError(err error) bool {
-	_, ok := err.(*NonPreferredStorageError)
-	return ok
+	IsDefault         bool
 }

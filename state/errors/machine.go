@@ -24,7 +24,11 @@ func NewHasAssignedUnitsError(machineId string, unitNames []string) error {
 }
 
 func (e *hasAssignedUnitsError) Error() string {
-	return fmt.Sprintf("machine %s has unit %q assigned", e.machineId, e.unitNames[0])
+	unitNames := make([]string, len(e.unitNames))
+	for i, unitName := range e.unitNames {
+		unitNames[i] = fmt.Sprintf("%q", unitName)
+	}
+	return fmt.Sprintf("machine %s has unit(s) %s assigned", e.machineId, strings.Join(unitNames, ", "))
 }
 
 func IsHasAssignedUnitsError(err error) bool {
@@ -45,7 +49,11 @@ func NewHasContainersError(machineId string, containerIds []string) error {
 }
 
 func (e *hasContainersError) Error() string {
-	return fmt.Sprintf("machine %s is hosting containers %q", e.machineId, strings.Join(e.containerIds, ","))
+	containerIds := make([]string, len(e.containerIds))
+	for i, containerId := range e.containerIds {
+		containerIds[i] = fmt.Sprintf("%q", containerId)
+	}
+	return fmt.Sprintf("machine %s is hosting container(s) %s", e.machineId, strings.Join(containerIds, ", "))
 }
 
 // IshasContainersError reports whether or not the error is a

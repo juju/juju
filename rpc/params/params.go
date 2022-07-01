@@ -274,14 +274,6 @@ type AddMachinesResult struct {
 	Error   *Error `json:"error,omitempty"`
 }
 
-// DestroyMachines holds parameters for the DestroyMachines call.
-// This is the legacy params struct used with the client facade.
-// TODO(wallyworld) - remove in Juju 3.0
-type DestroyMachines struct {
-	MachineNames []string `json:"machine-names"`
-	Force        bool     `json:"force"`
-}
-
 // DestroyMachinesParams holds parameters for the DestroyMachinesWithParams call.
 type DestroyMachinesParams struct {
 	MachineTags []string `json:"machine-tags"`
@@ -968,11 +960,6 @@ type FindToolsParams struct {
 	// Arch will be used to match tools by architecture if non-empty.
 	Arch string `json:"arch"`
 
-	// TODO(juju3) - remove series
-	// Kept foe compatibility with older clients.
-	// Series will be used to match tools by series if non-empty.
-	Series string `json:"series"`
-
 	// OSType will be used to match tools by os type if non-empty.
 	OSType string `json:"os-type"`
 
@@ -1205,6 +1192,9 @@ type DestroyMachineResult struct {
 // DestroyMachineInfo contains information related to the removal of
 // a machine.
 type DestroyMachineInfo struct {
+	// MachineId is the ID if the machine that will be destroyed
+	MachineId string `json:"machine-id"`
+
 	// DetachedStorage is the tags of storage instances that will be
 	// detached from the machine (assigned units) as a result of
 	// destroying the machine, and will remain in the model after
@@ -1215,9 +1205,13 @@ type DestroyMachineInfo struct {
 	// destroyed as a result of destroying the machine.
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
 
-	// DestroyedStorage is the tags of units that will be destroyed
+	// DestroyedUnits are the tags of units that will be destroyed
 	// as a result of destroying the machine.
 	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
+
+	// DestroyedContainers are the results of the destroyed containers hosted
+	// on a machine, destroyed as a result of destroying the machine
+	DestroyedContainers []DestroyMachineResult `json:"destroyed-containers,omitempty"`
 }
 
 // DestroyUnitResults contains the results of a DestroyUnit API request.

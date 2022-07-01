@@ -6,7 +6,6 @@ package azure
 import (
 	stdcontext "context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -14,18 +13,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute" // This is the version supporting disk encryption sets.
-	keyvaultservices "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2019-09-01/keyvault"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-05-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-08-01/storage"
-	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/arch"
@@ -46,11 +42,12 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
-	"github.com/juju/juju/provider/azure/internal/useragent"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -75,8 +72,11 @@ const (
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
 
+	// commonDeployment is used to create resources common to all models.
+	commonDeployment = "common"
+
 	computeAPIVersion = "2021-11-01"
-	networkAPIVersion = "2021-05-01"
+	networkAPIVersion = "2018-08-01"
 )
 
 type azureEnviron struct {
@@ -95,6 +95,9 @@ type azureEnviron struct {
 	// subscriptionId is the Azure account subscription ID.
 	subscriptionId string
 
+	// tenantId is the Azure account tenant ID.
+	tenantId string
+
 	// storageEndpoint is the Azure storage endpoint. This is the host
 	// portion of the storage endpoint URL only; use this instead of
 	// cloud.StorageEndpoint in API calls.
@@ -107,17 +110,8 @@ type azureEnviron struct {
 	// modelName is the name of the model.
 	modelName string
 
-	// authorizer is the authorizer we use for Azure.
-	authorizer *cloudSpecAuth
-
-	compute            compute.BaseClient
-	disk               compute.BaseClient
-	vault              keyvault.BaseClient
-	vaultKey           keyvaultservices.BaseClient
-	resources          resources.BaseClient
-	network            network.BaseClient
-	storageClient      azurestorage.Client
-	storageAccountName string
+	clientOptions policy.ClientOptions
+	credential    azcore.TokenCredential
 
 	mu                     sync.Mutex
 	config                 *azureModelConfig
@@ -128,7 +122,7 @@ type azureEnviron struct {
 var _ environs.Environ = (*azureEnviron)(nil)
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *azureEnviron) SetCloudSpec(_ stdcontext.Context, cloud environscloudspec.CloudSpec) error {
+func (env *azureEnviron) SetCloudSpec(ctx stdcontext.Context, cloud environscloudspec.CloudSpec) error {
 	if err := validateCloudSpec(cloud); err != nil {
 		return errors.Annotate(err, "validating cloud spec")
 	}
@@ -145,7 +139,7 @@ func (env *azureEnviron) SetCloudSpec(_ stdcontext.Context, cloud environsclouds
 	env.location = canonicalLocation(cloud.Region)
 	env.storageEndpoint = storageEndpointURL.Host
 
-	if err := env.initEnviron(); err != nil {
+	if err := env.initEnviron(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -156,94 +150,64 @@ func (env *azureEnviron) SetCloudSpec(_ stdcontext.Context, cloud environsclouds
 	// If no user specified resource group, make one from the model UUID.
 	if env.resourceGroup == "" {
 		modelTag := names.NewModelTag(cfg.UUID())
-		if env.resourceGroup, err = env.resourceGroupName(modelTag, cfg.Name()); err != nil {
+		if env.resourceGroup, err = env.resourceGroupName(ctx, modelTag, cfg.Name()); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	env.modelName = cfg.Name()
-
-	// We need a deterministic storage account name, so that we can
-	// defer creation of the storage account to the VM deployment,
-	// and retain the ability to create multiple deployments in
-	// parallel.
-	//
-	// We use the last 20 non-hyphen hex characters of the model's
-	// UUID as the storage account name, prefixed with "juju". The
-	// probability of clashing with another storage account should
-	// be negligible.
-	uuidAlphaNumeric := strings.Replace(env.config.Config.UUID(), "-", "", -1)
-	env.storageAccountName = "juju" + uuidAlphaNumeric[len(uuidAlphaNumeric)-20:]
-
 	return nil
 }
 
-func (env *azureEnviron) initEnviron() error {
+func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	credAttrs := env.cloud.Credential.Attributes()
 	env.subscriptionId = credAttrs[credAttrManagedSubscriptionId]
 	if env.subscriptionId == "" {
 		env.subscriptionId = credAttrs[credAttrSubscriptionId]
 	}
-	env.authorizer = &cloudSpecAuth{
-		cloud:  env.cloud,
-		sender: env.provider.config.Sender,
+
+	env.clientOptions = azcore.ClientOptions{
+		Cloud: azureCloud(env.cloud.Endpoint, env.cloud.IdentityEndpoint),
+		PerCallPolicies: []policy.Policy{
+			&tracing.LoggingPolicy{
+				Logger: logger.Child("azureapi"),
+			},
+		},
+		Telemetry: policy.TelemetryOptions{
+			ApplicationID: "Juju/" + jujuversion.Current.String(),
+		},
+		Transport: env.provider.config.Sender,
+		Retry:     env.provider.config.Retry,
+	}
+	if env.provider.config.RequestInspector != nil {
+		env.clientOptions.PerCallPolicies = append(env.clientOptions.PerCallPolicies, env.provider.config.RequestInspector)
 	}
 
-	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	env.disk = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	env.vault = keyvault.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	for id, client := range env.apiClients() {
-		useragent.UpdateClient(client)
-		client.Authorizer = env.authorizer.auth()
-		clientLogger := loggo.GetLogger(id)
-		if env.provider.config.Sender != nil {
-			client.Sender = env.provider.config.Sender
-		}
-		client.ResponseInspector = tracing.RespondDecorator(clientLogger)
-		client.RequestInspector = tracing.PrepareDecorator(clientLogger)
-		if env.provider.config.RequestInspector != nil {
-			tracer := client.RequestInspector
-			inspector := env.provider.config.RequestInspector
-			client.RequestInspector = func(p autorest.Preparer) autorest.Preparer {
-				p = tracer(p)
-				p = inspector(p)
-				return p
-			}
-		}
-		client.SendDecorators = []autorest.SendDecorator{
-			doRetryForStaleCredential(env.authorizer),
-			autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...),
-		}
+	tenantID, err := azureauth.DiscoverTenantID(ctx, env.subscriptionId, arm.ClientOptions{
+		ClientOptions: env.clientOptions,
+	})
+	if err != nil {
+		return errors.Annotate(err, "getting tenant ID")
+	}
+	logger.Debugf("discovered tenant id: %s", tenantID)
+	env.tenantId = tenantID
+
+	appId := credAttrs[credAttrAppId]
+	appPassword := credAttrs[credAttrAppPassword]
+	env.credential, err = env.provider.config.CreateTokenCredential(appId, appPassword, tenantID, env.clientOptions)
+	if err != nil {
+		return errors.Annotate(err, "set up credential")
 	}
 	return nil
-}
-
-func (env *azureEnviron) apiClients() map[string]*autorest.Client {
-	return map[string]*autorest.Client{
-		"azure.compute":   &env.compute.Client,
-		"azure.disk":      &env.disk.Client,
-		"azure.resources": &env.resources.Client,
-		"azure.network":   &env.network.Client,
-		"azure.vault":     &env.vault.Client,
-		"azure.keyvault":  &env.vaultKey.Client,
-	}
-}
-
-func (env *azureEnviron) setClientRetries(retryAttempts int, retryDuration time.Duration) {
-	// When the client retry parameters are set, we need to redo the retry sender as well to use them.
-	for _, client := range env.apiClients() {
-		client.SendDecorators = []autorest.SendDecorator{
-			doRetryForStaleCredential(env.authorizer),
-			autorest.DoRetryForStatusCodes(retryAttempts, retryDuration, autorest.StatusCodesForRetry...),
-		}
-	}
 }
 
 // PrepareForBootstrap is part of the Environ interface.
 func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) error {
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env, nil); err != nil {
+		cloudCtx := &context.CloudCallContext{
+			Context:                  ctx.Context(),
+			InvalidateCredentialFunc: func(string) error { return nil },
+		}
+		if err := verifyCredentials(env, cloudCtx); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -307,22 +271,25 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 	)
 	env.mu.Unlock()
 
-	resourceGroupsClient := resources.GroupsClient{BaseClient: env.resources}
+	resourceGroups, err := env.resourceGroupsClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if existingResourceGroup {
 		logger.Debugf("using existing resource group %q for model %q", env.resourceGroup, env.modelName)
-		g, err := resourceGroupsClient.Get(ctx, env.resourceGroup)
+		g, err := resourceGroups.Get(ctx, env.resourceGroup, nil)
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "checking resource group %q", env.resourceGroup), ctx)
 		}
-		if region := to.String(g.Location); region != env.location {
+		if region := toValue(g.Location); region != env.location {
 			return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
 		}
 	} else {
 		logger.Debugf("creating resource group %q for model %q", env.resourceGroup, env.modelName)
-		if _, err := resourceGroupsClient.CreateOrUpdate(ctx, env.resourceGroup, resources.Group{
-			Location: to.StringPtr(env.location),
-			Tags:     *to.StringMapPtr(resourceTags),
-		}); err != nil {
+		if _, err := resourceGroups.CreateOrUpdate(ctx, env.resourceGroup, armresources.ResourceGroup{
+			Location: to.Ptr(env.location),
+			Tags:     toMapPtr(resourceTags),
+		}, nil); err != nil {
 			return errorutils.HandleCredentialError(errors.Annotate(err, "creating resource group"), ctx)
 		}
 	}
@@ -345,7 +312,7 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 func (env *azureEnviron) createCommonResourceDeployment(
 	ctx context.ProviderCallContext,
 	tags map[string]string,
-	rules []network.SecurityRule,
+	rules []*armnetwork.SecurityRule,
 	commonResources ...armtemplates.Resource,
 ) error {
 	// Only create network resources if the user has not
@@ -358,21 +325,11 @@ func (env *azureEnviron) createCommonResourceDeployment(
 		return nil
 	}
 
-	// We perform this deployment asynchronously, to avoid blocking
-	// the "juju add-model" command; Create is called synchronously.
-	// Eventually we should have Create called asynchronously, but
-	// until then we do this, and ensure that the deployment has
-	// completed before we schedule additional deployments.
-	deploymentsClient := resources.DeploymentsClient{BaseClient: env.resources}
-	deploymentsClient.ResponseInspector = asyncCreationRespondDecorator(
-		deploymentsClient.ResponseInspector,
-	)
 	template := armtemplates.Template{Resources: commonResources}
-	if err := createDeployment(
+	if err := env.createDeployment(
 		ctx,
-		deploymentsClient,
 		env.resourceGroup,
-		"common", // deployment name
+		commonDeployment,
 		template,
 	); err != nil {
 		return errors.Trace(err)
@@ -526,9 +483,8 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	}
 	for i := 0; i < 15; i++ {
 		// Identify the instance type and image to provision.
-		instanceSpec, err := findInstanceSpec(
+		instanceSpec, err := env.findInstanceSpec(
 			ctx,
-			compute.VirtualMachineImagesClient{BaseClient: env.compute},
 			instanceTypes,
 			&instances.InstanceConstraint{
 				Region:      env.location,
@@ -548,13 +504,13 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 			instanceSpec.InstanceType.RootDisk = rootDisk
 		}
 		result, err := env.startInstance(ctx, args, instanceSpec, envTags)
-		quotaErr, ok := errorutils.QuotaExceededError(err)
+		quotaErr, ok := errorutils.MaybeQuotaExceededError(err)
 		if ok {
 			logger.Warningf("%v quota exceeded error: %q", instanceSpec.InstanceType.Name, quotaErr.Error())
 			deleteInstanceFamily(instanceTypes, instanceSpec.InstanceType.Name)
 			continue
 		}
-		return result, errors.Trace(err)
+		return result, errorutils.SimpleError(err)
 	}
 	return nil, errors.New("no suitable instance type found for this subscription")
 }
@@ -562,16 +518,6 @@ func (env *azureEnviron) startInstance(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
 	instanceSpec *instances.InstanceSpec, envTags map[string]string,
 ) (*environs.StartInstanceResult, error) {
-
-	// Windows images are 127GiB, and cannot be made smaller.
-	const windowsMinRootDiskMB = 127 * 1024
-	seriesOS := args.Tools.OneRelease()
-	if seriesOS == strings.ToLower(os.Windows.String()) {
-		if instanceSpec.InstanceType.RootDisk < windowsMinRootDiskMB {
-			logger.Infof("root disk size has been increased to 127GiB")
-			instanceSpec.InstanceType.RootDisk = windowsMinRootDiskMB
-		}
-	}
 
 	// Pick tools by filtering the available tools down to the architecture of
 	// the image that will be provisioned.
@@ -610,11 +556,21 @@ func (env *azureEnviron) startInstance(
 	if args.Constraints.HasAllocatePublicIP() {
 		usePublicIP = *args.Constraints.AllocatePublicIP
 	}
-	stdCtx := stdcontext.Background()
-	if err := env.createVirtualMachine(
-		stdCtx, ctx, vmName, vmTags, envTags,
-		instanceSpec, args, usePublicIP,
-	); err != nil {
+	err = env.createVirtualMachine(
+		ctx, vmName, vmTags, envTags,
+		instanceSpec, args, usePublicIP, true,
+	)
+	// If there's a conflict, it's because another machine is
+	// being provisioned with the same availability set so
+	// retry and do not create the availability set.
+	if errorutils.IsConflictError(err) {
+		logger.Debugf("conflict creating %s, retrying...", vmName)
+		err = env.createVirtualMachine(
+			ctx, vmName, vmTags, envTags,
+			instanceSpec, args, usePublicIP, false,
+		)
+	}
+	if err != nil {
 		logger.Debugf("creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
 			logger.Errorf("could not destroy failed virtual machine: %v", err)
@@ -627,7 +583,7 @@ func (env *azureEnviron) startInstance(
 	// the addresses.
 	inst := &azureInstance{
 		vmName:            vmName,
-		provisioningState: compute.ProvisioningStateCreating,
+		provisioningState: armresources.ProvisioningStateCreating,
 		env:               env,
 	}
 	amd64 := arch.AMD64
@@ -659,23 +615,19 @@ func referenceInfo(entityRef string) (entityRG, entityName string) {
 // All resources created are tagged with the specified "vmTags", so if
 // this function fails then all resources can be deleted by tag.
 func (env *azureEnviron) createVirtualMachine(
-	stdCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
 	vmName string,
 	vmTags, envTags map[string]string,
 	instanceSpec *instances.InstanceSpec,
 	args environs.StartInstanceParams,
 	usePublicIP bool,
+	createAvailabilitySet bool,
 ) error {
-	deploymentsClient := resources.DeploymentsClient{
-		BaseClient: env.resources,
-	}
 	instanceConfig := args.InstanceConfig
-	controller := instanceConfig.Controller != nil
 	apiPorts := make([]int, 0, 2)
-	if controller {
-		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
-		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
+	if instanceConfig.IsController() {
+		apiPorts = append(apiPorts, instanceConfig.ControllerConfig.APIPort())
+		if instanceConfig.ControllerConfig.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
 			apiPorts = append(apiPorts, 80)
 		}
@@ -710,7 +662,6 @@ func (env *azureEnviron) createVirtualMachine(
 
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
-		env.provider.config.RandomWindowsAdminPassword,
 		env.provider.config.GenerateSSHKey,
 	)
 	if err != nil {
@@ -723,35 +674,49 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return errors.Annotate(err, "creating storage profile")
 	}
-	diskEncryptionID, err := env.diskEncryptionInfo(stdCtx, ctx, args.RootDisk, envTags)
+	diskEncryptionID, err := env.diskEncryptionInfo(ctx, args.RootDisk, envTags)
 	if err != nil {
 		return common.ZoneIndependentError(errors.Annotate(err, "creating disk encryption info"))
 	}
-	if diskEncryptionID != "" && storageProfile.OsDisk.ManagedDisk != nil {
-		storageProfile.OsDisk.ManagedDisk.DiskEncryptionSet = &compute.DiskEncryptionSetParameters{
-			ID: to.StringPtr(diskEncryptionID),
+	if diskEncryptionID != "" && storageProfile.OSDisk.ManagedDisk != nil {
+		storageProfile.OSDisk.ManagedDisk.DiskEncryptionSet = &armcompute.DiskEncryptionSetParameters{
+			ID: to.Ptr(diskEncryptionID),
 		}
 	}
 
-	var availabilitySetSubResource *compute.SubResource
+	var availabilitySetSubResource *armcompute.SubResource
 	availabilitySetName, err := availabilitySetName(
-		vmName, vmTags, instanceConfig.Controller != nil,
+		vmName, vmTags, instanceConfig.IsController(),
 	)
 	if err != nil {
 		return errors.Annotate(err, "getting availability set name")
 	}
+	availabilitySetId := fmt.Sprintf(
+		`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
+		availabilitySetName,
+	)
 	if availabilitySetName != "" {
-		availabilitySetId := fmt.Sprintf(
-			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
-			availabilitySetName,
-		)
-		availabilitySetProperties := &compute.AvailabilitySetProperties{
+		availabilitySetSubResource = &armcompute.SubResource{
+			ID: to.Ptr(availabilitySetId),
+		}
+	}
+	if !createAvailabilitySet && availabilitySetName != "" {
+		availabilitySet, err := env.availabilitySetsClient()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if _, err = availabilitySet.Get(ctx, env.resourceGroup, availabilitySetName, nil); err != nil {
+			return errors.Annotatef(err, "expecting availability set %q to be available", availabilitySetName)
+		}
+	}
+	if createAvailabilitySet && availabilitySetName != "" {
+		availabilitySetProperties := &armcompute.AvailabilitySetProperties{
 			// Azure complains when the fault domain count
 			// is not specified, even though it is meant
 			// to be optional and default to the maximum.
 			// The maximum depends on the location, and
 			// there is no API to query it.
-			PlatformFaultDomainCount: to.Int32Ptr(maxFaultDomains(env.location)),
+			PlatformFaultDomainCount: to.Ptr(maxFaultDomains(env.location)),
 		}
 		res = append(res, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -762,9 +727,6 @@ func (env *azureEnviron) createVirtualMachine(
 			Properties: availabilitySetProperties,
 			Sku:        &armtemplates.Sku{Name: "Aligned"},
 		})
-		availabilitySetSubResource = &compute.SubResource{
-			ID: to.StringPtr(availabilitySetId),
-		}
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
@@ -772,7 +734,7 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return common.ZoneIndependentError(err)
 	}
-	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, controller, placementSubnetID)
+	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
 	if err != nil {
 		return common.ZoneIndependentError(err)
 	}
@@ -787,9 +749,9 @@ func (env *azureEnviron) createVirtualMachine(
 		publicIPAddressName := vmName + "-public-ip"
 		publicIPAddressId = fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 		// Default to static public IP so address is preserved across reboots.
-		publicIPAddressAllocationMethod := network.IPAllocationMethodStatic
-		if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
-			publicIPAddressAllocationMethod = network.IPAllocationMethodDynamic // preserve the settings that were used in Juju 2.4 and earlier
+		publicIPAddressAllocationMethod := armnetwork.IPAllocationMethodStatic
+		if env.config.loadBalancerSkuName == string(armnetwork.LoadBalancerSKUNameBasic) {
+			publicIPAddressAllocationMethod = armnetwork.IPAllocationMethodDynamic // preserve the settings that were used in Juju 2.4 and earlier
 		}
 		res = append(res, armtemplates.Resource{
 			APIVersion: networkAPIVersion,
@@ -798,26 +760,26 @@ func (env *azureEnviron) createVirtualMachine(
 			Location:   env.location,
 			Tags:       vmTags,
 			Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
-			Properties: &network.PublicIPAddressPropertiesFormat{
-				PublicIPAddressVersion:   network.IPVersionIPv4,
-				PublicIPAllocationMethod: publicIPAddressAllocationMethod,
+			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+				PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
+				PublicIPAllocationMethod: to.Ptr(publicIPAddressAllocationMethod),
 			},
 		})
 	}
 
 	// Create one NIC per subnet. The first one is the primary and has
 	// the public IP address if so configured.
-	var nics []compute.NetworkInterfaceReference
+	var nics []*armcompute.NetworkInterfaceReference
 	for i, subnetID := range subnetIds {
 		primary := i == 0
-		ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
-			Primary:                   to.BoolPtr(primary),
-			PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
-			Subnet:                    &network.Subnet{ID: to.StringPtr(string(subnetID))},
+		ipConfig := &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+			Primary:                   to.Ptr(primary),
+			PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+			Subnet:                    &armnetwork.Subnet{ID: to.Ptr(string(subnetID))},
 		}
 		if primary && usePublicIP {
-			ipConfig.PublicIPAddress = &network.PublicIPAddress{
-				ID: to.StringPtr(publicIPAddressId),
+			ipConfig.PublicIPAddress = &armnetwork.PublicIPAddress{
+				ID: to.Ptr(publicIPAddressId),
 			}
 			nicDependsOn = append(nicDependsOn, publicIPAddressId)
 		}
@@ -827,9 +789,9 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 		nicName := vmName + "-" + ipConfigName
 		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
-		ipConfigurations := []network.InterfaceIPConfiguration{{
-			Name:                                     to.StringPtr(ipConfigName),
-			InterfaceIPConfigurationPropertiesFormat: ipConfig,
+		ipConfigurations := []*armnetwork.InterfaceIPConfiguration{{
+			Name:       to.Ptr(ipConfigName),
+			Properties: ipConfig,
 		}}
 		res = append(res, armtemplates.Resource{
 			APIVersion: networkAPIVersion,
@@ -837,17 +799,17 @@ func (env *azureEnviron) createVirtualMachine(
 			Name:       nicName,
 			Location:   env.location,
 			Tags:       vmTags,
-			Properties: &network.InterfacePropertiesFormat{
-				IPConfigurations: &ipConfigurations,
+			Properties: &armnetwork.InterfacePropertiesFormat{
+				IPConfigurations: ipConfigurations,
 			},
 			DependsOn: nicDependsOn,
 		})
 		vmDependsOn = append(vmDependsOn, nicId)
 
-		nics = append(nics, compute.NetworkInterfaceReference{
-			ID: to.StringPtr(nicId),
-			NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
-				Primary: to.BoolPtr(primary),
+		nics = append(nics, &armcompute.NetworkInterfaceReference{
+			ID: to.Ptr(nicId),
+			Properties: &armcompute.NetworkInterfaceReferenceProperties{
+				Primary: to.Ptr(primary),
 			},
 		})
 	}
@@ -858,26 +820,25 @@ func (env *azureEnviron) createVirtualMachine(
 		Name:       vmName,
 		Location:   env.location,
 		Tags:       vmTags,
-		Properties: &compute.VirtualMachineProperties{
-			HardwareProfile: &compute.HardwareProfile{
-				VMSize: compute.VirtualMachineSizeTypes(
+		Properties: &armcompute.VirtualMachineProperties{
+			HardwareProfile: &armcompute.HardwareProfile{
+				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes(
 					instanceSpec.InstanceType.Name,
-				),
+				)),
 			},
 			StorageProfile: storageProfile,
-			OsProfile:      osProfile,
-			NetworkProfile: &compute.NetworkProfile{
-				NetworkInterfaces: &nics,
+			OSProfile:      osProfile,
+			NetworkProfile: &armcompute.NetworkProfile{
+				NetworkInterfaces: nics,
 			},
 			AvailabilitySet: availabilitySetSubResource,
 		},
 		DependsOn: vmDependsOn,
 	})
 
-	// On Windows and CentOS, we must add the CustomScript VM
-	// extension to run the CustomData script.
-	switch seriesOS {
-	case os.Windows, os.CentOS:
+	// On CentOS, we must add the CustomScript VM extension to run the
+	// CustomData script.
+	if seriesOS == os.CentOS {
 		properties, err := vmExtensionProperties(seriesOS)
 		if err != nil {
 			return errors.Annotate(
@@ -897,16 +858,8 @@ func (env *azureEnviron) createVirtualMachine(
 
 	logger.Debugf("- creating virtual machine deployment in %q", env.resourceGroup)
 	template := armtemplates.Template{Resources: res}
-	// NOTE(axw) VMs take a long time to go to "Succeeded", so we do not
-	// block waiting for them to be fully provisioned. This means we won't
-	// return an error from StartInstance if the VM fails provisioning;
-	// we will instead report the error via the instance's status.
-	deploymentsClient.ResponseInspector = asyncCreationRespondDecorator(
-		deploymentsClient.ResponseInspector,
-	)
-	if err := createDeployment(
+	if err := env.createDeployment(
 		ctx,
-		deploymentsClient,
 		env.resourceGroup,
 		vmName, // deployment name
 		template,
@@ -960,22 +913,24 @@ type deploymentIncompleteError struct {
 	error
 }
 
-func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCallContext) (*resources.DeploymentExtended, error) {
-	deploymentsClient := resources.DeploymentsClient{env.resources}
-
+func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCallContext) (*armresources.DeploymentExtended, error) {
 	// Release the lock while we're waiting, to avoid blocking others.
 	env.mu.Unlock()
 	defer env.mu.Lock()
 
+	deploy, err := env.deployClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// Wait for up to 5 minutes, with a 5 second polling interval,
 	// for the "common" deployment to be in one of the terminal
 	// states. The deployment typically takes only around 30 seconds,
 	// but we allow for a longer duration to be defensive.
-	var deployment *resources.DeploymentExtended
+	var deployment *armresources.DeploymentExtended
 	waitDeployment := func() error {
-		result, err := deploymentsClient.Get(ctx, env.resourceGroup, "common")
+		result, err := deploy.Get(ctx, env.resourceGroup, commonDeployment, nil)
 		if err != nil {
-			if result.StatusCode == http.StatusNotFound {
+			if errorutils.IsNotFoundError(err) {
 				// The controller model, and also models with bespoke
 				// networks, do not have a "common" deployment
 				// For controller models, common resources are created
@@ -988,18 +943,18 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCa
 			return deploymentIncompleteError{errors.New("deployment incomplete")}
 		}
 
-		state := result.Properties.ProvisioningState
-		if state == resources.ProvisioningStateSucceeded {
+		state := toValue(result.Properties.ProvisioningState)
+		if state == armresources.ProvisioningStateSucceeded {
 			// The deployment has succeeded, so the resources are
 			// ready for use.
-			deployment = &result
+			deployment = to.Ptr(result.DeploymentExtended)
 			return nil
 		}
-		err = errors.Errorf("common resource deployment status is %q", state)
+		err = errors.Errorf("%q resource deployment status is %q", commonDeployment, state)
 		switch state {
-		case resources.ProvisioningStateCanceled,
-			resources.ProvisioningStateFailed,
-			resources.ProvisioningStateDeleted:
+		case armresources.ProvisioningStateCanceled,
+			armresources.ProvisioningStateFailed,
+			armresources.ProvisioningStateDeleted:
 		default:
 			err = deploymentIncompleteError{err}
 		}
@@ -1064,7 +1019,7 @@ func availabilitySetName(
 func newStorageProfile(
 	vmName string,
 	instanceSpec *instances.InstanceSpec,
-) (*compute.StorageProfile, error) {
+) (*armcompute.StorageProfile, error) {
 	logger.Debugf("creating storage profile for %q", vmName)
 
 	urnParts := strings.SplitN(instanceSpec.Image.Id, ":", 4)
@@ -1078,24 +1033,24 @@ func newStorageProfile(
 
 	osDiskName := vmName
 	osDiskSizeGB := mibToGB(instanceSpec.InstanceType.RootDisk)
-	osDisk := &compute.OSDisk{
-		Name:         to.StringPtr(osDiskName),
-		CreateOption: compute.DiskCreateOptionTypesFromImage,
-		Caching:      compute.CachingTypesReadWrite,
-		DiskSizeGB:   to.Int32Ptr(int32(osDiskSizeGB)),
-		ManagedDisk: &compute.ManagedDiskParameters{
-			StorageAccountType: compute.StorageAccountTypes(storage.SkuNameStandardLRS),
+	osDisk := &armcompute.OSDisk{
+		Name:         to.Ptr(osDiskName),
+		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
+		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
+		DiskSizeGB:   to.Ptr(int32(osDiskSizeGB)),
+		ManagedDisk: &armcompute.ManagedDiskParameters{
+			StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
 		},
 	}
 
-	return &compute.StorageProfile{
-		ImageReference: &compute.ImageReference{
-			Publisher: to.StringPtr(publisher),
-			Offer:     to.StringPtr(offer),
-			Sku:       to.StringPtr(sku),
-			Version:   to.StringPtr(vers),
+	return &armcompute.StorageProfile{
+		ImageReference: &armcompute.ImageReference{
+			Publisher: to.Ptr(publisher),
+			Offer:     to.Ptr(offer),
+			SKU:       to.Ptr(sku),
+			Version:   to.Ptr(vers),
 		},
-		OsDisk: osDisk,
+		OSDisk: osDisk,
 	}, nil
 }
 
@@ -1107,9 +1062,8 @@ func mibToGB(mib uint64) uint64 {
 func newOSProfile(
 	vmName string,
 	instanceConfig *instancecfg.InstanceConfig,
-	randomAdminPassword func() string,
 	generateSSHKey func(string) (string, string, error),
-) (*compute.OSProfile, os.OSType, error) {
+) (*armcompute.OSProfile, os.OSType, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
 
 	customData, err := providerinit.ComposeUserData(instanceConfig, nil, AzureRenderer{})
@@ -1117,9 +1071,9 @@ func newOSProfile(
 		return nil, os.Unknown, errors.Annotate(err, "composing user data")
 	}
 
-	osProfile := &compute.OSProfile{
-		ComputerName: to.StringPtr(vmName),
-		CustomData:   to.StringPtr(string(customData)),
+	osProfile := &armcompute.OSProfile{
+		ComputerName: to.Ptr(vmName),
+		CustomData:   to.Ptr(string(customData)),
 	}
 
 	seriesOS, err := jujuseries.GetOSFromSeries(instanceConfig.Series)
@@ -1146,25 +1100,14 @@ func newOSProfile(
 			authorizedKeys = public
 		}
 
-		publicKeys := []compute.SSHPublicKey{{
-			Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
-			KeyData: to.StringPtr(authorizedKeys),
+		publicKeys := []*armcompute.SSHPublicKey{{
+			Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
+			KeyData: to.Ptr(authorizedKeys),
 		}}
-		osProfile.AdminUsername = to.StringPtr("ubuntu")
-		osProfile.LinuxConfiguration = &compute.LinuxConfiguration{
-			DisablePasswordAuthentication: to.BoolPtr(true),
-			SSH:                           &compute.SSHConfiguration{PublicKeys: &publicKeys},
-		}
-	case os.Windows:
-		osProfile.AdminUsername = to.StringPtr("JujuAdministrator")
-		// A password is required by Azure, but we will never use it.
-		// We generate something sufficiently long and random that it
-		// should be infeasible to guess.
-		osProfile.AdminPassword = to.StringPtr(randomAdminPassword())
-		osProfile.WindowsConfiguration = &compute.WindowsConfiguration{
-			ProvisionVMAgent:       to.BoolPtr(true),
-			EnableAutomaticUpdates: to.BoolPtr(true),
-			// TODO(?) add WinRM configuration here.
+		osProfile.AdminUsername = to.Ptr("ubuntu")
+		osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
+			DisablePasswordAuthentication: to.Ptr(true),
+			SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
 		}
 	default:
 		return nil, os.Unknown, errors.NotSupportedf("%s", seriesOS)
@@ -1208,24 +1151,22 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 	}
 
 	// List network interfaces and public IP addresses.
-	instanceNics, err := instanceNetworkInterfaces(
+	instanceNics, err := env.instanceNetworkInterfaces(
 		ctx,
 		env.resourceGroup,
-		network.InterfacesClient{env.network},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	instancePips, err := instancePublicIPAddresses(
+	instancePips, err := env.instancePublicIPAddresses(
 		ctx,
 		env.resourceGroup,
-		network.PublicIPAddressesClient{BaseClient: env.network},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Delete the deployments, virtual machines, and related resources.
+	// Delete the deployments, virtual machines, and related armresources.
 	deleteResults := make([]error, len(ids))
 	for i, id := range ids {
 		if errors.IsNotFound(cancelResults[i]) {
@@ -1259,27 +1200,34 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 
 // cancelDeployment cancels a template deployment.
 func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, name string) error {
-	deploymentsClient := resources.DeploymentsClient{env.resources}
 	logger.Debugf("- canceling deployment %q", name)
-	cancelResult, err := deploymentsClient.Cancel(ctx, env.resourceGroup, name)
+	deploy, err := env.deployClient()
 	if err != nil {
-		if cancelResult.Response != nil {
-			switch cancelResult.StatusCode {
-			case http.StatusNotFound:
-				return errors.NewNotFound(err, fmt.Sprintf("deployment %q not found", name))
-			case http.StatusConflict:
-				if err, ok := errorutils.ServiceError(err); ok {
-					if err.Code == serviceErrorCodeDeploymentCannotBeCancelled ||
-						err.Code == serviceErrorCodeResourceGroupBeingDeleted {
-						// Deployments can only canceled while they're running.
-						return nil
-					}
-				}
-			}
+		return errors.Trace(err)
+	}
+	_, err = deploy.Cancel(ctx, env.resourceGroup, name, nil)
+	if err != nil {
+		if errorutils.IsNotFoundError(err) {
+			return errors.NewNotFound(err, fmt.Sprintf("deployment %q not found", name))
+		}
+		// Deployments can only canceled while they're running.
+		if isDeployConflictError(err) {
+			return nil
 		}
 		return errorutils.HandleCredentialError(errors.Annotatef(err, "canceling deployment %q", name), ctx)
 	}
 	return nil
+}
+
+func isDeployConflictError(err error) bool {
+	if errorutils.IsConflictError(err) {
+		code := errorutils.ErrorCode(err)
+		if code == serviceErrorCodeDeploymentCannotBeCancelled ||
+			code == serviceErrorCodeResourceGroupBeingDeleted {
+			return true
+		}
+	}
+	return false
 }
 
 // deleteVirtualMachine deletes a virtual machine and all of the resources that
@@ -1287,57 +1235,41 @@ func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, name 
 func (env *azureEnviron) deleteVirtualMachine(
 	ctx context.ProviderCallContext,
 	instId instance.Id,
-	networkInterfaces []network.Interface,
-	publicIPAddresses []network.PublicIPAddress,
+	networkInterfaces []*armnetwork.Interface,
+	publicIPAddresses []*armnetwork.PublicIPAddress,
 ) error {
-	vmClient := compute.VirtualMachinesClient{env.compute}
-	diskClient := compute.DisksClient{env.disk}
-	nicClient := network.InterfacesClient{env.network}
-	pipClient := network.PublicIPAddressesClient{env.network}
-	deploymentsClient := resources.DeploymentsClient{env.resources}
 	vmName := string(instId)
 
 	// TODO(axw) delete resources concurrently.
 
-	// The VM must be deleted first, to release the lock on its resources.
-	logger.Debugf("- deleting virtual machine (%s)", vmName)
-	vmErrMsg := "deleting virtual machine"
-	vmFuture, err := vmClient.Delete(ctx, env.resourceGroup, vmName, nil)
+	compute, err := env.computeClient()
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(vmFuture.Response()) {
-			return errors.Annotate(err, vmErrMsg)
-		}
-	} else {
-		err = vmFuture.WaitForCompletionRef(ctx, vmClient.Client)
-		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, vmErrMsg), ctx)
-		}
-		result, err := vmFuture.Result(vmClient)
-		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
-				return errors.Annotate(err, vmErrMsg)
-			}
+		return errors.Trace(err)
+	}
+	// The VM must be deleted first, to release the lock on its armresources.
+	logger.Debugf("- deleting virtual machine (%s)", vmName)
+	poller, err := compute.BeginDelete(ctx, env.resourceGroup, vmName, nil)
+	if err == nil {
+		_, err = poller.PollUntilDone(ctx, nil)
+	}
+	if err != nil {
+		if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+			return errors.Annotate(err, "deleting virtual machine")
 		}
 	}
 	// Delete the managed OS disk.
 	logger.Debugf("- deleting OS disk (%s)", vmName)
-	diskErrMsg := "deleting OS disk"
-	diskFuture, err := diskClient.Delete(ctx, env.resourceGroup, vmName)
+	disks, err := env.disksClient()
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(diskFuture.Response()) {
-			return errors.Annotate(err, diskErrMsg)
-		}
+		return errors.Trace(err)
 	}
+	diskPoller, err := disks.BeginDelete(ctx, env.resourceGroup, vmName, nil)
 	if err == nil {
-		err = diskFuture.WaitForCompletionRef(ctx, diskClient.Client)
-		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, diskErrMsg), ctx)
-		}
-		result, err := diskFuture.Result(diskClient)
-		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
-				return errors.Annotate(err, diskErrMsg)
-			}
+		_, err = diskPoller.PollUntilDone(ctx, nil)
+	}
+	if err != nil {
+		if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+			return errors.Annotate(err, "deleting OS disk")
 		}
 	}
 	logger.Debugf("- deleting security rules (%s)", vmName)
@@ -1349,71 +1281,57 @@ func (env *azureEnviron) deleteVirtualMachine(
 	}
 
 	logger.Debugf("- deleting network interfaces (%s)", vmName)
-	networkErrMsg := "deleting NIC"
+	interfaces, err := env.interfacesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, nic := range networkInterfaces {
-		nicName := to.String(nic.Name)
+		nicName := toValue(nic.Name)
 		logger.Tracef("deleting NIC %q", nicName)
-		nicFuture, err := nicClient.Delete(ctx, env.resourceGroup, nicName)
+		nicPoller, err := interfaces.BeginDelete(ctx, env.resourceGroup, nicName, nil)
+		if err == nil {
+			_, err = nicPoller.PollUntilDone(ctx, nil)
+		}
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(nicFuture.Response()) {
-				return errors.Annotate(err, networkErrMsg)
-			}
-		} else {
-			err = nicFuture.WaitForCompletionRef(ctx, nicClient.Client)
-			if err != nil {
-				return errorutils.HandleCredentialError(errors.Annotate(err, networkErrMsg), ctx)
-			}
-			result, err := nicFuture.Result(nicClient)
-			if err != nil {
-				if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
-					return errors.Annotate(err, networkErrMsg)
-				}
+			if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+				return errors.Annotate(err, "deleting NIC")
 			}
 		}
 	}
 
 	logger.Debugf("- deleting public IPs (%s)", vmName)
-	ipErrMsg := "deleting public IP"
+	publicAddresses, err := env.publicAddressesClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, pip := range publicIPAddresses {
-		pipName := to.String(pip.Name)
+		pipName := toValue(pip.Name)
 		logger.Tracef("deleting public IP %q", pipName)
-		ipFuture, err := pipClient.Delete(ctx, env.resourceGroup, pipName)
+		ipPoller, err := publicAddresses.BeginDelete(ctx, env.resourceGroup, pipName, nil)
+		if err == nil {
+			_, err = ipPoller.PollUntilDone(ctx, nil)
+		}
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(ipFuture.Response()) {
-				return errors.Annotate(err, ipErrMsg)
-			}
-		} else {
-			err = ipFuture.WaitForCompletionRef(ctx, pipClient.Client)
-			if err != nil {
-				return errorutils.HandleCredentialError(errors.Annotate(err, ipErrMsg), ctx)
-			}
-			result, err := ipFuture.Result(pipClient)
-			if err != nil {
-				if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(result) {
-					return errors.Annotate(err, ipErrMsg)
-				}
+			if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+				return errors.Annotate(err, "deleting public IP")
 			}
 		}
 	}
 
-	// The deployment must be deleted last, or we risk leaking resources.
+	// The deployment must be deleted last, or we risk leaking armresources.
 	logger.Debugf("- deleting deployment (%s)", vmName)
-	deploymentFuture, err := deploymentsClient.Delete(ctx, env.resourceGroup, vmName)
-	deploymentErrMsg := "deleting deployment"
+	deploy, err := env.deployClient()
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResponse(deploymentFuture.Response()) {
-			return errors.Annotate(err, deploymentErrMsg)
-		}
-	} else {
-		err = deploymentFuture.WaitForCompletionRef(ctx, deploymentsClient.Client)
-		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, deploymentErrMsg), ctx)
-		}
-		deploymentResult, err := deploymentFuture.Result(deploymentsClient)
-		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) || !isNotFoundResult(deploymentResult) {
-				return errors.Annotate(err, deploymentErrMsg)
-			}
+		return errors.Trace(err)
+	}
+	deploymentPoller, err := deploy.BeginDelete(ctx, env.resourceGroup, vmName, nil)
+	if err == nil {
+		_, err = deploymentPoller.PollUntilDone(ctx, nil)
+	}
+	if err != nil {
+		ignoreError := isDeployConflictError(err) || errorutils.IsNotFoundError(err)
+		if !ignoreError || errorutils.MaybeInvalidateCredential(err, ctx) {
+			return errors.Annotate(err, "deleting deployment")
 		}
 	}
 	return nil
@@ -1421,9 +1339,11 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 // AdoptResources is part of the Environ interface.
 func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, _ version.Number) error {
-	groupClient := resources.GroupsClient{BaseClient: env.resources}
-
-	err := env.updateGroupControllerTag(ctx, &groupClient, env.resourceGroup, controllerUUID)
+	resourceGroups, err := env.resourceGroupsClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = env.updateGroupControllerTag(ctx, resourceGroups, env.resourceGroup, controllerUUID)
 	if err != nil {
 		// If we can't update the group there's no point updating the
 		// contained resources - the group will be killed if the
@@ -1431,32 +1351,41 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 		return errors.Trace(err)
 	}
 
-	apiVersions, err := collectAPIVersions(ctx, resources.ProvidersClient{BaseClient: env.resources})
+	providers, err := env.providersClient()
+	if err != nil {
+		// If we can't update the group there's no point updating the
+		// contained resources - the group will be killed if the
+		// controller is destroyed, taking the other things with it.
+		return errors.Trace(err)
+	}
+	apiVersions, err := collectAPIVersions(ctx, providers)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	resourceClient := resources.Client{BaseClient: env.resources}
-	res, err := resourceClient.ListByResourceGroupComplete(ctx, env.resourceGroup, "", "", nil)
+	resources, err := env.resourcesClient()
 	if err != nil {
-		return errorutils.HandleCredentialError(errors.Annotate(err, "listing resources"), ctx)
+		return errors.Trace(err)
 	}
 	var failed []string
-	for ; res.NotDone(); err = res.NextWithContext(ctx) {
+	pager := resources.NewListByResourceGroupPager(env.resourceGroup, nil)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return errors.Annotate(err, "listing resources")
+			return errorutils.HandleCredentialError(errors.Annotate(err, "listing resources"), ctx)
 		}
-		resource := res.Value()
-		apiVersion := apiVersions[to.String(resource.Type)]
-		err := env.updateResourceControllerTag(
-			ctx,
-			resourceClient,
-			resource, controllerUUID, apiVersion,
-		)
-		if err != nil {
-			name := to.String(resource.Name)
-			logger.Errorf("error updating resource tags for %q: %v", name, err)
-			failed = append(failed, name)
+		for _, res := range next.Value {
+			apiVersion := apiVersions[toValue(res.Type)]
+			err := env.updateResourceControllerTag(
+				ctx,
+				resources,
+				res, controllerUUID, apiVersion,
+			)
+			if err != nil {
+				name := toValue(res.Name)
+				logger.Errorf("error updating resource tags for %q: %v", name, err)
+				failed = append(failed, name)
+			}
 		}
 	}
 	if len(failed) > 0 {
@@ -1466,35 +1395,35 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 	return nil
 }
 
-func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContext, client *resources.GroupsClient, groupName, controllerUUID string) error {
-	group, err := client.Get(ctx, groupName)
+func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContext, client *armresources.ResourceGroupsClient, groupName, controllerUUID string) error {
+	group, err := client.Get(ctx, groupName, nil)
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Trace(err), ctx)
 	}
 
 	logger.Debugf(
 		"updating resource group %s juju controller uuid to %s",
-		to.String(group.Name), controllerUUID,
+		toValue(group.Name), controllerUUID,
 	)
-	group.Tags[tags.JujuController] = to.StringPtr(controllerUUID)
+	group.Tags[tags.JujuController] = to.Ptr(controllerUUID)
 
 	// The Azure API forbids specifying ProvisioningState on the update.
 	if group.Properties != nil {
 		(*group.Properties).ProvisioningState = nil
 	}
 
-	_, err = client.CreateOrUpdate(ctx, groupName, group)
+	_, err = client.CreateOrUpdate(ctx, groupName, group.ResourceGroup, nil)
 	return errorutils.HandleCredentialError(errors.Annotatef(err, "updating controller for resource group %q", groupName), ctx)
 }
 
 func (env *azureEnviron) updateResourceControllerTag(
 	ctx context.ProviderCallContext,
-	client resources.Client,
-	stubResource resources.GenericResourceExpanded,
+	client *armresources.Client,
+	stubResource *armresources.GenericResourceExpanded,
 	controllerUUID string,
 	apiVersion string,
 ) error {
-	stubTags := to.StringMap(stubResource.Tags)
+	stubTags := toMap(stubResource.Tags)
 	if stubTags[tags.JujuController] == controllerUUID {
 		// No update needed.
 		return nil
@@ -1502,28 +1431,31 @@ func (env *azureEnviron) updateResourceControllerTag(
 
 	// Need to get the resource individually to ensure that the
 	// properties are populated.
-	resource, err := client.GetByID(ctx, to.String(stubResource.ID), apiVersion)
+	resource, err := client.GetByID(ctx, toValue(stubResource.ID), apiVersion, nil)
 	if err != nil {
-		return errorutils.HandleCredentialError(errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name)), ctx)
+		return errorutils.HandleCredentialError(errors.Annotatef(err, "getting full resource %q", toValue(stubResource.Name)), ctx)
 	}
 
-	logger.Debugf("updating %s juju controller UUID to %s", to.String(stubResource.ID), controllerUUID)
-	resource.Tags[tags.JujuController] = to.StringPtr(controllerUUID)
-	_, err = client.CreateOrUpdateByID(
+	logger.Debugf("updating %s juju controller UUID to %s", toValue(stubResource.ID), controllerUUID)
+	if resource.Tags == nil {
+		resource.Tags = make(map[string]*string)
+	}
+	resource.Tags[tags.JujuController] = to.Ptr(controllerUUID)
+	_, err = client.BeginCreateOrUpdateByID(
 		ctx,
-		to.String(stubResource.ID),
+		toValue(stubResource.ID),
 		apiVersion,
-		resource,
+		resource.GenericResource,
+		nil,
 	)
-	return errorutils.HandleCredentialError(errors.Annotatef(err, "updating controller for %q", to.String(resource.Name)), ctx)
+	return errorutils.HandleCredentialError(errors.Annotatef(err, "updating controller for %q", toValue(resource.Name)), ctx)
 }
 
 var (
-	runningInstStates = []compute.ProvisioningState{
-		compute.ProvisioningStateCreating,
-		compute.ProvisioningStateUpdating,
-		compute.ProvisioningStateMigrating,
-		compute.ProvisioningStateSucceeded,
+	runningInstStates = []armresources.ProvisioningState{
+		armresources.ProvisioningStateCreating,
+		armresources.ProvisioningStateUpdating,
+		armresources.ProvisioningStateSucceeded,
 	}
 )
 
@@ -1588,7 +1520,7 @@ func (env *azureEnviron) gatherInstances(
 	insts []instances.Instance,
 	resourceGroup string,
 	refreshAddresses bool,
-	instStates ...compute.ProvisioningState,
+	instStates ...armresources.ProvisioningState,
 ) error {
 	allInst, err := env.allInstances(ctx, resourceGroup, refreshAddresses, "", instStates...)
 	if err != nil {
@@ -1625,7 +1557,7 @@ func (env *azureEnviron) allInstances(
 	resourceGroup string,
 	refreshAddresses bool,
 	controllerUUID string,
-	instStates ...compute.ProvisioningState,
+	instStates ...armresources.ProvisioningState,
 ) ([]instances.Instance, error) {
 	// Instances may be queued for deployment but provisioning has not yet started.
 	queued, err := env.allQueuedInstances(ctx, resourceGroup, controllerUUID != "")
@@ -1653,11 +1585,9 @@ func (env *azureEnviron) allInstances(
 
 	// Get the instance addresses if needed.
 	if len(azureInstances) > 0 && refreshAddresses {
-		if err := setInstanceAddresses(
+		if err := env.setInstanceAddresses(
 			ctx,
 			resourceGroup,
-			network.InterfacesClient{env.network},
-			network.PublicIPAddressesClient{env.network},
 			azureInstances,
 		); err != nil {
 			return nil, errors.Trace(err)
@@ -1681,92 +1611,93 @@ func (env *azureEnviron) allQueuedInstances(
 	resourceGroup string,
 	controllerOnly bool,
 ) ([]*azureInstance, error) {
-	deploymentsClient := resources.DeploymentsClient{BaseClient: env.resources}
-	deploymentsResult, err := deploymentsClient.ListByResourceGroupComplete(ctx, resourceGroup, "", nil)
+	deploy, err := env.deployClient()
 	if err != nil {
-		if isNotFoundResult(deploymentsResult.Response().Response) {
-			// This will occur if the resource group does not
-			// exist, e.g. in a fresh hosted environment.
-			return nil, nil
-		}
-		return nil, errorutils.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, errors.Trace(err)
 	}
-	if deploymentsResult.Response().IsEmpty() {
-		return nil, nil
-	}
-
 	var azureInstances []*azureInstance
-	for ; deploymentsResult.NotDone(); err = deploymentsResult.NextWithContext(ctx) {
+	pager := deploy.NewListByResourceGroupPager(resourceGroup, nil)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errors.Annotate(err, "listing resources")
+			if errorutils.IsNotFoundError(err) {
+				// This will occur if the resource group does not
+				// exist, e.g. in a fresh hosted environment.
+				return nil, nil
+			}
+			return nil, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 		}
-		deployment := deploymentsResult.Value()
-		deployProvisioningState := resources.ProvisioningStateNotSpecified
-		deployError := "Failed"
-		if deployment.Properties != nil {
-			deployProvisioningState = deployment.Properties.ProvisioningState
-			deployError = string(deployProvisioningState)
-			if deployment.Properties.Error != nil {
-				deployError = to.String(deployment.Properties.Error.Message)
-				if deployment.Properties.Error.Details != nil && len(*deployment.Properties.Error.Details) > 0 {
-					deployError = to.String((*deployment.Properties.Error.Details)[0].Message)
+		for _, deployment := range next.Value {
+			deployProvisioningState := armresources.ProvisioningStateNotSpecified
+			deployError := "Failed"
+			if deployment.Properties != nil {
+				deployProvisioningState = toValue(deployment.Properties.ProvisioningState)
+				deployError = string(deployProvisioningState)
+				if deployment.Properties.Error != nil {
+					deployError = toValue(deployment.Properties.Error.Message)
+					if deployment.Properties.Error.Details != nil && len(deployment.Properties.Error.Details) > 0 {
+						deployError = toValue((deployment.Properties.Error.Details)[0].Message)
+					}
 				}
 			}
+			switch deployProvisioningState {
+			case armresources.ProvisioningStateAccepted,
+				armresources.ProvisioningStateCreating,
+				armresources.ProvisioningStateRunning,
+				armresources.ProvisioningStateFailed,
+				armresources.ProvisioningStateCanceled,
+				armresources.ProvisioningStateNotSpecified:
+			default:
+				continue
+			}
+			name := toValue(deployment.Name)
+			if _, err := names.ParseMachineTag(name); err != nil {
+				// Deployments we create for Juju machines are named
+				// with the machine tag. We also create a "common"
+				// deployment, so this will exclude that VM and any
+				// other stray deployment armresources.
+				continue
+			}
+			if deployment.Properties == nil || deployment.Properties.Dependencies == nil {
+				continue
+			}
+			if controllerOnly && !isControllerDeployment(deployment) {
+				continue
+			}
+			provisioningState := armresources.ProvisioningStateCreating
+			switch deployProvisioningState {
+			case armresources.ProvisioningStateFailed,
+				armresources.ProvisioningStateCanceled:
+				provisioningState = armresources.ProvisioningStateFailed
+			}
+			inst := &azureInstance{
+				vmName:            name,
+				provisioningState: provisioningState,
+				provisioningError: deployError,
+				env:               env,
+			}
+			azureInstances = append(azureInstances, inst)
 		}
-		switch deployProvisioningState {
-		case resources.ProvisioningStateAccepted,
-			resources.ProvisioningStateCreating,
-			resources.ProvisioningStateRunning,
-			resources.ProvisioningStateFailed,
-			resources.ProvisioningStateCanceled,
-			resources.ProvisioningStateNotSpecified:
-		default:
-			continue
-		}
-		name := to.String(deployment.Name)
-		if _, err := names.ParseMachineTag(name); err != nil {
-			// Deployments we create for Juju machines are named
-			// with the machine tag. We also create a "common"
-			// deployment, so this will exclude that VM and any
-			// other stray deployment resources.
-			continue
-		}
-		if deployment.Properties == nil || deployment.Properties.Dependencies == nil {
-			continue
-		}
-		if controllerOnly && !isControllerDeployment(deployment) {
-			continue
-		}
-		provisioningState := compute.ProvisioningStateCreating
-		switch deployProvisioningState {
-		case resources.ProvisioningStateFailed,
-			resources.ProvisioningStateCanceled:
-			provisioningState = compute.ProvisioningStateFailed
-		}
-		inst := &azureInstance{
-			vmName:            name,
-			provisioningState: provisioningState,
-			provisioningError: deployError,
-			env:               env,
-		}
-		azureInstances = append(azureInstances, inst)
 	}
 	return azureInstances, nil
 }
 
-func isControllerDeployment(deployment resources.DeploymentExtended) bool {
-	for _, d := range *deployment.Properties.Dependencies {
+func isControllerDeployment(deployment *armresources.DeploymentExtended) bool {
+	if deployment.Properties == nil {
+		return false
+	}
+	for _, d := range deployment.Properties.Dependencies {
 		if d.DependsOn == nil {
 			continue
 		}
-		if to.String(d.ResourceType) != "Microsoft.Compute/virtualMachines" {
+		if toValue(d.ResourceType) != "Microsoft.Compute/virtualMachines" {
 			continue
 		}
-		for _, on := range *d.DependsOn {
-			if to.String(on.ResourceType) != "Microsoft.Compute/availabilitySets" {
+		for _, on := range d.DependsOn {
+			if toValue(on.ResourceType) != "Microsoft.Compute/availabilitySets" {
 				continue
 			}
-			if to.String(on.ResourceName) == controllerAvailabilitySet {
+			if toValue(on.ResourceName) == controllerAvailabilitySet {
 				return true
 			}
 		}
@@ -1780,64 +1711,66 @@ func (env *azureEnviron) allProvisionedInstances(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
 	controllerUUID string,
-	instStates ...compute.ProvisioningState,
+	instStates ...armresources.ProvisioningState,
 ) ([]*azureInstance, error) {
-	vmClient := compute.VirtualMachinesClient{BaseClient: env.compute}
-	vmResult, err := vmClient.ListComplete(ctx, resourceGroup, "")
+	compute, err := env.computeClient()
 	if err != nil {
-		if isNotFoundResult(vmResult.Response().Response) {
-			// This will occur if the resource group does not
-			// exist, e.g. in a fresh hosted environment.
-			return nil, nil
-		}
-		return nil, errorutils.HandleCredentialError(errors.Trace(err), ctx)
-	}
-	if vmResult.Response().IsEmpty() {
-		return nil, nil
+		return nil, errors.Trace(err)
 	}
 
 	var azureInstances []*azureInstance
-	for ; vmResult.NotDone(); err = vmResult.NextWithContext(ctx) {
+	pager := compute.NewListPager(resourceGroup, nil)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errors.Annotate(err, "listing instances")
+			if errorutils.IsNotFoundError(err) {
+				// This will occur if the resource group does not
+				// exist, e.g. in a fresh hosted environment.
+				return nil, nil
+			}
+			return nil, errorutils.HandleCredentialError(errors.Trace(err), ctx)
 		}
-		vm := vmResult.Value()
-		name := to.String(vm.Name)
-		provisioningState := compute.ProvisioningState(to.String(vm.ProvisioningState))
-		if len(instStates) > 0 {
-			haveState := false
-			for _, wantState := range instStates {
-				if provisioningState == wantState {
-					haveState = true
-					break
+		for _, vm := range next.Value {
+			name := toValue(vm.Name)
+			provisioningState := armresources.ProvisioningStateNotSpecified
+			if vm.Properties != nil {
+				provisioningState = armresources.ProvisioningState(toValue(vm.Properties.ProvisioningState))
+			}
+			if len(instStates) > 0 {
+				haveState := false
+				for _, wantState := range instStates {
+					if provisioningState == wantState {
+						haveState = true
+						break
+					}
+				}
+				if !haveState {
+					continue
 				}
 			}
-			if !haveState {
+			if !isControllerInstance(vm, controllerUUID) {
 				continue
 			}
+			inst := &azureInstance{
+				vmName:            name,
+				provisioningState: provisioningState,
+				env:               env,
+			}
+			azureInstances = append(azureInstances, inst)
 		}
-		if !isControllerInstance(vm, controllerUUID) {
-			continue
-		}
-		inst := &azureInstance{
-			vmName:            name,
-			provisioningState: provisioningState,
-			env:               env,
-		}
-		azureInstances = append(azureInstances, inst)
 	}
 	return azureInstances, nil
 }
 
-func isControllerInstance(vm compute.VirtualMachine, controllerUUID string) bool {
+func isControllerInstance(vm *armcompute.VirtualMachine, controllerUUID string) bool {
 	if controllerUUID == "" {
 		return true
 	}
 	vmTags := vm.Tags
-	if v, ok := vmTags[tags.JujuIsController]; !ok || to.String(v) != "true" {
+	if v, ok := vmTags[tags.JujuIsController]; !ok || toValue(v) != "true" {
 		return false
 	}
-	if v, ok := vmTags[tags.JujuController]; !ok || to.String(v) != controllerUUID {
+	if v, ok := vmTags[tags.JujuController]; !ok || toValue(v) != controllerUUID {
 		return false
 	}
 	return true
@@ -1851,7 +1784,7 @@ func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 		return errors.Trace(err)
 	}
 	// Resource groups are self-contained and fully encompass
-	// all environ resources. Once you delete the group, there
+	// all environ armresources. Once you delete the group, there
 	// is nothing else to do.
 	return nil
 }
@@ -1864,33 +1797,32 @@ func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, cont
 		return errors.Trace(err)
 	}
 	// Resource groups are self-contained and fully encompass
-	// all environ resources. Once you delete the group, there
+	// all environ armresources. Once you delete the group, there
 	// is nothing else to do.
 	return nil
 }
 
 func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.ProviderCallContext, controllerUUID string) error {
+	resourceGroups, err := env.resourceGroupsClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	filter := fmt.Sprintf(
 		"tagName eq '%s' and tagValue eq '%s'",
 		tags.JujuController, controllerUUID,
 	)
-	client := resources.GroupsClient{env.resources}
-	result, err := client.List(ctx, filter, nil)
-	if err != nil {
-		return errorutils.HandleCredentialError(errors.Annotate(err, "listing resource groups"), ctx)
-	}
-	if result.Values() == nil {
-		return nil
-	}
-
-	// Walk all the pages of results so we can get a total list of groups to remove.
+	pager := resourceGroups.NewListPager(&armresources.ResourceGroupsClientListOptions{
+		Filter: to.Ptr(filter),
+	})
 	var groupNames []*string
-	for ; result.NotDone(); err = result.NextWithContext(ctx) {
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return errors.Trace(err)
+			return errorutils.HandleCredentialError(errors.Annotate(err, "listing resource groups"), ctx)
 		}
-		for _, group := range result.Values() {
-			groupNames = append(groupNames, group.Name)
+		// Walk all the pages of results so we can get a total list of groups to remove.
+		for _, result := range next.Value {
+			groupNames = append(groupNames, result.Name)
 		}
 	}
 	// Deleting groups can take a long time, so make sure they are
@@ -1898,7 +1830,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 	var wg sync.WaitGroup
 	errs := make([]error, len(groupNames))
 	for i, name := range groupNames {
-		groupName := to.String(name)
+		groupName := toValue(name)
 		logger.Debugf("  - deleting resource group %q", groupName)
 		wg.Add(1)
 		go func(i int) {
@@ -1938,22 +1870,18 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, re
 	if env.config.resourceGroupName != "" {
 		return env.deleteResourcesInGroup(ctx, resourceGroup)
 	}
-	client := resources.GroupsClient{env.resources}
-	future, err := client.Delete(ctx, resourceGroup)
+	resourceGroups, err := env.resourceGroupsClient()
 	if err != nil {
-		err = errorutils.HandleCredentialError(err, ctx)
-		if !isNotFoundResponse(future.Response()) {
+		return errors.Trace(err)
+	}
+	poller, err := resourceGroups.BeginDelete(ctx, resourceGroup, nil)
+	if err == nil {
+		_, err = poller.PollUntilDone(ctx, nil)
+	}
+	if err != nil {
+		if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
 			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 		}
-		return nil
-	}
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
-		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
-	}
-	result, err := future.Result(client)
-	if err != nil && !isNotFoundResult(result) {
-		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
 	return nil
 }
@@ -1991,18 +1919,18 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 	var (
 		instIds        []instance.Id
 		vaultNames     []string
-		otherResources []resources.GenericResourceExpanded
+		otherResources []*armresources.GenericResourceExpanded
 	)
 	for _, r := range resourceItems {
-		rType := to.String(r.Type)
-		logger.Debugf("resource to delete: %v (%v)", to.String(r.Name), rType)
+		rType := toValue(r.Type)
+		logger.Debugf("resource to delete: %v (%v)", toValue(r.Name), rType)
 		// Vault resources are handled by a separate client.
 		if rType == "Microsoft.KeyVault/vaults" {
-			vaultNames = append(vaultNames, to.String(r.Name))
+			vaultNames = append(vaultNames, toValue(r.Name))
 			continue
 		}
 		if rType == "Microsoft.Compute/virtualMachines" {
-			instIds = append(instIds, instance.Id(to.String(r.Name)))
+			instIds = append(instIds, instance.Id(toValue(r.Name)))
 			continue
 		}
 		if !machineResourceTypes.Contains(rType) {
@@ -2010,7 +1938,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 		}
 	}
 
-	// Stopping instances will also remove most of their dependent resources.
+	// Stopping instances will also remove most of their dependent armresources.
 	err = env.StopInstances(ctx, instIds...)
 	if err != nil {
 		return errors.Annotatef(err, "deleting machine instances %q", instIds)
@@ -2031,40 +1959,42 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 		logger.Warningf("could not delete all Azure resources, remaining: %v", remainingResources)
 	}
 
-	// Lastly delete the vault resources.
+	// Lastly delete the vault armresources.
 	for _, vaultName := range vaultNames {
-		if err := env.deleteVault(ctx, ctx, vaultName); err != nil {
+		if err := env.deleteVault(ctx, vaultName); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGroup, modelFilter string) ([]resources.GenericResourceExpanded, error) {
-	resourcesClient := resources.Client{env.resources}
-	result, err := resourcesClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, modelFilter, "", nil)
+func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGroup, modelFilter string) ([]*armresources.GenericResourceExpanded, error) {
+	resources, err := env.resourcesClient()
 	if err != nil {
-		return nil, errors.Annotate(err, "listing resources to delete")
+		return nil, errors.Trace(err)
 	}
-
-	var resourceItems []resources.GenericResourceExpanded
-	for result.NotDone() {
-		res := result.Value()
-		// If no modelFilter specified, we need to check that the resource
-		// belongs to this model.
-		if modelFilter == "" {
-			fullRes, err := resourcesClient.GetByID(sdkCtx, to.String(res.ID), computeAPIVersion)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if env.config.UUID() != to.String(fullRes.Tags[tags.JujuModel]) {
-				continue
-			}
-		}
-		resourceItems = append(resourceItems, res)
-		err = result.NextWithContext(sdkCtx)
+	var resourceItems []*armresources.GenericResourceExpanded
+	pager := resources.NewListByResourceGroupPager(resourceGroup, &armresources.ClientListByResourceGroupOptions{
+		Filter: to.Ptr(modelFilter),
+	})
+	for pager.More() {
+		next, err := pager.NextPage(sdkCtx)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "listing resources to delete")
+		}
+		for _, res := range next.Value {
+			// If no modelFilter specified, we need to check that the resource
+			// belongs to this model.
+			if modelFilter == "" {
+				fullRes, err := resources.GetByID(sdkCtx, toValue(res.ID), computeAPIVersion, nil)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if env.config.UUID() != toValue(fullRes.Tags[tags.JujuModel]) {
+					continue
+				}
+			}
+			resourceItems = append(resourceItems, res)
 		}
 	}
 	return resourceItems, nil
@@ -2072,36 +2002,38 @@ func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGr
 
 // deleteResources deletes the specified resources, returning any that
 // cannot be deleted because they are in use.
-func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []resources.GenericResourceExpanded) ([]resources.GenericResourceExpanded, error) {
+func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*armresources.GenericResourceExpanded) ([]*armresources.GenericResourceExpanded, error) {
 	logger.Debugf("deleting %d resources", len(toDelete))
 
-	resourcesClient := resources.Client{env.resources}
-	resourcesClient.ResponseInspector = errorutils.CheckForDetailedError
-
-	var remainingResources []resources.GenericResourceExpanded
+	var remainingResources []*armresources.GenericResourceExpanded
 	var wg sync.WaitGroup
 	deleteResults := make([]error, len(toDelete))
 	for i, res := range toDelete {
-		id := to.String(res.ID)
+		id := toValue(res.ID)
 		logger.Debugf("- deleting resource %q", id)
 		wg.Add(1)
 		go func(i int, id string) {
 			defer wg.Done()
-			result, err := resourcesClient.DeleteByID(sdkCtx, id, computeAPIVersion)
+			resources, err := env.resourcesClient()
 			if err != nil {
+				deleteResults[i] = err
+				return
+			}
+			poller, err := resources.BeginDeleteByID(sdkCtx, id, computeAPIVersion, nil)
+			if err == nil {
+				_, err = poller.PollUntilDone(sdkCtx, nil)
+			}
+			if err != nil {
+				if errorutils.IsNotFoundError(err) {
+					return
+				}
 				// If the resource is in use, don't error, just queue it up for another pass.
-				if se, ok := errorutils.ServiceError(err); ok && strings.HasPrefix(se.Code, "InUse") {
+				if strings.HasPrefix(errorutils.ErrorCode(err), "InUse") {
 					remainingResources = append(remainingResources, toDelete[i])
 				} else {
 					deleteResults[i] = errors.Annotatef(err, "deleting resource %q: %v", id, err)
 				}
 				return
-			}
-			if err = result.WaitForCompletionRef(sdkCtx, resourcesClient.Client); err != nil {
-				resp := result.Response()
-				if !isNotFoundResponse(resp) {
-					deleteResults[i] = errors.Annotatef(err, "deleting resource %q: %v", id, err)
-				}
 			}
 		}(i, id)
 	}
@@ -2110,7 +2042,7 @@ func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []r
 	var errStrings []string
 	for i, err := range deleteResults {
 		if err != nil && !errors.IsNotFound(err) {
-			msg := fmt.Sprintf("error deleting resource %q: %#v", to.String(toDelete[i].ID), err)
+			msg := fmt.Sprintf("error deleting resource %q: %#v", toValue(toDelete[i].ID), err)
 			errStrings = append(errStrings, msg)
 		}
 	}
@@ -2127,34 +2059,35 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 
 // resourceGroupName returns the name of the model's resource group to use.
 // It may be that a legacy group name is already in use, so use that if present.
-func (env *azureEnviron) resourceGroupName(modelTag names.ModelTag, modelName string) (string, error) {
-	ctx := stdcontext.Background()
-	resourceGroupsClient := resources.GroupsClient{env.resources}
-
+func (env *azureEnviron) resourceGroupName(ctx stdcontext.Context, modelTag names.ModelTag, modelName string) (string, error) {
+	resourceGroups, err := env.resourceGroupsClient()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	// First look for a resource group name with the full model UUID.
 	legacyName := legacyResourceGroupName(modelTag, modelName)
-	g, err := resourceGroupsClient.Get(ctx, legacyName)
+	g, err := resourceGroups.Get(ctx, legacyName, nil)
 	if err == nil {
 		logger.Debugf("using existing legacy resource group %q for model %q", legacyName, modelName)
 		return legacyName, nil
 	}
-	if !isNotFoundResult(g.Response) {
+	if !errorutils.IsNotFoundError(err) {
 		return "", errors.Trace(err)
 	}
 
 	logger.Debugf("legacy resource group name doesn't exist, using short name")
 	resourceGroup := resourceGroupName(modelTag, modelName)
-	g, err = resourceGroupsClient.Get(ctx, resourceGroup)
+	g, err = resourceGroups.Get(ctx, resourceGroup, nil)
 	if err == nil {
 		mTag, ok := g.Tags[tags.JujuModel]
-		if !ok || to.String(mTag) != modelTag.Id() {
+		if !ok || toValue(mTag) != modelTag.Id() {
 			// This should never happen in practice - combination of model name and first 8
 			// digits of UUID should be unique.
-			return "", errors.Errorf("unexpected model UUID on resource group %q; expected %q, got %q", resourceGroup, modelTag.Id(), to.String(mTag))
+			return "", errors.Errorf("unexpected model UUID on resource group %q; expected %q, got %q", resourceGroup, modelTag.Id(), toValue(mTag))
 		}
 		return resourceGroup, nil
 	}
-	if isNotFoundResult(g.Response) {
+	if errorutils.IsNotFoundError(err) {
 		return resourceGroup, nil
 	}
 	return "", errors.Trace(err)
@@ -2199,72 +2132,71 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 		return env.instanceTypes, nil
 	}
 
-	client := compute.ResourceSkusClient{env.compute}
-
-	res, err := client.ListComplete(ctx, "", "")
+	skus, err := env.resourceSKUsClient()
 	if err != nil {
-		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
+		return nil, errors.Trace(err)
 	}
 	instanceTypes := make(map[string]instances.InstanceType)
-nextResource:
-	for ; res.NotDone(); err = res.NextWithContext(ctx) {
+	pager := skus.NewListPager(nil)
+	for pager.More() {
+		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errors.Annotate(err, "listing resources")
+			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
 		}
-		resource := res.Value()
-		if resource.ResourceType == nil || *resource.ResourceType != "virtualMachines" {
-			continue
-		}
-		if resource.Restrictions != nil {
-			for _, r := range *resource.Restrictions {
-				if r.ReasonCode == compute.ResourceSkuRestrictionsReasonCodeNotAvailableForSubscription {
+	nextResource:
+		for _, resource := range next.Value {
+			if resource.ResourceType == nil || *resource.ResourceType != "virtualMachines" {
+				continue
+			}
+			for _, r := range resource.Restrictions {
+				if toValue(r.ReasonCode) == armcompute.ResourceSKURestrictionsReasonCodeNotAvailableForSubscription {
 					continue nextResource
 				}
 			}
-		}
-		locationOk := false
-		if resource.Locations != nil {
-			for _, loc := range *resource.Locations {
-				if strings.ToLower(loc) == env.location {
-					locationOk = true
-					break
+			locationOk := false
+			if resource.Locations != nil {
+				for _, loc := range resource.Locations {
+					if strings.ToLower(toValue(loc)) == env.location {
+						locationOk = true
+						break
+					}
 				}
 			}
-		}
-		if !locationOk {
-			continue
-		}
-		var (
-			cores    *int32
-			mem      *int32
-			rootDisk *int32
-		)
-		for _, capability := range *resource.Capabilities {
-			if capability.Name == nil || capability.Value == nil {
+			if !locationOk {
 				continue
 			}
-			switch *capability.Name {
-			case "MemoryGB":
-				memValue, _ := strconv.ParseFloat(*capability.Value, 32)
-				mem = to.Int32Ptr(int32(1024 * memValue))
-			case "vCPUsAvailable", "vCPUs":
-				coresValue, _ := strconv.Atoi(*capability.Value)
-				cores = to.Int32Ptr(int32(coresValue))
-			case "OSVhdSizeMB":
-				rootDiskValue, _ := strconv.Atoi(*capability.Value)
-				rootDisk = to.Int32Ptr(int32(rootDiskValue))
+			var (
+				cores    *int32
+				mem      *int32
+				rootDisk *int32
+			)
+			for _, capability := range resource.Capabilities {
+				if capability.Name == nil || capability.Value == nil {
+					continue
+				}
+				switch toValue(capability.Name) {
+				case "MemoryGB":
+					memValue, _ := strconv.ParseFloat(*capability.Value, 32)
+					mem = to.Ptr(int32(1024 * memValue))
+				case "vCPUsAvailable", "vCPUs":
+					coresValue, _ := strconv.Atoi(*capability.Value)
+					cores = to.Ptr(int32(coresValue))
+				case "OSVhdSizeMB":
+					rootDiskValue, _ := strconv.Atoi(*capability.Value)
+					rootDisk = to.Ptr(int32(rootDiskValue))
+				}
 			}
-		}
-		instanceType := newInstanceType(compute.VirtualMachineSize{
-			Name:           resource.Name,
-			NumberOfCores:  cores,
-			OsDiskSizeInMB: rootDisk,
-			MemoryInMB:     mem,
-		})
-		instanceTypes[instanceType.Name] = instanceType
-		// Create aliases for standard role sizes.
-		if strings.HasPrefix(instanceType.Name, "Standard_") {
-			instanceTypes[instanceType.Name[len("Standard_"):]] = instanceType
+			instanceType := newInstanceType(armcompute.VirtualMachineSize{
+				Name:           resource.Name,
+				NumberOfCores:  cores,
+				OSDiskSizeInMB: rootDisk,
+				MemoryInMB:     mem,
+			})
+			instanceTypes[instanceType.Name] = instanceType
+			// Create aliases for standard role sizes.
+			if strings.HasPrefix(instanceType.Name, "Standard_") {
+				instanceTypes[instanceType.Name[len("Standard_"):]] = instanceType
+			}
 		}
 	}
 	env.instanceTypes = instanceTypes

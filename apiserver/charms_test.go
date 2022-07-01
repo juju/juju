@@ -16,7 +16,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
@@ -25,8 +24,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -101,10 +98,6 @@ func (s *charmsSuite) setModelImporting(c *gc.C) {
 }
 
 func (s *charmsSuite) SetUpSuite(c *gc.C) {
-	// TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Skipping this on windows for now")
-	}
 	s.apiserverBaseSuite.SetUpSuite(c)
 }
 
@@ -582,27 +575,19 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add a charm in pending mode.
 	chInfo := state.CharmInfo{
-		ID:          charm.MustParseURL("cs:focal/dummy-1"),
+		ID:          charm.MustParseURL("ch:focal/dummy-1"),
 		Charm:       testcharms.Repo.CharmArchive(c.MkDir(), "dummy"),
 		StoragePath: "", // indicates that we don't have the data in the blobstore yet.
 		SHA256:      "", // indicates that we don't have the data in the blobstore yet.
 		Version:     "42",
 	}
-	_, err = s.State.AddCharmMetadata(chInfo)
+	_, err := s.State.AddCharmMetadata(chInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure a 490 is returned if the charm is pending to be downloaded.
-	uri := s.charmsURI("?url=cs:focal/dummy-1")
+	uri := s.charmsURI("?url=ch:focal/dummy-1")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusConflict, gc.Commentf("expected to get 409 for charm that is pending to be downloaded"))
 }

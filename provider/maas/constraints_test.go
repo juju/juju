@@ -14,64 +14,10 @@ import (
 )
 
 type environSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
-	for i, test := range []struct {
-		cons     constraints.Value
-		expected url.Values
-	}{{
-		cons:     constraints.Value{Arch: stringp("arm")},
-		expected: url.Values{"arch": {"arm"}},
-	}, {
-		cons:     constraints.Value{CpuCores: uint64p(4)},
-		expected: url.Values{"cpu_count": {"4"}},
-	}, {
-		cons:     constraints.Value{Mem: uint64p(1024)},
-		expected: url.Values{"mem": {"1024"}},
-	}, { // Spaces are converted to bindings and not_networks, but only in acquireNode
-		cons:     constraints.Value{Spaces: stringslicep("foo", "bar", "^baz", "^oof")},
-		expected: url.Values{},
-	}, {
-		cons: constraints.Value{Tags: stringslicep("tag1", "tag2", "^tag3", "^tag4")},
-		expected: url.Values{
-			"tags":     {"tag1,tag2"},
-			"not_tags": {"tag3,tag4"},
-		},
-	}, { // CpuPower is ignored.
-		cons:     constraints.Value{CpuPower: uint64p(1024)},
-		expected: url.Values{},
-	}, { // RootDisk is ignored.
-		cons:     constraints.Value{RootDisk: uint64p(8192)},
-		expected: url.Values{},
-	}, {
-		cons:     constraints.Value{Tags: stringslicep("foo", "bar")},
-		expected: url.Values{"tags": {"foo,bar"}},
-	}, {
-		cons: constraints.Value{
-			Arch:     stringp("arm"),
-			CpuCores: uint64p(4),
-			Mem:      uint64p(1024),
-			CpuPower: uint64p(1024),
-			RootDisk: uint64p(8192),
-			Spaces:   stringslicep("foo", "^bar"),
-			Tags:     stringslicep("^tag1", "tag2"),
-		},
-		expected: url.Values{
-			"arch":      {"arm"},
-			"cpu_count": {"4"},
-			"mem":       {"1024"},
-			"tags":      {"tag2"},
-			"not_tags":  {"tag1"},
-		},
-	}} {
-		c.Logf("test #%d: cons=%s", i, test.cons.String())
-		c.Check(convertConstraints(test.cons), jc.DeepEquals, test.expected)
-	}
-}
-
-func (*environSuite) TestConvertConstraints2(c *gc.C) {
 	for i, test := range []struct {
 		cons     constraints.Value
 		expected gomaasapi.AllocateMachineArgs
@@ -123,7 +69,7 @@ func (*environSuite) TestConvertConstraints2(c *gc.C) {
 		},
 	}} {
 		c.Logf("test #%d: cons2=%s", i, test.cons.String())
-		c.Check(convertConstraints2(test.cons), jc.DeepEquals, test.expected)
+		c.Check(convertConstraints(test.cons), jc.DeepEquals, test.expected)
 	}
 }
 

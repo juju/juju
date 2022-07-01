@@ -211,9 +211,10 @@ type Application interface {
 	// charm even if they are in an error state.
 	Charm() (ch Charm, force bool, err error)
 
-	// CharmURL returns the application's charm URL, and whether units should upgrade
-	// to the charm with that URL even if they are in an error state.
-	CharmURL() (curl *charm.URL, force bool)
+	// CharmURL returns a string representation the application's charm URL,
+	// and whether units should upgrade to the charm with that URL even if
+	// they are in an error state.
+	CharmURL() (curl *string, force bool)
 
 	// EndpointBindings returns the Bindings object for this application.
 	EndpointBindings() (Bindings, error)

@@ -161,7 +161,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) 
 	// First see if the named storage class exists.
 	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
-		return toCaaSStorageProvisioner(*sc), true, nil
+		return toCaaSStorageProvisioner(sc), true, nil
 	}
 	if !k8serrors.IsNotFound(err) {
 		return nil, false, errors.Annotatef(err, "getting storage class %q", cfg.Name)
@@ -197,7 +197,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) 
 	if err != nil {
 		return nil, false, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
-	return toCaaSStorageProvisioner(*sc), false, nil
+	return toCaaSStorageProvisioner(sc), false, nil
 }
 
 // maybeGetVolumeClaimSpec returns a persistent volume claim spec for the given

@@ -4,7 +4,8 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/context"
@@ -12,28 +13,37 @@ import (
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
-func createDeployment(
+func (env *azureEnviron) createDeployment(
 	ctx context.ProviderCallContext,
-	client resources.DeploymentsClient,
 	resourceGroup string,
 	deploymentName string,
 	t armtemplates.Template,
 ) error {
+	deploy, err := env.deployClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	templateMap, err := t.Map()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	deployment := resources.Deployment{
-		Properties: &resources.DeploymentProperties{
+	deployment := armresources.Deployment{
+		Properties: &armresources.DeploymentProperties{
 			Template: &templateMap,
-			Mode:     resources.DeploymentModeIncremental,
+			Mode:     to.Ptr(armresources.DeploymentModeIncremental),
 		},
 	}
-	_, err = client.CreateOrUpdate(
+	poller, err := deploy.BeginCreateOrUpdate(
 		ctx,
 		resourceGroup,
 		deploymentName,
 		deployment,
+		nil,
 	)
-	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating deployment %q", deploymentName), ctx)
+	// We only want to wait for deployments which are not shared
+	// resources, otherwise add model operations will be held up.
+	if err == nil && deploymentName != commonDeployment {
+		_, err = poller.PollUntilDone(ctx, nil)
+	}
+	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating Azure deployment %q", deploymentName), ctx)
 }

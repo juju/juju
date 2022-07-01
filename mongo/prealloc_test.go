@@ -31,11 +31,6 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		availSpace:   99999,
 		expected:     183,
 	}, {
-		hostWordSize: 64,
-		runtimeGOOS:  "windows",
-		availSpace:   99999,
-		expected:     512,
-	}, {
 		hostWordSize: 32,
 		runtimeGOOS:  "linux",
 		availSpace:   48,

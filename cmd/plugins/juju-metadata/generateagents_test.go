@@ -87,8 +87,6 @@ var currentVersionStrings = []string{
 var versionStrings = append([]string{
 	fmt.Sprintf("%d.12.0-ubuntu-amd64", jujuversion.Current.Major),
 	fmt.Sprintf("%d.12.0-ubuntu-i386", jujuversion.Current.Major),
-	fmt.Sprintf("%d.12.0-windows-amd64", jujuversion.Current.Major),
-	fmt.Sprintf("%d.12.0-windows-i386", jujuversion.Current.Major),
 	fmt.Sprintf("%d.13.0-ubuntu-amd64", jujuversion.Current.Major+1),
 }, currentVersionStrings...)
 

@@ -71,8 +71,8 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 		}
 		icfg.Bootstrap.ControllerModelConfig = modelConfig
 		icfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
-		icfg.Bootstrap.HostedModelConfig = map[string]interface{}{
-			"name": "hosted-model",
+		icfg.Bootstrap.InitialModelConfig = map[string]interface{}{
+			"name": "my-model",
 		}
 		icfg.Bootstrap.StateServingInfo = jujucontroller.StateServingInfo{
 			Cert:         coretesting.ServerCert,

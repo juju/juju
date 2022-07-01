@@ -24,7 +24,7 @@ import (
 )
 
 type EnvironProviderSuite struct {
-	maas2Suite
+	maasSuite
 }
 
 var _ = gc.Suite(&EnvironProviderSuite{})
@@ -228,7 +228,7 @@ func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
 func ping(c *gc.C, callCtx context.ProviderCallContext, endpoint string, getCapabilities Capabilities) error {
 	p, err := environs.Provider("maas")
 	c.Assert(err, jc.ErrorIsNil)
-	m, ok := p.(MaasEnvironProvider)
+	m, ok := p.(EnvironProvider)
 	c.Assert(ok, jc.IsTrue)
 	m.GetCapabilities = getCapabilities
 	return m.Ping(callCtx, endpoint)

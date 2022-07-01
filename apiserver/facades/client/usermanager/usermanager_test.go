@@ -5,6 +5,7 @@ package usermanager_test
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -50,6 +51,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(facadetest.Context{
+		StatePool_: s.StatePool,
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -556,6 +558,108 @@ func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 		}}},
 	})
 }
+
+func (s *userManagerSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
+	// factory.MakeUser will create an ModelUser for a local user by default.
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	return modelUser
+}
+
+func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
+	testAdmin := s.AdminUserTag(c)
+	owner, err := s.State.UserAccess(testAdmin, s.Model.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
+	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
+	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
+	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
+
+	results, err := s.usermanager.ModelUserInfo(params.Entities{Entities: []params.Entity{{
+		Tag: s.Model.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	var expected params.ModelUserInfoResults
+	for _, r := range []struct {
+		user permission.UserAccess
+		info *params.ModelUserInfo
+	}{
+		{
+			owner,
+			&params.ModelUserInfo{
+				ModelTag:    s.Model.ModelTag().String(),
+				UserName:    owner.UserName,
+				DisplayName: owner.DisplayName,
+				Access:      "admin",
+			},
+		}, {
+			localUser1,
+			&params.ModelUserInfo{
+				ModelTag:    s.Model.ModelTag().String(),
+				UserName:    "ralphdoe",
+				DisplayName: "Ralph Doe",
+				Access:      "admin",
+			},
+		}, {
+			localUser2,
+			&params.ModelUserInfo{
+				ModelTag:    s.Model.ModelTag().String(),
+				UserName:    "samsmith",
+				DisplayName: "Sam Smith",
+				Access:      "admin",
+			},
+		}, {
+			remoteUser1,
+			&params.ModelUserInfo{
+				ModelTag:    s.Model.ModelTag().String(),
+				UserName:    "bobjohns@ubuntuone",
+				DisplayName: "Bob Johns",
+				Access:      "write",
+			},
+		}, {
+			remoteUser2,
+			&params.ModelUserInfo{
+				ModelTag:    s.Model.ModelTag().String(),
+				UserName:    "nicshaw@idprovider",
+				DisplayName: "Nic Shaw",
+				Access:      "write",
+			},
+		},
+	} {
+		r.info.LastConnection = lastConnPointer(c, r.user, s.State)
+		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
+	}
+
+	sort.Sort(ByUserName(expected.Results))
+	sort.Sort(ByUserName(results.Results))
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func lastConnPointer(c *gc.C, modelUser permission.UserAccess, st *state.State) *time.Time {
+	model, err := st.Model()
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	lastConn, err := model.LastModelConnection(modelUser.UserTag)
+	if err != nil {
+		if state.IsNeverConnectedError(err) {
+			return nil
+		}
+		c.Fatal(err)
+	}
+	return &lastConn
+}
+
+// ByUserName implements sort.Interface for []params.ModelUserInfoResult based on
+// the UserName field.
+type ByUserName []params.ModelUserInfoResult
+
+func (a ByUserName) Len() int           { return len(a) }
+func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
 func lastLoginPointer(c *gc.C, user *state.User) *time.Time {
 	lastLogin, err := user.LastLogin()

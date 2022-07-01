@@ -31,7 +31,7 @@ type State interface {
 
 // Application is the subset of *state.Application that we need.
 type Application interface {
-	CharmURL() (curl *charm.URL, force bool)
+	CharmURL() (curl *string, force bool)
 	CharmOrigin() *state.CharmOrigin
 	Channel() csparams.Channel
 	ApplicationTag() names.ApplicationTag

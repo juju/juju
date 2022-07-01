@@ -19,7 +19,6 @@ var (
 	GetDisks                                          = getDisks
 	UbuntuImageBasePath                               = ubuntuImageBasePath
 	UbuntuDailyImageBasePath                          = ubuntuDailyImageBasePath
-	WindowsImageBasePath                              = windowsImageBasePath
 )
 
 func ExposeInstBase(inst instances.Instance) *google.Instance {

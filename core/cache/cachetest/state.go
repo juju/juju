@@ -94,7 +94,7 @@ func ApplicationChange(c *gc.C, modelUUID string, app *state.Application) cache.
 		ModelUUID:   modelUUID,
 		Name:        app.Name(),
 		Exposed:     app.IsExposed(),
-		CharmURL:    cURL.Path(),
+		CharmURL:    *cURL,
 		Life:        life.Value(app.Life().String()),
 		MinUnits:    app.MinUnits(),
 		Constraints: cons,

@@ -60,10 +60,10 @@ var defaultLongRetryStrategy = retry.CallArgs{
 
 var (
 	DeploymentStatusCall = deploymentStatusCall
-	GetMAAS2Controller   = getMAAS2Controller
+	GetMAASController    = getMAASController
 )
 
-func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error) {
+func getMAASController(maasServer, apiKey string) (gomaasapi.Controller, error) {
 	return gomaasapi.NewController(gomaasapi.ControllerArgs{
 		BaseURL: maasServer,
 		APIKey:  apiKey,
@@ -173,7 +173,7 @@ func (env *maasEnviron) Bootstrap(
 		dialOpts environs.BootstrapDialOpts,
 	) error {
 		// Wait for bootstrap instance to change to deployed state.
-		if err := env.waitForNodeDeployment2(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
+		if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
 			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
 		}
 		return finalizer(ctx, icfg, dialOpts)
@@ -263,7 +263,7 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 	}
 
 	apiVersion := apiVersion2
-	controller, err := GetMAAS2Controller(maasServer, maasOAuth)
+	controller, err := GetMAASController(maasServer, maasOAuth)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -331,11 +331,11 @@ func (z maasAvailabilityZone) Available() bool {
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
 func (env *maasEnviron) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
-	zones, err := env.availabilityZones2(ctx)
+	zones, err := env.availabilityZones(ctx)
 	return zones, errors.Trace(err)
 }
 
-func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
+func (env *maasEnviron) availabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	zones, err := env.maasController.Zones()
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -351,16 +351,16 @@ func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) (cor
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
 func (env *maasEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
-	instances, err := env.Instances(ctx, ids)
+	inst, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
 	}
 	zones := make(map[instance.Id]string, 0)
-	for _, inst := range instances {
+	for _, inst := range inst {
 		if inst == nil {
 			continue
 		}
-		mInst, ok := inst.(maasInstance)
+		mInst, ok := inst.(*maasInstance)
 		if !ok {
 			continue
 		}
@@ -618,18 +618,18 @@ func (env *maasEnviron) networkSpaceRequirements(ctx context.ProviderCallContext
 	return positiveSpaceIds, negativeSpaceIds, nil
 }
 
-// acquireNode2 allocates a machine from MAAS2.
-func (env *maasEnviron) acquireNode2(
+// acquireNode allocates a machine from MAAS.
+func (env *maasEnviron) acquireNode(
 	ctx context.ProviderCallContext,
 	nodeName, zoneName, systemId string,
 	cons constraints.Value,
 	positiveSpaceIDs set.Strings,
 	negativeSpaceIDs set.Strings,
 	volumes []volumeInfo,
-) (maasInstance, error) {
-	acquireParams := convertConstraints2(cons)
-	addInterfaces2(&acquireParams, positiveSpaceIDs, negativeSpaceIDs)
-	addStorage2(&acquireParams, volumes)
+) (*maasInstance, error) {
+	acquireParams := convertConstraints(cons)
+	addInterfaces(&acquireParams, positiveSpaceIDs, negativeSpaceIDs)
+	addStorage(&acquireParams, volumes)
 	acquireParams.AgentName = env.uuid
 	if zoneName != "" {
 		acquireParams.Zone = zoneName
@@ -646,76 +646,11 @@ func (env *maasEnviron) acquireNode2(
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
-	return &maas2Instance{
+	return &maasInstance{
 		machine:           machine,
 		constraintMatches: constraintMatches,
 		environ:           env,
 	}, nil
-}
-
-// acquireNode allocates a node from the MAAS.
-func (env *maasEnviron) acquireNode(
-	ctx context.ProviderCallContext,
-	nodeName, zoneName, systemId string,
-	cons constraints.Value,
-	positiveSpaceIDs set.Strings,
-	negativeSpaceIDs set.Strings,
-	volumes []volumeInfo,
-) (gomaasapi.MAASObject, error) {
-
-	// TODO(axw) 2014-08-18 #1358219
-	// We should be requesting preferred architectures if unspecified,
-	// like in the other providers.
-	//
-	// This is slightly complicated in MAAS as there are a finite
-	// number of each architecture; preference may also conflict with
-	// other constraints, such as tags. Thus, a preference becomes a
-	// demand (which may fail) if not handled properly.
-
-	acquireParams := convertConstraints(cons)
-	addInterfaces(acquireParams, positiveSpaceIDs, negativeSpaceIDs)
-	addStorage(acquireParams, volumes)
-	acquireParams.Add("agent_name", env.uuid)
-	if zoneName != "" {
-		acquireParams.Add("zone", zoneName)
-	}
-	if nodeName != "" {
-		acquireParams.Add("name", nodeName)
-	}
-	if systemId != "" {
-		acquireParams.Add("system_id", systemId)
-	}
-
-	var result gomaasapi.JSONObject
-	retryStrategy := env.shortRetryStrategy
-	retryStrategy.Func = func() error {
-		client := env.getMAASClient().GetSubObject("nodes/")
-		logger.Tracef("calling acquire with params: %+v", acquireParams)
-
-		var err error
-		result, err = client.CallPost("acquire", acquireParams)
-		return err
-	}
-	err := retry.Call(retryStrategy)
-	if err != nil {
-		return gomaasapi.MAASObject{}, retry.LastError(err)
-	}
-	node, err := result.GetMAASObject()
-	if err != nil {
-		err := errors.Annotate(err, "unexpected result from 'acquire' on MAAS API")
-		return gomaasapi.MAASObject{}, err
-	}
-	return node, nil
-}
-
-func (env *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
-	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: string(userdata)})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Machine.Start updates the machine in-place when it succeeds.
-	return &maas2Instance{machine: node.machine}, nil
-
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -831,8 +766,8 @@ func (env *maasEnviron) StartInstance(
 		return nil, common.ZoneIndependentError(err)
 	}
 
-	series := args.InstanceConfig.Series
-	cloudcfg, err := env.newCloudinitConfig(hostname, series)
+	ser := args.InstanceConfig.Series
+	cloudcfg, err := env.newCloudinitConfig(hostname, ser)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -847,8 +782,7 @@ func (env *maasEnviron) StartInstance(
 
 	var displayName string
 	var interfaces corenetwork.InterfaceInfos
-	inst2 := inst.(*maas2Instance)
-	startedInst, err := env.startNode2(*inst2, series, userdata)
+	err = inst.machine.Start(gomaasapi.StartArgs{DistroSeries: ser, UserData: string(userdata)})
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -856,13 +790,13 @@ func (env *maasEnviron) StartInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	interfaces, err = maasNetworkInterfaces(ctx, startedInst, subnetsMap, domains...)
+	interfaces, err = maasNetworkInterfaces(ctx, inst, subnetsMap, domains...)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
-	env.tagInstance2(inst2, args.InstanceConfig)
+	env.tagInstance(inst, args.InstanceConfig)
 
-	displayName, err = inst2.displayName()
+	displayName, err = inst.displayName()
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -896,14 +830,14 @@ func (env *maasEnviron) StartInstance(
 	}, nil
 }
 
-func (env *maasEnviron) tagInstance2(inst *maas2Instance, instanceConfig *instancecfg.InstanceConfig) {
+func (env *maasEnviron) tagInstance(inst *maasInstance, instanceConfig *instancecfg.InstanceConfig) {
 	err := inst.machine.SetOwnerData(instanceConfig.Tags)
 	if err != nil {
 		logger.Errorf("could not set owner data for instance: %v", err)
 	}
 }
 
-func (env *maasEnviron) waitForNodeDeployment2(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
+func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {
 	retryStrategy := env.longRetryStrategy
 	retryStrategy.MaxDuration = timeout
 	retryStrategy.IsFatalError = func(err error) bool {
@@ -1033,8 +967,8 @@ type selectNodeError struct {
 	noMatch bool
 }
 
-func (env *maasEnviron) selectNode(ctx context.ProviderCallContext, args selectNodeArgs) (maasInstance, *selectNodeError) {
-	inst, err := env.acquireNode2(
+func (env *maasEnviron) selectNode(ctx context.ProviderCallContext, args selectNodeArgs) (*maasInstance, *selectNodeError) {
+	inst, err := env.acquireNode(
 		ctx,
 		args.NodeName,
 		args.AvailabilityZone,
@@ -1072,8 +1006,6 @@ func (env *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudini
 		return nil, errors.Trace(err)
 	}
 	switch operatingSystem {
-	case os.Windows:
-		cloudcfg.AddScripts(runCmd)
 	case os.Ubuntu:
 		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)
@@ -1090,7 +1022,7 @@ func (env *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudini
 	return cloudcfg, nil
 }
 
-func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []instance.Id, recurse bool) error {
+func (env *maasEnviron) releaseNodes(ctx context.ProviderCallContext, ids []instance.Id, recurse bool) error {
 	args := gomaasapi.ReleaseMachinesArgs{
 		SystemIDs: instanceIdsToSystemIDs(ids),
 		Comment:   "Released by Juju MAAS provider",
@@ -1129,7 +1061,7 @@ func (env *maasEnviron) releaseNodes2(ctx context.ProviderCallContext, ids []ins
 func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext, ids []instance.Id) error {
 	var lastErr error
 	for _, id := range ids {
-		err := env.releaseNodes2(ctx, []instance.Id{id}, false)
+		err := env.releaseNodes(ctx, []instance.Id{id}, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
@@ -1156,7 +1088,7 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 		return nil
 	}
 
-	err := env.releaseNodes2(ctx, ids, true)
+	err := env.releaseNodes(ctx, ids, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1216,20 +1148,28 @@ func (env *maasEnviron) acquiredInstances(ctx context.ProviderCallContext, ids [
 		SystemIDs: instanceIdsToSystemIDs(ids),
 	}
 
-	inst, err := env.instances(ctx, args)
-	return inst, errors.Trace(err)
+	maasInstances, err := env.instances(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	inst := make([]instances.Instance, len(maasInstances))
+	for i, mi := range maasInstances {
+		inst[i] = mi
+	}
+	return inst, nil
 }
 
-func (env *maasEnviron) instances(ctx context.ProviderCallContext, args gomaasapi.MachinesArgs) ([]instances.Instance, error) {
+func (env *maasEnviron) instances(ctx context.ProviderCallContext, args gomaasapi.MachinesArgs) ([]*maasInstance, error) {
 	machines, err := env.maasController.Machines(args)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	inst := make([]instances.Instance, len(machines))
+	inst := make([]*maasInstance, len(machines))
 	for index, machine := range machines {
-		inst[index] = &maas2Instance{machine: machine, environ: env}
+		inst[index] = &maasInstance{machine: machine, environ: env}
 	}
 	return inst, nil
 }
@@ -1240,7 +1180,7 @@ func (env *maasEnviron) subnetsFromNode(ctx context.ProviderCallContext, nodeId 
 	json, err := client.CallGet("", nil)
 	if err != nil {
 		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
-			return nil, errors.NotFoundf("intance %q", nodeId)
+			return nil, errors.NotFoundf("instance %q", nodeId)
 		}
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
@@ -1651,7 +1591,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallConte
 	for _, nic := range preparedInfo {
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
 	}
-	interfaces, err := env.deviceInterfaceInfo2(device, nameToParentName, params.CIDRToStaticRoutes)
+	interfaces, err := env.deviceInterfaceInfo(device, nameToParentName, params.CIDRToStaticRoutes)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
@@ -1690,22 +1630,22 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx context.ProviderCallContex
 // AdoptResources updates all the instances to indicate they
 // are now associated with the specified controller.
 func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, _ version.Number) error {
-	instances, err := env.AllInstances(ctx)
+	allInstances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var failed []instance.Id
-	for _, inst := range instances {
-		maas2Instance, ok := inst.(*maas2Instance)
+	for _, inst := range allInstances {
+		maasInst, ok := inst.(*maasInstance)
 		if !ok {
 			// This should never happen.
-			return errors.Errorf("instance %q wasn't a maas2Instance", inst.Id())
+			return errors.Errorf("instance %q wasn't a maasInstance", inst.Id())
 		}
 		// From the MAAS docs: "[SetOwnerData] will not remove any
 		// previous keys unless explicitly passed with an empty
 		// string." So not passing all of the keys here is fine.
 		// https://maas.ubuntu.com/docs2.0/api.html#machine
-		err := maas2Instance.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
+		err := maasInst.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
 		if err != nil {
 			logger.Errorf("error setting controller uuid tag for %q: %v", inst.Id(), err)
 			failed = append(failed, inst.Id())

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -160,6 +161,9 @@ func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, 
 }
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "darwin" {
+		c.Skip("Mongo failures on macOS")
+	}
 	s.RepoSuite.SetUpTest(c)
 	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
@@ -2134,7 +2138,7 @@ func (s *FakeStoreStateSuite) assertApplicationsDeployed(c *gc.C, info map[strin
 			deviceConstraints = nil
 		}
 		deployed[app.Name()] = applicationInfo{
-			charm:       curl.String(),
+			charm:       *curl,
 			config:      config,
 			constraints: constr,
 			exposed:     app.IsExposed(),
@@ -2566,7 +2570,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
-				apiClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
+				legacyClient:      &apiClient{Client: apiclient.NewClient(apiRoot)},
 				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},

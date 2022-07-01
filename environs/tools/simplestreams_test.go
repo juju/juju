@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -807,11 +806,6 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 			Version: "1.2.3",
 			Arch:    "amd64",
 			Path:    "path1",
-		}, {
-			Release: "windows",
-			Version: "1.2.3",
-			Arch:    "amd64",
-			Path:    "path2",
 		}},
 	}
 
@@ -944,9 +938,6 @@ func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *gc.C) {
 }
 
 func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipped for now because of introduced regression")
-	}
 	metadataDir := c.MkDir()
 
 	// Generate metadata and rename index to index.json

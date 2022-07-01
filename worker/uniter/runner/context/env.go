@@ -6,7 +6,6 @@ package context
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/os/v2/series"
 
@@ -108,8 +107,6 @@ func ContextDependentEnvVars(env Environmenter) []string {
 // should be set for a hook context.
 func OSDependentEnvVars(paths Paths, env Environmenter) []string {
 	switch jujuos.HostOS() {
-	case jujuos.Windows:
-		return windowsEnv(paths, env)
 	case jujuos.Ubuntu:
 		return ubuntuEnv(paths, env)
 	case jujuos.CentOS:
@@ -206,17 +203,4 @@ func genericLinuxEnv(paths Paths, envVars Environmenter) []string {
 	env = append(env, "TERM=screen")
 
 	return env
-}
-
-// windowsEnv adds windows specific environment variables. PSModulePath
-// helps hooks use normal imports instead of dot sourcing modules
-// its a convenience variable. The PATH variable delimiter is
-// a semicolon instead of a colon
-func windowsEnv(paths Paths, env Environmenter) []string {
-	charmDir := paths.GetCharmDir()
-	charmModules := filepath.Join(charmDir, "lib", "Modules")
-	return []string{
-		"Path=" + paths.GetToolsDir() + ";" + env.Getenv("Path"),
-		"PSModulePath=" + env.Getenv("PSModulePath") + ";" + charmModules,
-	}
 }

@@ -243,10 +243,8 @@ func waitForPID(pid int) {
 	if pid == 0 || pid == os.Getpid() {
 		return
 	}
-	// Check if the process exists. On Windows FindProcess would fail
-	// if the process doesn't exist.
-	// On UNIX kill with a 0 signal checks if the process exists
-	// but doesn't send a signal.
+	// Check if the process exists. On UNIX, kill with a 0 signal checks if the
+	// process exists, but doesn't send a signal.
 	proc, err := os.FindProcess(pid)
 	for err == nil && proc != nil {
 		if err := proc.Signal(syscall.Signal(0)); err != nil {

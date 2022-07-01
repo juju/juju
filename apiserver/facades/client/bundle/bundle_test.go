@@ -861,9 +861,11 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 			Count: 3,
 		},
 		"storage2": {
-			Pool:  "pool2",
-			Size:  4096,
-			Count: 1,
+			Pool: "pool2",
+			Size: 4096,
+		},
+		"storage3": {
+			Size: 2048,
 		},
 	}
 	app := s.st.model.AddApplication(args)
@@ -888,8 +890,9 @@ applications:
     options:
       key: value
     storage:
-      storage1: pool1,3,1024
-      storage2: pool2,1,4096
+      storage1: pool1,3,1024M
+      storage2: pool2,4096M
+      storage3: 2048M
     bindings:
       another: alpha
       juju-info: vlan2

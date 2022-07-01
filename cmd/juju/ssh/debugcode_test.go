@@ -6,7 +6,6 @@ package ssh
 import (
 	"encoding/base64"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -22,9 +21,6 @@ type DebugCodeSuite struct {
 }
 
 func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Skipping on windows for now")
-	}
 	s.setupModel(c)
 	s.setHostChecker(validAddresses("0.public"))
 	ctx, err := cmdtesting.RunCommand(c, NewDebugCodeCommand(s.hostChecker, baseTestingRetryStrategy),

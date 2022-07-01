@@ -82,12 +82,12 @@ type BootstrapSuite struct {
 	bootstrapParamsFile string
 	bootstrapParams     instancecfg.StateInitializationParams
 
-	dataDir         string
-	logDir          string
-	mongoOplogSize  string
-	fakeEnsureMongo *agenttest.FakeEnsureMongo
-	bootstrapName   string
-	hostedModelUUID string
+	dataDir          string
+	logDir           string
+	mongoOplogSize   string
+	fakeEnsureMongo  *agenttest.FakeEnsureMongo
+	bootstrapName    string
+	initialModelUUID string
 
 	toolsStorage storage.Storage
 }
@@ -347,7 +347,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 	return machineConf, cmd, err
 }
 
-func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
+func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	machConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
@@ -408,7 +408,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.ControllerModelConfig.AuthorizedKeys()+"\npublic-key")
 }
 
-func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
+func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *gc.C) {
 	s.mongoOplogSize = "NaN"
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -416,7 +416,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `failed to start mongo: invalid oplog size: "NaN"`)
 }
 
-func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
+func (s *BootstrapSuite) TestInitializeModelToolsNotFound(c *gc.C) {
 	// bootstrap with 2.99.1 but there will be no tools so version will be reset.
 	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
 		"agent-version": "2.99.1",
@@ -590,9 +590,9 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
-		c.Assert(args.HostedModelConfig, jc.DeepEquals, map[string]interface{}{
-			"name": "hosted-model",
-			"uuid": s.hostedModelUUID,
+		c.Assert(args.InitialModelConfig, jc.DeepEquals, map[string]interface{}{
+			"name": "my-model",
+			"uuid": s.initialModelUUID,
 		})
 		return nil, errors.New("failed to initialize state")
 	}
@@ -812,7 +812,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	addr, _ := addresses.OneMatchingScope(network.ScopeMatchPublic)
 	s.bootstrapName = addr.Value
-	s.hostedModelUUID = utils.MustNewUUID().String()
+	s.initialModelUUID = utils.MustNewUUID().String()
 
 	var args instancecfg.StateInitializationParams
 	args.ControllerConfig = controllerCfg
@@ -820,9 +820,9 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	args.ControllerModelConfig = env.Config()
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
 	args.BootstrapMachineHardwareCharacteristics = &hw
-	args.HostedModelConfig = map[string]interface{}{
-		"name": "hosted-model",
-		"uuid": s.hostedModelUUID,
+	args.InitialModelConfig = map[string]interface{}{
+		"name": "my-model",
+		"uuid": s.initialModelUUID,
 	}
 	args.ControllerCloud = cloud.Cloud{
 		Name:      "dummy",

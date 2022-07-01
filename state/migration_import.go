@@ -1266,12 +1266,7 @@ func (i *importer) importUnitPayloads(unit *Unit, payloadInfo []description.Payl
 func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {
 	units := a.Units()
 
-	charmURL, err := charm.ParseURL(a.CharmURL())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	origin, err := i.makeCharmOrigin(a, charmURL, units)
+	origin, err := i.makeCharmOrigin(a, units)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1291,11 +1286,12 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cURL := a.CharmURL()
 	return &applicationDoc{
 		Name:                 a.Name(),
 		Series:               a.Series(),
 		Subordinate:          a.Subordinate(),
-		CharmURL:             charmURL,
+		CharmURL:             &cURL,
 		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
 		CharmOrigin:          origin,
@@ -1350,7 +1346,12 @@ func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]in
 	return hwChars, nil
 }
 
-func (i *importer) makeCharmOrigin(a description.Application, curl *charm.URL, units []description.Unit) (*CharmOrigin, error) {
+func (i *importer) makeCharmOrigin(a description.Application, units []description.Unit) (*CharmOrigin, error) {
+	curl, err := charm.ParseURL(a.CharmURL())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	co := a.CharmOrigin()
 	if co == nil {
 		return i.deduceCharmOrigin(a, curl, units)

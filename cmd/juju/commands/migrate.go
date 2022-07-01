@@ -67,7 +67,7 @@ Juju version. Once complete, the model's machine and and unit agents
 will be connected to the new controller. The model will no longer be
 available at the source controller.
 
-Note that only hosted models can be migrated. Controller models can
+Note that only workload models can be migrated. Controller models can
 not be migrated.
 
 If the migration fails for some reason, the model be returned to its
@@ -93,7 +93,7 @@ func (c *migrateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "migrate",
 		Args:    "<model-name> <target-controller-name>",
-		Purpose: "Migrate a hosted model to another controller.",
+		Purpose: "Migrate a workload model to another controller.",
 		Doc:     migrateDoc,
 	})
 }

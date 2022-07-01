@@ -189,7 +189,7 @@ type ApplicationGetArgs struct {
 	Args []ApplicationGet `json:"args"`
 }
 
-// ApplicationGet holds parameters for making the singular Get or GetCharmURL
+// ApplicationGet holds parameters for making the singular Get or GetCharmURLOrigin
 // calls, and bulk calls to CharmConfig in the V9 API.
 type ApplicationGet struct {
 	ApplicationName string `json:"application"`

@@ -7,8 +7,7 @@ package manual
 import (
 	"errors"
 	"io"
-
-	"github.com/juju/utils/v3/winrm"
+	"time"
 
 	"github.com/juju/juju/rpc/params"
 )
@@ -54,27 +53,7 @@ type ProvisionMachineArgs struct {
 	// machine.
 	PrivateKey string
 
-	// WinRM contains keys and client interface api with the remote windows machine
-	WinRM WinRMArgs
-
 	*params.UpdateBehavior
-}
-
-// WinRMArgs used for providing special context
-// on how we interface with the windows machine
-type WinRMArgs struct {
-	// Keys that contains CACert, ClientCert, ClientKey
-	Keys *winrm.X509
-
-	// Client for interacting with windows machines
-	Client WinrmClientAPI
-}
-
-// WinrmClientAPI minimal interface for winrm windows machines interactions
-type WinrmClientAPI interface {
-	Ping() error
-	Run(cmd string, stdout, stderr io.Writer) error
-	Password() string
 }
 
 // ProvisioningClientAPI defines the methods that are needed for the manual
@@ -82,6 +61,6 @@ type WinrmClientAPI interface {
 // consumer from the actual API implementation type.
 type ProvisioningClientAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	ForceDestroyMachines(machines ...string) error
+	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }

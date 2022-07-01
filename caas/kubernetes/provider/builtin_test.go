@@ -176,3 +176,13 @@ func (s *builtinSuite) TestDecideKubeConfigDirOfficial(c *gc.C) {
 func (s *builtinSuite) TestDecideKubeConfigDirLocalBuild(c *gc.C) {
 	s.assertDecideKubeConfigDir(c, false, `/var/snap/microk8s/current/credentials/client.config`)
 }
+
+func (s *builtinSuite) TestDecideKubeConfigDirNoJujud(c *gc.C) {
+	s.PatchValue(&provider.CheckJujuOfficial, func(string) (version.Binary, bool, error) {
+		return version.Binary{}, false, errors.NotFoundf("jujud")
+	})
+	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
+	p, err := provider.DecideKubeConfigDir()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(p, gc.DeepEquals, `/var/snap/microk8s/current/credentials/client.config`)
+}

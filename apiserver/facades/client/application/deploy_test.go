@@ -552,7 +552,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 
 func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, expect *charm.URL) {
 	curl, force := app.CharmURL()
-	c.Assert(curl, gc.DeepEquals, expect)
+	c.Assert(*curl, gc.Equals, expect.String())
 	c.Assert(force, jc.IsFalse)
 }
 

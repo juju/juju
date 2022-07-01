@@ -20,6 +20,39 @@ var DefaultFormatters = map[string]cmd.Formatter{
 	"json": cmd.FormatJson,
 }
 
+// FormatYamlWithColor formats yaml output with color.
+func FormatYamlWithColor(w io.Writer, value interface{}) error {
+	result, err := marshalYaml(value)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprint(w, string(result))
+
+	return nil
+}
+
+// FormatJsonWithColor formats json output with color.
+func FormatJsonWithColor(w io.Writer, val interface{}) error {
+	if val == nil {
+		return nil
+	}
+
+	result, err := marshal(val)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(w, string(result))
+
+	return err
+}
+
+// Writer returns a new writer that appends ansi color codes to the output.
+func Writer(writer io.Writer) *ansiterm.Writer {
+	return ansiterm.NewWriter(writer)
+}
+
 // TabWriter returns a new tab writer with common layout definition.
 func TabWriter(writer io.Writer) *ansiterm.TabWriter {
 	const (

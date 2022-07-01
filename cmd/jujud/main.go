@@ -19,6 +19,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	proxyutils "github.com/juju/proxy"
@@ -39,6 +40,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	jujunames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
@@ -54,6 +56,7 @@ var logger = loggo.GetLogger("juju.cmd.jujud")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 var jujudDoc = `
@@ -284,10 +287,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 }
 
 // MainWrapper exists to preserve test functionality.
-// On windows we need to catch the return code from main for
-// service functionality purposes, but on unix we can just os.Exit
 func MainWrapper(args []string) {
 	os.Exit(Main(args))
+}
+
+func main() {
+	MainWrapper(os.Args)
 }
 
 // Main is not redundant with main(), because it provides an entry point

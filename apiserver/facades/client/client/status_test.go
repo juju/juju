@@ -1020,7 +1020,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 		workloadVersion = "gitlab/latest"
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
-		Charm:           curl.String(),
+		Charm:           *curl,
 		Series:          "kubernetes",
 		WorkloadVersion: workloadVersion,
 		Relations:       map[string][]string{},

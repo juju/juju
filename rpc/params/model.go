@@ -359,6 +359,7 @@ type ModelFilesystemInfo struct {
 // model. Owners of a model can see this information for all users
 // who have access, so it should not include sensitive information.
 type ModelUserInfo struct {
+	ModelTag       string               `json:"model-tag"`
 	UserName       string               `json:"user"`
 	DisplayName    string               `json:"display-name"`
 	LastConnection *time.Time           `json:"last-connection"`
@@ -477,13 +478,21 @@ type ChangeModelCredentialsParams struct {
 
 // ValidateModelUpgradeParams is used to ensure that a model can be upgraded.
 type ValidateModelUpgradeParams struct {
-	Models []ValidateModelUpgradeParam `json:"model"`
-	Force  bool                        `json:"force"`
+	Models []ModelParam `json:"model"`
+	Force  bool         `json:"force"`
 }
 
-// ValidateModelUpgradeParam is used to identify which model needs to be checked
-// for upgrading.
-type ValidateModelUpgradeParam struct {
-	// ModelTag is a tag for the model that you want to upgrade.
+// ModelParam is used to identify a model.
+type ModelParam struct {
+	// ModelTag is a tag for the model.
 	ModelTag string `json:"model-tag"`
+}
+
+// UpgradeModel contains the arguments for UpgradeModel API call.
+type UpgradeModel struct {
+	ModelTag            string         `json:"model-tag"`
+	ToVersion           version.Number `json:"to-version"`
+	AgentStream         string         `json:"agent-stream,omitempty"`
+	IgnoreAgentVersions bool           `json:"ignore-agent-versions,omitempty"`
+	DryRun              bool           `json:"dry-run,omitempty"`
 }

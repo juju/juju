@@ -165,9 +165,12 @@ func copyFileWithMode(from, to string, mode os.FileMode) error {
 	return nil
 }
 
+// Override for testing.
+var ExistingJujuLocation = existingJujuLocation
+
 // ExistingJujuLocation returns the directory where 'juju' is running, and where
 // we expect to find 'jujuc' and 'jujud'.
-func ExistingJujuLocation() (string, error) {
+func existingJujuLocation() (string, error) {
 	jujuLocation, err := findExecutable(os.Args[0])
 	if err != nil {
 		logger.Infof("%v", err)
@@ -323,7 +326,7 @@ func bundleTools(
 		return version.Binary{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
 	}
 	_, official, err = jujudVersion(existingJujuLocation)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return version.Binary{}, official, "", errors.Trace(err)
 	}
 	if official && build {
@@ -361,7 +364,14 @@ func bundleTools(
 var ExecCommand = exec.Command
 
 func getVersionFromJujud(dir string) (version.Binary, error) {
+	// If there's no jujud, return a NotFound error.
 	path := filepath.Join(dir, names.Jujud)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return version.Binary{}, errors.NotFoundf(path)
+		}
+		return version.Binary{}, errors.Trace(err)
+	}
 	cmd := ExecCommand(path, "version")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -31,20 +31,6 @@ func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-func findStep(c *gc.C, ver version.Number, description string) upgrades.Step {
-	for _, op := range (*upgrades.UpgradeOperations)() {
-		if op.TargetVersion() == ver {
-			for _, step := range op.Steps() {
-				if step.Description() == description {
-					return step
-				}
-			}
-		}
-	}
-	c.Fatalf("could not find step %q for %s", description, ver)
-	return nil
-}
-
 func findStateStep(c *gc.C, ver version.Number, description string) upgrades.Step {
 	for _, op := range (*upgrades.StateUpgradeOperations)() {
 		if op.TargetVersion() == ver {
@@ -608,33 +594,6 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"2.0.0",
-		"2.1.0",
-		"2.2.0",
-		"2.2.1",
-		"2.2.2",
-		"2.2.3",
-		"2.3.0",
-		"2.3.1",
-		"2.3.2",
-		"2.3.4",
-		"2.3.6",
-		"2.3.7",
-		"2.4.0",
-		"2.5.0",
-		"2.5.3",
-		"2.5.4",
-		"2.6.0",
-		"2.6.3",
-		"2.6.5",
-		"2.7.0",
-		"2.7.7",
-		"2.8.0",
-		"2.8.1",
-		"2.8.2",
-		"2.8.6",
-		"2.8.9",
-		"2.9.0",
 		"2.9.5",
 		"2.9.6",
 		"2.9.9",
@@ -650,22 +609,14 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 		"2.9.29",
 		"2.9.30",
 		"2.9.32",
+		"3.0.0",
 	})
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"2.0.0",
-		"2.2.0",
-		"2.4.0",
-		"2.4.5",
-		"2.6.3",
-		"2.7.0",
-		"2.7.2",
-		"2.7.6",
-		"2.8.0",
-		"2.9.0",
+		"3.0.0",
 	})
 }
 

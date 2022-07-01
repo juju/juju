@@ -146,15 +146,8 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
 	}
 
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// TODO (manadart 2019-02-21) Factor the current generation into this call.
-	// TODO (manadart 2021-12-03) Most places where we are passing a charm URL
-	// could just use its string form.
-	s, err := charmSettingsWithDefaults(u.st, cURL, u.doc.Application, model.GenerationMaster)
+	s, err := charmSettingsWithDefaults(u.st, u.doc.CharmURL, u.doc.Application, model.GenerationMaster)
 	if err != nil {
 		return nil, errors.Annotatef(err, "charm config for unit %q", u.Name())
 	}
@@ -1516,7 +1509,8 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Add a reference to the application settings for the new charm.
-		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, curl, false)
+		cURL := curl.String()
+		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, &cURL, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1531,21 +1525,18 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
 			})
 
-		cURL, err := u.CharmURL()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if cURL != nil {
+		unitCURL := u.doc.CharmURL
+		if unitCURL != nil {
 			// Drop the reference to the old charm.
 			// Since we can force this now, let's.. There is no point hanging on to the old charm.
 			op := &ForcedOperation{Force: true}
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, cURL, true, op)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, unitCURL, true, op)
 			if err != nil {
 				// No need to stop further processing if the old key could not be removed.
-				logger.Errorf("could not remove old charm references for %s: %v", cURL, err)
+				logger.Errorf("could not remove old charm references for %s: %v", unitCURL, err)
 			}
 			if len(op.Errors) != 0 {
-				logger.Errorf("could not remove old charm references for %s: %v", cURL, op.Errors)
+				logger.Errorf("could not remove old charm references for %s: %v", unitCURL, op.Errors)
 			}
 			ops = append(ops, decOps...)
 		}
@@ -1572,7 +1563,11 @@ func (u *Unit) charm() (*Charm, error) {
 		if err != nil {
 			return nil, err
 		}
-		cURL = app.doc.CharmURL
+		appCURLStr, _ := app.CharmURL()
+		cURL, err = charm.ParseURL(*appCURLStr)
+		if err != nil {
+			return nil, errors.NotValidf("application charm url")
+		}
 	}
 
 	ch, err := u.st.Charm(cURL)
@@ -1593,7 +1588,7 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 		ops = append(ops, txn.Op{
 			C:      applicationsC,
 			Id:     appName,
-			Assert: bson.D{{"charmurl", ch.URL()}},
+			Assert: bson.D{{"charmurl", ch.String()}},
 		})
 	}
 	return ops
@@ -2918,13 +2913,7 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 		}
 		return app.StorageConstraints()
 	}
-
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	key := applicationStorageConstraintsKey(u.doc.Application, cURL)
+	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
 	cons, err := readStorageConstraints(u.st, key)
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -2975,13 +2964,8 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	// will need to be more sophisticated, because it might need to
 	// create the settings doc.
 	if charmURL := args.unitDoc.CharmURL; charmURL != nil {
-		cURL, err := charm.ParseURL(*charmURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		appName := args.unitDoc.Application
-		charmRefOps, err := appCharmIncRefOps(st, appName, cURL, false)
+		charmRefOps, err := appCharmIncRefOps(st, appName, charmURL, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

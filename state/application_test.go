@@ -22,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -32,7 +31,6 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -84,7 +82,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, s.charm.URL())
 	c.Assert(force, jc.IsFalse)
 	url, force := s.mysql.CharmURL()
-	c.Assert(url, gc.DeepEquals, s.charm.URL())
+	c.Assert(*url, gc.DeepEquals, s.charm.String())
 	c.Assert(force, jc.IsFalse)
 
 	// Add a compatible charm and force it.
@@ -101,7 +99,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	url, force = s.mysql.CharmURL()
-	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(*url, gc.DeepEquals, sch.String())
 	c.Assert(force, jc.IsTrue)
 }
 
@@ -180,7 +178,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
-	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(*url, gc.DeepEquals, charm.String())
 	c.Assert(force, jc.IsFalse)
 
 	sch := s.AddMetaCharm(c, "lxd-profile", lxdProfileMetaBase, 2)
@@ -196,7 +194,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	url, force = app.CharmURL()
-	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(*url, gc.DeepEquals, sch.String())
 	c.Assert(force, jc.IsTrue)
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 }
@@ -214,7 +212,7 @@ func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
-	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(*url, gc.DeepEquals, charm.String())
 	c.Assert(force, jc.IsFalse)
 
 	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
@@ -240,7 +238,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
-	c.Assert(url, gc.DeepEquals, charm.URL())
+	c.Assert(*url, gc.DeepEquals, charm.String())
 	c.Assert(force, jc.IsFalse)
 
 	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
@@ -257,7 +255,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	url, force = app.CharmURL()
-	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(*url, gc.DeepEquals, sch.String())
 	c.Assert(force, jc.IsTrue)
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 }
@@ -674,20 +672,20 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "cs:multi-series2-8")
+	c.Assert(ch.String(), gc.Equals, "cs:multi-series2-8")
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
-	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-windows")
+	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
 	cfg := state.SetCharmConfig{
 		Charm:       chDifferentSeries,
 		ForceSeries: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-windows-1": OS "Ubuntu" not supported by charm`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
 }
 
 func (s *ApplicationSuite) TestSetCharmChangeSeriesWhenMovingFromCharmstoreToCharmhub(c *gc.C) {
@@ -1921,12 +1919,14 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 }
 
 func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {
-	_, err := state.ApplicationSettingsRefCount(st, appName, sch.URL())
+	cURL := sch.String()
+	_, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm, refcount int) {
-	rc, err := state.ApplicationSettingsRefCount(st, appName, sch.URL())
+	cURL := sch.String()
+	rc, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc, gc.Equals, refcount)
 }
@@ -5228,14 +5228,6 @@ deployment:
 }
 
 func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.State.StartSync()
 	w := s.State.WatchApplicationsWithPendingCharms()
 	defer func() { _ = w.Stop() }()
@@ -5246,7 +5238,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	// Add a pending charm without an origin and associate it with the
 	// application. As it is lacking an origin, it should not trigger a
 	// change.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1 := s.dummyCharm(c, "ch:dummy-1")
 	dummy1.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
 	dummy1.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch1, err := s.State.AddCharmMetadata(dummy1)
@@ -5259,7 +5251,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 
 	// Add a pending charm with an origin and associate it with the
 	// application. This should trigger a change.
-	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:dummy-2")
 	dummy2.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
 	dummy2.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch2, err := s.State.AddCharmMetadata(dummy2)
@@ -5267,20 +5259,20 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm: ch2,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.mysql.Name())
 
 	// "Upload" a charm and check that we don't get a notification for it.
-	dummy3 := s.dummyCharm(c, "cs:quantal/dummy-3")
+	dummy3 := s.dummyCharm(c, "ch:dummy-3")
 	ch3, err := s.State.AddCharm(dummy3)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm: ch3,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -5301,6 +5293,7 @@ func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmI
 			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
 		)
 	}
+	info.Charm.Meta().Series = []string{"quantal"}
 	return info
 }
 

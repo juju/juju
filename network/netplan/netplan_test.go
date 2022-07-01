@@ -1607,7 +1607,7 @@ func readExampleStrings(c *gc.C) []Example {
 	}
 	// Make sure we find all the example files, if we change the count, update this number, but we don't allow the test
 	// suite to find the wrong number of files.
-	c.Assert(len(examples), gc.Equals, 13)
+	c.Assert(len(examples), gc.Equals, 12)
 	return examples
 }
 

@@ -1,5 +1,5 @@
 name: juju
-version: 3.0-beta1
+version: 3.0-beta2
 summary: Juju - a model-driven operator lifecycle manager for K8s and machines
 license: AGPL-3.0
 description: |
@@ -25,7 +25,7 @@ description: |
 
 confinement: strict
 grade: devel
-base: core18
+base: core20
 
 apps:
   juju:
@@ -91,7 +91,6 @@ parts:
       - github.com/juju/juju/cmd/jujuc
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
-      - github.com/juju/juju/cmd/plugins/juju-wait-for
     # go-external-strings is not supported by the standard go plugin.
     # these strings are filled in by CI.
     go-external-strings:
@@ -111,7 +110,7 @@ parts:
       # If needed, grab the agent from streams
       # curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C $SNAPCRAFT_PART_INSTALL/bin/
       jujud=$SNAPCRAFT_PART_INSTALL/bin/jujud
-      version=$(jujud version)
+      version=$($jujud version)
       hash=$(sha256sum $jujud | cut -d " " -f 1)
       cat > jujud-versions.yaml <<EOF
       versions:

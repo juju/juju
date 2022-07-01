@@ -6,7 +6,7 @@ package testing
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/ssh"
@@ -34,7 +34,7 @@ func init() {
 var (
 	// FakeSupportedJujuSeries is used to provide a series of canned results
 	// of series to test bootstrap code against.
-	FakeSupportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", "focal", jujuversion.DefaultSupportedLTS())
+	FakeSupportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", "focal", "jammy", jujuversion.DefaultSupportedLTS())
 )
 
 // FakeVersionNumber is a valid version number that can be used in testing.
@@ -115,7 +115,7 @@ const DefaultMongoPassword = "conn-from-name-secret"
 // sets up a Juju home with a sample environment and certificate.
 type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
-	gitjujutesting.FakeHomeSuite
+	testing.FakeHomeSuite
 }
 
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
