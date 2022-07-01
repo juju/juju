@@ -74,23 +74,6 @@ func NewModelUpgraderAPI(
 	}, nil
 }
 
-// authCheck checks if the user is acting on their own behalf, or if they
-// are an administrator acting on behalf of another user.
-func (m *ModelUpgraderAPI) authCheck(user names.UserTag) error {
-	if m.isAdmin {
-		logger.Tracef("%q is a controller admin", m.apiUser.Id())
-		return nil
-	}
-
-	// We can't just compare the UserTags themselves as the provider part
-	// may be unset, and gets replaced with 'local'. We must compare against
-	// the Canonical value of the user tag.
-	if m.apiUser == user {
-		return nil
-	}
-	return apiservererrors.ErrPerm
-}
-
 func (m *ModelUpgraderAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
 	canWrite, err := m.authorizer.HasPermission(permission.WriteAccess, modelTag)
 	if errors.IsNotFound(err) {

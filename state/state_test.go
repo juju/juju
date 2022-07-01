@@ -14,6 +14,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
@@ -1463,23 +1464,28 @@ func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 	}
 
-	windowsVersions := series.WindowsVersions()
-	var winSeries []string
-	for _, ver := range windowsVersions {
-		winSeries = append(winSeries, ver)
-		add_machine(ver)
+	winSeries := set.NewStrings()
+	for _, ver := range series.WindowsVersions() {
+		winSeries.Add(ver)
+	}
+	expectedWinResult := map[string]int{}
+	for _, series := range winSeries.Values() {
+		add_machine(series)
+		expectedWinResult[series] = 1
 	}
 	add_machine("quantal")
+	s.AssertMachineCount(c, winSeries.Size()+1)
 
-	s.AssertMachineCount(c, len(windowsVersions)+1)
-
-	count, err := s.State.MachineCountForSeries(winSeries...)
+	result, err := s.State.MachineCountForSeries(winSeries.Values()...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, len(windowsVersions))
+	c.Assert(result, gc.DeepEquals, expectedWinResult)
 
-	count, err = s.State.MachineCountForSeries("quantal")
+	result, err = s.State.MachineCountForSeries(
+		"quantal", // count 1
+		"xenial",  // count 0
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, 1)
+	c.Assert(result, gc.DeepEquals, map[string]int{"quantal": 1})
 }
 
 func (s *StateSuite) TestAllRelations(c *gc.C) {
