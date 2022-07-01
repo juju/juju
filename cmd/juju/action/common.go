@@ -6,6 +6,7 @@ package action
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/juju/juju/cmd/output"
 	"io"
 	"regexp"
 	"sort"
@@ -56,6 +57,7 @@ type runCommandBase struct {
 	utc        bool
 
 	clock       clock.Clock
+	color       bool
 	wait        time.Duration
 	defaultWait time.Duration
 
@@ -68,13 +70,14 @@ type runCommandBase struct {
 func (c *runCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
-		"yaml":  cmd.FormatYaml,
-		"json":  cmd.FormatJson,
+		"yaml":  c.formatYaml,
+		"json":  c.formatJson,
 		"plain": printPlainOutput,
 	})
 
 	f.BoolVar(&c.background, "background", false, "Run the task in the background")
 	f.DurationVar(&c.wait, "wait", 0, "Maximum wait time for a task to complete")
+	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in output")
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
@@ -291,6 +294,30 @@ func (c *runCommandBase) progressf(ctx *cmd.Context, format string, params ...in
 	}
 }
 
+func (c *runCommandBase) printOutput(writer io.Writer, value interface{}) error {
+	if c.color {
+		return printColorOutput(writer, value)
+	}
+
+	return printPlainOutput(writer, value)
+}
+
+func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
+	if c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	return cmd.FormatYaml(writer, value)
+}
+
+func (c *runCommandBase) formatJson(writer io.Writer, value interface{}) error {
+	if c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	return cmd.FormatJson(writer, value)
+}
+
 // GetActionResult tries to repeatedly fetch a task until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
@@ -390,6 +417,86 @@ func (a *enqueuedAction) GoString() string {
 var filteredOutputKeys = set.NewStrings("return-code", "stdout", "stderr", "stdout-encoding", "stderr-encoding")
 
 func printPlainOutput(writer io.Writer, value interface{}) error {
+	info, ok := value.(map[string]interface{})
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", info, value)
+	}
+
+	// actionOutput contains the action-set data of each action result.
+	// If there's only one action result, just that data is printed.
+	var actionOutput = make(map[string]string)
+
+	// actionInfo contains the id and stdout of each action result.
+	// It will be printed if there's more than one action result.
+	var actionInfo = make(map[string]map[string]interface{})
+
+	/*
+		Parse action YAML data that looks like this:
+
+		mysql/0:
+		  id: "1"
+		  results:
+		    <action data here>
+		  status: completed
+	*/
+	var resultMetadata map[string]interface{}
+	var stdout, stderr string
+	for k := range info {
+		resultMetadata, ok = info[k].(map[string]interface{})
+		if !ok {
+			return errors.Errorf("expected value of type %T, got %T", resultMetadata, info[k])
+		}
+		resultData, ok := resultMetadata["results"].(map[string]interface{})
+		if ok {
+			resultDataCopy := make(map[string]interface{})
+			for k, v := range resultData {
+				k = strings.ToLower(k)
+				if k == "stdout" && v != "" {
+					stdout = fmt.Sprint(v)
+				}
+				if k == "stderr" && v != "" {
+					stderr = fmt.Sprint(v)
+				}
+				if !filteredOutputKeys.Contains(k) {
+					resultDataCopy[k] = v
+				}
+			}
+			if len(resultDataCopy) > 0 {
+				data, err := yaml.Marshal(resultDataCopy)
+				if err == nil {
+					actionOutput[k] = string(data)
+				} else {
+					actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
+				}
+			}
+		} else {
+			status, ok := resultMetadata["status"].(string)
+			if !ok {
+				status = "has unknown status"
+			}
+			actionOutput[k] = fmt.Sprintf("Task %v %v\n", resultMetadata["id"], status)
+		}
+		actionInfo[k] = map[string]interface{}{
+			"id":     resultMetadata["id"],
+			"output": actionOutput[k],
+		}
+	}
+	if len(actionOutput) > 1 {
+		return cmd.FormatYaml(writer, actionInfo)
+	}
+	for _, msg := range actionOutput {
+		fmt.Fprintln(writer, msg)
+	}
+	if stdout != "" {
+		fmt.Fprintln(writer, strings.Trim(stdout, "\n"))
+	}
+	if stderr != "" {
+		fmt.Fprintln(writer, strings.Trim(stderr, "\n"))
+	}
+	return nil
+}
+
+func printColorOutput(writer io.Writer, value interface{}) error {
 	info, ok := value.(map[string]interface{})
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", info, value)
