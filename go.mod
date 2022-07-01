@@ -63,7 +63,6 @@ require (
 	github.com/juju/idmclient/v2 v2.0.0-20220207024613-525e1ac3a890
 	github.com/juju/jsonschema v0.0.0-20220207021905-6f321f9146b3
 	github.com/juju/jsonschema-gen v0.0.0-20220207021829-b1697c753155
-	github.com/juju/juju v0.0.0-20220701051721-8ae5b8147274
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
@@ -197,10 +196,12 @@ require (
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/smartystreets/assertions v1.2.0 // indirect
+	github.com/smartystreets/goconvey v1.7.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
