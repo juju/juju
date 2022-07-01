@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type WorkerSuite struct {

@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
+	resourcecmd "github.com/juju/juju/v3/cmd/juju/resource"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var _ = gc.Suite(&UploadSuite{})

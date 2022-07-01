@@ -20,9 +20,9 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 
-	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/juju/names"
-	jujuversion "github.com/juju/juju/version"
+	coreos "github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/juju/names"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 // Archive writes the executable files found in the given directory in
@@ -274,8 +274,8 @@ func buildJujus(dir string) error {
 	cmds := [][]string{
 		// TODO: jam 2020-03-12 do we want to also default to stripping the binary?
 		//       -ldflags "-s -w"
-		{"go", "build", modArg, "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
-		{"go", "build", modArg, "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujuc), "github.com/juju/juju/cmd/jujuc"},
+		{"go", "build", modArg, "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/v3/cmd/jujud"},
+		{"go", "build", modArg, "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujuc), "github.com/juju/juju/v3/cmd/jujuc"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)

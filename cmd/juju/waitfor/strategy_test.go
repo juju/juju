@@ -11,10 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/waitfor/api"
-	"github.com/juju/juju/cmd/juju/waitfor/api/mocks"
-	"github.com/juju/juju/cmd/juju/waitfor/query"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/api"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/api/mocks"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/query"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type strategySuite struct {

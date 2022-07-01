@@ -13,12 +13,12 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/http"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	apicharm "github.com/juju/juju/v3/api/common/charm"
+	"github.com/juju/juju/v3/api/http"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // Client is the public client for the resources API facade.

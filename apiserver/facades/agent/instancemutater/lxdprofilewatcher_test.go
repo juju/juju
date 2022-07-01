@@ -11,12 +11,12 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
-	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/v3/apiserver/facades/agent/instancemutater"
+	"github.com/juju/juju/v3/apiserver/facades/agent/instancemutater/mocks"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/testing"
 )
 
 type lxdProfileWatcherSuite struct {

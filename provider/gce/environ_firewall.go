@@ -6,10 +6,10 @@ package gce
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/common"
+	"github.com/juju/juju/v3/provider/gce/google"
 )
 
 // globalFirewallName returns the name to use for the global firewall.

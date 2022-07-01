@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/v3/state/backups"
 )
 
 // File represents a file during testing.

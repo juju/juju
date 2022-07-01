@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	jujussh "github.com/juju/juju/network/ssh"
+	jujussh "github.com/juju/juju/v3/network/ssh"
 )
 
 var _ = gc.Suite(&DebugHooksSuite{})

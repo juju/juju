@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/rpc/params"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
@@ -25,9 +25,9 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/core/watcher"
+	actionapi "github.com/juju/juju/v3/api/client/action"
+	"github.com/juju/juju/v3/core/actions"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")

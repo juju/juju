@@ -8,11 +8,11 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 // RemoveSpace describes a space that can be removed.

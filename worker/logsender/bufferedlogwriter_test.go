@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/logsender/logsendertest"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/logsender"
+	"github.com/juju/juju/v3/worker/logsender/logsendertest"
 )
 
 const maxLen = 6

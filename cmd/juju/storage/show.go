@@ -9,10 +9,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/rpc/params"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/cmd/output"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // NewShowCommand returns a command that shows storage details

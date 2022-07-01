@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/cloud"
+	k8scloud "github.com/juju/juju/v3/caas/kubernetes/cloud"
+	"github.com/juju/juju/v3/cloud"
 )
 
 type credentialSuite struct {

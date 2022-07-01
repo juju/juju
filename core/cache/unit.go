@@ -10,11 +10,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/settings"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // Unit represents a unit in a cached model.

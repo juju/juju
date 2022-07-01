@@ -15,11 +15,11 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/tools"
 )
 
 // Entity identifies a single entity.

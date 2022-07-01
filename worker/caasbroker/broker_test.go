@@ -14,11 +14,11 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasbroker"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/caasbroker"
 )
 
 type TrackerSuite struct {

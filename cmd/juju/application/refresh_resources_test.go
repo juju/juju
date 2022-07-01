@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/v3/testcharms"
 )
 
 type RefreshResourceSuite struct {

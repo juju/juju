@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/undertaker"
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/controller/undertaker"
+	"github.com/juju/juju/v3/api/watcher"
 )
 
 // NewFacade creates a Facade from a base.APICaller, by calling the

@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/v3/core/paths"
+	"github.com/juju/juju/v3/service"
+	"github.com/juju/juju/v3/service/systemd"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager

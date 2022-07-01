@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/resources"
-	resourcecmd "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/client/resources"
+	resourcecmd "github.com/juju/juju/v3/cmd/juju/resource"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 // DeployResourcesFunc is the function type of DeployResources.

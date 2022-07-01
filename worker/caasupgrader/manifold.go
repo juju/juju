@@ -9,11 +9,11 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/upgrader"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/caasoperatorupgrader"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/agent/upgrader"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/controller/caasoperatorupgrader"
+	"github.com/juju/juju/v3/worker/gate"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a

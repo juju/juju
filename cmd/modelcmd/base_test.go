@@ -20,17 +20,17 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/pki"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api"
+	apitesting "github.com/juju/juju/v3/api/testing"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/pki"
+	"github.com/juju/juju/v3/rpc/params"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type BaseCommandSuite struct {

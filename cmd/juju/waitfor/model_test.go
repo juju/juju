@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/waitfor/query"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/query"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type modelScopeSuite struct {

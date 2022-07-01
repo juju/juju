@@ -8,16 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/testing"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/core/cache"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/status"
 )
 
 type machineSuite struct {

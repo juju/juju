@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/cmd/juju/space"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type AddSuite struct {

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/v3/container/kvm"
 )
 
 // This file provides a mock implementation of the kvm interfaces

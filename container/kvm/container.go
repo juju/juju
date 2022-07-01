@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
 
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/kvm/libvirt"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/imagedownloads"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/v3/container"
+	"github.com/juju/juju/v3/container/kvm/libvirt"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/environs/imagedownloads"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/simplestreams"
 )
 
 type kvmContainer struct {

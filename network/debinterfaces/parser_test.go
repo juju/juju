@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network/debinterfaces"
+	"github.com/juju/juju/v3/network/debinterfaces"
 )
 
 type ParserSuite struct {

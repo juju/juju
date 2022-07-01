@@ -20,13 +20,13 @@ import (
 	"gopkg.in/ini.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/oci/common"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/oci/common"
 )
 
 var logger = loggo.GetLogger("juju.provider.oci")

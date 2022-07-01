@@ -8,8 +8,8 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"gopkg.in/macaroon.v2"
 
-	apicharm "github.com/juju/juju/api/client/charms"
-	commoncharm "github.com/juju/juju/api/common/charm"
+	apicharm "github.com/juju/juju/v3/api/client/charms"
+	commoncharm "github.com/juju/juju/v3/api/common/charm"
 )
 
 // CharmAdder defines a subset of the charm client needed to add a

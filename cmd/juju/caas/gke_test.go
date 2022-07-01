@@ -18,8 +18,8 @@ import (
 	"github.com/juju/utils/v3/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/caas/mocks"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v3/cmd/juju/caas/mocks"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 type gkeSuite struct {

@@ -17,12 +17,12 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/exec"
 
-	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	jujucloud "github.com/juju/juju/cloud"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/version"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/caas/kubernetes/clientconfig"
+	k8scloud "github.com/juju/juju/v3/caas/kubernetes/cloud"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	envtools "github.com/juju/juju/v3/environs/tools"
+	"github.com/juju/juju/v3/version"
 )
 
 func attemptMicroK8sCloud(cmdRunner CommandRunner, getKubeConfigDir func() (string, error)) (jujucloud.Cloud, error) {

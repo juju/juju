@@ -8,13 +8,13 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/crossmodel"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 const remoteRelationsFacade = "RemoteRelations"

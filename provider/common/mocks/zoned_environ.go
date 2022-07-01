@@ -8,14 +8,14 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	network "github.com/juju/juju/core/network"
-	environs "github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
-	instances "github.com/juju/juju/environs/instances"
-	storage "github.com/juju/juju/storage"
+	constraints "github.com/juju/juju/v3/core/constraints"
+	instance "github.com/juju/juju/v3/core/instance"
+	network "github.com/juju/juju/v3/core/network"
+	environs "github.com/juju/juju/v3/environs"
+	config "github.com/juju/juju/v3/environs/config"
+	context "github.com/juju/juju/v3/environs/context"
+	instances "github.com/juju/juju/v3/environs/instances"
+	storage "github.com/juju/juju/v3/storage"
 	version "github.com/juju/version/v2"
 )
 

@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	instance "github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	instance "github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/state"
 )
 
 type spacesSuite struct {

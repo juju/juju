@@ -16,16 +16,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/usermanager"
-	"github.com/juju/juju/api/controller/controller"
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/client/usermanager"
+	"github.com/juju/juju/v3/api/controller/controller"
+	apitesting "github.com/juju/juju/v3/api/testing"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
 )
 
 type MigrateSuite struct {

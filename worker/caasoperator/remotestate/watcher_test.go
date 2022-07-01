@@ -14,9 +14,9 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/caasoperator/remotestate"
+	coretesting "github.com/juju/juju/v3/testing"
+	jworker "github.com/juju/juju/v3/worker"
+	"github.com/juju/juju/v3/worker/caasoperator/remotestate"
 )
 
 type WatcherSuite struct {

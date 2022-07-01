@@ -16,10 +16,10 @@ import (
 	core "k8s.io/client-go/kubernetes/typed/core/v1"
 	storage "k8s.io/client-go/kubernetes/typed/storage/v1"
 
-	"github.com/juju/juju/caas/kubernetes"
-	providerstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
-	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/caas/kubernetes"
+	providerstorage "github.com/juju/juju/v3/caas/kubernetes/provider/storage"
+	"github.com/juju/juju/v3/environs"
+	environscontext "github.com/juju/juju/v3/environs/context"
 )
 
 // newLabelRequirements creates a list of k8s node label requirements.

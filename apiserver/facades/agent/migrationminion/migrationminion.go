@@ -6,10 +6,10 @@ package migrationminion
 import (
 	"github.com/juju/errors"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // API implements the API required for the model migration

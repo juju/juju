@@ -8,12 +8,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type statusBaseSuite struct {

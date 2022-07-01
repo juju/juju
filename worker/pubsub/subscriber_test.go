@@ -18,12 +18,12 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/pubsub/centralhub"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
-	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/pubsub/apiserver"
+	"github.com/juju/juju/v3/pubsub/centralhub"
+	"github.com/juju/juju/v3/rpc/params"
+	coretesting "github.com/juju/juju/v3/testing"
+	psworker "github.com/juju/juju/v3/worker/pubsub"
 )
 
 type WorkerConfigSuite struct {

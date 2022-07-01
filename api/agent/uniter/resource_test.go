@@ -16,12 +16,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/base"
-	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/api/base"
+	api "github.com/juju/juju/v3/api/client/resources"
+	"github.com/juju/juju/v3/core/resources"
+	resourcetesting "github.com/juju/juju/v3/core/resources/testing"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var _ = gc.Suite(&ResourcesFacadeClientSuite{})

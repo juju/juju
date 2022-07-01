@@ -18,13 +18,13 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/websocket/websockettest"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v3/apiserver/websocket/websockettest"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
+	"github.com/juju/juju/v3/version"
 )
 
 type logtransferSuite struct {

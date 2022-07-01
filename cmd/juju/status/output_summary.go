@@ -16,8 +16,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/cmd/output"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // FormatSummary writes a summary of the current environment

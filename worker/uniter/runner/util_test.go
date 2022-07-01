@@ -20,17 +20,17 @@ import (
 	"github.com/juju/utils/v3/fs"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/testcharms"
+	"github.com/juju/juju/v3/worker/uniter/runner"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
+	runnertesting "github.com/juju/juju/v3/worker/uniter/runner/testing"
 )
 
 var (

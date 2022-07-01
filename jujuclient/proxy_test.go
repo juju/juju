@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/proxy"
-	"github.com/juju/juju/proxy/factory"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/proxy"
+	"github.com/juju/juju/v3/proxy/factory"
 )
 
 type dummyProxier struct {

@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	migration "github.com/juju/juju/migration"
-	state "github.com/juju/juju/state"
+	migration "github.com/juju/juju/v3/migration"
+	state "github.com/juju/juju/v3/state"
 	names "github.com/juju/names/v4"
 	replicaset "github.com/juju/replicaset/v2"
 	version "github.com/juju/version/v2"

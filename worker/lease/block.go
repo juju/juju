@@ -3,7 +3,7 @@
 
 package lease
 
-import "github.com/juju/juju/core/lease"
+import "github.com/juju/juju/v3/core/lease"
 
 // block is used to deliver lease-expiry-notification requests to a manager's
 // loop goroutine on behalf of BlockUntilLeadershipReleased.

@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/mongo"
 )
 
 // Life represents the lifecycle state of the entities

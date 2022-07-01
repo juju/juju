@@ -16,16 +16,16 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/apiserver/common/firewall"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/life"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/v3/apiserver/common/crossmodel"
+	"github.com/juju/juju/v3/apiserver/common/firewall"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/core/life"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 var logger = loggo.GetLoggerWithLabels("juju.apiserver.crossmodelrelations", corelogger.CMR)

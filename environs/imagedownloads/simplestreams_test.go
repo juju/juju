@@ -16,11 +16,11 @@ import (
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
-	. "github.com/juju/juju/environs/imagedownloads"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
-	streamstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/v3/core/series"
+	. "github.com/juju/juju/v3/environs/imagedownloads"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/simplestreams"
+	streamstesting "github.com/juju/juju/v3/environs/simplestreams/testing"
 )
 
 type Suite struct {

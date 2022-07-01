@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -25,7 +25,7 @@ func (*importSuite) TestImports(c *gc.C) {
 	// TODO(sidecar) - improve test performance
 	c.Skip("test times out on Jenkins")
 	found := set.NewStrings(
-		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/containeragent/unit")...)
+		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/v3/cmd/containeragent/unit")...)
 
 	expected := set.NewStrings(
 		"agent",

@@ -8,16 +8,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/unitcommon"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/status"
-	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/common/unitcommon"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	k8sspecs "github.com/juju/juju/v3/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/core/status"
+	corewatcher "github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method

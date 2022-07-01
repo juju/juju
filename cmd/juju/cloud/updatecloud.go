@@ -11,11 +11,11 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	cloudapi "github.com/juju/juju/api/client/cloud"
-	jujucloud "github.com/juju/juju/cloud"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	cloudapi "github.com/juju/juju/v3/api/client/cloud"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 type updateCloudCommand struct {

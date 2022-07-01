@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/observability/probe"
-	"github.com/juju/juju/worker/caasprober"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/observability/probe"
+	"github.com/juju/juju/v3/worker/caasprober"
 )
 
 type ControllerSuite struct {

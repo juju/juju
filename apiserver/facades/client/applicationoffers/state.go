@@ -8,12 +8,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/state"
+	commoncrossmodel "github.com/juju/juju/v3/apiserver/common/crossmodel"
+	"github.com/juju/juju/v3/core/crossmodel"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/state"
 )
 
 // StatePool provides the subset of a state pool.

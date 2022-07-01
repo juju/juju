@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cmd/juju/block"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
 )
 
 var _ = gc.Suite(&listCommandSuite{})

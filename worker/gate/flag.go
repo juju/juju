@@ -9,7 +9,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v3/cmd/jujud/agent/engine"
 )
 
 // FlagManifoldConfig holds the dependencies required to run a Flag

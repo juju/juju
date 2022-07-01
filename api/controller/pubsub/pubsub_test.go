@@ -11,9 +11,9 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	apipubsub "github.com/juju/juju/api/controller/pubsub"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	apipubsub "github.com/juju/juju/v3/api/controller/pubsub"
+	"github.com/juju/juju/v3/rpc/params"
 	"github.com/juju/testing"
 )
 

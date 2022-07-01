@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/imagestorage"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/imagestorage"
 )
 
 var _ = gc.Suite(&ImageSuite{})

@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	instancemutater "github.com/juju/juju/api/agent/instancemutater"
-	environs "github.com/juju/juju/environs"
-	instancemutater0 "github.com/juju/juju/worker/instancemutater"
+	instancemutater "github.com/juju/juju/v3/api/agent/instancemutater"
+	environs "github.com/juju/juju/v3/environs"
+	instancemutater0 "github.com/juju/juju/v3/worker/instancemutater"
 	names "github.com/juju/names/v4"
 	worker "github.com/juju/worker/v3"
 )

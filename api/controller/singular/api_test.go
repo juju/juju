@@ -12,13 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/singular"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api/base"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/api/controller/singular"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/rpc/params"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type APISuite struct {

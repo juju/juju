@@ -12,17 +12,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/controller"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	"github.com/juju/juju/v3/core/config"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/devices"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/bootstrap"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/stateenvirons"
+	"github.com/juju/juju/v3/storage"
 )
 
 var (

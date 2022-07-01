@@ -6,7 +6,7 @@ package downloader
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package downloader -destination downloader_mocks.go github.com/juju/juju/core/charm/downloader Logger,CharmArchive,CharmRepository,RepositoryGetter,Storage

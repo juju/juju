@@ -16,16 +16,16 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/client/sshclient"
-	apicharm "github.com/juju/juju/api/common/charm"
-	charmscommon "github.com/juju/juju/api/common/charms"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/network/ssh"
-	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
+	"github.com/juju/juju/v3/api/client/application"
+	"github.com/juju/juju/v3/api/client/charms"
+	"github.com/juju/juju/v3/api/client/sshclient"
+	apicharm "github.com/juju/juju/v3/api/common/charm"
+	charmscommon "github.com/juju/juju/v3/api/common/charms"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/network/ssh"
+	unitdebug "github.com/juju/juju/v3/worker/uniter/runner/debug"
 )
 
 func NewDebugHooksCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {

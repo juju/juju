@@ -4,7 +4,7 @@
 package pki_test
 
 import (
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v3/pki"
 
 	gc "gopkg.in/check.v1"
 )

@@ -11,15 +11,15 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.api.modelmanager")

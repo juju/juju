@@ -6,8 +6,8 @@ package jujuclient_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/testing"
 )
 
 type ControllerValidationSuite struct {

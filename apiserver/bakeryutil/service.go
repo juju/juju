@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/juju/v3/apiserver/authentication"
+	"github.com/juju/juju/v3/state/bakerystorage"
 )
 
 // BakeryThirdPartyLocator is an implementation of

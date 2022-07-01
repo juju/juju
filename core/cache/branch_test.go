@@ -8,9 +8,9 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/core/cache"
+	"github.com/juju/juju/v3/core/settings"
+	"github.com/juju/juju/v3/testing"
 )
 
 type BranchSuite struct {

@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	life "github.com/juju/juju/core/life"
-	hook "github.com/juju/juju/worker/uniter/hook"
-	relation "github.com/juju/juju/worker/uniter/relation"
-	remotestate "github.com/juju/juju/worker/uniter/remotestate"
-	context "github.com/juju/juju/worker/uniter/runner/context"
+	life "github.com/juju/juju/v3/core/life"
+	hook "github.com/juju/juju/v3/worker/uniter/hook"
+	relation "github.com/juju/juju/v3/worker/uniter/relation"
+	remotestate "github.com/juju/juju/v3/worker/uniter/remotestate"
+	context "github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 // MockRelationStateTracker is a mock of RelationStateTracker interface.

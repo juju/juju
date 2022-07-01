@@ -6,7 +6,7 @@ package charmdownloader
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package charmdownloader -destination mocks.go github.com/juju/juju/worker/charmdownloader CharmDownloaderAPI,Logger

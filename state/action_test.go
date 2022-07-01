@@ -19,12 +19,12 @@ import (
 	"github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/core/actions"
+	"github.com/juju/juju/v3/state"
+	stateerrors "github.com/juju/juju/v3/state/errors"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type ActionSuite struct {

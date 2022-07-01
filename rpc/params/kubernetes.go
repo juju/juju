@@ -6,7 +6,7 @@ package params
 import (
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/v3/core/constraints"
 )
 
 // KubernetesDeploymentInfo holds deployment info from charm metadata.

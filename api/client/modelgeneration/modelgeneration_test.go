@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/client/modelgeneration"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base/mocks"
+	"github.com/juju/juju/v3/api/client/modelgeneration"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type modelGenerationSuite struct {

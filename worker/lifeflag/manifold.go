@@ -9,9 +9,9 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v3/core/life"
 )
 
 // logger is here to stop the desire of creating a package level logger.

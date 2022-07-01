@@ -9,8 +9,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/apiserver/observer/metricobserver"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v3/apiserver/observer/metricobserver"
+	"github.com/juju/juju/v3/version"
 )
 
 const (

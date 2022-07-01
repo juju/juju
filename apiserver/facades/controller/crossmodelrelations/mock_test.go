@@ -18,17 +18,17 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/authentication"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/core/crossmodel"
-	corefirewall "github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/authentication"
+	commoncrossmodel "github.com/juju/juju/v3/apiserver/common/crossmodel"
+	"github.com/juju/juju/v3/apiserver/common/firewall"
+	"github.com/juju/juju/v3/apiserver/facades/controller/crossmodelrelations"
+	"github.com/juju/juju/v3/charmstore"
+	"github.com/juju/juju/v3/core/crossmodel"
+	corefirewall "github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type mockStatePool struct {

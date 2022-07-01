@@ -13,11 +13,11 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 var cloudSchema = &jsonschema.Schema{

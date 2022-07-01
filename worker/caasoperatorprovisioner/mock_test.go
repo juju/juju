@@ -13,16 +13,16 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/common/charms"
-	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/common/charms"
+	apicaasprovisioner "github.com/juju/juju/v3/api/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/storage"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type mockProvisionerFacade struct {

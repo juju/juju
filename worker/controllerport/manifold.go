@@ -9,10 +9,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/state"
+	workerstate "github.com/juju/juju/v3/worker/state"
 )
 
 // Logger defines the methods needed for the worker to log messages.

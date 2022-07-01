@@ -15,11 +15,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/azure/internal/azuretesting"
-	"github.com/juju/juju/provider/azure/internal/imageutils"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/instances"
+	"github.com/juju/juju/v3/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/v3/provider/azure/internal/imageutils"
+	"github.com/juju/juju/v3/testing"
 )
 
 type imageutilsSuite struct {

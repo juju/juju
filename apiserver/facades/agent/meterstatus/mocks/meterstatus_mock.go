@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	controller "github.com/juju/juju/controller"
-	state "github.com/juju/juju/state"
+	controller "github.com/juju/juju/v3/controller"
+	state "github.com/juju/juju/v3/state"
 )
 
 // MockMeterStatusState is a mock of MeterStatusState interface.

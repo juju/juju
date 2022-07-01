@@ -9,12 +9,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/client/highavailability"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api/client/highavailability"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/network"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func TestAll(t *stdtesting.T) {

@@ -24,14 +24,14 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/migrationmaster"
-	macapitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	apitesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/api/controller/migrationmaster"
+	macapitesting "github.com/juju/juju/v3/api/testing"
+	"github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type ClientSuite struct {

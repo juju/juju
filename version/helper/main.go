@@ -6,7 +6,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v3/version"
 )
 
 // main quick and dirty utility for printing out the Juju version for use in

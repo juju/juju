@@ -13,10 +13,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/config"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/environs/config"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing

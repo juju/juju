@@ -4,7 +4,7 @@
 package watcher
 
 import (
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v3/core/life"
 )
 
 // RelationStatusChange describes changes to some relation.

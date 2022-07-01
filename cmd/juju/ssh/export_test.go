@@ -4,8 +4,8 @@
 package ssh
 
 import (
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
-	"github.com/juju/juju/environs/cloudspec"
+	k8sexec "github.com/juju/juju/v3/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/v3/environs/cloudspec"
 )
 
 type (

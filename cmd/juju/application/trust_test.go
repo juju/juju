@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application/mocks"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v3/cmd/juju/application/mocks"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
 )
 
 type TrustSuite struct {

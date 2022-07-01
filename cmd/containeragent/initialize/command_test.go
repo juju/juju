@@ -16,11 +16,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/caasapplication"
-	"github.com/juju/juju/cmd/containeragent/initialize"
-	"github.com/juju/juju/cmd/containeragent/initialize/mocks"
-	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api/agent/caasapplication"
+	"github.com/juju/juju/v3/cmd/containeragent/initialize"
+	"github.com/juju/juju/v3/cmd/containeragent/initialize/mocks"
+	utilsmocks "github.com/juju/juju/v3/cmd/containeragent/utils/mocks"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type initCommandSuit struct {

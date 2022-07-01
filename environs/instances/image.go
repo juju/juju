@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs/imagemetadata"
 )
 
 var logger = loggo.GetLogger("juju.environs.instances")

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/v3/cmd/output"
 )
 
 // Note:

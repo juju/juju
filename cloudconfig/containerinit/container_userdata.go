@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/container"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/cloudconfig"
+	"github.com/juju/juju/v3/cloudconfig/cloudinit"
+	"github.com/juju/juju/v3/cloudconfig/instancecfg"
+	"github.com/juju/juju/v3/container"
+	corenetwork "github.com/juju/juju/v3/core/network"
 )
 
 var (

@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 // AdminUser is the initial admin user created for all controllers.

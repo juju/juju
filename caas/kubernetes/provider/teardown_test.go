@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/pointer"
 
-	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
-	"github.com/juju/juju/testing"
+	k8swatchertest "github.com/juju/juju/v3/caas/kubernetes/provider/watcher/test"
+	"github.com/juju/juju/v3/testing"
 )
 
 func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *gc.C) {

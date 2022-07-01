@@ -13,12 +13,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/model"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/testing"
 )
 
 type DefaultsCommandSuite struct {

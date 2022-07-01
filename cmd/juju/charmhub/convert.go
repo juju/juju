@@ -12,10 +12,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
+	"github.com/juju/juju/v3/charmhub/transport"
+	"github.com/juju/juju/v3/core/arch"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	coreseries "github.com/juju/juju/v3/core/series"
 )
 
 func convertCharmInfoResult(info transport.InfoResponse, arch, series string) (InfoResponse, error) {

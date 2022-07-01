@@ -13,10 +13,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type applicationWorker struct {

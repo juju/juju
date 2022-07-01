@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/v3/core/secrets"
 )
 
 // Info holds details required to execute a hook. Not all fields are

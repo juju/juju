@@ -15,13 +15,13 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/environschema.v1"
 
-	apicontroller "github.com/juju/juju/api/controller/controller"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/config"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/controller"
+	apicontroller "github.com/juju/juju/v3/api/controller/controller"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/cmd/juju/config"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/cmd/output"
+	"github.com/juju/juju/v3/controller"
 )
 
 var ctrConfigBase = config.ConfigCommandBase{

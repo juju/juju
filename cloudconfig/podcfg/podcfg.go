@@ -15,16 +15,16 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/cloudconfig/instancecfg"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/paths"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/environs/tags"
+	"github.com/juju/juju/v3/mongo"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")

@@ -15,10 +15,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/resource"
-	coretesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/cmd/juju/resource"
+	coretesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type ResourcesCmdSuite struct {

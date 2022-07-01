@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	hook "github.com/juju/juju/worker/uniter/hook"
-	relation "github.com/juju/juju/worker/uniter/relation"
-	context "github.com/juju/juju/worker/uniter/runner/context"
+	hook "github.com/juju/juju/v3/worker/uniter/hook"
+	relation "github.com/juju/juju/v3/worker/uniter/relation"
+	context "github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 // MockRelationer is a mock of Relationer interface.

@@ -19,14 +19,14 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/mitchellh/go-linereader"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/httpcontext"
+	"github.com/juju/juju/v3/apiserver/websocket"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/feature"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 func newEmbeddedCLIHandler(

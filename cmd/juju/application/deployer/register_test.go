@@ -16,8 +16,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/client/application"
-	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/v3/api/client/application"
+	apicommoncharms "github.com/juju/juju/v3/api/common/charms"
 )
 
 var _ = gc.Suite(&registrationSuite{})

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v3/api/client/action"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 // APIClient represents the action API functionality.

@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )

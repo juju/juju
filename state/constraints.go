@@ -11,8 +11,8 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/instance"
 )
 
 // constraintsDoc is the Mongo DB representation of a constraints.Value.

@@ -12,14 +12,14 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/facades/agent/proxyupdater"
+	apiservertesting "github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type ProxyUpdaterSuite struct {

@@ -9,9 +9,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	actionapi "github.com/juju/juju/v3/api/client/action"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 var (

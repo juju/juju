@@ -24,9 +24,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/config"
-	"github.com/juju/juju/cmd/jujud/introspect"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cmd/jujud/agent/config"
+	"github.com/juju/juju/v3/cmd/jujud/introspect"
+	"github.com/juju/juju/v3/testing"
 )
 
 type IntrospectCommandSuite struct {

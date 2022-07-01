@@ -23,10 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	k8sspecs "github.com/juju/juju/v3/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	k8sannotations "github.com/juju/juju/v3/core/annotations"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface

@@ -9,9 +9,9 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/network"
-	corefirewall "github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/core/network"
+	corefirewall "github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/testing"
 )
 
 type RuleSetSuite struct {

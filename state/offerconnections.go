@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // OfferConnection represents the state of a relation

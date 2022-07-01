@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type CmdSuite struct {

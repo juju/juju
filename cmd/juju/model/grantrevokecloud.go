@@ -6,13 +6,13 @@ package model
 import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/client/cloud"
+	"github.com/juju/juju/v3/api/client/cloud"
 	"github.com/juju/names/v4"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/permission"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/block"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/permission"
 )
 
 var usageGrantCloudSummary = `

@@ -14,9 +14,9 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appstyped "k8s.io/client-go/kubernetes/typed/apps/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/cloudconfig/podcfg"
-	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v3/cloudconfig/podcfg"
+	k8sannotations "github.com/juju/juju/v3/core/annotations"
 )
 
 func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {

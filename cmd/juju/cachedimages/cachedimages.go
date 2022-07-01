@@ -4,8 +4,8 @@
 package cachedimages
 
 import (
-	"github.com/juju/juju/api/client/imagemanager"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v3/api/client/imagemanager"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 // CachedImagesCommandBase is a helper base structure that has a method to get the

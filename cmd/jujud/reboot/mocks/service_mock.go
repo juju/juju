@@ -8,12 +8,12 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	reboot "github.com/juju/juju/cmd/jujud/reboot"
-	container "github.com/juju/juju/container"
-	instance "github.com/juju/juju/core/instance"
-	instances "github.com/juju/juju/environs/instances"
-	params "github.com/juju/juju/rpc/params"
-	common "github.com/juju/juju/service/common"
+	reboot "github.com/juju/juju/v3/cmd/jujud/reboot"
+	container "github.com/juju/juju/v3/container"
+	instance "github.com/juju/juju/v3/core/instance"
+	instances "github.com/juju/juju/v3/environs/instances"
+	params "github.com/juju/juju/v3/rpc/params"
+	common "github.com/juju/juju/v3/service/common"
 )
 
 // MockAgentConfig is a mock of AgentConfig interface.

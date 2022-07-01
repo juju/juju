@@ -13,14 +13,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/sync"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/rpc/params"
-	coretools "github.com/juju/juju/tools"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/block"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/environs/filestorage"
+	"github.com/juju/juju/v3/environs/sync"
+	envtools "github.com/juju/juju/v3/environs/tools"
+	"github.com/juju/juju/v3/rpc/params"
+	coretools "github.com/juju/juju/v3/tools"
 )
 
 var syncTools = sync.SyncTools

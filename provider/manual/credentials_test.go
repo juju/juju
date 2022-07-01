@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
+	envtesting "github.com/juju/juju/v3/environs/testing"
+	"github.com/juju/juju/v3/testing"
 )
 
 type credentialsSuite struct {

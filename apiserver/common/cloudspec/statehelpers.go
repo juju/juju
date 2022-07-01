@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/stateenvirons"
 )
 
 // Pool describes an interface for retrieving State instances from a

@@ -12,15 +12,15 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/client/application"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/application/utils"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/client/application"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/application/utils"
+	"github.com/juju/juju/v3/cmd/juju/block"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var usageAddUnitSummary = `Adds one or more units to a deployed application.`

@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/client/bundle"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/api/client/bundle"
+	"github.com/juju/juju/v3/rpc/params"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 const apiVersion = 6

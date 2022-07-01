@@ -6,11 +6,11 @@ package common
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/instances"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 func toParamsInstanceTypeResult(itypes []instances.InstanceType) []params.InstanceType {

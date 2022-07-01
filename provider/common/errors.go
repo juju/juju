@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 // ZoneIndependentError wraps the given error such that it

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/stateauthenticator"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/httpcontext"
+	"github.com/juju/juju/v3/apiserver/stateauthenticator"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 // httpContext provides context for HTTP handlers.

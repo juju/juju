@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/uniter/hook"
 )
 
 // Kind enumerates the operations the uniter can perform.

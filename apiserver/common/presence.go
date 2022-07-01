@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/v3/core/presence"
 )
 
 // ModelPresence represents the API server connections for a model.

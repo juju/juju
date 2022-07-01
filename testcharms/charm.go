@@ -19,7 +19,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/charmrepo/v7/testing"
 
-	jtesting "github.com/juju/juju/testing"
+	jtesting "github.com/juju/juju/v3/testing"
 )
 
 const (

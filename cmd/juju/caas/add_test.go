@@ -27,17 +27,17 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/caas"
-	"github.com/juju/juju/cmd/juju/caas/mocks"
-	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/v3/cloud"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/caas"
+	"github.com/juju/juju/v3/cmd/juju/caas/mocks"
+	jujucmdcloud "github.com/juju/juju/v3/cmd/juju/cloud"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type addCAASSuite struct {

@@ -14,17 +14,17 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/block"
-	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/client/block"
+	caasprovider "github.com/juju/juju/v3/caas/kubernetes/provider"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/bootstrap"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var (

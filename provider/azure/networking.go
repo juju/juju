@@ -10,7 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	"github.com/juju/juju/v3/provider/azure/internal/armtemplates"
 )
 
 const (

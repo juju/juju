@@ -20,13 +20,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/caas"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/config"
-	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/agent/tools"
+	"github.com/juju/juju/v3/caas"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/jujud/agent/config"
+	"github.com/juju/juju/v3/juju/sockets"
+	"github.com/juju/juju/v3/worker/uniter"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 // CAASUnitInitCommand represents a jujud bootstrap command.

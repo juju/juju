@@ -6,9 +6,9 @@ package deployer
 import (
 	"fmt"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 	"github.com/juju/names/v4"
 )
 

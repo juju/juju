@@ -6,7 +6,7 @@ package secrets
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/jujuclient"
 	gc "gopkg.in/check.v1"
 )
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/v3/core/raftlease"
 	"gopkg.in/tomb.v2"
 )
 

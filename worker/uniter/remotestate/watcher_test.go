@@ -14,13 +14,13 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
 )
 
 type WatcherSuite struct {

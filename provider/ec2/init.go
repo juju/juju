@@ -3,7 +3,7 @@
 
 package ec2
 
-import "github.com/juju/juju/environs"
+import "github.com/juju/juju/v3/environs"
 
 const (
 	providerType = "ec2"

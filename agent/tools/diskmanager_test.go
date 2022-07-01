@@ -13,9 +13,9 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	agenttools "github.com/juju/juju/agent/tools"
-	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
+	agenttools "github.com/juju/juju/v3/agent/tools"
+	coretesting "github.com/juju/juju/v3/testing"
+	coretools "github.com/juju/juju/v3/tools"
 )
 
 var _ = gc.Suite(&DiskManagerSuite{})

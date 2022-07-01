@@ -13,7 +13,7 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 
-	coresettings "github.com/juju/juju/core/settings"
+	coresettings "github.com/juju/juju/v3/core/settings"
 )
 
 type SettingsSuite struct {

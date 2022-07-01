@@ -10,7 +10,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/core/network"
 )
 
 // ipAddressDoc describes the persistent state of an IP address assigned to a

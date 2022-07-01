@@ -11,12 +11,12 @@ import (
 	"github.com/juju/utils/v3/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/runcommands"
-	"github.com/juju/juju/worker/uniter/runner"
-	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/worker/uniter/operation"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/worker/uniter/resolver"
+	"github.com/juju/juju/v3/worker/uniter/runcommands"
+	"github.com/juju/juju/v3/worker/uniter/runner"
+	runnercontext "github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 type runcommandsSuite struct {

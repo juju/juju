@@ -11,11 +11,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/rpc/params"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/block"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // NewAddCommand returns a command used to add a network space.

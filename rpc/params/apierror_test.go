@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type errorSuite struct{}

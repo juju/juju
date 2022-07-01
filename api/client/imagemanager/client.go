@@ -4,8 +4,8 @@
 package imagemanager
 
 import (
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // Client provides access to the imagemanager, used to list/delete images.

@@ -8,9 +8,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/core/status"
-	jujuworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/v3/core/status"
+	jujuworker "github.com/juju/juju/v3/worker"
+	"github.com/juju/juju/v3/worker/gate"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

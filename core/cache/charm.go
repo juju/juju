@@ -6,7 +6,7 @@ package cache
 import (
 	"github.com/juju/pubsub/v2"
 
-	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/v3/core/lxdprofile"
 )
 
 func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Charm {

@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // NewWatcherFunc exists to let us test Watch properly.

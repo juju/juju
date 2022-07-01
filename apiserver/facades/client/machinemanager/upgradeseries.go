@@ -12,13 +12,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/charmhub"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/core/status"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/charmhub"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/os"
+	coreseries "github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // UpgradeSeries defines an interface for interacting with upgrading a series.

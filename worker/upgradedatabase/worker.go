@@ -14,13 +14,13 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades"
-	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/upgrades"
+	jujuversion "github.com/juju/juju/v3/version"
+	"github.com/juju/juju/v3/worker/gate"
+	"github.com/juju/juju/v3/wrench"
 )
 
 // NewLock creates a gate.Lock to be used to synchronise workers

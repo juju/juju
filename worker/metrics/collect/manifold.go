@@ -20,15 +20,15 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/agent"
+	jworker "github.com/juju/juju/v3/worker"
+	"github.com/juju/juju/v3/worker/common/charmrunner"
+	"github.com/juju/juju/v3/worker/fortress"
+	"github.com/juju/juju/v3/worker/metrics/spool"
+	"github.com/juju/juju/v3/worker/uniter"
+	"github.com/juju/juju/v3/worker/uniter/charm"
+	"github.com/juju/juju/v3/worker/uniter/runner"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 const (

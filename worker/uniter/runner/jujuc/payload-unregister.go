@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
-	jujucmd "github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
 )
 
 // PayloadUnregisterCmd implements the untrack command.

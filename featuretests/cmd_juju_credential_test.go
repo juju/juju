@@ -12,15 +12,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apicloud "github.com/juju/juju/api/client/cloud"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/core/instance"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing/factory"
+	apicloud "github.com/juju/juju/v3/api/client/cloud"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/commands"
+	"github.com/juju/juju/v3/core/instance"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/jujuclient"
+	_ "github.com/juju/juju/v3/provider/openstack"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type CmdCredentialSuite struct {

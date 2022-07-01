@@ -6,8 +6,8 @@ package stateenvirons_test
 import (
 	"testing"
 
-	"github.com/juju/juju/core/os"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/core/os"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func TestPackage(t *testing.T) {

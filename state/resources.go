@@ -22,8 +22,8 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/state/storage"
 )
 
 // Resources describes the state functionality for resources.

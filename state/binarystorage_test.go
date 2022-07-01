@@ -18,12 +18,12 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/binarystorage"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/tools"
 )
 
 type tooler interface {

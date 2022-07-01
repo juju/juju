@@ -10,12 +10,12 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/crossmodelrelations"
-	"github.com/juju/juju/api/controller/firewaller"
-	"github.com/juju/juju/api/controller/remoterelations"
-	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/controller/crossmodelrelations"
+	"github.com/juju/juju/v3/api/controller/firewaller"
+	"github.com/juju/juju/v3/api/controller/remoterelations"
+	"github.com/juju/juju/v3/worker/apicaller"
 )
 
 // NewRemoteRelationsFacade creates a remote relations API facade.

@@ -21,9 +21,9 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v3/docker"
+	"github.com/juju/juju/v3/docker/registry"
+	"github.com/juju/juju/v3/pki"
 )
 
 var logger = loggo.GetLogger("juju.controller")

@@ -6,18 +6,18 @@ package gce
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/v3/cloudconfig/instancecfg"
+	"github.com/juju/juju/v3/cloudconfig/providerinit"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/instance"
+	jujuos "github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/instances"
+	"github.com/juju/juju/v3/provider/common"
+	"github.com/juju/juju/v3/provider/gce/google"
 )
 
 // StartInstance implements environs.InstanceBroker.

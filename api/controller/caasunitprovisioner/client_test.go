@@ -10,17 +10,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/caasunitprovisioner"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/api/controller/caasunitprovisioner"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/config"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/devices"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/storage"
 )
 
 type unitprovisionerSuite struct {

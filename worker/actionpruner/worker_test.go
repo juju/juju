@@ -13,10 +13,10 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/worker/actionpruner"
-	"github.com/juju/juju/worker/pruner"
-	"github.com/juju/juju/worker/pruner/mocks"
+	"github.com/juju/juju/v3/core/watcher/watchertest"
+	"github.com/juju/juju/v3/worker/actionpruner"
+	"github.com/juju/juju/v3/worker/pruner"
+	"github.com/juju/juju/v3/worker/pruner/mocks"
 )
 
 type PrunerSuite struct{}

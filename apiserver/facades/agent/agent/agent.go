@@ -10,16 +10,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/common/cloudspec"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // AgentAPI implements the version 3 of the API provided to an agent.

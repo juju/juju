@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/state"
 )
 
 // Logger represents the methods required to emit log messages.

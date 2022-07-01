@@ -15,15 +15,15 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/agent/instancemutater"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v3/api/agent/instancemutater"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/wrench"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext

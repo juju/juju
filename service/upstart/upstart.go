@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/shell"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v3/service/common"
 )
 
 var (

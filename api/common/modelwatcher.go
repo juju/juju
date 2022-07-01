@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/logfwd/syslog"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/logfwd/syslog"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // ModelWatcher provides common client-side API functions

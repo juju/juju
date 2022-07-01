@@ -9,10 +9,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/worker/caasmodeloperator"
+	modeloperatorapi "github.com/juju/juju/v3/api/controller/caasmodeloperator"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/worker/caasmodeloperator"
 )
 
 type dummyAPI struct {

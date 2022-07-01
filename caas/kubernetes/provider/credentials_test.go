@@ -11,11 +11,11 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
+	envtesting "github.com/juju/juju/v3/environs/testing"
 )
 
 type credentialsSuite struct {

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
 
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/environs/simplestreams"
 )
 
 func init() {

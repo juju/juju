@@ -22,15 +22,15 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
-	basemocks "github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/client/charms"
-	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/http/mocks"
-	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	basemocks "github.com/juju/juju/v3/api/base/mocks"
+	"github.com/juju/juju/v3/api/client/charms"
+	apicharm "github.com/juju/juju/v3/api/common/charm"
+	"github.com/juju/juju/v3/api/http/mocks"
+	"github.com/juju/juju/v3/core/arch"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testcharms"
+	coretesting "github.com/juju/juju/v3/testing"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 type charmsMockSuite struct {

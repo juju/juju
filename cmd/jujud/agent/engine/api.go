@@ -7,7 +7,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/v3/api/base"
 )
 
 // Some (hopefully growing number of) manifolds completely depend on an API

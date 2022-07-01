@@ -14,9 +14,9 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/globalclock"
+	corelease "github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/state/globalclock"
 )
 
 // MigrateLeasesToGlobalTime removes old (<2.3-beta2) lease/clock-skew

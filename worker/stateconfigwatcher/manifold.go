@@ -11,8 +11,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent/agent"
+	"github.com/juju/juju/v3/agent"
+	apiagent "github.com/juju/juju/v3/api/agent/agent"
 )
 
 var logger = loggo.GetLogger("juju.worker.stateconfigwatcher")

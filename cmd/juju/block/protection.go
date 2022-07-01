@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api"
-	apiblock "github.com/juju/juju/api/client/block"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api"
+	apiblock "github.com/juju/juju/v3/api/client/block"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.block")

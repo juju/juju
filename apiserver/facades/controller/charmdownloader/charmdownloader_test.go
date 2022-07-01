@@ -16,13 +16,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facades/client/charms/services"
+	"github.com/juju/juju/v3/core/arch"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 type charmDownloaderSuite struct {

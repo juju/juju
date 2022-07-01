@@ -15,15 +15,15 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/base"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/cmd/output"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // NewListModelsCommand returns a command to list models.

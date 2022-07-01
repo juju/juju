@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/resources/mocks"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/resources/mocks"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type applierSuite struct {

@@ -16,9 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
+	"github.com/juju/juju/v3/environs"
 )
 
 type K8sMetadataSuite struct {

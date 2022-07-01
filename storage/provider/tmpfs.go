@@ -12,8 +12,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/storage"
 )
 
 const (

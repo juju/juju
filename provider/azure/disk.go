@@ -16,11 +16,11 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
-	"github.com/juju/juju/provider/azure/internal/errorutils"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/azure/internal/azureauth"
+	"github.com/juju/juju/v3/provider/azure/internal/errorutils"
+	"github.com/juju/juju/v3/storage"
 )
 
 const (

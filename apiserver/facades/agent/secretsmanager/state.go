@@ -6,8 +6,8 @@ package secretsmanager
 import (
 	"time"
 
-	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/secrets"
+	"github.com/juju/juju/v3/state"
 )
 
 // SecretsRotation instances provide secret rotation apis.

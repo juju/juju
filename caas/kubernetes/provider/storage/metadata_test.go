@@ -8,7 +8,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/storage"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/storage"
 )
 
 type metadataSuite struct{}

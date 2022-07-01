@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/network/debinterfaces"
+	"github.com/juju/juju/v3/network/debinterfaces"
 )
 
 type BridgeSuite struct {

@@ -6,10 +6,10 @@ package crossmodelrelations
 import (
 	"reflect"
 
-	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/v3/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/v3/apiserver/common/crossmodel"
+	"github.com/juju/juju/v3/apiserver/common/firewall"
+	"github.com/juju/juju/v3/apiserver/facade"
 )
 
 // Register is called to expose a package of facades onto a given registry.

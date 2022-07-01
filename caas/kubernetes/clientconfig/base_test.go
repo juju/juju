@@ -13,8 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/mocks"
+	"github.com/juju/juju/v3/testing"
 )
 
 type BaseSuite struct {

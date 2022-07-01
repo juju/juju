@@ -9,7 +9,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/state"
 )
 
 func NewCSRetryClientForTest(client ResourceGetter) *ResourceRetryClient {

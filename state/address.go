@@ -16,9 +16,9 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/mongo"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/mongo"
 )
 
 // controllerAddresses returns the list of internal addresses of the state

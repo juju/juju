@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/storage/poolmanager"
+	dummystorage "github.com/juju/juju/v3/storage/provider/dummy"
 )
 
 type defaultStoragePoolsSuite struct {

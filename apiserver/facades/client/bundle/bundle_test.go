@@ -14,13 +14,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	appFacade "github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/facades/client/bundle"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	appFacade "github.com/juju/juju/v3/apiserver/facades/client/application"
+	"github.com/juju/juju/v3/apiserver/facades/client/bundle"
+	apiservertesting "github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/rpc/params"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type bundleSuite struct {

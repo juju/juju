@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	payload "github.com/juju/juju/core/payloads"
+	payload "github.com/juju/juju/v3/core/payloads"
 )
 
 // MockPayloadAPIClient is a mock of PayloadAPIClient interface.

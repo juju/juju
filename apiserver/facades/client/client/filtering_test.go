@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/client"
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/apiserver/facades/client/client"
+	"github.com/juju/juju/v3/core/network"
 )
 
 type filteringUnitTests struct {

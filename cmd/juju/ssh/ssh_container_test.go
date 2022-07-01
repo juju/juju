@@ -19,15 +19,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/common/charms"
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
-	k8smocks "github.com/juju/juju/caas/kubernetes/provider/mocks"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/ssh"
-	"github.com/juju/juju/cmd/juju/ssh/mocks"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api/client/application"
+	"github.com/juju/juju/v3/api/common/charms"
+	k8sexec "github.com/juju/juju/v3/caas/kubernetes/provider/exec"
+	k8smocks "github.com/juju/juju/v3/caas/kubernetes/provider/mocks"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/ssh"
+	"github.com/juju/juju/v3/cmd/juju/ssh/mocks"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
 )
 
 type sshContainerSuite struct {

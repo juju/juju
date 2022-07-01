@@ -7,9 +7,9 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/downloader"
-	jujucharm "github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/downloader"
+	jujucharm "github.com/juju/juju/v3/worker/uniter/charm"
 )
 
 // Downloader provides an interface for downloading files to disk.

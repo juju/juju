@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/storage"
 )
 
 // VolumeSource is an implementation of storage.VolumeSource, suitable for

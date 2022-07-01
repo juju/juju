@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/lease"
+	corelease "github.com/juju/juju/v3/core/lease"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/lease"
 )
 
 const (

@@ -6,8 +6,8 @@ package space
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/state"
 )
 
 type spaceStateShim struct {

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	jujuresource "github.com/juju/juju/cmd/juju/resource"
-	"github.com/juju/juju/core/resources"
+	jujuresource "github.com/juju/juju/v3/cmd/juju/resource"
+	"github.com/juju/juju/v3/core/resources"
 )
 
 type stubCharmStore struct {

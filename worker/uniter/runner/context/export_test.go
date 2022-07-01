@@ -10,12 +10,12 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/runner/context/mocks"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/api/agent/secretsmanager"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/uniter/runner/context/mocks"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 type HookContextParams struct {

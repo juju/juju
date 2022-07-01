@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/storage"
 )
 
 // storageEntityLife queries the lifecycle state of each specified

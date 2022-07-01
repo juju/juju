@@ -7,9 +7,9 @@ import (
 	"errors"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/juju"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 var ErrEmptyControllerName = errors.New("empty controller name")

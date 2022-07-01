@@ -16,9 +16,9 @@ import (
 	api "github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
 
-	jujucmd "github.com/juju/juju/cmd"
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/modelcmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	rcmd "github.com/juju/juju/v3/cmd/juju/romulus"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 // NewListWalletsCommand returns a new command that is used

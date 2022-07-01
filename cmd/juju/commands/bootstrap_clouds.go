@@ -13,9 +13,9 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/jujuclient"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 type cloudList struct {

@@ -12,12 +12,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/instance"
-	envcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
-	allProvidersCommon "github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/oci/common"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/core/instance"
+	envcontext "github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/tags"
+	allProvidersCommon "github.com/juju/juju/v3/provider/common"
+	"github.com/juju/juju/v3/provider/oci/common"
+	"github.com/juju/juju/v3/storage"
 
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 )

@@ -16,13 +16,13 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/caas"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	"github.com/juju/juju/cmd/jujud/agent/config"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v3/agent/tools"
+	"github.com/juju/juju/v3/caas"
+	caasconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/v3/cmd/jujud/agent/config"
+	"github.com/juju/juju/v3/worker/uniter"
+	"github.com/juju/juju/v3/wrench"
 )
 
 // initializeUnitParams contains parameters and dependencies for initializing

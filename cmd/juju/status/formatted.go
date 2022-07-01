@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/core/instance"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/cmd/juju/storage"
+	"github.com/juju/juju/v3/core/instance"
+	coremodel "github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/status"
 )
 
 type formattedStatus struct {

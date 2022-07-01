@@ -7,9 +7,9 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.

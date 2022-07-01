@@ -5,7 +5,7 @@ package cache
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/v3/core/settings"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus/testutil"

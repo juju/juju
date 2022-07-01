@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	path "github.com/juju/juju/charmhub/path"
+	path "github.com/juju/juju/v3/charmhub/path"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/charmhub Transport,RESTClient,FileSystem,Logger

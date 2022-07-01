@@ -14,9 +14,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/utils/scriptrunner"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/utils/scriptrunner"
 )
 
 var logger = loggo.GetLogger("juju.worker.fanconfigurer")

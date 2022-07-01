@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/core/status"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/core/instance"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 type maasInstance struct {

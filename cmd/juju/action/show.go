@@ -11,8 +11,8 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 type showCommand struct {

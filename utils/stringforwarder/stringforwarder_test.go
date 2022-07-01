@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/stringforwarder"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/utils/stringforwarder"
 )
 
 type StringForwarderSuite struct{}

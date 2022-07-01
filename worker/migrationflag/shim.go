@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/agent/migrationflag"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/v3/api/agent/migrationflag"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/watcher"
 )
 
 // NewFacade creates a *migrationflag.Facade and returns it as a Facade.

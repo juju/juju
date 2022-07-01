@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/testing"
 )
 
 type brokerSuite struct {

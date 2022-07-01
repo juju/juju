@@ -12,7 +12,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/v3/agent"
 )
 
 // Logger represents the methods used by the worker to log information.

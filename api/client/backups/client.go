@@ -4,7 +4,7 @@
 package backups
 
 import (
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/v3/api/base"
 )
 
 // Client wraps the backups API for the client.

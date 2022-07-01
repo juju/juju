@@ -16,10 +16,10 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/secrets"
-	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/core/secrets"
+	corewatcher "github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/mongo/utils"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // CreateSecretParams are used to create a secret.

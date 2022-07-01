@@ -20,17 +20,17 @@ import (
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/containeragent/config"
-	initcommand "github.com/juju/juju/cmd/containeragent/initialize"
-	unitcommand "github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/cmd/jujud/introspect"
-	"github.com/juju/juju/cmd/jujud/run"
-	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/utils/proxy"
-	"github.com/juju/juju/worker/logsender"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/containeragent/config"
+	initcommand "github.com/juju/juju/v3/cmd/containeragent/initialize"
+	unitcommand "github.com/juju/juju/v3/cmd/containeragent/unit"
+	"github.com/juju/juju/v3/cmd/jujud/introspect"
+	"github.com/juju/juju/v3/cmd/jujud/run"
+	"github.com/juju/juju/v3/core/machinelock"
+	"github.com/juju/juju/v3/juju/names"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/utils/proxy"
+	"github.com/juju/juju/v3/worker/logsender"
 )
 
 var logger = loggo.GetLogger("juju.cmd.containeragent")

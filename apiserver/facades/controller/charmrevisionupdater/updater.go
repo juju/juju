@@ -16,13 +16,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmstore"
-	charmmetrics "github.com/juju/juju/core/charm/metrics"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/version"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/charmstore"
+	charmmetrics "github.com/juju/juju/v3/core/charm/metrics"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")

@@ -19,10 +19,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/jsoncodec"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
 )
 
 var logger = loggo.GetLogger("juju.rpc")

@@ -3,7 +3,7 @@
 
 package upgrades
 
-import "github.com/juju/juju/environs"
+import "github.com/juju/juju/v3/environs"
 
 var (
 	UpgradeOperations      = &upgradeOperations

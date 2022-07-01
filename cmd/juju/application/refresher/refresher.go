@@ -13,10 +13,10 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
-	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/cmd/juju/application/store"
-	"github.com/juju/juju/cmd/juju/application/utils"
-	corecharm "github.com/juju/juju/core/charm"
+	commoncharm "github.com/juju/juju/v3/api/common/charm"
+	"github.com/juju/juju/v3/cmd/juju/application/store"
+	"github.com/juju/juju/v3/cmd/juju/application/utils"
+	corecharm "github.com/juju/juju/v3/core/charm"
 )
 
 // ErrExhausted reveals if a refresher was exhausted in it's task. If so, then

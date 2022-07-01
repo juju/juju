@@ -12,15 +12,15 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/multiwatcher"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 var allWatcherLogger = logger.Child("allwatcher")

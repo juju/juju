@@ -15,9 +15,9 @@ import (
 	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/juju/v3/mongo"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/peergrouper"
 )
 
 type oplogSuite struct {

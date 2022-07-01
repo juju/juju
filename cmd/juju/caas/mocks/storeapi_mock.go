@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	cloud "github.com/juju/juju/cloud"
+	cloud "github.com/juju/juju/v3/cloud"
 )
 
 // MockCredentialStoreAPI is a mock of CredentialStoreAPI interface.

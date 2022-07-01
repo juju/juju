@@ -3,7 +3,7 @@
 
 package migrationminion
 
-import "github.com/juju/juju/state"
+import "github.com/juju/juju/v3/state"
 
 // Backend defines the state functionality required by the
 // MigrationMinion facade.

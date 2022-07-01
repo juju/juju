@@ -8,14 +8,14 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/base"
-	charmscommon "github.com/juju/juju/api/common/charms"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/api/base"
+	charmscommon "github.com/juju/juju/v3/api/common/charms"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/storage"
 )
 
 // Client allows access to the CAAS operator provisioner API endpoint.

@@ -15,15 +15,15 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/metricsender"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 var (

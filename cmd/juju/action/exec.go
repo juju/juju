@@ -15,12 +15,12 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
+	actionapi "github.com/juju/juju/v3/api/client/action"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/block"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 // NewExecCommand returns an exec command.

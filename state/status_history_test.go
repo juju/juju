@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/state"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type StatusHistorySuite struct {

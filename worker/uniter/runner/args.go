@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/common/charmrunner"
+	"github.com/juju/juju/v3/worker/common/charmrunner"
 )
 
 func lookPath(hook string) (string, error) {

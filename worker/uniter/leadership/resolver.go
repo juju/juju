@@ -6,11 +6,11 @@ package leadership
 import (
 	"github.com/juju/charm/v9/hooks"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/worker/uniter/hook"
+	"github.com/juju/juju/v3/worker/uniter/operation"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/worker/uniter/resolver"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

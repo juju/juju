@@ -11,13 +11,13 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/pki"
-	pkitest "github.com/juju/juju/pki/test"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/certupdater"
+	jujucontroller "github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/pki"
+	pkitest "github.com/juju/juju/v3/pki/test"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/certupdater"
 )
 
 func TestPackage(t *stdtesting.T) {

@@ -6,12 +6,12 @@ package equinix
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/instances"
 
 	"github.com/packethost/packngo"
 )

@@ -11,17 +11,17 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
-	"github.com/juju/juju/apiserver/common/firewall"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/network"
-	corefirewall "github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/common/cloudspec"
+	"github.com/juju/juju/v3/apiserver/common/firewall"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/core/network"
+	corefirewall "github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.firewaller")

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/relation"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 type Relation interface {

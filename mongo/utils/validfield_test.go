@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/v3/mongo/utils"
 )
 
 type ValidFieldSuite struct{}

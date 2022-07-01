@@ -15,8 +15,8 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/ini.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
 )
 
 const (

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 
-	cloudapi "github.com/juju/juju/api/client/cloud"
-	"github.com/juju/juju/cloud"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	cloudapi "github.com/juju/juju/v3/api/client/cloud"
+	"github.com/juju/juju/v3/cloud"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 var usageRemoveCloudSummary = `

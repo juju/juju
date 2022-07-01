@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/core/network"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -17,18 +17,18 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v3/cloudconfig/instancecfg"
+	"github.com/juju/juju/v3/container"
+	"github.com/juju/juju/v3/container/kvm"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/instances"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/tools"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 type LiveSuite struct {

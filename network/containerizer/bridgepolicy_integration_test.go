@@ -11,14 +11,14 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/network/containerizer"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/instance"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/network"
+	"github.com/juju/juju/v3/network/containerizer"
+	"github.com/juju/juju/v3/state"
+	statetesting "github.com/juju/juju/v3/state/testing"
 )
 
 // bridgePolicyStateSuite includes tests that are backed by Mongo.

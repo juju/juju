@@ -6,7 +6,7 @@ package provisioner_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func TestAll(t *stdtesting.T) {

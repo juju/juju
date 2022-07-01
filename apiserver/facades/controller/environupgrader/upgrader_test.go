@@ -10,12 +10,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/controller/environupgrader"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facades/controller/environupgrader"
+	apiservertesting "github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var (

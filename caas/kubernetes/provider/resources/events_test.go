@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/resources"
 )
 
 type eventsSuite struct {

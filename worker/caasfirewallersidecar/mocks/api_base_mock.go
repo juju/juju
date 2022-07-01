@@ -7,7 +7,7 @@ package mocks
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	base "github.com/juju/juju/api/base"
+	base "github.com/juju/juju/v3/api/base"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
 	http "net/http"

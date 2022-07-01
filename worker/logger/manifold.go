@@ -8,9 +8,9 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/logger"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/agent/logger"
+	"github.com/juju/juju/v3/api/base"
 )
 
 // Logger represents a loggo logger for the purpose of recording what is going

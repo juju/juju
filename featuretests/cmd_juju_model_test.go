@@ -16,14 +16,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/core/permission"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/cmd/juju/commands"
+	"github.com/juju/juju/v3/core/permission"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/feature"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type cmdModelSuite struct {

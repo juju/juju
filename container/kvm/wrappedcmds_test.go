@@ -9,16 +9,16 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v3/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	. "github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/environs/imagedownloads"
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	coretesting "github.com/juju/juju/testing"
+	. "github.com/juju/juju/v3/container/kvm"
+	"github.com/juju/juju/v3/environs/imagedownloads"
+	"github.com/juju/juju/v3/environs/simplestreams"
+	sstesting "github.com/juju/juju/v3/environs/simplestreams/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type LibVertSuite struct {

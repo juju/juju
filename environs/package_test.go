@@ -6,7 +6,7 @@ package environs_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/environs NetworkingEnviron,CloudEnvironProvider

@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/hostkeyreporter"
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/agent/hostkeyreporter"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type facadeSuite struct {

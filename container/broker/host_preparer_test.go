@@ -14,11 +14,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/broker"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/container/broker"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/network"
+	"github.com/juju/juju/v3/rpc/params"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type fakePrepareAPI struct {

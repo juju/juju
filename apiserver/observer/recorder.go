@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/core/auditlog"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 const (

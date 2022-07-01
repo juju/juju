@@ -21,16 +21,16 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	mgoutils "github.com/juju/juju/mongo/utils"
-	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/core/actions"
+	"github.com/juju/juju/v3/core/arch"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/status"
+	mgoutils "github.com/juju/juju/v3/mongo/utils"
+	stateerrors "github.com/juju/juju/v3/state/errors"
+	"github.com/juju/juju/v3/tools"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")

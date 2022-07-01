@@ -7,8 +7,8 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // stringsWorker is the internal implementation of the Worker

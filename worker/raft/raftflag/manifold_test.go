@@ -13,8 +13,8 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker/raft/raftflag"
+	"github.com/juju/juju/v3/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v3/worker/raft/raftflag"
 )
 
 type ManifoldSuite struct {

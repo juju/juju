@@ -15,8 +15,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v2"
 
-	"github.com/juju/juju/agent"
-	raftworker "github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/v3/agent"
+	raftworker "github.com/juju/juju/v3/worker/raft"
 )
 
 // jujuMachineKey is the key for the replset member tag where we

@@ -6,11 +6,11 @@ package common_test
 import (
 	"fmt"
 
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	"github.com/juju/juju/testing"
+	ocitesting "github.com/juju/juju/v3/provider/oci/testing"
+	"github.com/juju/juju/v3/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/oci/common"
+	"github.com/juju/juju/v3/provider/oci/common"
 )
 
 type clientSuite struct {

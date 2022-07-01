@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	controller "github.com/juju/juju/controller"
+	controller "github.com/juju/juju/v3/controller"
 )
 
 // MockFacade is a mock of Facade interface.

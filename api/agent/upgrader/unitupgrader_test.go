@@ -10,16 +10,16 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/upgrader"
-	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/watcher/watchertest"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/agent/upgrader"
+	"github.com/juju/juju/v3/core/arch"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/watcher/watchertest"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/tools"
 )
 
 type unitUpgraderSuite struct {

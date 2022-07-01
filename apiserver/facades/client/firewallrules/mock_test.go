@@ -7,9 +7,9 @@ import (
 	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/facades/client/firewallrules"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/facades/client/firewallrules"
+	"github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/state"
 )
 
 type mockBackend struct {

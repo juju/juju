@@ -18,9 +18,9 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/apiserverhttp"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 var (

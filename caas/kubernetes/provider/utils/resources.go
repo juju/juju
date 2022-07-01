@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/constants"
 )
 
 // PurifyResource purifies read only fields before creating/updating the resource.

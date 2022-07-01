@@ -7,10 +7,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/state"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Address,Subnet,LinkLayerDevice

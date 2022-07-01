@@ -13,9 +13,9 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/network"
-	corefirewall "github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/v3/core/network"
+	corefirewall "github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/provider/gce/google"
 )
 
 func (s *connSuite) TestConnectionIngressRules(c *gc.C) {

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/mocks"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/mocks"
+	"github.com/juju/juju/v3/state/watcher"
+	"github.com/juju/juju/v3/testing"
 )
 
 type watchLXDProfileUpgradeBaseSuite struct {

@@ -29,16 +29,16 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/mongo/utils"
+	"github.com/juju/juju/v3/state/storage"
+	"github.com/juju/juju/v3/state/watcher"
+	"github.com/juju/juju/v3/testcharms"
+	"github.com/juju/juju/v3/version"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/v3/core/resources"
 )
 
 // OpenedResourceClient exposes the API functionality needed by OpenResource.

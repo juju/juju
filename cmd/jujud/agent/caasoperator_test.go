@@ -20,13 +20,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
-	coretesting "github.com/juju/juju/testing"
-	jujuworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/v3/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/v3/cmd/jujud/agent/caasoperator"
+	coretesting "github.com/juju/juju/v3/testing"
+	jujuworker "github.com/juju/juju/v3/worker"
+	"github.com/juju/juju/v3/worker/logsender"
 )
 
 type CAASOperatorSuite struct {

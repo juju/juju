@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/containerinit"
-	"github.com/juju/juju/container"
-	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cloudconfig/containerinit"
+	"github.com/juju/juju/v3/container"
+	containertesting "github.com/juju/juju/v3/container/testing"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/testing"
 )
 
 func Test(t *stdtesting.T) {

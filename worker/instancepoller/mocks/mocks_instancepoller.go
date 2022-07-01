@@ -8,13 +8,13 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	instance "github.com/juju/juju/core/instance"
-	life "github.com/juju/juju/core/life"
-	network "github.com/juju/juju/core/network"
-	status "github.com/juju/juju/core/status"
-	context "github.com/juju/juju/environs/context"
-	instances "github.com/juju/juju/environs/instances"
-	params "github.com/juju/juju/rpc/params"
+	instance "github.com/juju/juju/v3/core/instance"
+	life "github.com/juju/juju/v3/core/life"
+	network "github.com/juju/juju/v3/core/network"
+	status "github.com/juju/juju/v3/core/status"
+	context "github.com/juju/juju/v3/environs/context"
+	instances "github.com/juju/juju/v3/environs/instances"
+	params "github.com/juju/juju/v3/rpc/params"
 )
 
 // MockEnviron is a mock of Environ interface.

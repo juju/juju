@@ -6,10 +6,10 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charms "github.com/juju/juju/api/common/charms"
-	config "github.com/juju/juju/core/config"
-	life "github.com/juju/juju/core/life"
-	watcher "github.com/juju/juju/core/watcher"
+	charms "github.com/juju/juju/v3/api/common/charms"
+	config "github.com/juju/juju/v3/core/config"
+	life "github.com/juju/juju/v3/core/life"
+	watcher "github.com/juju/juju/v3/core/watcher"
 	reflect "reflect"
 )
 

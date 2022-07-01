@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/v3/api/base"
 )
 
 // HTTPClient is an API-specific HTTP client.

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v3/mongo"
 )
 
 // nsLife_ backs nsLife.

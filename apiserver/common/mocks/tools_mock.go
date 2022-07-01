@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	network "github.com/juju/juju/core/network"
-	params "github.com/juju/juju/rpc/params"
-	state "github.com/juju/juju/state"
-	binarystorage "github.com/juju/juju/state/binarystorage"
-	tools "github.com/juju/juju/tools"
+	network "github.com/juju/juju/v3/core/network"
+	params "github.com/juju/juju/v3/rpc/params"
+	state "github.com/juju/juju/v3/state"
+	binarystorage "github.com/juju/juju/v3/state/binarystorage"
+	tools "github.com/juju/juju/v3/tools"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
 )

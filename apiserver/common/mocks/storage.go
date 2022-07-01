@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	binarystorage "github.com/juju/juju/state/binarystorage"
+	binarystorage "github.com/juju/juju/v3/state/binarystorage"
 )
 
 // MockStorageCloser is a mock of StorageCloser interface.

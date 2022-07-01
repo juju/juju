@@ -4,8 +4,8 @@
 package applicationoffers
 
 import (
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // paramsFromProviderSpaceInfo converts a ProviderSpaceInfo into the

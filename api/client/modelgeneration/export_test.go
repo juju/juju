@@ -4,7 +4,7 @@
 package modelgeneration
 
 import (
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/v3/api/base"
 )
 
 func NewStateFromCaller(caller base.FacadeCaller) *Client {

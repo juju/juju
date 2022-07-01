@@ -11,10 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	agenterrors "github.com/juju/juju/v3/cmd/jujud/agent/errors"
+	"github.com/juju/juju/v3/rpc/params"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker"
 )
 
 var (

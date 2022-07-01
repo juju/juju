@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/storage"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.storagecommon")

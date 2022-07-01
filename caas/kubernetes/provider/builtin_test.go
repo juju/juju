@@ -18,12 +18,12 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/cloud"
-	jujutesting "github.com/juju/juju/testing"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/cloud"
+	jujutesting "github.com/juju/juju/v3/testing"
 )
 
 var (

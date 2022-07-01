@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/rpc/params"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type prunerSuite struct {

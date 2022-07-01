@@ -3,7 +3,7 @@
 
 package caasfirewaller
 
-import "github.com/juju/juju/core/config"
+import "github.com/juju/juju/v3/core/config"
 
 type ServiceExposer interface {
 	ExposeService(appName string, resourceTags map[string]string, config config.ConfigAttributes) error

@@ -11,16 +11,16 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/controller/remoterelations"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/api/controller/remoterelations"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/core/watcher/watchertest"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 // TODO(axw) this suite should be re-written as end-to-end tests using the

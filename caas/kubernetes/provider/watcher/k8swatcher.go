@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.watcher")

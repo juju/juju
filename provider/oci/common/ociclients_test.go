@@ -13,8 +13,8 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/oci/testing"
+	"github.com/juju/juju/v3/environs/tags"
+	"github.com/juju/juju/v3/provider/oci/testing"
 )
 
 var _ = gc.Suite(&computeClientSuite{})

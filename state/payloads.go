@@ -8,7 +8,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/v3/core/payloads"
 )
 
 // ModelPayloads returns a ModelPayloads for the state's model.

@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/upgradeseries"
-	. "github.com/juju/juju/worker/upgradeseries/mocks"
+	"github.com/juju/juju/v3/core/paths"
+	"github.com/juju/juju/v3/service/systemd"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/upgradeseries"
+	. "github.com/juju/juju/v3/worker/upgradeseries/mocks"
 )
 
 type upgraderSuite struct {

@@ -27,12 +27,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	// Bring in the state package for the tracker profile.
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/pubsub/agent"
-	_ "github.com/juju/juju/state"
-	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/core/presence"
+	"github.com/juju/juju/v3/core/raftlease"
+	"github.com/juju/juju/v3/pubsub/agent"
+	_ "github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/worker/introspection"
 )
 
 type suite struct {

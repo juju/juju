@@ -9,10 +9,10 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	crossmodel "github.com/juju/juju/core/crossmodel"
-	migration "github.com/juju/juju/core/migration"
-	permission "github.com/juju/juju/core/permission"
-	state "github.com/juju/juju/state"
+	crossmodel "github.com/juju/juju/v3/core/crossmodel"
+	migration "github.com/juju/juju/v3/core/migration"
+	permission "github.com/juju/juju/v3/core/permission"
+	state "github.com/juju/juju/v3/state"
 	names "github.com/juju/names/v4"
 )
 

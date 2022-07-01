@@ -11,8 +11,8 @@ import (
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/state"
 )
 
 // Validator returns a blocker.

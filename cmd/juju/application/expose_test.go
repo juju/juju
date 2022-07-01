@@ -11,10 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type ExposeSuite struct {

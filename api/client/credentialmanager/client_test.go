@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/client/credentialmanager"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
+	apitesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/api/client/credentialmanager"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var _ = gc.Suite(&CredentialManagerSuite{})

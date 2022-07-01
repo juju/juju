@@ -14,10 +14,10 @@ import (
 	"github.com/juju/names/v4"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 var _ environs.Networking = (*environ)(nil)

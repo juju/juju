@@ -6,12 +6,12 @@ package facadetest
 import (
 	"github.com/juju/clock"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/core/cache"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/core/multiwatcher"
+	"github.com/juju/juju/v3/state"
 )
 
 // Context implements facade.Context in the simplest possible way.

@@ -4,8 +4,8 @@
 package provider
 
 import (
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 var unsupportedConstraints = []string{

@@ -18,12 +18,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/bakeryutil"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/authentication"
+	"github.com/juju/juju/v3/apiserver/bakeryutil"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/charmstore"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 const (

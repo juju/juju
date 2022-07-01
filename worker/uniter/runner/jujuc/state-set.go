@@ -11,8 +11,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/v3/keyvalues"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/core/quota"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/core/quota"
 )
 
 // StateSetCommand implements the state-set command.

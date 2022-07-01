@@ -20,9 +20,9 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/client/resources"
-	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/client/resources"
+	apicharm "github.com/juju/juju/v3/api/common/charm"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var _ = gc.Suite(&UploadSuite{})

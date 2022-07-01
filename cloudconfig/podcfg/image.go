@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/v3/controller"
 )
 
 const (

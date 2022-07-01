@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type URLsSuite struct {

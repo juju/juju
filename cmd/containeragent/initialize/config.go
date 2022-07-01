@@ -12,12 +12,12 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/mongo"
 )
 
 type configFromEnv struct {

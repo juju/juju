@@ -14,8 +14,8 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/worker/syslogger"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	"github.com/juju/juju/v3/worker/syslogger"
 )
 
 type ManifoldSuite struct {

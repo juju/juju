@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/juju/model/mocks"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cmd/juju/model"
+	"github.com/juju/juju/v3/cmd/juju/model/mocks"
+	coremodel "github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/testing"
 )
 
 type trackBranchSuite struct {

@@ -16,9 +16,9 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	agentconstants "github.com/juju/juju/agent/constants"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/testing"
+	agentconstants "github.com/juju/juju/v3/agent/constants"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/testing"
 )
 
 type format_2_0Suite struct {

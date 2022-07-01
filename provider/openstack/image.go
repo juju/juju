@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/instances"
 )
 
 // FlavorFilter is an interface that can control which server flavors

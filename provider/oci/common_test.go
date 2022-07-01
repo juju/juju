@@ -15,20 +15,20 @@ import (
 	"github.com/juju/version/v2"
 
 	gomock "github.com/golang/mock/gomock"
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
+	ocitesting "github.com/juju/juju/v3/provider/oci/testing"
+	jujutesting "github.com/juju/juju/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
 
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/oci"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/environs/tags"
+	"github.com/juju/juju/v3/provider/oci"
+	"github.com/juju/juju/v3/tools"
 )
 
 var clk = testclock.NewClock(time.Time{})

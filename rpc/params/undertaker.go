@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v3/core/life"
 )
 
 // UndertakerModelInfo returns information on an model needed by the undertaker worker.

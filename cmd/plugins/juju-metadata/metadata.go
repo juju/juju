@@ -10,9 +10,9 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/osenv"
-	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/v3/juju"
+	"github.com/juju/juju/v3/juju/osenv"
+	_ "github.com/juju/juju/v3/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.plugins.metadata")

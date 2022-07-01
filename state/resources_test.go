@@ -18,11 +18,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/core/resources"
+	resourcetesting "github.com/juju/juju/v3/core/resources/testing"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/state Resources

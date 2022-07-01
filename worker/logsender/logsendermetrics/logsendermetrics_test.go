@@ -11,9 +11,9 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/logsender/logsendermetrics"
-	"github.com/juju/juju/worker/logsender/logsendertest"
+	"github.com/juju/juju/v3/worker/logsender"
+	"github.com/juju/juju/v3/worker/logsender/logsendermetrics"
+	"github.com/juju/juju/v3/worker/logsender/logsendertest"
 )
 
 const maxLen = 3

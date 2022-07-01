@@ -12,7 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
-	jujucmd "github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
 )
 
 // JujuLogContext is the Context for the JujuLogCommand

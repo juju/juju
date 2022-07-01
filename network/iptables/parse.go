@@ -12,7 +12,7 @@ import (
 
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/network/iptables"
+	"github.com/juju/juju/v3/network/iptables"
 )
 
 func main() {

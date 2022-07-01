@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
+	lxdprofile "github.com/juju/juju/v3/core/lxdprofile"
 	reflect "reflect"
 )
 

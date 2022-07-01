@@ -6,7 +6,7 @@ package charmhub
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/v3/charmhub/transport"
 )
 
 // APIError extracts an API error from the given error or returns an error.

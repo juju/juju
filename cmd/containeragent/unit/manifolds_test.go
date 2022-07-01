@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/cmd/containeragent/unit"
+	"github.com/juju/juju/v3/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/v3/testing"
 )
 
 type ManifoldsSuite struct {

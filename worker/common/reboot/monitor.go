@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/paths/transientfile"
+	"github.com/juju/juju/v3/core/paths/transientfile"
 	"github.com/juju/names/v4"
 )
 

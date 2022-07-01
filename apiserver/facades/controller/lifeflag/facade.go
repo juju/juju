@@ -6,10 +6,10 @@ package lifeflag
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/state"
 )
 
 type Backend interface {

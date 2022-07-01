@@ -14,9 +14,9 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 
-	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/juju/model/mocks"
-	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/v3/cmd/juju/model"
+	"github.com/juju/juju/v3/cmd/juju/model/mocks"
+	coremodel "github.com/juju/juju/v3/core/model"
 )
 
 type commitsSuite struct {

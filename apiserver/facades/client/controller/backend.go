@@ -5,11 +5,11 @@ package controller
 
 import (
 	"github.com/juju/charm/v9"
-	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/permission"
+	jujucontroller "github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/permission"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/state"
 )
 
 // The interfaces below are used to create mocks for testing.

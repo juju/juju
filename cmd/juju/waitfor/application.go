@@ -13,13 +13,13 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/waitfor/api"
-	"github.com/juju/juju/cmd/juju/waitfor/query"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/api"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/query"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 func newApplicationCommand() cmd.Command {

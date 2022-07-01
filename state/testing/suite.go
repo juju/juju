@@ -15,12 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/retry.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
-	statewatcher "github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/state"
+	statewatcher "github.com/juju/juju/v3/state/watcher"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 var _ = gc.Suite(&StateSuite{})

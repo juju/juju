@@ -18,10 +18,10 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/caas"
-	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v3/caas"
+	coreconfig "github.com/juju/juju/v3/core/config"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/pki"
 )
 
 const (

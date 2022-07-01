@@ -13,13 +13,13 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	containerlxd "github.com/juju/juju/container/lxd"
-	lxdtesting "github.com/juju/juju/container/lxd/testing"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/v3/cloudconfig/cloudinit"
+	containerlxd "github.com/juju/juju/v3/container/lxd"
+	lxdtesting "github.com/juju/juju/v3/container/lxd/testing"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/lxd"
 )
 
 type environBrokerSuite struct {

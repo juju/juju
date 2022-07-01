@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	state "github.com/juju/juju/state"
+	state "github.com/juju/juju/v3/state"
 	names "github.com/juju/names/v4"
 )
 

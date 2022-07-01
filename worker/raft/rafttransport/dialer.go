@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v3/api"
 )
 
 // Dialer is a type that can be used for dialling a connection

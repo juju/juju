@@ -11,9 +11,9 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common/networkingcommon"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/state"
 )
 
 // mergeMachineLinkLayerOp is a model operation used to merge incoming

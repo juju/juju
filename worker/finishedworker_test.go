@@ -7,7 +7,7 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/v3/worker"
 )
 
 type FinishedSuite struct{}

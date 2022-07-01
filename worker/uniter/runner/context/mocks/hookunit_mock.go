@@ -9,9 +9,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
-	uniter "github.com/juju/juju/api/agent/uniter"
-	status "github.com/juju/juju/core/status"
-	params "github.com/juju/juju/rpc/params"
+	uniter "github.com/juju/juju/v3/api/agent/uniter"
+	status "github.com/juju/juju/v3/core/status"
+	params "github.com/juju/juju/v3/rpc/params"
 	names "github.com/juju/names/v4"
 )
 

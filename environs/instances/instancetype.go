@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/v3/core/constraints"
 )
 
 // InstanceType holds all relevant attributes of the various instance types.

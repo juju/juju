@@ -9,8 +9,8 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 type environUpgradeSuite struct {

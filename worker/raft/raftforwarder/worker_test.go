@@ -18,11 +18,11 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/pubsub/centralhub"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/raft/raftforwarder"
+	"github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/core/raftlease"
+	"github.com/juju/juju/v3/pubsub/centralhub"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/raft/raftforwarder"
 )
 
 type workerFixture struct {

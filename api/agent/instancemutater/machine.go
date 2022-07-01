@@ -9,15 +9,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/common"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // MutatorMachine represents the machine methods required for the instancemutater.

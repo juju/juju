@@ -13,16 +13,16 @@ import (
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/runner"
-	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/relation"
+	"github.com/juju/juju/v3/worker/uniter/charm"
+	"github.com/juju/juju/v3/worker/uniter/hook"
+	"github.com/juju/juju/v3/worker/uniter/operation"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/worker/uniter/runner"
+	runnercontext "github.com/juju/juju/v3/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 type MockGetArchiveInfo struct {

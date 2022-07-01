@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/v3/apiserver/common/networkingcommon"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
@@ -19,12 +19,12 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/facades/controller/instancepoller"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/state"
 )
 
 // mockState implements StateInterface and allows inspection of called

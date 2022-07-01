@@ -18,14 +18,14 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	containerLXD "github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider/lxd"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cloud"
+	containerLXD "github.com/juju/juju/v3/container/lxd"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	envtesting "github.com/juju/juju/v3/environs/testing"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/provider/lxd"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package lxd -destination net_mock_test.go net Addr

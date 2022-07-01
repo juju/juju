@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/storage"
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/cmd/juju/storage"
+	_ "github.com/juju/juju/v3/provider/dummy"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type addSuite struct {

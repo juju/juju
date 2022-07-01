@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v3/api"
 )
 
 // APIWorkersConfig provides the dependencies for the

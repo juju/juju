@@ -6,8 +6,8 @@ package storage
 import (
 	storagev1 "k8s.io/api/storage/v1"
 
-	"github.com/juju/juju/caas/kubernetes"
-	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/v3/caas/kubernetes"
+	k8sannotations "github.com/juju/juju/v3/core/annotations"
 )
 
 // PreferredStorageAny is an implementation of PreferredStorage that matches

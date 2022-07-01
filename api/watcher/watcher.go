@@ -12,14 +12,14 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/core/secrets"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker"
 )
 
 var logger = loggo.GetLogger("juju.api.watcher")

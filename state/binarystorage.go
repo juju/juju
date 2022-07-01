@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/state/binarystorage"
 )
 
 var binarystorageNew = binarystorage.New

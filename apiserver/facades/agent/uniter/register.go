@@ -7,12 +7,12 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
-	"github.com/juju/juju/apiserver/common/unitcommon"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/common/cloudspec"
+	"github.com/juju/juju/v3/apiserver/common/unitcommon"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/apiserver/facades/agent/meterstatus"
 )
 
 // Register is called to expose a package of facades onto a given registry.

@@ -22,10 +22,10 @@ import (
 	wireformat "github.com/juju/romulus/wireformat/plan"
 	"gopkg.in/yaml.v2"
 
-	jujucmd "github.com/juju/juju/cmd"
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	rcmd "github.com/juju/juju/v3/cmd/juju/romulus"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/cmd/output"
 )
 
 // apiClient defines the interface of the plan api client need by this command.

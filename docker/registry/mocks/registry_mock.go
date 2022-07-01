@@ -9,8 +9,8 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	docker "github.com/juju/juju/docker"
-	tools "github.com/juju/juju/tools"
+	docker "github.com/juju/juju/v3/docker"
+	tools "github.com/juju/juju/v3/tools"
 )
 
 // MockRegistry is a mock of Registry interface.

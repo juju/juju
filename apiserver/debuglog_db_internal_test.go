@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type debugLogDBIntSuite struct {

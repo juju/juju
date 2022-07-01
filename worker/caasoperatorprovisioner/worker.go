@@ -26,15 +26,15 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/agent"
-	charmscommon "github.com/juju/juju/api/common/charms"
-	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/caas"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/agent"
+	charmscommon "github.com/juju/juju/v3/api/common/charms"
+	apicaasprovisioner "github.com/juju/juju/v3/api/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/v3/caas"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/storage"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

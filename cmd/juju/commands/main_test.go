@@ -20,16 +20,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucloud "github.com/juju/juju/cloud"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/application"
+	"github.com/juju/juju/v3/cmd/juju/cloud"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	jujuos "github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/feature"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v3/testing"
 )
 
 type MainSuite struct {

@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type storageListSuite struct {

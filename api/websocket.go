@@ -15,8 +15,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // websocketTimeout is how long we'll wait for a WriteJSON call before

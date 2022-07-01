@@ -17,14 +17,14 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/backups"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v3/rpc/params"
+	jujutesting "github.com/juju/juju/v3/testing"
 )
 
 // MetaResultString is the expected output of running dumpMetadata() on

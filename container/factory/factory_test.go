@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/factory"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/container"
+	"github.com/juju/juju/v3/container/factory"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/testing"
 )
 
 type factorySuite struct {

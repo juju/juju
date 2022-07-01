@@ -6,7 +6,7 @@ package poolmanager
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/storage"
 )
 
 // AddDefaultStoragePools adds the default storage pools for the given

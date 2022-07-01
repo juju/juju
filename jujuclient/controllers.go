@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/v3/juju/osenv"
 )
 
 // JujuControllersPath is the location where controllers information is

@@ -4,11 +4,11 @@
 package jujuclienttesting
 
 import (
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/v3/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 // MinimalStore returns a simple store that can be used

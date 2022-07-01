@@ -4,7 +4,7 @@
 package metricsmanager
 
 import (
-	"github.com/juju/juju/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/v3/apiserver/facades/agent/metricsender"
 )
 
 func (api *MetricsManagerAPI) PatchSender(s metricsender.MetricSender) func() {

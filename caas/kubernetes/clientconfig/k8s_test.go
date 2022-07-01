@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/v3/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/v3/cloud"
 )
 
 type k8sConfigSuite struct {

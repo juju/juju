@@ -14,12 +14,12 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type BindSuite struct {

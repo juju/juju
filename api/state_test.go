@@ -13,17 +13,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/usermanager"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/network"
-	jujutesting "github.com/juju/juju/juju/testing"
-	proxytest "github.com/juju/juju/proxy/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/client/modelmanager"
+	"github.com/juju/juju/v3/api/client/usermanager"
+	"github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/core/network"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	proxytest "github.com/juju/juju/v3/proxy/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 func TestAll(t *stdtesting.T) {

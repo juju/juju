@@ -12,10 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/azure/internal/imageutils"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/instances"
+	"github.com/juju/juju/v3/provider/azure/internal/imageutils"
 )
 
 const defaultMem = 1024 // 1GiB

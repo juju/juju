@@ -21,14 +21,14 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
-	raftleasestore "github.com/juju/juju/state/raftlease"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/v3/core/raft/queue"
+	"github.com/juju/juju/v3/core/raftlease"
+	"github.com/juju/juju/v3/state"
+	raftleasestore "github.com/juju/juju/v3/state/raftlease"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/common"
+	"github.com/juju/juju/v3/worker/raft"
 )
 
 type ManifoldSuite struct {

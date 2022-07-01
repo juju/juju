@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/state"
 )
 
 var logger = loggo.GetLogger("juju.environs.space")

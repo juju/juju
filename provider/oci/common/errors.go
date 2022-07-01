@@ -7,8 +7,8 @@ import (
 	"github.com/juju/collections/set"
 	ociCommon "github.com/oracle/oci-go-sdk/v47/common"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/common"
 )
 
 // Oracle bundles authorisation errors into HTTP 401, HTTP 404 and

@@ -9,12 +9,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/charmstore"
+	"github.com/juju/juju/v3/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.

@@ -7,10 +7,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.controller.caasoperatorupgrader")

@@ -11,13 +11,13 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/common/mocks"
-	"github.com/juju/juju/provider/oci"
+	"github.com/juju/juju/v3/core/instance"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/provider/common"
+	"github.com/juju/juju/v3/provider/common/mocks"
+	"github.com/juju/juju/v3/provider/oci"
 )
 
 type instanceSuite struct {

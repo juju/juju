@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	resources "github.com/juju/juju/core/resources"
+	resources "github.com/juju/juju/v3/core/resources"
 )
 
 // MockOpenedResourceClient is a mock of OpenedResourceClient interface.

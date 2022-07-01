@@ -12,11 +12,11 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/lxd"
+	"github.com/juju/juju/v3/version"
 )
 
 type environPolicySuite struct {

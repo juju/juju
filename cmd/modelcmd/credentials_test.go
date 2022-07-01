@@ -15,11 +15,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/jujuclient"
+	_ "github.com/juju/juju/v3/provider/dummy"
 )
 
 func init() {

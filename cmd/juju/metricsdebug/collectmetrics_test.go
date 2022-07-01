@@ -11,12 +11,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/cmd/juju/metricsdebug"
-	"github.com/juju/juju/cmd/modelcmd"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api"
+	actionapi "github.com/juju/juju/v3/api/client/action"
+	"github.com/juju/juju/v3/cmd/juju/action"
+	"github.com/juju/juju/v3/cmd/juju/metricsdebug"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type collectMetricsSuite struct {

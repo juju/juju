@@ -14,10 +14,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	model "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	model "github.com/juju/juju/v3/core/crossmodel"
+	"github.com/juju/juju/v3/core/relation"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 func newListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) cmd.Command {

@@ -11,14 +11,14 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/cache"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/core/multiwatcher"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/core/presence"
+	"github.com/juju/juju/v3/core/raftlease"
+	"github.com/juju/juju/v3/state"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver

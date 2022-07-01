@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/v3/worker/uniter/operation"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/worker/uniter/resolver"
 )
 
 // Commands is an interface providing a means of storing and retrieving

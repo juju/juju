@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/cmd/juju/application"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type SuspendRelationSuite struct {

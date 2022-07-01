@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/instance"
 )
 
 type ConstraintsSuite struct{}

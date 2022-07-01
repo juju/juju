@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/storage/provider"
+	"github.com/juju/juju/v3/testing"
 )
 
 var _ = gc.Suite(&tmpfsSuite{})

@@ -8,5 +8,5 @@ package all
 
 import (
 	// Register the provider.
-	_ "github.com/juju/juju/provider/oci"
+	_ "github.com/juju/juju/v3/provider/oci"
 )

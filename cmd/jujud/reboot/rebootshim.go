@@ -11,13 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/os/v2/series"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/factory"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/container"
+	"github.com/juju/juju/v3/container/factory"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/service"
+	"github.com/juju/juju/v3/service/common"
 )
 
 // rebootWaiterShim wraps the functions required by RebootWaiter

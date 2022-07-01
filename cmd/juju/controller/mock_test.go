@@ -6,7 +6,7 @@ package controller_test
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v3/api"
 )
 
 // mockAPIConnection implements just enough of the api.Connection interface

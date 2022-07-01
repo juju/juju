@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	instancemutater "github.com/juju/juju/api/agent/instancemutater"
-	watcher "github.com/juju/juju/core/watcher"
+	instancemutater "github.com/juju/juju/v3/api/agent/instancemutater"
+	watcher "github.com/juju/juju/v3/core/watcher"
 	names "github.com/juju/names/v4"
 )
 

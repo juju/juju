@@ -10,11 +10,11 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/worker/common"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

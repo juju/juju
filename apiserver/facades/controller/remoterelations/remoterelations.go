@@ -7,15 +7,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/v3/apiserver/common/crossmodel"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/core/crossmodel"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // API provides access to the remote relations API facade.

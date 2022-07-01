@@ -6,7 +6,7 @@ package apiserver
 import (
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 func migrationClientMethodsOnly(facadeName, methodName string) error {

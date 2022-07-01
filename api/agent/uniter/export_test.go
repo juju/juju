@@ -6,8 +6,8 @@ package uniter
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var (

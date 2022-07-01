@@ -12,13 +12,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	providercommon "github.com/juju/juju/provider/common"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/apiserver/common/networkingcommon"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
+	providercommon "github.com/juju/juju/v3/provider/common"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // addSubnetsCache holds cached lists of spaces, zones, and subnets, used for

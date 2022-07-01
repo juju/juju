@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/testing"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 type identitySuite struct {

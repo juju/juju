@@ -6,7 +6,7 @@ package lease
 import (
 	"time"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v3/core/lease"
 )
 
 // claim is used to deliver lease-claim requests to a manager's loop

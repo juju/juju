@@ -11,8 +11,8 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/juju/osenv"
 )
 
 // JujuCredentialsPath is the location where controllers information is

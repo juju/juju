@@ -15,12 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/testing"
-	workermocks "github.com/juju/juju/worker/mocks"
-	"github.com/juju/juju/worker/upgradeseries"
-	. "github.com/juju/juju/worker/upgradeseries/mocks"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/testing"
+	workermocks "github.com/juju/juju/v3/worker/mocks"
+	"github.com/juju/juju/v3/worker/upgradeseries"
+	. "github.com/juju/juju/v3/worker/upgradeseries/mocks"
 )
 
 type fakeWatcher struct {

@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	action "github.com/juju/juju/apiserver/facades/client/action"
-	state "github.com/juju/juju/state"
+	action "github.com/juju/juju/v3/apiserver/facades/client/action"
+	state "github.com/juju/juju/v3/state"
 	names "github.com/juju/names/v4"
 )
 

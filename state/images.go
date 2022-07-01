@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/juju/state/imagestorage"
+	"github.com/juju/juju/v3/state/imagestorage"
 )
 
 var (

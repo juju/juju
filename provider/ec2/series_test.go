@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/instances"
+	sstesting "github.com/juju/juju/v3/environs/simplestreams/testing"
 )
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.

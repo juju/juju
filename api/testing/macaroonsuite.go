@@ -18,12 +18,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/permission"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/permission"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 // MacaroonSuite wraps a JujuConnSuite with macaroon authentication

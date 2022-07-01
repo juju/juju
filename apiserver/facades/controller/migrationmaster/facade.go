@@ -13,14 +13,14 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	coremigration "github.com/juju/juju/core/migration"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	coremigration "github.com/juju/juju/v3/core/migration"
+	coremodel "github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/migration"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // API implements the API required for the model migration

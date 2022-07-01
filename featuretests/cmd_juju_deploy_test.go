@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/testcharms"
 )
 
 type cmdDeploySuite struct {

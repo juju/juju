@@ -19,17 +19,17 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/caas"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/v3/cloud"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/caas"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/rpc/params"
 
 	// To allow a maas cloud type to be parsed in the test data.
-	_ "github.com/juju/juju/provider/maas"
+	_ "github.com/juju/juju/v3/provider/maas"
 )
 
 type updateCAASSuite struct {

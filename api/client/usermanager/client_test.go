@@ -8,11 +8,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/client/usermanager"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing/factory"
+	apitesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/api/client/usermanager"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type usermanagerSuite struct {

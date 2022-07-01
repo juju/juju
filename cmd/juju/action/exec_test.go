@@ -18,11 +18,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	actionapi "github.com/juju/juju/v3/api/client/action"
+	"github.com/juju/juju/v3/cmd/juju/action"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/testing"
 )
 
 type ExecSuite struct {

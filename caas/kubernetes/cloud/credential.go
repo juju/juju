@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/v3/cloud"
 )
 
 const (

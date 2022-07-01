@@ -8,10 +8,10 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/v3/core/instance"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/backups"
 )
 
 // This file contains untested shims to let us wrap state in a sensible

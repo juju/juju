@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // introspectionHandler is an http.Handler that wraps an http.Handler

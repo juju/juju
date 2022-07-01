@@ -12,15 +12,15 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/retry.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/fortress"
 )
 
 const (

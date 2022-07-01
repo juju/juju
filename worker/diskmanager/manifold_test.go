@@ -9,12 +9,12 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/core/model"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/v3/agent"
+	apidiskmanager "github.com/juju/juju/v3/api/agent/diskmanager"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/core/model"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/diskmanager"
 )
 
 type manifoldSuite struct {

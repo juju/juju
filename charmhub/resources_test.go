@@ -15,8 +15,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/v3/charmhub/path"
+	"github.com/juju/juju/v3/charmhub/transport"
 )
 
 type ResourcesSuite struct {

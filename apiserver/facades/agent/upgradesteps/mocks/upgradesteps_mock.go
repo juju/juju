@@ -8,10 +8,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	controller "github.com/juju/juju/controller"
-	instance "github.com/juju/juju/core/instance"
-	status "github.com/juju/juju/core/status"
-	state "github.com/juju/juju/state"
+	controller "github.com/juju/juju/v3/controller"
+	instance "github.com/juju/juju/v3/core/instance"
+	status "github.com/juju/juju/v3/core/status"
+	state "github.com/juju/juju/v3/state"
 	names "github.com/juju/names/v4"
 )
 

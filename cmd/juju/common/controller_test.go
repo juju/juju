@@ -14,14 +14,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v3/api"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/version"
 )
 
 var _ = gc.Suite(&controllerSuite{})

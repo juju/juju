@@ -11,10 +11,10 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/charmstore"
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/charmhub/transport"
+	"github.com/juju/juju/v3/charmstore"
+	corecharm "github.com/juju/juju/v3/core/charm"
 )
 
 type NewCharmRepository interface {

@@ -8,10 +8,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/v3/apiserver/common/storagecommon"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/storage/poolmanager"
 )
 
 type fakeStorage struct {

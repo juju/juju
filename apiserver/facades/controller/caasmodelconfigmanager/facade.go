@@ -4,9 +4,9 @@
 package caasmodelconfigmanager
 
 import (
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/apiserver/facade Authorizer,Context,Resources

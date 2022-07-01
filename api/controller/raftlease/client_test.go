@@ -16,12 +16,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/core/raftlease"
+	"github.com/juju/juju/v3/pubsub/apiserver"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type RaftLeaseClientValidationSuite struct {

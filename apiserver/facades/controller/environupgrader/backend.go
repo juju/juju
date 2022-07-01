@@ -6,8 +6,8 @@ package environupgrader
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/state"
 )
 
 type Backend interface {

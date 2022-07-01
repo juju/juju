@@ -17,13 +17,13 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
-	registrymocks "github.com/juju/juju/docker/registry/mocks"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasmodelconfigmanager"
-	"github.com/juju/juju/worker/caasmodelconfigmanager/mocks"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/docker"
+	"github.com/juju/juju/v3/docker/registry"
+	registrymocks "github.com/juju/juju/v3/docker/registry/mocks"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/caasmodelconfigmanager"
+	"github.com/juju/juju/v3/worker/caasmodelconfigmanager/mocks"
 )
 
 var _ = gc.Suite(&workerSuite{})

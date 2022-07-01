@@ -10,12 +10,12 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/client/resources"
-	httpmocks "github.com/juju/juju/api/http/mocks"
-	coreresources "github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base/mocks"
+	"github.com/juju/juju/v3/api/client/resources"
+	httpmocks "github.com/juju/juju/v3/api/http/mocks"
+	coreresources "github.com/juju/juju/v3/core/resources"
+	resourcetesting "github.com/juju/juju/v3/core/resources/testing"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type BaseSuite struct {

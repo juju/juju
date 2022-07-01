@@ -16,14 +16,14 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/agent"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/agent"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/paths"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.caasapplication")

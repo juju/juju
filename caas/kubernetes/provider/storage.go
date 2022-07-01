@@ -13,11 +13,11 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/storage"
-	jujucontext "github.com/juju/juju/environs/context"
-	jujustorage "github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/storage"
+	jujucontext "github.com/juju/juju/v3/environs/context"
+	jujustorage "github.com/juju/juju/v3/storage"
+	storageprovider "github.com/juju/juju/v3/storage/provider"
 )
 
 //ValidateStorageProvider returns an error if the storage type and config is not valid

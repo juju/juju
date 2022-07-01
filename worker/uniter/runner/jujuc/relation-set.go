@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils/v3/keyvalues"
 	goyaml "gopkg.in/yaml.v2"
 
-	jujucmd "github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
 )
 
 const relationSetDoc = `

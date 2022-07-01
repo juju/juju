@@ -13,17 +13,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/annotations"
-	"github.com/juju/juju/api/client/application"
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/modelconfig"
-	"github.com/juju/juju/apiserver/facades/client/client"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/client/annotations"
+	"github.com/juju/juju/v3/api/client/application"
+	apiclient "github.com/juju/juju/v3/api/client/client"
+	"github.com/juju/juju/v3/api/client/modelconfig"
+	"github.com/juju/juju/v3/apiserver/facades/client/client"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 type permSuite struct {

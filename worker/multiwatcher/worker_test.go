@@ -12,9 +12,9 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/v3/state"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	"github.com/juju/juju/v3/worker/multiwatcher"
 )
 
 type WorkerSuite struct {

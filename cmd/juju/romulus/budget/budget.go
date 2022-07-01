@@ -16,9 +16,9 @@ import (
 	api "github.com/juju/romulus/api/budget"
 	"github.com/juju/utils/v3"
 
-	jujucmd "github.com/juju/juju/cmd"
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/modelcmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	rcmd "github.com/juju/juju/v3/cmd/juju/romulus"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 type budgetCommand struct {

@@ -14,10 +14,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/client/backups"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/client/backups"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // APIClient represents the backups API client functionality used by

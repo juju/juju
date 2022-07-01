@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	conf "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	envutils "github.com/juju/juju/environs/utils"
-	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/v3/environs"
+	conf "github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/environs/simplestreams"
+	"github.com/juju/juju/v3/environs/storage"
+	envutils "github.com/juju/juju/v3/environs/utils"
+	"github.com/juju/juju/v3/juju/keys"
 )
 
 type toolsDatasourceFuncId struct {

@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/worker/lease"
+	corelease "github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/worker/lease"
 )
 
 type LeasesSuite struct {

@@ -12,12 +12,12 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/storageprovisioner"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/agent/storageprovisioner"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v3/storage/provider"
+	"github.com/juju/juju/v3/worker/common"
 )
 
 // MachineManifoldConfig defines a storage provisioner's configuration and dependencies.

@@ -6,7 +6,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
 )
 
 type cloudSpecSuite struct {

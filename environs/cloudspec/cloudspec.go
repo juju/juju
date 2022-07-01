@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	jujucloud "github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/v3/cloud"
 )
 
 // CloudSpec describes a specific cloud configuration, for the purpose

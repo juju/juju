@@ -19,17 +19,17 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/addons"
-	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/machinelock"
-	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/paths"
-	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/introspection"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/agent/addons"
+	"github.com/juju/juju/v3/agent/tools"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/machinelock"
+	coreos "github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/core/paths"
+	jujuversion "github.com/juju/juju/v3/version"
+	"github.com/juju/juju/v3/worker/introspection"
+	"github.com/juju/juju/v3/worker/logsender"
 )
 
 // UnitAgent wraps the agent config for this unit.

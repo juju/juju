@@ -11,8 +11,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 // NewRenameCommand returns a command used to rename an existing space.

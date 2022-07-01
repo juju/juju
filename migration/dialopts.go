@@ -6,7 +6,7 @@ package migration
 import (
 	"time"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v3/api"
 )
 
 // ControllerDialOpts returns dial parameters suitable for connecting

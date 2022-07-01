@@ -21,14 +21,14 @@ import (
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/utils/pointer"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/mocks"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/mocks"
+	k8sspecs "github.com/juju/juju/v3/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v3/core/config"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/testing"
 )
 
 func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinition, assertCalls ...*gomock.Call) {

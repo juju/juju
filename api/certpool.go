@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/cert"
 
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v3/core/paths"
 )
 
 var certDir = filepath.FromSlash(paths.CertDir(paths.CurrentOS()))
