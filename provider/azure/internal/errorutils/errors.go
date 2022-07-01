@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure")

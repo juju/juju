@@ -3,7 +3,7 @@
 
 package provisioner
 
-import "github.com/juju/juju/environs"
+import "github.com/juju/juju/v3/environs"
 
 // This is needed to test provisioner.processProfileChanges
 //

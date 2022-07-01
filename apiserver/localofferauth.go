@@ -12,11 +12,11 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/bakeryutil"
-	"github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/apiserverhttp"
+	"github.com/juju/juju/v3/apiserver/bakeryutil"
+	"github.com/juju/juju/v3/apiserver/common/crossmodel"
+	"github.com/juju/juju/v3/charmstore"
+	"github.com/juju/juju/v3/state"
 )
 
 const (

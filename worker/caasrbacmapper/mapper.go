@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
 )
 
 // Mapper describes an interface for mapping k8s service account UID's to juju

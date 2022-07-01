@@ -9,8 +9,8 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	secrets "github.com/juju/juju/core/secrets"
-	state "github.com/juju/juju/state"
+	secrets "github.com/juju/juju/v3/core/secrets"
+	state "github.com/juju/juju/v3/state"
 )
 
 // MockSecretsRotation is a mock of SecretsRotation interface.

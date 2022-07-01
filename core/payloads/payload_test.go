@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/v3/core/payloads"
 )
 
 var _ = gc.Suite(&payloadSuite{})

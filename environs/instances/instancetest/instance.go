@@ -6,8 +6,8 @@ package instancetest
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/environs/instances"
 )
 
 // MatchInstances uses DeepEquals to check the instances returned.  The lists

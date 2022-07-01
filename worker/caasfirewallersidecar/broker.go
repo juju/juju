@@ -4,7 +4,7 @@
 package caasfirewallersidecar
 
 import (
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/v3/caas"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasfirewallersidecar CAASBroker,PortMutator,ServiceUpdater

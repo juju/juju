@@ -16,12 +16,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/core/raftlease"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/rafttest"
-	"github.com/juju/juju/worker/raft/raftutil"
+	"github.com/juju/juju/v3/core/raft/queue"
+	"github.com/juju/juju/v3/core/raftlease"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/raft"
+	"github.com/juju/juju/v3/worker/raft/rafttest"
+	"github.com/juju/juju/v3/worker/raft/raftutil"
 )
 
 type workerFixture struct {

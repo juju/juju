@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	caasapplication "github.com/juju/juju/api/agent/caasapplication"
+	caasapplication "github.com/juju/juju/v3/api/agent/caasapplication"
 )
 
 // MockApplicationAPI is a mock of ApplicationAPI interface.

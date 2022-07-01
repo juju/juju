@@ -4,7 +4,7 @@
 package client
 
 import (
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v3/environs"
 )
 
 // Filtering exports

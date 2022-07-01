@@ -9,17 +9,17 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/broker"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/agent/provisioner"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/common"
+	"github.com/juju/juju/v3/container"
+	"github.com/juju/juju/v3/container/broker"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/machinelock"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/worker/containerbroker State

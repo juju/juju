@@ -18,13 +18,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 // localTests contains tests which do not require a live service or test double to run.

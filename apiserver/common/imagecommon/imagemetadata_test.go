@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/imagecommon"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/cloudimagemetadata"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/common/imagecommon"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state/cloudimagemetadata"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type imageMetadataSuite struct {

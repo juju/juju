@@ -19,15 +19,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/environs"
-	environsTesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/cloud"
+	"github.com/juju/juju/v3/environs"
+	environsTesting "github.com/juju/juju/v3/environs/testing"
+	"github.com/juju/juju/v3/jujuclient"
+	_ "github.com/juju/juju/v3/provider/dummy"
+	_ "github.com/juju/juju/v3/provider/gce"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
 )
 
 type addCredentialSuite struct {

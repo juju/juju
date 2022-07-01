@@ -12,8 +12,8 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/pruner"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/worker/pruner"
 )
 
 type ManifoldSuite struct {

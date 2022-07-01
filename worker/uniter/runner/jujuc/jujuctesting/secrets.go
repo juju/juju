@@ -4,8 +4,8 @@
 package jujuctesting
 
 import (
-	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/core/secrets"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 // ContextSecrets is a test double for jujuc.ContextSecrets.

@@ -6,9 +6,9 @@ package payloads
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/payloads"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // Client provides methods for interacting with Juju's public

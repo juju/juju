@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/state"
 )
 
 // LinkLayerDevice describes a single layer-2 network device.

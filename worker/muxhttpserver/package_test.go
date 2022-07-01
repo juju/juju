@@ -6,8 +6,8 @@ package muxhttpserver_test
 import (
 	"testing"
 
-	"github.com/juju/juju/pki"
-	pki_test "github.com/juju/juju/pki/test"
+	"github.com/juju/juju/v3/pki"
+	pki_test "github.com/juju/juju/v3/pki/test"
 	gc "gopkg.in/check.v1"
 )
 

@@ -13,8 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/v3/caas/specs"
+	"github.com/juju/juju/v3/core/annotations"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.specs")

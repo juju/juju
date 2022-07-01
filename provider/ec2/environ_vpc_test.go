@@ -16,10 +16,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/common"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs/context"
+	envtesting "github.com/juju/juju/v3/environs/testing"
+	"github.com/juju/juju/v3/provider/common"
 )
 
 type vpcSuite struct {

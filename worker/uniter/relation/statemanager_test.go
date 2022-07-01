@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/operation/mocks"
-	"github.com/juju/juju/worker/uniter/relation"
-	relmocks "github.com/juju/juju/worker/uniter/relation/mocks"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/uniter/operation/mocks"
+	"github.com/juju/juju/v3/worker/uniter/relation"
+	relmocks "github.com/juju/juju/v3/worker/uniter/relation/mocks"
 )
 
 type stateManagerSuite struct {

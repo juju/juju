@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.metricsender")

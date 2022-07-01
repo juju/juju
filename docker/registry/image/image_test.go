@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/docker/registry/image"
+	"github.com/juju/juju/v3/docker/registry/image"
 )
 
 type imageSuite struct {

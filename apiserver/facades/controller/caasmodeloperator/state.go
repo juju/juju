@@ -6,10 +6,10 @@ package caasmodeloperator
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/state"
 )
 
 // CAASModelOperatorState provides the subset of model state required by the

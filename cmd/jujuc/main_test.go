@@ -20,10 +20,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/juju/sockets"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/juju/sockets"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 func TestPackage(t *stdtesting.T) {

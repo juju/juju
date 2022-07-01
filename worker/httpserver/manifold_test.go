@@ -19,13 +19,13 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/pki"
-	pkitest "github.com/juju/juju/pki/test"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/juju/v3/apiserver/apiserverhttp"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/pki"
+	pkitest "github.com/juju/juju/v3/pki/test"
+	"github.com/juju/juju/v3/state"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	"github.com/juju/juju/v3/worker/httpserver"
 )
 
 type ManifoldSuite struct {

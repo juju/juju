@@ -6,8 +6,8 @@ package container_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/v3/core/container"
+	"github.com/juju/juju/v3/core/instance"
 )
 
 type ContainerSuite struct{}

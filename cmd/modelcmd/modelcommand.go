@@ -16,14 +16,14 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api"
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/modelupgrader"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/api"
+	apiclient "github.com/juju/juju/v3/api/client/client"
+	"github.com/juju/juju/v3/api/client/modelmanager"
+	"github.com/juju/juju/v3/api/client/modelupgrader"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 var logger = loggo.GetLogger("juju.cmd.modelcmd")

@@ -6,15 +6,15 @@ package common_test
 import (
 	"io"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/instances"
+	"github.com/juju/juju/v3/environs/simplestreams"
+	"github.com/juju/juju/v3/environs/storage"
+	jujustorage "github.com/juju/juju/v3/storage"
 )
 
 type allInstancesFunc func(context.ProviderCallContext) ([]instances.Instance, error)

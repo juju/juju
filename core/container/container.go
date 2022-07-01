@@ -6,7 +6,7 @@ package container
 import (
 	"strings"
 
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/v3/core/instance"
 )
 
 // ParentId returns the id of the host machine if machineId a container id, or ""

@@ -20,14 +20,14 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
-	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/status"
-	jujuversion "github.com/juju/juju/version"
+	cmdcrossmodel "github.com/juju/juju/v3/cmd/juju/crossmodel"
+	"github.com/juju/juju/v3/cmd/juju/storage"
+	"github.com/juju/juju/v3/cmd/output"
+	"github.com/juju/juju/v3/core/crossmodel"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/relation"
+	"github.com/juju/juju/v3/core/status"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 const (

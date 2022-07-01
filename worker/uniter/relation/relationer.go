@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/uniter/hook"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 // relationer manages a unit's presence in a relation.

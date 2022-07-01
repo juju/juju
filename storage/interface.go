@@ -4,8 +4,8 @@
 package storage
 
 import (
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/environs/context"
 	"github.com/juju/names/v4"
 )
 

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v3/core/lease"
 )
 
 // Secretary is responsible for validating the sanity of lease and holder names

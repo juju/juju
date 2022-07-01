@@ -12,7 +12,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v3/core/life"
 )
 
 // FanCIDRs describes the subnets relevant to a fan network.

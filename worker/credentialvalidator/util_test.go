@@ -12,11 +12,11 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/credentialvalidator"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/credentialvalidator"
 )
 
 // mockFacade implements credentialvalidator.Facade for use in the tests.

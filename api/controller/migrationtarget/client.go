@@ -17,12 +17,12 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api/base"
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v3/api/base"
+	coremigration "github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/tools"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 // NewClient returns a new Client based on an existing API connection.

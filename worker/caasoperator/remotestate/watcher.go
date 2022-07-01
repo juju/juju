@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/v3/worker"
 )
 
 // logger is here to stop the desire of creating a package level logger.

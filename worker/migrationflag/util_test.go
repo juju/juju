@@ -13,10 +13,10 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/worker/migrationflag"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/worker/migrationflag"
 )
 
 // newMockFacade returns a mock Facade that will add calls to the

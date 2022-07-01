@@ -6,8 +6,8 @@ package bundle
 import (
 	"github.com/juju/charm/v9"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // ModelExtractor provides everything we need to build a

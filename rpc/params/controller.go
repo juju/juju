@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/proxy"
 )
 
 // DestroyControllerArgs holds the arguments for destroying a controller.

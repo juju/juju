@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/v3/core/constraints"
 )
 
 // ApplyConstraints applies the specified constraints to the pod.

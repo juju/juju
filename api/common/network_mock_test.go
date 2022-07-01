@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
-	network "github.com/juju/juju/core/network"
+	network "github.com/juju/juju/v3/core/network"
 )
 
 // MockConfigSource is a mock of ConfigSource interface.

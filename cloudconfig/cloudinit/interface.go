@@ -16,10 +16,10 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"golang.org/x/crypto/ssh"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
-	jujupackaging "github.com/juju/juju/packaging"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/core/series"
+	jujupackaging "github.com/juju/juju/v3/packaging"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.

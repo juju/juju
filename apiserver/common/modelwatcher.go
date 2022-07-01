@@ -4,10 +4,10 @@
 package common
 
 import (
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // ModelWatcher implements two common methods for use by various

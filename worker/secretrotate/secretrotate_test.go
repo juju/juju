@@ -14,11 +14,11 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/secrets"
-	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/secretrotate"
-	"github.com/juju/juju/worker/secretrotate/mocks"
+	"github.com/juju/juju/v3/core/secrets"
+	corewatcher "github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/secretrotate"
+	"github.com/juju/juju/v3/worker/secretrotate/mocks"
 )
 
 type workerSuite struct {

@@ -19,13 +19,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	coreresources "github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	coreresources "github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/docker"
+	"github.com/juju/juju/v3/testing"
 )
 
 type OperatorSuite struct {

@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/caas"
+	k8sprovider "github.com/juju/juju/v3/caas/kubernetes/provider"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 // NetworkInfoCAAS is used to provide network info for CAAS units.

@@ -11,10 +11,10 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
-	common "github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/state"
+	common "github.com/juju/juju/v3/apiserver/common/crossmodel"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/state"
 )
 
 type mockRelation struct {

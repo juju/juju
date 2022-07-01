@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 // PrecheckInstance performs a preflight check on the specified

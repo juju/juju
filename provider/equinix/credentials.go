@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
 )
 
 type environProviderCredentials struct{}

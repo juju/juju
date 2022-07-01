@@ -6,7 +6,7 @@ package initialize
 import (
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/cmd/containeragent/utils"
+	"github.com/juju/juju/v3/cmd/containeragent/utils"
 )
 
 type (

@@ -12,11 +12,11 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent/agent"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api"
+	apiagent "github.com/juju/juju/v3/api/agent/agent"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var (

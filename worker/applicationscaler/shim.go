@@ -4,9 +4,9 @@
 package applicationscaler
 
 import (
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/applicationscaler"
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/controller/applicationscaler"
+	"github.com/juju/juju/v3/api/watcher"
 )
 
 // NewFacade creates a Facade from a base.APICaller.

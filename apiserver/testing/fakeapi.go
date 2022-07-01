@@ -16,11 +16,11 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/rpcreflect"
 
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/observer"
+	"github.com/juju/juju/v3/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/jsoncodec"
+	"github.com/juju/juju/v3/testing"
 )
 
 // Server represents a fake API server. It must be closed

@@ -6,8 +6,8 @@ package sla
 import (
 	"github.com/juju/romulus/api/sla"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 var (

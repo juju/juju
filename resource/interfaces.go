@@ -10,10 +10,10 @@ import (
 
 	charmresource "github.com/juju/charm/v9/resource"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/charmhub/transport"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/state"
 )
 
 // Resources represents the methods used by the resource opener from state.Resources.

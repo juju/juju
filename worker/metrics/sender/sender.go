@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/agent/metricsadder"
-	csender "github.com/juju/juju/common/sender"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/v3/api/agent/metricsadder"
+	csender "github.com/juju/juju/v3/common/sender"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/metrics/spool"
 )
 
 type stopper interface {

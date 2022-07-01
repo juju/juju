@@ -12,12 +12,12 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/core/network"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/v3/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/v3/core/network"
+	imagetesting "github.com/juju/juju/v3/environs/imagemetadata/testing"
+	"github.com/juju/juju/v3/worker/proxyupdater"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)

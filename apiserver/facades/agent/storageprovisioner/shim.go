@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/state"
 )
 
 // This file contains untested shims to let us wrap state in a sensible

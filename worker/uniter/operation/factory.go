@@ -8,13 +8,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/common/charmrunner"
+	"github.com/juju/juju/v3/worker/uniter/charm"
+	"github.com/juju/juju/v3/worker/uniter/hook"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/worker/uniter/runner"
 )
 
 // FactoryParams holds all the necessary parameters for a new operation factory.

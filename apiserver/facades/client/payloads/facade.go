@@ -6,9 +6,9 @@ package payloads
 import (
 	"github.com/juju/errors"
 
-	api "github.com/juju/juju/api/client/payloads"
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/rpc/params"
+	api "github.com/juju/juju/v3/api/client/payloads"
+	"github.com/juju/juju/v3/core/payloads"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // payloadBackend exposes the State functionality for payloads in a model.

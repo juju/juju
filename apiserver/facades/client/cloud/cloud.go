@@ -15,17 +15,17 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/txn/v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/common/credentialcommon"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	stateerrors "github.com/juju/juju/v3/state/errors"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")

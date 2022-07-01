@@ -13,7 +13,7 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/v3/worker/uniter/hook"
 )
 
 // State describes the state of a relation.

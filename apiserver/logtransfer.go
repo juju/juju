@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/logsink"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/logsink"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 type migrationLoggingStrategy struct {

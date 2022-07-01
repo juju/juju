@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
-	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/state"
+	coresecrets "github.com/juju/juju/v3/core/secrets"
+	"github.com/juju/juju/v3/secrets"
+	"github.com/juju/juju/v3/state"
 )
 
 const (

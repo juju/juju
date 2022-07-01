@@ -14,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/core/instance"
+	corenetwork "github.com/juju/juju/v3/core/network"
 )
 
 // TODO(dimitern): The types below should be part of gomaasapi.

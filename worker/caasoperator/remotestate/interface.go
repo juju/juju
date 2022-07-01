@@ -6,8 +6,8 @@ package remotestate
 import (
 	"github.com/juju/worker/v3"
 
-	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
-	"github.com/juju/juju/core/watcher"
+	caasoperatorapi "github.com/juju/juju/v3/api/agent/caasoperator"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 type Watcher interface {

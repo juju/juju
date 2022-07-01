@@ -12,13 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/worker/instancemutater"
-	"github.com/juju/juju/worker/instancemutater/mocks"
+	apiinstancemutater "github.com/juju/juju/v3/api/agent/instancemutater"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/worker/instancemutater"
+	"github.com/juju/juju/v3/worker/instancemutater/mocks"
 )
 
 type mutaterSuite struct {

@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/caasadmission"
-	rbacmappertest "github.com/juju/juju/worker/caasrbacmapper/test"
+	"github.com/juju/juju/v3/worker/caasadmission"
+	rbacmappertest "github.com/juju/juju/v3/worker/caasrbacmapper/test"
 )
 
 type ControllerSuite struct {

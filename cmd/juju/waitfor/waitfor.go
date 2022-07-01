@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/loggo"
 
-	_ "github.com/juju/juju/provider/all"
+	_ "github.com/juju/juju/v3/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.plugins.waitfor")

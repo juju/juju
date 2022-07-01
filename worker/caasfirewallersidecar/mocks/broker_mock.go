@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	caas "github.com/juju/juju/caas"
+	caas "github.com/juju/juju/v3/caas"
 	reflect "reflect"
 )
 

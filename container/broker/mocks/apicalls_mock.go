@@ -8,10 +8,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	provisioner "github.com/juju/juju/api/agent/provisioner"
-	network "github.com/juju/juju/core/network"
-	network0 "github.com/juju/juju/network"
-	params "github.com/juju/juju/rpc/params"
+	provisioner "github.com/juju/juju/v3/api/agent/provisioner"
+	network "github.com/juju/juju/v3/core/network"
+	network0 "github.com/juju/juju/v3/network"
+	params "github.com/juju/juju/v3/rpc/params"
 	names "github.com/juju/names/v4"
 )
 

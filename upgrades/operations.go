@@ -6,7 +6,7 @@ package upgrades
 import (
 	"github.com/juju/version/v2"
 
-	jujuversion "github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 // stateUpgradeOperations returns an ordered slice of sets of

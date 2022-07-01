@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/charm/repository"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v3/controller"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	"github.com/juju/juju/v3/core/charm/repository"
+	"github.com/juju/juju/v3/environs/config"
 )
 
 var _ = gc.Suite(&repoFactoryTestSuite{})

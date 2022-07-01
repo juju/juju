@@ -12,11 +12,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/subnets"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/client/subnets"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // SubnetAPI defines the necessary API methods needed by the subnet

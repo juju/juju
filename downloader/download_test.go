@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/downloader"
+	"github.com/juju/juju/v3/testing"
 )
 
 type DownloadSuite struct {

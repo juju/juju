@@ -14,15 +14,15 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agentconfigupdater"
+	"github.com/juju/juju/v3/agent"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/testing"
+	jworker "github.com/juju/juju/v3/worker"
+	"github.com/juju/juju/v3/worker/agentconfigupdater"
 )
 
 type AgentConfigUpdaterSuite struct {

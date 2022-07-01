@@ -14,10 +14,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	_ "github.com/juju/juju/v3/provider/dummy"
 )
 
 var _ = gc.Suite(&cloudCredentialSuite{})

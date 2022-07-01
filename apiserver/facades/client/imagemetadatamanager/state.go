@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/cloudimagemetadata"
 )
 
 type metadataAccess interface {

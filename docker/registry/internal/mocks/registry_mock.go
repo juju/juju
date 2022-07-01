@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	internal "github.com/juju/juju/docker/registry/internal"
+	internal "github.com/juju/juju/v3/docker/registry/internal"
 )
 
 // MockInitializer is a mock of Initializer interface.

@@ -10,12 +10,12 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
-	model "github.com/juju/juju/core/model"
-	charm0 "github.com/juju/juju/worker/uniter/charm"
-	hook "github.com/juju/juju/worker/uniter/hook"
-	operation "github.com/juju/juju/worker/uniter/operation"
-	remotestate "github.com/juju/juju/worker/uniter/remotestate"
-	context "github.com/juju/juju/worker/uniter/runner/context"
+	model "github.com/juju/juju/v3/core/model"
+	charm0 "github.com/juju/juju/v3/worker/uniter/charm"
+	hook "github.com/juju/juju/v3/worker/uniter/hook"
+	operation "github.com/juju/juju/v3/worker/uniter/operation"
+	remotestate "github.com/juju/juju/v3/worker/uniter/remotestate"
+	context "github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 // MockOperation is a mock of Operation interface.

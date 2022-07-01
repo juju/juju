@@ -13,8 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/testing"
+	k8sspecs "github.com/juju/juju/v3/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v3/testing"
 )
 
 type webhooksSuite struct {

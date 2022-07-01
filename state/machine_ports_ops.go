@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/core/network"
 )
 
 var _ ModelOperation = (*openClosePortRangesOperation)(nil)

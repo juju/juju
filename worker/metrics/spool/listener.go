@@ -11,8 +11,8 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/juju/sockets"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v3/juju/sockets"
+	jworker "github.com/juju/juju/v3/worker"
 )
 
 const (

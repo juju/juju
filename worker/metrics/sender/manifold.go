@@ -12,12 +12,12 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/metricsadder"
-	"github.com/juju/juju/api/base"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/agent/metricsadder"
+	"github.com/juju/juju/v3/api/base"
+	jworker "github.com/juju/juju/v3/worker"
+	"github.com/juju/juju/v3/worker/metrics/spool"
+	"github.com/juju/juju/v3/worker/uniter"
 )
 
 var (

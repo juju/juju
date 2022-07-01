@@ -18,11 +18,11 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/core/controller"
-	"github.com/juju/juju/worker/raft/raftutil"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/apiserver/apiserverhttp"
+	"github.com/juju/juju/v3/apiserver/httpcontext"
+	"github.com/juju/juju/v3/core/controller"
+	"github.com/juju/juju/v3/worker/raft/raftutil"
 )
 
 var (

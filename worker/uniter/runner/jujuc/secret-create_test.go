@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coresecrets "github.com/juju/juju/core/secrets"
+	coresecrets "github.com/juju/juju/v3/core/secrets"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 type SecretCreateSuite struct {

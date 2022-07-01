@@ -16,9 +16,9 @@ import (
 	txntesting "github.com/juju/txn/v2/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/cloudimagemetadata"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/state/cloudimagemetadata"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type cloudImageMetadataSuite struct {

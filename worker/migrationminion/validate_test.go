@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/worker/fortress"
+	"github.com/juju/juju/v3/worker/migrationminion"
 )
 
 type ValidateSuite struct {

@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/docker"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/docker"
 )
 
 type DockerResourceSuite struct{}

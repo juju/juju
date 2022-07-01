@@ -6,7 +6,7 @@ package httpattachment_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/testing"
 )
 
 type requestSuite struct {

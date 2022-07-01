@@ -4,7 +4,7 @@
 package connector
 
 import (
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v3/api"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 )

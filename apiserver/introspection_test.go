@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/state"
+	apitesting "github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/state"
 )
 
 type introspectionSuite struct {

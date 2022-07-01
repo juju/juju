@@ -13,12 +13,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	cloudapi "github.com/juju/juju/api/client/cloud"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	cloudapi "github.com/juju/juju/v3/api/client/cloud"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/cloud"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/testing"
 )
 
 type showSuite struct {

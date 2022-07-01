@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/watcher"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/v3/core/watcher"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/cleaner"
 )
 
 type CleanerSuite struct {

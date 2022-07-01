@@ -12,9 +12,9 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/mongo"
 )
 
 // CreateCloudAccess creates a new access permission for a user on a cloud.

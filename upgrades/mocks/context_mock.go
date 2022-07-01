@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	agent "github.com/juju/juju/agent"
-	base "github.com/juju/juju/api/base"
-	upgrades "github.com/juju/juju/upgrades"
+	agent "github.com/juju/juju/v3/agent"
+	base "github.com/juju/juju/v3/api/base"
+	upgrades "github.com/juju/juju/v3/upgrades"
 )
 
 // MockContext is a mock of Context interface.

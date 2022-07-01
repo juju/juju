@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry/internal"
+	"github.com/juju/juju/v3/docker"
+	"github.com/juju/juju/v3/docker/registry/internal"
 )
 
 var logger = loggo.GetLogger("juju.docker.registry")

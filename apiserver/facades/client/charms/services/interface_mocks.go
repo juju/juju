@@ -10,9 +10,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v9 "github.com/juju/charm/v9"
-	controller "github.com/juju/juju/controller"
-	config "github.com/juju/juju/environs/config"
-	state "github.com/juju/juju/state"
+	controller "github.com/juju/juju/v3/controller"
+	config "github.com/juju/juju/v3/environs/config"
+	state "github.com/juju/juju/v3/state"
 )
 
 // MockStateBackend is a mock of StateBackend interface.

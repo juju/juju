@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/v3/worker/metrics/spool"
 )
 
 var _ = gc.Suite(&listenerSuite{})

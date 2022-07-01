@@ -11,10 +11,10 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/minunitsworker"
+	"github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/minunitsworker"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker_test")

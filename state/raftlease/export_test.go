@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v3/core/lease"
 )
 
 func AssertLeaseholderDocEquals(c *gc.C, doc interface{}, key lease.Key, holder string) {

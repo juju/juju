@@ -10,10 +10,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/httpcontext"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/httpcontext"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 func newDebugLogDBHandler(

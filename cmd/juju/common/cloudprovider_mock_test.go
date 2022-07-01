@@ -9,10 +9,10 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
-	cloud "github.com/juju/juju/cloud"
-	environs "github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	cloud "github.com/juju/juju/v3/cloud"
+	environs "github.com/juju/juju/v3/environs"
+	config "github.com/juju/juju/v3/environs/config"
+	context "github.com/juju/juju/v3/environs/context"
 )
 
 // MockTestCloudProvider is a mock of TestCloudProvider interface.

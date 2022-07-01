@@ -6,7 +6,7 @@ package utils
 import (
 	core "k8s.io/api/core/v1"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/core/network"
 )
 
 // GetSvcAddresses returns the network addresses for the given service.

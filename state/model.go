@@ -19,14 +19,14 @@ import (
 	jujuutils "github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo/utils"
-	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/storage"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/mongo/utils"
+	stateerrors "github.com/juju/juju/v3/state/errors"
+	"github.com/juju/juju/v3/storage"
 )
 
 // modelGlobalKey is the key for the model, its

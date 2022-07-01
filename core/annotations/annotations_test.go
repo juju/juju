@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujuannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/testing"
+	jujuannotations "github.com/juju/juju/v3/core/annotations"
+	"github.com/juju/juju/v3/testing"
 )
 
 type annotationsSuite struct {

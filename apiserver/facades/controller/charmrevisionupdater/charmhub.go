@@ -12,9 +12,9 @@ import (
 	"github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/charmhub/transport"
+	"github.com/juju/juju/v3/core/charm/metrics"
 )
 
 // charmhubID holds identifying information for several charms for a

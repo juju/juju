@@ -8,8 +8,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/network"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // PrepareAPI is the functional interface that we need to be able to ask what

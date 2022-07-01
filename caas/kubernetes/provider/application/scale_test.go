@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/constraints"
 )
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {

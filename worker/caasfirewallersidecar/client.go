@@ -4,10 +4,10 @@
 package caasfirewallersidecar
 
 import (
-	charmscommon "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
+	charmscommon "github.com/juju/juju/v3/api/common/charms"
+	"github.com/juju/juju/v3/core/config"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/worker/caasfirewallersidecar Client,CAASFirewallerAPI,LifeGetter

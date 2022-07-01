@@ -6,8 +6,8 @@ package firewall
 import (
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
 )
 
 func NewListRulesCommandForTest(

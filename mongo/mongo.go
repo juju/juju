@@ -22,12 +22,12 @@ import (
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/packaging"
-	"github.com/juju/juju/packaging/dependency"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/snap"
-	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/packaging"
+	"github.com/juju/juju/v3/packaging/dependency"
+	"github.com/juju/juju/v3/service/common"
+	"github.com/juju/juju/v3/service/snap"
+	"github.com/juju/juju/v3/service/systemd"
 )
 
 var logger = loggo.GetLogger("juju.mongo")

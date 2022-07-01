@@ -9,8 +9,8 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/state/bakerystorage"
 )
 
 // NewBakeryStorage returns a new bakery.Storage. By default, items

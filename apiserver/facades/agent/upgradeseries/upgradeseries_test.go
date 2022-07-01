@@ -5,19 +5,19 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/core/status"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/mocks"
-	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/common/mocks"
+	"github.com/juju/juju/v3/apiserver/facades/agent/upgradeseries"
+	apiservertesting "github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/testing"
 )
 
 type upgradeSeriesSuite struct {

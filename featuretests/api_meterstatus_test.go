@@ -10,10 +10,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/meterstatus"
-	"github.com/juju/juju/core/watcher/watchertest"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/api/agent/meterstatus"
+	"github.com/juju/juju/v3/core/watcher/watchertest"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
 )
 
 type meterStatusIntegrationSuite struct {

@@ -4,8 +4,8 @@
 package conv2state
 
 import (
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 	"github.com/juju/names/v4"
 )
 

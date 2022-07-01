@@ -3,7 +3,7 @@
 
 package kvm
 
-import "github.com/juju/juju/environs/imagemetadata"
+import "github.com/juju/juju/v3/environs/imagemetadata"
 
 type containerFactory struct {
 	fetcher imagemetadata.SimplestreamsFetcher

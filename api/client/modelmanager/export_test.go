@@ -4,7 +4,7 @@
 package modelmanager
 
 import (
-	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/v3/api/base/testing"
 )
 
 // PatchFacadeCall changes the internal FacadeCaller to an arbitrary call

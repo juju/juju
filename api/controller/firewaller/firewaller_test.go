@@ -9,15 +9,15 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/firewaller"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/relation"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/api/controller/firewaller"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/relation"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 // NOTE: This suite is intended for embedding into other suites,

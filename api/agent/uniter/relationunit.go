@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // This module implements a subset of the interface provided by

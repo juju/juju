@@ -27,8 +27,8 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/provider/common"
 )
 
 //go:generate go run github.com/juju/juju/generate/filetoconst UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient

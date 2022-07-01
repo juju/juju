@@ -20,11 +20,11 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/utils/proxy"
+	"github.com/juju/juju/v3/container/lxd"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/utils/proxy"
 
 	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"

@@ -12,8 +12,8 @@ import (
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/lxd"
-	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	"github.com/juju/juju/v3/container/lxd"
+	lxdtesting "github.com/juju/juju/v3/container/lxd/testing"
 )
 
 var _ = gc.Suite(&imageSuite{})

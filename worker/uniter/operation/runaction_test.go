@@ -14,15 +14,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/uniter"
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	basetesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/common/charmrunner"
+	"github.com/juju/juju/v3/worker/uniter/hook"
+	"github.com/juju/juju/v3/worker/uniter/operation"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/worker/uniter/runner"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 type RunActionSuite struct {

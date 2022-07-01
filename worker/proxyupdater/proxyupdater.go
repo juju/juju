@@ -16,10 +16,10 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/agent/proxyupdater"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/snap"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v3/api/agent/proxyupdater"
+	"github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/core/snap"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 // Overridden by tests

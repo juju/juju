@@ -8,7 +8,7 @@ import (
 	"github.com/juju/charm/v9"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v3/core/life"
 )
 
 // ExternalControllerInfoResults contains the results of querying

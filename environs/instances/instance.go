@@ -4,10 +4,10 @@
 package instances
 
 import (
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v3/core/instance"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/environs/context"
 )
 
 // Instance represents the the realization of a machine in state.

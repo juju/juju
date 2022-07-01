@@ -6,8 +6,8 @@ package state
 import (
 	"github.com/juju/mgo/v2"
 
-	"github.com/juju/juju/state/bakerystorage"
-	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/v3/state/bakerystorage"
+	"github.com/juju/juju/v3/state/cloudimagemetadata"
 )
 
 // allCollections should be the single source of truth for information about

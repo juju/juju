@@ -12,11 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
-	envcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/oci"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/core/instance"
+	envcontext "github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/tags"
+	"github.com/juju/juju/v3/provider/oci"
+	"github.com/juju/juju/v3/storage"
 
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 )

@@ -20,13 +20,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/juju/romulus/setplan"
-	"github.com/juju/juju/cmd/modelcmd"
-	jjjtesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
-	jjtesting "github.com/juju/juju/testing"
+	rcmd "github.com/juju/juju/v3/cmd/juju/romulus"
+	"github.com/juju/juju/v3/cmd/juju/romulus/setplan"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	jjjtesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/testcharms"
+	jjtesting "github.com/juju/juju/v3/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

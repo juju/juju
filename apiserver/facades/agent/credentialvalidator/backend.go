@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/state"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/state"
 )
 
 // Backend defines behavior that credential validator needs.

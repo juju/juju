@@ -14,12 +14,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/caas/specs"
-	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	k8sstorage "github.com/juju/juju/v3/caas/kubernetes/provider/storage"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v3/caas/specs"
+	k8sannotations "github.com/juju/juju/v3/core/annotations"
+	"github.com/juju/juju/v3/storage"
 )
 
 // https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies

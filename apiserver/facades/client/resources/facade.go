@@ -10,16 +10,16 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	apiresources "github.com/juju/juju/api/client/resources"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmstore"
-	corecharm "github.com/juju/juju/core/charm"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	apiresources "github.com/juju/juju/v3/api/client/resources"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/charmstore"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.resources")

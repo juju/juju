@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/errors"
 
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/cmd/juju/waitfor/api"
-	"github.com/juju/juju/cmd/juju/waitfor/query"
-	"github.com/juju/juju/cmd/modelcmd"
+	apiclient "github.com/juju/juju/v3/api/client/client"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/api"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/query"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 type waitForCommandBase struct {

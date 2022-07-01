@@ -10,14 +10,14 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/provider/dummy"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/storage/poolmanager"
+	"github.com/juju/juju/v3/storage/provider"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 type unitStorageSuite struct {

@@ -13,10 +13,10 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/machineactions"
-	"github.com/juju/juju/worker/machineactions/mocks"
+	"github.com/juju/juju/v3/core/machinelock"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/machineactions"
+	"github.com/juju/juju/v3/worker/machineactions/mocks"
 )
 
 type WorkerSuite struct {

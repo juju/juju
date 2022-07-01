@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/v3/apiserver/authentication"
 )
 
 // TODO update the tests moved from apiserver to test via the public

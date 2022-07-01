@@ -10,8 +10,8 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/common"
 )
 
 const (

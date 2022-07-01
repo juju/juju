@@ -9,11 +9,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/metricobserver"
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/apiserver"
+	"github.com/juju/juju/v3/apiserver/observer"
+	"github.com/juju/juju/v3/apiserver/observer/metricobserver"
+	"github.com/juju/juju/v3/controller"
 )
 
 func newObserverFn(

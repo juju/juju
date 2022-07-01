@@ -15,15 +15,15 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/lxd"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cloudconfig/instancecfg"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/environs"
+	envcontext "github.com/juju/juju/v3/environs/context"
+	envtesting "github.com/juju/juju/v3/environs/testing"
+	"github.com/juju/juju/v3/provider/lxd"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 var errTestUnAuth = errors.New("not authorized")

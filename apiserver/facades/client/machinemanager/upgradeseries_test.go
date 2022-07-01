@@ -12,11 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub/transport"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/charmhub/transport"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/state"
 )
 
 type UpgradeSeriesSuiteValidate struct {

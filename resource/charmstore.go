@@ -9,9 +9,9 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/charmstore"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/state"
 )
 
 type charmStoreOpener struct {

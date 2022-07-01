@@ -17,13 +17,13 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/controller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/mongo"
-	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/controller"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/environs/bootstrap"
+	"github.com/juju/juju/v3/mongo"
+	stateerrors "github.com/juju/juju/v3/state/errors"
+	"github.com/juju/juju/v3/tools"
 )
 
 func isController(mdoc *machineDoc) bool {

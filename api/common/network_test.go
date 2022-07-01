@@ -13,9 +13,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/common"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type networkConfigSuite struct {

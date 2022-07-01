@@ -7,14 +7,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facade/facadetest"
-	"github.com/juju/juju/apiserver/facades/agent/provisioner"
-	"github.com/juju/juju/environs/imagemetadata"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/v3/apiserver/facade/facadetest"
+	"github.com/juju/juju/v3/apiserver/facades/agent/provisioner"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/v3/environs/imagemetadata/testing"
+	sstesting "github.com/juju/juju/v3/environs/simplestreams/testing"
+	"github.com/juju/juju/v3/juju/keys"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state/cloudimagemetadata"
 )
 
 // useTestImageData causes the given content to be served when published metadata is requested.

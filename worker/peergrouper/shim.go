@@ -8,8 +8,8 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/replicaset/v2"
 
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/state"
 )
 
 // This file holds code that translates from State

@@ -12,12 +12,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/metricsender"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/state"
+	stateerrors "github.com/juju/juju/v3/state/errors"
+	"github.com/juju/juju/v3/testing"
 )
 
 type destroyModelSuite struct {

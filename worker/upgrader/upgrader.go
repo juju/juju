@@ -17,15 +17,15 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/agent/upgrader"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	coreos "github.com/juju/juju/core/os"
-	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
-	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/v3/agent"
+	agenttools "github.com/juju/juju/v3/agent/tools"
+	"github.com/juju/juju/v3/api/agent/upgrader"
+	agenterrors "github.com/juju/juju/v3/cmd/jujud/agent/errors"
+	coreos "github.com/juju/juju/v3/core/os"
+	coretools "github.com/juju/juju/v3/tools"
+	"github.com/juju/juju/v3/upgrades"
+	jujuversion "github.com/juju/juju/v3/version"
+	"github.com/juju/juju/v3/worker/gate"
 )
 
 const (

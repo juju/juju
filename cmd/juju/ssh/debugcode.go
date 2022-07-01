@@ -8,9 +8,9 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network/ssh"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/network/ssh"
 )
 
 func NewDebugCodeCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {

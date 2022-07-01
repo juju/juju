@@ -8,12 +8,12 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
-	container "github.com/juju/juju/container"
-	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	environs "github.com/juju/juju/environs"
-	instances "github.com/juju/juju/environs/instances"
+	instancecfg "github.com/juju/juju/v3/cloudconfig/instancecfg"
+	container "github.com/juju/juju/v3/container"
+	constraints "github.com/juju/juju/v3/core/constraints"
+	instance "github.com/juju/juju/v3/core/instance"
+	environs "github.com/juju/juju/v3/environs"
+	instances "github.com/juju/juju/v3/environs/instances"
 )
 
 // MockManager is a mock of Manager interface.

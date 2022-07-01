@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/keyvalues"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.

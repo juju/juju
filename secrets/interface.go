@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/v3/core/secrets"
 )
 
 const (

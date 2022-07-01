@@ -17,9 +17,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/cmd/juju/ssh/mocks"
-	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/v3/apiserver"
+	"github.com/juju/juju/v3/cmd/juju/ssh/mocks"
+	jujussh "github.com/juju/juju/v3/network/ssh"
 )
 
 type SSHSuite struct {

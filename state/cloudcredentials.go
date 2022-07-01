@@ -14,9 +14,9 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/core/permission"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // Credential contains information about the credential as stored on

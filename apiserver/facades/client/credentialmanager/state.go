@@ -4,8 +4,8 @@
 package credentialmanager
 
 import (
-	"github.com/juju/juju/apiserver/common/credentialcommon"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common/credentialcommon"
+	"github.com/juju/juju/v3/state"
 )
 
 type stateShim struct {

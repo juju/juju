@@ -14,9 +14,9 @@ import (
 	"github.com/juju/utils/v3/symlink"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/agent/tools"
+	"github.com/juju/juju/v3/juju/names"
+	"github.com/juju/juju/v3/testing"
 )
 
 type SymlinksSuite struct {

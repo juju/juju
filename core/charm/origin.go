@@ -10,7 +10,7 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
-	coreseries "github.com/juju/juju/core/series"
+	coreseries "github.com/juju/juju/v3/core/series"
 )
 
 // Source represents the source of the charm.

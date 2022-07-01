@@ -8,11 +8,11 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/core/network"
-	corefirewall "github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/common/firewall"
+	"github.com/juju/juju/v3/core/network"
+	corefirewall "github.com/juju/juju/v3/core/network/firewall"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 // State provides the subset of global state required by the

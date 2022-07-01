@@ -8,13 +8,13 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charms "github.com/juju/juju/api/common/charms"
-	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
-	life "github.com/juju/juju/core/life"
-	resource "github.com/juju/juju/core/resources"
-	status "github.com/juju/juju/core/status"
-	watcher "github.com/juju/juju/core/watcher"
-	params "github.com/juju/juju/rpc/params"
+	charms "github.com/juju/juju/v3/api/common/charms"
+	caasapplicationprovisioner "github.com/juju/juju/v3/api/controller/caasapplicationprovisioner"
+	life "github.com/juju/juju/v3/core/life"
+	resource "github.com/juju/juju/v3/core/resources"
+	status "github.com/juju/juju/v3/core/status"
+	watcher "github.com/juju/juju/v3/core/watcher"
+	params "github.com/juju/juju/v3/rpc/params"
 	names "github.com/juju/names/v4"
 )
 

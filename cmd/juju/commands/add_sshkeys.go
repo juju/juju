@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/cmd/v3"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/block"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 var usageAddSSHKeySummary = `

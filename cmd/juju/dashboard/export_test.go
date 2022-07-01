@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/juju/cmd/v3"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/jujuclient"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 var (

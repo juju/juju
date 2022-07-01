@@ -9,8 +9,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/errorutils"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/azure/internal/errorutils"
 )
 
 // collectAPIVersions returns a map of the latest API version for each

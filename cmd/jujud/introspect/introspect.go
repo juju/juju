@@ -19,10 +19,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/agent/addons"
-	apiagent "github.com/juju/juju/api/agent/agent"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/config"
+	"github.com/juju/juju/v3/agent/addons"
+	apiagent "github.com/juju/juju/v3/api/agent/agent"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/jujud/agent/config"
 )
 
 type IntrospectCommand struct {

@@ -10,12 +10,12 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coreapiserver "github.com/juju/juju/apiserver"
-	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/auditlog"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/apiserver"
+	coreapiserver "github.com/juju/juju/v3/apiserver"
+	apitesting "github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/core/auditlog"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/apiserver"
 )
 
 type WorkerStateSuite struct {

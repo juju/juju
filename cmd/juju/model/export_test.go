@@ -7,11 +7,11 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
 )
 
 // NewConfigCommandForTest returns a configCommand with the api

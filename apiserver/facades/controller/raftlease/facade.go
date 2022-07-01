@@ -6,10 +6,10 @@ package raftlease
 import (
 	"context"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/core/raftlease"
+	"github.com/juju/juju/v3/rpc/params"
 	"gopkg.in/yaml.v3"
 )
 

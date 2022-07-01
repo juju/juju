@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v3/core/paths"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/v3/core/auditlog"
 )
 
 type AuditLogSuite struct {

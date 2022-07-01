@@ -9,15 +9,15 @@ import (
 	"github.com/juju/utils/v3"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/caas/kubernetes/clientconfig"
+	k8scloud "github.com/juju/juju/v3/caas/kubernetes/cloud"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	k8sutils "github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/config"
 )
 
 // ClientConfigFuncGetter returns a function returning az reader that will read a k8s cluster config for a given cluster type

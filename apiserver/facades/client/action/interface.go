@@ -6,7 +6,7 @@ package action
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/state"
 )
 
 // State provides the subset of global state required by the

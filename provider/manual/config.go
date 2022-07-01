@@ -6,7 +6,7 @@ package manual
 import (
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v3/environs/config"
 )
 
 var (

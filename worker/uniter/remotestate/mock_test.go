@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/charm/v9"
 
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
 	"github.com/juju/names/v4"
 )
 

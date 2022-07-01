@@ -7,8 +7,8 @@ package sshprovisioner
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/environs/manual"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 var (

@@ -6,8 +6,8 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	watcher "github.com/juju/juju/core/watcher"
-	config "github.com/juju/juju/environs/config"
+	watcher "github.com/juju/juju/v3/core/watcher"
+	config "github.com/juju/juju/v3/environs/config"
 	reflect "reflect"
 	time "time"
 )

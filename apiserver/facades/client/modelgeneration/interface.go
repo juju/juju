@@ -7,8 +7,8 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/v3/core/cache"
+	"github.com/juju/juju/v3/core/settings"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration State,Model,Generation,Application,ModelCache

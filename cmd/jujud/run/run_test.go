@@ -21,11 +21,11 @@ import (
 	"github.com/juju/utils/v3/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/config"
-	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/v3/cmd/jujud/agent/config"
+	"github.com/juju/juju/v3/core/machinelock"
+	"github.com/juju/juju/v3/juju/sockets"
+	"github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/uniter"
 )
 
 type RunTestSuite struct {

@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 type limitedContext struct {

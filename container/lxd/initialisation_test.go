@@ -21,9 +21,9 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/lxd/mocks"
-	lxdtesting "github.com/juju/juju/container/lxd/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/container/lxd/mocks"
+	lxdtesting "github.com/juju/juju/v3/container/lxd/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type initialiserTestSuite struct {

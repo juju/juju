@@ -9,12 +9,12 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/assumes"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/assumes"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type featuresSuite struct {

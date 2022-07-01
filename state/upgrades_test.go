@@ -21,14 +21,14 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/storage/provider"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/core/crossmodel"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/storage/provider"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type upgradesSuite struct {

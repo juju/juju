@@ -16,11 +16,11 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/meterstatus"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/agent/meterstatus"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/common"
+	"github.com/juju/juju/v3/core/machinelock"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

@@ -6,9 +6,9 @@ package ec2
 import (
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/instances"
 )
 
 // filterImages returns only that subset of the input (in the same order) that

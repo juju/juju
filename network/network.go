@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 
-	corenetwork "github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/v3/core/network"
 )
 
 var logger = loggo.GetLogger("juju.network")

@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // Machine represents a juju machine as seen by the firewaller worker.

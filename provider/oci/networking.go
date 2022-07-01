@@ -16,12 +16,12 @@ import (
 	"github.com/juju/names/v4"
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
-	providerCommon "github.com/juju/juju/provider/oci/common"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	envcontext "github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/tags"
+	providerCommon "github.com/juju/juju/v3/provider/oci/common"
 )
 
 const (

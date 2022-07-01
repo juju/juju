@@ -13,13 +13,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/cmd/juju/application/store"
-	"github.com/juju/juju/cmd/juju/application/store/mocks"
-	"github.com/juju/juju/cmd/juju/application/utils"
-	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/rpc/params"
+	commoncharm "github.com/juju/juju/v3/api/common/charm"
+	"github.com/juju/juju/v3/cmd/juju/application/store"
+	"github.com/juju/juju/v3/cmd/juju/application/store/mocks"
+	"github.com/juju/juju/v3/cmd/juju/application/utils"
+	"github.com/juju/juju/v3/core/arch"
+	corecharm "github.com/juju/juju/v3/core/charm"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type storeSuite struct {

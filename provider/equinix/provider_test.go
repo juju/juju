@@ -6,10 +6,10 @@ package equinix_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/equinix"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/equinix"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 )

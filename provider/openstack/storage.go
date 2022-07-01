@@ -13,7 +13,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/v3/environs/storage"
 )
 
 // openstackstorage implements storage.Storage on an OpenStack container.

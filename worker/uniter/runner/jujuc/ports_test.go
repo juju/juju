@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
 )
 
 type PortsSuite struct {

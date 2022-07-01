@@ -16,7 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/lumberjack"
 
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v3/core/paths"
 )
 
 var logger = loggo.GetLogger("core.auditlog")

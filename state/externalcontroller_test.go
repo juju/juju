@@ -13,10 +13,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/core/crossmodel"
+	"github.com/juju/juju/v3/state"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	"github.com/juju/juju/v3/testing"
 )
 
 type externalControllerSuite struct {

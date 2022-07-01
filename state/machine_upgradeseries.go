@@ -15,8 +15,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/model"
-	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/v3/core/model"
+	stateerrors "github.com/juju/juju/v3/state/errors"
 )
 
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a

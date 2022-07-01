@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"k8s.io/apimachinery/pkg/labels"
 
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/proxy"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	k8sproxy "github.com/juju/juju/v3/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/v3/proxy"
 )
 
 // ProxyToApplication attempts to construct a Juju proxier for use in proxying

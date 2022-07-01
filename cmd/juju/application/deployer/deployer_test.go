@@ -21,16 +21,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/resources"
-	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/client/resources"
+	commoncharm "github.com/juju/juju/v3/api/common/charm"
+	"github.com/juju/juju/v3/cmd/juju/application/deployer/mocks"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/testcharms"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type deployerSuite struct {

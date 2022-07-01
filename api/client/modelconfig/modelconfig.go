@@ -6,10 +6,10 @@ package modelconfig
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // Client provides methods that the Juju client command uses to interact

@@ -9,16 +9,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus/mocks"
-	meterstatustesting "github.com/juju/juju/apiserver/facades/agent/meterstatus/testing"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	jujufactory "github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/apiserver/common"
+	facademocks "github.com/juju/juju/v3/apiserver/facade/mocks"
+	"github.com/juju/juju/v3/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/v3/apiserver/facades/agent/meterstatus/mocks"
+	meterstatustesting "github.com/juju/juju/v3/apiserver/facades/agent/meterstatus/testing"
+	apiservertesting "github.com/juju/juju/v3/apiserver/testing"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	jujufactory "github.com/juju/juju/v3/testing/factory"
 )
 
 var _ = gc.Suite(&meterStatusSuite{})

@@ -8,17 +8,17 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/broker"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/containerbroker"
-	"github.com/juju/juju/worker/containerbroker/mocks"
+	"github.com/juju/juju/v3/api/agent/provisioner"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/common"
+	"github.com/juju/juju/v3/container"
+	"github.com/juju/juju/v3/container/broker"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/containerbroker"
+	"github.com/juju/juju/v3/worker/containerbroker/mocks"
 )
 
 type brokerConfigSuite struct {

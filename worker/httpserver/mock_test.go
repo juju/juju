@@ -9,7 +9,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/state"
 )
 
 type stubStateTracker struct {

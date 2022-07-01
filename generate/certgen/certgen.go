@@ -9,8 +9,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/pki"
 )
 
 const count int = 8

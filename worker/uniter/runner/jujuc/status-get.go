@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/core/status"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // StatusGetCommand implements the status-get command.

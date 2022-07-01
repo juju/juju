@@ -16,13 +16,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v3/caas"
+	k8s "github.com/juju/juju/v3/caas/kubernetes"
+	k8scloud "github.com/juju/juju/v3/caas/kubernetes/cloud"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
+	k8sutils "github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
 )
 
 var _ = gc.Suite(&cloudSuite{})

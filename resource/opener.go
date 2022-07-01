@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/state"
 )
 
 // NewResourceOpener returns a new resource.Opener for the given unit.

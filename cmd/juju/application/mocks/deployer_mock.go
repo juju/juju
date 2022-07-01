@@ -9,8 +9,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	cmd "github.com/juju/cmd/v3"
-	deployer "github.com/juju/juju/cmd/juju/application/deployer"
-	store "github.com/juju/juju/cmd/juju/application/store"
+	deployer "github.com/juju/juju/v3/cmd/juju/application/deployer"
+	store "github.com/juju/juju/v3/cmd/juju/application/store"
 )
 
 // MockDeployer is a mock of Deployer interface.

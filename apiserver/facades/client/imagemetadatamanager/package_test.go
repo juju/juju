@@ -11,16 +11,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
-	"github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state/cloudimagemetadata"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/common"
+	"github.com/juju/juju/v3/apiserver/facades/client/imagemetadatamanager"
+	"github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/config"
+	imagetesting "github.com/juju/juju/v3/environs/imagemetadata/testing"
+	"github.com/juju/juju/v3/environs/simplestreams"
+	"github.com/juju/juju/v3/provider/dummy"
+	"github.com/juju/juju/v3/state/cloudimagemetadata"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func TestAll(t *stdtesting.T) {

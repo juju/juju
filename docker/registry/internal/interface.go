@@ -6,8 +6,8 @@ package internal
 import (
 	"time"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/docker"
+	"github.com/juju/juju/v3/tools"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry/internal Initializer

@@ -17,15 +17,15 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/testing"
 
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
+	jujuos "github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/feature"
+	"github.com/juju/juju/v3/juju/osenv"
+	"github.com/juju/juju/v3/service"
+	"github.com/juju/juju/v3/service/common"
+	"github.com/juju/juju/v3/service/systemd"
+	"github.com/juju/juju/v3/service/upstart"
 )
 
 var maybeSystemd = service.InitSystemSystemd

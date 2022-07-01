@@ -14,14 +14,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/core/application"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/payloads"
+	"github.com/juju/juju/v3/core/relation"
+	"github.com/juju/juju/v3/core/secrets"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/storage"
 )
 
 // Context is the interface that all hook helper commands

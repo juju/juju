@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/rpc/params"
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 )

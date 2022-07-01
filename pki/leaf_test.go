@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/pki"
-	pkitest "github.com/juju/juju/pki/test"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/pki"
+	pkitest "github.com/juju/juju/v3/pki/test"
+	"github.com/juju/juju/v3/testing"
 )
 
 type LeafSuite struct {

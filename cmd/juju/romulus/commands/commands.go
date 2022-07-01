@@ -7,16 +7,16 @@ package commands
 import (
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/cmd/juju/romulus/agree"
-	"github.com/juju/juju/cmd/juju/romulus/budget"
-	"github.com/juju/juju/cmd/juju/romulus/createwallet"
-	"github.com/juju/juju/cmd/juju/romulus/listagreements"
-	"github.com/juju/juju/cmd/juju/romulus/listplans"
-	"github.com/juju/juju/cmd/juju/romulus/listwallets"
-	"github.com/juju/juju/cmd/juju/romulus/setplan"
-	"github.com/juju/juju/cmd/juju/romulus/setwallet"
-	"github.com/juju/juju/cmd/juju/romulus/showwallet"
-	"github.com/juju/juju/cmd/juju/romulus/sla"
+	"github.com/juju/juju/v3/cmd/juju/romulus/agree"
+	"github.com/juju/juju/v3/cmd/juju/romulus/budget"
+	"github.com/juju/juju/v3/cmd/juju/romulus/createwallet"
+	"github.com/juju/juju/v3/cmd/juju/romulus/listagreements"
+	"github.com/juju/juju/v3/cmd/juju/romulus/listplans"
+	"github.com/juju/juju/v3/cmd/juju/romulus/listwallets"
+	"github.com/juju/juju/v3/cmd/juju/romulus/setplan"
+	"github.com/juju/juju/v3/cmd/juju/romulus/setwallet"
+	"github.com/juju/juju/v3/cmd/juju/romulus/showwallet"
+	"github.com/juju/juju/v3/cmd/juju/romulus/sla"
 )
 
 type commandRegister interface {

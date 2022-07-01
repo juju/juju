@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	watcher "github.com/juju/juju/core/watcher"
+	watcher "github.com/juju/juju/v3/core/watcher"
 )
 
 // MockStringsWatcher is a mock of StringsWatcher interface.

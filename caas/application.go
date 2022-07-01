@@ -7,11 +7,11 @@ import (
 	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/devices"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/storage"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/caas Application

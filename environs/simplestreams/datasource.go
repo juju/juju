@@ -15,7 +15,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/utils/v3"
 
-	corelogger "github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/v3/core/logger"
 )
 
 // A DataSource retrieves simplestreams metadata.

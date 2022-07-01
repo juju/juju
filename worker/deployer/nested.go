@@ -17,11 +17,11 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	message "github.com/juju/juju/pubsub/agent"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/common/reboot"
+	"github.com/juju/juju/v3/agent"
+	agenterrors "github.com/juju/juju/v3/cmd/jujud/agent/errors"
+	message "github.com/juju/juju/v3/pubsub/agent"
+	jworker "github.com/juju/juju/v3/worker"
+	"github.com/juju/juju/v3/worker/common/reboot"
 )
 
 const (

@@ -12,16 +12,16 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	apiclient "github.com/juju/juju/api/client/machinemanager"
-	"github.com/juju/juju/apiserver/facades/client/machinemanager"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
+	apiclient "github.com/juju/juju/v3/api/client/machinemanager"
+	"github.com/juju/juju/v3/apiserver/facades/client/machinemanager"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/network"
+	envtools "github.com/juju/juju/v3/environs/tools"
+	"github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	jujutesting "github.com/juju/juju/v3/testing"
+	coretools "github.com/juju/juju/v3/tools"
 )
 
 type machineConfigSuite struct {

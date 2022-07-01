@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v3/core/lease"
 )
 
 var logger = loggo.GetLogger("juju.core.raftlease")

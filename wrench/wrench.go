@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v3/core/paths"
 )
 
 var (

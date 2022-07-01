@@ -10,13 +10,13 @@ import (
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
-	apicharm "github.com/juju/juju/api/client/charms"
-	commoncharm "github.com/juju/juju/api/common/charm"
+	apicharm "github.com/juju/juju/v3/api/client/charms"
+	commoncharm "github.com/juju/juju/v3/api/common/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application/store"
-	"github.com/juju/juju/cmd/juju/application/store/mocks"
+	"github.com/juju/juju/v3/cmd/juju/application/store"
+	"github.com/juju/juju/v3/cmd/juju/application/store/mocks"
 )
 
 type resolveSuite struct {

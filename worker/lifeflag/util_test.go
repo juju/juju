@@ -9,8 +9,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 func newMockFacade(stub *testing.Stub, lifeResults ...life.Value) *mockFacade {

@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/facades/client/storage"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/apiserver/facades/client/storage"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/state"
+	jujustorage "github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/testing"
 )
 
 type mockPoolManager struct {

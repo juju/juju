@@ -4,8 +4,8 @@
 package commands
 
 import (
-	"github.com/juju/juju/api/client/keymanager"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v3/api/client/keymanager"
+	"github.com/juju/juju/v3/cmd/modelcmd"
 )
 
 type SSHKeysBase struct {

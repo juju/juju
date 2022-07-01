@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/v3/cmd/output"
+	"github.com/juju/juju/v3/core/crossmodel"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 
-	"github.com/juju/juju/core/globalclock"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v3/core/globalclock"
+	"github.com/juju/juju/v3/mongo"
 )
 
 var (

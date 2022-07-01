@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	instance "github.com/juju/juju/core/instance"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
-	environs "github.com/juju/juju/environs"
-	context "github.com/juju/juju/environs/context"
-	instances "github.com/juju/juju/environs/instances"
+	instance "github.com/juju/juju/v3/core/instance"
+	lxdprofile "github.com/juju/juju/v3/core/lxdprofile"
+	environs "github.com/juju/juju/v3/environs"
+	context "github.com/juju/juju/v3/environs/context"
+	instances "github.com/juju/juju/v3/environs/instances"
 )
 
 // MockLXDProfiler is a mock of LXDProfiler interface.

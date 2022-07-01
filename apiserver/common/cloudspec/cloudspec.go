@@ -7,15 +7,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v3/apiserver/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facade"
+	k8scloud "github.com/juju/juju/v3/caas/kubernetes/cloud"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/state/watcher"
 )
 
 // CloudSpecer defines the CloudSpec api interface

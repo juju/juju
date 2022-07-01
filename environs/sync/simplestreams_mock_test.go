@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	simplestreams "github.com/juju/juju/environs/simplestreams"
+	simplestreams "github.com/juju/juju/v3/environs/simplestreams"
 )
 
 // MockSimplestreamsFetcher is a mock of SimplestreamsFetcher interface.

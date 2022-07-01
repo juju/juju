@@ -11,15 +11,15 @@ import (
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/juju/application/deployer"
-	"github.com/juju/juju/cmd/juju/application/refresher"
-	"github.com/juju/juju/cmd/juju/application/store"
-	"github.com/juju/juju/cmd/juju/application/utils"
-	"github.com/juju/juju/cmd/modelcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/cmd/juju/application/deployer"
+	"github.com/juju/juju/v3/cmd/juju/application/refresher"
+	"github.com/juju/juju/v3/cmd/juju/application/store"
+	"github.com/juju/juju/v3/cmd/juju/application/utils"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/jujuclient"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory

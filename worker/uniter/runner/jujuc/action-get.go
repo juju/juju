@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 
-	jujucmd "github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/v3/cmd"
 )
 
 // ActionGetCommand implements the action-get command.

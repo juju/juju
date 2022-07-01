@@ -19,10 +19,10 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/proxy"
-	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/proxy"
+	"github.com/juju/juju/v3/rpc/jsoncodec"
 )
 
 // AnonymousUsername is the special username to use for anonymous logins.

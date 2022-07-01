@@ -11,9 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/specs"
-	"github.com/juju/juju/testing"
+	k8sspecs "github.com/juju/juju/v3/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v3/caas/specs"
+	"github.com/juju/juju/v3/testing"
 )
 
 type legacySpecsSuite struct {

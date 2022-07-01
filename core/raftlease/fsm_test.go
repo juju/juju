@@ -16,9 +16,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/globalclock"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/v3/core/globalclock"
+	"github.com/juju/juju/v3/core/lease"
+	"github.com/juju/juju/v3/core/raftlease"
 )
 
 var zero time.Time

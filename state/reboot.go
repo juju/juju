@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/core/container"
+	"github.com/juju/juju/v3/core/container"
 )
 
 var _ RebootFlagSetter = (*Machine)(nil)

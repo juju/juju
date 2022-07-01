@@ -15,15 +15,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/testserver"
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/modelcache"
-	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/apiserver"
+	"github.com/juju/juju/v3/apiserver/testserver"
+	"github.com/juju/juju/v3/core/cache"
+	"github.com/juju/juju/v3/state"
+	statetesting "github.com/juju/juju/v3/state/testing"
+	"github.com/juju/juju/v3/worker/gate"
+	"github.com/juju/juju/v3/worker/modelcache"
+	"github.com/juju/juju/v3/worker/multiwatcher"
 )
 
 type baseSuite struct {

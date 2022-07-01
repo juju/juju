@@ -13,17 +13,17 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/usermanager"
-	"github.com/juju/juju/core/permission"
-	jujunames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v3/api"
+	apiclient "github.com/juju/juju/v3/api/client/client"
+	"github.com/juju/juju/v3/api/client/modelmanager"
+	"github.com/juju/juju/v3/api/client/usermanager"
+	"github.com/juju/juju/v3/core/permission"
+	jujunames "github.com/juju/juju/v3/juju/names"
+	"github.com/juju/juju/v3/juju/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/testing/factory"
 )
 
 type apiModelSuite struct {

@@ -7,10 +7,10 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/api/base"
-	workermocks "github.com/juju/juju/worker/mocks"
-	"github.com/juju/juju/worker/upgradeseries"
-	. "github.com/juju/juju/worker/upgradeseries/mocks"
+	"github.com/juju/juju/v3/api/base"
+	workermocks "github.com/juju/juju/v3/worker/mocks"
+	"github.com/juju/juju/v3/worker/upgradeseries"
+	. "github.com/juju/juju/v3/worker/upgradeseries/mocks"
 	"github.com/juju/names/v4"
 )
 

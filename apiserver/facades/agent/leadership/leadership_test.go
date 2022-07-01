@@ -17,10 +17,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/leadership"
-	coreleadership "github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/apiserver/facades/agent/leadership"
+	coreleadership "github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type leadershipSuite struct {

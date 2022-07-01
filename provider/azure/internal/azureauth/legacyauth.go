@@ -11,8 +11,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/provider/azure/internal/useragent"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/provider/azure/internal/useragent"
 )
 
 // NewLegacyAuth creates a legacy auth for the specified cloud.

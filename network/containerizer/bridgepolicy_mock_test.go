@@ -9,10 +9,10 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
-	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	network "github.com/juju/juju/core/network"
-	state "github.com/juju/juju/state"
+	constraints "github.com/juju/juju/v3/core/constraints"
+	instance "github.com/juju/juju/v3/core/instance"
+	network "github.com/juju/juju/v3/core/network"
+	state "github.com/juju/juju/v3/state"
 )
 
 // MockContainer is a mock of Container interface.

@@ -3,7 +3,7 @@
 
 package testing
 
-import "github.com/juju/juju/core/lease"
+import "github.com/juju/juju/v3/core/lease"
 
 // StubLeaseReader pretends to implement lease.Reader.
 // The non-implemented Leases() method should not be called by tests in the

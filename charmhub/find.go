@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/v3/charmhub/path"
+	"github.com/juju/juju/v3/charmhub/transport"
 )
 
 // FindOption to be passed to Find to customize the resulting request.

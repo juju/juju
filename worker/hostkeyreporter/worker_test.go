@@ -16,7 +16,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/hostkeyreporter"
+	"github.com/juju/juju/v3/worker/hostkeyreporter"
 )
 
 type Suite struct {

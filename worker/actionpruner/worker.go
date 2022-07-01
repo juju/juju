@@ -10,10 +10,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/worker/pruner"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/api/client/action"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/worker/pruner"
 )
 
 // logger is here to stop the desire of creating a package level logger.

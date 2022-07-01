@@ -4,7 +4,7 @@
 package block
 
 import (
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/state"
 	"github.com/juju/names/v4"
 )
 

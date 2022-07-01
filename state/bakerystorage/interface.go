@@ -15,7 +15,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v3/mongo"
 )
 
 // Config contains configuration for creating bakery storage with New.

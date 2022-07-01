@@ -13,13 +13,13 @@ import (
 	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/environs/filestorage"
+	"github.com/juju/juju/v3/environs/tools"
+	"github.com/juju/juju/v3/jujuclient"
+	"github.com/juju/juju/v3/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/juju/v3/testing"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 type ValidateToolsMetadataSuite struct {

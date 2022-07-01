@@ -6,7 +6,7 @@ package test
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v3/pki"
 )
 
 // NewTestAuthority returns a valid pki Authority for testing

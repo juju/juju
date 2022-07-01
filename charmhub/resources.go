@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/v3/charmhub/path"
+	"github.com/juju/juju/v3/charmhub/transport"
 )
 
 // ResourcesClient defines a client for resources requests.

@@ -13,10 +13,10 @@ import (
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/charmhub"
+	"github.com/juju/juju/v3/charmhub/transport"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	"github.com/juju/juju/v3/state"
 )
 
 type charmHubOpener struct {

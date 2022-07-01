@@ -6,8 +6,8 @@ package applicationscaler
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/state"
 )
 
 // This file contains untested shims to let us wrap state in a sensible

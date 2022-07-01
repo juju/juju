@@ -11,14 +11,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
-	apisecrets "github.com/juju/juju/apiserver/facades/client/secrets"
-	"github.com/juju/juju/core/permission"
-	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
-	coretesting "github.com/juju/juju/testing"
+	facademocks "github.com/juju/juju/v3/apiserver/facade/mocks"
+	"github.com/juju/juju/v3/apiserver/facades/agent/secretsmanager/mocks"
+	apisecrets "github.com/juju/juju/v3/apiserver/facades/client/secrets"
+	"github.com/juju/juju/v3/core/permission"
+	coresecrets "github.com/juju/juju/v3/core/secrets"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/secrets"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type SecretsSuite struct {

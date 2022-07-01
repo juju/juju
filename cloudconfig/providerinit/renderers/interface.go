@@ -9,8 +9,8 @@
 package renderers
 
 import (
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/v3/cloudconfig/cloudinit"
+	"github.com/juju/juju/v3/core/os"
 )
 
 // ProviderRenderer defines a method to encode userdata depending on

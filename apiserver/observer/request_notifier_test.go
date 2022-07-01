@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/v3/apiserver/observer"
+	"github.com/juju/juju/v3/pubsub/apiserver"
 )
 
 type RequestObserverSuite struct {

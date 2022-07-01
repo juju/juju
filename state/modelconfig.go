@@ -10,9 +10,9 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/controller"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v3/controller"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/config"
 )
 
 type attrValues map[string]interface{}

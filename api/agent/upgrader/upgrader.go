@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/api/base"
+	apiwatcher "github.com/juju/juju/v3/api/watcher"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/tools"
 )
 
 // State provides access to an upgrader worker's view of the state.

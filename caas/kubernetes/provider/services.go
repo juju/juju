@@ -12,10 +12,10 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	k8sspecs "github.com/juju/juju/v3/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	k8sannotations "github.com/juju/juju/v3/core/annotations"
 )
 
 func getServiceLabels(appName string, legacy bool) map[string]string {

@@ -10,13 +10,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	containerlxd "github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/lxd"
-	coretesting "github.com/juju/juju/testing"
+	containerlxd "github.com/juju/juju/v3/container/lxd"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/environs/instances"
+	"github.com/juju/juju/v3/provider/lxd"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type environInstSuite struct {

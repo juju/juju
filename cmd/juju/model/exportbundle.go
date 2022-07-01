@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/bundle"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/client/application"
+	"github.com/juju/juju/v3/api/client/bundle"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.

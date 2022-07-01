@@ -21,11 +21,11 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pubsub/centralhub"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/raft/rafttransport"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/apiserver/apiserverhttp"
+	"github.com/juju/juju/v3/pubsub/centralhub"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/raft/rafttransport"
 )
 
 type ManifoldSuite struct {

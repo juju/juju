@@ -10,12 +10,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/api/base"
-	api "github.com/juju/juju/api/client/payloads"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/api/base"
+	api "github.com/juju/juju/v3/api/client/payloads"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/core/payloads"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type clientSuite struct {

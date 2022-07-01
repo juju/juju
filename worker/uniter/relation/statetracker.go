@@ -15,16 +15,16 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v3/api/agent/uniter"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/relation"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/worker/uniter/hook"
+	"github.com/juju/juju/v3/worker/uniter/operation"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/worker/uniter/resolver"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
 )
 
 // LeadershipContextFunc is a function that returns a leadership context.

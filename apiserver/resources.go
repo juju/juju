@@ -16,10 +16,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	api "github.com/juju/juju/v3/api/client/resources"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 // ResourcesBackend is the functionality of Juju's state needed for the resources API.

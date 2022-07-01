@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mutex/v2"
 
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/worker/fortress"
+	"github.com/juju/juju/v3/worker/uniter/operation"
+	"github.com/juju/juju/v3/worker/uniter/remotestate"
 )
 
 // ErrLoopAborted is used to signal that the loop is exiting because it

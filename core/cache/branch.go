@@ -6,7 +6,7 @@ package cache
 import (
 	"github.com/juju/pubsub/v2"
 
-	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/v3/core/settings"
 )
 
 const branchChange = "branch-change"

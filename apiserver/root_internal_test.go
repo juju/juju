@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/v3/core/cache"
+	statetesting "github.com/juju/juju/v3/state/testing"
 )
 
 type facadeContextSuite struct {

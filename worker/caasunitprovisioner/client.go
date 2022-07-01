@@ -4,14 +4,14 @@
 package caasunitprovisioner
 
 import (
-	charmscommon "github.com/juju/juju/api/common/charms"
-	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	charmscommon "github.com/juju/juju/v3/api/common/charms"
+	apicaasunitprovisioner "github.com/juju/juju/v3/api/controller/caasunitprovisioner"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/core/config"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/core/watcher"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // Client provides an interface for interacting with the

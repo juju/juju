@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/client/block"
-	"github.com/juju/juju/core/model"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/v3/api/client/block"
+	"github.com/juju/juju/v3/core/model"
+	jujutesting "github.com/juju/juju/v3/juju/testing"
 )
 
 type blockSuite struct {

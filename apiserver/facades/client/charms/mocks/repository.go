@@ -11,7 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
 	resource "github.com/juju/charm/v9/resource"
-	charm0 "github.com/juju/juju/core/charm"
+	charm0 "github.com/juju/juju/v3/core/charm"
 	macaroon "gopkg.in/macaroon.v2"
 )
 

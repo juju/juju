@@ -10,8 +10,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/quota"
-	mgoutils "github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/v3/core/quota"
+	mgoutils "github.com/juju/juju/v3/mongo/utils"
 )
 
 type unitSetStateOperation struct {

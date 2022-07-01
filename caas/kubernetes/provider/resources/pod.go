@@ -17,9 +17,9 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	k8spod "github.com/juju/juju/caas/kubernetes/pod"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/core/status"
+	k8spod "github.com/juju/juju/v3/caas/kubernetes/pod"
+	k8sconstants "github.com/juju/juju/v3/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // Pod extends the k8s service.

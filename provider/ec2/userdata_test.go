@@ -9,10 +9,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/provider/ec2"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cloudconfig/cloudinit/cloudinittest"
+	"github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/provider/ec2"
+	"github.com/juju/juju/v3/testing"
 )
 
 type UserdataSuite struct {

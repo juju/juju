@@ -14,13 +14,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
+	jujuos "github.com/juju/juju/v3/core/os"
+	"github.com/juju/juju/v3/core/secrets"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/testing"
+	jujuversion "github.com/juju/juju/v3/version"
+	"github.com/juju/juju/v3/worker/uniter/runner/context"
+	runnertesting "github.com/juju/juju/v3/worker/uniter/runner/testing"
 )
 
 type EnvSuite struct {

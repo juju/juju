@@ -6,8 +6,8 @@ package provider
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider/juju"
+	"github.com/juju/juju/v3/secrets"
+	"github.com/juju/juju/v3/secrets/provider/juju"
 )
 
 // NewSecretProvider returns a new secrets provider for the given type.

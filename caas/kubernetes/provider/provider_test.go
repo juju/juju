@@ -9,14 +9,14 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/caas"
+	"github.com/juju/juju/v3/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/v3/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/environs"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/environs/config"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func fakeConfig(c *gc.C, attrs ...coretesting.Attrs) *config.Config {

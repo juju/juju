@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/cloudconfig/instancecfg"
+	"github.com/juju/juju/v3/cloudconfig/podcfg"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/storage"
+	"github.com/juju/juju/v3/tools"
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.

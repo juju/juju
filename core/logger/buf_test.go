@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corelogger "github.com/juju/juju/core/logger"
-	coretesting "github.com/juju/juju/testing"
+	corelogger "github.com/juju/juju/v3/core/logger"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type BufferedLoggerSuite struct {

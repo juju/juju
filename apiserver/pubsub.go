@@ -12,9 +12,9 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/apiserver/websocket"
+	"github.com/juju/juju/v3/feature"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // Hub defines the publish method that the handler uses to publish

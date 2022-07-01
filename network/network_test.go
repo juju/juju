@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/network"
+	"github.com/juju/juju/v3/testing"
 )
 
 type InterfaceInfoSuite struct {

@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	facade "github.com/juju/juju/apiserver/facade"
-	permission "github.com/juju/juju/core/permission"
+	facade "github.com/juju/juju/v3/apiserver/facade"
+	permission "github.com/juju/juju/v3/core/permission"
 	names "github.com/juju/names/v4"
 )
 

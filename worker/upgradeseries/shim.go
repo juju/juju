@@ -6,10 +6,10 @@ package upgradeseries
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/upgradeseries"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v3/api/agent/upgradeseries"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 // Facade exposes the API surface required by the upgrade-series worker.

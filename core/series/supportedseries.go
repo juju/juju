@@ -14,7 +14,7 @@ import (
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
 
-	coreos "github.com/juju/juju/core/os"
+	coreos "github.com/juju/juju/v3/core/os"
 )
 
 const (

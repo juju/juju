@@ -14,7 +14,7 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/raft/raftclusterer"
+	"github.com/juju/juju/v3/worker/raft/raftclusterer"
 )
 
 type ManifoldSuite struct {

@@ -20,8 +20,8 @@ import (
 	"gopkg.in/yaml.v2"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/network/netplan"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/network/netplan"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type NetplanSuite struct {

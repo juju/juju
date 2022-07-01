@@ -16,10 +16,10 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/mongo"
+	"github.com/juju/juju/v3/mongo/utils"
 )
 
 type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo, expectWorkload bool) status.StatusInfo

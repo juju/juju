@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	machinelock "github.com/juju/juju/core/machinelock"
+	machinelock "github.com/juju/juju/v3/core/machinelock"
 )
 
 // MockLock is a mock of Lock interface

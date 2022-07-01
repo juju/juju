@@ -13,11 +13,11 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/reboot"
-	"github.com/juju/juju/cmd/jujud/reboot/mocks"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/cmd/jujud/reboot"
+	"github.com/juju/juju/v3/cmd/jujud/reboot/mocks"
+	"github.com/juju/juju/v3/environs/instances"
+	"github.com/juju/juju/v3/rpc/params"
+	jujutesting "github.com/juju/juju/v3/testing"
 )
 
 type NewRebootSuite struct {

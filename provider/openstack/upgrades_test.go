@@ -11,7 +11,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
 )
 
 type precheckUpgradesSuite struct {

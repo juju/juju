@@ -17,8 +17,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v3/cloudconfig/podcfg"
 )
 
 type dummyUpgradeCAASModel struct {

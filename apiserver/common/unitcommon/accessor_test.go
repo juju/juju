@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/unitcommon"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/v3/apiserver/common/unitcommon"
+	apiservertesting "github.com/juju/juju/v3/apiserver/testing"
 )
 
 type UnitAccessorSuite struct {

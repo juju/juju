@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	secrets "github.com/juju/juju/core/secrets"
-	secrets0 "github.com/juju/juju/secrets"
+	secrets "github.com/juju/juju/v3/core/secrets"
+	secrets0 "github.com/juju/juju/v3/secrets"
 )
 
 // MockSecretsService is a mock of SecretsService interface.

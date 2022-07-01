@@ -6,8 +6,8 @@ package caasmodeloperator_test
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/agent"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 type mockAgentConfig struct {

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/v3/worker/uniter/charm"
 )
 
 // mockDeployer implements Deployer.

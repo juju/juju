@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v3/network"
+	"github.com/juju/juju/v3/service"
+	"github.com/juju/juju/v3/service/common"
 )
 
 // TODO(juju4): remove support for upgrading from older mongos

@@ -11,10 +11,10 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	containerlxd "github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/storage"
+	containerlxd "github.com/juju/juju/v3/container/lxd"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/provider/lxd"
+	"github.com/juju/juju/v3/storage"
 )
 
 type storageSuite struct {

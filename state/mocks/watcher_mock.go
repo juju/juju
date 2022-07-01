@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	watcher "github.com/juju/juju/state/watcher"
+	watcher "github.com/juju/juju/v3/state/watcher"
 )
 
 // MockBaseWatcher is a mock of BaseWatcher interface.

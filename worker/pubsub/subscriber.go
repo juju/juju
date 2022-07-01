@@ -17,9 +17,9 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/pubsub/apiserver"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // WorkerConfig defines the configuration values that the pubsub worker needs

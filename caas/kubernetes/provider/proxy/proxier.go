@@ -11,8 +11,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"k8s.io/client-go/rest"
 
-	"github.com/juju/juju/caas/kubernetes"
-	proxyerrors "github.com/juju/juju/proxy/errors"
+	"github.com/juju/juju/v3/caas/kubernetes"
+	proxyerrors "github.com/juju/juju/v3/proxy/errors"
 )
 
 type Proxier struct {

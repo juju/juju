@@ -15,11 +15,11 @@ import (
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/cmd/juju/dashboard"
-	"github.com/juju/juju/jujuclient"
-	proxytesting "github.com/juju/juju/proxy/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api/controller/controller"
+	"github.com/juju/juju/v3/cmd/juju/dashboard"
+	"github.com/juju/juju/v3/jujuclient"
+	proxytesting "github.com/juju/juju/v3/proxy/testing"
+	"github.com/juju/juju/v3/testing"
 )
 
 type baseDashboardSuite struct {

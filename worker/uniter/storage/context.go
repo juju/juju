@@ -4,7 +4,7 @@
 package storage
 
 import (
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v3/storage"
 	"github.com/juju/names/v4"
 )
 

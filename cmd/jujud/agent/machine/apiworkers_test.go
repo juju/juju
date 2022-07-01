@@ -11,9 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/cmd/jujud/agent/machine"
+	"github.com/juju/juju/v3/testing"
 )
 
 type APIWorkersSuite struct {

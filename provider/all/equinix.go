@@ -8,5 +8,5 @@ package all
 
 import (
 	// Register the provider.
-	_ "github.com/juju/juju/provider/equinix"
+	_ "github.com/juju/juju/v3/provider/equinix"
 )

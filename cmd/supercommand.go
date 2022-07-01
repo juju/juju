@@ -12,8 +12,8 @@ import (
 	"github.com/juju/loggo"
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/juju/juju/juju/osenv"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v3/juju/osenv"
+	jujuversion "github.com/juju/juju/v3/version"
 )
 
 func init() {

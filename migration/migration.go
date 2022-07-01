@@ -16,11 +16,11 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/core/leadership"
+	"github.com/juju/juju/v3/core/migration"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/tools"
 )
 
 var logger = loggo.GetLogger("juju.migration")

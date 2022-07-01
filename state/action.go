@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	stateerrors "github.com/juju/juju/state/errors"
+	stateerrors "github.com/juju/juju/v3/state/errors"
 )
 
 const (

@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry/image"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/docker"
+	"github.com/juju/juju/v3/docker/registry/image"
+	"github.com/juju/juju/v3/tools"
 )
 
 type tagsResponseV2 struct {

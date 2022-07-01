@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/api/compute/v1"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/core/network"
 )
 
 // InstanceSpec holds all the information needed to create a new GCE instance.

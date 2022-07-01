@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	metricobserver "github.com/juju/juju/apiserver/observer/metricobserver"
+	metricobserver "github.com/juju/juju/v3/apiserver/observer/metricobserver"
 	prometheus "github.com/prometheus/client_golang/prometheus"
 )
 

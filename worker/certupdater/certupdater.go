@@ -10,11 +10,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/pki"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/legacy"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/pki"
+	"github.com/juju/juju/v3/state"
+	"github.com/juju/juju/v3/watcher/legacy"
 )
 
 var (

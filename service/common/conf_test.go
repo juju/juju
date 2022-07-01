@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/v3/shell"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v3/service/common"
 )
 
 var renderer = &shell.BashRenderer{}

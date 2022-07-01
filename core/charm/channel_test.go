@@ -8,7 +8,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	corecharm "github.com/juju/juju/core/charm"
+	corecharm "github.com/juju/juju/v3/core/charm"
 )
 
 type channelSuite struct {

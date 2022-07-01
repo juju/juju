@@ -11,14 +11,14 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/juju/osenv"
-	coretools "github.com/juju/juju/tools"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/environs/filestorage"
+	"github.com/juju/juju/v3/environs/simplestreams"
+	"github.com/juju/juju/v3/environs/storage"
+	envtools "github.com/juju/juju/v3/environs/tools"
+	"github.com/juju/juju/v3/juju/keys"
+	"github.com/juju/juju/v3/juju/osenv"
+	coretools "github.com/juju/juju/v3/tools"
 )
 
 func newGenerateAgentsCommand() cmd.Command {

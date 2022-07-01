@@ -16,12 +16,12 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/webbrowser"
 
-	"github.com/juju/juju/api/controller/controller"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/ssh"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/proxy"
-	proxyfactory "github.com/juju/juju/proxy/factory"
+	"github.com/juju/juju/v3/api/controller/controller"
+	jujucmd "github.com/juju/juju/v3/cmd"
+	"github.com/juju/juju/v3/cmd/juju/ssh"
+	"github.com/juju/juju/v3/cmd/modelcmd"
+	"github.com/juju/juju/v3/proxy"
+	proxyfactory "github.com/juju/juju/v3/proxy/factory"
 )
 
 // ControllerAPI is used to get dashboard info from the controller.

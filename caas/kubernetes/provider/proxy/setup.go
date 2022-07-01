@@ -21,7 +21,7 @@ import (
 	core "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbac "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/utils"
 )
 
 var logger = loggo.GetLogger("juju.caas.kubernetes.provider.proxy")

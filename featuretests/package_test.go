@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucmd "github.com/juju/juju/cmd/juju/commands"
-	coretesting "github.com/juju/juju/testing"
+	jujucmd "github.com/juju/juju/v3/cmd/juju/commands"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func init() {

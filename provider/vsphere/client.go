@@ -11,8 +11,8 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	environscloudspec "github.com/juju/juju/v3/environs/cloudspec"
+	"github.com/juju/juju/v3/provider/vsphere/internal/vsphereclient"
 )
 
 // DialFunc is a function type for dialing vSphere client connections.

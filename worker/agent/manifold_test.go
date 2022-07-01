@@ -11,9 +11,9 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
-	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/agent"
+	coreagent "github.com/juju/juju/v3/agent"
+	jujuversion "github.com/juju/juju/v3/version"
+	"github.com/juju/juju/v3/worker/agent"
 )
 
 type ManifoldSuite struct {

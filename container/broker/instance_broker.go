@@ -10,15 +10,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/factory"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machinelock"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/container"
+	"github.com/juju/juju/v3/container/factory"
+	"github.com/juju/juju/v3/core/instance"
+	"github.com/juju/juju/v3/core/machinelock"
+	corenetwork "github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/network"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // NewBrokerFunc returns a Instance Broker.

@@ -14,9 +14,9 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/worker/proxyupdater"
 )
 
 type ManifoldSuite struct {

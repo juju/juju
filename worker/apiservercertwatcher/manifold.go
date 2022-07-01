@@ -9,8 +9,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/pki"
 )
 
 type AuthorityWorker interface {

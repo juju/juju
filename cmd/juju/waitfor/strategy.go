@@ -13,10 +13,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/cmd/juju/waitfor/api"
-	"github.com/juju/juju/cmd/juju/waitfor/query"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/api"
+	"github.com/juju/juju/v3/cmd/juju/waitfor/query"
+	"github.com/juju/juju/v3/rpc"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 // EventType represents what type of event is being passed.

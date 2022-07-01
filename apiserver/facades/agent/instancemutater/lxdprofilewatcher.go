@@ -12,8 +12,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/lxdprofile"
+	"github.com/juju/juju/v3/state"
 )
 
 type machineLXDProfileWatcher struct {

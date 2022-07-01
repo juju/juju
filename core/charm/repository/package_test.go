@@ -6,7 +6,7 @@ package repository
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmhub_client_mock.go github.com/juju/juju/core/charm/repository CharmHubClient

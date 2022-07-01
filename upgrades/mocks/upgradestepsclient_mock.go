@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	params "github.com/juju/juju/rpc/params"
+	params "github.com/juju/juju/v3/rpc/params"
 )
 
 // MockUpgradeStepsClient is a mock of UpgradeStepsClient interface.

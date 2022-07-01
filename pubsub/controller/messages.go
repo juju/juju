@@ -3,7 +3,7 @@
 
 package controller
 
-import "github.com/juju/juju/controller"
+import "github.com/juju/juju/v3/controller"
 
 // ConfigChanged messages are published by the apiserver client controller
 // facade whenever the controller config is updated.

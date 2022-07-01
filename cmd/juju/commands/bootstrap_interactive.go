@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/interact"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/cmd/juju/common"
+	"github.com/juju/juju/v3/cmd/juju/interact"
 )
 
 // assembleClouds

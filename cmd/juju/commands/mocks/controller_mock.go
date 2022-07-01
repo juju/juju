@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	controller "github.com/juju/juju/controller"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
+	controller "github.com/juju/juju/v3/controller"
+	cloudspec "github.com/juju/juju/v3/environs/cloudspec"
 	names "github.com/juju/names/v4"
 )
 

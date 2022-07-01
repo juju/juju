@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/v3/observability/probe"
 )
 
 func TestAggregateProbeSuccess(t *testing.T) {

@@ -4,8 +4,8 @@
 package action
 
 import (
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/apiserver/facade"
+	"github.com/juju/juju/v3/state"
 )
 
 var (

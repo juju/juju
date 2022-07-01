@@ -6,7 +6,7 @@ package toolsversionchecker
 import (
 	"github.com/juju/worker/v3"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/v3/worker"
 )
 
 func NewPeriodicWorkerForTests(api Facade, params *VersionCheckerParams) worker.Worker {

@@ -12,11 +12,11 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker/instancemutater"
-	"github.com/juju/juju/worker/instancemutater/mocks"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/api/base"
+	"github.com/juju/juju/v3/environs"
+	"github.com/juju/juju/v3/worker/instancemutater"
+	"github.com/juju/juju/v3/worker/instancemutater/mocks"
 )
 
 type modelManifoldConfigSuite struct {

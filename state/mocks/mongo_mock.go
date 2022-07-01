@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	mongo "github.com/juju/juju/mongo"
+	mongo "github.com/juju/juju/v3/mongo"
 	mgo "github.com/juju/mgo/v2"
 )
 

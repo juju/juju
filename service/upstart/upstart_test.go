@@ -15,9 +15,9 @@ import (
 	"github.com/juju/utils/v3/symlink"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/service/common"
+	"github.com/juju/juju/v3/service/upstart"
+	coretesting "github.com/juju/juju/v3/testing"
 )
 
 func Test(t *testing.T) {

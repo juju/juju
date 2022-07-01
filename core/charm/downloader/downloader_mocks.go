@@ -7,7 +7,7 @@ package downloader
 import (
 	gomock "github.com/golang/mock/gomock"
 	v9 "github.com/juju/charm/v9"
-	charm "github.com/juju/juju/core/charm"
+	charm "github.com/juju/juju/v3/core/charm"
 	macaroon_v2 "gopkg.in/macaroon.v2"
 	url "net/url"
 	reflect "reflect"

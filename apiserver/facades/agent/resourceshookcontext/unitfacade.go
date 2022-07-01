@@ -6,11 +6,11 @@ package resourceshookcontext
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/client/resources"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coreresources "github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/api/client/resources"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	coreresources "github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/state"
 )
 
 // resourcesUnitDatastore is a shim to elide serviceName from

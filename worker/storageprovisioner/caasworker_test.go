@@ -17,11 +17,11 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/v3/environs/context"
+	"github.com/juju/juju/v3/rpc/params"
+	"github.com/juju/juju/v3/storage"
+	coretesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/worker/storageprovisioner"
 )
 
 type WorkerSuite struct {

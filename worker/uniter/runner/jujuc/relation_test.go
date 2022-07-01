@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v3/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type relationSuite struct {

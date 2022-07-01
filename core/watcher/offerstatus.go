@@ -4,7 +4,7 @@
 package watcher
 
 import (
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v3/core/status"
 )
 
 // OfferStatusChange describes changes to some offer.

@@ -8,13 +8,13 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	facade "github.com/juju/juju/apiserver/facade"
-	cache "github.com/juju/juju/core/cache"
-	leadership "github.com/juju/juju/core/leadership"
-	lease "github.com/juju/juju/core/lease"
-	multiwatcher "github.com/juju/juju/core/multiwatcher"
-	permission "github.com/juju/juju/core/permission"
-	state "github.com/juju/juju/state"
+	facade "github.com/juju/juju/v3/apiserver/facade"
+	cache "github.com/juju/juju/v3/core/cache"
+	leadership "github.com/juju/juju/v3/core/leadership"
+	lease "github.com/juju/juju/v3/core/lease"
+	multiwatcher "github.com/juju/juju/v3/core/multiwatcher"
+	permission "github.com/juju/juju/v3/core/permission"
+	state "github.com/juju/juju/v3/state"
 	names "github.com/juju/names/v4"
 )
 

@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/rpc/params"
-	jtesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v3/api"
+	apiservertesting "github.com/juju/juju/v3/apiserver/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	jtesting "github.com/juju/juju/v3/testing"
+	"github.com/juju/juju/v3/version"
 )
 
 var _ = gc.Suite(&fakeAPISuite{})

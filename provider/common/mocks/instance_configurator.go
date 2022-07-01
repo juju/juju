@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	firewall "github.com/juju/juju/core/network/firewall"
+	firewall "github.com/juju/juju/v3/core/network/firewall"
 )
 
 // MockInstanceConfigurator is a mock of InstanceConfigurator interface.

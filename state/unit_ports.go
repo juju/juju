@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v3/core/network"
 )
 
 var _ UnitPortRanges = (*unitPortRanges)(nil)

@@ -13,8 +13,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v3/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v3/core/watcher"
 )
 
 func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {

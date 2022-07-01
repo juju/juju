@@ -4,7 +4,7 @@
 package lease
 
 import (
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v3/core/lease"
 )
 
 // pin is used to deliver lease pinning and unpinning requests to a manager's

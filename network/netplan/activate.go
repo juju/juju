@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/utils/scriptrunner"
+	"github.com/juju/juju/v3/utils/scriptrunner"
 )
 
 var logger = loggo.GetLogger("juju.network.netplan")

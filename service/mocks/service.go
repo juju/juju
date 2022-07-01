@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	common "github.com/juju/juju/service/common"
+	common "github.com/juju/juju/v3/service/common"
 )
 
 // MockService is a mock of Service interface.

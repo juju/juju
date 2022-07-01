@@ -4,8 +4,8 @@
 package common
 
 import (
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/rpc/params"
+	jujucloud "github.com/juju/juju/v3/cloud"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 func CloudToParams(cloud jujucloud.Cloud) params.Cloud {

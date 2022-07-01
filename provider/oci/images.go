@@ -17,9 +17,9 @@ import (
 
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/environs/imagemetadata"
+	"github.com/juju/juju/v3/environs/instances"
 )
 
 const (

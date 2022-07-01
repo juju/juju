@@ -10,8 +10,8 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
-	status "github.com/juju/juju/core/status"
+	resources "github.com/juju/juju/v3/caas/kubernetes/provider/resources"
+	status "github.com/juju/juju/v3/core/status"
 	v1 "k8s.io/api/core/v1"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubernetes "k8s.io/client-go/kubernetes"

@@ -3,7 +3,7 @@
 
 package provisioner
 
-import "github.com/juju/juju/rpc/params"
+import "github.com/juju/juju/v3/rpc/params"
 
 // TODO (manadart 2019-09-26): This file should be deleted via these steps:
 // - Rename provisioner_test.go to provisioner_integration_test.go

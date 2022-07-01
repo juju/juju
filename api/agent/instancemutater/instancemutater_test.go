@@ -12,11 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/instancemutater"
-	"github.com/juju/juju/api/agent/instancemutater/mocks"
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v3/api/agent/instancemutater"
+	"github.com/juju/juju/v3/api/agent/instancemutater/mocks"
+	apitesting "github.com/juju/juju/v3/api/base/testing"
+	"github.com/juju/juju/v3/rpc/params"
+	jujutesting "github.com/juju/juju/v3/testing"
 )
 
 type instanceMutaterSuite struct {

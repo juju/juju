@@ -13,7 +13,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/juju/juju/caas/specs"
+	"github.com/juju/juju/v3/caas/specs"
 )
 
 type caaSSpecV3 = specs.PodSpecV3

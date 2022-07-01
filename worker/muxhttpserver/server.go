@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pki"
-	pkitls "github.com/juju/juju/pki/tls"
+	"github.com/juju/juju/v3/apiserver/apiserverhttp"
+	"github.com/juju/juju/v3/pki"
+	pkitls "github.com/juju/juju/v3/pki/tls"
 )
 
 type Config struct {

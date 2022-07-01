@@ -10,14 +10,14 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/controller"
-	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/controller"
+	coreconfig "github.com/juju/juju/v3/core/config"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/core/network"
+	"github.com/juju/juju/v3/core/resources"
+	"github.com/juju/juju/v3/core/status"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/state"
 )
 
 // CAASApplicationProvisionerState provides the subset of model state

@@ -9,13 +9,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/v3/api"
+	"github.com/juju/juju/v3/cloudconfig/instancecfg"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/core/model"
+	"github.com/juju/juju/v3/environs/config"
+	"github.com/juju/juju/v3/testing"
+	coretools "github.com/juju/juju/v3/tools"
 )
 
 type instancecfgSuite struct {

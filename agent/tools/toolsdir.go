@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/v3/symlink"
 	"github.com/juju/version/v2"
 
-	coretools "github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/v3/tools"
 )
 
 const (

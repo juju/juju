@@ -16,10 +16,10 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/snap"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/v3/service/common"
+	"github.com/juju/juju/v3/service/snap"
+	"github.com/juju/juju/v3/service/systemd"
+	"github.com/juju/juju/v3/service/upstart"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/service.go github.com/juju/juju/service Service

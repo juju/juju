@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/core/payloads"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type helpersSuite struct {

@@ -8,11 +8,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v3/apiserver/common"
+	apiservererrors "github.com/juju/juju/v3/apiserver/errors"
+	"github.com/juju/juju/v3/apiserver/facades/controller/lifeflag"
+	"github.com/juju/juju/v3/core/life"
+	"github.com/juju/juju/v3/rpc/params"
 )
 
 type FacadeSuite struct {

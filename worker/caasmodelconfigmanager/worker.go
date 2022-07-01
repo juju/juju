@@ -13,11 +13,11 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/base"
-	api "github.com/juju/juju/api/controller/caasmodelconfigmanager"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/v3/api/base"
+	api "github.com/juju/juju/v3/api/controller/caasmodelconfigmanager"
+	"github.com/juju/juju/v3/controller"
+	"github.com/juju/juju/v3/docker"
+	"github.com/juju/juju/v3/docker/registry"
 )
 
 // Logger represents the methods used by the worker to log details.

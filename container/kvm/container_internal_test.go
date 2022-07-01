@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/v3/core/network"
 )
 
 // gocheck boilerplate.

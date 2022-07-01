@@ -24,17 +24,17 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/tools"
-	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju/keys"
-	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
+	coreos "github.com/juju/juju/v3/core/os"
+	coreseries "github.com/juju/juju/v3/core/series"
+	"github.com/juju/juju/v3/environs/filestorage"
+	"github.com/juju/juju/v3/environs/simplestreams"
+	sstesting "github.com/juju/juju/v3/environs/simplestreams/testing"
+	"github.com/juju/juju/v3/environs/storage"
+	"github.com/juju/juju/v3/environs/tools"
+	toolstesting "github.com/juju/juju/v3/environs/tools/testing"
+	"github.com/juju/juju/v3/juju/keys"
+	coretesting "github.com/juju/juju/v3/testing"
+	coretools "github.com/juju/juju/v3/tools"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")

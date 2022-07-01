@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v3/core/constraints"
+	"github.com/juju/juju/v3/state"
 )
 
 type constraintsValidationSuite struct {

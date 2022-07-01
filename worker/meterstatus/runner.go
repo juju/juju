@@ -8,11 +8,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/v3/agent"
+	"github.com/juju/juju/v3/core/machinelock"
+	"github.com/juju/juju/v3/worker/common/charmrunner"
+	"github.com/juju/juju/v3/worker/uniter"
+	"github.com/juju/juju/v3/worker/uniter/runner"
 )
 
 // HookRunner implements the functionality necessary to run a meter-status-changed hook.
