@@ -7,8 +7,8 @@ import (
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/v2/apiserver"
+	"github.com/juju/juju/v2/core/auditlog"
 )
 
 type auditConfigSuite struct {

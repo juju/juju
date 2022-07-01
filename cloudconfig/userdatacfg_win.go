@@ -16,10 +16,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/cert"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/core/paths"
+	"github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/juju/osenv"
+	"github.com/juju/juju/v2/tools"
 )
 
 //go:generate go run github.com/juju/juju/generate/filetoconst UserDataScript windowsuserdatafiles/userdata.ps1 winuserdatawrapper.go 2016 cloudconfig

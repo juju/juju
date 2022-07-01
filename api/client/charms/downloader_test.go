@@ -15,10 +15,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
-	basemocks "github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/http/mocks"
-	coretesting "github.com/juju/juju/testing"
+	basemocks "github.com/juju/juju/v2/api/base/mocks"
+	"github.com/juju/juju/v2/api/client/charms"
+	"github.com/juju/juju/v2/api/http/mocks"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type charmDownloaderSuite struct {

@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 
-	"github.com/juju/juju/apiserver/websocket"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/websocket"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 type logStreamSource interface {

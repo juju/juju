@@ -8,11 +8,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
+	apiwatcher "github.com/juju/juju/v2/api/watcher"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // State provides access to an reboot worker's view of the state.

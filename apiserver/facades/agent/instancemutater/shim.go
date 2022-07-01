@@ -7,8 +7,8 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/state"
 )
 
 // instanceMutaterStateShim is used as a shim for state.State to enable better

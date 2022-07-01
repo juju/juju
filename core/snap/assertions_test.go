@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/juju/juju/core/snap"
+	"github.com/juju/juju/v2/core/snap"
 	gc "gopkg.in/check.v1"
 )
 

@@ -7,7 +7,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/charm/v8"
-	corecharm "github.com/juju/juju/core/charm"
+	corecharm "github.com/juju/juju/v2/core/charm"
 )
 
 // Downloader defines an API for downloading and storing charms.

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/v2/cmd/jujud/agent/model"
+	"github.com/juju/juju/v2/worker/lifeflag"
 )
 
 type ErrorsSuite struct {

@@ -8,15 +8,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/cloudconfig/instancecfg"
+	"github.com/juju/juju/v2/container"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/provider/common"
 )
 
 var lxdLogger = loggo.GetLogger("juju.container.broker.lxd")

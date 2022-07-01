@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/lumberjack"
 
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v2/core/paths"
 )
 
 // NewFileWriter returns an io.WriteCloser that will write log messages to disk.

@@ -14,11 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/core/migration"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/state"
+	statetesting "github.com/juju/juju/v2/state/testing"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type MigrationSuite struct {

@@ -10,16 +10,16 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller/undertaker"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher/watchertest"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/controller/undertaker"
+	apiwatcher "github.com/juju/juju/v2/api/watcher"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 // TODO(fwereade) 2016-03-17 lp:1558668

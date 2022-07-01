@@ -13,10 +13,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/config"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/state/mgo"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/cmd/jujud/agent/config"
+	agenterrors "github.com/juju/juju/v2/cmd/jujud/agent/errors"
+	"github.com/juju/juju/v2/state/mgo"
 )
 
 // AgentConf is a terribly confused interface.

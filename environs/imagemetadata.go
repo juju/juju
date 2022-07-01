@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/v2/environs/imagemetadata"
+	"github.com/juju/juju/v2/environs/simplestreams"
 )
 
 type datasourceFuncId struct {

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/v2/apiserver/observer"
+	"github.com/juju/juju/v2/rpc"
 )
 
 // MetricLabels used for setting labels for the Counter and Summary vectors.

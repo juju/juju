@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/v2/testcharms"
+	"github.com/juju/juju/v2/worker/uniter/charm"
 )
 
 // bundleReader is a charm.BundleReader that lets us mock out the bundles we

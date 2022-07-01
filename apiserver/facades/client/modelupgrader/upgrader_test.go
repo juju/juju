@@ -14,16 +14,16 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	modelmocks "github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
-	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
-	"github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades/upgradevalidation"
+	modelmocks "github.com/juju/juju/v2/apiserver/facades/client/modelmanager/mocks"
+	"github.com/juju/juju/v2/apiserver/facades/client/modelupgrader"
+	"github.com/juju/juju/v2/apiserver/facades/client/modelupgrader/mocks"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/upgrades/upgradevalidation"
 )
 
 type modelManagerUpgradeSuite struct {

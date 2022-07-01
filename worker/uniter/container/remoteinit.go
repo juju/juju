@@ -4,9 +4,9 @@
 package container
 
 import (
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/v2/worker/uniter/operation"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/resolver"
 )
 
 type remoteContainerInitResolver struct{}

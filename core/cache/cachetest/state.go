@@ -10,13 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/core/cache"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/state"
 )
 
 // ModelChangeFromState returns a ModelChange representing the current

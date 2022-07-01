@@ -12,13 +12,13 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/bundle"
-	appFacade "github.com/juju/juju/apiserver/facades/client/application"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/client/application"
+	"github.com/juju/juju/v2/api/client/bundle"
+	appFacade "github.com/juju/juju/v2/apiserver/facades/client/application"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.

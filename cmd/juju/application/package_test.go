@@ -6,8 +6,8 @@ package application_test
 import (
 	stdtesting "testing"
 
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
+	_ "github.com/juju/juju/v2/provider/dummy"
+	"github.com/juju/juju/v2/testing"
 )
 
 // TODO(wallyworld) - convert tests moved across from commands package to not require mongo

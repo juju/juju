@@ -6,104 +6,104 @@ package apiserver
 import (
 	"reflect"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/agent"
-	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
-	"github.com/juju/juju/apiserver/facades/agent/caasagent"
-	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
-	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
-	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
-	"github.com/juju/juju/apiserver/facades/agent/deployer"
-	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
-	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
-	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
-	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
-	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
-	"github.com/juju/juju/apiserver/facades/agent/leadership"
-	loggerapi "github.com/juju/juju/apiserver/facades/agent/logger"
-	"github.com/juju/juju/apiserver/facades/agent/machine"
-	"github.com/juju/juju/apiserver/facades/agent/machineactions"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
-	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
-	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
-	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
-	"github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
-	"github.com/juju/juju/apiserver/facades/agent/provisioner"
-	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
-	"github.com/juju/juju/apiserver/facades/agent/reboot"
-	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
-	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
-	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
-	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
-	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/apiserver/facades/agent/upgrader"
-	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
-	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
-	"github.com/juju/juju/apiserver/facades/client/action"
-	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/apiserver/facades/agent/agent"
+	"github.com/juju/juju/v2/apiserver/facades/agent/caasadmission"
+	"github.com/juju/juju/v2/apiserver/facades/agent/caasagent"
+	"github.com/juju/juju/v2/apiserver/facades/agent/caasapplication"
+	"github.com/juju/juju/v2/apiserver/facades/agent/caasoperator"
+	"github.com/juju/juju/v2/apiserver/facades/agent/credentialvalidator"
+	"github.com/juju/juju/v2/apiserver/facades/agent/deployer"
+	"github.com/juju/juju/v2/apiserver/facades/agent/diskmanager"
+	"github.com/juju/juju/v2/apiserver/facades/agent/fanconfigurer"
+	"github.com/juju/juju/v2/apiserver/facades/agent/hostkeyreporter"
+	"github.com/juju/juju/v2/apiserver/facades/agent/instancemutater"
+	"github.com/juju/juju/v2/apiserver/facades/agent/keyupdater"
+	"github.com/juju/juju/v2/apiserver/facades/agent/leadership"
+	loggerapi "github.com/juju/juju/v2/apiserver/facades/agent/logger"
+	"github.com/juju/juju/v2/apiserver/facades/agent/machine"
+	"github.com/juju/juju/v2/apiserver/facades/agent/machineactions"
+	"github.com/juju/juju/v2/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/v2/apiserver/facades/agent/metricsadder"
+	"github.com/juju/juju/v2/apiserver/facades/agent/migrationflag"
+	"github.com/juju/juju/v2/apiserver/facades/agent/migrationminion"
+	"github.com/juju/juju/v2/apiserver/facades/agent/payloadshookcontext"
+	"github.com/juju/juju/v2/apiserver/facades/agent/provisioner"
+	"github.com/juju/juju/v2/apiserver/facades/agent/proxyupdater"
+	"github.com/juju/juju/v2/apiserver/facades/agent/reboot"
+	"github.com/juju/juju/v2/apiserver/facades/agent/resourceshookcontext"
+	"github.com/juju/juju/v2/apiserver/facades/agent/retrystrategy"
+	"github.com/juju/juju/v2/apiserver/facades/agent/storageprovisioner"
+	"github.com/juju/juju/v2/apiserver/facades/agent/unitassigner"
+	"github.com/juju/juju/v2/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/v2/apiserver/facades/agent/upgrader"
+	"github.com/juju/juju/v2/apiserver/facades/agent/upgradeseries"
+	"github.com/juju/juju/v2/apiserver/facades/agent/upgradesteps"
+	"github.com/juju/juju/v2/apiserver/facades/client/action"
+	"github.com/juju/juju/v2/apiserver/facades/client/annotations" // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/application"
+	"github.com/juju/juju/v2/apiserver/facades/client/modelupgrader"
 
 	// ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
-	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/block"   // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/apiserver/facades/client/charmhub"
-	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
-	"github.com/juju/juju/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
-	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
-	"github.com/juju/juju/apiserver/facades/client/firewallrules"
-	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
-	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
-	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/payloads"
-	"github.com/juju/juju/apiserver/facades/client/resources"
-	"github.com/juju/juju/apiserver/facades/client/spaces"    // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/sshclient" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/storage"
-	"github.com/juju/juju/apiserver/facades/client/subnets"
-	"github.com/juju/juju/apiserver/facades/client/usermanager"
-	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
-	"github.com/juju/juju/apiserver/facades/controller/agenttools"
-	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
-	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
-	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
-	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
-	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
-	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/facades/controller/cleaner"
-	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
-	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
-	"github.com/juju/juju/apiserver/facades/controller/environupgrader"
-	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller"
-	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
-	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
-	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
-	"github.com/juju/juju/apiserver/facades/controller/logfwd"
-	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
-	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
-	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
-	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
-	"github.com/juju/juju/apiserver/facades/controller/raftlease"
-	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
-	"github.com/juju/juju/apiserver/facades/controller/resumer"
-	"github.com/juju/juju/apiserver/facades/controller/singular"
-	"github.com/juju/juju/apiserver/facades/controller/statushistory"
-	"github.com/juju/juju/apiserver/facades/controller/undertaker"
+	"github.com/juju/juju/v2/apiserver/facades/client/applicationoffers"
+	"github.com/juju/juju/v2/apiserver/facades/client/backups" // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/block"   // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/bundle"
+	"github.com/juju/juju/v2/apiserver/facades/client/charmhub"
+	"github.com/juju/juju/v2/apiserver/facades/client/charms"     // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/client"     // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/cloud"      // ModelUser Read
+	"github.com/juju/juju/v2/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/v2/apiserver/facades/client/credentialmanager"
+	"github.com/juju/juju/v2/apiserver/facades/client/firewallrules"
+	"github.com/juju/juju/v2/apiserver/facades/client/highavailability" // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/imagemanager"     // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/imagemetadatamanager"
+	"github.com/juju/juju/v2/apiserver/facades/client/keymanager"     // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/machinemanager" // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/metricsdebug"   // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/modelconfig"    // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/modelgeneration"
+	"github.com/juju/juju/v2/apiserver/facades/client/modelmanager" // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/payloads"
+	"github.com/juju/juju/v2/apiserver/facades/client/resources"
+	"github.com/juju/juju/v2/apiserver/facades/client/spaces"    // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/sshclient" // ModelUser Write
+	"github.com/juju/juju/v2/apiserver/facades/client/storage"
+	"github.com/juju/juju/v2/apiserver/facades/client/subnets"
+	"github.com/juju/juju/v2/apiserver/facades/client/usermanager"
+	"github.com/juju/juju/v2/apiserver/facades/controller/actionpruner"
+	"github.com/juju/juju/v2/apiserver/facades/controller/agenttools"
+	"github.com/juju/juju/v2/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/v2/apiserver/facades/controller/caasapplicationprovisioner"
+	"github.com/juju/juju/v2/apiserver/facades/controller/caasfirewaller"
+	"github.com/juju/juju/v2/apiserver/facades/controller/caasmodelconfigmanager"
+	"github.com/juju/juju/v2/apiserver/facades/controller/caasmodeloperator"
+	"github.com/juju/juju/v2/apiserver/facades/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/v2/apiserver/facades/controller/caasoperatorupgrader"
+	"github.com/juju/juju/v2/apiserver/facades/controller/caasunitprovisioner"
+	"github.com/juju/juju/v2/apiserver/facades/controller/charmdownloader"
+	"github.com/juju/juju/v2/apiserver/facades/controller/charmrevisionupdater"
+	"github.com/juju/juju/v2/apiserver/facades/controller/cleaner"
+	"github.com/juju/juju/v2/apiserver/facades/controller/crosscontroller"
+	"github.com/juju/juju/v2/apiserver/facades/controller/crossmodelrelations"
+	"github.com/juju/juju/v2/apiserver/facades/controller/environupgrader"
+	"github.com/juju/juju/v2/apiserver/facades/controller/externalcontrollerupdater"
+	"github.com/juju/juju/v2/apiserver/facades/controller/firewaller"
+	"github.com/juju/juju/v2/apiserver/facades/controller/imagemetadata"
+	"github.com/juju/juju/v2/apiserver/facades/controller/instancepoller"
+	"github.com/juju/juju/v2/apiserver/facades/controller/lifeflag"
+	"github.com/juju/juju/v2/apiserver/facades/controller/logfwd"
+	"github.com/juju/juju/v2/apiserver/facades/controller/machineundertaker"
+	"github.com/juju/juju/v2/apiserver/facades/controller/metricsmanager"
+	"github.com/juju/juju/v2/apiserver/facades/controller/migrationmaster"
+	"github.com/juju/juju/v2/apiserver/facades/controller/migrationtarget"
+	"github.com/juju/juju/v2/apiserver/facades/controller/raftlease"
+	"github.com/juju/juju/v2/apiserver/facades/controller/remoterelations"
+	"github.com/juju/juju/v2/apiserver/facades/controller/resumer"
+	"github.com/juju/juju/v2/apiserver/facades/controller/singular"
+	"github.com/juju/juju/v2/apiserver/facades/controller/statushistory"
+	"github.com/juju/juju/v2/apiserver/facades/controller/undertaker"
 )
 
 // AllFacades returns a registry containing all known API facades.

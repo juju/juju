@@ -22,10 +22,10 @@ import (
 	"github.com/juju/utils/v3/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/controller"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/controller"
+	coretesting "github.com/juju/juju/v2/testing"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 var _ = gc.Suite(&RestoreSuite{})

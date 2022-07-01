@@ -8,8 +8,8 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/v2/core/instance"
+	corenetwork "github.com/juju/juju/v2/core/network"
 )
 
 // Networking is an interface providing networking-related operations

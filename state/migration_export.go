@@ -18,16 +18,16 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 
-	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state/migrations"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/v2/core/arch"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	"github.com/juju/juju/v2/core/container"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/payloads"
+	"github.com/juju/juju/v2/core/resources"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/state/migrations"
+	"github.com/juju/juju/v2/storage/poolmanager"
 )
 
 // The following exporter type is being refactored. This is to better model the

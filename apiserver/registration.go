@@ -15,9 +15,9 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/charmstore"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 const (

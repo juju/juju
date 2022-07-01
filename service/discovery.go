@@ -12,13 +12,13 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3/shell"
 
-	"github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
+	"github.com/juju/juju/v2/core/os"
+	jujuseries "github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/service/common"
+	"github.com/juju/juju/v2/service/systemd"
+	"github.com/juju/juju/v2/service/upstart"
+	"github.com/juju/juju/v2/service/windows"
 )
 
 // DiscoverService returns an interface to a service appropriate

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/state"
 )
 
 // State is the subset of *state.State that we need.

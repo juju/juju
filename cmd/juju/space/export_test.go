@@ -4,7 +4,7 @@
 package space
 
 import (
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
 )
 
 func (base *SpaceCommandBase) SetAPI(api API) {

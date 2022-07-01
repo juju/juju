@@ -30,7 +30,7 @@ If one knows the how to contact a controller, and some juju user credentials
 (e.g. username and password) it is possible to obtain a connector like this.
 
 ```golang
-import "github.com/juju/juju/api/connector"
+import "github.com/juju/juju/v2/api/connector"
 ```
 ```golang
 connr, err := connector.NewSimple(connector.SimpleConfig{
@@ -50,7 +50,7 @@ If a client store is available on the filesystem, it is possible to use it to
 configure the connector.
 
 ```golang
-import "github.com/juju/juju/api/connector"
+import "github.com/juju/juju/v2/api/connector"
 ```
 ```golang
 connr, err := connector.NewClientStore(connector.ClientStoreConfig{
@@ -68,8 +68,8 @@ Once we have a connector, it's easy to make requests.
 ```golang
 import (
     "encoding/json"
-	"github.com/juju/juju/api/connector"
-	"github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/v2/api/connector"
+	"github.com/juju/juju/v2/api/client/client"
 )
 ```
 ```golang

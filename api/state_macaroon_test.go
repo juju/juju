@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/v2/api"
+	apitesting "github.com/juju/juju/v2/api/testing"
+	"github.com/juju/juju/v2/core/permission"
 )
 
 var _ = gc.Suite(&macaroonLoginSuite{})

@@ -14,8 +14,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/mongo"
 )
 
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user

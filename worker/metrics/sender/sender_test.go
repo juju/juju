@@ -19,10 +19,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/metrics/sender"
-	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/v2/rpc/params"
+	jujutesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/metrics/sender"
+	"github.com/juju/juju/v2/worker/metrics/spool"
 )
 
 var _ = gc.Suite(&senderSuite{})

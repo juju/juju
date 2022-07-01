@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NewBody returns an HTTP request body and content type

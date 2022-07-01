@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 // StorageAccessor is an interface for accessing information about

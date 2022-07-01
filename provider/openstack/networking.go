@@ -14,10 +14,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
 )
 
 type networkingBase struct {

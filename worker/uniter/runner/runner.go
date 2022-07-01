@@ -25,13 +25,13 @@ import (
 	utilexec "github.com/juju/utils/v3/exec"
 	"github.com/kballard/go-shellquote"
 
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/core/model"
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/debug"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/core/actions"
+	"github.com/juju/juju/v2/core/model"
+	jujuos "github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/worker/common/charmrunner"
+	"github.com/juju/juju/v2/worker/uniter/runner/context"
+	"github.com/juju/juju/v2/worker/uniter/runner/debug"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

@@ -13,12 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/crossmodel"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	apitesting "github.com/juju/juju/v2/api/testing"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/crossmodel"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/testing"
 )
 
 const endpointSeparator = ":"

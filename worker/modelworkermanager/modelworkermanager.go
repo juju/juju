@@ -16,12 +16,12 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/controller"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/pki"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/apiserverhttp"
+	"github.com/juju/juju/v2/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v2/controller"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	"github.com/juju/juju/v2/pki"
+	"github.com/juju/juju/v2/state"
 )
 
 // ModelWatcher provides an interface for watching the additiona and

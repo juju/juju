@@ -8,8 +8,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/v2/state"
 )
 
 type fakeStorage struct {

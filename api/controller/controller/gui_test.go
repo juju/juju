@@ -14,9 +14,9 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/controller"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // sendJSONResponse encodes the given content as JSON and writes it to the

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	jujucontroller "github.com/juju/juju/controller"
+	jujucontroller "github.com/juju/juju/v2/controller"
 )
 
 const (

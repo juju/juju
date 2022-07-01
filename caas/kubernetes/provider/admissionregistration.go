@@ -14,10 +14,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	k8sspecs "github.com/juju/juju/v2/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	k8sannotations "github.com/juju/juju/v2/core/annotations"
 )
 
 func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[string]string {

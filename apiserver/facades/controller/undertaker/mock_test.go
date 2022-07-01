@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/facades/controller/undertaker"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facades/controller/undertaker"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/state"
 )
 
 // mockState implements State interface and allows inspection of called

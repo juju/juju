@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v2/charmhub"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 // ModelGetter defines an interface for getting a model.

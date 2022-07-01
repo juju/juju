@@ -6,7 +6,7 @@ package lease
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v2/core/lease"
 )
 
 // token implements lease.Token.

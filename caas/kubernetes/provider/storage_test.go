@@ -11,11 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/storage"
+	storageprovider "github.com/juju/juju/v2/storage/provider"
 )
 
 var _ = gc.Suite(&storageSuite{})

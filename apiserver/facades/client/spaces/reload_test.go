@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/environs/context"
-	environmocks "github.com/juju/juju/environs/mocks"
+	facademocks "github.com/juju/juju/v2/apiserver/facade/mocks"
+	"github.com/juju/juju/v2/environs/context"
+	environmocks "github.com/juju/juju/v2/environs/mocks"
 )
 
 // ReloadSpacesAPISuite is used to test API calls using mocked model operations.

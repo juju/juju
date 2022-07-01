@@ -10,8 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
-	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/testing"
+	k8sspecs "github.com/juju/juju/v2/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/v2/testing"
 )
 
 type containerEnvSuite struct {

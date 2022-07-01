@@ -11,10 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/spaces"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/apiserver/facades/client/spaces"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // moveSubsetOpSuite tests the model operation used to

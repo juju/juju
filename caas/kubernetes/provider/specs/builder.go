@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
-	"github.com/juju/juju/caas"
-	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/v2/caas"
+	k8sannotations "github.com/juju/juju/v2/core/annotations"
 )
 
 var (

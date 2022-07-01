@@ -14,8 +14,8 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/testing"
 )
 
 type credentialsSuite struct {

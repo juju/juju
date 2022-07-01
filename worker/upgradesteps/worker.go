@@ -15,15 +15,15 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades"
-	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	agenterrors "github.com/juju/juju/v2/cmd/jujud/agent/errors"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/upgrades"
+	jujuversion "github.com/juju/juju/v2/version"
+	"github.com/juju/juju/v2/worker/gate"
+	"github.com/juju/juju/v2/wrench"
 )
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")

@@ -17,10 +17,10 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/environs/imagedownloads"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/v2/core/paths"
+	"github.com/juju/juju/v2/environs/imagedownloads"
+	"github.com/juju/juju/v2/environs/imagemetadata"
+	"github.com/juju/juju/v2/environs/simplestreams"
 )
 
 // BIOSFType is the file type we want to fetch and use for kvm instances which

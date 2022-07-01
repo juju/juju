@@ -10,9 +10,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/agent/machineactions"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/agent/machineactions"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineactions")

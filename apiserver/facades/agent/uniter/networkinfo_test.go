@@ -16,15 +16,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/v2/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type ProReqRelation struct {

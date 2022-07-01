@@ -7,8 +7,8 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/core/application"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Unit holds the values for the hook context.

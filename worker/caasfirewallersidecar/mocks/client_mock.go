@@ -8,10 +8,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charms "github.com/juju/juju/api/common/charms"
-	config "github.com/juju/juju/core/config"
-	life "github.com/juju/juju/core/life"
-	watcher "github.com/juju/juju/core/watcher"
+	charms "github.com/juju/juju/v2/api/common/charms"
+	config "github.com/juju/juju/v2/core/config"
+	life "github.com/juju/juju/v2/core/life"
+	watcher "github.com/juju/juju/v2/core/watcher"
 )
 
 // MockClient is a mock of Client interface.

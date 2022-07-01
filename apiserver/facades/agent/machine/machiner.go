@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/common/networkingcommon"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method

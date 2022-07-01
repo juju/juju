@@ -21,10 +21,10 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/metrics/collect"
-	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/metrics/collect"
+	"github.com/juju/juju/v2/worker/metrics/spool"
+	"github.com/juju/juju/v2/worker/uniter/runner/context"
 )
 
 type handlerSuite struct {

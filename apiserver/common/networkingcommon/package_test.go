@@ -9,9 +9,9 @@ import (
 	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/state"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon BackingSpace,BackingSubnet,LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,AddSubnetsState,LinkLayerAndSubnetsState

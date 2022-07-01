@@ -6,7 +6,7 @@ package relation
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v2/worker/uniter/runner/context"
 )
 
 type StateTrackerForTestConfig struct {

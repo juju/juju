@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 var (

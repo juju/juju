@@ -9,10 +9,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/space"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs/space"
+	"github.com/juju/juju/v2/state"
 )
 
 // StatePool represents a point of use interface for getting the state from the

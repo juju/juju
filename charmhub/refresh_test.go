@@ -17,10 +17,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/core/arch"
-	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/v2/charmhub/path"
+	"github.com/juju/juju/v2/charmhub/transport"
+	"github.com/juju/juju/v2/core/arch"
+	charmmetrics "github.com/juju/juju/v2/core/charm/metrics"
 )
 
 type RefreshSuite struct {

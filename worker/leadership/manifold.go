@@ -13,10 +13,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/leadership"
-	"github.com/juju/juju/api/base"
-	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api/agent/leadership"
+	"github.com/juju/juju/v2/api/base"
+	coreleadership "github.com/juju/juju/v2/core/leadership"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.

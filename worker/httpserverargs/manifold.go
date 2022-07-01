@@ -12,9 +12,9 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/v2/apiserver/apiserverhttp"
+	"github.com/juju/juju/v2/apiserver/httpcontext"
+	workerstate "github.com/juju/juju/v2/worker/state"
 )
 
 // ManifoldConfig holds the resources needed to run an httpserverargs

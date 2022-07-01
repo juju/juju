@@ -10,7 +10,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/mongo"
 )
 
 // AutocertCache returns an implementation

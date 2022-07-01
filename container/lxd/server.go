@@ -14,7 +14,7 @@ import (
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/v2/core/os"
 )
 
 // osSupport is the list of operating system types for which Juju supports

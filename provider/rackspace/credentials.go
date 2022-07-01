@@ -6,8 +6,8 @@ package rackspace
 import (
 	"fmt"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/provider/openstack"
 )
 
 // Credentials represents openstack credentials specifically tailored

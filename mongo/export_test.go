@@ -6,8 +6,8 @@ package mongo
 import (
 	"github.com/golang/mock/gomock"
 
-	"github.com/juju/juju/service/common"
-	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/v2/service/common"
+	svctesting "github.com/juju/juju/v2/service/common/testing"
 )
 
 var (

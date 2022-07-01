@@ -7,8 +7,8 @@ import (
 	ctx "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/environs"
 )
 
 // upgradeKubernetesClusterCredential is an upgrade step interface that

@@ -6,8 +6,8 @@ package externalcontrollerupdater
 import (
 	"reflect"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.

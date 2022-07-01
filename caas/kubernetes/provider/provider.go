@@ -17,17 +17,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/juju/juju/caas"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	environsbootstrap "github.com/juju/juju/environs/bootstrap"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v2/caas"
+	k8scloud "github.com/juju/juju/v2/caas/kubernetes/cloud"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	k8swatcher "github.com/juju/juju/v2/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/environs"
+	environsbootstrap "github.com/juju/juju/v2/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/environs/context"
 )
 
 type kubernetesEnvironProvider struct {

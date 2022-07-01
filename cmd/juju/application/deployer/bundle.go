@@ -12,14 +12,14 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/client/application"
-	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/cmd/juju/application/bundle"
-	"github.com/juju/juju/cmd/juju/application/store"
-	"github.com/juju/juju/cmd/juju/application/utils"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/api/client/application"
+	commoncharm "github.com/juju/juju/v2/api/common/charm"
+	"github.com/juju/juju/v2/cmd/juju/application/bundle"
+	"github.com/juju/juju/v2/cmd/juju/application/store"
+	"github.com/juju/juju/v2/cmd/juju/application/utils"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/devices"
+	"github.com/juju/juju/v2/storage"
 )
 
 type deployBundle struct {

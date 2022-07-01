@@ -11,9 +11,9 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/state"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/v2/core/multiwatcher"
+	"github.com/juju/juju/v2/state"
+	workerstate "github.com/juju/juju/v2/worker/state"
 )
 
 // Logger describes the logging methods used in this package by the worker.

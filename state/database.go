@@ -17,9 +17,9 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/mongo"
 )
 
 var txnLogger = loggo.GetLogger("juju.state.txn")

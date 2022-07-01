@@ -13,12 +13,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/cmd/juju/controller"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/jujuclient/jujuclienttesting"
 )
 
 type ListControllersSuite struct {

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	watcher "github.com/juju/juju/core/watcher"
+	watcher "github.com/juju/juju/v2/core/watcher"
 )
 
 // MockUpgradeMachineSeriesAPI is a mock of UpgradeMachineSeriesAPI interface.

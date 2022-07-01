@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/resource"
+	"github.com/juju/juju/v2/state"
 )
 
 type CharmStoreSuite struct {

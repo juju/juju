@@ -6,7 +6,7 @@ package apiserver
 import (
 	"github.com/juju/rpcreflect"
 
-	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/v2/rpc"
 )
 
 // restrictRoot wraps the provided root so that the check function is

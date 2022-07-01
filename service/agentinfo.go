@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/utils/v3/shell"
 
-	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/v2/agent/tools"
 )
 
 // AgentKind identifies the kind of agent.

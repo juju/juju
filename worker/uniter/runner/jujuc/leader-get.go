@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucmd "github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/v2/cmd"
 )
 
 // leaderGetCommand implements the leader-get command.

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/utils/v3/arch"
 
-	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/v2/core/constraints"
 )
 
 const (

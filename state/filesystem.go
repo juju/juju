@@ -17,9 +17,9 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/paths"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/storage"
 )
 
 // ErrNoBackingVolume is returned by Filesystem.Volume() for filesystems

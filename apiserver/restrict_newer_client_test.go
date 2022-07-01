@@ -8,10 +8,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/apiserver"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/testing"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 type restrictNewerClientSuite struct {

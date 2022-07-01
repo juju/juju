@@ -11,7 +11,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/v2/cmd/output"
 )
 
 // formatVolumeListTabular returns a tabular summary of volume instances.

@@ -9,12 +9,12 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/environs/tools"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	coretools "github.com/juju/juju/v2/tools"
 )
 
 var _ = gc.Suite(&AgentToolsSuite{})

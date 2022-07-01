@@ -13,8 +13,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,UnitDiscovery,Upgrader

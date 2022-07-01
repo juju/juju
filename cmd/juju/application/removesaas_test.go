@@ -9,15 +9,15 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/v2/api/client/application"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v2/rpc/params"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type RemoveSaasSuite struct {

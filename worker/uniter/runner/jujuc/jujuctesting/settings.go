@@ -4,7 +4,7 @@
 package jujuctesting
 
 import (
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Settings is a test double for jujuc.Settings.

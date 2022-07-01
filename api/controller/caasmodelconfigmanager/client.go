@@ -6,8 +6,8 @@ package caasmodelconfigmanager
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/common"
 )
 
 // Client allows access to the CAAS model config manager API endpoint.

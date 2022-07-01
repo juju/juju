@@ -4,8 +4,8 @@
 package testing_test
 
 import (
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/service/common/testing"
 )
 
 var _ service.Service = (*testing.FakeService)(nil)

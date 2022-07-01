@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type Facade struct {

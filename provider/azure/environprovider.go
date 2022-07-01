@@ -13,12 +13,12 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
-	"github.com/juju/juju/provider/azure/internal/errorutils"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/v2/provider/azure/internal/errorutils"
 )
 
 const (

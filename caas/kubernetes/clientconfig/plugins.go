@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/proxy"
 )
 
 const (

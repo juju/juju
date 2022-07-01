@@ -10,11 +10,11 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	application "github.com/juju/juju/core/application"
-	network "github.com/juju/juju/core/network"
-	payloads "github.com/juju/juju/core/payloads"
-	params "github.com/juju/juju/rpc/params"
-	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
+	application "github.com/juju/juju/v2/core/application"
+	network "github.com/juju/juju/v2/core/network"
+	payloads "github.com/juju/juju/v2/core/payloads"
+	params "github.com/juju/juju/v2/rpc/params"
+	jujuc "github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
 )

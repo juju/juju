@@ -11,8 +11,8 @@ import (
 	"github.com/juju/version/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	jujucontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
+	jujucontext "github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/tags"
 )
 
 // AdoptResources is called when the model is moved from one

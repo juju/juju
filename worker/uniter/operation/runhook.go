@@ -9,15 +9,15 @@ import (
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/relation"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/worker/common/charmrunner"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/runner"
+	"github.com/juju/juju/v2/worker/uniter/runner/context"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 type runHook struct {

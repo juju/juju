@@ -5,7 +5,7 @@ package controller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // MongoVersion returns the mongo version associated with the state session.

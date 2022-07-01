@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 func generateUserControllerAccessToken(command modelcmd.ControllerCommandBase, username string, secretKey []byte) (string, error) {

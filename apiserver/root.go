@@ -17,17 +17,17 @@ import (
 	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/cache"
+	"github.com/juju/juju/v2/core/leadership"
+	"github.com/juju/juju/v2/core/lease"
+	"github.com/juju/juju/v2/core/multiwatcher"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/rpc"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 var (

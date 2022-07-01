@@ -13,7 +13,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/v2/pubsub/apiserver"
 )
 
 const (

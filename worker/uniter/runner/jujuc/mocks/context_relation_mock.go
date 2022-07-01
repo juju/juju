@@ -8,10 +8,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	life "github.com/juju/juju/core/life"
-	relation "github.com/juju/juju/core/relation"
-	params "github.com/juju/juju/rpc/params"
-	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
+	life "github.com/juju/juju/v2/core/life"
+	relation "github.com/juju/juju/v2/core/relation"
+	params "github.com/juju/juju/v2/rpc/params"
+	jujuc "github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 // MockContextRelation is a mock of ContextRelation interface.

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v2/cmd/jujud/agent/engine"
 )
 
 // isControllerFlagManifold returns a dependency.Manifold that requires state

@@ -24,13 +24,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver"
-	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing/factory"
-	jujuversion "github.com/juju/juju/version"
+	agenttools "github.com/juju/juju/v2/agent/tools"
+	"github.com/juju/juju/v2/apiserver"
+	apitesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state/binarystorage"
+	"github.com/juju/juju/v2/testing/factory"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 const (

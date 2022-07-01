@@ -16,17 +16,17 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	cloudapi "github.com/juju/juju/api/client/cloud"
-	"github.com/juju/juju/api/client/modelmanager"
-	jujucloud "github.com/juju/juju/cloud"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
+	cloudapi "github.com/juju/juju/v2/api/client/cloud"
+	"github.com/juju/juju/v2/api/client/modelmanager"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/block"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 const (

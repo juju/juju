@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type cmdSetSeriesSuite struct {

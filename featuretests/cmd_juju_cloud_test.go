@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/commands"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/v2/cmd/juju/commands"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
 )
 
 type CmdCloudSuite struct {

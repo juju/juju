@@ -15,15 +15,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/resources"
-	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/client/application"
+	"github.com/juju/juju/v2/api/client/resources"
+	commoncharm "github.com/juju/juju/v2/api/common/charm"
+	"github.com/juju/juju/v2/api/common/charms"
+	"github.com/juju/juju/v2/cmd/juju/application/deployer/mocks"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/environs/config"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type charmSuite struct {

@@ -18,15 +18,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/base"
-	apicharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/api/base"
+	apicharm "github.com/juju/juju/v2/api/common/charm"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/devices"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network/firewall"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
 )
 
 var logger = loggo.GetLogger("juju.api.application")

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/v2/cloud"
 )
 
 // ClientConfig - a set of cloud endpoint info and user credentials

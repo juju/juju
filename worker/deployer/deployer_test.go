@@ -16,14 +16,14 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	apideployer "github.com/juju/juju/api/agent/deployer"
-	"github.com/juju/juju/core/status"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	apideployer "github.com/juju/juju/v2/api/agent/deployer"
+	"github.com/juju/juju/v2/core/status"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/deployer"
 )
 
 type deployerSuite struct {

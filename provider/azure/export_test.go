@@ -6,7 +6,7 @@ package azure
 import (
 	legacystorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/environs"
 )
 
 func DisableLegacyStorage(env environs.Environ) {

@@ -12,7 +12,7 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 type MultiModelRunnerSuite struct {

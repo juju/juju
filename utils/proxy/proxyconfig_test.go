@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	proxyconfig "github.com/juju/juju/utils/proxy"
+	proxyconfig "github.com/juju/juju/v2/utils/proxy"
 )
 
 type Suite struct{}

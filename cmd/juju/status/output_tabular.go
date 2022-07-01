@@ -17,13 +17,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 
-	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/status"
+	cmdcrossmodel "github.com/juju/juju/v2/cmd/juju/crossmodel"
+	"github.com/juju/juju/v2/cmd/juju/storage"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/relation"
+	"github.com/juju/juju/v2/core/status"
 )
 
 const (

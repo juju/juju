@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/environs/context"
 )
 
 // AutoConfigureContainerNetworking tries to set up best container networking available

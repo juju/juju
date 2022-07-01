@@ -7,9 +7,9 @@ import (
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/assumes"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/v2/core/assumes"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/state/stateenvirons"
 )
 
 func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {

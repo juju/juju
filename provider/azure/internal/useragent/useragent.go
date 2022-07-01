@@ -6,7 +6,7 @@ package useragent
 import (
 	"github.com/Azure/go-autorest/autorest"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v2/version"
 )
 
 // JujuPrefix returns the User-Agent prefix set by Juju.

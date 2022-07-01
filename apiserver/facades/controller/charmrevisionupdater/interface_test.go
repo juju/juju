@@ -14,13 +14,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmstore"
-	charmmetrics "github.com/juju/juju/core/charm/metrics"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/apiserver/facades/controller/charmrevisionupdater"
+	"github.com/juju/juju/v2/apiserver/facades/controller/charmrevisionupdater/mocks"
+	"github.com/juju/juju/v2/charmhub"
+	"github.com/juju/juju/v2/charmstore"
+	charmmetrics "github.com/juju/juju/v2/core/charm/metrics"
+	"github.com/juju/juju/v2/state"
 )
 
 func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID string, revision int) charmrevisionupdater.Application {

@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/state/stateenvirons"
 )
 
 type environSuite struct {

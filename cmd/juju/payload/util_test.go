@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/charm/v8"
 
-	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/v2/core/payloads"
 )
 
 func NewPayload(name, application string, machine, unit int, labels ...string) payloads.FullPayloadInfo {

@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	multiwatcher "github.com/juju/juju/core/multiwatcher"
-	params "github.com/juju/juju/rpc/params"
+	multiwatcher "github.com/juju/juju/v2/core/multiwatcher"
+	params "github.com/juju/juju/v2/rpc/params"
 )
 
 // MockDeltaTranslater is a mock of DeltaTranslater interface.

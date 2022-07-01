@@ -6,7 +6,7 @@ package constants
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/v2/agent"
 )
 
 const (

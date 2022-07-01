@@ -26,10 +26,10 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	proxyupdaterapi "github.com/juju/juju/api/agent/proxyupdater"
-	"github.com/juju/juju/core/watcher"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/proxyupdater"
+	proxyupdaterapi "github.com/juju/juju/v2/api/agent/proxyupdater"
+	"github.com/juju/juju/v2/core/watcher"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/proxyupdater"
 )
 
 type ProxyUpdaterSuite struct {

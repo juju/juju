@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
-	charm "github.com/juju/juju/worker/uniter/charm"
+	charm "github.com/juju/juju/v2/worker/uniter/charm"
 )
 
 // MockBundleReader is a mock of BundleReader interface.

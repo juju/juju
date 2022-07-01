@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/v2/core/life"
 )
 
 // DestroyControllerArgs holds the arguments for destroying a controller.

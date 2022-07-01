@@ -17,8 +17,8 @@ import (
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/v2/core/arch"
+	"github.com/juju/juju/v2/core/lxdprofile"
 )
 
 // StateCharm represents a stored charm from state.

@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/client/payloads"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	corepayloads "github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/v2/api/client/payloads"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	corepayloads "github.com/juju/juju/v2/core/payloads"
 )
 
 // ListAPI has the API methods needed by ListCommand.

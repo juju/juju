@@ -13,9 +13,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/core/status"
 )
 
 const (

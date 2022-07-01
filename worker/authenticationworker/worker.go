@@ -14,11 +14,11 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/keyupdater"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/watcher"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api/agent/keyupdater"
+	"github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/core/watcher"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 // The user name used to ssh into Juju nodes.

@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charmhub "github.com/juju/juju/charmhub"
-	transport "github.com/juju/juju/charmhub/transport"
+	charmhub "github.com/juju/juju/v2/charmhub"
+	transport "github.com/juju/juju/v2/charmhub/transport"
 )
 
 // MockCharmHubClient is a mock of CharmHubClient interface.

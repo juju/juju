@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	stateerrors "github.com/juju/juju/state/errors"
+	stateerrors "github.com/juju/juju/v2/state/errors"
 )
 
 const (

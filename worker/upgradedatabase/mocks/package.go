@@ -9,9 +9,9 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	status "github.com/juju/juju/core/status"
-	state "github.com/juju/juju/state"
-	upgradedatabase "github.com/juju/juju/worker/upgradedatabase"
+	status "github.com/juju/juju/v2/core/status"
+	state "github.com/juju/juju/v2/state"
+	upgradedatabase "github.com/juju/juju/v2/worker/upgradedatabase"
 	version "github.com/juju/version/v2"
 )
 

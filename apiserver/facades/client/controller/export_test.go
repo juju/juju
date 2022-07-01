@@ -4,9 +4,9 @@
 package controller
 
 import (
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/migration"
+	"github.com/juju/juju/v2/state"
 )
 
 type patcher interface {

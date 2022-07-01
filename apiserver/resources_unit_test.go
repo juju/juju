@@ -13,11 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/resources"
-	resourcetesting "github.com/juju/juju/core/resources/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/core/resources"
+	resourcetesting "github.com/juju/juju/v2/core/resources/testing"
+	"github.com/juju/juju/v2/state"
 )
 
 type UnitResourcesHandlerSuite struct {

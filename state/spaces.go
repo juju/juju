@@ -16,8 +16,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/network"
-	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/v2/core/network"
+	stateerrors "github.com/juju/juju/v2/state/errors"
 )
 
 // Space represents the state of a juju network space.

@@ -4,8 +4,8 @@
 package credentialvalidator
 
 import (
-	"github.com/juju/juju/api/agent/credentialvalidator"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/v2/api/agent/credentialvalidator"
+	"github.com/juju/juju/v2/api/base"
 )
 
 // NewFacade creates a *credentialvalidator.Facade and returns it as a Facade.

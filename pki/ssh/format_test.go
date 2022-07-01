@@ -12,7 +12,7 @@ import (
 	cryptossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/pki/ssh"
+	"github.com/juju/juju/v2/pki/ssh"
 )
 
 type FormatSuite struct {

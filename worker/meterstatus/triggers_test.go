@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock/testclock"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/meterstatus"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/meterstatus"
 )
 
 type TriggersSuite struct {

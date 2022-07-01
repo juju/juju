@@ -19,10 +19,10 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/ssh"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/worker/peergrouper"
 )
 
 // resetReplicaSet re-initiates replica-set using the new controller

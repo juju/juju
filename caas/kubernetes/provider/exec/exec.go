@@ -29,10 +29,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
-	environsbootstrap "github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
+	k8sutils "github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	environsbootstrap "github.com/juju/juju/v2/environs/bootstrap"
+	"github.com/juju/juju/v2/environs/cloudspec"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.exec")

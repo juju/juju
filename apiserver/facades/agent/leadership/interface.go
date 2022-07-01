@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // LeadershipService implements a variant of leadership.Claimer for consumption

@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // This module implements a subset of the interface provided by

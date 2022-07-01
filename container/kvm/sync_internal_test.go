@@ -16,12 +16,12 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/v2/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/v2/environs/imagedownloads"
 )
 
 // syncInternalSuite is gocheck boilerplate.

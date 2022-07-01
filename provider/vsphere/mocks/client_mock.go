@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	vsphereclient "github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	vsphereclient "github.com/juju/juju/v2/provider/vsphere/internal/vsphereclient"
 	object "github.com/vmware/govmomi/object"
 	mo "github.com/vmware/govmomi/vim25/mo"
 	types "github.com/vmware/govmomi/vim25/types"

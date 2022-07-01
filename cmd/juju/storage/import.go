@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apistorage "github.com/juju/juju/api/client/storage"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/storage"
+	apistorage "github.com/juju/juju/v2/api/client/storage"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/storage"
 )
 
 // NewImportFilesystemCommand returns a command used to import a filesystem.

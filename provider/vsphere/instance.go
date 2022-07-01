@@ -8,13 +8,13 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v2/core/instance"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/network/firewall"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/provider/common"
 )
 
 type environInstance struct {

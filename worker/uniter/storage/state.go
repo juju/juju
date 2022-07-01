@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/uniter/hook"
 )
 
 // State describes the State of storage attachments.

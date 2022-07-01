@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	jujuos "github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/environs"
 )
 
 type rackspaceConfigurator struct {

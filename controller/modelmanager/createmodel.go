@@ -11,10 +11,10 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/tools"
 )
 
 var (

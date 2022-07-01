@@ -4,7 +4,7 @@
 package cleaner
 
 import (
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/state"
 )
 
 var (

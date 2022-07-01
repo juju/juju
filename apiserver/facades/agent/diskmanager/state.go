@@ -3,7 +3,7 @@
 
 package diskmanager
 
-import "github.com/juju/juju/state"
+import "github.com/juju/juju/v2/state"
 
 type stateInterface interface {
 	SetMachineBlockDevices(machineId string, devices []state.BlockDeviceInfo) error

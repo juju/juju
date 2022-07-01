@@ -12,13 +12,13 @@ import (
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/common"
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades/upgradevalidation"
+	"github.com/juju/juju/v2/apiserver/common"
+	coremigration "github.com/juju/juju/v2/core/migration"
+	"github.com/juju/juju/v2/core/presence"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/tools"
+	"github.com/juju/juju/v2/upgrades/upgradevalidation"
 )
 
 // PrecheckBackend defines the interface to query Juju's state

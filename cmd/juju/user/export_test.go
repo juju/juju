@@ -7,10 +7,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/juju"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 var (

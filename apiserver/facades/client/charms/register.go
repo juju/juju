@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/state/storage"
+	charmscommon "github.com/juju/juju/v2/apiserver/common/charms"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	charmsinterfaces "github.com/juju/juju/v2/apiserver/facades/client/charms/interfaces"
+	"github.com/juju/juju/v2/apiserver/facades/client/charms/services"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	"github.com/juju/juju/v2/state/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.

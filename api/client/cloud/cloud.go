@@ -10,11 +10,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/common"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/apiserver/common"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.api.cloud")

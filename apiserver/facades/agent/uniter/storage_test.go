@@ -10,13 +10,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/facades/agent/uniter"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	statetesting "github.com/juju/juju/v2/state/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 type storageSuite struct {

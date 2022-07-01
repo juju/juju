@@ -20,11 +20,11 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
-	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
-	"github.com/juju/juju/provider/azure/internal/errorutils"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs/context"
+	internalazurestorage "github.com/juju/juju/v2/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/v2/provider/azure/internal/errorutils"
+	"github.com/juju/juju/v2/storage"
 )
 
 const (

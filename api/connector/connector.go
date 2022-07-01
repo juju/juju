@@ -4,7 +4,7 @@
 package connector
 
 import (
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/v2/api"
 )
 
 // A Connector is able to provide a Connection.  This connection can be used to

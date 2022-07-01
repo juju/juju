@@ -11,7 +11,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/v2/logfwd"
 )
 
 type OriginSuite struct {

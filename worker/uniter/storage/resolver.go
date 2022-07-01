@@ -8,13 +8,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/operation"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/resolver"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

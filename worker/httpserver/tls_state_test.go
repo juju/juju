@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/acme"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/juju/v2/worker/httpserver"
 )
 
 type tlsStateFixture struct {

@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/api"
-	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/v2/api"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/jujuclient/jujuclienttesting"
 )
 
 var (

@@ -6,8 +6,8 @@ package status
 import (
 	"github.com/juju/cmd/v3"
 
-	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/juju/storage"
+	"github.com/juju/juju/v2/cmd/modelcmd"
 )
 
 func NewTestStatusHistoryCommand(api HistoryAPI) cmd.Command {

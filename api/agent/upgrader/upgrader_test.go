@@ -11,14 +11,14 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/upgrader"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/agent/upgrader"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
+	"github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	statetesting "github.com/juju/juju/v2/state/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type machineUpgraderSuite struct {

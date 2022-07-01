@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/cmd/output"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/cmd/output"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 const (

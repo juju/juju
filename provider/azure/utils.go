@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/errorutils"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/provider/azure/internal/errorutils"
 )
 
 // randomAdminPassword returns a random administrator password for

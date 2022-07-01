@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/environs/manual"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.environs.manual.winrmprovisioner")

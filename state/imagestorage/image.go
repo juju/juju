@@ -16,7 +16,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/mongo"
 )
 
 var logger = loggo.GetLogger("juju.state.imagestorage")

@@ -7,12 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/watcher"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	apiwatcher "github.com/juju/juju/v2/api/watcher"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/core/watcher"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // CloudSpecAPI provides common client-side API functions

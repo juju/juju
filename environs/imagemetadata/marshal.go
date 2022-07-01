@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/v2/environs/simplestreams"
 )
 
 const (

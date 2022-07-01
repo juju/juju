@@ -19,10 +19,10 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/charmstore"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.authentication")

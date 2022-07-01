@@ -19,9 +19,9 @@ import (
 	jujutxn "github.com/juju/txn/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs"
 )
 
 // RemoteApplication represents the state of an application hosted

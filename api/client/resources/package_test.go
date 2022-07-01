@@ -8,8 +8,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/http"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/http"
 )
 
 func Test(t *testing.T) {

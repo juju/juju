@@ -14,13 +14,13 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/testing"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type RelationSuite struct {

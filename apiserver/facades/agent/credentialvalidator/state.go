@@ -6,8 +6,8 @@ package credentialvalidator
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/state"
 )
 
 // ModelAccessor exposes Model methods needed by credential validator.

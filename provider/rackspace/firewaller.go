@@ -6,14 +6,14 @@ package rackspace
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/network/firewall"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/provider/common"
+	"github.com/juju/juju/v2/provider/openstack"
 )
 
 type firewallerFactory struct {

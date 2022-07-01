@@ -8,9 +8,9 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/metricsmanager"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/metricsmanager"
+	"github.com/juju/juju/v2/cmd/jujud/agent/engine"
 )
 
 // Logger represents the methods used by the worker to log details.

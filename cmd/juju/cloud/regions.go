@@ -14,13 +14,13 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	cloudapi "github.com/juju/juju/api/client/cloud"
-	jujucloud "github.com/juju/juju/cloud"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/jujuclient"
+	cloudapi "github.com/juju/juju/v2/api/client/cloud"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 type listRegionsCommand struct {

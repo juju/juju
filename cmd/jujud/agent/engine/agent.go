@@ -7,7 +7,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/v2/agent"
 )
 
 // Some manifolds just depend on an agent; this type configures them.

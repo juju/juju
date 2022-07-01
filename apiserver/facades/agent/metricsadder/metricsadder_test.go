@@ -12,14 +12,14 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade/facadetest"
-	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	jujuFactory "github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/facade/facadetest"
+	"github.com/juju/juju/v2/apiserver/facades/agent/metricsadder"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	jujuFactory "github.com/juju/juju/v2/testing/factory"
 )
 
 var _ = gc.Suite(&metricsAdderSuite{})

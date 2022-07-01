@@ -12,10 +12,10 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/core/leadership"
+	"github.com/juju/juju/v2/juju/sockets"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 // RealPaths implements Paths for tests that do touch the filesystem.

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
+	modelmanager "github.com/juju/juju/v2/apiserver/facades/client/modelmanager"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
 )

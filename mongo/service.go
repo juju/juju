@@ -16,10 +16,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/snap"
+	"github.com/juju/juju/v2/network"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/service/common"
+	"github.com/juju/juju/v2/service/snap"
 )
 
 const (

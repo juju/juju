@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.websocket")

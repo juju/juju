@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 
-	jujuos "github.com/juju/juju/core/os"
+	jujuos "github.com/juju/juju/v2/core/os"
 )
 
 // LogfilePermission is the file mode to use for log files.

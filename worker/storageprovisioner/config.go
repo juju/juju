@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/worker/common"
 )
 
 // Logger represents the methods used by the worker to log details.

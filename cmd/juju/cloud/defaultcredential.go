@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucloud "github.com/juju/juju/cloud"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/jujuclient"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 var usageSetDefaultCredentialSummary = `

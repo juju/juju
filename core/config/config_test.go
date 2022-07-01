@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/core/config"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/core/config"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type ConfigSuite struct {

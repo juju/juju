@@ -8,5 +8,5 @@ package all
 
 import (
 	// Register the provider.
-	_ "github.com/juju/juju/provider/maas"
+	_ "github.com/juju/juju/v2/provider/maas"
 )

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/v2/core/lease"
 )
 
 // Facade exposes the capabilities required by a FlagWorker.

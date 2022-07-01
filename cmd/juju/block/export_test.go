@@ -5,10 +5,10 @@ package block
 
 import (
 	"github.com/juju/cmd/v3"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/jujuclient"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NewDisableCommandForTest returns a new disable command with the

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/storage"
 )
 
 var Getpagesize = &getpagesize

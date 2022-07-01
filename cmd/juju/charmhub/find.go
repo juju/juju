@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/v2/charmhub"
+	"github.com/juju/juju/v2/charmhub/transport"
+	jujucmd "github.com/juju/juju/v2/cmd"
 )
 
 const (

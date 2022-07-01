@@ -12,14 +12,14 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/arch"
 
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc/params"
-	coretools "github.com/juju/juju/tools"
+	apiprovisioner "github.com/juju/juju/v2/api/agent/provisioner"
+	"github.com/juju/juju/v2/cloudconfig"
+	"github.com/juju/juju/v2/cloudconfig/instancecfg"
+	"github.com/juju/juju/v2/core/instance"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/network"
+	"github.com/juju/juju/v2/rpc/params"
+	coretools "github.com/juju/juju/v2/tools"
 )
 
 var logger = loggo.GetLogger("juju.container.broker")

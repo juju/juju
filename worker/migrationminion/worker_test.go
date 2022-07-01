@@ -18,16 +18,16 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/base"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/migration"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/watcher"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/fortress"
+	"github.com/juju/juju/v2/worker/migrationminion"
 )
 
 var (

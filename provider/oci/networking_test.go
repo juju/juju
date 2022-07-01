@@ -10,8 +10,8 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
 )
 
 type networkingSuite struct {

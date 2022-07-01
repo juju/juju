@@ -16,11 +16,11 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")

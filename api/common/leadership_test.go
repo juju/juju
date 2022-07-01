@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base/mocks"
-	"github.com/juju/juju/api/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api/base/mocks"
+	"github.com/juju/juju/v2/api/common"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/rpc/params"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type LeadershipSuite struct {

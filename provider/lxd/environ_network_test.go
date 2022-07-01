@@ -10,12 +10,12 @@ import (
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	jujulxd "github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/lxd"
+	jujulxd "github.com/juju/juju/v2/container/lxd"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/provider/lxd"
 )
 
 type environNetSuite struct {

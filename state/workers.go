@@ -11,8 +11,8 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/state/watcher"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v2/state/watcher"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 const txnLogWorker = "txnlog"

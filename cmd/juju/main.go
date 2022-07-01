@@ -11,8 +11,8 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd/juju/commands"
-	_ "github.com/juju/juju/provider/all" // Import the providers.
+	"github.com/juju/juju/v2/cmd/juju/commands"
+	_ "github.com/juju/juju/v2/provider/all" // Import the providers.
 )
 
 func init() {

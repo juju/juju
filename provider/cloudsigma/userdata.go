@@ -7,9 +7,9 @@ package cloudsigma
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	"github.com/juju/juju/v2/cloudconfig/providerinit/renderers"
+	jujuos "github.com/juju/juju/v2/core/os"
 )
 
 type CloudSigmaRenderer struct{}

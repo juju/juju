@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/core/lease"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // The following lease related error types are situated here to prevent core

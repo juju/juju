@@ -17,10 +17,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	apitesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type resourcesUploadSuite struct {

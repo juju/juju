@@ -12,13 +12,13 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/rpc/params"
+	basetesting "github.com/juju/juju/v2/api/base/testing"
+	"github.com/juju/juju/v2/api/controller/caasapplicationprovisioner"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/resources"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/docker"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type provisionerSuite struct {

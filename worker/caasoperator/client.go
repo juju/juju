@@ -7,11 +7,11 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/version/v2"
 
-	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
+	caasoperatorapi "github.com/juju/juju/v2/api/agent/caasoperator"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/core/watcher"
 )
 
 // Client provides an interface for interacting

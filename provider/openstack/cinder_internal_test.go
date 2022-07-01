@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
 )
 
 // TODO(axw) 2016-10-03 #1629721

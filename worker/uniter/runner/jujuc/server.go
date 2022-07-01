@@ -22,8 +22,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/exec"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/juju/sockets"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/juju/sockets"
 )
 
 // CmdSuffix is the filename suffix to use for executables.

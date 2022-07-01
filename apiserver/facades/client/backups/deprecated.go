@@ -6,7 +6,7 @@ package backups
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // The following methods are for dealing with backups stored on the controller.

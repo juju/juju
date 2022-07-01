@@ -12,7 +12,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/cmd/jujud/agent/errors"
+	"github.com/juju/juju/v2/cmd/jujud/agent/errors"
 )
 
 // EngineErrorDelay is the amount of time the dependency engine waits

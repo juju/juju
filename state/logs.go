@@ -25,9 +25,9 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/controller"
-	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/controller"
+	corelogger "github.com/juju/juju/v2/core/logger"
+	"github.com/juju/juju/v2/mongo"
 )
 
 const (

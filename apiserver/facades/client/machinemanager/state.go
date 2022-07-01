@@ -10,17 +10,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/state/binarystorage"
 
-	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common/storagecommon"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/state"
 )
 
 // StateBackend wraps a state.

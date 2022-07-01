@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state/storage"
 )
 
 // ReadCharmFromStorage fetches the charm at the specified path from the store

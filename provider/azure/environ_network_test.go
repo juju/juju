@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/v2/core/instance"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/provider/azure/internal/azuretesting"
 )
 
 func (s *environSuite) TestSubnetsInstanceIDError(c *gc.C) {

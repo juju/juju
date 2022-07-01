@@ -10,9 +10,9 @@ import (
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/charm"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
 )
 
 // deploy implements charm install and charm upgrade operations.

@@ -7,10 +7,10 @@ import (
 	jujucharm "github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/network/containerizer"
+	"github.com/juju/juju/v2/core/instance"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/network"
+	"github.com/juju/juju/v2/network/containerizer"
 )
 
 // Machine is an indirection for use in container provisioning.

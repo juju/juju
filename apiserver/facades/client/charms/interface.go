@@ -7,10 +7,10 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facades/client/charms/interfaces"
+	"github.com/juju/juju/v2/apiserver/facades/client/charms/services"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/state"
 )
 
 type stateShim struct {

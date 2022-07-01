@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/testing"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/cmd/juju/model"
+	"github.com/juju/juju/v2/testing"
 )
 
 type ConfigCommandSuite struct {

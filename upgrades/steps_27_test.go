@@ -13,9 +13,9 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/v2/core/paths"
+	"github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/upgrades"
 )
 
 var v27 = version.MustParse("2.7.0")

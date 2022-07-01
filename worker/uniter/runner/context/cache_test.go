@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/uniter/runner/context"
 )
 
 type settingsResult struct {

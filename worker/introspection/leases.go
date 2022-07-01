@@ -14,9 +14,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/pubsub/lease"
+	corelease "github.com/juju/juju/v2/core/lease"
+	"github.com/juju/juju/v2/core/raftlease"
+	"github.com/juju/juju/v2/pubsub/lease"
 )
 
 type leaseHandler struct {

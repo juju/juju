@@ -13,11 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/state"
+	statetesting "github.com/juju/juju/v2/state/testing"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type CloudCredentialsSuite struct {

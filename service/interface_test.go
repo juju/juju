@@ -4,9 +4,9 @@
 package service
 
 import (
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
+	"github.com/juju/juju/v2/service/systemd"
+	"github.com/juju/juju/v2/service/upstart"
+	"github.com/juju/juju/v2/service/windows"
 )
 
 var _ Service = (*upstart.Service)(nil)

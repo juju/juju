@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/romulus/commands"
+	"github.com/juju/juju/v2/cmd/juju/romulus/commands"
 )
 
 type commandSuite struct{}

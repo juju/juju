@@ -13,7 +13,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/v2/core/crossmodel"
 )
 
 // ExternalController represents the state of a controller hosting

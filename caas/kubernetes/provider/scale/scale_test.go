@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/utils/pointer"
 
-	"github.com/juju/juju/caas/kubernetes/provider/scale"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/scale"
 )
 
 type ScaleSuite struct {

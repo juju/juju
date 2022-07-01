@@ -10,10 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
-	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/resources"
+	k8sutils "github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	k8swatcher "github.com/juju/juju/v2/caas/kubernetes/provider/watcher"
 )
 
 func Test(t *testing.T) {

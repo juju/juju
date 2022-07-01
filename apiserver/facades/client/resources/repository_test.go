@@ -13,10 +13,10 @@ import (
 	"github.com/juju/utils/v3/hash"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/resources/mocks"
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/v2/apiserver/facades/client/resources/mocks"
+	"github.com/juju/juju/v2/charmhub"
+	"github.com/juju/juju/v2/charmhub/transport"
+	corecharm "github.com/juju/juju/v2/core/charm"
 )
 
 var _ = gc.Suite(&CharmHubClientSuite{})

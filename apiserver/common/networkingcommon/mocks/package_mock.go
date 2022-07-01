@@ -8,9 +8,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
-	network "github.com/juju/juju/core/network"
-	state "github.com/juju/juju/state"
+	networkingcommon "github.com/juju/juju/v2/apiserver/common/networkingcommon"
+	network "github.com/juju/juju/v2/core/network"
+	state "github.com/juju/juju/v2/state"
 	txn "github.com/juju/mgo/v2/txn"
 )
 

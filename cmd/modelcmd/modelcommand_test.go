@@ -18,14 +18,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/api"
+	apitesting "github.com/juju/juju/v2/api/testing"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/juju/osenv"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 type ModelCommandSuite struct {

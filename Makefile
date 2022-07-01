@@ -236,10 +236,10 @@ ${BUILD_DIR}/%/bin/juju-metadata: phony_explicit
 # build for juju-metadata
 	$(run_go_build)
 
-${BUILD_DIR}/%/bin/juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
-${BUILD_DIR}/%/bin/juju-wait-for: phony_explicit
-# build for juju-wait-for
-	$(run_go_build)
+# ${BUILD_DIR}/%/bin/juju-wait-for: PACKAGE = github.com/juju/juju/cmd/plugins/juju-wait-for
+# ${BUILD_DIR}/%/bin/juju-wait-for: phony_explicit
+# # build for juju-wait-for
+# 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble
 ${BUILD_DIR}/%/bin/pebble: phony_explicit

@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/common"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // This module implements a subset of the interface provided by

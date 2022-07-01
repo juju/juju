@@ -13,14 +13,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/agent/metricsender/testing"
-	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facades/agent/metricsender/testing"
+	"github.com/juju/juju/v2/apiserver/facades/controller/metricsmanager"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	jujujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type metricsManagerSuite struct {

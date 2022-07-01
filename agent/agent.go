@@ -21,13 +21,13 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/machinelock"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/paths"
+	"github.com/juju/juju/v2/mongo"
 )
 
 var logger = loggo.GetLogger("juju.agent")

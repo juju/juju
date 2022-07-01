@@ -11,9 +11,9 @@ import (
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/rpc/params"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 var _ = gc.Suite(&Suite{})

@@ -12,9 +12,9 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/juju/juju/api/controller/crossmodelrelations"
-	apitesting "github.com/juju/juju/api/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api/controller/crossmodelrelations"
+	apitesting "github.com/juju/juju/v2/api/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 const longerThanExpiryTime = 11 * time.Minute

@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jtesting "github.com/juju/juju/testing"
+	jtesting "github.com/juju/juju/v2/testing"
 )
 
 type apiclientWhiteboxSuite struct {

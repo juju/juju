@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/cache"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Logger defines the methods on the logger API end point.  Unfortunately, the

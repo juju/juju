@@ -8,12 +8,12 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	crossmodel0 "github.com/juju/juju/core/crossmodel"
-	firewall "github.com/juju/juju/core/network/firewall"
-	permission "github.com/juju/juju/core/permission"
-	params "github.com/juju/juju/rpc/params"
-	state "github.com/juju/juju/state"
+	crossmodel "github.com/juju/juju/v2/apiserver/common/crossmodel"
+	crossmodel0 "github.com/juju/juju/v2/core/crossmodel"
+	firewall "github.com/juju/juju/v2/core/network/firewall"
+	permission "github.com/juju/juju/v2/core/permission"
+	params "github.com/juju/juju/v2/rpc/params"
+	state "github.com/juju/juju/v2/state"
 	names "github.com/juju/names/v4"
 	macaroon "gopkg.in/macaroon.v2"
 )

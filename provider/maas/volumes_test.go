@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/testing"
 )
 
 type volumeSuite struct {

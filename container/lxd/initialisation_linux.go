@@ -22,11 +22,11 @@ import (
 	"github.com/juju/proxy"
 	"github.com/lxc/lxd/shared"
 
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/packaging"
-	"github.com/juju/juju/packaging/dependency"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v2/container"
+	"github.com/juju/juju/v2/packaging"
+	"github.com/juju/juju/v2/packaging/dependency"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/service/common"
 )
 
 var hostSeries = series.HostSeries

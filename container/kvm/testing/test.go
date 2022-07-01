@@ -10,10 +10,10 @@ package testing
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/kvm/mock"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/container"
+	"github.com/juju/juju/v2/container/kvm"
+	"github.com/juju/juju/v2/container/kvm/mock"
+	"github.com/juju/juju/v2/testing"
 )
 
 // TestSuite replaces the kvm factory that the manager uses with a mock

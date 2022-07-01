@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

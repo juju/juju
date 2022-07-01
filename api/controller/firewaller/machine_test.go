@@ -9,14 +9,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/firewaller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	basetesting "github.com/juju/juju/v2/api/base/testing"
+	"github.com/juju/juju/v2/api/controller/firewaller"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 const allEndpoints = ""

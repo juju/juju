@@ -18,9 +18,9 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
-	apiresources "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resources"
+	apiresources "github.com/juju/juju/v2/api/client/resources"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/resources"
 )
 
 // DeployClient exposes the functionality of the resources API needed

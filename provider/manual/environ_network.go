@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
 )
 
 var _ environs.NetworkingEnviron = &manualEnviron{}

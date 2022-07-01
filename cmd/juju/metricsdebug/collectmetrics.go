@@ -14,12 +14,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api"
-	actionapi "github.com/juju/juju/api/client/action"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/worker/metrics/sender"
+	"github.com/juju/juju/v2/api"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/action"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/worker/metrics/sender"
 )
 
 // TODO(bogdanteleaga): update this once querying for actions by name is implemented.

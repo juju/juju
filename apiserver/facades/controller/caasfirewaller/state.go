@@ -6,9 +6,9 @@ package caasfirewaller
 import (
 	"github.com/juju/names/v4"
 
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
-	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/state"
+	charmscommon "github.com/juju/juju/v2/apiserver/common/charms"
+	"github.com/juju/juju/v2/core/config"
+	"github.com/juju/juju/v2/state"
 )
 
 // CAASFirewallerState provides the subset of global state

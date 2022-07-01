@@ -9,8 +9,8 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
-	corenetwork "github.com/juju/juju/core/network"
-	jujupackaging "github.com/juju/juju/packaging"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	jujupackaging "github.com/juju/juju/v2/packaging"
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
@@ -18,8 +18,8 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/core/series"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.

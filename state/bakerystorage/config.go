@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/txn"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/v2/mongo"
 )
 
 var logger = loggo.GetLogger("juju.state.bakerystorage")

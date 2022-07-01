@@ -14,8 +14,8 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/juju/provider/vsphere"
-	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/juju/v2/provider/vsphere"
+	"github.com/juju/juju/v2/provider/vsphere/internal/vsphereclient"
 )
 
 func newMockDialFunc(dialStub *testing.Stub, client vsphere.Client) vsphere.DialFunc {

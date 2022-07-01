@@ -10,10 +10,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/gui"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/juju/keys"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/environs/gui"
+	sstesting "github.com/juju/juju/v2/environs/simplestreams/testing"
+	"github.com/juju/juju/v2/juju/keys"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 type simplestreamsSuite struct {

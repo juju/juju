@@ -4,8 +4,8 @@
 package local
 
 import (
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/plans/common"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/plans/common"
 )
 
 func NewLocalPlan() common.Plan {

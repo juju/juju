@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/v2/environs/simplestreams"
 )
 
 // ValidateImageMetadata attempts to load image metadata for the specified cloud attributes and stream

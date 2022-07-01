@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/resumer"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/resumer"
 )
 
 // NewFacade returns a useful live implementation for

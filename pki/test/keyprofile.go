@@ -9,7 +9,7 @@ import (
 	"flag"
 	"math/rand"
 
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v2/pki"
 )
 
 var insecureRand = rand.New(rand.NewSource(0))

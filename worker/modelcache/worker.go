@@ -14,13 +14,13 @@ import (
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/pubsub/controller"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/core/cache"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/core/multiwatcher"
+	"github.com/juju/juju/v2/core/settings"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/pubsub/controller"
+	"github.com/juju/juju/v2/state"
 )
 
 // Unlocker is used to indicate that the model cache is ready to be used.

@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Client allows access to the CAAS operator upgrader API endpoint.

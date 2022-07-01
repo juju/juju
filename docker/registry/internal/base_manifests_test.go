@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/docker/registry/internal"
-	"github.com/juju/juju/docker/registry/internal/mocks"
+	"github.com/juju/juju/v2/docker/registry/internal"
+	"github.com/juju/juju/v2/docker/registry/internal/mocks"
 )
 
 func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, contentType string, statusCode int, f func(*internal.ManifestsResult, error)) {

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	coreagent "github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/mongo"
-	jworker "github.com/juju/juju/worker"
+	coreagent "github.com/juju/juju/v2/agent"
+	apiagent "github.com/juju/juju/v2/api/agent/agent"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/mongo"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 // Logger defines the logging methods used by the worker.

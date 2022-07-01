@@ -13,12 +13,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiapplication "github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
+	apiapplication "github.com/juju/juju/v2/api/client/application"
+	"github.com/juju/juju/v2/cmd/juju/application"
+	"github.com/juju/juju/v2/jujuclient"
+	_ "github.com/juju/juju/v2/provider/dummy"
+	"github.com/juju/juju/v2/state"
+	jujutesting "github.com/juju/juju/v2/testing"
 )
 
 type ShowUnitSuite struct {

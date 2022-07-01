@@ -16,9 +16,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/juju/action"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/cmd/juju/action"
 )
 
 type RunActionSuite struct {

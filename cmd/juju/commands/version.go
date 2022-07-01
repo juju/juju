@@ -9,8 +9,8 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 
-	coreos "github.com/juju/juju/core/os"
-	jujuversion "github.com/juju/juju/version"
+	coreos "github.com/juju/juju/v2/core/os"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 const versionDoc = `

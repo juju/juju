@@ -17,8 +17,8 @@ import (
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/environs/cloudspec"
 )
 
 // ClientOption to be passed into the transport construction to customize the

@@ -14,9 +14,9 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/globalclock"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/globalclockupdater"
+	"github.com/juju/juju/v2/core/globalclock"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/globalclockupdater"
 )
 
 type WorkerSuite struct {

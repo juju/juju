@@ -8,7 +8,7 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/v2/provider/gce/google"
 )
 
 const fakeVolName = "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"

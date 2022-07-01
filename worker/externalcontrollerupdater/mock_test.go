@@ -7,9 +7,9 @@ import (
 	"github.com/juju/testing"
 	tomb "gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/api/controller/crosscontroller"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/v2/api/controller/crosscontroller"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/watcher"
 )
 
 type mockExternalControllerUpdaterClient struct {

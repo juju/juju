@@ -12,8 +12,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/utils"
 )
 
 func (k *kubernetesClient) ensureDaemonSet(spec *apps.DaemonSet) (func(), error) {

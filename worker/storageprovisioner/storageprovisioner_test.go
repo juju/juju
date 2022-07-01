@@ -16,13 +16,13 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/storageprovisioner"
 )
 
 type storageProvisionerSuite struct {

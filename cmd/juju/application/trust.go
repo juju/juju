@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/apiserver/facades/client/application"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/v2/apiserver/facades/client/application"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/model"
 )
 
 const (

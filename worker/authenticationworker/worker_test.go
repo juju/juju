@@ -15,13 +15,13 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agent/keyupdater"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api"
+	"github.com/juju/juju/v2/api/agent/keyupdater"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/authenticationworker"
 )
 
 type workerSuite struct {

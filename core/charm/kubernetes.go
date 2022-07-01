@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/v2/core/series"
 )
 
 // IsKubernetes reports whether the given charm should be deployed to

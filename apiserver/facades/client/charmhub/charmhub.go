@@ -12,12 +12,12 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/charm/v8"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/charmhub"
+	"github.com/juju/juju/v2/charmhub/transport"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 const (

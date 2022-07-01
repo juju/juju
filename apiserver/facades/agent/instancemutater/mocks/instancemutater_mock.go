@@ -10,11 +10,11 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
-	instance "github.com/juju/juju/core/instance"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
-	status "github.com/juju/juju/core/status"
-	state "github.com/juju/juju/state"
+	instancemutater "github.com/juju/juju/v2/apiserver/facades/agent/instancemutater"
+	instance "github.com/juju/juju/v2/core/instance"
+	lxdprofile "github.com/juju/juju/v2/core/lxdprofile"
+	status "github.com/juju/juju/v2/core/status"
+	state "github.com/juju/juju/v2/state"
 	names "github.com/juju/names/v4"
 )
 

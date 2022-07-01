@@ -6,9 +6,9 @@ package common_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/environs/gui"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/environs/gui"
+	"github.com/juju/juju/v2/testing"
 )
 
 type guiSuite struct {

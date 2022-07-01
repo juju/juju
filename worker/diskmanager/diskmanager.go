@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/storage"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v2/storage"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.diskmanager")

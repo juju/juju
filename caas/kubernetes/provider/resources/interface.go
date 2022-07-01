@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/status"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/caas/kubernetes/provider/resources Resource,Applier

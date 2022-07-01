@@ -7,8 +7,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/provider/vsphere/internal/vsphereclient"
 )
 
 const (

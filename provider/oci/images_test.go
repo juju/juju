@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
+	ocitesting "github.com/juju/juju/v2/provider/oci/testing"
+	jujutesting "github.com/juju/juju/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v47/core"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/oci"
+	"github.com/juju/juju/v2/provider/oci"
 )
 
 type imagesSuite struct {

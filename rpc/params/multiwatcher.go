@@ -12,11 +12,11 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/status"
 )
 
 // EntityInfo is implemented by all entity Info types.

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/storage"
 )
 
 // machineBlockDevicesChanged is called when the block devices of the scoped

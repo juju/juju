@@ -16,8 +16,8 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	jujutesting "github.com/juju/juju/v2/testing"
 )
 
 // on linux we use the "nohup" command to run a reboot

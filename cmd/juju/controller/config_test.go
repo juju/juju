@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/controller"
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/v2/cmd/juju/controller"
+	jujucontroller "github.com/juju/juju/v2/controller"
 )
 
 type ConfigSuite struct {

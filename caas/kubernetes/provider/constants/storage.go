@@ -6,8 +6,8 @@ package constants
 import (
 	"regexp"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/paths"
+	"github.com/juju/juju/v2/storage"
 )
 
 const (

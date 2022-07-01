@@ -7,9 +7,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/migration"
+	"github.com/juju/juju/v2/state"
 )
 
 // Backend defines the state functionality required by the

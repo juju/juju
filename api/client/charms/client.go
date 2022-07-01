@@ -20,14 +20,14 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/base"
-	api "github.com/juju/juju/api/client/resources"
-	apicharm "github.com/juju/juju/api/common/charm"
-	commoncharms "github.com/juju/juju/api/common/charms"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/api/base"
+	api "github.com/juju/juju/v2/api/client/resources"
+	apicharm "github.com/juju/juju/v2/api/common/charm"
+	commoncharms "github.com/juju/juju/v2/api/common/charms"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/rpc/params"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 // Client allows access to the charms API end point.

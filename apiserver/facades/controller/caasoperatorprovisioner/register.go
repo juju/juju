@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
+	charmscommon "github.com/juju/juju/v2/apiserver/common/charms"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/stateenvirons"
+	"github.com/juju/juju/v2/storage/poolmanager"
 )
 
 // Register is called to expose a package of facades onto a given registry.

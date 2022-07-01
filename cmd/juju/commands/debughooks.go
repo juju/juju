@@ -16,15 +16,15 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/api/client/application"
-	"github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/client/sshclient"
-	charmscommon "github.com/juju/juju/api/common/charms"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/network/ssh"
-	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
+	"github.com/juju/juju/v2/api/client/application"
+	"github.com/juju/juju/v2/api/client/charms"
+	"github.com/juju/juju/v2/api/client/sshclient"
+	charmscommon "github.com/juju/juju/v2/api/common/charms"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/network/ssh"
+	unitdebug "github.com/juju/juju/v2/worker/uniter/runner/debug"
 )
 
 func newDebugHooksCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs) cmd.Command {

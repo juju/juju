@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/docker"
+	"github.com/juju/juju/v2/docker"
 )
 
 // NewBase creates a new base provider.

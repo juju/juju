@@ -6,13 +6,13 @@ package multiwatcher
 import (
 	"time"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/core/status"
 )
 
 // The kind constants are there to stop typos when switching on kinds.

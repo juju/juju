@@ -6,10 +6,10 @@ package common
 import (
 	"sort"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
 )
 
 // ZonedEnviron is an environs.Environ that has support for availability zones.

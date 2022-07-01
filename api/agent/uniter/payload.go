@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/base"
-	api "github.com/juju/juju/api/client/payloads"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	api "github.com/juju/juju/v2/api/client/payloads"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/payloads"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // PayloadFacadeClient provides methods for interacting with Juju's internal

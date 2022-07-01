@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Snapshot is a snapshot of the remote state of the unit.

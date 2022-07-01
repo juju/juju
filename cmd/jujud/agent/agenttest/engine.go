@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 // NewWorkerMatcher takes an EngineTracker, an engine manager id to

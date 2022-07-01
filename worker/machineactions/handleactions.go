@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/v2/core/actions"
 )
 
 // RunAsUser is the user that the machine juju-run action is executed as.

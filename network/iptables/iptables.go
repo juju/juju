@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/network/firewall"
 )
 
 var logger = loggo.GetLogger("juju.network.iptables")

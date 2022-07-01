@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v2/core/network"
 )
 
 // AllNetworksIPV4CIDR represents the zero address (quad-zero) CIDR for an IPV4

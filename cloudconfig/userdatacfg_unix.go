@@ -23,14 +23,14 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/v2/agent"
+	agenttools "github.com/juju/juju/v2/agent/tools"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	"github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	"github.com/juju/juju/v2/juju/osenv"
+	"github.com/juju/juju/v2/service"
+	"github.com/juju/juju/v2/service/upstart"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig")

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/controller/caasmodeloperator"
-	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/rpc/params"
+	basetesting "github.com/juju/juju/v2/api/base/testing"
+	"github.com/juju/juju/v2/api/controller/caasmodeloperator"
+	"github.com/juju/juju/v2/core/resources"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type ModelOperatorSuite struct {

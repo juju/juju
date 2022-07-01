@@ -7,7 +7,7 @@ import (
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 type cloudImageMetadataSuite struct{}

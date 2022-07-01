@@ -8,14 +8,14 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v2/apiserver/common"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/watcher"
 )
 
 // ProxyUpdaterV1 defines the pubic methods for the v1 facade.

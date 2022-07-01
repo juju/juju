@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/ssh"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
-	"github.com/juju/juju/provider/azure/internal/azurecli"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/provider/azure/internal/azureauth"
+	"github.com/juju/juju/v2/provider/azure/internal/azurecli"
+	"github.com/juju/juju/v2/provider/azure/internal/azurestorage"
 )
 
 const (

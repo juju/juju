@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/watcher"
 )
 
 // Watchers provides methods for watching filesystems. The watches aggregate

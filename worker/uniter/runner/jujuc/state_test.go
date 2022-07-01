@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc/mocks"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc/mocks"
 )
 
 type stateSuite struct {

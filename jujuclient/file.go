@@ -20,9 +20,9 @@ import (
 	"github.com/juju/mutex/v2"
 	cookiejar "github.com/juju/persistent-cookiejar"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/juju/osenv"
 )
 
 var (

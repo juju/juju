@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/storage"
 )
 
 // Volume describes a volume (disk, logical volume, etc.) in the model.

@@ -17,15 +17,15 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/cloudconfig/instancecfg"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/imagemetadata"
+	"github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/tools"
 )
 
 type clientSuite struct {

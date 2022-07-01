@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/packaging"
-	"github.com/juju/juju/packaging/dependency"
+	"github.com/juju/juju/v2/core/paths"
+	"github.com/juju/juju/v2/packaging"
+	"github.com/juju/juju/v2/packaging/dependency"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

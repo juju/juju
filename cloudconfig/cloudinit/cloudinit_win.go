@@ -5,7 +5,7 @@
 package cloudinit
 
 import (
-	corenetwork "github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/v2/core/network"
 	"github.com/juju/packaging/v2"
 )
 

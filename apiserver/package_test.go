@@ -6,7 +6,7 @@ package apiserver_test
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deltatranslater_mock.go github.com/juju/juju/apiserver DeltaTranslater

@@ -4,7 +4,7 @@
 package backups
 
 import (
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/v2/core/instance"
 	"github.com/juju/names/v4"
 )
 

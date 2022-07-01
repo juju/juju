@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	watcher "github.com/juju/juju/core/watcher"
-	params "github.com/juju/juju/rpc/params"
+	watcher "github.com/juju/juju/v2/core/watcher"
+	params "github.com/juju/juju/v2/rpc/params"
 )
 
 // MockCAASUnitProvisionerFacade is a mock of CAASUnitProvisionerFacade interface.

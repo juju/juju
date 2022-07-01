@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/resources"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 

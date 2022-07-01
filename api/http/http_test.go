@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apihttp "github.com/juju/juju/api/http"
-	"github.com/juju/juju/api/http/mocks"
+	apihttp "github.com/juju/juju/v2/api/http"
+	"github.com/juju/juju/v2/api/http/mocks"
 )
 
 type httpSuite struct {

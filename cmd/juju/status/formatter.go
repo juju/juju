@@ -13,13 +13,13 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
 
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/storage"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/juju/storage"
+	coremodel "github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/os"
+	"github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type statusFormatter struct {

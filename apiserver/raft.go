@@ -10,10 +10,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/worker/raft"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/raft/queue"
+	"github.com/juju/juju/v2/core/raftlease"
+	"github.com/juju/juju/v2/worker/raft"
 )
 
 const (

@@ -9,12 +9,12 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	firewall "github.com/juju/juju/apiserver/common/firewall"
-	network "github.com/juju/juju/core/network"
-	firewall0 "github.com/juju/juju/core/network/firewall"
-	config "github.com/juju/juju/environs/config"
-	params "github.com/juju/juju/rpc/params"
-	state "github.com/juju/juju/state"
+	firewall "github.com/juju/juju/v2/apiserver/common/firewall"
+	network "github.com/juju/juju/v2/core/network"
+	firewall0 "github.com/juju/juju/v2/core/network/firewall"
+	config "github.com/juju/juju/v2/environs/config"
+	params "github.com/juju/juju/v2/rpc/params"
+	state "github.com/juju/juju/v2/state"
 	names "github.com/juju/names/v4"
 	macaroon "gopkg.in/macaroon.v2"
 )

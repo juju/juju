@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/state"
 )
 
 type SNIGetterFunc func(*tls.ClientHelloInfo) (*tls.Certificate, error)

@@ -6,8 +6,8 @@ package httpserver
 import (
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/state"
 )
 
 // NewWorkerShim calls through to NewWorker, and exists only

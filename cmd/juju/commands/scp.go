@@ -9,10 +9,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
-	jujussh "github.com/juju/juju/network/ssh"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/model"
+	jujussh "github.com/juju/juju/v2/network/ssh"
 )
 
 var usageSCPSummary = `

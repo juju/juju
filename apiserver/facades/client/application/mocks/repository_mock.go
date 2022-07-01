@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	charm0 "github.com/juju/juju/core/charm"
+	charm0 "github.com/juju/juju/v2/core/charm"
 )
 
 // MockRepository is a mock of Repository interface.

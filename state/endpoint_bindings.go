@@ -14,8 +14,8 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/mongo/utils"
 )
 
 // defaultEndpointName is the key in the bindings map that stores the

@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/actions"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/v2/worker/uniter/actions"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/operation"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/resolver"
 )
 
 type actionsSuite struct {

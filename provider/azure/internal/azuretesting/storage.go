@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/v2/provider/azure/internal/azurestorage"
 )
 
 type MockStorageClient struct {

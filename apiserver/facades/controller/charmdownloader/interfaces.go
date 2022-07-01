@@ -7,12 +7,12 @@ import (
 	"github.com/juju/charm/v8"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/facades/client/charms/services"
+	"github.com/juju/juju/v2/controller"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/state"
 )
 
 // StateBackend describes an API for accessing/mutating information in state.

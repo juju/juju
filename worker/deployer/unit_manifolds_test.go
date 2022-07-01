@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/v2/worker/deployer"
 )
 
 type ManifoldsSuite struct {

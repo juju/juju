@@ -11,13 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/uniter/charm"
+	"github.com/juju/juju/v2/worker/uniter/hook"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/worker/uniter/runner/context"
 )
 
 // operationCallbacks implements operation.Callbacks, and exists entirely to

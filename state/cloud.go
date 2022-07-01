@@ -14,12 +14,12 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/bootstrap"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/mongo/utils"
 )
 
 // cloudGlobalKey will return the key for a given cloud.

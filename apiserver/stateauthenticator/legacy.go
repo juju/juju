@@ -15,9 +15,9 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/apiserver/apiserverhttp"
+	"github.com/juju/juju/v2/charmstore"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // TODO(juju3) - legacy login handlers are not needed once we stop supporting Juju 2 clients.

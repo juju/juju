@@ -6,7 +6,7 @@ package commands_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package commands -destination mockenvirons_test.go github.com/juju/juju/environs Environ,PrecheckJujuUpgradeStep

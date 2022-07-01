@@ -6,10 +6,10 @@ package spaces
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/v2/apiserver/common/networkingcommon"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/stateenvirons"
 )
 
 // machineShim implements Machine.

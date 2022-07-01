@@ -6,13 +6,13 @@ package machinemanager
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/v2/apiserver/common"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state/stateenvirons"
 )
 
 // InstanceTypes returns instance type information for the cloud and region

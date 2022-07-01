@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/v2/service/common"
 )
 
 type ServiceInfo interface {

@@ -6,7 +6,7 @@
 package resumer
 
 import (
-	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/v2/apiserver/facade"
 )
 
 // ResumerAPI implements the API used by the resumer worker.

@@ -7,8 +7,8 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/watcher"
 )
 
 // ensureErr is defined as a variable to allow the test suite

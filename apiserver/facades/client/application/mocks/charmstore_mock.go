@@ -9,9 +9,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	application "github.com/juju/juju/apiserver/facades/client/application"
-	controller "github.com/juju/juju/controller"
-	state "github.com/juju/juju/state"
+	application "github.com/juju/juju/v2/apiserver/facades/client/application"
+	controller "github.com/juju/juju/v2/controller"
+	state "github.com/juju/juju/v2/state"
 	mgo "github.com/juju/mgo/v2"
 )
 

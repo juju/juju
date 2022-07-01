@@ -6,11 +6,11 @@ package imagecommon
 import (
 	"github.com/juju/errors"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/cloudimagemetadata"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state/cloudimagemetadata"
 )
 
 // ImageMetadataInterface is an interface for manipulating images metadata.

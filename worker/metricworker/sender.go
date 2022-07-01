@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/controller/metricsmanager"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v2/api/controller/metricsmanager"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 const senderPeriod = 5 * time.Minute

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/v2/state/watcher"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state/watcher BaseWatcher

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/v2/core/raftlease"
 )
 
 const applyTimeout = 5 * time.Second

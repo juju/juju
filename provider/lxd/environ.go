@@ -11,15 +11,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/tags"
+	"github.com/juju/juju/v2/provider/common"
 )
 
 const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md`

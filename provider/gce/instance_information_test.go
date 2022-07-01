@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/provider/gce/google"
 )
 
 type instanceInformationSuite struct {

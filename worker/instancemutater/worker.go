@@ -12,10 +12,10 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/instancemutater"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api/agent/instancemutater"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/environs"
 )
 
 type InstanceMutaterAPI interface {

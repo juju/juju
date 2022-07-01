@@ -14,8 +14,8 @@ import (
 	"gopkg.in/retry.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/wrench"
 )
 
 // Hub represents a pubsub hub. The TxnWatcher only ever publishes

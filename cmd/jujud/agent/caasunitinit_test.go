@@ -18,9 +18,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/juju/sockets"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/juju/sockets"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 	"github.com/juju/testing"
 )
 

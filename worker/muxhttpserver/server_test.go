@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/pki"
-	pkitest "github.com/juju/juju/pki/test"
-	"github.com/juju/juju/worker/muxhttpserver"
+	"github.com/juju/juju/v2/pki"
+	pkitest "github.com/juju/juju/v2/pki/test"
+	"github.com/juju/juju/v2/worker/muxhttpserver"
 )
 
 type ServerSuite struct {

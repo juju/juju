@@ -8,8 +8,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/v2/apiserver/apiserverhttp"
+	"github.com/juju/juju/v2/pki"
 )
 
 type ManifoldConfig struct {

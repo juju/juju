@@ -8,8 +8,8 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/tools"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
@@ -19,10 +19,10 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/controller"
-	"github.com/juju/juju/core/instance"
-	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/controller"
+	"github.com/juju/juju/v2/core/instance"
+	stateerrors "github.com/juju/juju/v2/state/errors"
 )
 
 func isController(mdoc *machineDoc) bool {

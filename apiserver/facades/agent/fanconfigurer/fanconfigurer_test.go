@@ -12,17 +12,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/facades/agent/fanconfigurer"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/environs/bootstrap"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/provider/dummy"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing"
 )
 
 type fanconfigurerSuite struct {

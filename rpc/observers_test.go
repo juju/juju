@@ -7,8 +7,8 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
-	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/v2/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/v2/rpc"
 )
 
 type multiplexerSuite struct {

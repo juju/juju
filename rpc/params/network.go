@@ -4,8 +4,8 @@
 package params
 
 import (
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/network"
 )
 
 // Subnet describes a single subnet within a network.

@@ -17,16 +17,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/provider/azure/internal/azuretesting"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/core/instance"
+	corenetwork "github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/network/firewall"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/provider/azure"
+	"github.com/juju/juju/v2/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/v2/testing"
 )
 
 type instanceSuite struct {

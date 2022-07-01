@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	facade "github.com/juju/juju/apiserver/facade"
+	facade "github.com/juju/juju/v2/apiserver/facade"
 	packages "golang.org/x/tools/go/packages"
 )
 

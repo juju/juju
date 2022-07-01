@@ -10,7 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/v2/core/network"
 )
 
 // unitNetwork represents a group of units and the subnets

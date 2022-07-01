@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/worker/lease"
+	corelease "github.com/juju/juju/v2/core/lease"
+	"github.com/juju/juju/v2/worker/lease"
 )
 
 type ClaimSuite struct {

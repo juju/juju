@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/state/bakerystorage"
 )
 
 // This suite is not about a feature tests per se, but tests the integration

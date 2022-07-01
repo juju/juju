@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/environs/tags"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/storage"
 )
 
 // StorageAccess is an interface for obtaining information about storage

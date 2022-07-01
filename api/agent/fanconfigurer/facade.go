@@ -4,12 +4,12 @@
 package fanconfigurer
 
 import (
-	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/base"
+	apiwatcher "github.com/juju/juju/v2/api/watcher"
+	"github.com/juju/juju/v2/apiserver/common/networkingcommon"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // Facade provides access to the FanConfigurer API facade.

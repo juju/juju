@@ -13,15 +13,15 @@ import (
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/crossmodel"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/state"
 )
 
 // Backend contains the state.State methods used in this package,

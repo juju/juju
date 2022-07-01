@@ -13,11 +13,11 @@ import (
 	"github.com/juju/utils/v3/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/v2/caas"
+	k8scloud "github.com/juju/juju/v2/caas/kubernetes/cloud"
+	"github.com/juju/juju/v2/caas/kubernetes/provider"
+	jujucloud "github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/environs"
 )
 
 var (

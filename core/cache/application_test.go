@@ -12,10 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/v2/core/cache"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/status"
 )
 
 type ApplicationSuite struct {

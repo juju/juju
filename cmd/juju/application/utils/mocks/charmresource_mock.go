@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charms "github.com/juju/juju/api/common/charms"
+	charms "github.com/juju/juju/v2/api/common/charms"
 )
 
 // MockCharmClient is a mock of CharmClient interface.

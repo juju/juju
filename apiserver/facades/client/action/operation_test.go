@@ -14,11 +14,11 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/client/action"
-	"github.com/juju/juju/apiserver/facades/client/action/mocks"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	facademocks "github.com/juju/juju/v2/apiserver/facade/mocks"
+	"github.com/juju/juju/v2/apiserver/facades/client/action"
+	"github.com/juju/juju/v2/apiserver/facades/client/action/mocks"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 type operationSuite struct {

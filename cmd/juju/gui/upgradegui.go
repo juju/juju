@@ -15,12 +15,12 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/api/controller/controller"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/gui"
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/api/controller/controller"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/environs/gui"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NewUpgradeGUICommand creates and returns a new upgrade-dashboard command.

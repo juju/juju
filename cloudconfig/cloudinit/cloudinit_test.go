@@ -13,8 +13,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cloudconfig/cloudinit"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 // TODO integration tests, but how?

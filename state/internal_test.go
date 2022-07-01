@@ -14,15 +14,15 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/provider"
+	"github.com/juju/juju/v2/storage/provider/dummy"
+	"github.com/juju/juju/v2/testing"
 )
 
 var _ = gc.Suite(&internalStateSuite{})

@@ -6,8 +6,8 @@ package deployer
 import (
 	"github.com/juju/romulus"
 
-	"github.com/juju/juju/api/client/application"
-	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/v2/api/client/application"
+	apicommoncharms "github.com/juju/juju/v2/api/common/charms"
 )
 
 func Steps() []DeployStep {

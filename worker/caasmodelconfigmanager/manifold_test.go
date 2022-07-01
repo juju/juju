@@ -17,10 +17,10 @@ import (
 	dt "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/worker/caasmodelconfigmanager"
-	"github.com/juju/juju/worker/caasmodelconfigmanager/mocks"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/worker/caasmodelconfigmanager"
+	"github.com/juju/juju/v2/worker/caasmodelconfigmanager/mocks"
 )
 
 var _ = gc.Suite(&manifoldSuite{})

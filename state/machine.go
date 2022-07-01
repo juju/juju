@@ -20,16 +20,16 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/core/constraints"
-	corecontainer "github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/mongo"
-	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/v2/core/actions"
+	"github.com/juju/juju/v2/core/constraints"
+	corecontainer "github.com/juju/juju/v2/core/container"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/mongo"
+	stateerrors "github.com/juju/juju/v2/state/errors"
+	"github.com/juju/juju/v2/tools"
 )
 
 // Machine represents the state of a machine.

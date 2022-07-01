@@ -15,14 +15,14 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/oci"
-	ocitesting "github.com/juju/juju/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	envtesting "github.com/juju/juju/v2/environs/testing"
+	"github.com/juju/juju/v2/provider/oci"
+	ocitesting "github.com/juju/juju/v2/provider/oci/testing"
+	jujutesting "github.com/juju/juju/v2/testing"
 )
 
 type credentialsSuite struct {

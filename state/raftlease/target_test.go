@@ -15,10 +15,10 @@ import (
 	txntesting "github.com/juju/txn/v2/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/lease"
-	coreraftlease "github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/raftlease"
+	"github.com/juju/juju/v2/core/lease"
+	coreraftlease "github.com/juju/juju/v2/core/raftlease"
+	"github.com/juju/juju/v2/mongo"
+	"github.com/juju/juju/v2/state/raftlease"
 )
 
 const (

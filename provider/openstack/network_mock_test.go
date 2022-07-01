@@ -11,8 +11,8 @@ import (
 	nova "github.com/go-goose/goose/v5/nova"
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
-	instance "github.com/juju/juju/core/instance"
-	network "github.com/juju/juju/core/network"
+	instance "github.com/juju/juju/v2/core/instance"
+	network "github.com/juju/juju/v2/core/network"
 )
 
 // MockSSLHostnameConfig is a mock of SSLHostnameConfig interface.

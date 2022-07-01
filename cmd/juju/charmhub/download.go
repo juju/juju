@@ -21,14 +21,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/v2/series"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/output/progress"
-	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/v2/charmhub"
+	"github.com/juju/juju/v2/charmhub/transport"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/output/progress"
+	"github.com/juju/juju/v2/core/arch"
+	corecharm "github.com/juju/juju/v2/core/charm"
+	coreseries "github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/version"
 )
 
 const (

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/agent/reboot"
-	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/v2/agent"
+	"github.com/juju/juju/v2/api/agent/reboot"
+	"github.com/juju/juju/v2/core/machinelock"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/rpc/params"
+	jworker "github.com/juju/juju/v2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.reboot")

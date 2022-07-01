@@ -6,11 +6,11 @@ package block
 import (
 	"github.com/juju/errors"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 // Block defines the methods on the block API end point.

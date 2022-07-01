@@ -14,17 +14,17 @@ import (
 	coretesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
-	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	facademocks "github.com/juju/juju/v2/apiserver/facade/mocks"
+	"github.com/juju/juju/v2/apiserver/facades/agent/instancemutater"
+	"github.com/juju/juju/v2/apiserver/facades/agent/instancemutater/mocks"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing"
 )
 
 type instanceMutaterAPISuite struct {

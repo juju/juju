@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/rpc/params"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NetworkGetCommand implements the network-get command.

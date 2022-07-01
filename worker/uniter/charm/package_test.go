@@ -6,7 +6,7 @@ package charm_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks.go github.com/juju/juju/worker/uniter/charm BundleReader,BundleInfo,Bundle

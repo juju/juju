@@ -16,7 +16,7 @@ import (
 	"github.com/juju/rpcreflect"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/v2/apiserver/facade"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package gen -destination describeapi_mock.go github.com/juju/juju/generate/schemagen/gen APIServer,Registry,PackageRegistry,Linker

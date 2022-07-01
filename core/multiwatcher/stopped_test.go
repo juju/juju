@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/v2/core/multiwatcher"
 )
 
 var _ = gc.Suite(&stoppedSuite{})

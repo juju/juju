@@ -17,10 +17,10 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/httpserverargs"
+	"github.com/juju/juju/v2/apiserver/apiserverhttp"
+	"github.com/juju/juju/v2/apiserver/httpcontext"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/worker/httpserverargs"
 )
 
 type ManifoldSuite struct {

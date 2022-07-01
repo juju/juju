@@ -15,13 +15,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	"github.com/juju/juju/v2/cmd/juju/action"
+	"github.com/juju/juju/v2/core/watcher"
+	"github.com/juju/juju/v2/core/watcher/watchertest"
+	"github.com/juju/juju/v2/jujuclient"
+	"github.com/juju/juju/v2/rpc/params"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 const (

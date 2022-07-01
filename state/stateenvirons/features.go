@@ -5,10 +5,10 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/assumes"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/core/assumes"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/state"
 )
 
 var (

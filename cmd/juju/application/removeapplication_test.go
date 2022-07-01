@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testcharms"
+	"github.com/juju/juju/v2/testing"
 )
 
 type RemoveApplicationSuite struct {

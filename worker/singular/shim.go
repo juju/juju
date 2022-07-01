@@ -8,8 +8,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/singular"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/api/controller/singular"
 )
 
 // NewFacade creates a Facade from an APICaller and an entity for which

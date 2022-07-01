@@ -23,7 +23,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/v2/agent"
 )
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")

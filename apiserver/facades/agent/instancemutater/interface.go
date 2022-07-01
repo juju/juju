@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/charm/v8"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/lxdprofile"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/state"
 )
 
 // InstanceMutaterState represents point of use methods from the state object.

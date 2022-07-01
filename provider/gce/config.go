@@ -8,7 +8,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 const (

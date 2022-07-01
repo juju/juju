@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/juju/common"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NewAddCommand returns a command used to add an existing subnet to Juju.

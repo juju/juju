@@ -10,11 +10,11 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/imagemetadata"
 )
 
 type environClient struct {

@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/v2/core/series"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	"github.com/juju/juju/v2/environs/storage"
 )
 
 // IndexStoragePath returns the storage path for the image metadata index file.

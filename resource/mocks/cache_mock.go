@@ -10,8 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/charm/v8/resource"
-	resource0 "github.com/juju/juju/core/resources"
-	state "github.com/juju/juju/state"
+	resource0 "github.com/juju/juju/v2/core/resources"
+	state "github.com/juju/juju/v2/state"
 )
 
 // MockResources is a mock of Resources interface.

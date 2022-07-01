@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/client/sshclient"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
+	apitesting "github.com/juju/juju/v2/api/base/testing"
+	"github.com/juju/juju/v2/api/client/sshclient"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type FacadeSuite struct {

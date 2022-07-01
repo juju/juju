@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/v2/environs/config"
 )
 
 var configFields = schema.Fields{}

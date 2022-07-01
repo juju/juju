@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	status "github.com/juju/juju/core/status"
+	status "github.com/juju/juju/v2/core/status"
 )
 
 // MockProvisioningStatusSetter is a mock of ProvisioningStatusSetter interface.

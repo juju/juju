@@ -11,14 +11,14 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/core/status"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/storage"
+	"github.com/juju/juju/v2/storage/poolmanager"
 )
 
 // InitializeParams contains the parameters for initializing the state database.

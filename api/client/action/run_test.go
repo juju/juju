@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/client/action"
-	"github.com/juju/juju/rpc/params"
+	basetesting "github.com/juju/juju/v2/api/base/testing"
+	"github.com/juju/juju/v2/api/client/action"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type runSuite struct{}

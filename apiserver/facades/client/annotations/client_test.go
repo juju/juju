@@ -10,13 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facade/facadetest"
-	"github.com/juju/juju/apiserver/facades/client/annotations"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/apiserver/facade/facadetest"
+	"github.com/juju/juju/v2/apiserver/facades/client/annotations"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type annotationSuite struct {

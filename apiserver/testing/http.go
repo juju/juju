@@ -13,8 +13,8 @@ import (
 	"github.com/juju/testing/httptesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/rpc/params"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 // httpRequestParams holds parameters for the sendHTTPRequest methods.

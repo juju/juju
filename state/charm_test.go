@@ -17,12 +17,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/storage"
+	"github.com/juju/juju/v2/testcharms"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 // TODO (hml) lxd-profile

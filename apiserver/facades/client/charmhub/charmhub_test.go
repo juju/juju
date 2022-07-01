@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	facademocks "github.com/juju/juju/v2/apiserver/facade/mocks"
+	"github.com/juju/juju/v2/charmhub/transport"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/testing"
 )
 
 var _ = gc.Suite(&charmHubAPISuite{})

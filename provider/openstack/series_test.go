@@ -14,14 +14,14 @@ import (
 	"github.com/go-goose/goose/v5/swift"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
-	envstorage "github.com/juju/juju/environs/storage"
-	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/v2/core/constraints"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/environs"
+	"github.com/juju/juju/v2/environs/imagemetadata"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/environs/simplestreams"
+	envstorage "github.com/juju/juju/v2/environs/storage"
+	envtesting "github.com/juju/juju/v2/environs/testing"
 )
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.

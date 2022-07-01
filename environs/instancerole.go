@@ -4,7 +4,7 @@
 package environs
 
 import (
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/v2/environs/context"
 )
 
 const (

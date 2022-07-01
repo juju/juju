@@ -9,9 +9,9 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades/upgradevalidation"
-	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/upgrades/upgradevalidation"
+	"github.com/juju/juju/v2/upgrades/upgradevalidation/mocks"
 )
 
 func (s *upgradeValidationSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {

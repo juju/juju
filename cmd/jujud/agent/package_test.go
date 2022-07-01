@@ -6,7 +6,7 @@ package agent // not agent_test for no good reason
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/v2/testing"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/cmd/jujud/agent CommandRunner

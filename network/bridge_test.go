@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/v2/network"
 )
 
 // A note regarding the use of clock.WallClock in these unit tests.

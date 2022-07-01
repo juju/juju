@@ -5,13 +5,13 @@ package featuretests
 
 import (
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/v2/cmd/juju/application"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	jujutesting "github.com/juju/juju/v2/juju/testing"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/testing/factory"
 )
 
 type cmdApplicationSuite struct {

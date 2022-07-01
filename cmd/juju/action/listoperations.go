@@ -17,12 +17,12 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	actionapi "github.com/juju/juju/api/client/action"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/rpc/params"
+	actionapi "github.com/juju/juju/v2/api/client/action"
+	jujucmd "github.com/juju/juju/v2/cmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/output"
+	"github.com/juju/juju/v2/core/actions"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 // NewListOperationsCommand returns a ListOperations command.

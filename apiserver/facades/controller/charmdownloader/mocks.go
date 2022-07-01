@@ -9,12 +9,12 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v8 "github.com/juju/charm/v8"
-	services "github.com/juju/juju/apiserver/facades/client/charms/services"
-	controller "github.com/juju/juju/controller"
-	charm "github.com/juju/juju/core/charm"
-	status "github.com/juju/juju/core/status"
-	config "github.com/juju/juju/environs/config"
-	state "github.com/juju/juju/state"
+	services "github.com/juju/juju/v2/apiserver/facades/client/charms/services"
+	controller "github.com/juju/juju/v2/controller"
+	charm "github.com/juju/juju/v2/core/charm"
+	status "github.com/juju/juju/v2/core/status"
+	config "github.com/juju/juju/v2/environs/config"
+	state "github.com/juju/juju/v2/state"
 	macaroon_v2 "gopkg.in/macaroon.v2"
 )
 

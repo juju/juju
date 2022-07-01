@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
+	lxdprofile "github.com/juju/juju/v2/core/lxdprofile"
 )
 
 // MockLXDProfiler is a mock of LXDProfiler interface.

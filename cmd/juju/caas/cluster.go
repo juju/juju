@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/v2/cmd/modelcmd"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/runner_mock.go github.com/juju/juju/cmd/juju/caas CommandRunner

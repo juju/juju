@@ -14,14 +14,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/model"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/ec2" // needed when getting valid local credentials
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/v2/api/base"
+	"github.com/juju/juju/v2/cloud"
+	"github.com/juju/juju/v2/cmd/juju/model"
+	coremodel "github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/jujuclient"
+	_ "github.com/juju/juju/v2/provider/ec2" // needed when getting valid local credentials
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/testing"
 )
 
 var _ = gc.Suite(&ModelCredentialCommandSuite{})

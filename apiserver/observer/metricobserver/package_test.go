@@ -9,7 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"
+	"github.com/juju/juju/v2/apiserver/observer/metricobserver/mocks"
 )
 
 func Test(t *testing.T) {

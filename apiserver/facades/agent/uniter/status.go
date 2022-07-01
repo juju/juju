@@ -6,13 +6,13 @@ package uniter
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/apiserver/common"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/core/cache"
+	"github.com/juju/juju/v2/core/leadership"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 // StatusAPI is the uniter part that deals with setting/getting

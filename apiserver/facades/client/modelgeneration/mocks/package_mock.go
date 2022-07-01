@@ -9,9 +9,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
-	cache "github.com/juju/juju/core/cache"
-	settings "github.com/juju/juju/core/settings"
+	modelgeneration "github.com/juju/juju/v2/apiserver/facades/client/modelgeneration"
+	cache "github.com/juju/juju/v2/core/cache"
+	settings "github.com/juju/juju/v2/core/settings"
 	names "github.com/juju/names/v4"
 )
 

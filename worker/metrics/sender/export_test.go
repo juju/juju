@@ -3,7 +3,7 @@
 
 package sender
 
-import "github.com/juju/juju/worker/metrics/spool"
+import "github.com/juju/juju/v2/worker/metrics/spool"
 
 var (
 	NewSender            = newSender

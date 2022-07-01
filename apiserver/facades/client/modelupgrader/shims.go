@@ -10,7 +10,7 @@ import (
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/state"
 )
 
 // StatePool represents a point of use interface for getting the state from the

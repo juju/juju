@@ -7,9 +7,9 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/worker/uniter/operation"
+	"github.com/juju/juju/v2/worker/uniter/remotestate"
 )
 
 // ErrNoOperation is used to indicate that there are no

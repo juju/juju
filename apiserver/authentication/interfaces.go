@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
 )
 
 // Authenticator is the interface all entity authenticators need to implement

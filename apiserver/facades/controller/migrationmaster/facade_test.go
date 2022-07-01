@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/v2/controller"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/description/v3"
@@ -19,18 +19,18 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
-	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/v2/apiserver/common"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/apiserver/facades/controller/migrationmaster"
+	"github.com/juju/juju/v2/apiserver/facades/controller/migrationmaster/mocks"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	coremigration "github.com/juju/juju/v2/core/migration"
+	"github.com/juju/juju/v2/core/presence"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	jujuversion "github.com/juju/juju/v2/version"
 )
 
 type Suite struct {

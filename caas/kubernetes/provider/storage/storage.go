@@ -14,13 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas"
-	constants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/core/status"
-	storage "github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/v2/caas"
+	constants "github.com/juju/juju/v2/caas/kubernetes/provider/constants"
+	resources "github.com/juju/juju/v2/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/v2/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/v2/core/status"
+	storage "github.com/juju/juju/v2/storage"
+	storageprovider "github.com/juju/juju/v2/storage/provider"
 )
 
 // GetMountPathForFilesystem returns mount path.

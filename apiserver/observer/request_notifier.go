@@ -10,9 +10,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/v2/pubsub/apiserver"
+	"github.com/juju/juju/v2/rpc"
+	"github.com/juju/juju/v2/rpc/jsoncodec"
 )
 
 // Hub defines the only method of the apiserver centralhub that

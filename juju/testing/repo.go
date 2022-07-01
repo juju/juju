@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/version"
+	unitassignerapi "github.com/juju/juju/v2/api/agent/unitassigner"
+	"github.com/juju/juju/v2/state"
+	"github.com/juju/juju/v2/state/storage"
+	"github.com/juju/juju/v2/version"
 )
 
 type RepoSuite struct {

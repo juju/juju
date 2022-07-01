@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/v2/core/life"
+	"github.com/juju/juju/v2/core/relation"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/worker/uniter/runner/jujuc"
 )
 
 // Relation holds the data for the test double.

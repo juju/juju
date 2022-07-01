@@ -11,13 +11,13 @@ import (
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/v2/core/instance"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/core/status"
+	"github.com/juju/juju/v2/environs/context"
+	"github.com/juju/juju/v2/environs/instances"
+	"github.com/juju/juju/v2/provider/common"
+	"github.com/juju/juju/v2/storage"
 )
 
 type maasInstance interface {

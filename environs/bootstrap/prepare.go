@@ -8,15 +8,15 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/v2/caas"
+	"github.com/juju/juju/v2/controller"
+	"github.com/juju/juju/v2/core/model"
+	"github.com/juju/juju/v2/core/permission"
+	"github.com/juju/juju/v2/environs"
+	environscloudspec "github.com/juju/juju/v2/environs/cloudspec"
+	"github.com/juju/juju/v2/environs/config"
+	"github.com/juju/juju/v2/feature"
+	"github.com/juju/juju/v2/jujuclient"
 )
 
 // ControllerModelName is the name of the admin model in each controller.

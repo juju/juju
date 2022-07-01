@@ -6,7 +6,7 @@ package apiserver
 import (
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 func upgradeMethodsOnly(facadeName, methodName string) error {

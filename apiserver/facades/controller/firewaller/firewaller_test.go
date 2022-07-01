@@ -11,17 +11,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/v2/apiserver/common"
+	"github.com/juju/juju/v2/apiserver/common/cloudspec"
+	commontesting "github.com/juju/juju/v2/apiserver/common/testing"
+	"github.com/juju/juju/v2/apiserver/facade"
+	"github.com/juju/juju/v2/apiserver/facades/controller/firewaller"
+	"github.com/juju/juju/v2/apiserver/facades/controller/firewaller/mocks"
+	apiservertesting "github.com/juju/juju/v2/apiserver/testing"
+	"github.com/juju/juju/v2/core/network"
+	"github.com/juju/juju/v2/rpc/params"
+	"github.com/juju/juju/v2/state"
+	statetesting "github.com/juju/juju/v2/state/testing"
 )
 
 type firewallerSuite struct {

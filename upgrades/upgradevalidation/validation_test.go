@@ -15,10 +15,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades/upgradevalidation"
-	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
+	"github.com/juju/juju/v2/state"
+	coretesting "github.com/juju/juju/v2/testing"
+	"github.com/juju/juju/v2/upgrades/upgradevalidation"
+	"github.com/juju/juju/v2/upgrades/upgradevalidation/mocks"
 )
 
 var _ = gc.Suite(&upgradeValidationSuite{})

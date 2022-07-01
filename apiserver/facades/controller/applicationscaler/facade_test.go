@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
-	"github.com/juju/juju/rpc/params"
+	apiservererrors "github.com/juju/juju/v2/apiserver/errors"
+	"github.com/juju/juju/v2/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/v2/rpc/params"
 )
 
 type FacadeSuite struct {
