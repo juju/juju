@@ -78,7 +78,8 @@ const (
 
 	gpuAffinityNodeSelectorKey = "gpu"
 
-	operatorContainerName = "juju-operator"
+	operatorInitContainerName = "juju-init"
+	operatorContainerName     = "juju-operator"
 
 	dataDirVolumeName = "juju-data-dir"
 
