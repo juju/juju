@@ -1291,76 +1291,52 @@ func (cs *changeset) sorted() ([]Change, error) {
 	return sortedChanges, nil
 }
 
-// toposortFlatten performs a topographical flattened sort on the provided
+// toposortFlatten performs a stable topological sort on the provided
 // data.  dataOrder is a slice of the originally ordered changes. data is a
 // map of change to requirements.  To be idempotent, requirements must be in
 // the same order each time.  Use along with data to ensure that this method
 // is deterministic.
-//
-// Adapted from https://tylercipriani.com/blog/2017/09/13/topographical-sorting-in-golang/
-// Blog post: Topographical Sorting in Golang
-// Copyright © 2017 Tyler Cipriani
 func toposortFlatten(dataOrder []string, data map[string][]string) ([]string, error) {
 
-	// Create a map to handle degrees, all vertices start at 0.
+	// inDegree tracks the in-degree of each vertex `ch`
+	// i.e. the number of changes that must be done before `ch`.
 	inDegree := make(map[string]int, len(dataOrder))
-	for n := range data {
-		inDegree[n] = 0
-	}
+	// followers is the inverse of data: for each change `r`, followers[ch] is
+	// the list of all changes which require `r`.
+	followers := make(map[string][]string, len(dataOrder))
 
-	// For each vertex, adjacent to "u", increment the degree.
-	for _, adjacent := range data {
-		for _, v := range adjacent {
-			inDegree[v]++
+	for ch, reqs := range data {
+		inDegree[ch] = len(reqs)
+		for _, r := range reqs {
+			followers[r] = append(followers[r], ch)
 		}
 	}
 
-	// Make a list of next, containing all vertex that have a degree
-	// of 0.
-	var next []string
-	for _, k := range dataOrder {
-		v := inDegree[k]
-		if v != 0 {
-			continue
-		}
-		next = append(next, k)
-	}
+	sorted := make([]string, 0, len(dataOrder))
 
-	// Use an idx to insert items into the linearOrder from
-	// the end to the beginning, to avoid reversing the order later.
-	linearOrder := make([]string, len(dataOrder))
-	idx := len(linearOrder)
+	// Loop through and take out changes with in-degree 0
+	//  - these changes can be done now
+	for len(inDegree) > 0 {
+		lStart := len(inDegree)
 
-	// While next is not empty
-	for ; len(next) > 0; idx -= 1 {
-		// Pop a vertex off next list
-		u := next[0]
-		next = next[1:]
-
-		if idx > 0 {
-			// Add it the linearOrder of vertices, starting
-			// from the end.
-			linearOrder[idx-1] = u
-		}
-
-		// For each vertex adjacent to the current one,
-		// decrement the degree, and if now 0, add to the
-		// next list.
-		for _, v := range data[u] {
-			inDegree[v]--
-			if inDegree[v] == 0 {
-				next = append(next, v)
+		for _, ch := range dataOrder {
+			if d, ok := inDegree[ch]; ok && d == 0 {
+				sorted = append(sorted, ch)
+				delete(inDegree, ch)
+				for _, fo := range followers[ch] {
+					inDegree[fo]--
+				}
 			}
 		}
+
+		if lStart == len(inDegree) {
+			// If nothing is removed in an iteration then we are stuck.
+			// Return error because something must have gone wrong somewhere
+			return nil, errors.New("sort failed")
+		}
 	}
 
-	if idx != 0 {
-		intersection := set.NewStrings(linearOrder...).Difference(set.NewStrings(dataOrder...))
-		return nil, errors.Errorf("sort failed, %q is not a valid changeID",
-			strings.Join(intersection.SortedValues(), ", "))
-	}
-
-	return linearOrder, nil
+	return sorted, nil
 }
 
 func storeLocation(schema string) string {
