@@ -148,7 +148,7 @@ func (r *restrictNewerClientSuite) TestAgentMethod(c *gc.C) {
 func (r *restrictNewerClientSuite) assertAgentMethod(c *gc.C, agentVers string, allowed bool) {
 	r.callerVersion = version.MustParse(agentVers)
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(false, r.callerVersion)
-	caller, err := root.FindMethod("Uniter", 15, "CurrentModel")
+	caller, err := root.FindMethod("Uniter", 18, "CurrentModel")
 	if allowed {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(caller, gc.NotNil)
