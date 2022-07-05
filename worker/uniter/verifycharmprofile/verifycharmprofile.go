@@ -4,6 +4,8 @@
 package verifycharmprofile
 
 import (
+	corecharm "github.com/juju/charm/v8"
+
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -48,8 +50,12 @@ func (r *verifyCharmProfileResolver) NextOp(
 	if err != nil {
 		return nil, err
 	}
-	if rev != remoteState.CharmURL.Revision {
-		r.logger.Tracef("Charm profile required: current revision %d does not match new revision %d", rev, remoteState.CharmURL.Revision)
+	curl, err := corecharm.ParseURL(remoteState.CharmURL)
+	if err != nil {
+		return nil, err
+	}
+	if rev != curl.Revision {
+		r.logger.Tracef("Charm profile required: current revision %d does not match new revision %d", rev, curl.Revision)
 		return nil, resolver.ErrDoNotProceed
 	}
 	r.logger.Tracef("Charm profile correct for charm revision")

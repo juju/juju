@@ -6,7 +6,6 @@ package resolver_test
 import (
 	"errors"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -165,11 +164,11 @@ func (s *ResolverOpFactorySuite) TestUpgrade(c *gc.C) {
 }
 
 func (s *ResolverOpFactorySuite) testUpgrade(
-	c *gc.C, meth func(resolver.ResolverOpFactory, *charm.URL) (operation.Operation, error),
+	c *gc.C, meth func(resolver.ResolverOpFactory, string) (operation.Operation, error),
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.LocalState.Conflicted = true
-	curl := charm.MustParseURL("cs:trusty/mysql")
+	curl := "cs:trusty/mysql"
 	op, err := meth(f, curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(operation.State{})
@@ -199,7 +198,7 @@ func (s *ResolverOpFactorySuite) TestSkipRemoteInit(c *gc.C) {
 }
 
 func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {
-	curl := charm.MustParseURL("cs:trusty/mysql")
+	curl := "cs:trusty/mysql"
 	s.opFactory.SetErrors(
 		errors.New("NewUpgrade fails"),
 		errors.New("NewRevertUpgrade fails"),
@@ -216,18 +215,18 @@ func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {
 
 func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
-	curl := charm.MustParseURL("cs:trusty/mysql")
+
 	s.opFactory.op.commit = func(operation.State) (*operation.State, error) {
 		return nil, errors.New("commit fails")
 	}
-	op, err := f.NewUpgrade(curl)
+	op, err := f.NewUpgrade("cs:trusty/mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, gc.ErrorMatches, "commit fails")
 	// Local state should not have been updated. We use the same code
 	// internally for all operations, so it suffices to test just the
 	// upgrade case.
-	c.Assert(f.LocalState.CharmURL, gc.IsNil)
+	c.Assert(f.LocalState.CharmURL, gc.Equals, "")
 }
 
 func (s *ResolverOpFactorySuite) TestActionsCommit(c *gc.C) {

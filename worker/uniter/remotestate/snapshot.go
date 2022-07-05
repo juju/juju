@@ -4,8 +4,6 @@
 package remotestate
 
 import (
-	"github.com/juju/charm/v8"
-
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/life"
@@ -31,9 +29,9 @@ type Snapshot struct {
 	// changed in some way.
 	CharmModifiedVersion int
 
-	// CharmURL is the charm URL that the unit is
+	// CharmURL is the string representation of charm URL that the unit is
 	// expected to run.
-	CharmURL *charm.URL
+	CharmURL string
 
 	// ForceCharmUpgrade reports whether the unit
 	// should upgrade even in an error state.

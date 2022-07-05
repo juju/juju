@@ -564,7 +564,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	return err
 }
 
-func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
+func (u *Uniter) verifyCharmProfile(url string) error {
+	curl, err := corecharm.ParseURL(url)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// NOTE: this is very similar code to verifyCharmProfile.NextOp,
 	// if you make changes here, check to see if they are needed there.
 	ch, err := u.st.Charm(curl)
@@ -613,11 +617,11 @@ func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
 // charmState returns data for the local state setup.
 // While gathering the data, look for interrupted Install or pending
 // charm upgrade, execute if found.
-func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
+func (u *Uniter) charmState() (bool, string, int, error) {
 	// Install is a special case, as it must run before there
 	// is any remote state, and before the remote state watcher
 	// is started.
-	var charmURL *corecharm.URL
+	var charmURL string
 	var charmModifiedVersion int
 
 	canApplyCharmProfile, err := u.unit.CanApplyLXDProfile()
@@ -900,11 +904,11 @@ func (u *Uniter) Wait() error {
 	return u.catacomb.Wait()
 }
 
-func (u *Uniter) getApplicationCharmURL() (*corecharm.URL, error) {
+func (u *Uniter) getApplicationCharmURL() (string, error) {
 	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
 	app, err := u.st.Application(u.unit.ApplicationTag())
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	charmURL, _, err := app.CharmURL()
 	return charmURL, err

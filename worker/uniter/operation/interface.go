@@ -4,7 +4,6 @@
 package operation
 
 import (
-	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/v3/exec"
@@ -107,10 +106,10 @@ type Executor interface {
 type Factory interface {
 
 	// NewInstall creates an install operation for the supplied charm.
-	NewInstall(charmURL *corecharm.URL) (Operation, error)
+	NewInstall(charmURL string) (Operation, error)
 
 	// NewUpgrade creates an upgrade operation for the supplied charm.
-	NewUpgrade(charmURL *corecharm.URL) (Operation, error)
+	NewUpgrade(charmURL string) (Operation, error)
 
 	// NewRemoteInit inits the remote charm on CAAS pod.
 	NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (Operation, error)
@@ -125,12 +124,12 @@ type Factory interface {
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
 	// remnants of a previously failed upgrade to a different charm.
-	NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error)
+	NewRevertUpgrade(charmURL string) (Operation, error)
 
 	// NewResolvedUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to preserve
 	// non-overlapping remnants of a previously failed upgrade to the same charm.
-	NewResolvedUpgrade(charmURL *corecharm.URL) (Operation, error)
+	NewResolvedUpgrade(charmURL string) (Operation, error)
 
 	// NewRunHook creates an operation to execute the supplied hook.
 	NewRunHook(hookInfo hook.Info) (Operation, error)
@@ -225,13 +224,13 @@ type Callbacks interface {
 
 	// GetArchiveInfo is used to find out how to download a charm archive. It's
 	// only used by Deploy operations.
-	GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error)
+	GetArchiveInfo(charmURL string) (charm.BundleInfo, error)
 
 	// SetCurrentCharm records intent to deploy a given charm. It must be called
 	// *before* recording local state referencing that charm, to ensure there's
 	// no path by which the controller can legitimately garbage collect that
 	// charm or the application's settings for it. It's only used by Deploy operations.
-	SetCurrentCharm(charmURL *corecharm.URL) error
+	SetCurrentCharm(charmURL string) error
 
 	// SetUpgradeSeriesStatus is intended to give the uniter a chance to
 	// upgrade the status of a running series upgrade before or after

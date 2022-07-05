@@ -496,7 +496,7 @@ func (s *unitSuite) TestCharmURL(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	curl, err := unit.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, jc.DeepEquals, charm.MustParseURL("cs:mysql"))
+	c.Assert(curl, gc.Equals, "cs:mysql")
 }
 
 func (s *unitSuite) TestSetCharmURL(c *gc.C) {
@@ -517,7 +517,7 @@ func (s *unitSuite) TestSetCharmURL(c *gc.C) {
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetCharmURL(charm.MustParseURL("cs:mysql"))
+	err := unit.SetCharmURL("cs:mysql")
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 

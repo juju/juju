@@ -4,7 +4,6 @@
 package operation_test
 
 import (
-	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -40,7 +39,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FactorySuite) testNewDeployError(c *gc.C, newDeploy newDeploy) {
-	op, err := newDeploy(s.factory, nil)
+	op, err := newDeploy(s.factory, "")
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "charm url required")
 }
@@ -62,7 +61,7 @@ func (s *FactorySuite) TestNewResolvedUpgradeError(c *gc.C) {
 }
 
 func (s *FactorySuite) testNewDeployString(c *gc.C, newDeploy newDeploy, expectPrefix string) {
-	op, err := newDeploy(s.factory, corecharm.MustParseURL("cs:quantal/wordpress-1"))
+	op, err := newDeploy(s.factory, "cs:quantal/wordpress-1")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, expectPrefix+" cs:quantal/wordpress-1")
 }
