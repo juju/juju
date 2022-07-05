@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -928,7 +929,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 
 	// Cannot advance to Dead while there are detachable dynamic volumes.
 	err = machine.EnsureDead()
-	c.Assert(err, jc.Satisfies, state.IsHasAttachmentsError)
+	c.Assert(errors.Is(err, stateerrors.HasAttachmentsError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0\\]")
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)

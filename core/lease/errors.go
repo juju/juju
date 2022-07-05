@@ -5,47 +5,47 @@ package lease
 
 import "github.com/juju/errors"
 
-var (
+const (
 	// ErrClaimDenied indicates that a Claimer.Claim() has been denied.
-	ErrClaimDenied = errors.New("lease claim denied")
+	ErrClaimDenied = errors.ConstError("lease claim denied")
 
 	// ErrNotHeld indicates that some holder does not hold some lease.
-	ErrNotHeld = errors.New("lease not held")
+	ErrNotHeld = errors.ConstError("lease not held")
 
 	// ErrWaitCancelled is returned by Claimer.WaitUntilExpired if the
 	// cancel channel is closed.
-	ErrWaitCancelled = errors.New("waiting for lease cancelled by client")
+	ErrWaitCancelled = errors.ConstError("waiting for lease cancelled by client")
 
 	// ErrInvalid indicates that a Store operation failed because latest state
 	// indicates that it's a logical impossibility. It's a short-range signal to
 	// calling code only; that code should never pass it on, but should inspect
 	// the Store's updated Leases() and either attempt a new operation or return
 	// a new error at a suitable level of abstraction.
-	ErrInvalid = errors.New("invalid lease operation")
+	ErrInvalid = errors.ConstError("invalid lease operation")
 
 	// ErrHeld indicates that a claim operation was impossible to fulfill
 	// because the lease has been claimed on behalf of another entity.
 	// This operation should not be retried.
-	ErrHeld = errors.New("lease already held")
+	ErrHeld = errors.ConstError("lease already held")
 
 	// ErrTimeout indicates that a Store operation failed because it
 	// couldn't update the underlying lease information. This is probably
 	// a transient error due to changes in the cluster, and indicates that
 	// the operation should be retried.
-	ErrTimeout = errors.New("lease operation timed out")
+	ErrTimeout = errors.ConstError("lease operation timed out")
 
 	// ErrAborted indicates that the stop channel returned before the operation
 	// succeeded or failed.
-	ErrAborted = errors.New("lease operation aborted")
+	ErrAborted = errors.ConstError("lease operation aborted")
 
 	// ErrDropped indicated that the underlying request was dropped. This is
 	// indicative of no valid connection to propagate the lease operation to
 	// the leader.
-	ErrDropped = errors.New("lease operation dropped")
+	ErrDropped = errors.ConstError("lease operation dropped")
 
 	// ErrDeadlineExceeded indicates if the underlying request was rejected
 	// because enqueuing exceeded the timeout.
-	ErrDeadlineExceeded = errors.New("lease deadline exceeded")
+	ErrDeadlineExceeded = errors.ConstError("lease deadline exceeded")
 )
 
 // IsInvalid returns whether the specified error represents ErrInvalid
@@ -93,9 +93,16 @@ func IsDeadlineExceeded(err error) bool {
 // IsLeaseError returns whether the specified error is part of the collection
 // of lease errors.
 func IsLeaseError(err error) bool {
-	switch errors.Cause(err) {
-	case ErrInvalid, ErrHeld, ErrTimeout, ErrAborted, ErrNotHeld, ErrDropped, ErrDeadlineExceeded:
+	switch {
+	case errors.Is(err, ErrInvalid),
+		errors.Is(err, ErrHeld),
+		errors.Is(err, ErrTimeout),
+		errors.Is(err, ErrAborted),
+		errors.Is(err, ErrNotHeld),
+		errors.Is(err, ErrDropped),
+		errors.Is(err, ErrDeadlineExceeded):
 		return true
+	default:
+		return false
 	}
-	return false
 }

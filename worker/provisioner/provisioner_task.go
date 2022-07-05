@@ -1329,7 +1329,7 @@ func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, mac
 	// supports availability zones and we're automatically distributing
 	// across the zones, then we try each zone for every attempt, or until
 	// one of the StartInstance calls returns an error satisfying
-	// environs.IsAvailabilityZoneIndependent.
+	// Is(err, environs.ErrAvailabilityZoneIndependent)
 	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; {
 		if startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(
 			machine.Id(), distributionGroupMachineIds, startInstanceParams.Constraints,
@@ -1362,7 +1362,7 @@ func (task *provisionerTask) doStartMachine(ctx context.ProviderCallContext, mac
 
 		retrying := true
 		retryMsg := ""
-		if startInstanceParams.AvailabilityZone != "" && !environs.IsAvailabilityZoneIndependent(err) {
+		if startInstanceParams.AvailabilityZone != "" && !errors.Is(err, environs.ErrAvailabilityZoneIndependent) {
 			// We've specified a zone, and the error may be specific to
 			// that zone. Retry in another zone if there are any untried.
 			azRemaining, err2 := task.markMachineFailedInAZ(machine,

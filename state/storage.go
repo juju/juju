@@ -21,6 +21,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -368,7 +369,7 @@ func (sb *storageBackend) storageInstances(query bson.D) (storageInstances []*st
 // any attachments first; if there are no attachments, then the storage instance
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then DestroyStorageInstance will return an error
-// satisfying IsStorageAttachedError.
+// satisfying StorageAttachedError.
 func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
 	return sb.destroyStorageInstance(tag, destroyAttachments, false, force, maxWait)
@@ -381,7 +382,7 @@ func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAt
 // any attachments first; if there are no attachments, then the storage instance
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then ReleaseStorageInstance will return an error
-// satisfying IsStorageAttachedError.
+// satisfying StorageAttachedError.
 func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release storage %q", tag.Id())
 	return sb.destroyStorageInstance(tag, destroyAttachments, true, force, maxWait)
@@ -443,7 +444,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	if !destroyAttachments {
 		// There are storage attachments, and we've been instructed
 		// not to destroy them.
-		return nil, newStorageAttachedError("storage is attached")
+		return nil, stateerrors.StorageAttachedError
 	}
 
 	// Check that removing the storage from its owner (if any) is permitted.
