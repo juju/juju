@@ -45,8 +45,7 @@ subjects:
     namespace: $namespace
 EOF
 
-	sa_secret=$(kubectl --kubeconfig "${KUBE_CONFIG}" get sa -o json "${name}" -n "$namespace" | jq -r '.secrets[0].name')
-	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" get secret -o json "$sa_secret" -n "$namespace" | jq -r '.data.token' | base64 -d)
+	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" create token "${name}" -n "$namespace")
 
 	kubectl --kubeconfig "${KUBE_CONFIG}" config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
 
@@ -128,8 +127,7 @@ subjects:
     namespace: $namespace
 EOF
 
-	sa_secret=$(kubectl --kubeconfig "${KUBE_CONFIG}" get sa -o json "$name" -n "$namespace" | jq -r '.secrets[0].name')
-	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" get secret -o json "$sa_secret" -n "$namespace" | jq -r '.data.token' | base64 -d)
+	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" create token "${name}" -n "$namespace")
 
 	kubectl --kubeconfig "${TEST_DIR}"/kube.conf config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
 
