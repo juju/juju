@@ -395,20 +395,13 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
-	err = bootstrapEnv(c, env)
+	env := s.openEnviron(c, coretesting.Attrs{})
+	cons := constraints.MustParse("allocate-public-ip=true")
+	err = bootstrapEnvWithConstraints(c, env, cons)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
-func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
-	s.assertAddressesWithPublicIP(c, constraints.Value{}, true)
-}
-
-func (s *localServerSuite) TestAddressesWithPublicIPConstraintsOverride(c *gc.C) {
-	s.assertAddressesWithPublicIP(c, constraints.MustParse("allocate-public-ip=true"), false)
-}
-
-func (s *localServerSuite) assertAddressesWithPublicIP(c *gc.C, cons constraints.Value, useFloatingIP bool) {
+func (s *localServerSuite) TestAddressesWithPublicIPConstraints(c *gc.C) {
 	// Floating IP address is 10.0.0.1
 	bootstrapFinished := false
 	s.PatchValue(&common.FinishBootstrap, func(
@@ -434,23 +427,15 @@ func (s *localServerSuite) assertAddressesWithPublicIP(c *gc.C, cons constraints
 	})
 
 	env := s.openEnviron(c, coretesting.Attrs{
-		"network":         "private_999",
-		"use-floating-ip": useFloatingIP,
+		"network": "private_999",
 	})
+	cons := constraints.MustParse("allocate-public-ip=true")
 	err := bootstrapEnvWithConstraints(c, env, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
 }
 
-func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
-	s.assertAddressesWithoutPublicIP(c, constraints.Value{}, false)
-}
-
-func (s *localServerSuite) TestAddressesWithoutPublicIPConstraintsOverride(c *gc.C) {
-	s.assertAddressesWithoutPublicIP(c, constraints.MustParse("allocate-public-ip=false"), true)
-}
-
-func (s *localServerSuite) assertAddressesWithoutPublicIP(c *gc.C, cons constraints.Value, useFloatingIP bool) {
+func (s *localServerSuite) TestAddressesWithoutPublicIPConstraints(c *gc.C) {
 	bootstrapFinished := false
 	s.PatchValue(&common.FinishBootstrap, func(
 		ctx environs.BootstrapContext,
@@ -473,7 +458,8 @@ func (s *localServerSuite) assertAddressesWithoutPublicIP(c *gc.C, cons constrai
 		return nil
 	})
 
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": useFloatingIP})
+	env := s.openEnviron(c, coretesting.Attrs{})
+	cons := constraints.MustParse("allocate-public-ip=false")
 	err := bootstrapEnvWithConstraints(c, env, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
@@ -501,7 +487,6 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.TestConfig["use-floating-ip"] = false
 	env := s.Prepare(c)
 	err = bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -601,13 +586,13 @@ func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that corresponds to a neutron test service external network
 		"external-network": "ext-net",
-		"use-floating-ip":  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
+	cons := constraints.MustParse("allocate-public-ip=true")
+	inst, _ := testing.AssertStartInstanceWithConstraints(c, s.env, s.callCtx, s.ControllerUUID, "100", cons)
 	err = s.env.StopInstances(s.callCtx, inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -630,13 +615,13 @@ func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C)
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that has no related network in the neutron test service
 		"external-network": "no-network-with-this-label",
-		"use-floating-ip":  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	cons := constraints.MustParse("allocate-public-ip=true")
+	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.StopInstances(s.callCtx, inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -716,17 +701,17 @@ func (s *localServerSuite) TestStartInstanceOneNetworkNetworkNotSetNoError(c *gc
 func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
 	// If both the network and external-network config values are
 	// specified, there is not check for them being on different
-	// network availability zones when use-floating-ips specified.
+	// network availability zones with allocate-public-ip constraint.
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		"network":          "net",     // az = nova
 		"external-network": "ext-net", // az = test-available
-		"use-floating-ip":  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	cons := constraints.MustParse("allocate-public-ip=true")
+	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.StopInstances(s.callCtx, inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -762,14 +747,14 @@ func (s *localServerSuite) TestStartInstanceNetworksEmptyAZ(c *gc.C) {
 	// Set floating ip to ensure we try to find the external
 	// network.
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		"network":         "no-az-net", // az = nova
-		"use-floating-ip": true,
+		"network": "no-az-net", // az = nova
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	cons := constraints.MustParse("allocate-public-ip=true")
+	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.StopInstances(s.callCtx, inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -777,14 +762,14 @@ func (s *localServerSuite) TestStartInstanceNetworksEmptyAZ(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetworkNoExternalNetInAZ(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		"network":         "net", // az = nova
-		"use-floating-ip": true,
+		"network": "net", // az = nova
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, _, err = testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	cons := constraints.MustParse("allocate-public-ip=true")
+	_, _, _, err = testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
 	c.Assert(err, gc.ErrorMatches, "cannot allocate a public IP as needed: could not find an external network in availability zone.*")
 }
 
@@ -1183,12 +1168,11 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 
 func (s *localServerSuite) TestAllRunningInstancesFloatingIP(c *gc.C) {
 	env := s.openEnviron(c, coretesting.Attrs{
-		"network":         "private_999",
-		"use-floating-ip": true,
+		"network": "private_999",
 	})
-
-	inst0, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
-	inst1, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "101")
+	cons := constraints.MustParse("allocate-public-ip=true")
+	inst0, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", cons)
+	inst1, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "101", cons)
 	defer func() {
 		err := env.StopInstances(s.callCtx, inst0.Id(), inst1.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1202,11 +1186,15 @@ func (s *localServerSuite) TestAllRunningInstancesFloatingIP(c *gc.C) {
 }
 
 func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool) {
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": withFloatingIP})
+	env := s.openEnviron(c, coretesting.Attrs{})
 
-	inst0, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
+	var cons constraints.Value
+	if withFloatingIP {
+		cons = constraints.MustParse("allocate-public-ip=true")
+	}
+	inst0, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", cons)
 	id0 := inst0.Id()
-	inst1, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "101")
+	inst1, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "101", cons)
 	id1 := inst1.Id()
 	defer func() {
 		err := env.StopInstances(s.callCtx, inst0.Id(), inst1.Id())
