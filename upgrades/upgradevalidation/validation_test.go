@@ -233,7 +233,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 		version.MustParse("4.1.1"),
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `"4.1.1" is not a supported version`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade, "4.1.1" is not a supported version`)
 	c.Assert(blocker, gc.IsNil)
 }
 

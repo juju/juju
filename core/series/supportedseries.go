@@ -301,6 +301,14 @@ func UbuntuSeriesVersion(series string) (string, error) {
 
 // UbuntuVersions returns the ubuntu versions as a map..
 func UbuntuVersions(supported, esmSupported *bool) map[string]string {
+	return ubuntuVersions(supported, esmSupported, ubuntuSeries)
+}
+
+func ubuntuVersions(
+	supported, esmSupported *bool, ubuntuSeries map[SeriesName]seriesVersion,
+) map[string]string {
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
 	save := make(map[string]string)
 	for seriesName, val := range ubuntuSeries {
 		if supported != nil && val.Supported != *supported {

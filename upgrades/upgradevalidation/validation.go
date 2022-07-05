@@ -153,7 +153,6 @@ func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, mode
 	for _, v := range series.WindowsVersions() {
 		winSeries.Add(v)
 	}
-
 	result, err := st.MachineCountForSeries(
 		winSeries.SortedValues()..., // sort for tests.
 	)
@@ -186,12 +185,13 @@ func checkForDeprecatedUbuntuSeriesForModel(
 	modelUUID string, pool StatePool, st State, model Model,
 ) (*Blocker, error) {
 	supported := false
-	var deprecatedSeries []string
+	deprecatedSeries := set.NewStrings()
 	for s := range series.UbuntuVersions(&supported, nil) {
-		deprecatedSeries = append(deprecatedSeries, s)
+		deprecatedSeries.Add(s)
 	}
-	sort.Strings(deprecatedSeries) // sort for tests.
-	result, err := st.MachineCountForSeries(deprecatedSeries...)
+	result, err := st.MachineCountForSeries(
+		deprecatedSeries.SortedValues()..., // sort for tests.
+	)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot count deprecated ubuntu machines")
 	}

@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -23,8 +22,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.modelupgrader")
 
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
@@ -155,7 +152,14 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(force bool, modelTag names.Model
 	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
 		if err == nil && blockers != nil {
-			err = errors.NewNotSupported(nil, fmt.Sprintf("cannot upgrade to %q due to issues with these models:\n%s", targetVersion, blockers))
+			err = apiservererrors.ServerError(
+				errors.NewNotSupported(nil,
+					fmt.Sprintf(
+						"cannot upgrade to %q due to issues with these models:\n%s",
+						targetVersion, blockers,
+					),
+				),
+			)
 		}
 	}()
 

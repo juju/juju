@@ -731,7 +731,10 @@ func (st *State) MachineCountForSeries(series ...string) (map[string]int, error)
 	defer closer()
 	pipe := machinesCollection.Pipe([]bson.M{
 		{
-			"$match": bson.M{"series": bson.M{"$in": series}},
+			"$match": bson.M{
+				"series":     bson.M{"$in": series},
+				"model-uuid": st.ModelUUID(),
+			},
 		},
 		{
 			"$group": bson.M{
