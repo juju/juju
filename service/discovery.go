@@ -42,13 +42,12 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 
 func discoverInitSystem(hostSeries string) (string, error) {
 	initName, err := discoverLocalInitSystem()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Fall back to checking the juju version.
 		versionInitName, err2 := VersionInitSystem(hostSeries)
 		if err2 != nil {
-			// The key error is the one from discoverLocalInitSystem so
-			// that is what we return.
-			return "", errors.Wrap(err2, err)
+			// We throw away err2 here because it's not needed
+			return "", err
 		}
 		initName = versionInitName
 	} else if err != nil {
@@ -71,8 +70,7 @@ func VersionInitSystem(series string) (string, error) {
 func versionInitSystem(ser string) (string, error) {
 	seriesos, err := jujuseries.GetOSFromSeries(ser)
 	if err != nil {
-		notFound := errors.NotFoundf("init system for series %q", ser)
-		return "", errors.Wrap(err, notFound)
+		return "", fmt.Errorf("init system for series %q %w", ser, errors.NotFound)
 	}
 
 	switch seriesos {
@@ -117,7 +115,7 @@ func discoverLocalInitSystem() (string, error) {
 			return check.name, nil
 		}
 	}
-	return "", errors.NotFoundf("init system (based on local host)")
+	return "", fmt.Errorf("init system (based on local host %w", errors.NotFound)
 }
 
 const (

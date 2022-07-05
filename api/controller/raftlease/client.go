@@ -183,7 +183,7 @@ func (c *Client) Request(ctx context.Context, command *raftlease.Command) error 
 		IsFatalError: func(err error) bool {
 			// We only want to retry if the leader has changed, all other errors
 			// can be handled via the lease manager.
-			return !apiservererrors.IsNotLeaderError(err)
+			return !errors.HasType[*apiservererrors.NotLeaderError](err)
 		},
 		Attempts:    3,
 		Delay:       time.Millisecond * 100,
@@ -209,14 +209,12 @@ func (c *Client) handleRetryRequestError(command *raftlease.Command, remote Remo
 
 	// If the remote is no longer the leader, go and attempt to get it from
 	// the error. If it's not in the error, just select one at random.
-	if apiservererrors.IsNotLeaderError(err) {
-		// Grab the underlying not leader error.
-		notLeaderError := errors.Cause(err).(*apiservererrors.NotLeaderError)
-
+	var notLeaderError *apiservererrors.NotLeaderError
+	if errors.As(err, &notLeaderError) {
 		remote, err = c.selectRemoteFromError(remote.Address(), err)
 		if err == nil && remote != nil {
 			// If we've got an remote, then attempt the request again.
-			return remote, errors.Annotatef(notLeaderError, "not the leader, trying again")
+			return remote, errors.Annotate(notLeaderError, "not the leader, trying again")
 		}
 		// If we're not the leader and we don't have a remote to select from
 		// just return back.
@@ -230,7 +228,7 @@ func (c *Client) handleRetryRequestError(command *raftlease.Command, remote Remo
 		// return dropped.
 		return remote, lease.ErrDropped
 
-	} else if apiservererrors.IsDeadlineExceededError(err) {
+	} else if errors.Is(err, apiservererrors.DeadlineExceededError) {
 		// Enqueuing into the queue just timed out, we should just
 		// log this error and try again if possible. The lease manager
 		// will know if a retry at that level is possible.

@@ -1055,7 +1055,7 @@ func (srv *Server) serveConn(
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
 	if errors.IsNotFound(err) {
-		err = errors.Wrap(err, apiservererrors.UnknownModelError(resolvedModelUUID))
+		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
 	}
 
 	if err != nil {

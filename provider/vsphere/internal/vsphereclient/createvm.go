@@ -28,7 +28,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/environs"
 )
 
 //go:generate go run github.com/juju/juju/generate/filetoconst UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient
@@ -467,7 +467,7 @@ func (c *Client) selectDatastore(
 ) (_ *mo.Datastore, err error) {
 	defer func() {
 		if err != nil {
-			err = common.ZoneIndependentError(err)
+			err = environs.ZoneIndependentError(err)
 		}
 	}()
 	c.logger.Debugf("Selecting datastore")

@@ -101,7 +101,7 @@ func (ctxt *httpContext) stateForMigration(
 	}()
 	model, err := migrationSt.Model()
 	if errors.IsNotFound(err) {
-		return nil, errors.Wrap(err, apiservererrors.UnknownModelError(modelUUID))
+		return nil, fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

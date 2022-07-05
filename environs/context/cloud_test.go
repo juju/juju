@@ -24,5 +24,5 @@ func (s *CloudCallContextSuite) TestCloudCallContext(c *gc.C) {
 	c.Assert(ctx.Context, gc.Equals, stdctx)
 
 	err := ctx.InvalidateCredential("call")
-	c.Assert(err, gc.FitsTypeOf, errors.NewNotImplemented(nil, ""))
+	c.Assert(errors.Is(err, errors.NotImplemented), gc.Equals, true)
 }

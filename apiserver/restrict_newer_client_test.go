@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -90,7 +91,7 @@ func (r *restrictNewerClientSuite) TestOldClientUpgradeMethodDisallowed(c *gc.C)
 	r.callerVersion.Major = jujuversion.Current.Major - 1
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
 	caller, err := root.FindMethod("ModelUpgrader", 1, "UpgradeModel")
-	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
+	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }
 
@@ -98,7 +99,7 @@ func (r *restrictNewerClientSuite) TestReallyOldClientDisallowedMethod(c *gc.C) 
 	r.callerVersion.Major = jujuversion.Current.Major - 2
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
 	caller, err := root.FindMethod("Client", 3, "FullStatus")
-	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
+	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }
 
@@ -106,7 +107,7 @@ func (r *restrictNewerClientSuite) TestReallyNewClientDisallowedMethod(c *gc.C) 
 	r.callerVersion.Major = jujuversion.Current.Major + 2
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
 	caller, err := root.FindMethod("Client", 3, "FullStatus")
-	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
+	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }
 
@@ -114,7 +115,7 @@ func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 	r.callerVersion.Major = jujuversion.Current.Major - 1
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
 	caller, err := root.FindMethod("ModelConfig", 3, "ModelSet")
-	c.Assert(err, jc.Satisfies, params.IsIncompatibleClientError)
+	c.Assert(errors.HasType[*params.IncompatibleClientError](err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }
 

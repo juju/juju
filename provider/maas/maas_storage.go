@@ -44,7 +44,7 @@ func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 	file, err := stor.maasController.GetFile(name)
 	if err != nil {
 		if gomaasapi.IsNoMatchError(err) {
-			return nil, errors.Wrap(err, errors.NotFoundf(name))
+			return nil, errors.NewNotFound(err, name+" not found")
 		}
 		return nil, errors.Trace(err)
 	}

@@ -810,7 +810,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
 	c.Assert(errors.Details(err), gc.Matches, `.*availability zone \"\" not valid.*`)
 }
 
@@ -890,7 +890,7 @@ func (t *localServerSuite) TestStartInstanceZoneIndependent(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: nonsense")
 	// The returned error should indicate that it is independent
 	// of the availability zone specified.
-	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 }
 
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
@@ -1155,9 +1155,9 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 
 	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 	// All AZConstrained failures should return an error that does
-	// *not* satisfy environs.IsAvailabilityZoneIndependent,
+	// Is(err, environs.ErrAvailabilityZoneIndependent)
 	// so the caller knows to try a new zone, rather than fail.
-	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
 	c.Assert(errors.Details(err), jc.Contains, runInstancesError.ErrorMessage())
 }
 
@@ -1247,7 +1247,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
-	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
 	c.Assert(errors.Details(err), gc.Matches, `.*subnets in AZ "test-available" not found.*`)
 }
 
@@ -1311,7 +1311,7 @@ func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
 		_, err = testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 		if err == nil {
 			return
-		} else if !environs.IsAvailabilityZoneIndependent(err) {
+		} else if !errors.Is(err, environs.ErrAvailabilityZoneIndependent) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
@@ -1379,7 +1379,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		_, err = testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 		if err == nil {
 			break
-		} else if !environs.IsAvailabilityZoneIndependent(err) {
+		} else if !errors.Is(err, environs.ErrAvailabilityZoneIndependent) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
