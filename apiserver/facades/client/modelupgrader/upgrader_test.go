@@ -165,13 +165,30 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 		s.statePool.EXPECT().MongoVersion().Return("4.4", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
-		).Return(0, nil),
-		// - check if the model has xenial machines;
+			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+		).Return(nil, nil),
+		// - check if the model has deprecated ubuntu machines;
 		ctrlState.EXPECT().MachineCountForSeries(
+			"artful",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
 			"xenial",
-		).Return(0, nil),
+			"yakkety",
+			"zesty",
+		).Return(nil, nil),
 		ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil),
 
 		// 2. Check other models.
@@ -183,13 +200,30 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
 		// - check if the model has win machines;
 		state1.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
-		).Return(0, nil),
-		// - check if the model has xenial machines;
+			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+		).Return(nil, nil),
+		// - check if the model has deprecated ubuntu machines;
 		state1.EXPECT().MachineCountForSeries(
+			"artful",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
 			"xenial",
-		).Return(0, nil),
+			"yakkety",
+			"zesty",
+		).Return(nil, nil),
 	}
 	if !dryRun {
 		assertions = append(assertions,
@@ -270,13 +304,30 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 		s.statePool.EXPECT().MongoVersion().Return("4.3", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
-		).Return(8, nil),
-		// - check if the model has xenial machines;
+			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+		).Return(map[string]int{"win10": 1, "win7": 2}, nil),
+		// - check if the model has deprecated ubuntu machines;
 		ctrlState.EXPECT().MachineCountForSeries(
+			"artful",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
 			"xenial",
-		).Return(2, nil),
+			"yakkety",
+			"zesty",
+		).Return(map[string]int{"xenial": 2}, nil),
 		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		ctrlModel.EXPECT().Name().Return("controller"),
 
@@ -290,13 +341,35 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting),
 		// - check if the model has win machines;
 		state1.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
-		).Return(6, nil),
-		// - check if the model has xenial machines;
+			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+		).Return(map[string]int{"win10": 1, "win7": 3}, nil),
+		// - check if the model has deprecated ubuntu machines;
 		state1.EXPECT().MachineCountForSeries(
+			"artful",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
 			"xenial",
-		).Return(3, nil),
+			"yakkety",
+			"zesty",
+		).Return(map[string]int{
+			"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
+			"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
+			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
+			"xenial": 16, "yakkety": 17, "zesty": 18,
+		}, nil),
 		model1.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model1.EXPECT().Name().Return("model-1"),
 	)
@@ -313,13 +386,13 @@ cannot upgrade to "3.0.0" due to issues with these models:
 - current model ("2.9.1") has to be upgraded to "2.9.2" at least
 - unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
 - mongo version has to be "4.4" at least, but current version is "4.3"
-- windows is not supported but the model hosts 8 windows machine(s)
-- xenial is not supported but the model hosts 2 xenial machine(s)
+- the model hosts deprecated windows machine(s): win10(1) win7(2)
+- the model hosts deprecated ubuntu machine(s): xenial(2)
 "admin/model-1":
 - current model ("2.9.0") has to be upgraded to "2.9.2" at least
 - model is under "exporting" mode, upgrade blocked
-- windows is not supported but the model hosts 6 windows machine(s)
-- xenial is not supported but the model hosts 3 xenial machine(s)`[1:])
+- the model hosts deprecated windows machine(s): win10(1) win7(3)
+- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)`[1:])
 }
 
 func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
@@ -347,13 +420,30 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool)
 
 		// - check if the model has win machines;
 		st.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
-		).Return(0, nil),
-		// - check if the model has xenial machines;
+			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+		).Return(nil, nil),
+		// - check if the model has deprecated ubuntu machines;
 		st.EXPECT().MachineCountForSeries(
+			"artful",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
 			"xenial",
-		).Return(0, nil),
+			"yakkety",
+			"zesty",
+		).Return(nil, nil),
 	}
 	if !dryRun {
 		assertions = append(assertions,
@@ -406,13 +496,35 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 
 		// - check if the model has win machines;
 		st.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81",
-		).Return(10, nil),
-		// - check if the model has xenial machines;
+			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+		).Return(map[string]int{"win10": 1, "win7": 3}, nil),
+		// - check if the model has deprecated ubuntu machines;
 		st.EXPECT().MachineCountForSeries(
+			"artful",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
 			"xenial",
-		).Return(3, nil),
+			"yakkety",
+			"zesty",
+		).Return(map[string]int{
+			"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
+			"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
+			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
+			"xenial": 16, "yakkety": 17, "zesty": 18,
+		}, nil),
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
@@ -427,8 +539,8 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 cannot upgrade to "3.0.0" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
-- windows is not supported but the model hosts 10 windows machine(s)
-- xenial is not supported but the model hosts 3 xenial machine(s)`[1:])
+- the model hosts deprecated windows machine(s): win10(1) win7(3)
+- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)`[1:])
 }
 
 func (s *modelManagerUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {

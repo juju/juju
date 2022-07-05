@@ -19,7 +19,9 @@ var MinMajorMigrateVersion = map[int]version.Number{
 
 // MigrateToAllowed checks if the model can be migrated to the target controller.
 func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (bool, version.Number, error) {
-	return versionCheck(modelVersion, targetControllerVersion, MinMajorMigrateVersion)
+	return versionCheck(
+		modelVersion, targetControllerVersion, MinMajorMigrateVersion, "migrate",
+	)
 }
 
 // MinMajorUpgradeVersion defines the minimum version all models
@@ -32,10 +34,14 @@ var MinMajorUpgradeVersion = map[int]version.Number{
 // UpgradeToAllowed returns true if a major version upgrade is allowed
 // for the specified from and to versions.
 func UpgradeToAllowed(from, to version.Number) (bool, version.Number, error) {
-	return versionCheck(from, to, MinMajorUpgradeVersion)
+	return versionCheck(
+		from, to, MinMajorUpgradeVersion, "upgrade",
+	)
 }
 
-func versionCheck(from, to version.Number, versionMap map[int]version.Number) (bool, version.Number, error) {
+func versionCheck(
+	from, to version.Number, versionMap map[int]version.Number, operation string,
+) (bool, version.Number, error) {
 	if from.Major == to.Major {
 		return true, version.Number{}, nil
 	}
@@ -47,7 +53,7 @@ func versionCheck(from, to version.Number, versionMap map[int]version.Number) (b
 	minVer, ok := versionMap[to.Major]
 	logger.Debugf("from %q, to %q, versionMap %#v", from, to, versionMap)
 	if !ok {
-		return false, version.Number{}, errors.Errorf("%q is not a supported version", to)
+		return false, version.Number{}, errors.Errorf("cannot %s, %q is not a supported version", operation, to)
 	}
 	// Allow upgrades from rc etc.
 	from.Tag = ""

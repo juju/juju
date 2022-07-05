@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
@@ -148,30 +149,56 @@ func getCheckUpgradeSeriesLockForModel(force bool) Validator {
 }
 
 func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	var winSeries []string
+	winSeries := set.NewStrings()
 	for _, v := range series.WindowsVersions() {
-		winSeries = append(winSeries, v)
-		sort.Strings(winSeries)
+		winSeries.Add(v)
 	}
-
-	count, err := st.MachineCountForSeries(winSeries...)
+	result, err := st.MachineCountForSeries(
+		winSeries.SortedValues()..., // sort for tests.
+	)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot count machines for series %v", winSeries)
+		return nil, errors.Annotate(err, "cannot count windows machines")
 	}
-	if count > 0 {
-		return NewBlocker("windows is not supported but the model hosts %d windows machine(s)", count), nil
+	if len(result) > 0 {
+		return NewBlocker(
+			"the model hosts deprecated windows machine(s): %s",
+			stringifyMachineCounts(result),
+		), nil
 	}
 	return nil, nil
 }
 
-func checkNoXenialMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	xenial := series.Xenial.String()
-	count, err := st.MachineCountForSeries(xenial)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot count machines for series %v", xenial)
+func stringifyMachineCounts(result map[string]int) string {
+	var keys []string
+	for k := range result {
+		keys = append(keys, k)
 	}
-	if count > 0 {
-		return NewBlocker("%s is not supported but the model hosts %d %s machine(s)", xenial, count, xenial), nil
+	sort.Strings(keys)
+	var output []string
+	for _, k := range keys {
+		output = append(output, fmt.Sprintf("%s(%d)", k, result[k]))
+	}
+	return strings.Join(output, " ")
+}
+
+func checkForDeprecatedUbuntuSeriesForModel(
+	modelUUID string, pool StatePool, st State, model Model,
+) (*Blocker, error) {
+	supported := false
+	deprecatedSeries := set.NewStrings()
+	for s := range series.UbuntuVersions(&supported, nil) {
+		deprecatedSeries.Add(s)
+	}
+	result, err := st.MachineCountForSeries(
+		deprecatedSeries.SortedValues()..., // sort for tests.
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot count deprecated ubuntu machines")
+	}
+	if len(result) > 0 {
+		return NewBlocker("the model hosts deprecated ubuntu machine(s): %s",
+			stringifyMachineCounts(result),
+		), nil
 	}
 	return nil, nil
 }

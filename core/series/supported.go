@@ -291,7 +291,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "16.04",
 		LTS:          true,
-		Supported:    true,
 		ESMSupported: true,
 	},
 	Yakkety: {
