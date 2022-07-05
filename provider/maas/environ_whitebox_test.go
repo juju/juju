@@ -792,7 +792,7 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
 }
 
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instances.Instance, error) {
@@ -813,7 +813,7 @@ func (s *environSuite) TestStartInstanceZoneIndependentError(c *gc.C) {
 		Placement:      "foo=bar",
 	}
 	_, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)
-	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 }
 
 func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {

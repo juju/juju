@@ -2757,7 +2757,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	// Make the container Dying: cannot because of nested container.
 	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, `machine .* is hosting container\(s\) ".*"`)
+	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers? ".*"`)
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3957,12 +3957,6 @@ func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
-	c.Assert(stateerrors.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
-	c.Assert(stateerrors.IsUpgradeInProgressError(stateerrors.ErrUpgradeInProgress), jc.IsTrue)
-	c.Assert(stateerrors.IsUpgradeInProgressError(errors.Trace(stateerrors.ErrUpgradeInProgress)), jc.IsTrue)
-}
-
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
 	modelConfig, err := s.Model.ModelConfig()
@@ -4220,7 +4214,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
-	c.Assert(err, jc.Satisfies, stateerrors.IsUpgradeInProgressError)
+	c.Assert(errors.Is(err, stateerrors.ErrUpgradeInProgress), jc.IsTrue)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {

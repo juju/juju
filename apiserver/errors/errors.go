@@ -20,24 +20,19 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.common.errors")
 
-var (
-	ErrBadId              = errors.New("id not found")
-	ErrBadCreds           = errors.New("invalid entity name or password")
-	ErrNoCreds            = errors.New("no credentials provided")
-	ErrLoginExpired       = errors.New("login expired")
-	ErrPerm               = errors.New("permission denied")
-	ErrNotLoggedIn        = errors.New("not logged in")
-	ErrUnknownWatcher     = errors.New("unknown watcher id")
-	ErrStoppedWatcher     = errors.New("watcher has been stopped")
-	ErrBadRequest         = errors.New("invalid request")
-	ErrTryAgain           = errors.New("try again")
-	ErrActionNotAvailable = errors.New("action no longer available")
+const (
+	ErrBadId              = errors.ConstError("id not found")
+	ErrBadCreds           = errors.ConstError("invalid entity name or password")
+	ErrNoCreds            = errors.ConstError("no credentials provided")
+	ErrLoginExpired       = errors.ConstError("login expired")
+	ErrPerm               = errors.ConstError("permission denied")
+	ErrNotLoggedIn        = errors.ConstError("not logged in")
+	ErrUnknownWatcher     = errors.ConstError("unknown watcher id")
+	ErrStoppedWatcher     = errors.ConstError("watcher has been stopped")
+	ErrBadRequest         = errors.ConstError("invalid request")
+	ErrTryAgain           = errors.ConstError("try again")
+	ErrActionNotAvailable = errors.ConstError("action no longer available")
 )
-
-// IsErrTryAgain reports whether the cause of the error is an ErrTryAgain.
-func IsErrTryAgain(err error) bool {
-	return errors.Cause(err) == ErrTryAgain
-}
 
 // OperationBlockedError returns an error which signifies that
 // an operation has been blocked; the message should describe
@@ -155,102 +150,105 @@ func ServerError(err error) *params.Error {
 		msg  = err.Error()
 	)
 
+	var (
+		dischargeRequiredError       *DischargeRequiredError
+		incompatibleClientError      *params.IncompatibleClientError
+		notLeaderError               *NotLeaderError
+		redirectError                *RedirectError
+		upgradeSeriesValidationError *UpgradeSeriesValidationError
+	)
 	// Skip past annotations when looking for the code.
 	err = errors.Cause(err)
 	code, ok := singletonCode(err)
 	switch {
 	case ok:
-	case errors.IsUnauthorized(err):
+	case errors.Is(err, errors.Unauthorized):
 		code = params.CodeUnauthorized
-	case errors.IsNotFound(err):
+	case errors.Is(err, errors.NotFound):
 		code = params.CodeNotFound
-	case errors.IsUserNotFound(err):
+	case errors.Is(err, errors.UserNotFound):
 		code = params.CodeUserNotFound
-	case errors.IsAlreadyExists(err):
+	case errors.Is(err, errors.AlreadyExists):
 		code = params.CodeAlreadyExists
-	case errors.IsNotAssigned(err):
+	case errors.Is(err, errors.NotAssigned):
 		code = params.CodeNotAssigned
-	case stateerrors.IsHasAssignedUnitsError(err):
+	case errors.Is(err, stateerrors.HasAssignedUnitsError):
 		code = params.CodeHasAssignedUnits
-	case stateerrors.IsHasHostedModelsError(err):
+	case errors.Is(err, stateerrors.HasHostedModelsError):
 		code = params.CodeHasHostedModels
-	case stateerrors.IsHasPersistentStorageError(err):
+	case errors.Is(err, stateerrors.PersistentStorageError):
 		code = params.CodeHasPersistentStorage
-	case stateerrors.IsModelNotEmptyError(err):
+	case errors.Is(err, stateerrors.ModelNotEmptyError):
 		code = params.CodeModelNotEmpty
-	case isNoAddressSetError(err):
+	case errors.Is(err, NoAddressSetError):
 		code = params.CodeNoAddressSet
-	case errors.IsNotProvisioned(err):
+	case errors.Is(err, errors.NotProvisioned):
 		code = params.CodeNotProvisioned
-	case IsUpgradeInProgressError(err):
+	case errors.Is(err, params.UpgradeInProgressError),
+		errors.Is(err, stateerrors.ErrUpgradeInProgress):
 		code = params.CodeUpgradeInProgress
-	case stateerrors.IsHasAttachmentsError(err):
+	case errors.Is(err, stateerrors.HasAttachmentsError):
 		code = params.CodeMachineHasAttachedStorage
-	case stateerrors.IsHasContainersError(err):
+	case errors.Is(err, stateerrors.HasContainersError):
 		code = params.CodeMachineHasContainers
-	case stateerrors.IsStorageAttachedError(err):
+	case errors.Is(err, stateerrors.StorageAttachedError):
 		code = params.CodeStorageAttached
-	case isUnknownModelError(err):
+	case errors.Is(err, UnknownModelError):
 		code = params.CodeModelNotFound
-	case errors.IsNotSupported(err):
+	case errors.Is(err, errors.NotSupported):
 		code = params.CodeNotSupported
-	case errors.IsBadRequest(err):
+	case errors.Is(err, errors.BadRequest):
 		code = params.CodeBadRequest
-	case errors.IsMethodNotAllowed(err):
+	case errors.Is(err, errors.MethodNotAllowed):
 		code = params.CodeMethodNotAllowed
-	case errors.IsNotImplemented(err):
+	case errors.Is(err, errors.NotImplemented):
 		code = params.CodeNotImplemented
-	case errors.IsForbidden(err):
+	case errors.Is(err, errors.Forbidden):
 		code = params.CodeForbidden
-	case errors.IsNotValid(err):
+	case errors.Is(err, errors.NotValid):
 		code = params.CodeNotValid
-	case IsIncompatibleSeriesError(err), stateerrors.IsIncompatibleSeriesError(err):
+	case errors.Is(err, IncompatibleSeriesError), errors.Is(err, stateerrors.IncompatibleSeriesError):
 		code = params.CodeIncompatibleSeries
-	case IsDischargeRequiredError(err):
-		dischErr := errors.Cause(err).(*DischargeRequiredError)
+	case errors.As(err, &dischargeRequiredError):
 		code = params.CodeDischargeRequired
 		info = params.DischargeRequiredErrorInfo{
-			Macaroon:       dischErr.LegacyMacaroon,
-			BakeryMacaroon: dischErr.Macaroon,
+			Macaroon:       dischargeRequiredError.LegacyMacaroon,
+			BakeryMacaroon: dischargeRequiredError.Macaroon,
 			// One macaroon fits all.
 			MacaroonPath: "/",
 		}.AsMap()
-	case IsUpgradeSeriesValidationError(err):
-		rawErr := errors.Cause(err).(*UpgradeSeriesValidationError)
+	case errors.As(err, &upgradeSeriesValidationError):
 		info = params.UpgradeSeriesValidationErrorInfo{
-			Status: rawErr.Status,
+			Status: upgradeSeriesValidationError.Status,
 		}.AsMap()
-	case IsRedirectError(err):
-		redirErr := errors.Cause(err).(*RedirectError)
+	case errors.As(err, &redirectError):
 		code = params.CodeRedirect
 
 		// Check for a zero-value tag. We don't send it over the wire if it is.
 		controllerTag := ""
-		if redirErr.ControllerTag.Id() != "" {
-			controllerTag = redirErr.ControllerTag.String()
+		if redirectError.ControllerTag.Id() != "" {
+			controllerTag = redirectError.ControllerTag.String()
 		}
 
 		info = params.RedirectErrorInfo{
-			Servers:         params.FromProviderHostsPorts(redirErr.Servers),
-			CACert:          redirErr.CACert,
+			Servers:         params.FromProviderHostsPorts(redirectError.Servers),
+			CACert:          redirectError.CACert,
 			ControllerTag:   controllerTag,
-			ControllerAlias: redirErr.ControllerAlias,
+			ControllerAlias: redirectError.ControllerAlias,
 		}.AsMap()
-	case errors.IsQuotaLimitExceeded(err):
+	case errors.Is(err, errors.QuotaLimitExceeded):
 		code = params.CodeQuotaLimitExceeded
-	case errors.IsNotYetAvailable(err):
+	case errors.Is(err, errors.NotYetAvailable):
 		code = params.CodeNotYetAvailable
-	case IsErrTryAgain(err):
+	case errors.Is(err, ErrTryAgain):
 		code = params.CodeTryAgain
-	case params.IsIncompatibleClientError(err):
+	case errors.As(err, &incompatibleClientError):
 		code = params.CodeIncompatibleClient
-		rawErr := errors.Cause(err).(*params.IncompatibleClientError)
-		info = rawErr.AsMap()
-	case IsNotLeaderError(err):
+		info = incompatibleClientError.AsMap()
+	case errors.As(err, &notLeaderError):
 		code = params.CodeNotLeader
-		rawErr := errors.Cause(err).(*NotLeaderError)
-		info = rawErr.AsMap()
-	case IsDeadlineExceededError(err):
+		info = notLeaderError.AsMap()
+	case errors.Is(err, DeadlineExceededError):
 		code = params.CodeDeadlineExceeded
 	case lease.IsLeaseError(err):
 		code = params.CodeLeaseError
@@ -310,9 +308,9 @@ func RestoreError(err error) error {
 	case params.IsCodeUnauthorized(err):
 		return errors.NewUnauthorized(nil, msg)
 	case params.IsCodeNotFound(err):
-		// TODO(ericsnow) UnknownModelError should be handled here too.
-		// ...by parsing msg?
 		return errors.NewNotFound(nil, msg)
+	case params.IsCodeModelNotFound(err):
+		return fmt.Errorf("%s%w", msg, errors.Hide(UnknownModelError))
 	case params.IsCodeUserNotFound(err):
 		return errors.NewUserNotFound(nil, msg)
 	case params.IsCodeAlreadyExists(err):
@@ -365,7 +363,7 @@ func RestoreError(err error) error {
 		serverID, _ := e.Info["server-id"].(string)
 		return NewNotLeaderError(serverAddress, serverID)
 	case params.IsCodeDeadlineExceeded(err):
-		return NewDeadlineExceededError(msg)
+		return fmt.Errorf(msg+"%w", errors.Hide(DeadlineExceededError))
 	case params.IsLeaseError(err):
 		return rehydrateLeaseError(err)
 	case params.IsCodeNotYetAvailable(err):

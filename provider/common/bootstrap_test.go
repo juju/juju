@@ -490,7 +490,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
-		return nil, nil, nil, common.ZoneIndependentError(errors.New("bloop"))
+		return nil, nil, nil, environs.ZoneIndependentError(errors.New("bloop"))
 	}
 
 	ctx := envtesting.BootstrapTODOContext(c)

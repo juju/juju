@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -339,7 +340,7 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 			err = st.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
 			err = st.ProcessDyingModel()
-			if errors.Cause(err) != state.ErrModelNotDying && !state.IsModelNotEmptyError(err) {
+			if !errors.Is(err, state.ErrModelNotDying) && !errors.Is(err, stateerrors.ModelNotEmptyError) {
 				c.Check(err, jc.ErrorIsNil)
 				err2 := st.RemoveDyingModel()
 				c.Check(err2, jc.ErrorIsNil)

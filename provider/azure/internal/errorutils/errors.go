@@ -4,6 +4,7 @@
 package errorutils
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -177,7 +178,7 @@ func MaybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool 
 		return false
 	}
 
-	converted := common.CredentialNotValidf(err, "azure cloud denied access")
+	converted := fmt.Errorf("azure cloud denied access: %w", common.CredentialNotValidError(err))
 	invalidateErr := ctx.InvalidateCredential(converted.Error())
 	if invalidateErr != nil {
 		logger.Warningf("could not invalidate stored azure cloud credential on the controller: %v", invalidateErr)

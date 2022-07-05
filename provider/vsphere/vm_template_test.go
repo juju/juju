@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
@@ -155,7 +156,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 	)
 
 	_, _, err := tplMgr.EnsureTemplate(context.Background(), "xenial", "amd64")
-	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 	c.Assert(err.Error(), gc.Matches, "no matching images found for given constraints.*")
 	v.client.CheckCallNames(c, "ListVMTemplates", "EnsureVMFolder")
 }

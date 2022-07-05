@@ -19,6 +19,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -203,7 +204,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
-	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

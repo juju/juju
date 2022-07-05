@@ -1010,7 +1010,7 @@ func (env *maasEnviron) StartInstance(
 	if args.Placement != "" {
 		placement, err := env.parsePlacement(ctx, args.Placement)
 		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+			return nil, environs.ZoneIndependentError(err)
 		}
 		// NOTE(axw) we wipe out args.AvailabilityZone if the
 		// user specified a specific node or system ID via
@@ -1038,7 +1038,7 @@ func (env *maasEnviron) StartInstance(
 	// Storage.
 	volumes, err := buildMAASVolumeParameters(args.Volumes, args.Constraints)
 	if err != nil {
-		return nil, common.ZoneIndependentError(errors.Annotate(err, "invalid volume parameters"))
+		return nil, environs.ZoneIndependentError(errors.Annotate(err, "invalid volume parameters"))
 	}
 
 	// Calculate network space requirements.
@@ -1069,7 +1069,7 @@ func (env *maasEnviron) StartInstance(
 			// constraints in the zone; try again in another.
 			return nil, errors.Trace(err)
 		}
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	defer func() {
@@ -1082,42 +1082,42 @@ func (env *maasEnviron) StartInstance(
 
 	hc, err := inst.hardwareCharacteristics()
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: *hc.Arch,
 	})
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	hostname, err := inst.hostname()
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	subnetsMap, err := env.subnetToSpaceIds(ctx)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	series := args.InstanceConfig.Series
 	cloudcfg, err := env.newCloudinitConfig(hostname, series)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
-		return nil, common.ZoneIndependentError(errors.Annotate(
+		return nil, environs.ZoneIndependentError(errors.Annotate(
 			err, "could not compose userdata for bootstrap node",
 		))
 	}
@@ -1129,7 +1129,7 @@ func (env *maasEnviron) StartInstance(
 		inst1 := inst.(*maas1Instance)
 		startedNode, err := env.startNode(*inst1.maasObject, series, userdata)
 		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+			return nil, environs.ZoneIndependentError(err)
 		}
 		// Once the instance has started the response should contain the
 		// assigned IP addresses, even when NICs are set to "auto" instead of
@@ -1139,18 +1139,18 @@ func (env *maasEnviron) StartInstance(
 		// interfaces.
 		interfaces, err = maasObjectNetworkInterfaces(ctx, startedNode, subnetsMap)
 		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+			return nil, environs.ZoneIndependentError(err)
 		}
 		env.tagInstance1(inst1, args.InstanceConfig)
 		displayName, err = inst1.displayName()
 		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+			return nil, environs.ZoneIndependentError(err)
 		}
 	} else {
 		inst2 := inst.(*maas2Instance)
 		startedInst, err := env.startNode2(*inst2, series, userdata)
 		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+			return nil, environs.ZoneIndependentError(err)
 		}
 		domains, err := env.Domains(ctx)
 		if err != nil {
@@ -1158,13 +1158,13 @@ func (env *maasEnviron) StartInstance(
 		}
 		interfaces, err = maas2NetworkInterfaces(ctx, startedInst, subnetsMap, domains...)
 		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+			return nil, environs.ZoneIndependentError(err)
 		}
 		env.tagInstance2(inst2, args.InstanceConfig)
 
 		displayName, err = inst2.displayName()
 		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+			return nil, environs.ZoneIndependentError(err)
 		}
 	}
 	logger.Debugf("started instance %q", inst.Id())
@@ -1178,10 +1178,10 @@ func (env *maasEnviron) StartInstance(
 		requestedVolumes,
 	)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
-		return nil, common.ZoneIndependentError(errors.Errorf(
+		return nil, environs.ZoneIndependentError(errors.Errorf(
 			"requested %v storage volumes. %v returned",
 			len(requestedVolumes), len(resultVolumes),
 		))

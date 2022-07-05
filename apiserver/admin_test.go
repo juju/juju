@@ -53,7 +53,6 @@ import (
 
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
-
 	mgmtSpace *state.Space
 }
 

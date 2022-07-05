@@ -4,7 +4,6 @@
 package errors
 
 import (
-	stderrors "errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -16,16 +15,28 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-var (
-
+const (
 	// ErrCannotEnterScope indicates that a relation unit failed to enter its scope
 	// due to either the unit or the relation not being Alive.
-	ErrCannotEnterScope = stderrors.New("cannot enter scope: unit or relation is not alive")
+	ErrCannotEnterScope = errors.ConstError("cannot enter scope: unit or relation is not alive")
 
 	// ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
 	// scope due to a required and pre-existing subordinate unit that is not Alive.
 	// Once that subordinate has been removed, a new one can be created.
-	ErrCannotEnterScopeYet = stderrors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
+	ErrCannotEnterScopeYet = errors.ConstError("cannot enter scope yet: non-alive subordinate unit has not been removed")
+
+	// ErrCharmRevisionAlreadyModified is returned when a pending or
+	// placeholder charm is no longer pending or a placeholder, signaling
+	// the charm is available in state with its full information.
+	ErrCharmRevisionAlreadyModified = errors.ConstError("charm revision already modified")
+
+	ErrDead = errors.ConstError("not found or dead")
+
+	ErrUpgradeInProgress = errors.ConstError("upgrade in progress")
+
+	// IncompatibleSeriesError indicates the series selected is not supported by
+	// the charm.
+	IncompatibleSeriesError = errors.ConstError("incompatible series for charm")
 )
 
 // errCharmAlreadyUploaded is returned by UpdateUploadedCharm() when
@@ -58,13 +69,6 @@ func IsCharmAlreadyUploadedError(err interface{}) bool {
 	_, ok := value.(*errCharmAlreadyUploaded)
 	return ok
 }
-
-// ErrCharmRevisionAlreadyModified is returned when a pending or
-// placeholder charm is no longer pending or a placeholder, signaling
-// the charm is available in state with its full information.
-var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
-
-var ErrDead = fmt.Errorf("not found or dead")
 
 type notAliveError struct {
 	entity string
@@ -165,49 +169,14 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 	return ok
 }
 
-// errIncompatibleSeries is a standard error to indicate that the series
-// requested is not compatible with the charm of the application.
-type errIncompatibleSeries struct {
-	seriesList []string
-	series     string
-	charmName  string
-}
-
 func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
-	return &errIncompatibleSeries{
-		seriesList: seriesList,
-		series:     series,
-		charmName:  charmName,
-	}
-}
-
-func (e *errIncompatibleSeries) Error() string {
-	return fmt.Sprintf("series %q not supported by charm %q, supported series are: %s",
-		e.series, e.charmName, strings.Join(e.seriesList, ", "))
-}
-
-// IsIncompatibleSeriesError returns if the given error or its cause is
-// errIncompatibleSeries.
-func IsIncompatibleSeriesError(err interface{}) bool {
-	if err == nil {
-		return false
-	}
-	// In case of a wrapped error, check the cause first.
-	value := err
-	cause := errors.Cause(err.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*errIncompatibleSeries)
-	return ok
-}
-
-var ErrUpgradeInProgress = errors.New("upgrade in progress")
-
-// IsUpgradeInProgressError returns true if the error is caused by an
-// in-progress upgrade.
-func IsUpgradeInProgressError(err error) bool {
-	return errors.Cause(err) == ErrUpgradeInProgress
+	return errors.WithType(
+		fmt.Errorf("series %q not supported by charm %q, supported series are: %s",
+			series,
+			charmName,
+			strings.Join(seriesList, ", ")),
+		IncompatibleSeriesError,
+	)
 }
 
 // versionInconsistentError indicates one or more agents have a

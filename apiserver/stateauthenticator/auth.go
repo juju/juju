@@ -141,7 +141,8 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	authenticator := a.authContext.authenticator(serverHost)
 	authInfo, err := a.checkCreds(ctx, st.State, req, authTag, true, authenticator)
 	if err != nil {
-		if apiservererrors.IsDischargeRequiredError(err) || errors.IsNotProvisioned(err) {
+		var dischargeRequired *apiservererrors.DischargeRequiredError
+		if errors.As(err, &dischargeRequired) || errors.Is(err, errors.NotProvisioned) {
 			// TODO(axw) move out of common?
 			return httpcontext.AuthInfo{}, errors.Trace(err)
 		}

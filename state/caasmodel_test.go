@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -271,7 +272,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	assertModel(controllerModel, s.State, state.Dying, 0)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(err, jc.Satisfies, state.IsHasHostedModelsError)
+	c.Assert(errors.Is(err, stateerrors.HasHostedModelsError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	assertCleanupCount(c, otherSt, 2)
