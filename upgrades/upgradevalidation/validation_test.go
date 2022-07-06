@@ -143,6 +143,7 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 	gomock.InOrder(
 		state.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
