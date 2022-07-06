@@ -26,10 +26,10 @@ import (
 
 const integrateDoc = `
 Integrate two applications. Integrated applications communicate over a common
-interface provided by the Juju controller that enable units to share information.
-This star messaging topology allows units to send and receive data, even if
-direct connectivity between units is restricted by firewall rules. Charms
-define the logic for transferring and interpreting integration data.
+interface provided by the Juju controller that enables units to share information.
+This topology allows units to share data, without needing direct connectivity
+between units is restricted by firewall rules. Charms define the logic for
+transferring and interpreting integration data.
 
 The most common use of 'juju integrate' specifies two applications that co-exist
 within the same model:
@@ -42,8 +42,8 @@ units that span models, controllers and clouds, as described below.
 
 Integrating applications in the same model
 
-The most common case specifying two applications, and adding the specific
-endpoint name(s) when required.
+The most common case specifies two applications, adding specific endpoint
+name(s) when required.
 
     juju integrate <application>[:<endpoint>] <application>[:<endpoint>]
 
@@ -67,9 +67,12 @@ the two applications.
 
 Subordinate applications
 
-Integrating a principal application and a subordinate application has the effect of
-deploying the subordinate alongside its principal. This functionality uses the
-same syntax as integrating applications within the same model.
+Subordinate applications are designed to be deployed alongside a primary
+application. They must define a container scoped endpoint. When that endpoint
+is related to a primary application, wherever a unit of the primary application
+is deployed, a corresponding unit of the subordinate application will also be
+deployed. Integration with the primary application has the same syntax as
+integration any two applications within the same model.
 
 
 Peer integrations
@@ -143,7 +146,6 @@ enable network ports to be opened.
 
 Further reading:
 
-    # XXX: NEEDS UPDATING
     https://juju.is/docs/relations
     https://juju.is/docs/cross-model-relations
 
