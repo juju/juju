@@ -1152,6 +1152,11 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 		c.Fatalf("timed out waiting to signal rotate secret channel")
 	}
 
+	// Need to synchronize here in case the goroutine receiving from the
+	// channel processes the first event but not the second (in which case the
+	// assertion at the bottom of this test sometimes failed).
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
 	// Adding same event twice shouldn't re-add it.
 	select {
 	case s.rotateSecretWatcher.rotateCh <- []string{"secret://app/mariadb/password"}:
@@ -1167,7 +1172,6 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 	s.watcher.RotateSecretCompleted("secret://app/mariadb/password")
 	snap = s.watcher.Snapshot()
 	c.Assert(snap.SecretRotations, gc.HasLen, 0)
-
 }
 
 func (s *WatcherSuite) TestLeaderRunsRotateWatcher(c *gc.C) {
@@ -1205,5 +1209,4 @@ func (s *WatcherSuite) TestLeaderRunsRotateWatcher(c *gc.C) {
 
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
-
 }
