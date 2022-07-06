@@ -232,19 +232,9 @@ juju_bootstrap() {
 		esac
 	fi
 
-	# TODO(walllyworld) - remove when we fix the nested lxd and snap/focal issue
-	# Snap doesn't work in nested focal LXD containers.
-	# So we force the model default series to be bionic.
-	model_default_series=
-	case "${BOOTSTRAP_PROVIDER:-}" in
-	"localhost" | "lxd" | "lxd-remote")
-		model_default_series="--model-default default-series=bionic"
-		;;
-	esac
-
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${model_default_series} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
