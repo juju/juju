@@ -266,7 +266,7 @@ func (c *runCommandBase) processOperationResultsWithColor(ctx *cmd.Context, resu
 		list := make([]string, 0, len(failed))
 		for k, v := range failed {
 
-			list = append(list, fmt.Sprintf(" - id %q with return code %d", k, colorVal(output.EmphasisHighlight.Magenta, v)))
+			list = append(list, fmt.Sprintf(" - id %q with return code %v", k, colorVal(output.EmphasisHighlight.Magenta, v)))
 		}
 		sort.Strings(list)
 
