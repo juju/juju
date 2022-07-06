@@ -306,18 +306,30 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	return cld, nil
 }
 
+func isStorageDeprecated(addons []microk8sAddon) bool {
+	for _, addon := range addons {
+		if addon.Name == "hostpath-storage" {
+			return true
+		}
+	}
+	return false
+}
+
 func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
 	status, err := microK8sStatus(cmdRunner)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	requiredAddons := set.NewStrings("dns", "storage")
+	requiredAddons := set.NewStrings("dns")
+	if isStorageDeprecated(status.Addons) {
+		// storage addon is deprecated and replaced with the hostpath-storage in 1.23.
+		requiredAddons.Add("hostpath-storage")
+	} else {
+		requiredAddons.Add("storage")
+	}
 	for _, addon := range status.Addons {
-		if addon.Name == "dns" && addon.Status == "enabled" {
-			requiredAddons.Remove("dns")
-		}
-		if (addon.Name == "storage" || addon.Name == "hostpath-storage") && addon.Status == "enabled" {
-			requiredAddons.Remove("storage")
+		if addon.Status == "enabled" {
+			requiredAddons.Remove(addon.Name)
 		}
 	}
 
@@ -329,9 +341,20 @@ func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
 	return nil
 }
 
-func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
+type microk8sStatus struct {
+	Addons []microk8sAddon `yaml:"addons"`
+}
+
+type microk8sAddon struct {
+	Name   string `yaml:"name"`
+	Status string `yaml:"status"`
+}
+
+// For microk8s >= 1.18.
+func runMicroK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 	var status microk8sStatus
 	result, err := cmdRunner.RunCommands(exec.RunParams{
+		// --format was introduced in 1.18
 		Commands: "microk8s status --wait-ready --timeout 15 --format yaml",
 	})
 	if err != nil {
@@ -351,7 +374,6 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 			return status, errors.NotProvisionedf("microk8s is not running")
 		}
 	}
-
 	err = yaml.Unmarshal(result.Stdout, &status)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -359,11 +381,59 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 	return status, nil
 }
 
-type microk8sStatus struct {
-	Addons []microk8sAddon `yaml:"addons"`
+type microk8sStatusLegacy struct {
+	Addons map[string]string `yaml:"addons"`
 }
 
-type microk8sAddon struct {
-	Name   string `yaml:"name"`
-	Status string `yaml:"status"`
+func (m microk8sStatusLegacy) toLatest() microk8sStatus {
+	out := microk8sStatus{}
+	for name, status := range m.Addons {
+		out.Addons = append(out.Addons, microk8sAddon{
+			Name:   name,
+			Status: status,
+		})
+	}
+	return out
+}
+
+// For microk8s < 1.18.
+func runMicroK8sStatusLegacy(cmdRunner CommandRunner) (microk8sStatus, error) {
+	var status microk8sStatusLegacy
+	result, err := cmdRunner.RunCommands(exec.RunParams{
+		// The addon name in the output of --yaml has changed to <repository>/<name> in 1.24.
+		// So we prefer to use `--format yaml` for microk8s > 1.17.
+		Commands: "microk8s status --wait-ready --timeout 15 --yaml",
+	})
+	if err != nil {
+		return status.toLatest(), errors.Trace(err)
+	}
+	if result.Code != 0 {
+		msg := string(result.Stderr)
+		if msg == "" {
+			msg = string(result.Stdout)
+		}
+		if msg == "" {
+			msg = "unknown error running microk8s status"
+		}
+		return status.toLatest(), errors.New(msg)
+	} else {
+		if strings.HasPrefix(strings.ToLower(string(result.Stdout)), "microk8s is not running") {
+			return status.toLatest(), errors.NotProvisionedf("microk8s is not running")
+		}
+	}
+	err = yaml.Unmarshal(result.Stdout, &status)
+	if err != nil {
+		return status.toLatest(), errors.Trace(err)
+	}
+	return status.toLatest(), nil
+}
+
+func microK8sStatus(cmdRunner CommandRunner) (status microk8sStatus, err error) {
+	if status, err = runMicroK8sStatus(cmdRunner); err == nil {
+		return status, nil
+	}
+	if status, err = runMicroK8sStatusLegacy(cmdRunner); err == nil {
+		return status, nil
+	}
+	return status, errors.Trace(err)
 }
