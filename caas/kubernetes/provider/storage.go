@@ -17,35 +17,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	jujucontext "github.com/juju/juju/environs/context"
 	jujustorage "github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
 )
-
-//ValidateStorageProvider returns an error if the storage type and config is not valid
-// for a Kubernetes deployment.
-func ValidateStorageProvider(providerType jujustorage.ProviderType, attributes map[string]interface{}) error {
-	switch providerType {
-	case constants.StorageProviderType:
-	case storageprovider.RootfsProviderType:
-	case storageprovider.TmpfsProviderType:
-	default:
-		return errors.NotValidf("storage provider type %q", providerType)
-	}
-	if attributes == nil {
-		return nil
-	}
-	if mediumValue, ok := attributes[constants.StorageMedium]; ok {
-		medium := core.StorageMedium(fmt.Sprintf("%v", mediumValue))
-		if medium != core.StorageMediumMemory && medium != core.StorageMediumHugePages {
-			return errors.NotValidf("storage medium %q", mediumValue)
-		}
-	}
-	if providerType == constants.StorageProviderType {
-		if err := validateStorageAttributes(attributes); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
 
 func validateStorageAttributes(attributes map[string]interface{}) error {
 	if _, err := storage.ParseStorageConfig(attributes); err != nil {
@@ -62,6 +34,28 @@ type storageProvider struct {
 }
 
 var _ jujustorage.Provider = (*storageProvider)(nil)
+
+//ValidateStorageProvider returns an error if the storage type and config is not valid
+// for a Kubernetes deployment.
+func (g *storageProvider) ValidateForK8s(attributes map[string]any) error {
+
+	if attributes == nil {
+		return nil
+	}
+
+	if mediumValue, ok := attributes[constants.StorageMedium]; ok {
+		medium := core.StorageMedium(fmt.Sprintf("%v", mediumValue))
+		if medium != core.StorageMediumMemory && medium != core.StorageMediumHugePages {
+			return errors.NotValidf("storage medium %q", mediumValue)
+		}
+	}
+
+	if err := validateStorageAttributes(attributes); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
 
 // ValidateConfig is defined on the jujustorage.Provider interface.
 func (g *storageProvider) ValidateConfig(cfg *jujustorage.Config) error {
