@@ -59,7 +59,7 @@ def remove_display_attributes(cloud):
 
 def get_clouds(client):
     cloud_list = yaml.safe_load(client.get_juju_output(
-        'clouds', '--format', 'yaml', '--local', include_e=False))
+        'clouds', '--format', 'yaml', '--client', include_e=False))
     cloud_list_without_builtins = {
         k: v for (k, v) in iter(cloud_list.items()) if
         v['defined'] != 'built-in'
@@ -94,7 +94,7 @@ def assess_show_cloud(client, expected):
     for cloud_name, expected_cloud in expected.items():
         actual_cloud = yaml.safe_load(client.get_juju_output(
             'show-cloud', cloud_name, '--format', 'yaml',
-            '--local', include_e=False))
+            '--client', include_e=False))
         remove_display_attributes(actual_cloud)
         assert_equal(actual_cloud, expected_cloud)
 
