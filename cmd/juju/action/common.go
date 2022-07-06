@@ -8,30 +8,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mattn/go-isatty"
+	"gopkg.in/yaml.v2"
+
 	"github.com/juju/ansiterm"
-	"github.com/juju/juju/cmd/output"
-
-	"github.com/juju/juju/rpc/params"
-
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	"gopkg.in/yaml.v2"
-
 	actionapi "github.com/juju/juju/api/client/action"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
@@ -61,6 +61,7 @@ type runCommandBase struct {
 
 	clock             clock.Clock
 	color             bool
+	noColor           bool
 	wait              time.Duration
 	defaultWait       time.Duration
 	logMessageHandler func(*cmd.Context, string)
@@ -79,6 +80,7 @@ func (c *runCommandBase) SetFlags(f *gnuflag.FlagSet) {
 
 	f.BoolVar(&c.background, "background", false, "Run the task in the background")
 	f.DurationVar(&c.wait, "wait", 0, "Maximum wait time for a task to complete")
+	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in output")
 	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in output")
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
@@ -105,11 +107,23 @@ func (c *runCommandBase) ensureAPI() (err error) {
 	return errors.Trace(err)
 }
 
-func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
-	if c.color {
+func (c *runCommandBase) operationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+		return c.processOperationResults(ctx, results)
+	}
+
+	if isTerminal(ctx.Stdout) {
 		return c.processOperationResultsWithColor(ctx, results)
 	}
 
+	if !isTerminal(ctx.Stdout) && c.color {
+		return c.processOperationResultsWithColor(ctx, results)
+	}
+
+	return c.processOperationResults(ctx, results)
+}
+
+func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
 	var runningTasks []enqueuedAction
 	var enqueueErrs []string
 	for _, a := range results.Actions {
@@ -315,8 +329,21 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 
 	failed := make(map[string]int)
 	resultReceivers := set.NewStrings()
+	forceColor := false
+	if isTerminal(ctx.Stdout) {
+		forceColor = true
+	}
+
+	if !isTerminal(ctx.Stdout) && c.color {
+		forceColor = true
+	}
+
+	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+		forceColor = false
+	}
+
 	for i, result := range runningTasks {
-		if c.color {
+		if forceColor {
 			c.progressf(ctx, "Waiting for task %v...\n", colorVal(output.InfoHighlight, result.task))
 		} else {
 			c.progressf(ctx, "Waiting for task %v...\n", result.task)
@@ -395,7 +422,15 @@ func (c *runCommandBase) progressf(ctx *cmd.Context, format string, params ...in
 }
 
 func (c *runCommandBase) printOutput(writer io.Writer, value interface{}) error {
-	if c.color {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+		return printPlainOutput(writer, value)
+	}
+
+	if isTerminal(writer) {
+		return printColoredOutput(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
 		return printColoredOutput(writer, value)
 	}
 
@@ -403,7 +438,15 @@ func (c *runCommandBase) printOutput(writer io.Writer, value interface{}) error 
 }
 
 func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
-	if c.color {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+		return cmd.FormatYaml(writer, value)
+	}
+
+	if isTerminal(writer) {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
 		return output.FormatYamlWithColor(writer, value)
 	}
 
@@ -411,7 +454,15 @@ func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
 }
 
 func (c *runCommandBase) formatJson(writer io.Writer, value interface{}) error {
-	if c.color {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+		return cmd.FormatJson(writer, value)
+	}
+
+	if isTerminal(writer) {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
 		return output.FormatJsonWithColor(writer, value)
 	}
 
@@ -500,6 +551,16 @@ func colorVal(ctx *ansiterm.Context, val interface{}) string {
 	str := buff.String()
 	buff.Reset()
 	return str
+}
+
+// isTerminal checks if the file descriptor is a terminal.
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+
+	return isatty.IsTerminal(f.Fd())
 }
 
 type enqueuedAction struct {
