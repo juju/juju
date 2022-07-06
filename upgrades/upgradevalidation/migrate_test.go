@@ -35,6 +35,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelMigrationSourceJuju3(c *g
 		).Return(nil, nil),
 		state.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",

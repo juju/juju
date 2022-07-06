@@ -68,6 +68,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		).Return(nil, nil),
 		ctrlState.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
@@ -99,6 +100,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		).Return(nil, nil),
 		state1.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
@@ -220,6 +222,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 		).Return(nil, nil),
 		state.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
