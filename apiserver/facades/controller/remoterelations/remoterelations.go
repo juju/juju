@@ -193,6 +193,7 @@ func (api *API) remoteRelation(entity params.Entity) (*params.RemoteRelation, er
 		Life:      life.Value(rel.Life().String()),
 		Suspended: rel.Suspended(),
 		Key:       tag.Id(),
+		UnitCount: rel.UnitCount(),
 	}
 	for _, ep := range rel.Endpoints() {
 		// Try looking up the info for the remote application.

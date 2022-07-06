@@ -98,7 +98,7 @@ func (w *relationUnitsWorker) loop() error {
 				// We are dying.
 				return w.catacomb.ErrDying()
 			}
-			w.logger.Debugf("%v relation units changed for %v: %#v", w.mode, w.relationTag, change)
+			w.logger.Debugf("%v relation units changed for %v: %#v", w.mode, w.relationTag, &change)
 			if isEmpty(change) {
 				continue
 			}
