@@ -171,6 +171,7 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 		// - check if the model has deprecated ubuntu machines;
 		ctrlState.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
@@ -206,6 +207,7 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 		// - check if the model has deprecated ubuntu machines;
 		state1.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
@@ -310,6 +312,7 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 		// - check if the model has deprecated ubuntu machines;
 		ctrlState.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
@@ -347,6 +350,7 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 		// - check if the model has deprecated ubuntu machines;
 		state1.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
@@ -426,6 +430,7 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool)
 		// - check if the model has deprecated ubuntu machines;
 		st.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
@@ -502,6 +507,7 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		// - check if the model has deprecated ubuntu machines;
 		st.EXPECT().MachineCountForSeries(
 			"artful",
+			"bionic",
 			"cosmic",
 			"disco",
 			"eoan",
