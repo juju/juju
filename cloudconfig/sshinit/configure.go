@@ -5,14 +5,23 @@
 package sshinit
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"hash/crc32"
 	"io"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"path"
+	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/ssh"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 )
@@ -80,4 +89,55 @@ cat > $tmpfile
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()
+}
+
+type FileTransporter struct {
+	params   ConfigureParams
+	prefix   string
+	errGroup *errgroup.Group
+	ctx      context.Context
+}
+
+func NewFileTransporter(ctx context.Context, params ConfigureParams) *FileTransporter {
+	ft := &FileTransporter{
+		params: params,
+	}
+	eg, egCtx := errgroup.WithContext(ctx)
+	ft.errGroup = eg
+	ft.ctx = egCtx
+	ft.prefix = "juju-" + strconv.Itoa(rand.Int())
+	return ft
+}
+
+func (ft *FileTransporter) SendBytes(hint string, payload []byte) string {
+	cs := crc32.ChecksumIEEE([]byte(hint))
+	pathComponents := strings.Split(hint, "/")
+	human := pathComponents[len(pathComponents)-1]
+	name := fmt.Sprintf("%s-%x-%s", ft.prefix, cs, human)
+	dstTmp := fmt.Sprintf("/tmp/%s", name)
+	ft.errGroup.Go(func() error {
+		client := ft.params.Client
+		if client == nil {
+			client = ssh.DefaultClient
+		}
+
+		srcTmp := path.Join(os.TempDir(), name)
+		err := ioutil.WriteFile(srcTmp, payload, 0644)
+		if err != nil {
+			return errors.Annotatef(err, "failed writing temp file %s", srcTmp)
+		}
+		defer os.Remove(srcTmp)
+
+		dst := fmt.Sprintf("%s:%s", ft.params.Host, dstTmp)
+		err = client.Copy([]string{srcTmp, dst}, ft.params.SSHOptions)
+		if err != nil {
+			return errors.Annotatef(err, "failed scp-ing file %s to %s", srcTmp, dst)
+		}
+		return nil
+	})
+	return dstTmp
+}
+
+func (ft *FileTransporter) Wait() error {
+	return ft.errGroup.Wait()
 }
