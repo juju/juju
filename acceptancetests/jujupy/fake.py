@@ -798,7 +798,7 @@ class FakeBackend:
             controller_name: {
                 'details': {
                     'api-endpoints': [api_endpoint],
-                    'uuid': uuid,
+                    'controller-uuid': uuid,
                 }
             }
         }
