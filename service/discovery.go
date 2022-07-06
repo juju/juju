@@ -70,7 +70,7 @@ func VersionInitSystem(series string) (string, error) {
 func versionInitSystem(ser string) (string, error) {
 	seriesos, err := jujuseries.GetOSFromSeries(ser)
 	if err != nil {
-		return "", fmt.Errorf("init system for series %q %w", ser, errors.NotFound)
+		return "", errors.WithType(err, errors.NotFound)
 	}
 
 	switch seriesos {

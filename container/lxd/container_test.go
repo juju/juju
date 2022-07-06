@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -561,7 +562,7 @@ func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *gc.C) {
 	exp.DeleteContainer("c1").Return(deleteOp, nil)
 	exp.GetContainerState("c2").Return(&api.ContainerState{StatusCode: api.Started}, lxdtesting.ETag, nil)
 	exp.UpdateContainerState("c2", stopReq, lxdtesting.ETag).Return(stopOp, nil)
-	exp.DeleteContainer("c2").Return(deleteOp, errors.New("container not found"))
+	exp.DeleteContainer("c2").Return(deleteOp, api.StatusErrorf(http.StatusNotFound, ""))
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
