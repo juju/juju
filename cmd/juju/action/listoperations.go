@@ -35,7 +35,6 @@ type listOperationsCommand struct {
 	ActionCommandBase
 	out              cmd.Output
 	utc              bool
-	color            bool
 	applicationNames []string
 	unitNames        []string
 	machineNames     []string
@@ -78,13 +77,12 @@ func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	defaultFormatter := "plain"
 	c.out.AddFlags(f, defaultFormatter, map[string]cmd.Formatter{
-		"yaml":  c.formatYaml,
-		"json":  c.formatJson,
+		"yaml":  cmd.FormatYaml,
+		"json":  cmd.FormatJson,
 		"plain": c.formatTabular,
 	})
 
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
-	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in output")
 	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "applications", "Comma separated list of applications to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "apps", "Comma separated list of applications to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.unitNames), "units", "Comma separated list of units to filter on")
@@ -239,46 +237,16 @@ func (c *listOperationsCommand) formatTabular(writer io.Writer, value interface{
 			if len(line.tasks) > maxTaskIDs {
 				tasks += "..."
 			}
-			if c.color {
-				w.PrintColor(output.EmphasisHighlight.Magenta, line.id)
-				w.PrintColor(output.GoodHighlight, line.status)
-				//w.Print(colorVal(output.EmphasisHighlight.BrightMagenta, line.id), colorVal(output.GoodHighlight, line.status))
-				w.PrintColor(output.InfoHighlight, formatTimestamp(line.started, false, c.utc, true))
-				w.PrintColor(output.GoodHighlight, formatTimestamp(line.finished, false, c.utc, true))
-				w.PrintColor(output.EmphasisHighlight.BrightMagenta, tasks)
-				w.PrintColorNoTab(output.EmphasisHighlight.Gray, fmt.Sprintf("%s\n", line.operation))
-			} else {
-				w.Print(line.id, line.status)
-				w.Print(formatTimestamp(line.started, false, c.utc, true))
-				w.Print(formatTimestamp(line.finished, false, c.utc, true))
-				w.Print(tasks)
-				w.Println(line.operation)
-			}
+			w.Print(line.id, line.status)
+			w.Print(formatTimestamp(line.started, false, c.utc, true))
+			w.Print(formatTimestamp(line.finished, false, c.utc, true))
+			w.Print(tasks)
+			w.Println(line.operation)
 		}
 	}
-	if c.color {
-		w.PrintHeaders(output.EmphasisHighlight.DefaultBold, "ID", "Status", "Started", "Finished", "Task IDs", "Summary")
-	} else {
-		w.Println("ID", "Status", "Started", "Finished", "Task IDs", "Summary")
-	}
+	w.Println("ID", "Status", "Started", "Finished", "Task IDs", "Summary")
 	printOperations(actionOperationLinesFromResults(results), c.utc)
 	return tw.Flush()
-}
-
-func (c *listOperationsCommand) formatYaml(writer io.Writer, value interface{}) error {
-	if c.color {
-		return output.FormatYamlWithColor(writer, value)
-	}
-
-	return cmd.FormatYaml(writer, value)
-}
-
-func (c *listOperationsCommand) formatJson(writer io.Writer, value interface{}) error {
-	if c.color {
-		return output.FormatJsonWithColor(writer, value)
-	}
-
-	return cmd.FormatJson(writer, value)
 }
 
 func actionOperationLinesFromResults(results []actionapi.Operation) []operationLine {
