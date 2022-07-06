@@ -60,6 +60,24 @@ func addFileCmds(filename string, data []byte, mode uint, binary bool) []string 
 	return cmds
 }
 
+// addFileCopyCmds is a helper function returns all the required shell commands to copy
+// a file (be it text or binary) with regards to the given parameters
+// NOTE: if the file already exists, it will be overwritten.
+func addFileCopyCmds(source string, filename string, mode uint) []string {
+	// Note: recent versions of cloud-init have the "write_files"
+	// module, which can write arbitrary files. We currently support
+	// 12.04 LTS, which uses an older version of cloud-init without
+	// this module.
+	// TODO (aznashwan): eagerly await 2017 and to do the right thing here
+	s := utils.ShQuote(source)
+	p := utils.ShQuote(filename)
+
+	cmds := []string{fmt.Sprintf("install -D -m %o /dev/null %s", mode, p)}
+	cmds = append(cmds, fmt.Sprintf(`cat %s > %s`, s, p))
+
+	return cmds
+}
+
 // removeStringFromSlice is a helper function which removes a given string from
 // the given slice, if it exists it returns the slice, be it modified or unmodified
 func removeStringFromSlice(slice []string, val string) []string {
