@@ -16,9 +16,12 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
+	"github.com/kr/pretty"
 
 	stateerrors "github.com/juju/juju/state/errors"
 )
+
+var rulogger = logger.Child("relationunit")
 
 // RelationUnit holds information about a single unit in a relation, and
 // allows clients to conveniently access unit-specific functionality.
@@ -333,6 +336,7 @@ type LeaveScopeOperation struct {
 
 // Build is part of the ModelOperation interface.
 func (op *LeaveScopeOperation) Build(attempt int) ([]txn.Op, error) {
+	rulogger.Tracef("%v attempt %d to leave scope", op.Description(), attempt+1)
 	if attempt > 0 {
 		if err := op.ru.relation.Refresh(); errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
@@ -351,7 +355,7 @@ func (op *LeaveScopeOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("forcing %v to leave scope despite error %v", op.Description(), err)
+			rulogger.Warningf("forcing %v to leave scope despite error %v", op.Description(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -392,7 +396,7 @@ func (ru *RelationUnit) LeaveScopeWithForce(force bool, maxWait time.Duration) (
 func (ru *RelationUnit) LeaveScope() error {
 	errs, err := ru.LeaveScopeWithForce(false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors leaving scope for unit %q in relation %q: %v", ru.unitName, ru.relation, errs)
+		rulogger.Warningf("operational errors leaving scope for unit %q in relation %q: %v", ru.unitName, ru.relation, errs)
 	}
 	return err
 }
@@ -437,7 +441,7 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 	// to have a Dying relation with a smaller-than-real unit count, because
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
-	logger.Debugf("%v leaving scope", op.Description())
+	rulogger.Debugf("%v leaving scope: unit count %d, life %v", op.Description(), op.ru.relation.doc.UnitCount, op.ru.relation.doc.Life)
 	count, err := relationScopes.FindId(key).Count()
 	if op.FatalError(errors.Annotatef(err, "cannot examine scope for %s", op.Description())) {
 		return nil, err
@@ -473,6 +477,9 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 			return nil, err
 		}
 		ops = append(ops, relOps...)
+	}
+	if rulogger.IsTraceEnabled() {
+		rulogger.Tracef("leave scope ops for %s: %s", op.Description(), pretty.Sprint(ops))
 	}
 	return ops, nil
 }

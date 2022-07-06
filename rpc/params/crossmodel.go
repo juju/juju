@@ -6,6 +6,7 @@ package params
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/charm/v8"
+	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/life"
@@ -216,6 +217,7 @@ type RemoteRelation struct {
 	Key                   string         `json:"key"`
 	ApplicationName       string         `json:"application-name"`
 	Endpoint              RemoteEndpoint `json:"endpoint"`
+	UnitCount             int            `json:"unit-count"`
 	RemoteApplicationName string         `json:"remote-application-name"`
 	RemoteEndpointName    string         `json:"remote-endpoint-name"`
 	SourceModelUUID       string         `json:"source-model-uuid"`
@@ -374,7 +376,7 @@ type RemoteRelationChangeEvent struct {
 	ForceCleanup *bool `json:"force-cleanup,omitempty"`
 
 	// UnitCount is the number of units still in relation scope.
-	UnitCount *int `json:"unit-count,omitempty"`
+	UnitCount *int `json:"unit-count"`
 
 	// Suspended is the current suspended status of the relation.
 	Suspended *bool `json:"suspended,omitempty"`
@@ -397,6 +399,15 @@ type RemoteRelationChangeEvent struct {
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+}
+
+func (e *RemoteRelationChangeEvent) GoString() string {
+	if e == nil {
+		return "<nil>"
+	}
+	eCopy := *e
+	eCopy.Macaroons = nil
+	return pretty.Sprint(eCopy)
 }
 
 // RemoteRelationWatchResult holds a RemoteRelationWatcher id, initial
@@ -490,6 +501,15 @@ type IngressNetworksChangeEvent struct {
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
 	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+}
+
+func (e *IngressNetworksChangeEvent) GoString() string {
+	if e == nil {
+		return "<nil>"
+	}
+	eCopy := *e
+	eCopy.Macaroons = nil
+	return pretty.Sprint(eCopy)
 }
 
 // RegisterRemoteRelationArg holds attributes used to register a remote relation.
