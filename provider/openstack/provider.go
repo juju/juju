@@ -2356,11 +2356,6 @@ func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 	return false, nil
 }
 
-// SSHAddresses is specified on environs.SSHAddresses.
-func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
-}
-
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress
 // rules containing IPV6 CIDRs. It is part of the FirewallFeatureQuerier
 // interface.

@@ -442,8 +442,3 @@ func (*environ) AllocateContainerAddresses(context.ProviderCallContext, instance
 func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
-
-// SSHAddresses filters the input addresses to those suitable for SSH use.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
-}
