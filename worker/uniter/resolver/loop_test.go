@@ -7,7 +7,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex/v2"
@@ -31,7 +30,7 @@ type LoopSuite struct {
 	watcher   *mockRemoteStateWatcher
 	opFactory *mockOpFactory
 	executor  *mockOpExecutor
-	charmURL  *charm.URL
+	charmURL  string
 	charmDir  string
 	abort     chan struct{}
 	onIdle    func() error
@@ -49,7 +48,7 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 	}
 	s.opFactory = &mockOpFactory{}
 	s.executor = &mockOpExecutor{}
-	s.charmURL = charm.MustParseURL("cs:trusty/mysql-1")
+	s.charmURL = "cs:trusty/mysql-1"
 	s.abort = make(chan struct{})
 }
 
@@ -330,7 +329,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL: charm.MustParseURL("cs:trusty/mysql-2"),
+			CharmURL: "cs:trusty/mysql-2",
 		},
 	}
 	s.charmDir = testcharms.Repo.CharmDirPath("mysql")
@@ -350,7 +349,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL:             charm.MustParseURL("cs:trusty/mysql-2"),
+			CharmURL:             "cs:trusty/mysql-2",
 			CharmProfileRequired: true,
 			LXDProfileName:       "juju-test-mysql-1",
 		},
@@ -387,7 +386,7 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL: charm.MustParseURL("cs:trusty/mysql-2"),
+			CharmURL: "cs:trusty/mysql-2",
 		},
 	}
 	s.testCheckCharmUpgradeCallsRun(c)
@@ -424,7 +423,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
 	}
 	s.watcher = &mockRemoteStateWatcher{
 		snapshot: remotestate.Snapshot{
-			CharmURL:             charm.MustParseURL("cs:trusty/mysql-2"),
+			CharmURL:             "cs:trusty/mysql-2",
 			CharmProfileRequired: true,
 			LXDProfileName:       "juju-test-mysql-2",
 		},

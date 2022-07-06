@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -23,8 +22,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.modelupgrader")
 
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
@@ -72,23 +69,6 @@ func NewModelUpgraderAPI(
 		callContext: callCtx,
 		newEnviron:  newEnviron,
 	}, nil
-}
-
-// authCheck checks if the user is acting on their own behalf, or if they
-// are an administrator acting on behalf of another user.
-func (m *ModelUpgraderAPI) authCheck(user names.UserTag) error {
-	if m.isAdmin {
-		logger.Tracef("%q is a controller admin", m.apiUser.Id())
-		return nil
-	}
-
-	// We can't just compare the UserTags themselves as the provider part
-	// may be unset, and gets replaced with 'local'. We must compare against
-	// the Canonical value of the user tag.
-	if m.apiUser == user {
-		return nil
-	}
-	return apiservererrors.ErrPerm
 }
 
 func (m *ModelUpgraderAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
@@ -172,7 +152,14 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(force bool, modelTag names.Model
 	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
 		if err == nil && blockers != nil {
-			err = errors.NewNotSupported(nil, fmt.Sprintf("cannot upgrade to %q due to issues with these models:\n%s", targetVersion, blockers))
+			err = apiservererrors.ServerError(
+				errors.NewNotSupported(nil,
+					fmt.Sprintf(
+						"cannot upgrade to %q due to issues with these models:\n%s",
+						targetVersion, blockers,
+					),
+				),
+			)
 		}
 	}()
 

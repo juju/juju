@@ -36,7 +36,7 @@ type PrecheckBackend interface {
 	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	HasUpgradeSeriesLocks() (bool, error)
-	MachineCountForSeries(series ...string) (int, error)
+	MachineCountForSeries(series ...string) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 }
 

@@ -1762,3 +1762,24 @@ func FixCharmhubLastPolltime(pool *StatePool) error {
 		return st.runRawTransaction(ops)
 	}))
 }
+
+// RemoveUseFloatingIPConfigFalse removes any model config key value pair:
+// use-floating-ip=false. It is deprecated, default by false and causing
+// much noise in logs.
+func RemoveUseFloatingIPConfigFalse(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
+		var changed bool
+		value, ok := doc.Settings["use-floating-ip"]
+		if ok && value != "" {
+			if v, ok := value.(bool); ok && !v {
+				changed = true
+				delete(doc.Settings, "use-floating-ip")
+			}
+		}
+		return changed, nil
+	}))
+}

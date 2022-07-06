@@ -124,7 +124,11 @@ func (opc *operationCallbacks) ActionStatus(actionId string) (string, error) {
 }
 
 // GetArchiveInfo is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
+func (opc *operationCallbacks) GetArchiveInfo(url string) (charm.BundleInfo, error) {
+	charmURL, err := corecharm.ParseURL(url)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ch, err := opc.u.st.Charm(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -133,7 +137,7 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 }
 
 // SetCurrentCharm is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
+func (opc *operationCallbacks) SetCurrentCharm(charmURL string) error {
 	return opc.u.unit.SetCharmURL(charmURL)
 }
 

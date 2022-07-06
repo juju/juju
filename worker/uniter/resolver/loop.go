@@ -208,7 +208,7 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 	local.State = ex.State()
 
 	// If the unit isn't installed, no need to start an upgrade.
-	if !local.State.Installed || remote.CharmURL == nil {
+	if !local.State.Installed || remote.CharmURL == "" {
 		return nil
 	}
 
@@ -230,15 +230,17 @@ func checkCharmUpgrade(logger Logger, charmDir string, remote remotestate.Snapsh
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if rev != remote.CharmURL.Revision {
-			logger.Tracef("Charm profile required: current revision %d does not match new revision %d", rev, remote.CharmURL.Revision)
+		curl, err := corecharm.ParseURL(remote.CharmURL)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if rev != curl.Revision {
+			logger.Tracef("Charm profile required: current revision %d does not match new revision %d", rev, curl.Revision)
 			return nil
 		}
 	}
 
-	// TODO (hmlanigan) 2022-06-08
-	// Is there any reason for the local and remote CharmURL to not be string pointers?
-	sameCharm := *local.CharmURL == *remote.CharmURL
+	sameCharm := local.CharmURL == remote.CharmURL
 	if haveCharmDir && (!local.State.Started || sameCharm) {
 		return nil
 	}

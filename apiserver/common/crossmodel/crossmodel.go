@@ -21,11 +21,14 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodel", corelogger.CMR)
+var (
+	logger     = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodel", corelogger.CMR)
+	authlogger = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
+)
 
 // PublishRelationChange applies the relation change event to the specified backend.
 func PublishRelationChange(backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
-	logger.Debugf("publish into model %v change for %v: %+v", backend.ModelUUID(), relationTag, change)
+	logger.Debugf("publish into model %v change for %v: %#v", backend.ModelUUID(), relationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
 	// Ensure the relation exists.
@@ -49,7 +52,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	logger.Debugf("application tag for token %+v is %v in model %v", change.ApplicationToken, applicationTag, backend.ModelUUID())
+	logger.Debugf("application tag for token %v is %v in model %v", change.ApplicationToken, applicationTag, backend.ModelUUID())
 
 	// If the remote model has destroyed the relation, do it here also.
 	forceCleanUp := change.ForceCleanup != nil && *change.ForceCleanup
@@ -395,7 +398,7 @@ func RelationUnitSettings(backend Backend, ru params.RelationUnit) (params.Setti
 
 // PublishIngressNetworkChange saves the specified ingress networks for a relation.
 func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change params.IngressNetworksChangeEvent) error {
-	logger.Debugf("publish into model %v network change for %v: %+v", backend.ModelUUID(), relationTag, change)
+	logger.Debugf("publish into model %v network change for %v: %#v", backend.ModelUUID(), relationTag, &change)
 
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())

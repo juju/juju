@@ -159,7 +159,7 @@ func (s *applicationSuite) TestCharmURL(c *gc.C) {
 
 	curl, force, err := app.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl.String(), gc.Equals, "cs:mysql")
+	c.Assert(curl, gc.Equals, "cs:mysql")
 	c.Assert(force, jc.IsTrue)
 }
 
