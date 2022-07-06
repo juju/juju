@@ -7,14 +7,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/juju/ansiterm"
-	"github.com/juju/juju/cmd/output"
 	"io"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/juju/ansiterm"
+	"github.com/juju/juju/cmd/output"
 
 	"github.com/juju/juju/rpc/params"
 
@@ -248,7 +249,7 @@ func (c *runCommandBase) processOperationResultsWithColor(ctx *cmd.Context, resu
 			ctx.Infof("Check operation status with 'juju show-operation %s'", opIDColored)
 			ctx.Infof("Check task status with 'juju show-task %s'", actionIdColored)
 		} else {
-			ctx.Infof("Scheduled operation %s with %d tasks", opIDColored, numTasksColored)
+			ctx.Infof("Scheduled operation %s with %v tasks", opIDColored, numTasksColored)
 			_ = output.FormatYamlWithColor(ctx.Stdout, info)
 			ctx.Infof("Check operation status with 'juju show-operation %s'", opIDColored)
 			ctx.Infof("Check task status with 'juju show-task <id>'")
