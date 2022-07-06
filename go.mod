@@ -48,12 +48,13 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4
+	github.com/juju/charm/v8 v8.0.0-20201210023157-fbb8951c035d
 	github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d
 	github.com/juju/charmrepo/v7 v7.0.0-20210923152136-0ae2f26643bf
 	github.com/juju/clock v0.0.0-20220203021603-d9deb868a28a
 	github.com/juju/cmd/v3 v3.0.0-20220203030511-039f3566372a
 	github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a
-	github.com/juju/description/v3 v3.0.0-20220207013250-e60bc7b1c242
+	github.com/juju/description/v3 v3.0.0-20220705143837-6a522a3e3bbc
 	github.com/juju/errors v0.0.0-20220622220526-54a94488269b
 	github.com/juju/featureflag v0.0.0-20220207005600-a9676d92ad24
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -169,7 +170,9 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
+	github.com/juju/systems v0.0.0-20200925032749-8c613192c759 // indirect
 	github.com/juju/usso v1.0.1 // indirect
+	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -215,6 +218,7 @@ require (
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect

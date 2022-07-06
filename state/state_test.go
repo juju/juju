@@ -1463,23 +1463,27 @@ func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
 	}
 
 	var windowsSeries = []string{
-		"win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-		"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81", "win10",
+		"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+		"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 	}
+	expectedWinResult := map[string]int{}
 	for _, winSeries := range windowsSeries {
 		add_machine(winSeries)
+		expectedWinResult[winSeries] = 1
 	}
 	add_machine("quantal")
-
 	s.AssertMachineCount(c, len(windowsSeries)+1)
 
-	count, err := s.State.MachineCountForSeries(windowsSeries...)
+	result, err := s.State.MachineCountForSeries(windowsSeries...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, len(windowsSeries))
+	c.Assert(result, gc.DeepEquals, expectedWinResult)
 
-	count, err = s.State.MachineCountForSeries("quantal")
+	result, err = s.State.MachineCountForSeries(
+		"quantal", // count 1
+		"xenial",  // count 0
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, 1)
+	c.Assert(result, gc.DeepEquals, map[string]int{"quantal": 1})
 }
 
 func (s *StateSuite) TestAllRelations(c *gc.C) {

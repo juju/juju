@@ -20028,7 +20028,8 @@
                     "required": [
                         "relation-token",
                         "application-token",
-                        "life"
+                        "life",
+                        "unit-count"
                     ]
                 },
                 "RemoteRelationDetails": {
@@ -36312,7 +36313,8 @@
                     "required": [
                         "relation-token",
                         "application-token",
-                        "life"
+                        "life",
+                        "unit-count"
                     ]
                 },
                 "RemoteRelationUnitChange": {
@@ -36937,6 +36939,9 @@
                         },
                         "suspended": {
                             "type": "boolean"
+                        },
+                        "unit-count": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -36947,6 +36952,7 @@
                         "key",
                         "application-name",
                         "endpoint",
+                        "unit-count",
                         "remote-application-name",
                         "remote-endpoint-name",
                         "source-model-uuid"
@@ -37011,7 +37017,8 @@
                     "required": [
                         "relation-token",
                         "application-token",
-                        "life"
+                        "life",
+                        "unit-count"
                     ]
                 },
                 "RemoteRelationResult": {

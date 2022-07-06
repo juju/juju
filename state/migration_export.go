@@ -2190,19 +2190,30 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		}
 		return nil
 	}
+	optionalBool := func(name string) bool {
+		switch value := doc[name].(type) {
+		case nil:
+		case bool:
+			return value
+		default:
+			optionalErr = errors.Errorf("expected bool for %s, got %T", name, value)
+		}
+		return false
+	}
 	result := description.ConstraintsArgs{
-		Architecture:   optionalString("arch"),
-		Container:      optionalString("container"),
-		CpuCores:       optionalInt("cpucores"),
-		CpuPower:       optionalInt("cpupower"),
-		InstanceType:   optionalString("instancetype"),
-		Memory:         optionalInt("mem"),
-		RootDisk:       optionalInt("rootdisk"),
-		RootDiskSource: optionalString("rootdisksource"),
-		Spaces:         optionalStringSlice("spaces"),
-		Tags:           optionalStringSlice("tags"),
-		VirtType:       optionalString("virttype"),
-		Zones:          optionalStringSlice("zones"),
+		AllocatePublicIP: optionalBool("allocatepublicip"),
+		Architecture:     optionalString("arch"),
+		Container:        optionalString("container"),
+		CpuCores:         optionalInt("cpucores"),
+		CpuPower:         optionalInt("cpupower"),
+		InstanceType:     optionalString("instancetype"),
+		Memory:           optionalInt("mem"),
+		RootDisk:         optionalInt("rootdisk"),
+		RootDiskSource:   optionalString("rootdisksource"),
+		Spaces:           optionalStringSlice("spaces"),
+		Tags:             optionalStringSlice("tags"),
+		VirtType:         optionalString("virttype"),
+		Zones:            optionalStringSlice("zones"),
 	}
 	if optionalErr != nil {
 		return description.ConstraintsArgs{}, errors.Trace(optionalErr)

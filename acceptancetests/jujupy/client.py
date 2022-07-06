@@ -1695,7 +1695,7 @@ class ModelClient:
             '--format', 'yaml',
             include_e=False)
         output = yaml.safe_load(output_yaml)
-        return output[name]['details']['uuid']
+        return output[name]['details']['controller-uuid']
 
     def get_controller_model_uuid(self):
         output_yaml = self.get_juju_output(

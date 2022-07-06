@@ -136,14 +136,14 @@ func (mr *MockStateMockRecorder) HasUpgradeSeriesLocks() *gomock.Call {
 }
 
 // MachineCountForSeries mocks base method.
-func (m *MockState) MachineCountForSeries(arg0 ...string) (int, error) {
+func (m *MockState) MachineCountForSeries(arg0 ...string) (map[string]int, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "MachineCountForSeries", varargs...)
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(map[string]int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
