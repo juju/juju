@@ -211,13 +211,13 @@ type Unit interface {
 	Status() (status.StatusInfo, error)
 }
 
-type StorageInterface interface {
+type storageInterface interface {
 	storagecommon.StorageAccess
 	VolumeAccess() storagecommon.VolumeAccess
 	FilesystemAccess() storagecommon.FilesystemAccess
 }
 
-var getStorageState = func(st *state.State) (StorageInterface, error) {
+var getStorageState = func(st *state.State) (storageInterface, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, err

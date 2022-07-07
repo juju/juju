@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machinemanager_test
+package machinemanager
 
 import (
 	"github.com/golang/mock/gomock"
@@ -12,8 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/machinemanager"
-	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
@@ -31,39 +29,39 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
-	applications := []machinemanager.Application{application}
+	application := NewMockApplication(ctrl)
+	applications := []Application{application}
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("foo/0"))
-	units := []machinemanager.Unit{unit}
+	units := []Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(applications, "focal", false).Return(nil)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 	validator.EXPECT().ValidateUnits(units).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
 
-	entities := []machinemanager.ValidationEntity{
+	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
 	}
 
-	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	result, err := api.Validate(entities)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []machinemanager.ValidationResult{
+	c.Assert(result, gc.DeepEquals, []ValidationResult{
 		{UnitNames: []string{"foo/0"}},
 	})
 }
@@ -72,25 +70,25 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 
-	validator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(errors.New("boom"))
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
 
-	entities := []machinemanager.ValidationEntity{
+	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
 	}
 
-	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	result, err := api.Validate(entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
@@ -100,30 +98,30 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
-	applications := []machinemanager.Application{application}
+	application := NewMockApplication(ctrl)
+	applications := []Application{application}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(nil)
 	validator.EXPECT().ValidateApplications(applications, "focal", false).Return(errors.New("boom"))
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().CanRead().Return(nil)
 
-	entities := []machinemanager.ValidationEntity{
+	entities := []ValidationEntity{
 		{Tag: "machine-0", Series: "focal"},
 	}
 
-	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	result, err := api.Validate(entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
@@ -139,33 +137,33 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
-	applications := []machinemanager.Application{application}
+	application := NewMockApplication(ctrl)
+	applications := []Application{application}
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
-	units := []machinemanager.Unit{unit}
+	units := []Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic").Times(2)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade series from "bionic" to "focal"`)
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 	state.EXPECT().ApplicationsFromMachine(machine).Return(applications, nil)
 
-	validator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0")
 	validator.EXPECT().ValidateApplications(applications, "focal", false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
-	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "focal", false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -174,28 +172,28 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
-	units := []machinemanager.Unit{unit}
+	units := []Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().RemoveUpgradeSeriesLock()
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 
-	validator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(errors.New("bad"))
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
-	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "focal", false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
@@ -204,28 +202,28 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().UnitTag().Return(names.NewUnitTag("app/0"))
 
-	units := []machinemanager.Unit{unit}
+	units := []Unit{unit}
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
 	machine.EXPECT().Series().Return("bionic")
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().RemoveUpgradeSeriesLock().Return(errors.New("boom"))
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 
-	validator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateSeries("focal", "bionic", "machine-0").Return(errors.New("bad"))
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
-	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "focal", false)
 	c.Assert(err, gc.ErrorMatches, `boom occurred while cleaning up from: bad`)
 }
@@ -234,17 +232,17 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 
-	state := mocks.NewMockUpgradeSeriesState(ctrl)
+	state := NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
 
-	validator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	validator := NewMockUpgradeSeriesValidator(ctrl)
 	validator.EXPECT().ValidateMachine(machine).Return(errors.New("bad"))
 
-	authorizer := mocks.NewMockAuthorizer(ctrl)
+	authorizer := NewMockAuthorizer(ctrl)
 
-	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
+	api := NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "focal", false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
@@ -259,30 +257,33 @@ func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	localApp := mocks.NewMockApplication(ctrl)
+	localApp := NewMockApplication(ctrl)
 	localApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source: corecharm.Local.String(),
 	})
-	storeApp := mocks.NewMockApplication(ctrl)
+	storeApp := NewMockApplication(ctrl)
 	storeApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source: corecharm.CharmStore.String(),
 	})
-	charmhubApp := mocks.NewMockApplication(ctrl)
+	charmhubApp := NewMockApplication(ctrl)
 	charmhubApp.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Source: corecharm.CharmHub.String(),
 	})
-	applications := []machinemanager.Application{
+	applications := []Application{
 		localApp,
 		storeApp,
 		charmhubApp,
 	}
 
-	localValidator := mocks.NewMockUpgradeSeriesValidator(ctrl)
-	localValidator.EXPECT().ValidateApplications([]machinemanager.Application{localApp, storeApp}, "focal", false)
-	remoteValidator := mocks.NewMockUpgradeSeriesValidator(ctrl)
-	remoteValidator.EXPECT().ValidateApplications([]machinemanager.Application{charmhubApp}, "focal", false)
+	localValidator := NewMockUpgradeSeriesValidator(ctrl)
+	localValidator.EXPECT().ValidateApplications([]Application{localApp, storeApp}, "focal", false)
+	remoteValidator := NewMockUpgradeSeriesValidator(ctrl)
+	remoteValidator.EXPECT().ValidateApplications([]Application{charmhubApp}, "focal", false)
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
+	validator := upgradeSeriesValidator{
+		localValidator:  localValidator,
+		remoteValidator: remoteValidator,
+	}
 
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -292,16 +293,19 @@ func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(nil)
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	localValidator := mocks.NewMockUpgradeSeriesValidator(ctrl)
+	localValidator := NewMockUpgradeSeriesValidator(ctrl)
 	localValidator.EXPECT().ValidateApplications(applications, "focal", false)
-	remoteValidator := mocks.NewMockUpgradeSeriesValidator(ctrl)
-	remoteValidator.EXPECT().ValidateApplications([]machinemanager.Application(nil), "focal", false)
+	remoteValidator := NewMockUpgradeSeriesValidator(ctrl)
+	remoteValidator.EXPECT().ValidateApplications([]Application(nil), "focal", false)
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
+	validator := upgradeSeriesValidator{
+		localValidator:  localValidator,
+		remoteValidator: remoteValidator,
+	}
 
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -311,11 +315,11 @@ func (s ValidatorSuite) TestValidateMachine(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().IsManager().Return(false)
 	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
+	validator := upgradeSeriesValidator{}
 
 	err := validator.ValidateMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -325,11 +329,11 @@ func (s ValidatorSuite) TestValidateMachineIsManager(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().IsManager().Return(true)
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
+	validator := upgradeSeriesValidator{}
 
 	err := validator.ValidateMachine(machine)
 	c.Assert(err, gc.ErrorMatches, `machine-0 is a controller and cannot be targeted for series upgrade`)
@@ -339,13 +343,13 @@ func (s ValidatorSuite) TestValidateMachineIsLockedForSeriesUpgrade(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
+	machine := NewMockMachine(ctrl)
 	machine.EXPECT().Id().Return("0")
 	machine.EXPECT().IsManager().Return(false)
 	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
 	machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareRunning, nil)
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
+	validator := upgradeSeriesValidator{}
 
 	err := validator.ValidateMachine(machine)
 	c.Assert(err, gc.ErrorMatches, `upgrade series lock found for "0"; series upgrade is in the "prepare running" state`)
@@ -355,12 +359,12 @@ func (s ValidatorSuite) TestValidateUnits(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Idle}, nil)
 	unit.EXPECT().Status().Return(status.StatusInfo{Status: status.Active}, nil)
-	units := []machinemanager.Unit{unit}
+	units := []Unit{unit}
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
+	validator := upgradeSeriesValidator{}
 
 	err := validator.ValidateUnits(units)
 	c.Assert(err, jc.ErrorIsNil)
@@ -370,12 +374,12 @@ func (s ValidatorSuite) TestValidateUnitsNotIdle(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().Name().Return("foo/0")
 	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Blocked}, nil)
-	units := []machinemanager.Unit{unit}
+	units := []Unit{unit}
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
+	validator := upgradeSeriesValidator{}
 
 	err := validator.ValidateUnits(units)
 	c.Assert(err, gc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its agent status is: "blocked" `)
@@ -385,13 +389,13 @@ func (s ValidatorSuite) TestValidateUnitsInErrorState(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	unit := mocks.NewMockUnit(ctrl)
+	unit := NewMockUnit(ctrl)
 	unit.EXPECT().Name().Return("foo/0")
 	unit.EXPECT().AgentStatus().Return(status.StatusInfo{Status: status.Idle}, nil)
 	unit.EXPECT().Status().Return(status.StatusInfo{Status: status.Error}, nil)
-	units := []machinemanager.Unit{unit}
+	units := []Unit{unit}
 
-	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
+	validator := upgradeSeriesValidator{}
 
 	err := validator.ValidateUnits(units)
 	c.Assert(err, gc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its status is: "error" `)
@@ -407,16 +411,16 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal", "bionic"}}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestStateSeriesValidator()
+	validator := stateSeriesValidator{}
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -427,17 +431,17 @@ func (s StateValidatorSuite) TestValidateApplicationsWithFallbackSeries(c *gc.C)
 
 	url := charm.MustParseURL("cs:focal/foo-1")
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 	ch.EXPECT().URL().Return(url)
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestStateSeriesValidator()
+	validator := stateSeriesValidator{}
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -446,17 +450,17 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 	ch.EXPECT().String().Return("cs:foo-1")
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestStateSeriesValidator()
+	validator := stateSeriesValidator{}
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "cs:foo-1", supported series are: xenial, bionic`)
 }
@@ -465,16 +469,16 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithFo
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := mocks.NewMockCharm(ctrl)
+	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestStateSeriesValidator()
+	validator := stateSeriesValidator{}
 	err := validator.ValidateApplications(applications, "focal", true)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -489,7 +493,7 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
 		{Entity: transport.RefreshEntity{
 			Bases: []transport.Base{{Channel: "18.04"}, {Channel: "20.04"}},
@@ -498,7 +502,7 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,
@@ -509,9 +513,11 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 		},
 	})
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -520,15 +526,17 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithNoRevision(c *gc.C) 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{})
 	application.EXPECT().Name().Return("foo")
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
 }
@@ -537,14 +545,14 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
 		{},
 	}, errors.Errorf("bad"))
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,
@@ -555,9 +563,11 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c
 		},
 	})
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
@@ -566,7 +576,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
 		{Error: &transport.APIError{
 			Message: "bad",
@@ -575,7 +585,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,
@@ -586,9 +596,11 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 		},
 	})
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
 	err := validator.ValidateApplications(applications, "focal", false)
 	c.Assert(err, gc.ErrorMatches, `unable to locate application with series focal: bad`)
 }
@@ -597,7 +609,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := mocks.NewMockCharmhubClient(ctrl)
+	client := NewMockCharmhubClient(ctrl)
 	client.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{{
 		Entity: transport.RefreshEntity{
 			Bases: []transport.Base{{Channel: "18.04"}, {Channel: "20.04"}},
@@ -609,7 +621,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 
 	revision := 1
 
-	application := mocks.NewMockApplication(ctrl)
+	application := NewMockApplication(ctrl)
 	application.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		ID:       "mycharmhubid",
 		Revision: &revision,
@@ -620,9 +632,11 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 		},
 	})
 
-	applications := []machinemanager.Application{application}
+	applications := []Application{application}
 
-	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
+	validator := charmhubSeriesValidator{
+		client: client,
+	}
 	err := validator.ValidateApplications(applications, "focal", true)
 	c.Assert(err, jc.ErrorIsNil)
 }

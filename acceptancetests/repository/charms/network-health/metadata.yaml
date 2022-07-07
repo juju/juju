@@ -13,7 +13,6 @@ series:
   - bionic
   - eoan
   - focal
-  - jammy
 
 requires:
   juju-info:
