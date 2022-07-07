@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"

@@ -82,8 +82,9 @@ run_reboot_monitor_state_cleanup() {
 
 	ensure "${model_name}" "${file}"
 
+	# mysql charm does not have stable channel, so we use edge channel
+	juju deploy mysql --channel=edge
 	# Deploy mysql/rsyslog-forwarder-ha. The latter is a subordinate
-	juju deploy mysql
 	juju deploy rsyslog-forwarder-ha
 	juju add-relation rsyslog-forwarder-ha mysql
 	wait_for "mysql" "$(idle_condition "mysql")"
