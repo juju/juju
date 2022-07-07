@@ -476,8 +476,6 @@ github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc h1:ZQrgZFsLzkw7o3CoD
 github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc/go.mod h1:PyXUpnI3olx3bsPcHt98FGPX/KCFZ1Fi+hw1XLI6384=
 github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4 h1:OQVAtaX0oZQX1roCwPMXM7DSnmlvDQXxxcl6tn73GiU=
 github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4/go.mod h1:lFTSngYRJBy/mUOWUjAghwKcP0iXxqBYqJtuchC3cJI=
-github.com/juju/charm/v8 v8.0.0-20201210023157-fbb8951c035d h1:EyEgeHEoVhLTGT0NFSPzTjp9r+OP3QeOHKoZiR5OsIs=
-github.com/juju/charm/v8 v8.0.0-20201210023157-fbb8951c035d/go.mod h1:3gMi15p+v4CxEquVduhcOoPLWM7IaRB+OZB6bT3Glww=
 github.com/juju/charm/v9 v9.0.0-20210427070932-bc9b40c9b0f4/go.mod h1:GR/jjdIQ0V9Yss8krrfqy3rRKJabbvDOXXRjfO+110M=
 github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d h1:Rwsglg4pj1EJUTqUMs1gXQ5z5p3NcSVZbMGXjq2CDuw=
 github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d/go.mod h1:5mxM1pDiccCU+kHnNhd0wRr4Py2wVrKpxpXTMlTTwi8=
@@ -593,8 +591,6 @@ github.com/juju/schema v0.0.0-20180109041850-e4f08199aa80/go.mod h1:7dL+43wADDfx
 github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
 github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989 h1:qx1Zh1bnHHVIMmRxq0fehYk7npCG50GhUwEkYeUg/t4=
 github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
-github.com/juju/systems v0.0.0-20200925032749-8c613192c759 h1:JhhlHeV1sXWIrtrr2IVKcWAD3819eUsRqw+001LjqMQ=
-github.com/juju/systems v0.0.0-20200925032749-8c613192c759/go.mod h1:FcXkVf5o+mosxneWzQsHQ7h9sU3lD2GDOttJClqgnuA=
 github.com/juju/terms-client/v2 v2.0.0-20220207005045-25aa57bf93cd h1:AkuAfgG35O5yKqG9rTvlUL9+Qg/thFyhYXiYwt5mpSc=
 github.com/juju/terms-client/v2 v2.0.0-20220207005045-25aa57bf93cd/go.mod h1:ezOEZrFZZ0c9Kc0xeHH7SCmniWPkjuxiAm82wwg+fpE=
 github.com/juju/testing v0.0.0-20160404094317-162fafccebf2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
@@ -603,7 +599,6 @@ github.com/juju/testing v0.0.0-20180402130637-44801989f0f7/go.mod h1:63prj8cnj0t
 github.com/juju/testing v0.0.0-20180517134105-72703b1e95eb/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180820040200-b0b89ba330f2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20190723135506-ce30eb24acd2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
-github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0/go.mod h1:Ky6DwobyXXeXSqRJCCuHpAtVEGRPOT8gUsFpJhDoXZ8=
 github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07/go.mod h1:7lxZW0B50+xdGFkvhAb8bwAGt6IU87JB1H9w4t8MNVM=
 github.com/juju/testing v0.0.0-20210324180055-18c50b0c2098/go.mod h1:7lxZW0B50+xdGFkvhAb8bwAGt6IU87JB1H9w4t8MNVM=
 github.com/juju/testing v0.0.0-20220203020004-a0ff61f03494 h1:XEDzpuZb8Ma7vLja3+5hzUqVTvAqm5Y+ygvnDs5iTMM=
@@ -620,7 +615,6 @@ github.com/juju/utils v0.0.0-20180619112806-c746c6e86f4f/go.mod h1:6/KLg8Wz/y2KV
 github.com/juju/utils v0.0.0-20200116185830-d40c2fe10647/go.mod h1:6/KLg8Wz/y2KVGWEpkK9vMNGkOnu4k/cqs8Z1fKjTOk=
 github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0 h1:4XlJ/Wj/bH3zGa2GU+Us72FgtmL1n3dwjP7LW7+TF/o=
 github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0/go.mod h1:6/KLg8Wz/y2KVGWEpkK9vMNGkOnu4k/cqs8Z1fKjTOk=
-github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1 h1:3y/lDs71xT7YIYtlfODytPNGEF4XVvUUZhFe3s5kkQQ=
 github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1/go.mod h1:fdlDtQlzundleLLz/ggoYinEt/LmnrpNKcNTABQATNI=
 github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0 h1:bn+2Adl1yWqYjm3KSFlFqsvfLg2eq+XNL7GGMYApdVw=
 github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0/go.mod h1:8csUcj1VRkfjNIRzBFWzLFCMLwLqsRWvkmhfVAUwbC4=
@@ -1110,7 +1104,6 @@ golang.org/x/sys v0.0.0-20200523222454-059865788121/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200803210538-64077c9b5642/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200831180312-196b9ba8737a/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200905004654-be1d3432aa8f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200909081042-eff7692f9009/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
