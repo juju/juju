@@ -55,10 +55,3 @@ func (r *rawAPICaller) Context() context.Context {
 func SetServerAddress(c *Client, scheme, addr string) {
 	api.SetServerAddressForTesting(c.conn, scheme, addr)
 }
-
-// APIClient returns a 'barebones' api.Client suitable for calling FindTools in
-// an error state (anything else is likely to panic.)
-func BarebonesClient(apiCaller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(apiCaller, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, conn: api.EmptyConnectionForTesting()}
-}

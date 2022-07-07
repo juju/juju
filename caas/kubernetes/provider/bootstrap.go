@@ -5,32 +5,31 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/proxy"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
-	agenttools "github.com/juju/juju/agent/tools"
+	agentconstants "github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
+	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
@@ -39,21 +38,18 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/version"
 )
 
 const (
-	// JujuControllerStackName is the juju CAAS controller stack name.
-	JujuControllerStackName = "controller"
-
-	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
-	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
-
 	proxyResourceName = "proxy"
+	storageName       = "storage"
 )
 
 var (
@@ -85,37 +81,37 @@ type controllerServiceSpec struct {
 
 func getDefaultControllerServiceSpecs(cloudType string) *controllerServiceSpec {
 	specs := map[string]*controllerServiceSpec{
-		caas.K8sCloudAzure: {
+		k8s.K8sCloudAzure: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 		},
-		caas.K8sCloudEC2: {
+		k8s.K8sCloudEC2: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 			Annotations: k8sannotations.New(nil).
 				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
 		},
-		caas.K8sCloudGCE: {
+		k8s.K8sCloudGCE: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 		},
-		caas.K8sCloudMicrok8s: {
+		k8s.K8sCloudMicrok8s: {
 			ServiceType: core.ServiceTypeClusterIP,
 		},
-		caas.K8sCloudOpenStack: {
+		k8s.K8sCloudOpenStack: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 		},
-		caas.K8sCloudMAAS: {
+		k8s.K8sCloudMAAS: {
 			ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
 		},
-		caas.K8sCloudLXD: {
+		k8s.K8sCloudLXD: {
 			ServiceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
 		},
-		caas.K8sCloudOther: {
+		k8s.K8sCloudOther: {
 			ServiceType: core.ServiceTypeClusterIP, // Default svc spec for any other cloud is not listed above.
 		},
 	}
 	if out, ok := specs[cloudType]; ok {
 		return out
 	}
-	return specs[caas.K8sCloudOther]
+	return specs[k8s.K8sCloudOther]
 }
 
 type controllerStack struct {
@@ -128,25 +124,23 @@ type controllerStack struct {
 	broker           *kubernetesClient
 	timeout          time.Duration
 
-	pcfg        *podcfg.ControllerPodConfig
+	pcfg *podcfg.ControllerPodConfig
+	// agentConfig is the controller api server config.
 	agentConfig agent.ConfigSetterWriter
+	// unitAgentConfig is the controller charm agent config.
+	unitAgentConfig agent.ConfigSetterWriter
 
 	storageClass               string
 	storageSize                resource.Quantity
 	portMongoDB, portAPIServer int
 
-	fileNameSharedSecret, fileNameBootstrapParams,
-	fileNameSSLKey, fileNameSSLKeyMount,
-	fileNameAgentConf, fileNameAgentConfMount string
-
-	resourceNameStatefulSet, resourceNameService,
-	resourceNameConfigMap, resourceNameSecret,
-	pvcNameControllerPodStorage, resourceNamedockerSecret,
-	resourceNameVolSharedSecret, resourceNameVolSSLKey, resourceNameVolBootstrapParams, resourceNameVolAgentConf string
+	resourceNameService,
+	resourceNameConfigMap,
+	resourceNameSecret, resourceNamedockerSecret,
+	resourceNameVolSharedSecret, resourceNameVolSSLKey,
+	resourceNameVolBootstrapParams, resourceNameVolAgentConf string
 
 	dockerAuthSecretData []byte
-
-	containerCount int
 
 	cleanUps []func()
 }
@@ -169,7 +163,7 @@ func findControllerNamespace(
 	// should be the quickest operation
 	namespaces, err := client.CoreV1().Namespaces().List(
 		context.TODO(),
-		v1.ListOptions{
+		metav1.ListOptions{
 			LabelSelector: labels.Set{
 				constants.LabelJujuModelName: environsbootstrap.ControllerModelName,
 			}.String(),
@@ -189,7 +183,7 @@ func findControllerNamespace(
 	// We didn't find anything using new labels so lets try the old ones.
 	namespaces, err = client.CoreV1().Namespaces().List(
 		context.TODO(),
-		v1.ListOptions{
+		metav1.ListOptions{
 			LabelSelector: labels.Set{
 				constants.LegacyLabelModelName: environsbootstrap.ControllerModelName,
 			}.String(),
@@ -258,6 +252,11 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
+	unitAgentConfig, err := pcfg.UnitAgentConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	selectorLabels := providerutils.SelectorLabelsForApp(stackName, false)
 	labels := providerutils.LabelsForApp(stackName, false)
 
@@ -271,34 +270,24 @@ func newcontrollerStack(
 		broker:           broker,
 		timeout:          pcfg.Bootstrap.Timeout,
 
-		pcfg:        pcfg,
-		agentConfig: agentConfig,
+		pcfg:            pcfg,
+		agentConfig:     agentConfig,
+		unitAgentConfig: unitAgentConfig,
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
 		portMongoDB:   pcfg.Bootstrap.ControllerConfig.StatePort(),
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
-
-		fileNameSharedSecret:    mongo.SharedSecretFile,
-		fileNameSSLKey:          mongo.FileNameDBSSLKey,
-		fileNameSSLKeyMount:     TemplateFileNameServerPEM,
-		fileNameBootstrapParams: cloudconfig.FileNameBootstrapParams,
-		fileNameAgentConf:       agent.AgentConfigFilename,
-		fileNameAgentConfMount:  constants.TemplateFileNameAgentConf,
-
-		resourceNameStatefulSet: stackName,
 	}
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
 	cs.resourceNameSecret = cs.getResourceName("secret")
 	cs.resourceNamedockerSecret = constants.CAASImageRepoSecretName
 
-	cs.resourceNameVolSharedSecret = cs.getResourceName(cs.fileNameSharedSecret)
-	cs.resourceNameVolSSLKey = cs.getResourceName(cs.fileNameSSLKey)
-	cs.resourceNameVolBootstrapParams = cs.getResourceName(cs.fileNameBootstrapParams)
-	cs.resourceNameVolAgentConf = cs.getResourceName(cs.fileNameAgentConf)
-
-	cs.pvcNameControllerPodStorage = "storage"
+	cs.resourceNameVolSharedSecret = cs.getResourceName(mongo.SharedSecretFile)
+	cs.resourceNameVolSSLKey = cs.getResourceName(mongo.FileNameDBSSLKey)
+	cs.resourceNameVolBootstrapParams = cs.getResourceName(cloudconfig.FileNameBootstrapParams)
+	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
 	if cs.dockerAuthSecretData, err = pcfg.Controller.CAASImageRepo().SecretData(); err != nil {
 		return nil, errors.Trace(err)
@@ -338,7 +327,7 @@ func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error)
 	}
 	if errors.IsNotFound(err) {
 		_, err = c.broker.createSecret(&core.Secret{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameSecret,
 				Labels:      c.stackLabels,
 				Namespace:   c.broker.GetCurrentNamespace(),
@@ -366,7 +355,7 @@ func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err erro
 	}
 	if errors.IsNotFound(err) {
 		_, err = c.broker.createConfigMap(&core.ConfigMap{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameConfigMap,
 				Labels:      c.stackLabels,
 				Namespace:   c.broker.GetCurrentNamespace(),
@@ -425,7 +414,7 @@ func (c *controllerStack) Deploy() (err error) {
 	}
 
 	// create the proxy resources for services of type cluster ip
-	if err = c.createControllerProxy(); err != nil {
+	if err = c.createControllerProxy(c.ctx.Context()); err != nil {
 		return errors.Annotate(err, "creating controller service proxy for controller")
 	}
 
@@ -445,14 +434,6 @@ func (c *controllerStack) Deploy() (err error) {
 		return environsbootstrap.Cancelled()
 	}
 
-	// create mongo admin account secret for controller pod.
-	if err = c.createControllerSecretMongoAdmin(); err != nil {
-		return errors.Annotate(err, "creating mongo admin account secret for controller")
-	}
-	if isDone() {
-		return environsbootstrap.Cancelled()
-	}
-
 	// create bootstrap-params configmap for controller pod.
 	if err = c.ensureControllerConfigmapBootstrapParams(); err != nil {
 		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
@@ -464,6 +445,13 @@ func (c *controllerStack) Deploy() (err error) {
 	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
 	if err = c.ensureControllerConfigmapAgentConf(); err != nil {
 		return errors.Annotate(err, "creating agent config configmap for controller")
+	}
+	if isDone() {
+		return environsbootstrap.Cancelled()
+	}
+
+	if err = c.ensureControllerApplicationSecret(); err != nil {
+		return errors.Annotate(err, "creating secret for controller application")
 	}
 	if isDone() {
 		return environsbootstrap.Cancelled()
@@ -545,7 +533,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 	return spec, nil
 }
 
-func (c *controllerStack) createControllerProxy() error {
+func (c *controllerStack) createControllerProxy(ctx context.Context) error {
 	if c.pcfg.Bootstrap.IgnoreProxy {
 		return nil
 	}
@@ -575,6 +563,7 @@ func (c *controllerStack) createControllerProxy() error {
 	}
 
 	err = k8sproxy.CreateControllerProxy(
+		ctx,
 		config,
 		c.stackLabels,
 		c.broker.clock,
@@ -598,7 +587,7 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 	}
 
 	spec := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        svcName,
 			Labels:      c.stackLabels,
 			Namespace:   c.broker.GetCurrentNamespace(),
@@ -681,7 +670,7 @@ func (c *controllerStack) createControllerSecretSharedSecret() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	secret.Data[c.fileNameSharedSecret] = []byte(si.SharedSecret)
+	secret.Data[mongo.SharedSecretFile] = []byte(si.SharedSecret)
 	logger.Tracef("ensuring shared secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q shared-secret", secret.Name)
@@ -740,7 +729,7 @@ func (c *controllerStack) createControllerSecretServerPem() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	secret.Data[c.fileNameSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
+	secret.Data[mongo.FileNameDBSSLKey] = []byte(mongo.GenerateSSLKey(si.Cert, si.PrivateKey))
 
 	logger.Tracef("ensuring server.pem secret: \n%+v", secret)
 	c.addCleanUp(func() {
@@ -748,10 +737,6 @@ func (c *controllerStack) createControllerSecretServerPem() error {
 		_ = c.broker.deleteSecret(secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(secret)
-}
-
-func (c *controllerStack) createControllerSecretMongoAdmin() error {
-	return nil
 }
 
 func (c *controllerStack) ensureControllerConfigmapBootstrapParams() error {
@@ -765,7 +750,7 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cm.Data[c.fileNameBootstrapParams] = string(bootstrapParamsFileContent)
+	cm.Data[cloudconfig.FileNameBootstrapParams] = string(bootstrapParamsFileContent)
 
 	logger.Tracef("creating bootstrap-params configmap: \n%+v", cm)
 
@@ -782,18 +767,52 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef("agentConfig file content: \n%s", string(agentConfigFileContent))
+	logger.Tracef("controller agentConfig file content: \n%s", string(agentConfigFileContent))
+
+	unitAgentConfigFileContent, err := c.unitAgentConfig.Render()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Tracef("controller unit agentConfig file content: \n%s", string(unitAgentConfigFileContent))
 
 	cm, err := c.getControllerConfigMap()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cm.Data[c.fileNameAgentConf] = string(agentConfigFileContent)
+	cm.Data[constants.ControllerAgentConfigFilename] = string(agentConfigFileContent)
+	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
 
 	logger.Tracef("ensuring agent.conf configmap: \n%+v", cm)
 	cleanUp, err := c.broker.ensureConfigMap(cm)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q template-agent.conf", cm.Name)
+		cleanUp()
+	})
+	return errors.Trace(err)
+}
+
+func (c *controllerStack) ensureControllerApplicationSecret() error {
+	controllerUnitPassword := c.unitAgentConfig.OldPassword()
+	apiInfo, ok := c.unitAgentConfig.APIInfo()
+	if ok {
+		controllerUnitPassword = apiInfo.Password
+	}
+
+	secret := &core.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        c.appSecretName(),
+			Namespace:   c.broker.namespace,
+			Labels:      c.stackLabels,
+			Annotations: c.stackAnnotations,
+		},
+		Type: core.SecretTypeOpaque,
+		Data: map[string][]byte{
+			constants.EnvJujuK8sUnitPassword: []byte(controllerUnitPassword),
+		},
+	}
+	cleanUp, err := c.broker.ensureSecret(secret)
+	c.addCleanUp(func() {
+		logger.Debugf("deleting %q secret", c.appSecretName())
 		cleanUp()
 	})
 	return errors.Trace(err)
@@ -809,8 +828,8 @@ func ensureControllerServiceAccount(
 	labels map[string]string,
 	annotations map[string]string,
 ) (string, []func(), error) {
-	sa := resources.NewServiceAccount("controller", namespace, &core.ServiceAccount{
-		ObjectMeta: v1.ObjectMeta{
+	sa := resources.NewServiceAccount(environsbootstrap.ControllerApplicationName, namespace, &core.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
 			Labels: providerutils.LabelsMerge(
 				labels,
 				providerutils.LabelsJujuModelOperatorDisableWebhook,
@@ -828,9 +847,9 @@ func ensureControllerServiceAccount(
 	// name cluster role binding after the controller namespace.
 	clusterRoleBindingName := namespace
 	crb := resources.NewClusterRoleBinding(clusterRoleBindingName, &rbacv1.ClusterRoleBinding{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        clusterRoleBindingName,
-			Labels:      providerutils.LabelsForModel("controller", false),
+			Labels:      providerutils.LabelsForModel(environsbootstrap.ControllerModelName, false),
 			Annotations: annotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -840,7 +859,7 @@ func ensureControllerServiceAccount(
 		},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
-			Name:      "controller",
+			Name:      environsbootstrap.ControllerApplicationName,
 			Namespace: namespace,
 		}},
 	})
@@ -852,9 +871,9 @@ func ensureControllerServiceAccount(
 
 func (c *controllerStack) createControllerStatefulset() error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
-	spec := &apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name: c.resourceNameStatefulSet,
+	controllerStatefulSet := &apps.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: c.stackName,
 			Labels: providerutils.LabelsMerge(
 				c.stackLabels,
 				providerutils.LabelsJujuModelOperatorDisableWebhook,
@@ -865,11 +884,11 @@ func (c *controllerStack) createControllerStatefulset() error {
 		Spec: apps.StatefulSetSpec{
 			ServiceName: c.resourceNameService,
 			Replicas:    &numberOfPods,
-			Selector: &v1.LabelSelector{
+			Selector: &metav1.LabelSelector{
 				MatchLabels: c.selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels: providerutils.LabelsMerge(
 						c.selectorLabels,
 						providerutils.LabelsJujuModelOperatorDisableWebhook,
@@ -878,38 +897,31 @@ func (c *controllerStack) createControllerStatefulset() error {
 					Namespace:   c.broker.GetCurrentNamespace(),
 					Annotations: c.stackAnnotations,
 				},
-				Spec: core.PodSpec{
-					RestartPolicy:                core.RestartPolicyAlways,
-					ServiceAccountName:           "controller",
-					AutomountServiceAccountToken: boolPtr(true),
-				},
 			},
 		},
 	}
 
-	if err := c.buildStorageSpecForController(spec); err != nil {
+	controllerSpec, err := c.buildContainerSpecForController()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.buildContainerSpecForController(spec); err != nil {
+	controllerStatefulSet.Spec.Template.Spec = *controllerSpec
+	if err := c.buildStorageSpecForController(controllerStatefulSet); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := processConstraints(&spec.Spec.Template.Spec, c.stackName, c.pcfg.Bootstrap.BootstrapMachineConstraints); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Tracef("creating controller statefulset: \n%+v", spec)
+	logger.Tracef("creating controller statefulset: \n%+v", controllerStatefulSet)
 	c.addCleanUp(func() {
-		logger.Debugf("deleting %q statefulset", spec.Name)
-		_ = c.broker.deleteStatefulSet(spec.Name)
+		logger.Debugf("deleting %q statefulset", controllerStatefulSet.Name)
+		_ = c.broker.deleteStatefulSet(controllerStatefulSet.Name)
 	})
-	w, err := c.broker.WatchUnits(c.resourceNameStatefulSet, caas.ModeWorkload)
+	w, err := c.broker.WatchUnits(c.stackName, caas.ModeWorkload)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer w.Kill()
 
-	if _, err = c.broker.createStatefulSet(spec); err != nil {
+	if _, err = c.broker.createStatefulSet(controllerStatefulSet); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1067,24 +1079,22 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 	c.storageClass = sc.GetName()
 
 	// build persistent volume claim.
-	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
-		{
-			ObjectMeta: v1.ObjectMeta{
-				Name:        c.pvcNameControllerPodStorage,
-				Labels:      c.stackLabels,
-				Annotations: c.stackAnnotations,
-			},
-			Spec: core.PersistentVolumeClaimSpec{
-				StorageClassName: &c.storageClass,
-				AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-				Resources: core.ResourceRequirements{
-					Requests: core.ResourceList{
-						core.ResourceStorage: c.storageSize,
-					},
+	statefulset.Spec.VolumeClaimTemplates = append(statefulset.Spec.VolumeClaimTemplates, core.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        storageName,
+			Labels:      c.stackLabels,
+			Annotations: c.stackAnnotations,
+		},
+		Spec: core.PersistentVolumeClaimSpec{
+			StorageClassName: &c.storageClass,
+			AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceStorage: c.storageSize,
 				},
 			},
 		},
-	}
+	})
 
 	fileMode := int32(256)
 	var vols []core.Volume
@@ -1097,8 +1107,8 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
-						Key:  c.fileNameSSLKey,
-						Path: c.fileNameSSLKeyMount,
+						Key:  mongo.FileNameDBSSLKey,
+						Path: TemplateFileNameServerPEM,
 					},
 				},
 			},
@@ -1113,22 +1123,25 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 				DefaultMode: &fileMode,
 				Items: []core.KeyToPath{
 					{
-						Key:  c.fileNameSharedSecret,
-						Path: c.fileNameSharedSecret,
+						Key:  mongo.SharedSecretFile,
+						Path: mongo.SharedSecretFile,
 					},
 				},
 			},
 		},
 	})
-	// add volume agent.conf comfigmap.
+	// add volume agent.conf configmap.
 	volAgentConf := core.Volume{
 		Name: c.resourceNameVolAgentConf,
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
 					{
-						Key:  c.fileNameAgentConf,
-						Path: c.fileNameAgentConfMount,
+						Key:  constants.ControllerAgentConfigFilename,
+						Path: constants.ControllerAgentConfigFilename,
+					}, {
+						Key:  constants.ControllerUnitAgentConfigFilename,
+						Path: constants.ControllerUnitAgentConfigFilename,
 					},
 				},
 			},
@@ -1136,15 +1149,15 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 	}
 	volAgentConf.VolumeSource.ConfigMap.Name = c.resourceNameConfigMap
 	vols = append(vols, volAgentConf)
-	// add volume bootstrap-params comfigmap.
+	// add volume bootstrap-params configmap.
 	volBootstrapParams := core.Volume{
 		Name: c.resourceNameVolBootstrapParams,
 		VolumeSource: core.VolumeSource{
 			ConfigMap: &core.ConfigMapVolumeSource{
 				Items: []core.KeyToPath{
 					{
-						Key:  c.fileNameBootstrapParams,
-						Path: c.fileNameBootstrapParams,
+						Key:  cloudconfig.FileNameBootstrapParams,
+						Path: cloudconfig.FileNameBootstrapParams,
 					},
 				},
 			},
@@ -1153,194 +1166,202 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 	volBootstrapParams.VolumeSource.ConfigMap.Name = c.resourceNameConfigMap
 	vols = append(vols, volBootstrapParams)
 
-	statefulset.Spec.Template.Spec.Volumes = vols
+	statefulset.Spec.Template.Spec.Volumes = append(statefulset.Spec.Template.Spec.Volumes, vols...)
 	return nil
 }
 
-func (c *controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
+func (c *controllerStack) appSecretName() string {
+	return c.stackName + "-application-config"
+}
+
+func (c *controllerStack) controllerContainers(jujudCmd, controllerImage string) ([]core.Container, error) {
+	var containerSpec []core.Container
+	// add container mongoDB.
+	// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
+	// then generate mongo config from EnsureServerParams.
+	probCmds := &core.ExecAction{
+		Command: []string{
+			"mongo",
+			fmt.Sprintf("--port=%d", c.portMongoDB),
+			"--tls",
+			"--tlsAllowInvalidHostnames",
+			"--tlsAllowInvalidCertificates",
+			fmt.Sprintf("--tlsCertificateKeyFile=%s", c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBSSLKey)),
+			"--eval",
+			"db.adminCommand('ping')",
+		},
+	}
+	args := []string{
+		fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
+		fmt.Sprintf("--tlsCertificateKeyFile=%s", c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBSSLKey)),
+		"--tlsCertificateKeyFilePassword=ignored",
+		"--tlsMode=requireTLS",
+		fmt.Sprintf("--port=%d", c.portMongoDB),
+		"--journal",
+		fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
+		"--quiet",
+		"--oplogSize=1024",
+		"--auth",
+		fmt.Sprintf("--keyFile=%s", c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile)),
+		"--storageEngine=wiredTiger",
+		"--bind_ip_all",
+	}
+
 	var wiredTigerCacheSize float32
 	if c.pcfg.Controller.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
-		wiredTigerCacheSize = mongo.Mongo34LowCacheSize
+		wiredTigerCacheSize = mongo.LowCacheSize
 	}
-	generateContainerSpecs := func(jujudCmd string) ([]core.Container, error) {
-		var containerSpec []core.Container
-		// add container mongoDB.
-		// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
-		// then generate mongo config from EnsureServerParams.
-		probCmds := &core.ExecAction{
-			Command: []string{
-				"mongo",
-				fmt.Sprintf("--port=%d", c.portMongoDB),
-				"--ssl",
-				"--sslAllowInvalidHostnames",
-				"--sslAllowInvalidCertificates",
-				fmt.Sprintf("--sslPEMKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
-				"--eval",
-				"db.adminCommand('ping')",
-			},
-		}
-		args := []string{
-			fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
-			fmt.Sprintf("--sslPEMKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
-			"--sslPEMKeyPassword=ignored",
-			"--sslMode=requireSSL",
-			fmt.Sprintf("--port=%d", c.portMongoDB),
-			"--journal",
-			fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
-			"--quiet",
-			"--oplogSize=1024",
-			"--auth",
-			fmt.Sprintf("--keyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret)),
-			"--storageEngine=wiredTiger",
-			"--bind_ip_all",
-		}
-		if wiredTigerCacheSize > 0 {
-			args = append(args, fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize))
-		}
-		// Create the script used to start mongo.
-		const mongoSh = "/root/mongo.sh"
-		mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
-		// Write it to a file so it can be executed.
-		mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
-		makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
-		mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && %[2]s", makeMongoCmd, mongoSh)
-		logger.Debugf("mongodb container args:\n%s", mongoArgs)
+	if wiredTigerCacheSize > 0 {
+		args = append(args, fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize))
+	}
+	// Create the script used to start mongo.
+	const mongoSh = "/root/mongo.sh"
+	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
+	// Write it to a file so it can be executed.
+	mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
+	makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)
+	mongoArgs := fmt.Sprintf("%[1]s && chmod a+x %[2]s && %[2]s", makeMongoCmd, mongoSh)
+	logger.Debugf("mongodb container args:\n%s", mongoArgs)
 
-		dbImage, err := c.pcfg.GetJujuDbOCIImagePath()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		containerSpec = append(containerSpec, core.Container{
-			Name:            mongoDBContainerName,
-			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           dbImage,
-			Command: []string{
-				"/bin/sh",
+	dbImage, err := c.pcfg.GetJujuDbOCIImagePath()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	containerSpec = append(containerSpec, core.Container{
+		Name:            mongoDBContainerName,
+		ImagePullPolicy: core.PullIfNotPresent,
+		Image:           dbImage,
+		Command: []string{
+			"/bin/sh",
+		},
+		Args: []string{
+			"-c",
+			mongoArgs,
+		},
+		Ports: []core.ContainerPort{
+			{
+				Name:          "mongodb",
+				ContainerPort: int32(c.portMongoDB),
+				Protocol:      "TCP",
 			},
-			Args: []string{
-				"-c",
-				mongoArgs,
+		},
+		ReadinessProbe: &core.Probe{
+			ProbeHandler: core.ProbeHandler{
+				Exec: probCmds,
 			},
-			Ports: []core.ContainerPort{
-				{
-					Name:          "mongodb",
-					ContainerPort: int32(c.portMongoDB),
-					Protocol:      "TCP",
-				},
+			FailureThreshold:    3,
+			InitialDelaySeconds: 5,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
+		},
+		LivenessProbe: &core.Probe{
+			ProbeHandler: core.ProbeHandler{
+				Exec: probCmds,
 			},
-			ReadinessProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					Exec: probCmds,
-				},
-				FailureThreshold:    3,
-				InitialDelaySeconds: 5,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				TimeoutSeconds:      1,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      5,
+		},
+		VolumeMounts: []core.VolumeMount{
+			{
+				Name:      storageName,
+				MountPath: c.pcfg.DataDir,
 			},
-			LivenessProbe: &core.Probe{
-				ProbeHandler: core.ProbeHandler{
-					Exec: probCmds,
-				},
-				FailureThreshold:    3,
-				InitialDelaySeconds: 30,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				TimeoutSeconds:      5,
+			{
+				Name:      storageName,
+				MountPath: c.pathJoin(c.pcfg.DataDir, "db"),
+				SubPath:   "db",
 			},
-			VolumeMounts: []core.VolumeMount{
-				{
-					Name:      c.pvcNameControllerPodStorage,
-					MountPath: c.pcfg.DataDir,
-				},
-				{
-					Name:      c.pvcNameControllerPodStorage,
-					MountPath: c.pathJoin(c.pcfg.DataDir, "db"),
-					SubPath:   "db",
-				},
-				{
-					Name:      c.resourceNameVolSSLKey,
-					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKeyMount),
-					SubPath:   c.fileNameSSLKeyMount,
-					ReadOnly:  true,
-				},
-				{
-					Name:      c.resourceNameVolSharedSecret,
-					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret),
-					SubPath:   c.fileNameSharedSecret,
-					ReadOnly:  true,
-				},
+			{
+				Name:      c.resourceNameVolSSLKey,
+				MountPath: c.pathJoin(c.pcfg.DataDir, TemplateFileNameServerPEM),
+				SubPath:   TemplateFileNameServerPEM,
+				ReadOnly:  true,
 			},
-		})
+			{
+				Name:      c.resourceNameVolSharedSecret,
+				MountPath: c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile),
+				SubPath:   mongo.SharedSecretFile,
+				ReadOnly:  true,
+			},
+		},
+	})
 
-		// add container API server.
-		controllerImage, err := c.pcfg.GetControllerImagePath()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		container := core.Container{
-			Name:            apiServerContainerName,
-			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           controllerImage,
-			Command: []string{
-				"/bin/sh",
+	// add container API server.
+	apiContainer := core.Container{
+		Name:            apiServerContainerName,
+		ImagePullPolicy: core.PullIfNotPresent,
+		Image:           controllerImage,
+		Command: []string{
+			"/bin/sh",
+		},
+		Args: []string{
+			"-c",
+			fmt.Sprintf(
+				caas.JujudStartUpSh,
+				c.pcfg.DataDir,
+				"tools",
+				jujudCmd,
+			),
+		},
+		WorkingDir: c.pcfg.DataDir,
+		EnvFrom: []core.EnvFromSource{{
+			SecretRef: &core.SecretEnvSource{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: c.appSecretName(),
+				},
 			},
-			Args: []string{
-				"-c",
-				fmt.Sprintf(
-					caas.JujudStartUpSh,
+		}},
+		VolumeMounts: []core.VolumeMount{
+			{
+				Name:      storageName,
+				MountPath: c.pcfg.DataDir,
+			},
+			{
+				Name: c.resourceNameVolAgentConf,
+				MountPath: c.pathJoin(
 					c.pcfg.DataDir,
-					"tools",
-					jujudCmd,
+					"agents",
+					"controller-"+c.pcfg.ControllerId,
+					constants.TemplateFileNameAgentConf,
 				),
+				SubPath: constants.ControllerAgentConfigFilename,
 			},
-			WorkingDir: c.pcfg.DataDir,
-			VolumeMounts: []core.VolumeMount{
-				{
-					Name:      c.pvcNameControllerPodStorage,
-					MountPath: c.pcfg.DataDir,
-				},
-				{
-					Name: c.resourceNameVolAgentConf,
-					MountPath: c.pathJoin(
-						c.pcfg.DataDir,
-						"agents",
-						"controller-"+c.pcfg.ControllerId,
-						c.fileNameAgentConfMount,
-					),
-					SubPath: c.fileNameAgentConfMount,
-				},
-				{
-					Name:      c.resourceNameVolSSLKey,
-					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKeyMount),
-					SubPath:   c.fileNameSSLKeyMount,
-					ReadOnly:  true,
-				},
-				{
-					Name:      c.resourceNameVolSharedSecret,
-					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameSharedSecret),
-					SubPath:   c.fileNameSharedSecret,
-					ReadOnly:  true,
-				},
-				{
-					Name:      c.resourceNameVolBootstrapParams,
-					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameBootstrapParams),
-					SubPath:   c.fileNameBootstrapParams,
-					ReadOnly:  true,
-				},
+			{
+				Name:      c.resourceNameVolSSLKey,
+				MountPath: c.pathJoin(c.pcfg.DataDir, TemplateFileNameServerPEM),
+				SubPath:   TemplateFileNameServerPEM,
+				ReadOnly:  true,
 			},
-		}
-		if features := featureflag.AsEnvironmentValue(); features != "" {
-			container.Env = []core.EnvVar{{
-				Name:  osenv.JujuFeatureFlagEnvKey,
-				Value: features,
-			}}
-		}
-		containerSpec = append(containerSpec, container)
-		c.containerCount = len(containerSpec)
-		return containerSpec, nil
+			{
+				Name:      c.resourceNameVolSharedSecret,
+				MountPath: c.pathJoin(c.pcfg.DataDir, mongo.SharedSecretFile),
+				SubPath:   mongo.SharedSecretFile,
+				ReadOnly:  true,
+			},
+			{
+				Name:      c.resourceNameVolBootstrapParams,
+				MountPath: c.pathJoin(c.pcfg.DataDir, cloudconfig.FileNameBootstrapParams),
+				SubPath:   cloudconfig.FileNameBootstrapParams,
+				ReadOnly:  true,
+			},
+		},
+	}
+	if features := featureflag.AsEnvironmentValue(); features != "" {
+		apiContainer.Env = []core.EnvVar{{
+			Name:  osenv.JujuFeatureFlagEnvKey,
+			Value: features,
+		}}
 	}
 
+	containerSpec = append(containerSpec, apiContainer)
+	return containerSpec, nil
+}
+
+func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, error) {
 	loggingOption := "--show-log"
 	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
 		// If the bootstrap command was requested with --debug, then the root
@@ -1351,7 +1372,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	agentConfigRelativePath := c.pathJoin(
 		"agents",
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
-		c.fileNameAgentConf,
+		agentconstants.AgentConfigFilename,
 	)
 	var jujudCmds []string
 	pushCmd := func(cmd string) {
@@ -1362,18 +1383,11 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		featureFlags = fmt.Sprintf("%s=%s", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
-		guiCmd, err := c.setUpGUICommand()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if guiCmd != "" {
-			pushCmd(guiCmd)
-		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
 			"%s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
 			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
-			c.pathJoin("$JUJU_DATA_DIR", c.fileNameBootstrapParams),
+			c.pathJoin("$JUJU_DATA_DIR", cloudconfig.FileNameBootstrapParams),
 			loggingOption,
 			c.timeout.String(),
 		)
@@ -1398,76 +1412,100 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		machineCmd = fmt.Sprintf("%s %s", featureFlags, machineCmd)
 	}
 	pushCmd(machineCmd)
-	containers, err := generateContainerSpecs(strings.Join(jujudCmds, "\n"))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	statefulset.Spec.Template.Spec.Containers = containers
-	return nil
+
+	return c.buildContainerSpecForCommands(jujudCmds)
 }
 
-func (c *controllerStack) setUpGUICommand() (string, error) {
-	if c.pcfg.Bootstrap.GUI == nil {
-		return "", nil
-	}
-	var guiCmds []string
-	u, err := url.Parse(c.pcfg.Bootstrap.GUI.URL)
+func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*core.PodSpec, error) {
+	controllerImage, err := c.pcfg.GetControllerImagePath()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot parse Juju GUI URL")
-	}
-	guiJson, err := json.Marshal(c.pcfg.Bootstrap.GUI)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	guiDir := agenttools.SharedGUIDir(c.pcfg.DataDir)
-	guiCmds = append(guiCmds,
-		"echo Installing Dashboard...",
-		"export gui="+utils.ShQuote(guiDir),
-		"mkdir -p $gui",
-	)
-	// Download the GUI from simplestreams.
-	guiPath := c.pathJoin("$gui", "gui.tar.bz2")
-	command := fmt.Sprintf("curl -sSf -o %s --retry 10", guiPath)
-	if c.pcfg.DisableSSLHostnameVerification {
-		command += " --insecure"
+		return nil, errors.Trace(err)
 	}
 
-	curlProxyArgs := formatCurlProxyArguments(u.String(), c.pcfg.ProxySettings)
-	command += curlProxyArgs
-	command += " " + utils.ShQuote(u.String())
-	// A failure in fetching the Juju GUI archive should not prevent the
-	// model to be bootstrapped. Better no GUI than no Juju at all.
-	command += " || echo Unable to retrieve Juju Dashboard"
-	guiCmds = append(guiCmds, command)
-	guiSHAPath := c.pathJoin("$gui", "jujugui.sha256")
-	guiCmds = append(guiCmds,
-		fmt.Sprintf(
-			"[ -f %s ] && sha256sum %s > %s",
-			guiPath, guiPath, guiSHAPath,
-		),
-		fmt.Sprintf(
-			`[ -f %s ] && (grep '%s' %s && printf %%s %s > %s || echo Juju GUI checksum mismatch)`,
-			guiSHAPath,
-			c.pcfg.Bootstrap.GUI.SHA256,
-			guiSHAPath,
-			utils.ShQuote(string(guiJson)),
-			c.pathJoin("$gui", "downloaded-gui.txt"),
-		),
-	)
-	return strings.Join(guiCmds, "\n"), nil
-}
+	containers, err := c.controllerContainers(strings.Join(jujudCmds, "\n"), controllerImage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-func formatCurlProxyArguments(guiURL string, proxySettings proxy.Settings) (proxyArgs string) {
-	if strings.HasPrefix(guiURL, "http://") && proxySettings.Http != "" {
-		proxyUrl := proxySettings.Http
-		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
-	} else if strings.HasPrefix(guiURL, "https://") && proxySettings.Https != "" {
-		proxyUrl := proxySettings.Https
-		// curl automatically uses HTTP CONNECT for URLs containing HTTPS
-		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
+	controllerApp := application.NewApplication(
+		environsbootstrap.ControllerApplicationName,
+		c.broker.namespace,
+		c.broker.modelUUID,
+		environsbootstrap.ControllerModelName,
+		false,
+		caas.DeploymentStateful,
+		c.broker.client(),
+		c.broker.newWatcher,
+		c.broker.clock,
+		c.broker.randomPrefix,
+	)
+
+	chSeries := version.DefaultSupportedLTS()
+	os, err := series.GetOSFromSeries(chSeries)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if proxySettings.NoProxy != "" {
-		proxyArgs += fmt.Sprintf(" --noproxy %s", proxySettings.NoProxy)
+
+	ver, err := series.SeriesVersion(chSeries)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return
+	repo := c.pcfg.Controller.CAASOperatorImagePath()
+	charmBaseImage, err := podcfg.ImageForBase(repo.Repository, charm.Base{
+		Name: strings.ToLower(os.String()),
+		Channel: charm.Channel{
+			Track: ver,
+			Risk:  charm.Stable,
+		},
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "getting image for base")
+	}
+
+	cfg := caas.ApplicationConfig{
+		AgentVersion:         c.pcfg.JujuVersion,
+		AgentImagePath:       controllerImage,
+		CharmBaseImagePath:   charmBaseImage,
+		IsPrivateImageRepo:   repo.IsPrivate(),
+		CharmModifiedVersion: 0,
+		InitialScale:         1,
+		Constraints:          c.pcfg.Bootstrap.BootstrapMachineConstraints,
+		// TODO(wallyworld) - use pebble to manage the controller workloads
+		//Containers:           containers,
+		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
+		//Filesystems: nil,
+	}
+	spec, err := controllerApp.ApplicationPodSpec(cfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating controller pod spec")
+	}
+	spec.Containers = append(spec.Containers, containers...)
+
+	agentConfigMount := core.VolumeMount{
+		Name: c.resourceNameVolAgentConf,
+		MountPath: c.pathJoin(
+			c.pcfg.DataDir,
+			constants.TemplateFileNameAgentConf,
+		),
+		SubPath: constants.ControllerUnitAgentConfigFilename,
+	}
+	for i, ct := range spec.InitContainers {
+		if ct.Name != constants.ApplicationInitContainer {
+			continue
+		}
+		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+		spec.InitContainers[i] = ct
+	}
+	for i, ct := range spec.Containers {
+		if ct.Name != constants.ApplicationCharmContainer {
+			continue
+		}
+		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+		ct.Args = append(ct.Args, "--controller")
+		ct.LivenessProbe = nil
+		ct.ReadinessProbe = nil
+		ct.StartupProbe = nil
+		spec.Containers[i] = ct
+	}
+	return spec, nil
 }

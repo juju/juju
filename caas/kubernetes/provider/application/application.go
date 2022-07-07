@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,7 +52,6 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	unitContainerName            = "charm"
 	charmVolumeName              = "charm-data"
 	agentProbeInitialDelay int32 = 30
 	agentProbePeriod       int32 = 10
@@ -154,120 +152,18 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	logger.Debugf("creating/updating %s application", a.name)
 
 	applier := a.newApplier()
-	secret := resources.Secret{
-		Secret: corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.secretName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Data: map[string][]byte{
-				"JUJU_K8S_APPLICATION":          []byte(a.name),
-				"JUJU_K8S_MODEL":                []byte(a.modelUUID),
-				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
-				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
-				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
-			},
-		},
-	}
-	applier.Apply(&secret)
 
-	err = a.ensureImagePullSecrets(applier, config)
+	err = a.applyServiceAccountAndSecrets(applier, config)
 	if err != nil {
-		return errors.Annotatef(err, "applying image pull secrets")
+		return errors.Annotatef(err, "applying service account and secrets")
 	}
-
-	serviceAccount := resources.ServiceAccount{
-		ServiceAccount: corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			// Will be automounted by the pod.
-			AutomountServiceAccountToken: pointer.BoolPtr(false),
-		},
-	}
-	applier.Apply(&serviceAccount)
-
-	role := resources.Role{
-		Role: rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Rules: a.roleRules(config.Trust),
-		},
-	}
-	applier.Apply(&role)
-
-	roleBinding := resources.RoleBinding{
-		RoleBinding: rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.serviceAccountName(),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: a.serviceAccountName(),
-				Kind: "Role",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      a.serviceAccountName(),
-					Namespace: a.namespace,
-				},
-			},
-		},
-	}
-	applier.Apply(&roleBinding)
-
-	clusterRole := resources.ClusterRole{
-		ClusterRole: rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.qualifiedClusterName(),
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Rules: a.clusterRoleRules(config.Trust),
-		},
-	}
-	applier.Apply(&clusterRole)
-
-	clusterRoleBinding := resources.ClusterRoleBinding{
-		ClusterRoleBinding: rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.qualifiedClusterName(),
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: a.qualifiedClusterName(),
-				Kind: "ClusterRole",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      a.serviceAccountName(),
-					Namespace: a.namespace,
-				},
-			},
-		},
-	}
-	applier.Apply(&clusterRoleBinding)
 
 	if err := a.configureDefaultService(a.annotations(config)); err != nil {
 		return errors.Annotatef(err, "ensuring the default service %q", a.name)
 	}
 
 	// Set up the parameters for creating charm storage (if required).
-	podSpec, err := a.applicationPodSpec(config)
+	podSpec, err := a.ApplicationPodSpec(config)
 	if err != nil {
 		return errors.Annotate(err, "generating application podspec")
 	}
@@ -285,7 +181,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	var handleVolumeMount handleVolumeMountFunc = func(storageName string, m corev1.VolumeMount) error {
 		for i := range podSpec.Containers {
 			name := podSpec.Containers[i].Name
-			if name == unitContainerName {
+			if name == constants.ApplicationCharmContainer {
 				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
 				continue
 			}
@@ -490,6 +386,113 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 
 	return applier.Run(context.Background(), a.client, false)
+}
+
+func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
+	secret := resources.Secret{
+		Secret: corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.secretName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Data: map[string][]byte{
+				"JUJU_K8S_APPLICATION":          []byte(a.name),
+				"JUJU_K8S_MODEL":                []byte(a.modelUUID),
+				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
+				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
+				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
+			},
+		},
+	}
+	applier.Apply(&secret)
+
+	serviceAccount := resources.ServiceAccount{
+		ServiceAccount: corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			// Will be automounted by the pod.
+			AutomountServiceAccountToken: pointer.BoolPtr(false),
+		},
+	}
+	applier.Apply(&serviceAccount)
+
+	role := resources.Role{
+		Role: rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Rules: a.roleRules(config.Trust),
+		},
+	}
+	applier.Apply(&role)
+
+	roleBinding := resources.RoleBinding{
+		RoleBinding: rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.serviceAccountName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: a.serviceAccountName(),
+				Kind: "Role",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      a.serviceAccountName(),
+					Namespace: a.namespace,
+				},
+			},
+		},
+	}
+	applier.Apply(&roleBinding)
+
+	clusterRole := resources.ClusterRole{
+		ClusterRole: rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.qualifiedClusterName(),
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Rules: a.clusterRoleRules(config.Trust),
+		},
+	}
+	applier.Apply(&clusterRole)
+
+	clusterRoleBinding := resources.ClusterRoleBinding{
+		ClusterRoleBinding: rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.qualifiedClusterName(),
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: a.qualifiedClusterName(),
+				Kind: "ClusterRole",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      a.serviceAccountName(),
+					Namespace: a.namespace,
+				},
+			},
+		},
+	}
+	applier.Apply(&clusterRoleBinding)
+
+	return a.applyImagePullSecrets(applier, config)
 }
 
 // Upgrade upgrades the app to the specified version.
@@ -746,7 +749,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 	updatePodSpec := func(spec *corev1.PodSpec, containerPorts []corev1.ContainerPort) {
 		for i, c := range spec.Containers {
 			ps := containerPorts
-			if c.Name != unitContainerName {
+			if c.Name != constants.ApplicationCharmContainer {
 				spec.Containers[i].Ports = ps
 			}
 		}
@@ -1177,7 +1180,8 @@ func (a *app) Units() ([]caas.Unit, error) {
 
 			// Ignore volume sources for volumes created for K8s pod-spec charms.
 			// See: https://discourse.charmhub.io/t/k8s-spec-v3-changes/2698
-			if vol.Secret != nil && strings.Contains(vol.Secret.SecretName, "-token") {
+			if vol.Secret != nil &&
+				(strings.Contains(vol.Secret.SecretName, "-token") || strings.HasPrefix(vol.Secret.SecretName, "controller-")) {
 				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
 				continue
 			}
@@ -1220,11 +1224,9 @@ func (a *app) Units() ([]caas.Unit, error) {
 	return units, nil
 }
 
-// applicationPodSpec returns a PodSpec for the application pod
+// ApplicationPodSpec returns a PodSpec for the application pod
 // of the specified application.
-func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
-	appSecret := a.secretName()
-
+func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	containerNames := []string(nil)
@@ -1238,30 +1240,9 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		return containers[i].Name < containers[j].Name
 	})
 
-	resourceRequests := corev1.ResourceList(nil)
-	millicores := 0
-	// TODO(allow resource limits to be applied to each container).
-	// For now we only do resource requests, one container is sufficient for
-	// scheduling purposes.
-	if config.Constraints.HasCpuPower() {
-		if resourceRequests == nil {
-			resourceRequests = corev1.ResourceList{}
-		}
-		// 100 cpu power is 100 millicores.
-		millicores = int(*config.Constraints.CpuPower)
-		resourceRequests[corev1.ResourceCPU] = *resource.NewMilliQuantity(int64(millicores), resource.DecimalSI)
-	}
-	if config.Constraints.HasMem() {
-		if resourceRequests == nil {
-			resourceRequests = corev1.ResourceList{}
-		}
-		bytes := *config.Constraints.Mem * 1024 * 1024
-		resourceRequests[corev1.ResourceMemory] = *resource.NewQuantity(int64(bytes), resource.BinarySI)
-	}
-
 	env := []corev1.EnvVar{
 		{
-			Name:  "JUJU_CONTAINER_NAMES",
+			Name:  constants.EnvJujuContainerNames,
 			Value: strings.Join(containerNames, ","),
 		},
 		{
@@ -1276,7 +1257,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		})
 	}
 	containerSpecs := []corev1.Container{{
-		Name:            unitContainerName,
+		Name:            constants.ApplicationCharmContainer,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImagePath,
 		WorkingDir:      jujuDataDir,
@@ -1346,9 +1327,6 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				MountPath: "/charm/containers",
 				SubPath:   "charm/containers",
 			},
-		},
-		Resources: corev1.ResourceRequirements{
-			Requests: resourceRequests,
 		},
 	}}
 
@@ -1430,35 +1408,15 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		containerSpecs = append(containerSpecs, container)
 	}
 
-	nodeSelector := map[string]string(nil)
-	if config.Constraints.HasArch() {
-		cpuArch := *config.Constraints.Arch
-		cpuArch = arch.NormaliseArch(cpuArch)
-		// Convert to Golang arch string
-		switch cpuArch {
-		case arch.AMD64:
-			cpuArch = "amd64"
-		case arch.ARM64:
-			cpuArch = "arm64"
-		case arch.PPC64EL:
-			cpuArch = "ppc64le"
-		case arch.S390X:
-			cpuArch = "s390x"
-		default:
-			return nil, errors.NotSupportedf("architecture %q", cpuArch)
-		}
-		nodeSelector = map[string]string{"kubernetes.io/arch": cpuArch}
-	}
-
 	automountToken := true
-	return &corev1.PodSpec{
+	appSecret := a.secretName()
+	spec := &corev1.PodSpec{
 		AutomountServiceAccountToken:  &automountToken,
 		ServiceAccountName:            a.serviceAccountName(),
-		NodeSelector:                  nodeSelector,
 		ImagePullSecrets:              imagePullSecrets,
 		TerminationGracePeriodSeconds: pointer.Int64Ptr(300),
 		InitContainers: []corev1.Container{{
-			Name:            "charm-init",
+			Name:            constants.ApplicationInitContainer,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
@@ -1466,11 +1424,11 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Args:            []string{"init", "--data-dir", jujuDataDir, "--bin-dir", "/charm/bin"},
 			Env: []corev1.EnvVar{
 				{
-					Name:  "JUJU_CONTAINER_NAMES",
+					Name:  constants.EnvJujuContainerNames,
 					Value: strings.Join(containerNames, ","),
 				},
 				{
-					Name: "JUJU_K8S_POD_NAME",
+					Name: constants.EnvJujuK8sPodName,
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
 							FieldPath: "metadata.name",
@@ -1478,7 +1436,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					},
 				},
 				{
-					Name: "JUJU_K8S_POD_UUID",
+					Name: constants.EnvJujuK8sPodUUID,
 					ValueFrom: &corev1.EnvVarSource{
 						FieldRef: &corev1.ObjectFieldSelector{
 							FieldPath: "metadata.uid",
@@ -1506,6 +1464,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					MountPath: "/charm/bin",
 					SubPath:   "charm/bin",
 				},
+				// DO we need this in init container????
 				{
 					Name:      charmVolumeName,
 					MountPath: "/charm/containers",
@@ -1522,10 +1481,15 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				},
 			},
 		},
-	}, nil
+	}
+	err := ApplyConstraints(spec, a.name, config.Constraints)
+	if err != nil {
+		return nil, errors.Annotate(err, "processing constraints")
+	}
+	return spec, nil
 }
 
-func (a *app) ensureImagePullSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
+func (a *app) applyImagePullSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
 	desired := []resources.Resource(nil)
 	for _, container := range config.Containers {
 		if container.Image.Password == "" {
@@ -1620,6 +1584,10 @@ func (a *app) imagePullSecretName(containerName string) string {
 }
 
 func (a *app) matchImagePullSecret(name string) bool {
+	// Don't match secrets without a container name.
+	if name == a.name+"-secret" {
+		return false
+	}
 	return strings.HasPrefix(name, a.name+"-") && strings.HasSuffix(name, "-secret")
 }
 

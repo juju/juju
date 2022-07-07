@@ -37,26 +37,18 @@ const Branches = "branches"
 // This is a deprecated flag name and is synonymous with "branches" above.
 const Generations = "generations"
 
-// MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
-// it from APT.
-const MongoDbSnap = "mongodb-snap"
-
-// MongoDbSSTXN tells Juju to use server-side transactions. It does nothing if
-// MongoDbSnap is not also enabled.
-const MongoDbSSTXN = "mongodb-sstxn"
-
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
 
 // ActionsV2 enables the next generation actions UX.
 const ActionsV2 = "actions-v2"
 
+// Secrets enables the secrets feature.
+const Secrets = "secrets"
+
 // RaftAPILeases will switch all lease store management transport, currently
 // handled by Pubsub to facade API interaction.
 const RaftAPILeases = "raft-api-leases"
-
-// AsynchronousCharmDownloads enables support for asynchronous charm downloads.
-const AsynchronousCharmDownloads = "async-charm-downloads"
 
 // LoggingOutput enables the ability to configure different logging backends.
 const LoggingOutput = "logging-output"

@@ -270,7 +270,7 @@ var ctests = []struct {
 		},
 		"bootcmd": []string{
 			"install -D -m 644 /dev/null '/some/path'",
-			"printf '%s\\n' 'Explanation: test\n" +
+			"echo 'Explanation: test\n" +
 				"Package: *\n" +
 				"Pin: release n=series\n" +
 				"Pin-Priority: 123\n" +
@@ -382,7 +382,7 @@ var ctests = []struct {
 	map[string]any{
 		"runcmd": []string{
 			"install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'",
-			"printf '%s\\n' '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'",
+			"echo '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'",
 		},
 	},
 	func(cfg cloudinit.CloudConfig) error {
@@ -398,7 +398,7 @@ var ctests = []struct {
 	map[string]any{
 		"runcmd": []string{
 			"install -D -m 644 /dev/null '/dev/nonsense'",
-			"printf %s AAECAw== | base64 -d > '/dev/nonsense'",
+			"echo -n AAECAw== | base64 -d > '/dev/nonsense'",
 		},
 	},
 	func(cfg cloudinit.CloudConfig) error {
@@ -414,7 +414,7 @@ var ctests = []struct {
 	map[string]any{
 		"bootcmd": []string{
 			"install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'",
-			"printf '%s\\n' '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'",
+			"echo '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'",
 		},
 	},
 	func(cfg cloudinit.CloudConfig) error {
@@ -566,15 +566,4 @@ func (S) TestSetOutput(c *gc.C) {
 		c.Assert(stdout, gc.Equals, t.stdout)
 		c.Assert(stderr, gc.Equals, t.stderr)
 	}
-}
-
-func (S) TestWindowsRender(c *gc.C) {
-	compareOutput := "#ps1_sysnative\r\n\r\npowershell"
-	cfg, err := cloudinit.New("win8")
-	c.Assert(err, jc.ErrorIsNil)
-	cfg.AddRunCmd("powershell")
-	data, err := cfg.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.NotNil)
-	c.Assert(string(data), gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows renderer"))
 }

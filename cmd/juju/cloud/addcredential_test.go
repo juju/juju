@@ -68,7 +68,6 @@ func (s *addCredentialSuite) SetUpTest(c *gc.C) {
 		}, nil
 	}
 	s.api = &fakeUpdateCredentialAPI{
-		v:      5,
 		clouds: func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
 	}
 	s.credentialAPIFunc = func() (cloud.CredentialAPI, error) { return s.api, nil }
@@ -319,29 +318,6 @@ func (s *addCredentialSuite) assertCredentialAdded(c *gc.C, input string, args [
 		},
 	})
 	return ctxt
-}
-
-func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
-	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
-	s.store.Credentials = map[string]jujucloud.CloudCredential{
-		"somecloud": {
-			AuthCredentials: map[string]jujucloud.Credential{
-				"cred": jujucloud.NewCredential(jujucloud.UserPassAuthType, nil)},
-		},
-	}
-	sourceFile := s.createTestCredentialData(c)
-	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--replace", "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
-		"somecloud": {
-			AuthCredentials: map[string]jujucloud.Credential{
-				"cred": jujucloud.NewCredential(jujucloud.UserPassAuthType, nil),
-				"me": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, map[string]string{
-					"access-key": "<key>",
-					"secret-key": "<secret>",
-				})},
-		},
-	})
 }
 
 func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {

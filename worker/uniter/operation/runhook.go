@@ -5,8 +5,9 @@ package operation
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
@@ -49,6 +50,8 @@ func (rh *runHook) String() string {
 		}
 	case rh.info.Kind.IsStorage():
 		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
+	case rh.info.Kind.IsSecret():
+		suffix = fmt.Sprintf(" (%s)", rh.info.SecretURL)
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
@@ -66,7 +69,7 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	}
 
 	switch hooks.Kind(name) {
-	case hooks.LeaderElected:
+	case hooks.LeaderElected, hooks.SecretRotate:
 		// Check if leadership has changed between queueing of the hook and
 		// Actual execution. Skip execution if we are no longer the leader.
 		var isLeader bool
@@ -98,6 +101,9 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 func RunningHookMessage(hookName string, info hook.Info) string {
 	if info.Kind.IsRelation() && info.RemoteUnit != "" {
 		return fmt.Sprintf("running %s hook for %s", hookName, info.RemoteUnit)
+	}
+	if info.Kind.IsSecret() {
+		return fmt.Sprintf("running %s hook for %s", hookName, info.SecretURL)
 	}
 	return fmt.Sprintf("running %s hook", hookName)
 }
@@ -287,6 +293,8 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	case hooks.PostSeriesUpgrade:
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
+	case hooks.SecretRotate:
+		err = rh.callbacks.SetSecretRotated(rh.info.SecretURL, time.Now())
 	}
 	if err != nil {
 		return nil, err

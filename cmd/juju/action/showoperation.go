@@ -6,6 +6,7 @@ package action
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -17,7 +18,9 @@ import (
 )
 
 func NewShowOperationCommand() cmd.Command {
-	return modelcmd.Wrap(&showOperationCommand{})
+	return modelcmd.Wrap(&showOperationCommand{
+		clock: clock.WallClock,
+	})
 }
 
 // showOperationCommand fetches the results of an operation by ID.
@@ -28,6 +31,7 @@ type showOperationCommand struct {
 	wait        time.Duration
 	watch       bool
 	utc         bool
+	clock       clock.Clock
 }
 
 const showOperationDoc = `
@@ -106,16 +110,17 @@ func (c *showOperationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	wait := time.NewTimer(c.wait)
+	wait := c.clock.NewTimer(c.wait)
 	if c.wait.Nanoseconds() == 0 {
 		// Zero duration signals indefinite wait.  Discard the tick.
-		_ = <-wait.C
+		<-wait.Chan()
 	}
 
 	var result actionapi.Operation
 	shouldWatch := c.wait.Nanoseconds() >= 0
 	if shouldWatch {
-		result, err = getOperationResult(api, c.requestedID, wait)
+		tick := c.clock.NewTimer(resultPollTime)
+		result, err = getOperationResult(api, c.requestedID, tick, wait)
 	} else {
 		result, err = fetchOperationResult(api, c.requestedID)
 	}
@@ -139,19 +144,14 @@ func fetchOperationResult(api APIClient, requestedId string) (actionapi.Operatio
 // getOperationResult tries to repeatedly fetch an operation until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest operation status.
-func getOperationResult(api APIClient, requestedId string, wait *time.Timer) (actionapi.Operation, error) {
-
-	// tick every two seconds, to delay the loop timer.
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	tick := time.NewTimer(2 * time.Second)
-
-	return operationTimerLoop(api, requestedId, wait, tick)
+func getOperationResult(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.Operation, error) {
+	return operationTimerLoop(api, requestedId, tick, wait)
 }
 
 // operationTimerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func operationTimerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (actionapi.Operation, error) {
+func operationTimerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.Operation, error) {
 	var (
 		result actionapi.Operation
 		err    error
@@ -175,15 +175,15 @@ func operationTimerLoop(api APIClient, requestedId string, wait, tick *time.Time
 
 		// Block until a tick happens, or the timeout arrives.
 		select {
-		case _ = <-wait.C:
+		case <-wait.Chan():
 			switch result.Status {
 			case params.ActionRunning, params.ActionPending:
 				return result, errors.NewTimeout(err, "timeout reached")
 			default:
 				return result, nil
 			}
-		case _ = <-tick.C:
-			tick.Reset(2 * time.Second)
+		case <-tick.Chan():
+			tick.Reset(resultPollTime)
 		}
 	}
 }

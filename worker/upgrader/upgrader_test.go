@@ -525,9 +525,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
 
 	_, err = agenttools.ReadTools(s.DataDir(), newTools.Version)
-	// Would end with "no such file or directory" on *nix - not sure
-	// about Windows so leaving it off.
-	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory .*`)
+	c.Assert(err, gc.ErrorMatches, `cannot read agent metadata in directory.*: no such file or directory`)
 }
 
 func (s *UpgraderSuite) waitForUpgradeCheck(c *gc.C) {
@@ -552,7 +550,7 @@ func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
 	cases := []allowedTest{
 		{current: "2.7.4", target: "2.8.0", allowed: true},  // normal upgrade
 		{current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade caused by restore after upgrade
-		{current: "3.8.0", target: "2.2.3", allowed: false}, // can't downgrade major versions
+		{current: "3.8.0", target: "1.2.3", allowed: false}, // can't downgrade to major version 1.x
 		{current: "2.7.4", target: "2.7.5", allowed: true},  // point release
 		{current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade after upgrade but before config file updated
 	}

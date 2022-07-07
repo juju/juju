@@ -5,12 +5,14 @@ package operation_test
 
 import (
 	"sync"
+	"time"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v3/exec"
 
+	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -226,10 +228,19 @@ func (mock *MockCommitHook) Call(hookInfo hook.Info) error {
 type CommitHookCallbacks struct {
 	operation.Callbacks
 	*MockCommitHook
+
+	rotatedSecretURL  string
+	rotatedSecretTime time.Time
 }
 
 func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 	return cb.MockCommitHook.Call(hookInfo)
+}
+
+func (cb *CommitHookCallbacks) SetSecretRotated(url string, when time.Time) error {
+	cb.rotatedSecretURL = url
+	cb.rotatedSecretTime = when
+	return nil
 }
 
 type MockNewActionRunner struct {
@@ -287,8 +298,8 @@ type MockRunnerFactory struct {
 	*MockNewCommandRunner
 }
 
-func (f *MockRunnerFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
-	return f.MockNewActionRunner.Call(actionId, cancel)
+func (f *MockRunnerFactory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionRunner.Call(action.ID(), cancel)
 }
 
 func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
@@ -304,8 +315,8 @@ type MockRunnerActionWaitFactory struct {
 	*MockNewActionWaitRunner
 }
 
-func (f *MockRunnerActionWaitFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
-	return f.MockNewActionWaitRunner.Call(actionId, cancel)
+func (f *MockRunnerActionWaitFactory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionWaitRunner.Call(action.ID(), cancel)
 }
 
 type MockContext struct {

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -72,10 +71,7 @@ func (c *retryProvisioningCommand) getAPI() (RetryProvisioningAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	client := machinemanager.NewClient(root)
-	if client.BestAPIVersion() > 6 {
-		return client, nil
-	}
-	return apiclient.NewClient(root), nil
+	return client, nil
 }
 
 func (c *retryProvisioningCommand) Run(context *cmd.Context) error {

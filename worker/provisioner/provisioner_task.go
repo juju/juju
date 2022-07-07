@@ -753,7 +753,7 @@ func (task *provisionerTask) doStopInstances(ctx context.ProviderCallContext, in
 func (task *provisionerTask) constructInstanceConfig(
 	machine apiprovisioner.MachineProvisioner,
 	auth authentication.AuthenticationProvider,
-	pInfo *params.ProvisioningInfoV10,
+	pInfo *params.ProvisioningInfo,
 ) (*instancecfg.InstanceConfig, error) {
 
 	apiInfo, err := auth.SetupAuthentication(machine)
@@ -809,7 +809,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 	controllerUUID string,
 	machine apiprovisioner.MachineProvisioner,
 	instanceConfig *instancecfg.InstanceConfig,
-	provisioningInfo *params.ProvisioningInfoV10,
+	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
 ) (environs.StartInstanceParams, error) {
 

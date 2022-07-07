@@ -12,7 +12,6 @@ import (
 
 var (
 	ParseSettingsCompatible = parseSettingsCompatible
-	NewStateStorage         = &newStateStorage
 	GetStorageState         = getStorageState
 )
 

@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
@@ -19,7 +19,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -739,8 +738,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
-	minVer := info.Charm.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(minVer, jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(info.Charm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -789,17 +787,11 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	return charms, errors.Trace(iter.Close())
 }
 
-// Charm returns the charm with the given URL. Charm placeholders are never
-// returned. Charms pending to be uploaded are only returned if the
-// async charm download feature flag is set.
-//
-// TODO(achilleasa) remove the feature flag check once the server-side bundle
-// expansion work lands.
+// Charm returns the charm with the given URL. Charms pending to be uploaded
+// are returned for Charmhub charms (but not Charmstore ones). Charm
+// placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	var (
-		cdoc    charmDoc
-		charmID = curl.String()
-	)
+	var cdoc charmDoc
 
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
@@ -817,15 +809,8 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	// This check ensures that we don't break the existing deploy logic
-	// until the server-side bundle expansion work lands.
-	cfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	returnPendingCharms := cfg.Features().Contains(feature.AsynchronousCharmDownloads)
-	if cdoc.PendingUpload && !returnPendingCharms {
-		return nil, errors.NotFoundf("charm %q", charmID)
+	if cdoc.PendingUpload && charm.Schema(curl.Schema) != charm.CharmHub {
+		return nil, errors.NotFoundf("charm %q", curl.String())
 	}
 	return newCharm(st, &cdoc), nil
 }

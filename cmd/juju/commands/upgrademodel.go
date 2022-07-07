@@ -83,28 +83,6 @@ func newUpgradeJujuCommand() cmd.Command {
 	return modelcmd.Wrap(command)
 }
 
-func newUpgradeJujuCommandForTest(
-	store jujuclient.ClientStore,
-	jujuClientAPI ClientAPI,
-	modelConfigAPI modelConfigAPI,
-	modelManagerAPI ModelManagerAPI,
-	modelUpgrader ModelUpgraderAPI,
-	controllerAPI ControllerAPI,
-	options ...modelcmd.WrapOption,
-) cmd.Command {
-	command := &upgradeJujuCommand{
-		baseUpgradeCommand: baseUpgradeCommand{
-			modelConfigAPI:   modelConfigAPI,
-			modelManagerAPI:  modelManagerAPI,
-			modelUpgraderAPI: modelUpgrader,
-			controllerAPI:    controllerAPI,
-		},
-		jujuClientAPI: jujuClientAPI,
-	}
-	command.SetClientStore(store)
-	return modelcmd.Wrap(command, options...)
-}
-
 // baseUpgradeCommand is used by both the
 // upgradeJujuCommand and upgradeControllerCommand
 // to hold flags common to both.
@@ -125,7 +103,6 @@ type baseUpgradeCommand struct {
 	upgradeMessage string
 
 	modelConfigAPI   modelConfigAPI
-	modelManagerAPI  ModelManagerAPI
 	modelUpgraderAPI ModelUpgraderAPI
 	controllerAPI    ControllerAPI
 }
@@ -298,21 +275,14 @@ type toolsAPI interface {
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
 }
 
-type upgradeJujuAPI interface {
-	BestAPIVersion() int
-	AbortCurrentUpgrade() error
-	SetModelAgentVersion(version version.Number, stream string, ignoreAgentVersion bool) error
-	Close() error
-}
-
 type statusAPI interface {
 	Status(patterns []string) (*params.FullStatus, error)
 }
 
 type ClientAPI interface {
 	toolsAPI
-	upgradeJujuAPI
 	statusAPI
+	Close() error
 }
 
 type modelConfigAPI interface {
@@ -320,19 +290,11 @@ type modelConfigAPI interface {
 	Close() error
 }
 
-// ModelManagerAPI defines model manager API methods.
-type ModelManagerAPI interface {
-	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error // TODO: remove in juju3.
-	Close() error
-	BestAPIVersion() int
-}
-
 // ModelUpgraderAPI defines model upgrader API methods.
 type ModelUpgraderAPI interface {
 	UpgradeModel(modelUUID string, version version.Number, stream string, ignoreAgentVersions, druRun bool) error
 	AbortModelUpgrade(modelUUID string) error
 	Close() error
-	BestAPIVersion() int
 }
 
 type ControllerAPI interface {
@@ -348,14 +310,6 @@ func (c *upgradeJujuCommand) getJujuClientAPI() (ClientAPI, error) {
 	}
 
 	return c.NewAPIClient()
-}
-
-func (c *upgradeJujuCommand) getModelManagerAPI() (ModelManagerAPI, error) {
-	if c.modelManagerAPI != nil {
-		return c.modelManagerAPI, nil
-	}
-
-	return c.NewModelManagerAPIClient()
 }
 
 func (c *upgradeJujuCommand) getModelUpgraderAPI() (ModelUpgraderAPI, error) {
@@ -406,12 +360,6 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	return c.upgradeModel(ctx, implicitAgentUploadAllowed, c.timeout)
 }
 
-const unsupportedStreamMsg = `
-this version of Juju does not support specifying an agent-stream value
-different to that of the controller model. If you want to use %q agents,
-you must first 'juju model-config -m controller agent-stream=%s'.
-`
-
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration) (err error) {
 	defer func() {
 		if err != nil {
@@ -423,8 +371,6 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(juju3) - remove
-	legacy := modelUpgrader.BestAPIVersion() == 0
 
 	client, err := c.getJujuClientAPI()
 	if err != nil {
@@ -483,10 +429,6 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		if !isControllerModel {
 			return errors.Errorf("--build-agent can only be used with the controller model")
 		}
-	} else if isControllerModel {
-		if modelStream != wantStream && client.BestAPIVersion() < 5 {
-			return errors.Errorf(unsupportedStreamMsg, wantStream, wantStream)
-		}
 	}
 
 	agentVersion, ok := cfg.AgentVersion()
@@ -530,7 +472,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 				return errUpToDate
 			}
 		}
-		packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent(legacy)
+		packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent()
 		if packagedAgentErr != nil && packagedAgentErr != errUpToDate {
 			ctx.Verbosef("%v", packagedAgentErr)
 		}
@@ -583,38 +525,12 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		return errors.Trace(err)
 	}
 
-	// TODO: remove in Juju3. // Validate a model can be upgraded for the chosen version, by running some pre-flight checks.
-	if legacy {
-		modelManager, err := c.getModelManagerAPI()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if modelManager.BestAPIVersion() == 9 {
-			// TODO (stickupkid): Define force for validation of model upgrade.
-			// If the model to upgrade does not implement the minimum facade version
-			// for validating, we return nil.
-			if err = modelManager.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); errors.IsNotImplemented(err) {
-				err = nil
-			}
-			if err != nil {
-				return block.ProcessBlockedError(err, block.BlockChange)
-			}
-		}
-	}
-
 	if c.DryRun {
 		if c.BuildAgent {
 			fmt.Fprintf(ctx.Stderr, "%s --build-agent\n", c.upgradeMessage)
 		} else {
 			fmt.Fprintf(ctx.Stderr, "%s\n", c.upgradeMessage)
 		}
-	}
-	if legacy {
-		// TODO: remove in Juju3.
-		if c.DryRun {
-			return nil
-		}
-		return c.notifyControllerUpgradeLegacy(ctx, client, upgradeCtx.chosen)
 	}
 	return c.notifyControllerUpgrade(
 		ctx, modelUpgrader, names.NewModelTag(details.ModelUUID), upgradeCtx.chosen, c.DryRun,
@@ -650,34 +566,6 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 	if !dryRun {
 		fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", chosen)
 	}
-	return nil
-}
-
-func (c *upgradeJujuCommand) notifyControllerUpgradeLegacy(ctx *cmd.Context, client upgradeJujuAPI, chosen version.Number) error {
-	// TODO: remove in Juju3.
-	if c.ResetPrevious {
-		if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
-			const message = "previous upgrade not reset and no new upgrade triggered"
-			if err != nil {
-				return errors.Annotate(err, message)
-			}
-			return errors.New(message)
-		}
-		if err := client.AbortCurrentUpgrade(); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-	}
-	if err := client.SetModelAgentVersion(chosen, c.AgentStream, c.IgnoreAgentVersions); err != nil {
-		if params.IsCodeUpgradeInProgress(err) {
-			return errors.Errorf("%s\n\n"+
-				"Please wait for the upgrade to complete or if there was a problem with\n"+
-				"the last upgrade that has been resolved, consider running the\n"+
-				"upgrade-model command with the --reset-previous-upgrade option.", err,
-			)
-		}
-		return block.ProcessBlockedError(err, block.BlockChange)
-	}
-	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", chosen)
 	return nil
 }
 
@@ -1048,7 +936,7 @@ func (context *upgradeContext) uploadTools(
 	return nil
 }
 
-func (context *upgradeContext) maybeChoosePackagedAgent(legacy bool) (err error) {
+func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 	if context.chosen == version.Zero {
 		// No explicitly specified version, so find the version to which we
 		// need to upgrade. We find next available stable release to upgrade
@@ -1080,9 +968,6 @@ func (context *upgradeContext) maybeChoosePackagedAgent(legacy bool) (err error)
 				logger.Debugf("found more recent current version %s", newestCurrent)
 				return nil
 			}
-		}
-		if context.agent.Major != context.client.Major && legacy {
-			return errors.New("no compatible agent versions available")
 		}
 		return errors.New("no more recent supported versions available")
 	}

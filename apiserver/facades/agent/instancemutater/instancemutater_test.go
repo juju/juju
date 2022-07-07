@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	coretesting "github.com/juju/testing"
@@ -649,9 +649,8 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachines(c *gc.C) {
 	s.expectAuthController()
 	s.expectWatchMachinesWithNotify(1)
 	facade := s.facadeAPIForScenario(c)
-	facadev2 := &instancemutater.InstanceMutaterAPIV2{facade}
 
-	result, err := facadev2.WatchMachines()
+	result, err := facade.WatchMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -667,9 +666,8 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) TestWatchMachinesWithClosedChanne
 	s.expectAuthController()
 	s.expectWatchMachinesWithClosedChannel()
 	facade := s.facadeAPIForScenario(c)
-	facadev2 := &instancemutater.InstanceMutaterAPIV2{facade}
 
-	_, err := facadev2.WatchMachines()
+	_, err := facade.WatchMachines()
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines")
 }
 

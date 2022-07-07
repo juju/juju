@@ -4,7 +4,7 @@
 package bundle
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/description/v3"
 	"github.com/juju/juju/state"
 )

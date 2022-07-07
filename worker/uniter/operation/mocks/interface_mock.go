@@ -6,6 +6,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
@@ -67,6 +68,20 @@ func (m *MockOperation) Execute(arg0 operation.State) (*operation.State, error) 
 func (mr *MockOperationMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockOperation)(nil).Execute), arg0)
+}
+
+// ExecutionGroup mocks base method.
+func (m *MockOperation) ExecutionGroup() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecutionGroup")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ExecutionGroup indicates an expected call of ExecutionGroup.
+func (mr *MockOperationMockRecorder) ExecutionGroup() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecutionGroup", reflect.TypeOf((*MockOperation)(nil).ExecutionGroup))
 }
 
 // NeedsGlobalMachineLock mocks base method.
@@ -517,6 +532,20 @@ func (m *MockCallbacks) SetExecutingStatus(arg0 string) error {
 func (mr *MockCallbacksMockRecorder) SetExecutingStatus(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetExecutingStatus", reflect.TypeOf((*MockCallbacks)(nil).SetExecutingStatus), arg0)
+}
+
+// SetSecretRotated mocks base method.
+func (m *MockCallbacks) SetSecretRotated(arg0 string, arg1 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetSecretRotated", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetSecretRotated indicates an expected call of SetSecretRotated.
+func (mr *MockCallbacksMockRecorder) SetSecretRotated(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSecretRotated", reflect.TypeOf((*MockCallbacks)(nil).SetSecretRotated), arg0, arg1)
 }
 
 // SetUpgradeSeriesStatus mocks base method.

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	stdtesting "testing"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -53,7 +52,7 @@ var marshalTestCases = []struct {
 			Life:                    life.Alive,
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXD},
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Jobs:                    []model.MachineJob{model.JobManageModel},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},

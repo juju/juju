@@ -699,7 +699,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	// Check that an instance is not provisioned when the machine is created...
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		// We need a valid series that has no tools uploaded
-		Series:      "win10",
+		Series:      "centos7",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})

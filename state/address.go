@@ -16,7 +16,7 @@ import (
 	"github.com/juju/mgo/v2/txn"
 	jujutxn "github.com/juju/txn/v2"
 
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 )
@@ -313,7 +313,7 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 	if controllerName != "" {
 		hostAddresses = append(
 			hostAddresses, network.NewSpaceAddress(
-				fmt.Sprintf(k8sprovider.ControllerServiceFQDNTemplate, controllerName),
+				fmt.Sprintf(k8sconstants.ControllerServiceFQDNTemplate, controllerName),
 				network.WithScope(network.ScopeCloudLocal),
 			))
 	}

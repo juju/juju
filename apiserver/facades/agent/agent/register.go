@@ -16,42 +16,14 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Agent", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return newAgentAPIV2(ctx)
-	}, reflect.TypeOf((*AgentAPIV2)(nil)))
 	registry.MustRegister("Agent", 3, func(ctx facade.Context) (facade.Facade, error) {
 		return newAgentAPIV3(ctx)
-	}, reflect.TypeOf((*AgentAPIV3)(nil)))
+	}, reflect.TypeOf((*AgentAPI)(nil)))
 }
 
-// newAgentAPIV2 returns an object implementing version 2 of the Agent API
+// newAgentAPIV3 returns an object implementing version 3 of the Agent API
 // with the given authorizer representing the currently logged in client.
-func newAgentAPIV2(ctx facade.Context) (*AgentAPIV2, error) {
-	v3, err := newAgentAPIV3(ctx)
-	if err != nil {
-		return nil, err
-	}
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	v3.CloudSpecer = cloudspec.NewCloudSpecV1(
-		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st),
-		cloudspec.MakeCloudSpecWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
-		common.AuthFuncForTag(model.ModelTag()),
-	)
-	return &AgentAPIV2{
-		v3,
-	}, nil
-}
-
-// newAgentAPIV3 returns an object implementing version 2 of the Agent API
-// with the given authorizer representing the currently logged in client.
-func newAgentAPIV3(ctx facade.Context) (*AgentAPIV3, error) {
+func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 	auth := ctx.Auth()
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
@@ -68,7 +40,7 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPIV3, error) {
 	}
 
 	resources := ctx.Resources()
-	return &AgentAPIV3{
+	return &AgentAPI{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:        common.NewModelWatcher(model, resources, auth),

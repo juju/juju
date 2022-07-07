@@ -216,13 +216,13 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	caasApi, err := modelmanager.NewModelManagerAPI(
-		s.caasSt, s.ctlrSt, nil, nil, newBroker, common.NewBlockChecker(s.caasSt),
+		s.caasSt, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,7 +243,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
-		s.st, s.ctlrSt, nil, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.ctlrSt, nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -716,45 +716,6 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 	c.Assert(results.Results[0].Config["attr2"].Controller.(string), gc.Equals, "val3")
 }
 
-func (s *modelManagerSuite) TestDumpModelV2(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV2{
-		&modelmanager.ModelManagerAPIV3{
-			&modelmanager.ModelManagerAPIV4{
-				&modelmanager.ModelManagerAPIV5{
-					&modelmanager.ModelManagerAPIV6{
-						&modelmanager.ModelManagerAPIV7{
-							&modelmanager.ModelManagerAPIV8{
-								s.api,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	results := api.DumpModels(params.Entities{[]params.Entity{{
-		Tag: "bad-tag",
-	}, {
-		Tag: "application-foo",
-	}, {
-		Tag: s.st.ModelTag().String(),
-	}}})
-
-	c.Assert(results.Results, gc.HasLen, 3)
-	bad, notApp, good := results.Results[0], results.Results[1], results.Results[2]
-	c.Check(bad.Result, gc.IsNil)
-	c.Check(bad.Error.Message, gc.Equals, `"bad-tag" is not a valid tag`)
-
-	c.Check(notApp.Result, gc.IsNil)
-	c.Check(notApp.Error.Message, gc.Equals, `"application-foo" is not a valid model tag`)
-
-	c.Check(good.Error, gc.IsNil)
-	c.Check(good.Result, jc.DeepEquals, map[string]interface{}{
-		"model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-	})
-}
-
 func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 	results := s.api.DumpModels(params.DumpModelRequest{
 		Entities: []params.Entity{{
@@ -885,47 +846,6 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners: permission denied")
 }
 
-func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV3{
-		&modelmanager.ModelManagerAPIV4{
-			&modelmanager.ModelManagerAPIV5{
-				&modelmanager.ModelManagerAPIV6{
-					&modelmanager.ModelManagerAPIV7{
-						&modelmanager.ModelManagerAPIV8{
-							s.api,
-						},
-					},
-				},
-			},
-		},
-	}
-	results, err := api.DestroyModels(params.Entities{
-		Entities: []params.Entity{{coretesting.ModelTag.String()}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{[]params.ErrorResult{{}}})
-	s.st.CheckCallNames(c,
-		"ControllerTag",
-		"GetBackend",
-		"Model",
-		"GetBlockForType",
-		"GetBlockForType",
-		"GetBlockForType",
-		"Model",
-		"ControllerConfig",
-		"ModelConfig",
-		"MetricsManager",
-	)
-	destroyStorage := true
-	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Status", nil},
-		{"Destroy", []interface{}{state.DestroyModelParams{
-			DestroyStorage: &destroyStorage,
-			MaxWait:        common.MaxWait(nil),
-		}}},
-	})
-}
-
 // modelManagerStateSuite contains end-to-end tests.
 // Prefer adding tests to modelManagerSuite above.
 type modelManagerStateSuite struct {
@@ -964,7 +884,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, ctlrSt,
-		nil,
 		toolsFinder,
 		nil,
 		common.NewBlockChecker(st),
@@ -983,7 +902,6 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -999,7 +917,6 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.Model,
 		s.callContext,
 	)
@@ -1203,7 +1120,6 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1252,7 +1168,6 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1290,7 +1205,6 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.Model,
 		s.callContext,
 	)
@@ -1722,7 +1636,6 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		nil,
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -1759,89 +1672,6 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	c.Assert(info.Servers, jc.DeepEquals, [][]params.HostPort{{nhp}})
 	c.Assert(info.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(info.ControllerAlias, gc.Equals, "target")
-}
-
-func (s *modelManagerSuite) TestModelStatusV2(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV2{
-		&modelmanager.ModelManagerAPIV3{
-			&modelmanager.ModelManagerAPIV4{
-				&modelmanager.ModelManagerAPIV5{
-					&modelmanager.ModelManagerAPIV6{
-						&modelmanager.ModelManagerAPIV7{
-							&modelmanager.ModelManagerAPIV8{
-								s.api,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	// Check that we err out immediately if a model errs.
-	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: "bad-tag",
-	}, {
-		Tag: s.st.ModelTag().String(),
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we err out if a model errs even if some firsts in collection pass.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.st.ModelTag().String(),
-	}, {
-		Tag: "bad-tag",
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we return successfully if no errors.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.st.ModelTag().String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-}
-
-func (s *modelManagerSuite) TestModelStatusV3(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV3{
-		&modelmanager.ModelManagerAPIV4{
-			&modelmanager.ModelManagerAPIV5{
-				&modelmanager.ModelManagerAPIV6{
-					&modelmanager.ModelManagerAPIV7{
-						&modelmanager.ModelManagerAPIV8{
-							s.api,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Check that we err out immediately if a model errs.
-	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: "bad-tag",
-	}, {
-		Tag: s.st.ModelTag().String(),
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we err out if a model errs even if some firsts in collection pass.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.st.ModelTag().String(),
-	}, {
-		Tag: "bad-tag",
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we return successfully if no errors.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.st.ModelTag().String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
 }
 
 func (s *modelManagerSuite) TestModelStatus(c *gc.C) {

@@ -1,9 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:build !windows
-// +build !windows
-
 package main
 
 import (
@@ -31,7 +28,7 @@ func (s *containerAgentSuite) TestMainWrapper(c *gc.C) {
 		containerAgentCmd: func(ctx *cmd.Context, args []string) int {
 			return 11
 		},
-		jujuRun: func(ctx *cmd.Context, args []string) int {
+		jujuExec: func(ctx *cmd.Context, args []string) int {
 			return 12
 		},
 		jujuIntrospect: func(ctx *cmd.Context, args []string) int {
@@ -40,7 +37,7 @@ func (s *containerAgentSuite) TestMainWrapper(c *gc.C) {
 	}
 	for _, tc := range []mainWrapperTC{
 		{args: []string{"containeragent"}, code: 11},
-		{args: []string{"juju-run"}, code: 12},
+		{args: []string{"juju-exec"}, code: 12},
 		{args: []string{"juju-introspect"}, code: 14},
 	} {
 		c.Check(mainWrapper(factory, tc.args), gc.DeepEquals, tc.code)

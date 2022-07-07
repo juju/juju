@@ -16,10 +16,10 @@ import (
 	environs "github.com/juju/juju/environs"
 	config0 "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
+	proxy "github.com/juju/juju/proxy"
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
-	v1 "k8s.io/api/core/v1"
 )
 
 // MockBroker is a mock of Broker interface.
@@ -117,18 +117,18 @@ func (mr *MockBrokerMockRecorder) Bootstrap(arg0, arg1, arg2 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockBroker)(nil).Bootstrap), arg0, arg1, arg2)
 }
 
-// CheckDefaultWorkloadStorage mocks base method.
-func (m *MockBroker) CheckDefaultWorkloadStorage(arg0 string, arg1 *caas.StorageProvisioner) error {
+// CheckCloudCredentials mocks base method.
+func (m *MockBroker) CheckCloudCredentials() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckDefaultWorkloadStorage", arg0, arg1)
+	ret := m.ctrl.Call(m, "CheckCloudCredentials")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CheckDefaultWorkloadStorage indicates an expected call of CheckDefaultWorkloadStorage.
-func (mr *MockBrokerMockRecorder) CheckDefaultWorkloadStorage(arg0, arg1 interface{}) *gomock.Call {
+// CheckCloudCredentials indicates an expected call of CheckCloudCredentials.
+func (mr *MockBrokerMockRecorder) CheckCloudCredentials() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckDefaultWorkloadStorage", reflect.TypeOf((*MockBroker)(nil).CheckDefaultWorkloadStorage), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCloudCredentials", reflect.TypeOf((*MockBroker)(nil).CheckCloudCredentials))
 }
 
 // Config mocks base method.
@@ -286,22 +286,6 @@ func (mr *MockBrokerMockRecorder) EnsureService(arg0, arg1, arg2, arg3, arg4 int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureService", reflect.TypeOf((*MockBroker)(nil).EnsureService), arg0, arg1, arg2, arg3, arg4)
 }
 
-// EnsureStorageProvisioner mocks base method.
-func (m *MockBroker) EnsureStorageProvisioner(arg0 caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureStorageProvisioner", arg0)
-	ret0, _ := ret[0].(*caas.StorageProvisioner)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// EnsureStorageProvisioner indicates an expected call of EnsureStorageProvisioner.
-func (mr *MockBrokerMockRecorder) EnsureStorageProvisioner(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorageProvisioner", reflect.TypeOf((*MockBroker)(nil).EnsureStorageProvisioner), arg0)
-}
-
 // ExposeService mocks base method.
 func (m *MockBroker) ExposeService(arg0 string, arg1 map[string]string, arg2 config.ConfigAttributes) error {
 	m.ctrl.T.Helper()
@@ -314,50 +298,6 @@ func (m *MockBroker) ExposeService(arg0 string, arg1 map[string]string, arg2 con
 func (mr *MockBrokerMockRecorder) ExposeService(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposeService", reflect.TypeOf((*MockBroker)(nil).ExposeService), arg0, arg1, arg2)
-}
-
-// GetClusterMetadata mocks base method.
-func (m *MockBroker) GetClusterMetadata(arg0 string) (*caas.ClusterMetadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetClusterMetadata", arg0)
-	ret0, _ := ret[0].(*caas.ClusterMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetClusterMetadata indicates an expected call of GetClusterMetadata.
-func (mr *MockBrokerMockRecorder) GetClusterMetadata(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterMetadata", reflect.TypeOf((*MockBroker)(nil).GetClusterMetadata), arg0)
-}
-
-// GetCurrentNamespace mocks base method.
-func (m *MockBroker) GetCurrentNamespace() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCurrentNamespace")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetCurrentNamespace indicates an expected call of GetCurrentNamespace.
-func (mr *MockBrokerMockRecorder) GetCurrentNamespace() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentNamespace", reflect.TypeOf((*MockBroker)(nil).GetCurrentNamespace))
-}
-
-// GetNamespace mocks base method.
-func (m *MockBroker) GetNamespace(arg0 string) (*v1.Namespace, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetNamespace", arg0)
-	ret0, _ := ret[0].(*v1.Namespace)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetNamespace indicates an expected call of GetNamespace.
-func (mr *MockBrokerMockRecorder) GetNamespace(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespace", reflect.TypeOf((*MockBroker)(nil).GetNamespace), arg0)
 }
 
 // GetService mocks base method.
@@ -403,21 +343,6 @@ func (m *MockBroker) ModelOperatorExists() (bool, error) {
 func (mr *MockBrokerMockRecorder) ModelOperatorExists() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelOperatorExists", reflect.TypeOf((*MockBroker)(nil).ModelOperatorExists))
-}
-
-// Namespaces mocks base method.
-func (m *MockBroker) Namespaces() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Namespaces")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Namespaces indicates an expected call of Namespaces.
-func (mr *MockBrokerMockRecorder) Namespaces() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Namespaces", reflect.TypeOf((*MockBroker)(nil).Namespaces))
 }
 
 // Operator mocks base method.
@@ -490,6 +415,21 @@ func (m *MockBroker) Provider() caas.ContainerEnvironProvider {
 func (mr *MockBrokerMockRecorder) Provider() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Provider", reflect.TypeOf((*MockBroker)(nil).Provider))
+}
+
+// ProxyToApplication mocks base method.
+func (m *MockBroker) ProxyToApplication(arg0, arg1 string) (proxy.Proxier, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProxyToApplication", arg0, arg1)
+	ret0, _ := ret[0].(proxy.Proxier)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProxyToApplication indicates an expected call of ProxyToApplication.
+func (mr *MockBrokerMockRecorder) ProxyToApplication(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProxyToApplication", reflect.TypeOf((*MockBroker)(nil).ProxyToApplication), arg0, arg1)
 }
 
 // SetConfig mocks base method.
@@ -621,21 +561,6 @@ func (m *MockBroker) WatchContainerStart(arg0, arg1 string) (watcher.StringsWatc
 func (mr *MockBrokerMockRecorder) WatchContainerStart(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainerStart", reflect.TypeOf((*MockBroker)(nil).WatchContainerStart), arg0, arg1)
-}
-
-// WatchNamespace mocks base method.
-func (m *MockBroker) WatchNamespace() (watcher.NotifyWatcher, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchNamespace")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchNamespace indicates an expected call of WatchNamespace.
-func (mr *MockBrokerMockRecorder) WatchNamespace() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchNamespace", reflect.TypeOf((*MockBroker)(nil).WatchNamespace))
 }
 
 // WatchOperator mocks base method.

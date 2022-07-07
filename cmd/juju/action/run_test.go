@@ -5,10 +5,12 @@ package action_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -21,10 +23,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -44,14 +44,14 @@ broken-map:
 	invalidUTFYaml = "out: ok" + string([]byte{0xFF, 0xFF})
 )
 
-type CallSuite struct {
+type RunSuite struct {
 	BaseActionSuite
 	dir string
 }
 
-var _ = gc.Suite(&CallSuite{})
+var _ = gc.Suite(&RunSuite{})
 
-func (s *CallSuite) SetUpTest(c *gc.C) {
+func (s *RunSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	c.Assert(utf8.ValidString(validParamsYaml), jc.IsTrue)
@@ -62,11 +62,12 @@ func (s *CallSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalidUTF.yml", invalidUTFYaml)
 }
 
-func (s *CallSuite) TestInit(c *gc.C) {
+func (s *RunSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		expectMaxWait        time.Duration
+		withTicks            int
+		expectWait           time.Duration
 		expectUnits          []string
 		expectAction         string
 		expectParamsYamlPath string
@@ -79,9 +80,9 @@ func (s *CallSuite) TestInit(c *gc.C) {
 		args:        []string{},
 		expectError: "no unit specified",
 	}, {
-		should:      "fail with both --background and --max-wait",
-		args:        []string{"--background", "--max-wait=60s", validUnitId, "action"},
-		expectError: "cannot specify both --max-wait and --background",
+		should:      "fail with both --background and --wait",
+		args:        []string{"--background", "--wait=60s", validUnitId, "action"},
+		expectError: "cannot specify both --wait and --background",
 	}, {
 		should:      "fail with no action specified",
 		args:        []string{validUnitId},
@@ -125,11 +126,11 @@ func (s *CallSuite) TestInit(c *gc.C) {
 		args:        []string{validUnitId, "valid-action-name", "no-go?od=3"},
 		expectError: "key \"no-go\\?od\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens",
 	}, {
-		should:        "use max-wait if specified",
-		args:          []string{validUnitId, "action", "--max-wait", "20s"},
-		expectUnits:   []string{validUnitId},
-		expectAction:  "action",
-		expectMaxWait: 20 * time.Second,
+		should:       "use wait if specified",
+		args:         []string{validUnitId, "action", "--wait", "20s"},
+		expectUnits:  []string{validUnitId},
+		expectAction: "action",
+		expectWait:   20 * time.Second,
 	}, {
 		should:       "work with action name ending in numeric values",
 		args:         []string{validUnitId, "action-01"},
@@ -219,7 +220,7 @@ func (s *CallSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			wrappedCommand, command := action.NewRunCommandForTest(s.store, nil)
+			wrappedCommand, command := action.NewRunCommandForTest(s.store, testClock(), nil)
 			c.Logf("test %d: should %s:\n$ juju run (action) %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
@@ -230,10 +231,10 @@ func (s *CallSuite) TestInit(c *gc.C) {
 				c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
 				c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
 				c.Check(command.ParseStrings(), gc.Equals, t.expectParseStrings)
-				if t.expectMaxWait != 0 {
-					c.Check(command.MaxWait(), gc.Equals, t.expectMaxWait)
+				if t.expectWait != 0 {
+					c.Check(command.Wait(), gc.Equals, t.expectWait)
 				} else {
-					c.Check(command.MaxWait(), gc.Equals, 60*time.Second)
+					c.Check(command.Wait(), gc.Equals, 60*time.Second)
 				}
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expectError)
@@ -242,14 +243,14 @@ func (s *CallSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *CallSuite) TestRun(c *gc.C) {
+func (s *RunSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should                 string
 		clientSetup            func(client *fakeAPIClient)
 		withArgs               []string
 		withAPIErr             error
+		withTicks              int
 		withActionResults      []actionapi.ActionResult
-		withTags               params.FindTagsResults
 		expectedActionEnqueued []actionapi.Action
 		expectedOutput         string
 		expectedErr            string
@@ -274,10 +275,12 @@ func (s *CallSuite) TestRun(c *gc.C) {
 		should:   "fail with error in result",
 		withArgs: []string{validUnitId, "some-action"},
 		withActionResults: []actionapi.ActionResult{{
-			Action: &actionapi.Action{ID: validActionId},
-			Error:  apiservererrors.ServerError(errors.New("database error")),
+			Error: errors.New("database error"),
 		}},
 		expectedErr: "database error",
+		expectedOutput: `
+Operation 1 failed to schedule any tasks:
+database error`[1:],
 	}, {
 		should: "fail with missing file passed",
 		withArgs: []string{validUnitId, "some-action",
@@ -317,7 +320,6 @@ func (s *CallSuite) TestRun(c *gc.C) {
 	}, {
 		should:   "run a basic action with no params with output set to action-set data",
 		withArgs: []string{validUnitId, "some-action"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -347,7 +349,6 @@ result-map:
 	}, {
 		should:   "run a basic action with no params with plain output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-action"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -356,7 +357,7 @@ result-map:
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -385,7 +386,6 @@ world`[1:],
 	}, {
 		should:   "run a basic action with no params with yaml output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -394,7 +394,7 @@ world`[1:],
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -415,12 +415,12 @@ world`[1:],
 		}},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   results:
     outcome: success
     result-map:
       message: hello
-    return-code: "0"
+    return-code: 0
     stderr: world
     stderr-encoding: utf-8
     stdout: hello
@@ -432,9 +432,9 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0`[1:],
 	}, {
-		should:   "run a basic action with progress logs",
-		withArgs: []string{validUnitId, "some-action", "--utc"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		should:    "run a basic action with progress logs",
+		withArgs:  []string{validUnitId, "some-action", "--utc"},
+		withTicks: 1,
 
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
@@ -444,7 +444,7 @@ mysql/0:
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -472,9 +472,9 @@ result-map:
 hello
 world`[1:],
 	}, {
-		should:   "run a basic action with progress logs with yaml output",
-		withArgs: []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		should:    "run a basic action with progress logs with yaml output",
+		withArgs:  []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
+		withTicks: 1,
 
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
@@ -491,7 +491,7 @@ world`[1:],
 			}},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -513,7 +513,7 @@ world`[1:],
 		expectedLogs: []string{"log line 1", "log line 2"},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   log:
   - 2015-02-14 06:06:06 +0000 UTC log line 1
   - 2015-02-14 06:06:06 +0000 UTC log line 2
@@ -521,7 +521,7 @@ mysql/0:
     outcome: success
     result-map:
       message: hello
-    return-code: "0"
+    return-code: 0
     stderr: world
     stderr-encoding: utf-8
     stdout: hello
@@ -533,12 +533,9 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0`[1:],
 	}, {
-		should:   "run action on multiple units with stdout for each action",
-		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
-		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
-			validActionId:  {{Tag: validActionTagString}},
-			validActionId2: {{Tag: validActionTagString2}},
-		}},
+		should:    "run action on multiple units with stdout for each action",
+		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
+		withTicks: 1,
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -583,7 +580,7 @@ mysql/0:
 		}},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   results:
     outcome: success
     result-map:
@@ -595,7 +592,7 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0
 mysql/1:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d478
+  id: "2"
   results:
     outcome: success
     result-map:
@@ -607,12 +604,9 @@ mysql/1:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/1`[1:],
 	}, {
-		should:   "run action on multiple units with plain output selected",
-		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
-		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
-			validActionId:  {{Tag: validActionTagString}},
-			validActionId2: {{Tag: validActionTagString2}},
-		}},
+		should:    "run action on multiple units with plain output selected",
+		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
+		withTicks: 1,
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -651,13 +645,13 @@ mysql/1:
 		}},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   output: |
     outcome: success
     result-map:
       message: hello
 mysql/1:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d478
+  id: "2"
   output: |
     outcome: success
     result-map:
@@ -790,102 +784,224 @@ mysql/1:
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			func() {
-				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
+			c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
+			s.clock = testClock()
 
-				fakeClient := &fakeAPIClient{
-					actionResults:    t.withActionResults,
-					actionTagMatches: t.withTags,
-					apiVersion:       6,
-					logMessageCh:     make(chan []string, len(t.expectedLogs)),
+			fakeClient := &fakeAPIClient{
+				actionResults: t.withActionResults,
+				logMessageCh:  make(chan []string, len(t.expectedLogs)),
+			}
+
+			numExpectedTimers := 0
+			// Max wait timer.
+			if t.withTicks > 0 {
+				numExpectedTimers = 1
+			}
+			// One poll timer per unit.
+			numExpectedTimers += len(t.expectedActionEnqueued)
+
+			if len(t.expectedLogs) > 0 {
+				fakeClient.waitForResults = make(chan bool)
+			}
+			if t.clientSetup != nil {
+				t.clientSetup(fakeClient)
+			}
+			fakeClient.apiErr = t.withAPIErr
+			fakeClient.actionResults = t.withActionResults
+
+			s.testRunHelper(c,
+				fakeClient,
+				t.expectedErr,
+				t.expectedOutput,
+				modelFlag,
+				t.withArgs,
+				t.withTicks,
+				numExpectedTimers,
+				t.expectedActionEnqueued,
+				t.expectedLogs)
+		}
+	}
+}
+
+func (s *RunSuite) TestVerbosity(c *gc.C) {
+	tests := []struct {
+		about   string
+		verbose bool
+		quiet   bool
+		output  string
+	}{{
+		about: "normal output",
+		output: `
+Running operation 1 with 1 task
+  - task 1 on unit-mysql-0
+
+Waiting for task 1...
+hello
+
+`[1:],
+	}, {
+		about:   "verbose",
+		verbose: true,
+		output: `
+Running operation 1 with 1 task
+  - task 1 on unit-mysql-0
+
+Waiting for task 1...
+hello
+
+`[1:],
+	}, {
+		about:  "quiet",
+		quiet:  true,
+		output: "hello\n\n",
+	}}
+
+	// Set up fake API client
+	fakeClient := &fakeAPIClient{}
+	restore := s.patchAPIClient(fakeClient)
+	defer restore()
+
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
+			Receiver: names.NewUnitTag(validUnitId).String(),
+			Name:     "some-action",
+		},
+		Output: map[string]interface{}{
+			"stdout": "hello",
+		},
+	}}
+
+	for i, t := range tests {
+		c.Logf("test %d: %s", i, t.about)
+
+		// Set up context
+		output := bytes.Buffer{}
+		ctx := &cmd.Context{
+			Context: context.TODO(),
+			Stdout:  &output,
+			Stderr:  &output,
+		}
+		log := cmd.Log{
+			Verbose: t.verbose,
+			Quiet:   t.quiet,
+		}
+		log.Start(ctx) // sets the verbose/quiet options in `ctx`
+
+		// Run command
+		runCmd, _ := action.NewRunCommandForTest(s.store, s.clock, nil)
+		err := cmdtesting.InitCommand(runCmd, []string{"-m", "admin", validUnitId, "some-action"})
+		c.Assert(err, jc.ErrorIsNil)
+		err = runCmd.Run(ctx)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(output.String(), gc.Equals, t.output)
+	}
+}
+
+func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
+	expectedErr, expectedOutput, modelFlag string, withArgs []string,
+	numTicks int, numExpectedTimers int,
+	expectedActionEnqueued []actionapi.Action,
+	expectedLogs []string,
+) {
+	restore := s.patchAPIClient(client)
+	defer restore()
+	args := append([]string{modelFlag, "admin"}, withArgs...)
+
+	if len(expectedLogs) > 0 {
+		go func() {
+			encodedLogs := make([]string, len(expectedLogs))
+			for n, log := range expectedLogs {
+				msg := actions.ActionMessage{
+					Message:   log,
+					Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
 				}
-				if len(t.expectedLogs) > 0 {
-					fakeClient.waitForResults = make(chan bool)
-				}
-				if t.clientSetup != nil {
-					t.clientSetup(fakeClient)
-				}
+				msgData, err := json.Marshal(msg)
+				c.Assert(err, jc.ErrorIsNil)
+				encodedLogs[n] = string(msgData)
+			}
+			client.logMessageCh <- encodedLogs
+		}()
+	}
 
-				fakeClient.apiErr = t.withAPIErr
-				restore := s.patchAPIClient(fakeClient)
-				defer restore()
+	var receivedMessages []string
+	var expectedLogMessages []string
+	for _, msg := range expectedLogs {
+		expectedLogMessages = append(expectedLogMessages, "06:06:06 "+msg)
+	}
+	runCmd, _ := action.NewRunCommandForTest(s.store, s.clock, func(_ *cmd.Context, msg string) {
+		receivedMessages = append(receivedMessages, msg)
+		if reflect.DeepEqual(receivedMessages, expectedLogMessages) {
+			close(client.waitForResults)
+		}
+	})
 
-				if len(t.expectedLogs) > 0 {
-					go func() {
-						encodedLogs := make([]string, len(t.expectedLogs))
-						for n, log := range t.expectedLogs {
-							msg := actions.ActionMessage{
-								Message:   log,
-								Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
-							}
-							msgData, err := json.Marshal(msg)
-							c.Assert(err, jc.ErrorIsNil)
-							encodedLogs[n] = string(msgData)
-						}
-						fakeClient.logMessageCh <- encodedLogs
-					}()
-				}
+	var (
+		wg  sync.WaitGroup
+		ctx *cmd.Context
+		err error
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
+	}()
 
-				var receivedMessages []string
-				var expectedLogs []string
-				for _, msg := range t.expectedLogs {
-					expectedLogs = append(expectedLogs, "06:06:06 "+msg)
-				}
-				wrappedCommand, _ := action.NewRunCommandForTest(s.store, func(_ *cmd.Context, msg string) {
-					receivedMessages = append(receivedMessages, msg)
-					if reflect.DeepEqual(receivedMessages, expectedLogs) {
-						close(fakeClient.waitForResults)
-					}
-				})
-				args := append([]string{modelFlag, "admin"}, t.withArgs...)
-				ctx, err := cmdtesting.RunCommand(c, wrappedCommand, args...)
+	for t := 0; t < numTicks; t++ {
+		err2 := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, numExpectedTimers)
+		c.Assert(err2, jc.ErrorIsNil)
+	}
+	wg.Wait()
 
-				if len(t.expectedLogs) > 0 {
-					select {
-					case <-fakeClient.waitForResults:
-					case <-time.After(testing.LongWait):
-						c.Fatal("waiting for log messages to be consumed")
-					}
-				}
+	if len(expectedLogs) > 0 {
+		select {
+		case <-client.waitForResults:
+		case <-time.After(testing.LongWait):
+			c.Fatal("waiting for log messages to be consumed")
+		}
+	}
 
-				if t.expectedErr != "" || t.withAPIErr != nil {
-					c.Check(err, gc.ErrorMatches, t.expectedErr)
-				} else {
-					c.Assert(err, gc.IsNil)
-					// Before comparing, double-check to avoid
-					// panics in malformed tests.
-					c.Assert(len(t.withActionResults), gc.Not(gc.Equals), 0)
-					// Make sure the test's expected actions were
-					// non-nil and correct.
-					for i := range t.withActionResults {
-						c.Assert(t.withActionResults[i].Action, gc.NotNil)
-					}
-					// Make sure the action sent to the API to be
-					// enqueued was indeed the expected map
-					enqueued := fakeClient.enqueuedActions
-					c.Assert(enqueued, jc.DeepEquals, t.expectedActionEnqueued)
+	if expectedErr != "" {
+		if expectedOutput != "" {
+			outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
+			outString := strings.Trim(string(outputResult), "\n")
+			c.Check(outString, gc.Equals, expectedOutput)
+		} else {
+			c.Check(err, gc.ErrorMatches, expectedErr)
+		}
+	} else {
+		c.Assert(err, gc.IsNil)
+		// Before comparing, double-check to avoid
+		// panics in malformed tests.
+		c.Assert(len(client.actionResults), gc.Not(gc.Equals), 0)
+		// Make sure the test's expected actions were
+		// non-nil and correct.
+		for i := range client.actionResults {
+			c.Assert(client.actionResults[i].Action, gc.NotNil)
+		}
+		// Make sure the action sent to the API to be
+		// enqueued was indeed the expected map
+		enqueued := client.enqueuedActions
+		c.Assert(enqueued, jc.DeepEquals, expectedActionEnqueued)
 
-					if t.expectedOutput == "" {
-						outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
-						outString := strings.Trim(string(outputResult), "\n")
+		if expectedOutput == "" {
+			outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
+			outString := strings.Trim(string(outputResult), "\n")
 
-						expectedID := t.withActionResults[0].Action.ID
-						valid := names.IsValidAction(expectedID)
-						c.Assert(valid, jc.IsTrue)
+			expectedID := client.actionResults[0].Action.ID
+			valid := names.IsValidAction(expectedID)
+			c.Assert(valid, jc.IsTrue)
 
-						// Make sure the CLI responded with the expected tag
-						c.Assert(outString, gc.Equals, fmt.Sprintf(`
+			// Make sure the CLI responded with the expected tag
+			c.Assert(outString, gc.Equals, fmt.Sprintf(`
 Scheduled operation 1 with task %s
 Check operation status with 'juju show-operation 1'
 Check task status with 'juju show-task %s'`[1:],
-							expectedID, expectedID))
-					} else {
-						outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
-						outString := strings.Trim(string(outputResult), "\n")
-						c.Assert(outString, gc.Equals, t.expectedOutput)
-					}
-				}
-			}()
+				expectedID, expectedID))
+		} else {
+			outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
+			outString := strings.Trim(string(outputResult), "\n")
+			c.Assert(outString, gc.Equals, expectedOutput)
 		}
 	}
 }

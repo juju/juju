@@ -4,8 +4,6 @@
 package hostkeyreporter
 
 import (
-	"runtime"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -45,11 +43,6 @@ func (config ManifoldConfig) validate() error {
 
 // start is a StartFunc for a Worker manifold.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-	if runtime.GOOS == "windows" {
-		logger.Debugf("no SSH host keys to report on Windows machines")
-		return nil, dependency.ErrUninstall
-	}
-
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

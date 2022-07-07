@@ -18,9 +18,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// TODO (manadart 2020-10-21): Remove the ModelUUID method
-// from the next version of this facade.
-
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
@@ -179,60 +176,3 @@ func (api *MachinerAPI) RecordAgentStartInformation(args params.RecordAgentStart
 	}
 	return results, nil
 }
-
-// ModelUUID returns the model UUID that this machine resides in.
-// It is implemented here directly as a result of removing it from
-// embedded APIAddresser *without* bumping the facade version.
-// It should be blanked when this facade version is next incremented.
-func (api *MachinerAPI) ModelUUID() params.StringResult {
-	return params.StringResult{Result: api.st.ModelUUID()}
-}
-
-// MachinerAPIV1 implements the V1 API used by the machiner worker.
-type MachinerAPIV1 struct {
-	*MachinerAPIV2
-}
-
-// RecordAgentStartTime is not available in V1.
-func (api *MachinerAPIV1) RecordAgentStartTime(_, _ struct{}) {}
-
-// MachinerAPIV2 implements the V2 API used by the machiner worker.
-// It adds RecordAgentStartTime and back-fills the missing origin in
-// NetworkConfig.
-type MachinerAPIV2 struct {
-	*MachinerAPIV3
-}
-
-// MachinerAPIV3 implements the V3 API used by the machiner worker.
-// It Relies on agent-set origin in SetObservedNetworkConfig.
-type MachinerAPIV3 struct {
-	*MachinerAPIV4
-}
-
-// MachinerAPIV4 implements the V4 API used by the machiner worker.
-// It removes SetProviderNetworkConfig.
-type MachinerAPIV4 struct {
-	*MachinerAPI
-}
-
-// SetObservedNetworkConfig back-fills machine origin before calling through to
-// the networking common method of the same name.
-// Older agents do not set the origin, so we must do it for them.
-func (api *MachinerAPIV2) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
-	args.BackFillMachineOrigin()
-	return api.NetworkConfigAPI.SetObservedNetworkConfig(args)
-}
-
-// SetProviderNetworkConfig is no-op.
-// This method stub is here, because the method was removed from the common
-// networking API.
-// It was only ever called by controller machine agents during start-up.
-// Not only was this unnecessary, it duplicated link-layer devices on AWS.
-func (api *MachinerAPIV3) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {
-	return params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}, nil
-}
-
-// RecordAgentStartInformation is not available in V4.
-func (api *MachinerAPIV4) RecordAgentStartInformation(_, _ struct{}) {}

@@ -26,7 +26,7 @@ type RemoveApplicationCmdSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api *testApplicationRemoveUnitAPI
 
-	apiFunc func() (application.RemoveApplicationAPI, int, error)
+	apiFunc func() (application.RemoveApplicationAPI, error)
 	store   *jujuclient.MemStore
 }
 
@@ -36,8 +36,8 @@ func (s *RemoveApplicationCmdSuite) SetUpTest(c *gc.C) {
 		Stub: &jujutesting.Stub{},
 	}
 	s.store = jujuclienttesting.MinimalStore()
-	s.apiFunc = func() (application.RemoveApplicationAPI, int, error) {
-		return s.api, 5, nil
+	s.apiFunc = func() (application.RemoveApplicationAPI, error) {
+		return s.api, nil
 	}
 }
 
@@ -140,10 +140,6 @@ func (a *testApplicationRemoveUnitAPI) DestroyUnits(args apiapplication.DestroyU
 func (a *testApplicationRemoveUnitAPI) Close() error {
 	a.AddCall("Close")
 	return a.NextErr()
-}
-
-func (a *testApplicationRemoveUnitAPI) BestAPIVersion() int {
-	panic("BestAPIVersion not implemented here")
 }
 
 func (a *testApplicationRemoveUnitAPI) ModelUUID() string {

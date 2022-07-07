@@ -208,14 +208,6 @@ func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
 
 }
 
-func (s *environBrokerSuite) TestGetMetadataWindows(c *gc.C) {
-	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Windows)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata["windows-startup-script-ps1"], gc.Equals, s.WindowsMetadata["windows-startup-script-ps1"])
-	c.Check(metadata["sysprep-specialize-script-ps1"], gc.Matches, s.WindowsMetadata["sysprep-specialize-script-ps1"])
-}
-
 func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
 	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.GenericLinux)
 
@@ -230,7 +222,6 @@ var getDisksTests = []struct {
 }{
 	{"trusty", gce.UbuntuImageBasePath, nil},
 	{"bionic", "/tmp/", nil}, // --config base-image-path=/tmp/
-	{"win2012r2", gce.WindowsImageBasePath, nil},
 	{"arch", "", errors.New("os Arch is not supported on the gce provider")},
 }
 

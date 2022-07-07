@@ -16,10 +16,6 @@ import (
 // number from the HTTP request.
 func JujuClientVersionFromRequest(req *http.Request) (version.Number, error) {
 	verStr := req.Header.Get(params.JujuClientVersion)
-	// TODO(wallyworld) - remove in juju 4
-	if verStr == "" {
-		verStr = req.URL.Query().Get("jujuclientversion")
-	}
 	if verStr == "" {
 		return version.Zero, errors.New(`missing "X-Juju-ClientVersion" in request headers`)
 	}

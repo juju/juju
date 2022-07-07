@@ -10,8 +10,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1737,7 +1737,7 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 
 	operationID, err := m.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
+	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	a, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1752,6 +1752,8 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	c.Check(action.Receiver(), gc.Equals, machine.Id())
 	c.Check(action.Name(), gc.Equals, "foo")
 	c.Check(action.Operation(), gc.Equals, operationID)
+	c.Check(action.Parallel(), jc.IsTrue)
+	c.Check(action.ExecutionGroup(), gc.Equals, "group")
 	c.Check(action.Status(), gc.Equals, "running")
 	c.Check(action.Message(), gc.Equals, "")
 	logs := action.Logs()
@@ -1770,7 +1772,7 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, false, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipActions: true,

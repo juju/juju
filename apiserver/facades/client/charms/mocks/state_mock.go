@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	cloud "github.com/juju/juju/cloud"

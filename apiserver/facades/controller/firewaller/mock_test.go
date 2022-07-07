@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -64,19 +63,6 @@ func newMockStringsWatcher() *mockStringsWatcher {
 func (w *mockStringsWatcher) Changes() <-chan []string {
 	w.MethodCall(w, "Changes")
 	return w.changes
-}
-
-type mockControllerInfo struct {
-	uuid string
-	info crossmodel.ControllerInfo
-}
-
-func (c *mockControllerInfo) Id() string {
-	return c.uuid
-}
-
-func (c *mockControllerInfo) ControllerInfo() crossmodel.ControllerInfo {
-	return c.info
 }
 
 type mockRelation struct {

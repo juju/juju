@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -358,6 +358,17 @@ func (s *HookContextSuite) AssertWorkloadContext(c *gc.C, ctx *runnercontext.Hoo
 
 func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.WorkloadName()
+	c.Assert(err, gc.NotNil)
+	c.Assert(workloadName, gc.Equals, "")
+}
+
+func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURL string) {
+	URL, _ := ctx.SecretURL()
+	c.Assert(URL, gc.Equals, secretURL)
+}
+
+func (s *HookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {
+	workloadName, err := ctx.SecretURL()
 	c.Assert(err, gc.NotNil)
 	c.Assert(workloadName, gc.Equals, "")
 }

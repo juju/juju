@@ -71,7 +71,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      auth,
@@ -84,7 +84,7 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
-	_, err := agent.NewAgentAPIV2(facadetest.Context{
+	_, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      auth,
@@ -103,7 +103,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -129,7 +129,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	err := s.container.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      auth,
@@ -174,7 +174,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	err = s.machine1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -195,7 +195,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -223,7 +223,7 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -241,7 +241,7 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 }
 
 func (s *agentSuite) TestClearReboot(c *gc.C) {
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -279,7 +279,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      authorizer,
@@ -307,7 +307,7 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
 	}
-	api, err := agent.NewAgentAPIV2(facadetest.Context{
+	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      authorizer,

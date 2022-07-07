@@ -10,7 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	resource "github.com/juju/charm/v8/resource"
+	resource "github.com/juju/charm/v9/resource"
 	resources "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v2/txn"

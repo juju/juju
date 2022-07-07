@@ -118,10 +118,6 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusUnauthorized
 	case params.CodeRedirect:
 		status = http.StatusMovedPermanently
-	case params.CodeNotLeader:
-		status = http.StatusTemporaryRedirect
-	case params.CodeLeaseError:
-		status = leaseStatusCode(err1)
 	case params.CodeNotYetAvailable:
 		// The request could not be completed due to a conflict with
 		// the current state of the resource. This code is only allowed
@@ -130,6 +126,10 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		//
 		// See https://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.10
 		status = http.StatusConflict
+	case params.CodeNotLeader:
+		status = http.StatusTemporaryRedirect
+	case params.CodeLeaseError:
+		status = leaseStatusCode(err1)
 	}
 	return err1, status
 }
@@ -354,6 +354,8 @@ func RestoreError(err error) error {
 		return err
 	case params.IsCodeQuotaLimitExceeded(err):
 		return errors.NewQuotaLimitExceeded(nil, msg)
+	case params.IsCodeNotYetAvailable(err):
+		return errors.NewNotYetAvailable(nil, msg)
 	case params.IsCodeNotLeader(err):
 		e, ok := err.(*params.Error)
 		if !ok {
@@ -366,8 +368,6 @@ func RestoreError(err error) error {
 		return fmt.Errorf(msg+"%w", errors.Hide(DeadlineExceededError))
 	case params.IsLeaseError(err):
 		return rehydrateLeaseError(err)
-	case params.IsCodeNotYetAvailable(err):
-		return errors.NewNotYetAvailable(nil, msg)
 	case params.IsCodeTryAgain(err):
 		return ErrTryAgain
 	case params.IsCodeNotValid(err):

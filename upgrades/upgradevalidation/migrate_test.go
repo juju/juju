@@ -30,8 +30,8 @@ func (s *upgradeValidationSuite) TestValidatorsForModelMigrationSourceJuju3(c *g
 		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
 		// - check if the model has win machines;
 		state.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		state.EXPECT().MachineCountForSeries(
 			"artful",

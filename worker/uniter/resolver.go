@@ -6,8 +6,8 @@ package uniter
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	corecharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/life"
@@ -38,6 +38,7 @@ type ResolverConfig struct {
 	Relations           resolver.Resolver
 	Storage             resolver.Resolver
 	Commands            resolver.Resolver
+	Secrets             resolver.Resolver
 	OptionalResolvers   []resolver.Resolver
 	Logger              Logger
 }
@@ -121,6 +122,11 @@ func (s *uniterResolver) NextOp(
 		if errors.Cause(err) != resolver.ErrNoOperation {
 			return op, err
 		}
+	}
+
+	op, err = s.config.Secrets.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		return op, err
 	}
 
 	op, err = s.config.Actions.NextOp(localState, remoteState, opFactory)

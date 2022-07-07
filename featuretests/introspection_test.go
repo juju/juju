@@ -40,12 +40,12 @@ func (s *introspectionSuite) SetUpSuite(c *gc.C) {
 		c.Skip(fmt.Sprintf("the introspection worker does not support %q", runtime.GOOS))
 	}
 	s.AgentSuite.SetUpSuite(c)
-	agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 }
 
 func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
+	agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 
 	var err error
 	s.logger, err = logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1000)

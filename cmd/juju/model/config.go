@@ -6,9 +6,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -22,29 +19,50 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/config"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/environs/config"
+	envconfig "github.com/juju/juju/environs/config"
 )
 
 const (
 	modelConfigSummary        = "Displays or sets configuration values on a model."
 	modelConfigHelpDocPartOne = `
-By default, all configuration (keys, source, and values) for the current model
-are displayed.
+To view all configuration values for the current model, run
+    juju model-config
+You can target a specific model using the -m flag:
+    juju model-config -m <model>
+    juju model-config -m <controller>:<model>
+By default, the config will be printed in a tabular format. You can instead
+print it in json or yaml format using the --format flag:
+    juju model-config --format json
+    juju model-config --format yaml
 
-Supplying one key name returns only the value for the key. Supplying key=value
-will set the supplied key to the supplied value, this can be repeated for
-multiple keys. You can also specify a yaml file containing key values, that can
-be used for the input for the command.
+To view the value of a single config key, run
+    juju model-config key
+To set config values, run
+    juju model-config key1=val1 key2=val2 ...
+You can also reset config keys to their default values:
+    juju model-config --reset key1
+    juju model-config --reset key1,key2,key3
+You may simultaneously set some keys and reset others:
+    juju model-config key1=val1 key2=val2 --reset key3,key4
 
-Model config yaml can be piped from stdin from the output of the command stdout.
-Some model-config configuration are read-only, to prevent the command exiting on
-read-only fields, setting "ignore-read-only-fields" will cause it to skip over
-the fields when they're encountered.
+Config values can be imported from a yaml file using the --file flag:
+    juju model-config --file=path/to/cfg.yaml
+This allows you to e.g. save a model's config to a file:
+    juju model-config --format=yaml > cfg.yaml
+and then import the config later. Note that the output of model-config
+may include read-only values, which will cause an error when importing later.
+To prevent the error, use the --ignore-read-only-fields flag:
+    juju model-config --file=cfg.yaml --ignore-read-only-fields
 
-The reset flag will set the provided key(s) to the model default for those key(s).
-Any key not in the default model config, will be deleted.
+You can also read from stdin using "-", which allows you to pipe config values
+from one model to another:
+    juju model-config -c c1 --format=yaml \
+      | juju model-config -c c2 --file=- --ignore-read-only-fields
+You can simultaneously read config from a yaml file and set config keys
+as above. The command-line args will override any values specified in the file.
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
@@ -61,12 +79,8 @@ Print the model config of model mycontroller:mymodel:
 Set the value of ftp-proxy to 10.0.0.1:8000:
     juju model-config ftp-proxy=10.0.0.1:8000
 
-Set the value of ftp-proxy to 10.0.0.1:8000, and set the values defined in
-path/to/file.yaml:
-    juju model-config ftp-proxy=10.0.0.1:8000 path/to/file.yaml
-
-Set the model config key value pairs defined in a file:
-    juju model-config path/to/file.yaml
+Set the model config to key=value pairs defined in a file:
+    juju model-config --file path/to/file.yaml
 
 Set model config values of a specific model:
     juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
@@ -82,9 +96,14 @@ See also:
 `
 )
 
+var modelConfigBase = config.ConfigCommandBase{
+	Resettable: true,
+	CantReset:  []string{envconfig.AgentVersionKey, envconfig.CharmHubURLKey},
+}
+
 // NewConfigCommand wraps configCommand with sane model settings.
 func NewConfigCommand() cmd.Command {
-	return modelcmd.Wrap(&configCommand{})
+	return modelcmd.Wrap(&configCommand{configBase: modelConfigBase})
 }
 
 type configAttrs map[string]interface{}
@@ -166,16 +185,12 @@ func coerceResourceTags(resourceTags interface{}) (string, error) {
 // configCommand is the simplified command for accessing and setting
 // attributes related to model configuration.
 type configCommand struct {
-	api configCommandAPI
 	modelcmd.ModelCommandBase
-	out cmd.Output
+	configBase config.ConfigCommandBase
+	api        configCommandAPI
+	out        cmd.Output
 
-	action               func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys                 []string
-	reset                []string // Holds the keys to be reset until parsed.
-	resetKeys            []string // Holds the keys to be reset once parsed.
-	setOptions           common.ConfigFlag
-	ignoreAgentVersion   bool
+	// Extra `model-config`-specific fields
 	ignoreReadOnlyFields bool
 }
 
@@ -183,7 +198,7 @@ type configCommand struct {
 type configCommandAPI interface {
 	Close() error
 	ModelGet() (map[string]interface{}, error)
-	ModelGetWithMetadata() (config.ConfigValues, error)
+	ModelGetWithMetadata() (envconfig.ConfigValues, error)
 	ModelSet(config map[string]interface{}) error
 	ModelUnset(keys ...string) error
 }
@@ -214,148 +229,19 @@ func (c *configCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	c.configBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"json":    cmd.FormatJson,
 		"tabular": formatConfigTabular,
 		"yaml":    cmd.FormatYaml,
 	})
-	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys, deletes keys not in the model config")
-	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration (deprecated)")
 	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
 }
 
 // Init implements part of the cmd.Command interface.
 func (c *configCommand) Init(args []string) error {
-	// If there are arguments provided to reset, we turn it into a slice of
-	// strings and verify them. If there is one or more valid keys to reset and
-	// no other errors initializing the command, c.resetDefaults will be called
-	// in c.Run.
-	if err := c.parseResetKeys(); err != nil {
-		return errors.Trace(err)
-	}
-
-	switch len(args) {
-	case 0:
-		return c.handleZeroArgs()
-	case 1:
-		return c.handleOneArg(args[0])
-	default:
-		return c.handleArgs(args)
-	}
-}
-
-// handleZeroArgs handles the case where there are no positional args.
-func (c *configCommand) handleZeroArgs() error {
-	// If reset is empty we're getting configuration
-	if len(c.reset) == 0 {
-		c.action = c.getConfig
-	}
-	// Otherwise we're going to reset args.
-	return nil
-}
-
-// handleOneArg handles the case where there is one positional arg.
-func (c *configCommand) handleOneArg(arg string) error {
-	if arg == "-" {
-		// If we can't read the stdin, then continue onwards to fall back to the
-		// previous logic.
-		if err := c.parseStdin(); err == nil {
-			return nil
-		}
-	}
-
-	// We may have a single config.yaml file
-	if isFileName(arg) {
-		return c.parseYAMLFile(arg)
-	} else if strings.Contains(arg, "=") {
-		return c.parseSetKeys([]string{arg})
-	}
-	// If we are not setting a value, then we are retrieving one so we need to
-	// make sure that we are not resetting because it is not valid to get and
-	// reset simultaneously.
-	if len(c.reset) > 0 {
-		return errors.New("cannot set and retrieve model values simultaneously")
-	}
-	c.keys = []string{arg}
-	c.action = c.getConfig
-	return ParseCert(arg)
-}
-
-// handleArgs handles the case where there's more than one positional arg.
-func (c *configCommand) handleArgs(args []string) error {
-	// Check all arguments are valid first
-	for _, arg := range args {
-		if !isFileName(arg) && !strings.Contains(arg, "=") {
-			return errors.Errorf("arg %q is not a key-value pair or a filename", arg)
-		}
-	}
-	if err := c.parseSetKeys(args); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// parseStdin ensures that we handle stdin correctly.
-func (c *configCommand) parseStdin() error {
-	if err := c.setOptions.SetAttrsFromReader(os.Stdin); err != nil {
-		return errors.Trace(err)
-	}
-	c.action = c.setConfig
-	return nil
-}
-
-// isFileName tests if its argument `s` explicitly specifies a file (i.e. `s`
-// contains the path-separator character for this OS).
-func isFileName(s string) bool {
-	return strings.HasPrefix(s, ".") || filepath.IsAbs(s)
-}
-
-// parseYAMLFile ensures that we handle the YAML file passed in.
-func (c *configCommand) parseYAMLFile(file string) error {
-	if err := c.setOptions.Set(file); err != nil {
-		return errors.Trace(err)
-	}
-	c.action = c.setConfig
-	return nil
-}
-
-// parseSetKeys iterates over the args and make sure that the key=value pairs
-// are valid.
-func (c *configCommand) parseSetKeys(args []string) error {
-	for _, arg := range args {
-		if err := c.setOptions.Set(arg); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	c.action = c.setConfig
-	return nil
-}
-
-// parseResetKeys splits the keys provided to --reset after trimming any
-// leading or trailing comma. It then verifies that we haven't incorrectly
-// received any key=value pairs and finally sets the value(s) on c.resetKeys.
-func (c *configCommand) parseResetKeys() error {
-	if len(c.reset) == 0 {
-		return nil
-	}
-	var resetKeys []string
-	for _, value := range c.reset {
-		keys := strings.Split(strings.Trim(value, ","), ",")
-		resetKeys = append(resetKeys, keys...)
-	}
-
-	for _, k := range resetKeys {
-		if k == config.AgentVersionKey || k == config.CharmHubURLKey {
-			return errors.Errorf("%q cannot be reset", k)
-		}
-		if strings.Contains(k, "=") {
-			return errors.Errorf(
-				`--reset accepts a comma delimited set of keys "a,b,c", received: %q`, k)
-		}
-	}
-	c.resetKeys = resetKeys
-	return nil
+	return c.configBase.Init(args)
 }
 
 // getAPI returns the API. This allows passing in a test configCommandAPI
@@ -380,51 +266,61 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if len(c.resetKeys) > 0 {
-		err := c.resetConfig(client, ctx)
+	for _, action := range c.configBase.Actions {
+		var err error
+		switch action {
+		case config.GetOne:
+			err = c.getConfig(client, ctx)
+		case config.SetArgs:
+			err = c.setConfig(client, c.configBase.ValsToSet)
+		case config.SetFile:
+			var attrs config.Attrs
+			attrs, err = c.configBase.ReadFile(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = c.setConfig(client, attrs)
+		case config.Reset:
+			err = c.resetConfig(client)
+		default:
+			err = c.getAllConfig(client, ctx)
+		}
 		if err != nil {
-			// We return this error naked as it is almost certainly going to be
-			// cmd.ErrSilent and the cmd.Command framework expects that back
-			// from cmd.Run if the process is blocked.
-			return err
+			return errors.Trace(err)
 		}
 	}
-	if c.action == nil {
-		// If we are reset only we end up here, only we've already done that.
-		return nil
-	}
-	return c.action(client, ctx)
+	return nil
 }
 
 // resetConfig unsets the keys provided to the command.
-func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
+func (c *configCommand) resetConfig(client configCommandAPI) error {
 	// ctx unused in this method
-	if err := c.verifyKnownKeys(client, c.resetKeys); err != nil {
+	if err := c.verifyKnownKeys(client, c.configBase.KeysToReset); err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(client.ModelUnset(c.resetKeys...), block.BlockChange)
+	return block.ProcessBlockedError(client.ModelUnset(c.configBase.KeysToReset...), block.BlockChange)
 }
 
 // setConfig sets the provided key/value pairs on the model.
-func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
-	attrs, err := c.setOptions.ReadAttrs(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var keys []string
+func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) error {
+	var keys []string // collect and validate
+
+	// Sort through to catch read-only keys
 	values := make(configAttrs)
 	for k, v := range attrs {
-		if k == config.AgentVersionKey {
-			if c.ignoreAgentVersion || c.ignoreReadOnlyFields {
-				continue
-			}
-			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
-		} else if k == config.CharmHubURLKey {
+		if k == envconfig.AgentVersionKey {
 			if c.ignoreReadOnlyFields {
 				continue
 			}
-			return errors.Errorf(`"charmhub-url" must be set via "add-model"`)
+			return errors.Errorf(`%q must be set via "upgrade-model"`,
+				envconfig.AgentVersionKey)
+		} else if k == envconfig.CharmHubURLKey {
+			if c.ignoreReadOnlyFields {
+				continue
+			}
+			return errors.Errorf(`%q must be set via "add-model"`,
+				envconfig.CharmHubURLKey)
 		}
 
 		values[k] = v
@@ -436,13 +332,6 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 		return errors.Trace(err)
 	}
 
-	for _, k := range c.resetKeys {
-		if _, ok := coerced[k]; ok {
-			return errors.Errorf(
-				"key %q cannot be both set and reset in the same command", k)
-		}
-	}
-
 	if err := c.verifyKnownKeys(client, keys); err != nil {
 		return errors.Trace(err)
 	}
@@ -450,34 +339,63 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	return block.ProcessBlockedError(client.ModelSet(coerced), block.BlockChange)
 }
 
-// get writes the value of a single key or the full output for the model to the cmd.Context.
+// getConfig writes the value of a single model config key to the cmd.Context.
 func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
-	if len(c.keys) == 1 && certBytes != nil {
-		_, _ = ctx.Stdout.Write(certBytes)
-		return nil
-	}
+	// if certBytes != nil {
+	// 	_, _ = ctx.Stdout.Write(certBytes)
+	// 	return nil
+	// }
+
 	attrs, err := c.getFilteredModel(client)
 	if err != nil {
 		return err
 	}
-	attrs, err, finished := c.handleIsKeyOfModel(attrs, ctx)
-	if err != nil {
-		return err
-	} else if attrs != nil && finished {
-		return c.out.Write(ctx, attrs)
-	} else if len(c.keys) > 0 && !finished {
-		if isFileLike(c.keys[0]) {
-			return errors.Errorf("%q seems to be a file but not found", c.keys[0])
-		}
 
-		mod, _ := c.ModelIdentifier()
-		return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q",
-			c.keys[0], mod)
+	if len(c.configBase.KeysToGet) == 0 {
+		return errors.New("c.configBase.KeysToGet is empty")
 	}
-	return nil
+	if value, found := attrs[c.configBase.KeysToGet[0]]; found {
+		if c.out.Name() == "tabular" {
+			// The user has not specified that they want
+			// YAML or JSON formatting, so we print out
+			// the value unadorned.
+			return c.out.WriteFormatter(ctx, cmd.FormatSmart, value.Value)
+		}
+		// Return value in JSON / YAML format
+		return c.out.Write(ctx, envconfig.ConfigValues{
+			c.configBase.KeysToGet[0]: envconfig.ConfigValue{Source: value.Source, Value: value.Value},
+		})
+	}
+
+	// Key not found - error
+	mod, _ := c.ModelIdentifier()
+	return errors.Errorf("%q is not a key of the currently targeted model: %q",
+		c.configBase.KeysToGet[0], mod)
 }
 
-func (c *configCommand) getFilteredModel(client configCommandAPI) (config.ConfigValues, error) {
+// getAllConfig writes the full model config to the cmd.Context.
+func (c *configCommand) getAllConfig(client configCommandAPI, ctx *cmd.Context) error {
+	attrs, err := c.getFilteredModel(client)
+	if err != nil {
+		return err
+	}
+
+	// In tabular format, don't print "cloudinit-userdata" it can be very long,
+	// instead give instructions on how to print specifically.
+	if c.out.Name() == "tabular" {
+		if value, ok := attrs[envconfig.CloudInitUserDataKey]; ok {
+			if value.Value.(string) != "" {
+				value.Value = "<value set, see juju model-config cloudinit-userdata>"
+				attrs["cloudinit-userdata"] = value
+			}
+		}
+	}
+
+	return c.out.Write(ctx, attrs)
+}
+
+// getFilteredModel returns the model config with model attributes filtered out.
+func (c *configCommand) getFilteredModel(client configCommandAPI) (envconfig.ConfigValues, error) {
 	attrs, err := client.ModelGetWithMetadata()
 	if err != nil {
 		return nil, err
@@ -489,47 +407,6 @@ func (c *configCommand) getFilteredModel(client configCommandAPI) (config.Config
 		}
 	}
 	return attrs, nil
-}
-
-func isFileLike(fileLike string) bool {
-	r, _ := regexp.Compile("\\.[a-zA-Z]{0,4}$")
-	match := r.FindString(fileLike)
-	if strings.HasSuffix(match, ".") {
-		return false
-	}
-	if match == "" || match == " " {
-		return false
-	}
-	return true
-}
-
-func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.Context) (config.ConfigValues, error, bool) {
-	if len(c.keys) == 1 {
-		key := c.keys[0]
-		if value, found := attrs[key]; found {
-			if c.out.Name() == "tabular" {
-				// The user has not specified that they want
-				// YAML or JSON formatting, so we print out
-				// the value unadorned.
-				return nil, c.out.WriteFormatter(ctx, cmd.FormatSmart, value.Value), true
-			}
-			return config.ConfigValues{key: config.ConfigValue{Source: value.Source, Value: value.Value}}, nil, true
-		}
-
-		return attrs, nil, false
-	}
-
-	// In tabular format, don't print "cloudinit-userdata" it can be very long,
-	// instead give instructions on how to print specifically.
-	if value, ok := attrs[config.CloudInitUserDataKey]; ok && c.out.Name() == "tabular" {
-		if value.Value.(string) != "" {
-			value.Value = "<value set, see juju model-config cloudinit-userdata>"
-			attrs["cloudinit-userdata"] = value
-		}
-		return attrs, nil, true
-	}
-
-	return attrs, nil, true
 }
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
@@ -556,7 +433,7 @@ func (c *configCommand) verifyKnownKeys(client configCommandAPI, keys []string) 
 // attribute.
 func isModelAttribute(attr string) bool {
 	switch attr {
-	case config.NameKey, config.TypeKey, config.UUIDKey:
+	case envconfig.NameKey, envconfig.TypeKey, envconfig.UUIDKey:
 		return true
 	}
 	return false
@@ -564,7 +441,7 @@ func isModelAttribute(attr string) bool {
 
 // formatConfigTabular writes a tabular summary of config information.
 func formatConfigTabular(writer io.Writer, value interface{}) error {
-	configValues, ok := value.(config.ConfigValues)
+	configValues, ok := value.(envconfig.ConfigValues)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", configValues, value)
 	}
@@ -601,7 +478,7 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 // ConfigDetails gets ModelDetails when a model is not available
 // to use.
 func ConfigDetails() (map[string]interface{}, error) {
-	defaultSchema, err := config.Schema(nil)
+	defaultSchema, err := envconfig.Schema(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -613,7 +490,7 @@ func ConfigDetails() (map[string]interface{}, error) {
 		}
 		specifics[key] = common.PrintConfigSchema{
 			Description: attr.Description,
-			Type:        fmt.Sprintf("%s", attr.Type),
+			Type:        string(attr.Type),
 		}
 	}
 	return specifics, nil

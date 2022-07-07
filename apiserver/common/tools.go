@@ -162,17 +162,6 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		OSType:       existingTools.Version.Release,
 		Arch:         existingTools.Version.Arch,
 	}
-	// Older agents will ask for tools based on series.
-	// We now store tools based on OS name so update the find params
-	// if needed to ensure the correct search is done.
-	allSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if allSeries.Contains(existingTools.Version.Release) {
-		findParams.Series = existingTools.Version.Release
-		findParams.OSType = ""
-	}
 
 	tools, err := t.toolsFinder.FindTools(findParams)
 	if err != nil {
@@ -274,22 +263,6 @@ func (f *toolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 		return nil, err
 	}
 
-	// This handles clients and agents that may be attempting to find tools in
-	// the context of series instead of OS type.
-	// If we get a request by series we ensure that any matched OS tools are
-	// converted to the requested series.
-	// Conversely, if we get a request by OS type, matching series tools are
-	// converted to match the OS.
-	// TODO: Remove this block and the called methods for Juju 3/4.
-	if args.Number.Major == 2 && args.Number.Minor <= 8 && (args.OSType != "" || args.Series != "") {
-		if args.OSType != "" {
-			list = f.resultForOSTools(list, args.OSType)
-		}
-		if args.Series != "" {
-			list = f.resultForSeriesTools(list, args.Series)
-		}
-	}
-
 	// Rewrite the URLs so they point at the API servers. If the
 	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
@@ -368,10 +341,10 @@ func (f *toolsFinder) resultForSeriesTools(list coretools.List, series string) c
 
 // findMatchingTools searches tools storage and simplestreams for tools
 // matching the given parameters.
-// If an exact match is specified (number, series and arch) and is found in
+// If an exact match is specified (number, ostype and arch) and is found in
 // tools storage, then simplestreams will not be searched.
 func (f *toolsFinder) findMatchingTools(args params.FindToolsParams) (result coretools.List, _ error) {
-	exactMatch := args.Number != version.Zero && (args.OSType != "" || args.Series != "") && args.Arch != ""
+	exactMatch := args.Number != version.Zero && args.OSType != "" && args.Arch != ""
 
 	storageList, err := f.matchingStorageTools(args)
 	if err != nil && err != coretools.ErrNoMatches {
@@ -463,17 +436,10 @@ func (f *toolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 }
 
 func toolsFilter(args params.FindToolsParams) coretools.Filter {
-	var release string
-	if args.Series != "" {
-		release = coreseries.DefaultOSTypeNameFromSeries(args.Series)
-	}
-	if args.OSType != "" {
-		release = args.OSType
-	}
 	return coretools.Filter{
 		Number: args.Number,
 		Arch:   args.Arch,
-		OSType: release,
+		OSType: args.OSType,
 	}
 }
 

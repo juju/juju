@@ -8,13 +8,6 @@ import "github.com/juju/juju/environs"
 var (
 	UpgradeOperations      = &upgradeOperations
 	StateUpgradeOperations = &stateUpgradeOperations
-	GetUpgradeStepsClient  = &getUpgradeStepsClient
-	ServiceDiscovery       = &serviceDiscovery
-
-	SetJujuFolderPermissionsToAdm  = setJujuFolderPermissionsToAdm
-	MoveUnitAgentStateToController = moveUnitAgentStateToController
-
-	StoreDeployedUnitsInMachineAgentConf = storeDeployedUnitsInMachineAgentConf
 )
 
 type ModelConfigUpdater environConfigUpdater

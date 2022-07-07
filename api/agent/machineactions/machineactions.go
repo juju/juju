@@ -81,10 +81,18 @@ func (c *Client) Action(tag names.ActionTag) (*Action, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Action{
+	a := &Action{
+		id:     tag.Id(),
 		name:   result.Action.Name,
 		params: result.Action.Parameters,
-	}, nil
+	}
+	if result.Action.Parallel != nil {
+		a.parallel = *result.Action.Parallel
+	}
+	if result.Action.ExecutionGroup != nil {
+		a.executionGroup = *result.Action.ExecutionGroup
+	}
+	return a, nil
 }
 
 // ActionBegin marks an action as running.

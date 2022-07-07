@@ -8,7 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"

@@ -14,23 +14,13 @@ import (
 // RunOnAllMachines runs the command on all the machines with the specified
 // timeout.
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) (EnqueuedActions, error) {
+	var results params.EnqueuedActions
 	args := params.RunParams{Commands: commands, Timeout: timeout}
-
-	if c.BestAPIVersion() > 6 {
-		var results params.EnqueuedActionsV2
-		err := c.facade.FacadeCall("RunOnAllMachines", args, &results)
-		if err != nil {
-			return EnqueuedActions{}, errors.Trace(err)
-		}
-		return unmarshallEnqueuedActionsV2(results)
-	}
-
-	var results params.ActionResults
 	err := c.facade.FacadeCall("RunOnAllMachines", args, &results)
 	if err != nil {
 		return EnqueuedActions{}, errors.Trace(err)
 	}
-	return unmarshallEnqueuedRunActions(results.Results)
+	return unmarshallEnqueuedActions(results)
 }
 
 // Run the Commands specified on the machines identified through the ids
@@ -44,20 +34,10 @@ func (c *Client) Run(run RunParams) (EnqueuedActions, error) {
 		Units:           run.Units,
 		WorkloadContext: run.WorkloadContext,
 	}
-
-	if c.BestAPIVersion() > 6 {
-		var results params.EnqueuedActionsV2
-		err := c.facade.FacadeCall("Run", args, &results)
-		if err != nil {
-			return EnqueuedActions{}, errors.Trace(err)
-		}
-		return unmarshallEnqueuedActionsV2(results)
-	}
-
-	var results params.ActionResults
+	var results params.EnqueuedActions
 	err := c.facade.FacadeCall("Run", args, &results)
 	if err != nil {
 		return EnqueuedActions{}, errors.Trace(err)
 	}
-	return unmarshallEnqueuedRunActions(results.Results)
+	return unmarshallEnqueuedActions(results)
 }

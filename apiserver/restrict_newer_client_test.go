@@ -39,11 +39,24 @@ func (r *restrictNewerClientSuite) TestOldClientAllowedMethods(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(caller, gc.NotNil)
 	}
-	checkAllowed("Client", "FullStatus", 1)
-	checkAllowed("Pinger", "Ping", 1)
+	checkAllowed("Client", "FullStatus", clientFacadeVersion)
+	checkAllowed("Pinger", "Ping", pingerFacadeVersion)
 	// Worker calls for migrations.
 	checkAllowed("MigrationTarget", "Prechecks", 1)
-	checkAllowed("UserManager", "UserInfo", 1)
+	checkAllowed("UserManager", "UserInfo", userManagerFacadeVersion)
+}
+
+func (r *restrictNewerClientSuite) TestRecentClientAllowedAll(c *gc.C) {
+	r.PatchValue(&jujuversion.Current, version.MustParse("3.0.0"))
+	r.callerVersion = jujuversion.Current
+	r.callerVersion.Major--
+	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(true, r.callerVersion)
+	checkAllowed := func(facade, method string, version int) {
+		caller, err := root.FindMethod(facade, version, method)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(caller, gc.NotNil)
+	}
+	checkAllowed("ModelManager", "CreateModel", modelManagerFacadeVersion)
 }
 
 func (r *restrictNewerClientSuite) TestRecentNewerClientAllowedMethods(c *gc.C) {
@@ -65,11 +78,11 @@ func (r *restrictNewerClientSuite) assertNewerClientAllowedMethods(c *gc.C, mino
 			c.Check(caller, gc.IsNil)
 		}
 	}
-	checkAllowed("Client", "FullStatus", 1)
-	checkAllowed("Pinger", "Ping", 1)
+	checkAllowed("Client", "FullStatus", clientFacadeVersion)
+	checkAllowed("Pinger", "Ping", pingerFacadeVersion)
 	// For migrations.
 	checkAllowed("MigrationTarget", "Prechecks", 1)
-	checkAllowed("UserManager", "UserInfo", 1)
+	checkAllowed("UserManager", "UserInfo", userManagerFacadeVersion)
 	// For upgrades.
 	checkAllowed("ModelUpgrader", "UpgradeModel", 1)
 }
@@ -135,7 +148,7 @@ func (r *restrictNewerClientSuite) TestAgentMethod(c *gc.C) {
 func (r *restrictNewerClientSuite) assertAgentMethod(c *gc.C, agentVers string, allowed bool) {
 	r.callerVersion = version.MustParse(agentVers)
 	root := apiserver.TestingUpgradeOrMigrationOnlyRoot(false, r.callerVersion)
-	caller, err := root.FindMethod("Uniter", 15, "CurrentModel")
+	caller, err := root.FindMethod("Uniter", 18, "CurrentModel")
 	if allowed {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(caller, gc.NotNil)

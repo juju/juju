@@ -45,9 +45,6 @@ func (c *Client) GetChanges(bundleURL, bundleDataYAML string) (params.BundleChan
 // applied, with the args of a method as a map.
 func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.BundleChangesMapArgsResults, error) {
 	var result params.BundleChangesMapArgsResults
-	if bestVer := c.BestAPIVersion(); bestVer < 4 {
-		return result, errors.Errorf("this controller version does not support bundle get changes as map args feature.")
-	}
 	if err := c.facade.FacadeCall("GetChangesMapArgs", params.BundleChangesParams{
 		BundleURL:      bundleURL,
 		BundleDataYAML: bundleDataYAML,
@@ -60,12 +57,6 @@ func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.Bun
 // ExportBundle exports the current model configuration.
 func (c *Client) ExportBundle(includeDefaults bool) (string, error) {
 	var result params.StringResult
-	if bestVer := c.BestAPIVersion(); bestVer < 2 {
-		return "", errors.Errorf("this controller version does not support bundle export feature.")
-	} else if bestVer < 5 && includeDefaults {
-		return "", errors.Errorf("this controller version does not support bundle export with charm defaults.")
-	}
-
 	arg := params.ExportBundleParams{
 		IncludeCharmDefaults: includeDefaults,
 	}

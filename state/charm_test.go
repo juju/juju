@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	jc "github.com/juju/testing/checkers"
@@ -17,8 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -707,17 +705,9 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 }
 
 func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Check that a charm with missing sha/storage path is flagged as pending
 	// to be uploaded.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1 := s.dummyCharm(c, "ch:quantal/dummy-1")
 	dummy1.SHA256 = ""
 	dummy1.StoragePath = ""
 	ch1, err := s.State.AddCharmMetadata(dummy1)
@@ -732,7 +722,7 @@ func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
 
 	// Check that a charm with populated sha/storage path is flagged as
 	// uploaded.
-	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:quantal/dummy-2")
 	ch2, err := s.State.AddCharmMetadata(dummy2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch2.IsPlaceholder(), jc.IsFalse)
@@ -825,7 +815,7 @@ actions:
 `
 
 func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
-	actions, err := charm.ReadActionsYaml(bytes.NewBuffer([]byte(actionsYaml)))
+	actions, err := charm.ReadActionsYaml("somecharm", bytes.NewBuffer([]byte(actionsYaml)))
 	c.Assert(err, jc.ErrorIsNil)
 
 	forEachStandardCharm(c, func(name string) {

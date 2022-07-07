@@ -4,7 +4,6 @@
 package application
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -114,10 +113,6 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	if err = c.checkApplicationFacadeSupport(apiRoot, "changing application bindings", 11); err != nil {
-		return err
-	}
-
 	if err = c.parseBindExpression(apiRoot); err != nil && errors.IsNotSupported(err) {
 		ctx.Infof("Spaces not supported by this model's cloud, nothing to do.")
 		return nil
@@ -217,17 +212,4 @@ func (c *bindCommand) parseBindExpression(apiRoot base.APICallCloser) error {
 
 	c.Bindings = bindings
 	return nil
-}
-
-func (c *bindCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
-	if verQuerier.BestFacadeVersion("Application") >= minVersion {
-		return nil
-	}
-
-	suffix := "this server"
-	if version, ok := verQuerier.ServerVersion(); ok {
-		suffix = fmt.Sprintf("server version %s", version)
-	}
-
-	return errors.New(action + " is not supported by " + suffix)
 }

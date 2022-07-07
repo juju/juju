@@ -67,8 +67,6 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the feature flag set to be the requested initial set.
-	// This works for both windows and unix, even though normally
-	// the feature flags on windows are determined using the registry.
 	// For tests, setting with the environment variable isolates us
 	// from a single resource that was hitting contention during parallel
 	// test runs.
@@ -281,34 +279,6 @@ func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
 	cleaner.AddCleanup(func(_ *gc.C) {
 		close(done)
 	})
-}
-
-type PackageManagerStruct struct {
-	PackageManager    string
-	RepositoryManager string
-	PackageQuery      string
-}
-
-func GetPackageManager() (s PackageManagerStruct, err error) {
-	switch coreos.HostOS() {
-	case coreos.CentOS:
-		s.PackageManager = "yum"
-		s.PackageQuery = "yum"
-		s.RepositoryManager = "yum-config-manager --add-repo"
-	case coreos.OpenSUSE:
-		s.PackageManager = "zypper"
-		s.PackageQuery = "zypper"
-		s.RepositoryManager = "zypper addrepo"
-	case coreos.Ubuntu:
-		s.PackageManager = "apt-get"
-		s.PackageQuery = "dpkg-query"
-		s.RepositoryManager = "add-apt-repository"
-	default:
-		s.PackageManager = "apt-get"
-		s.PackageQuery = "dpkg-query"
-		s.RepositoryManager = "add-apt-repository"
-	}
-	return s, nil
 }
 
 // GetExportedFields return the exported fields of a struct.

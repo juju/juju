@@ -4,7 +4,7 @@
 package charms
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"

@@ -39,7 +39,6 @@ func (s *spacesSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	caller := mocks.NewMockAPICallCloser(ctrl)
-	caller.EXPECT().BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
 
 	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
 	s.fCaller.EXPECT().RawAPICaller().Return(caller).AnyTimes()
@@ -252,11 +251,7 @@ var _ = gc.Suite(&SpacesSuite{})
 
 func (s *SpacesSuite) init(c *gc.C, args apitesting.APICall) {
 	s.apiCaller = apitesting.APICallChecker(c, args)
-	best := &apitesting.BestVersionCaller{
-		BestVersion:   6,
-		APICallerFunc: s.apiCaller.APICallerFunc,
-	}
-	s.api = spaces.NewAPI(best)
+	s.api = spaces.NewAPI(s.apiCaller.APICallerFunc)
 	c.Check(s.api, gc.NotNil)
 	c.Check(s.apiCaller.CallCount, gc.Equals, 0)
 }
@@ -317,40 +312,6 @@ func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
 		}
 		s.testCreateSpace(c, name, subnets)
 	}
-}
-
-func (s *SpacesSuite) TestCreateSpaceV4(c *gc.C) {
-	var called bool
-	apicaller := &apitesting.BestVersionCaller{
-		APICallerFunc: apitesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Spaces")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "CreateSpaces")
-				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				c.Assert(a, jc.DeepEquals, params.CreateSpacesParamsV4{
-					Spaces: []params.CreateSpaceParamsV4{{
-						SpaceTag:   names.NewSpaceTag("testv4").String(),
-						SubnetTags: []string{"subnet-1.1.1.0/24"},
-						Public:     false,
-					}}})
-				*result.(*params.ErrorResults) = params.ErrorResults{
-					Results: []params.ErrorResult{{}},
-				}
-				called = true
-				return nil
-			},
-		),
-		BestVersion: 4,
-	}
-	apiv4 := spaces.NewAPI(apicaller)
-	err := apiv4.CreateSpace("testv4", []string{"1.1.1.0/24"}, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *SpacesSuite) testShowSpaces(c *gc.C, spaceName string, results []params.ShowSpaceResult, err error, expectErr string) {

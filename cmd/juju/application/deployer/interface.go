@@ -5,7 +5,7 @@ package deployer
 
 import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -100,7 +100,7 @@ type ConsumeDetails interface {
 var supportedJujuSeries = series.WorkloadSeries
 
 type DeployerAPI interface {
-	// APICallCloser is needed for BestFacadeVersion and for the DeployResourcesFunc.
+	// APICallCloser is needed for the DeployResourcesFunc.
 	base.APICallCloser
 
 	ApplicationAPI
@@ -136,9 +136,6 @@ type ApplicationAPI interface {
 
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetConstraints(application string, constraints constraints.Value) error
-
-	// Deprecate use of Update, use SetConfig instead.
-	Update(apiparams.ApplicationUpdate) error
 
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)

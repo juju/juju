@@ -13,20 +13,20 @@ import (
 
 const apiName = "StatusHistory"
 
-// Facade allows calls to "StatusHistory" endpoints
-type Facade struct {
+// Client allows calls to "StatusHistory" endpoints.
+type Client struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
 }
 
-// NewFacade returns a status "StatusHistory" Facade.
-func NewFacade(caller base.APICaller) *Facade {
+// NewClient returns a status "StatusHistory" Client.
+func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, apiName)
-	return &Facade{facade: facadeCaller, ModelWatcher: common.NewModelWatcher(facadeCaller)}
+	return &Client{facade: facadeCaller, ModelWatcher: common.NewModelWatcher(facadeCaller)}
 }
 
 // Prune calls "StatusHistory.Prune"
-func (s *Facade) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
+func (s *Client) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
 	p := params.StatusHistoryPruneArgs{
 		MaxHistoryTime: maxHistoryTime,
 		MaxHistoryMB:   maxHistoryMB,

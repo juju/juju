@@ -1212,13 +1212,11 @@ func (m *testMachine) SetInstanceInfo(
 	return nil
 }
 
-func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
-	return &params.ProvisioningInfoV10{
-		ProvisioningInfoBase: params.ProvisioningInfoBase{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			Series:           jujuversion.DefaultSupportedLTS(),
-			Constraints:      constraints.MustParse(m.constraints),
-		},
+func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
+	return &params.ProvisioningInfo{
+		ControllerConfig:            coretesting.FakeControllerConfig(),
+		Series:                      jujuversion.DefaultSupportedLTS(),
+		Constraints:                 constraints.MustParse(m.constraints),
 		ProvisioningNetworkTopology: m.topology,
 	}, nil
 }

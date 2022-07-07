@@ -4,6 +4,8 @@
 package operation
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/v3/exec"
@@ -44,6 +46,9 @@ type Operation interface {
 
 	// NeedsGlobalMachineLock returns a bool expressing whether we need to lock the machine.
 	NeedsGlobalMachineLock() bool
+
+	// ExecutionGroup returns a string used to construct the name of the machine lock.
+	ExecutionGroup() string
 
 	// Prepare ensures that the operation is valid and ready to be executed.
 	// If it returns a non-nil state, that state will be validated and recorded.
@@ -237,6 +242,9 @@ type Callbacks interface {
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+
+	// SetSecretRotated updates the time when the secret was rotated.
+	SetSecretRotated(url string, when time.Time) error
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

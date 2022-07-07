@@ -34,15 +34,6 @@ type API struct {
 	presence        facade.Presence
 }
 
-type APIV1 struct {
-	*APIV2
-}
-
-// APIV2 implements version 2 of the migration master API.
-type APIV2 struct {
-	*API
-}
-
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
@@ -222,9 +213,6 @@ func (api *API) Export() (params.SerializedModel, error) {
 	}
 	return serialized, nil
 }
-
-// ProcessRelations is masked on older versions of the migration master API
-func (api *APIV1) ProcessRelations(_, _ struct{}) {}
 
 // ProcessRelations processes any relations that need updating after an export.
 // This should help fix any remoteApplications that have been migrated.
@@ -424,6 +412,3 @@ func revisionToSerialized(rr description.ResourceRevision) params.SerializedMode
 		Username:       rr.Username(),
 	}
 }
-
-// MinionReportTimeout is not available via the V2 API.
-func (api *APIV2) MinionReportTimeout(_, _ struct{}) {}

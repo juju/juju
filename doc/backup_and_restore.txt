@@ -224,7 +224,6 @@ BackupsAPI
   Info(BackupsInfoArgs) BackupsMetadataResult
   List() BackupsMetadataListResult
   Remove(BackupsRemoveArgs)
-  Restore(BackupsRestoreArgs)
 
 Again note that upload and download are not yet included here.
 
@@ -240,7 +239,6 @@ exposed via the following options:
 - juju backups --info <ID>
 - juju backups --list [--brief]
 - juju backups --remove <ID>
-- juju backups --restore <ID>
 
 Note: further options may be appropriate for later addition
       (e.g. [<filename>] on --restore).

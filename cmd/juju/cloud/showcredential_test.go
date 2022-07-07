@@ -69,19 +69,6 @@ func (s *ShowCredentialSuite) TestShowCredentialBadArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `only cloud and credential names are supported`)
 }
 
-func (s *ShowCredentialSuite) TestShowCredentialAPIVersion(c *gc.C) {
-	s.api.v = 1
-	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-ERROR credential content lookup on the controller failed: credential content lookup on the controller in Juju v1 not supported
-No credentials from this client or from a controller to display.
-`[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
-	s.api.CheckCallNames(c, "BestAPIVersion", "Close")
-}
-
 func (s *ShowCredentialSuite) TestShowCredentialAPICallError(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"), nil)
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
@@ -92,7 +79,7 @@ ERROR credential content lookup on the controller failed: boom
 No credentials from this client or from a controller to display.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
-	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
+	s.api.CheckCallNames(c, "CredentialContents", "Close")
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
@@ -102,7 +89,7 @@ func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No credentials from this client or from a controller to display.\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
-	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
+	s.api.CheckCallNames(c, "CredentialContents", "Close")
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialBothClientAndController(c *gc.C) {
@@ -164,7 +151,7 @@ client-credentials:
         access-key: key
         secret-key: secret
 `[1:])
-	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
+	s.api.CheckCallNames(c, "CredentialContents", "Close")
 	c.Assert(s.api.inclsecrets, jc.IsTrue)
 }
 
@@ -256,7 +243,7 @@ controller-credentials:
       models:
         klmmodel: write
 `[1:])
-	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
+	s.api.CheckCallNames(c, "CredentialContents", "Close")
 }
 
 type fakeCredentialContentAPI struct {
@@ -275,9 +262,4 @@ func (f *fakeCredentialContentAPI) CredentialContents(cloud, credential string, 
 func (f *fakeCredentialContentAPI) Close() error {
 	f.AddCall("Close")
 	return f.NextErr()
-}
-
-func (f *fakeCredentialContentAPI) BestAPIVersion() int {
-	f.AddCall("BestAPIVersion")
-	return f.v
 }

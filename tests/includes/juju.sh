@@ -1,9 +1,14 @@
 #!/bin/bash -e
-# juju_version will return only the version and not the architecture/substrait
-# of the juju version.
-# This will use any juju on $PATH
+# juju_version will return only the version and not the architecture/substrate
+# of the juju version. If JUJU_VERSION is defined in CI this value will be used
+# otherwise we interrogate the juju binary on path.
 juju_version() {
-	version=$(juju version | cut -f1 -d '-')
+	# Match only major, minor, and patch or tag + build number
+	if [ -n "${JUJU_VERSION:-}" ]; then
+		version=${JUJU_VERSION}
+	else
+		version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
+	fi
 	echo "${version}"
 }
 
@@ -234,7 +239,7 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${cloud_region} ${name} -d ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${cloud_region} ${name} --add-model ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"

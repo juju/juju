@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/machinelock"
@@ -270,10 +271,6 @@ type Config interface {
 	// collected metrics.
 	MetricsSpoolDir() string
 
-	// MongoVersion returns the version of mongo that the state server
-	// is using.
-	MongoVersion() mongo.Version
-
 	// MongoMemoryProfile returns the profile to be used when setting
 	// mongo memory usage.
 	MongoMemoryProfile() mongo.MemoryProfile
@@ -333,9 +330,6 @@ type configSetterOnly interface {
 
 	// SetControllerAPIPort sets the controller API port in the config.
 	SetControllerAPIPort(port int)
-
-	// SetMongoVersion sets the passed version as currently in use.
-	SetMongoVersion(mongo.Version)
 
 	// SetMongoMemoryProfile sets the passed policy as the one to be
 	// used.
@@ -426,7 +420,6 @@ type configInternal struct {
 	servingInfo              *controller.StateServingInfo
 	loggingConfig            string
 	values                   map[string]string
-	mongoVersion             string
 	mongoMemoryProfile       string
 	jujuDBSnapChannel        string
 	nonSyncedWritesToRaftLog bool
@@ -449,7 +442,6 @@ type AgentConfigParams struct {
 	APIAddresses             []string
 	CACert                   string
 	Values                   map[string]string
-	MongoVersion             mongo.Version
 	MongoMemoryProfile       mongo.MemoryProfile
 	JujuDBSnapChannel        string
 	NonSyncedWritesToRaftLog bool
@@ -515,7 +507,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:                   configParams.CACert,
 		oldPassword:              configParams.Password,
 		values:                   configParams.Values,
-		mongoVersion:             configParams.MongoVersion.String(),
 		mongoMemoryProfile:       configParams.MongoMemoryProfile.String(),
 		jujuDBSnapChannel:        configParams.JujuDBSnapChannel,
 		nonSyncedWritesToRaftLog: configParams.NonSyncedWritesToRaftLog,
@@ -583,7 +574,7 @@ func Dir(dataDir string, tag names.Tag) string {
 // NOTE: Delete this once all agents accept --config instead
 // of --data-dir - it won't be needed anymore.
 func ConfigPath(dataDir string, tag names.Tag) string {
-	return filepath.Join(Dir(dataDir, tag), AgentConfigFilename)
+	return filepath.Join(Dir(dataDir, tag), constants.AgentConfigFilename)
 }
 
 // ReadConfig reads configuration data from the given location.
@@ -810,15 +801,6 @@ func (c *configInternal) check() error {
 	return nil
 }
 
-// MongoVersion implements Config.
-func (c *configInternal) MongoVersion() mongo.Version {
-	v, err := mongo.NewVersion(c.mongoVersion)
-	if err != nil {
-		return mongo.Mongo24
-	}
-	return v
-}
-
 // MongoMemoryProfile implements Config.
 func (c *configInternal) MongoMemoryProfile() mongo.MemoryProfile {
 	mprof := mongo.MemoryProfile(c.mongoMemoryProfile)
@@ -826,11 +808,6 @@ func (c *configInternal) MongoMemoryProfile() mongo.MemoryProfile {
 		return mongo.MemoryProfileLow
 	}
 	return mongo.MemoryProfile(c.mongoMemoryProfile)
-}
-
-// SetMongoVersion implements configSetterOnly.
-func (c *configInternal) SetMongoVersion(v mongo.Version) {
-	c.mongoVersion = v.String()
 }
 
 // SetMongoMemoryProfile implements configSetterOnly.
@@ -910,7 +887,7 @@ func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error
 		return nil, errors.Trace(err)
 	}
 	commands := renderer.MkdirAll(c.Dir())
-	filename := c.File(AgentConfigFilename)
+	filename := c.File(constants.AgentConfigFilename)
 	commands = append(commands, renderer.WriteFile(filename, data)...)
 	commands = append(commands, renderer.Chmod(filename, 0600)...)
 	return commands, nil

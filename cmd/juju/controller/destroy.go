@@ -70,15 +70,15 @@ type destroyCommand struct {
 // TODO(cheryl): Do we want the usage, options, examples, and see also text in
 // backticks for markdown?
 var usageDetails = `
-All models (initial model plus all workload/hosted) associated with the
-controller will first need to be destroyed, either in advance, or by
+All workload models running on the controller will first
+need to be destroyed, either in advance, or by
 specifying `[1:] + "`--destroy-all-models`." + `
 
 If there is persistent storage in any of the models managed by the
 controller, then you must choose to either destroy or release the
 storage, using ` + "`--destroy-storage` or `--release-storage` respectively." + `
 
-Sometimes, the destruction of a hosted model may fail as Juju encounters errors
+Sometimes, the destruction of a model may fail as Juju encounters errors
 that need to be dealt with before that model can be destroyed.
 However, at times, there is a need to destroy a controller ignoring
 such model errors. In these rare cases, use --force option but note 
@@ -91,21 +91,21 @@ However, when using --force, users can also specify --no-wait to progress throug
 without delay waiting for each step to complete.
 
 Examples:
-    # Destroy the controller and all hosted models. If there is
+    # Destroy the controller and all models. If there is
     # persistent storage remaining in any of the models, then
     # this will prompt you to choose to either destroy or release
     # the storage.
     juju destroy-controller --destroy-all-models mycontroller
 
-    # Destroy the controller and all hosted models, destroying
+    # Destroy the controller and all models, destroying
     # any remaining persistent storage.
     juju destroy-controller --destroy-all-models --destroy-storage
 
-    # Destroy the controller and all hosted models, releasing
+    # Destroy the controller and all models, releasing
     # any remaining persistent storage from Juju's control.
     juju destroy-controller --destroy-all-models --release-storage
 
-    # Destroy the controller and all hosted models, continuing
+    # Destroy the controller and all models, continuing
     # even if there are operational errors.
     juju destroy-controller --destroy-all-models --force
     juju destroy-controller --destroy-all-models --force --no-wait
@@ -127,7 +127,6 @@ Continue? (y/N):`[1:]
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ModelConfig() (map[string]interface{}, error)
 	HostedModelConfigs() ([]controllerapi.HostedConfig, error)
 	CloudSpec(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -166,12 +165,12 @@ const defaultTimeout = 30 * time.Minute
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
-	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
+	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all models in the controller")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances managed by the controller")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from management of the controller, without destroying them")
-	f.DurationVar(&c.modelTimeout, "model-timeout", defaultTimeout, "Timeout before each individual hosted model destruction is aborted")
-	f.BoolVar(&c.force, "force", false, "Force destroy hosted models ignoring any errors")
-	f.BoolVar(&c.noWait, "no-wait", false, "Rush through hosted model destruction without waiting for each individual step to complete")
+	f.DurationVar(&c.modelTimeout, "model-timeout", defaultTimeout, "Timeout before each individual model destruction is aborted")
+	f.BoolVar(&c.force, "force", false, "Force destroy models ignoring any errors")
+	f.BoolVar(&c.noWait, "no-wait", false, "Rush through model destruction without waiting for each individual step to complete")
 }
 
 // Init implements Command.Init.
@@ -202,48 +201,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
 	defer api.Close()
-
-	if api.BestAPIVersion() < 4 {
-		// Versions before 4 support only destroying the storage,
-		// and will not raise an error if there is storage in the
-		// controller. Force the user to specify up-front.
-		if c.releaseStorage {
-			return errors.New("this juju controller only supports destroying storage")
-		}
-		if !c.destroyStorage {
-			models, err := api.AllModels()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			var anyStorage bool
-			for _, model := range models {
-				hasStorage, err := c.modelHasStorage(model.Name)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if hasStorage {
-					anyStorage = true
-					break
-				}
-			}
-			if anyStorage {
-				return errors.Errorf(`cannot destroy controller %q
-
-Destroying this controller will destroy the storage,
-but you have not indicated that you want to do that.
-
-Please run the the command again with --destroy-storage
-to confirm that you want to destroy the storage along
-with the controller.
-
-If instead you want to keep the storage, you must first
-upgrade the controller to version 2.3 or greater.
-
-`, controllerName)
-			}
-			c.destroyStorage = true
-		}
-	}
 
 	// Obtain controller environ so we can clean up afterwards.
 	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
@@ -326,14 +283,14 @@ upgrade the controller to version 2.3 or greater.
 		// there may be some being destroyed already. We need to wait for them.
 		// Check for both undead models and live machines, as machines may be
 		// in the controller model.
-		ctx.Infof("Waiting for hosted model resources to be reclaimed")
+		ctx.Infof("Waiting for model resources to be reclaimed")
 		for ; hasUnreclaimedResources(modelStatus); modelStatus = updateStatus(2 * time.Second) {
 			ctx.Infof(fmtCtrStatus(modelStatus.controller))
 			for _, model := range modelStatus.models {
 				ctx.Verbosef(fmtModelStatus(model))
 			}
 		}
-		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
+		ctx.Infof("All models reclaimed, cleaning up controller machines")
 		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 }
@@ -375,8 +332,8 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 	}
 	return errors.Errorf(`cannot destroy controller %q
 
-The controller has live hosted models. If you want
-to destroy all hosted models in the controller,
+The controller has live models. If you want
+to destroy all models in the controller,
 run this command again with the --destroy-all-models
 option.
 
@@ -634,7 +591,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 		Cloud:          params.Cloud,
 		Config:         cfg,
 	}
-	if bootstrapConfig.CloudType == cloud.CloudTypeCAAS {
+	if cloud.CloudTypeIsCAAS(bootstrapConfig.CloudType) {
 		return caas.New(stdcontext.TODO(), openParams)
 	}
 	return environs.New(stdcontext.TODO(), openParams)

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -185,212 +185,11 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	})
 }
 
-var _ = gc.Suite(&DestroyMachineManagerSuite{})
-
-type DestroyMachineManagerSuite struct {
-	testing.CleanupSuite
-	authorizer    *apiservertesting.FakeAuthorizer
-	st            *mocks.MockBackend
-	storageAccess *mocks.MockStorageInterface
-	leadership    *mocks.MockLeadership
-	api           *machinemanager.MachineManagerAPI
-}
-
-func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
-	s.CleanupSuite.SetUpTest(c)
-	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.PatchValue(&machinemanager.ClassifyDetachedStorage, mockedClassifyDetachedStorage)
-}
-
-func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.st = mocks.NewMockBackend(ctrl)
-	s.st.EXPECT().GetBlockForType(state.RemoveBlock).Return(nil, false, nil).AnyTimes()
-	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
-
-	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
-	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
-	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
-
-	s.leadership = mocks.NewMockLeadership(ctrl)
-
-	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
-		s.storageAccess,
-		nil,
-		machinemanager.ModelAuthorizer{
-			Authorizer: s.authorizer,
-		},
-		nil,
-		nil,
-		s.leadership,
-		nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return ctrl
-}
-
-func (s *DestroyMachineManagerSuite) apiV4() machinemanager.MachineManagerAPIV4 {
-	return machinemanager.MachineManagerAPIV4{
-		MachineManagerAPIV5: &machinemanager.MachineManagerAPIV5{
-			MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{
-				MachineManagerAPIV7: &machinemanager.MachineManagerAPIV7{
-					MachineManagerAPI: s.api,
-				},
-			},
-		},
-	}
-}
-
-func (s *DestroyMachineManagerSuite) expectUnpinAppLeaders(id string) {
-	machineTag := names.NewMachineTag(id)
-
-	s.leadership.EXPECT().GetMachineApplicationNames(id).Return([]string{"foo-app-1"}, nil)
-	s.leadership.EXPECT().UnpinApplicationLeadersByName(machineTag, []string{"foo-app-1"}).Return(params.PinApplicationsResults{}, nil)
-}
-
-func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controller, units []machinemanager.Unit, containers []string, attemptDestroy, keep, force bool) *mocks.MockMachine {
-	machine := mocks.NewMockMachine(ctrl)
-	if keep {
-		machine.EXPECT().SetKeepInstance(true).Return(nil)
-	}
-
-	machine.EXPECT().Containers().Return(containers, nil)
-
-	if units == nil {
-		units = []machinemanager.Unit{
-			s.expectDestroyUnit(ctrl, "foo/0", true, nil),
-			s.expectDestroyUnit(ctrl, "foo/1", false, nil),
-			s.expectDestroyUnit(ctrl, "foo/2", false, nil),
-		}
-	}
-	machine.EXPECT().Units().Return(units, nil)
-
-	if attemptDestroy {
-		if force {
-			machine.EXPECT().ForceDestroy(gomock.Any()).Return(nil)
-		} else {
-			if len(containers) > 0 {
-				machine.EXPECT().Destroy().Return(stateerrors.NewHasContainersError("0", containers))
-			} else if len(units) > 0 {
-				machine.EXPECT().Destroy().Return(stateerrors.NewHasAssignedUnitsError("0", []string{"foo/0", "foo/1", "foo/2"}))
-			} else {
-				machine.EXPECT().Destroy().Return(nil)
-			}
-		}
-	}
-	return machine
-}
-
-func (s *DestroyMachineManagerSuite) expectDestroyUnit(ctrl *gomock.Controller, name string, hasStorage bool, retrievalErr error) *mocks.MockUnit {
-	unitTag := names.NewUnitTag(name)
-	unit := mocks.NewMockUnit(ctrl)
-	unit.EXPECT().UnitTag().Return(unitTag).AnyTimes()
-	if retrievalErr != nil {
-		s.storageAccess.EXPECT().UnitStorageAttachments(unitTag).Return(nil, retrievalErr)
-	} else if !hasStorage {
-		s.storageAccess.EXPECT().UnitStorageAttachments(unitTag).Return([]state.StorageAttachment{}, nil)
-	} else {
-		s.storageAccess.EXPECT().UnitStorageAttachments(unitTag).Return([]state.StorageAttachment{
-			s.expectDestroyStorage(ctrl, "disks/0", true),
-			s.expectDestroyStorage(ctrl, "disks/1", false),
-		}, nil)
-	}
-	return unit
-}
-
-func (s *DestroyMachineManagerSuite) expectDestroyStorage(ctrl *gomock.Controller, id string, detachable bool) *mocks.MockStorageAttachment {
-	storageInstanceTag := names.NewStorageTag(id)
-	storageAttachment := mocks.NewMockStorageAttachment(ctrl)
-	storageAttachment.EXPECT().StorageInstance().Return(storageInstanceTag)
-
-	storageInstance := mocks.NewMockStorageInstance(ctrl)
-	storageInstance.EXPECT().StorageTag().Return(storageInstanceTag).AnyTimes()
-	s.storageAccess.EXPECT().StorageInstance(storageInstanceTag).Return(storageInstance, nil)
-
-	return storageAttachment
-}
-
-func (s *DestroyMachineManagerSuite) TestDestroyMachine(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	s.expectUnpinAppLeaders("0")
-
-	machine0 := s.expectDestroyMachine(ctrl, []machinemanager.Unit{}, nil, true, false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
-	results, err := s.api.DestroyMachine(params.Entities{
-		Entities: []params.Entity{{Tag: "machine-0"}},
+func (s *MachineManagerSuite) assertMachinesDestroyed(c *gc.C, in []string, out params.DestroyMachineResults, expectedCalls ...string) {
+	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+		MachineTags: in,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				MachineId: "0",
-			},
-		}},
-	})
-}
-
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithUnits(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	s.leadership.EXPECT().GetMachineApplicationNames("0").Return([]string{"foo-app-1"}, nil)
-
-	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
-	results, err := s.api.DestroyMachine(params.Entities{
-		Entities: []params.Entity{{Tag: "machine-0"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Error: apiservererrors.ServerError(stateerrors.NewHasAssignedUnitsError("0", []string{"foo/0", "foo/1", "foo/2"})),
-		}},
-	})
-}
-
-func (s *DestroyMachineManagerSuite) TestForceDestroyMachine(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	s.expectUnpinAppLeaders("0")
-
-	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, true)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
-	results, err := s.api.ForceDestroyMachine(params.Entities{
-		Entities: []params.Entity{{Tag: "machine-0"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				MachineId: "0",
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
-}
-
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
 
 	units := []machinemanager.Unit{
 		s.expectDestroyUnit(ctrl, "foo/0", false, errors.New("kaboom")),
@@ -418,16 +217,52 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 		s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom")),
 		s.expectDestroyUnit(ctrl, "foo/2", false, nil),
 	}
-	machine0 := s.expectDestroyMachine(ctrl, units, nil, false, false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.assertMachinesDestroyed(c,
+		[]string{"machine-0"},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
+			}},
+		},
+		"GetBlockForType",
+		"GetBlockForType",
+		"Machine",
+		"UnitStorageAttachments",
+		"UnitStorageAttachments",
+		"UnitStorageAttachments",
+	)
+}
 
-	results, err := s.api.DestroyMachine(params.Entities{[]params.Entity{{Tag: "machine-0"}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
-		}},
-	})
+func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.machines["0"] = &mockMachine{}
+	s.st.SetErrors(
+		errors.New("boom"),
+	)
+	s.assertMachinesDestroyed(c,
+		[]string{"machine-0"},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Error: apiservererrors.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
+			}},
+		},
+		"GetBlockForType",
+		"GetBlockForType",
+		"Machine",
+		"UnitStorageAttachments",
+		"StorageInstance",
+		"StorageInstance",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"StorageInstanceVolume",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+		"UnitStorageAttachments",
+		"VolumeAccess",
+		"FilesystemAccess",
+	)
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
@@ -452,11 +287,11 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{
-			{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
-			{Info: &params.DestroyMachineInfo{
-				MachineId: "1",
+	s.assertMachinesDestroyed(c,
+		[]string{"machine-0"},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 			}},
 		},
 	})
@@ -472,84 +307,40 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	units0 := []machinemanager.Unit{
 		s.expectDestroyUnit(ctrl, "foo/1", false, errors.New("kaboom")),
 	}
-	machine0 := s.expectDestroyMachine(ctrl, units0, nil, true, false, true)
+	machine0 := s.expectDestroyMachine(ctrl, units0, nil, false, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	units1 := []machinemanager.Unit{
-		s.expectDestroyUnit(ctrl, "bar/0", true, nil),
-	}
-	machine1 := s.expectDestroyMachine(ctrl, units1, nil, true, false, true)
-	s.st.EXPECT().Machine("1").Return(machine1, nil)
-
-	results, err := s.api.ForceDestroyMachine(params.Entities{[]params.Entity{
-		{Tag: "machine-0"},
-		{Tag: "machine-1"},
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{
-			{Info: &params.DestroyMachineInfo{
-				MachineId: "0",
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-1"},
-				},
-			}},
-			{Info: &params.DestroyMachineInfo{
-				MachineId: "1",
-				DestroyedUnits: []params.Entity{
-					{"unit-bar-0"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			}},
+	s.assertMachinesDestroyed(c,
+		[]string{"machine-0", "machine-1"},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{
+				{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
+				{Info: &params.DestroyMachineInfo{
+					MachineId: "1",
+					DestroyedUnits: []params.Entity{
+						{"unit-bar-0"},
+					},
+					DetachedStorage: []params.Entity{
+						{"storage-disks-0"},
+					},
+				}},
+			},
 		},
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsV4(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	s.expectUnpinAppLeaders("0")
-
-	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, true, true)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
-	apiV4 := s.apiV4()
-	results, err := apiV4.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
-		Force:       true,
-		MachineTags: []string{"machine-0"},
-	})
+func (s *MachineManagerSuite) assertDestroyMachineWithParams(c *gc.C, in params.DestroyMachinesParams, out params.DestroyMachineResults) {
+	s.st.machines["0"] = &mockMachine{}
+	results, err := s.api.DestroyMachineWithParams(in)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				MachineId: "0",
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
+	m, err := s.st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.(*mockMachine).keep, jc.IsTrue)
+	c.Assert(results, jc.DeepEquals, out)
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+func (s *MachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
+	defer s.setup(c).Finish()
 
 	s.expectUnpinAppLeaders("0")
 
@@ -584,6 +375,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 	})
 }
 
+
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -592,7 +384,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 
 	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, true, true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
 		Keep:        true,
 		Force:       true,
@@ -713,118 +504,8 @@ func mockedClassifyDetachedStorage(
 	return destroyed, detached, nil
 }
 
-var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
-
-type ProvisioningMachineManagerSuite struct {
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	ctrlSt     *mocks.MockControllerBackend
-	pool       *mocks.MockPool
-	model      *mocks.MockModel
-	api        *machinemanager.MachineManagerAPI
-
-	callContext context.ProviderCallContext
-}
-
-func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
-	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
-}
-
-func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.st = mocks.NewMockBackend(ctrl)
-
-	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
-	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
-	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
-
-	s.pool = mocks.NewMockPool(ctrl)
-	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil)
-
-	s.model = mocks.NewMockModel(ctrl)
-	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
-	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
-	s.st.EXPECT().Model().Return(s.model, nil).AnyTimes()
-
-	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
-		nil,
-		s.pool,
-		machinemanager.ModelAuthorizer{
-			Authorizer: s.authorizer,
-		},
-		s.callContext,
-		common.NewResources(),
-		nil,
-		nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	return ctrl
-}
-
-func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock.Controller) *mocks.MockMachine {
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().Series().Return("focal").AnyTimes()
-	machine.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
-	arch := "amd64"
-	machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{Arch: &arch}, nil)
-	machine.EXPECT().SetPassword(gomock.Any()).Return(nil)
-
-	return machine
-}
-
-func (s *ProvisioningMachineManagerSuite) expectProvisioningStorageCloser(ctrl *gomock.Controller) *mocks.MockStorageCloser {
-	storageCloser := mocks.NewMockStorageCloser(ctrl)
-	storageCloser.EXPECT().AllMetadata().Return([]binarystorage.Metadata{{
-		Version: "2.6.6-ubuntu-amd64",
-	}}, nil)
-	storageCloser.EXPECT().Close().Return(nil)
-
-	return storageCloser
-}
-
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
-		"agent-version":            "2.6.6",
-		"enable-os-upgrade":        true,
-		"enable-os-refresh-update": true,
-	}))).Times(2)
-
-	machine0 := s.expectProvisioningMachine(ctrl)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
-	storageCloser := s.expectProvisioningStorageCloser(ctrl)
-	s.st.EXPECT().ToolsStorage().Return(storageCloser, nil)
-
-	s.ctrlSt.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{{{
-		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      1,
-	}}}, nil).Times(2)
-
-	result, err := s.api.ProvisioningScript(params.ProvisioningScriptParams{
-		MachineId: "0",
-		Nonce:     "nonce",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	scriptLines := strings.Split(result.Script, "\n")
-	provisioningScriptLines := strings.Split(result.Script, "\n")
-	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
-	for i, line := range scriptLines {
-		if strings.Contains(line, "oldpassword") {
-			continue
-		}
-		c.Assert(line, gc.Equals, provisioningScriptLines[i])
-	}
-}
-
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
+	defer s.setup(c).Finish()
 
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"agent-version":            "2.6.6",
@@ -974,6 +655,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsCo
 	machine0 := s.expectValidateMachine(ctrl, "trusty", true, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
+	s.setupUpgradeSeries(c)
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -993,6 +675,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsLo
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, true)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
+	s.setupUpgradeSeries(c)
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1012,6 +695,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNoSe
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
+	s.setupUpgradeSeries(c)
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1030,6 +714,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotF
 	machine0 := s.expectValidateMachine(ctrl, "centos7", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
+	s.setupUpgradeSeries(c)
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1050,6 +735,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotT
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
+	s.setupUpgradeSeries(c)
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1070,6 +756,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateAlre
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
+	s.setupUpgradeSeries(c)
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1089,6 +776,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlde
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
+	s.setupUpgradeSeries(c)
 	args := params.UpdateSeriesArgs{
 		Args: []params.UpdateSeriesArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1112,7 +800,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
 	app := s.expectValidateApplicationOnMachine(ctrl)
 	s.st.EXPECT().Application("foo").Return(app, nil)
-
+  
 	machine0.EXPECT().Units().Return([]machinemanager.Unit{
 		s.expectValidateUnit(ctrl, "foo/0", status.Executing, status.Active),
 		mocks.NewMockUnit(ctrl),
@@ -1253,8 +941,6 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.st.EXPECT().Machine("76").Return(nil, errors.NotFoundf("machine 76"))
-
 	machineTag := names.NewMachineTag("76")
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
@@ -1264,10 +950,66 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachin
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "machine 76 not found")
+
+	return ctrl
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gomock.Controller, upgradeSeriesErr error) *mocks.MockMachine {
+	machine := s.expectValidateMachine(ctrl, "trusty", false, false)
+
+	machine.EXPECT().Units().Return([]machinemanager.Unit{
+		s.expectPrepareUnit(ctrl, "foo/0"),
+		s.expectPrepareUnit(ctrl, "foo/1"),
+		s.expectPrepareUnit(ctrl, "foo/2"),
+	}, nil)
+
+	machine.EXPECT().CreateUpgradeSeriesLock([]string{"foo/0", "foo/1", "foo/2"}, "xenial")
+
+	machine.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
+	app := s.expectValidateApplicationOnMachine(ctrl)
+	s.st.EXPECT().Application("foo").Return(app, nil)
+
+	machine.EXPECT().SetUpgradeSeriesStatus(
+		model.UpgradeSeriesPrepareStarted,
+		"started upgrade series from \"trusty\" to \"xenial\"",
+	).Return(upgradeSeriesErr)
+
+	if upgradeSeriesErr != nil {
+		machine.EXPECT().RemoveUpgradeSeriesLock().Return(nil)
+	}
+
+	return machine
+}
+
+func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareUnit(ctrl *gomock.Controller, unitName string) *mocks.MockUnit {
+	unit := mocks.NewMockUnit(ctrl)
+	unit.EXPECT().UnitTag().Return(names.NewUnitTag(unitName))
+
+	return unit
+}
+
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	machine0 := s.expectPrepareMachine(ctrl, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	machineTag := names.NewMachineTag("0")
+	result, err := s.api.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: machineTag.String()},
+			Series: "xenial",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
@@ -1311,7 +1053,28 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermis
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareBlockedChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.blockMsg = "TestUpgradeSeriesPrepareBlockedChanges"
+	s.st.block = state.ChangeBlock
+	_, err := s.api.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: names.NewMachineTag("0").String()},
+			Series: "xenial",
+		},
+	)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
+		Message: "TestUpgradeSeriesPrepareBlockedChanges",
+		Code:    "operation is blocked",
+	})
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1330,9 +1093,8 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncomp
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectPrepareMachine(ctrl, apiservererrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
+	s.setupUpgradeSeries(c)
+	s.st.machines["0"].SetErrors(apiservererrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1355,51 +1117,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareRemove
 
 var _ = gc.Suite(&UpgradeSeriesCompleteMachineManagerSuite{})
 
-type UpgradeSeriesCompleteMachineManagerSuite struct {
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	api        *machinemanager.MachineManagerAPI
-
-	callContext context.ProviderCallContext
-}
-
-func (s *UpgradeSeriesCompleteMachineManagerSuite) SetUpTest(c *gc.C) {
-	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
-}
-
-func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.st = mocks.NewMockBackend(ctrl)
-	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
-	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
-
-	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
-		nil,
-		nil,
-		machinemanager.ModelAuthorizer{
-			Authorizer: s.authorizer,
-		},
-		s.callContext,
-		common.NewResources(),
-		nil,
-		nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return ctrl
-}
-
-func (s *UpgradeSeriesCompleteMachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	machine0 := mocks.NewMockMachine(ctrl)
-	machine0.EXPECT().CompleteUpgradeSeries().Return(nil)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
-
+	s.setupUpgradeSeries(c)
 	_, err := s.api.UpgradeSeriesComplete(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
@@ -1477,4 +1195,460 @@ func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, seri
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(isLessThan, jc.IsTrue)
 	}
+}
+
+type mockState struct {
+	jtesting.Stub
+	machinemanager.Backend
+	calls            int
+	machineTemplates []state.MachineTemplate
+	machines         map[string]*mockMachine
+	applications     map[string]*mockApplication
+	err              error
+	blockMsg         string
+	block            state.BlockType
+
+	disableOSUpgrade bool
+	disableOSRefresh bool
+
+	unitStorageAttachmentsF func(tag names.UnitTag) ([]state.StorageAttachment, error)
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	return coretesting.ControllerTag
+}
+
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
+}
+
+func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+	return []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
+		NetPort:      1,
+	}}}, nil
+}
+
+func (st *mockState) ToolsStorage() (binarystorage.StorageCloser, error) {
+	return &mockToolsStorage{}, nil
+}
+
+type mockToolsStorage struct {
+	binarystorage.StorageCloser
+}
+
+func (*mockToolsStorage) Close() error {
+	return nil
+}
+
+func (*mockToolsStorage) AllMetadata() ([]binarystorage.Metadata, error) {
+	return []binarystorage.Metadata{{
+		Version: "2.6.6-ubuntu-amd64",
+	}}, nil
+}
+
+type mockVolumeAccess struct {
+	storagecommon.VolumeAccess
+	*mockState
+}
+
+func (st *mockVolumeAccess) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
+	st.MethodCall(st, "StorageInstanceVolume", tag)
+	if err := st.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &mockVolume{
+		detachable: tag.Id() == "disks/0",
+	}, nil
+}
+
+type mockFilesystemAccess struct {
+	storagecommon.FilesystemAccess
+	*mockState
+}
+
+func (st *mockFilesystemAccess) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	st.MethodCall(st, "StorageInstanceFilesystem", tag)
+	if err := st.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return nil, nil
+}
+
+func (st *mockState) VolumeAccess() storagecommon.VolumeAccess {
+	st.MethodCall(st, "VolumeAccess")
+	return &mockVolumeAccess{mockState: st}
+}
+
+func (st *mockState) FilesystemAccess() storagecommon.FilesystemAccess {
+	st.MethodCall(st, "FilesystemAccess")
+	return &mockFilesystemAccess{mockState: st}
+}
+
+func (st *mockState) AddOneMachine(template state.MachineTemplate) (*state.Machine, error) {
+	st.MethodCall(st, "AddOneMachine", template)
+	st.calls++
+	st.machineTemplates = append(st.machineTemplates, template)
+	m := state.Machine{}
+	return &m, st.err
+}
+
+func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	st.MethodCall(st, "GetBlockForType", t)
+	if st.block == t {
+		return &mockBlock{t: t, m: st.blockMsg}, true, nil
+	} else {
+		return nil, false, nil
+	}
+}
+
+func (st *mockState) ModelTag() names.ModelTag {
+	st.MethodCall(st, "ModelTag")
+	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+}
+
+func (st *mockState) Model() (machinemanager.Model, error) {
+	st.MethodCall(st, "Model")
+	return &mockModel{
+		disableOSUpgrade: st.disableOSUpgrade,
+		disableOSRefresh: st.disableOSRefresh,
+	}, nil
+}
+
+func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
+	st.MethodCall(st, "CloudCredential", tag)
+	return state.Credential{}, nil
+}
+
+func (st *mockState) Cloud(s string) (cloud.Cloud, error) {
+	st.MethodCall(st, "Cloud", s)
+	return cloud.Cloud{}, nil
+}
+
+func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
+	st.MethodCall(st, "Machine", id)
+	if m, ok := st.machines[id]; !ok {
+		return nil, errors.NotFoundf("machine %v", id)
+	} else {
+		return m, nil
+	}
+}
+
+func (st *mockState) Application(id string) (machinemanager.Application, error) {
+	st.MethodCall(st, "Application", id)
+	if a, ok := st.applications[id]; !ok {
+		return nil, errors.NotFoundf("application %s", id)
+	} else {
+		return a, nil
+	}
+}
+
+func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
+	st.MethodCall(st, "StorageInstance", tag)
+	return &mockStorage{
+		tag:  tag,
+		kind: state.StorageKindBlock,
+	}, nil
+}
+
+func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
+	st.MethodCall(st, "UnitStorageAttachments", tag)
+	return st.unitStorageAttachmentsF(tag)
+}
+
+type mockBlock struct {
+	state.Block
+	t state.BlockType
+	m string
+}
+
+func (st *mockBlock) Id() string {
+	return "id"
+}
+
+func (st *mockBlock) Tag() (names.Tag, error) {
+	return names.ParseTag("machine-1")
+}
+
+func (st *mockBlock) Type() state.BlockType {
+	return state.ChangeBlock
+}
+
+func (st *mockBlock) Message() string {
+	return st.m
+}
+
+func (st *mockBlock) ModelUUID() string {
+	return "uuid"
+}
+
+type mockMachine struct {
+	jtesting.Stub
+	machinemanager.Machine
+
+	id                       string
+	keep                     bool
+	series                   string
+	units                    []string
+	containers               []string
+	unitAgentState           status.Status
+	unitState                status.Status
+	isManager                bool
+	isLockedForSeriesUpgrade bool
+
+	unitsF func() ([]machinemanager.Unit, error)
+}
+
+func (m *mockMachine) Id() string {
+	m.MethodCall(m, "Id")
+	return m.id
+}
+
+func (m *mockMachine) Tag() names.Tag {
+	m.MethodCall(m, "Tag")
+	return names.NewMachineTag(m.id)
+}
+
+func (m *mockMachine) Destroy() error {
+	m.MethodCall(m, "Destroy")
+	if len(m.containers) > 0 {
+		return stateerrors.NewHasContainersError(m.id, m.containers)
+	}
+	if len(m.units) > 0 {
+		return stateerrors.NewHasAssignedUnitsError(m.id, m.units)
+	}
+	return nil
+}
+
+func (m *mockMachine) ForceDestroy(maxWait time.Duration) error {
+	m.MethodCall(m, "ForceDestroy", maxWait)
+	return nil
+}
+
+func (m *mockMachine) Principals() []string {
+	m.MethodCall(m, "Principals")
+	return m.units
+}
+
+func (m *mockMachine) SetKeepInstance(keep bool) error {
+	m.MethodCall(m, "SetKeepInstance", keep)
+	m.keep = keep
+	return nil
+}
+
+func (m *mockMachine) Series() string {
+	m.MethodCall(m, "Release")
+	return m.series
+}
+
+func (m *mockMachine) Containers() ([]string, error) {
+	m.MethodCall(m, "Containers")
+	return m.containers, nil
+}
+
+func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
+	m.MethodCall(m, "Units")
+	if m.unitsF != nil {
+		return m.unitsF()
+	}
+	return []machinemanager.Unit{
+		&mockUnit{tag: names.NewUnitTag("foo/0"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
+		&mockUnit{tag: names.NewUnitTag("foo/1"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
+		&mockUnit{tag: names.NewUnitTag("foo/2"), agentStatus: m.unitAgentState, unitStatus: m.unitState},
+	}, nil
+}
+
+func (m *mockMachine) VerifyUnitsSeries(units []string, series string, force bool) ([]machinemanager.Unit, error) {
+	m.MethodCall(m, "VerifyUnitsSeries", units, series, force)
+	out := make([]machinemanager.Unit, len(m.units))
+	for i, name := range m.units {
+		out[i] = &mockUnit{
+			tag:         names.NewUnitTag(name),
+			agentStatus: m.unitAgentState,
+			unitStatus:  m.unitState,
+		}
+	}
+	return out, m.NextErr()
+}
+
+func (m *mockMachine) CreateUpgradeSeriesLock(unitTags []string, series string) error {
+	m.MethodCall(m, "CreateUpgradeSeriesLock", unitTags, series)
+	return m.NextErr()
+}
+
+func (m *mockMachine) RemoveUpgradeSeriesLock() error {
+	m.MethodCall(m, "RemoveUpgradeSeriesLock")
+	return m.NextErr()
+}
+
+func (m *mockMachine) CompleteUpgradeSeries() error {
+	m.MethodCall(m, "CompleteUpgradeSeries")
+	return m.NextErr()
+}
+
+func (m *mockMachine) IsManager() bool {
+	m.MethodCall(m, "IsManager")
+	return m.isManager
+}
+
+func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
+	m.MethodCall(m, "IsLockedForSeriesUpgrade")
+	return m.isLockedForSeriesUpgrade, nil
+}
+
+func (m *mockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	m.MethodCall(m, "UpgradeSeriesStatus")
+	return model.UpgradeSeriesNotStarted, nil
+}
+
+func (m *mockMachine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message string) error {
+	m.MethodCall(m, "SetUpgradeSeriesStatus", status, message)
+	return nil
+}
+
+func (m *mockMachine) ApplicationNames() ([]string, error) {
+	m.MethodCall(m, "ApplicationNames")
+	return []string{"foo"}, nil
+}
+
+func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	m.MethodCall(m, "HardwareCharacteristics")
+	arch := "amd64"
+	return &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil
+}
+
+func (m *mockMachine) SetPassword(p string) error {
+	m.MethodCall(m, "SetPassword")
+	return nil
+}
+
+type mockApplication struct {
+	jtesting.Stub
+	charm       *mockCharm
+	charmOrigin *state.CharmOrigin
+}
+
+func (a *mockApplication) Name() string {
+	return "foo"
+}
+
+func (a *mockApplication) Charm() (machinemanager.Charm, bool, error) {
+	a.MethodCall(a, "Charm")
+	if a.charm == nil {
+		return &mockCharm{}, false, nil
+	}
+	return a.charm, false, nil
+}
+
+func (a *mockApplication) CharmOrigin() *state.CharmOrigin {
+	if a.charmOrigin == nil {
+		return &state.CharmOrigin{}
+	}
+	return a.charmOrigin
+}
+
+type mockCharm struct {
+	jtesting.Stub
+	meta *mockMeta
+}
+
+func (a *mockCharm) URL() *charm.URL {
+	a.MethodCall(a, "URL")
+	return nil
+}
+
+func (a *mockCharm) Meta() *charm.Meta {
+	a.MethodCall(a, "Meta")
+	if a.meta == nil {
+		return &charm.Meta{Series: []string{"xenial"}}
+	}
+	return nil
+}
+
+func (a *mockCharm) Manifest() *charm.Manifest {
+	a.MethodCall(a, "Manifest")
+	if a.meta == nil {
+		return &charm.Manifest{}
+	}
+	return nil
+}
+
+func (a *mockCharm) String() string {
+	a.MethodCall(a, "String")
+	return ""
+}
+
+type mockMeta struct {
+	jtesting.Stub
+	series []string
+}
+
+func (a *mockMeta) ComputedSeries() []string {
+	a.MethodCall(a, "ComputedSeries")
+	return a.series
+}
+
+type mockUnit struct {
+	tag         names.UnitTag
+	agentStatus status.Status
+	unitStatus  status.Status
+}
+
+func (u *mockUnit) UnitTag() names.UnitTag {
+	return u.tag
+}
+
+func (u *mockUnit) Name() string {
+	return u.tag.String()
+}
+
+func (u *mockUnit) AgentStatus() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: u.agentStatus}, nil
+}
+
+func (u *mockUnit) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: u.unitStatus}, nil
+}
+
+func (u *mockUnit) ApplicationName() string {
+	return strings.Split(u.tag.String(), "-")[1]
+}
+
+type mockStorage struct {
+	state.StorageInstance
+	tag  names.StorageTag
+	kind state.StorageKind
+}
+
+func (a *mockStorage) StorageTag() names.StorageTag {
+	return a.tag
+}
+
+func (a *mockStorage) Kind() state.StorageKind {
+	return a.kind
+}
+
+type mockStorageAttachment struct {
+	state.StorageAttachment
+	unit    names.UnitTag
+	storage names.StorageTag
+}
+
+func (a *mockStorageAttachment) Unit() names.UnitTag {
+	return a.unit
+}
+
+func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
+	return a.storage
+}
+
+type mockVolume struct {
+	state.Volume
+	detachable bool
+}
+
+func (v *mockVolume) Detachable() bool {
+	return v.detachable
 }

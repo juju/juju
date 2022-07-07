@@ -30,6 +30,7 @@ type ManifoldConfig struct {
 	// Logger to use in this worker
 	Logger Logger
 	// ModelUUID is the id of the model this worker is operating on
+
 	ModelUUID string
 }
 

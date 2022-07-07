@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -183,13 +183,10 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 // endpoint on the target controller and returns a stream that JSON
 // logs records can be fed into. The objects written should be params.LogRecords.
 func (c *Client) OpenLogTransferStream(modelUUID string) (base.Stream, error) {
-	attrs := url.Values{}
-	// TODO(wallyworld) - remove in juju 4
-	attrs.Set("jujuclientversion", jujuversion.Current.String())
 	headers := http.Header{}
 	headers.Set(params.MigrationModelHTTPHeader, modelUUID)
 	caller := c.caller.RawAPICaller()
-	stream, err := caller.ConnectControllerStream("/migrate/logtransfer", attrs, headers)
+	stream, err := caller.ConnectControllerStream("/migrate/logtransfer", url.Values{}, headers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

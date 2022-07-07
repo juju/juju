@@ -4,9 +4,7 @@
 package bootstrap
 
 import (
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -31,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -115,10 +112,10 @@ type BootstrapParams struct {
 	// cloud.
 	RegionInheritedConfig cloud.RegionConfig
 
-	// HostedModelConfig is the set of config attributes to be overlaid
+	// InitialModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
 	// config.
-	HostedModelConfig map[string]interface{}
+	InitialModelConfig map[string]interface{}
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -141,11 +138,6 @@ type BootstrapParams struct {
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
-
-	// GUIDataSourceBaseURL holds the simplestreams data source base URL
-	// used to retrieve the Juju GUI archive installed in the controller.
-	// If not set, the Juju GUI is not installed from simplestreams.
-	GUIDataSourceBaseURL string
 
 	// AdminSecret contains the administrator password.
 	AdminSecret string
@@ -179,6 +171,12 @@ type BootstrapParams struct {
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
+
+	// ControllerCharmPath is a local controller charm archive.
+	ControllerCharmPath string
+
+	// ControllerCharmRisk is used when fetching the charmhub controller charm.
+	ControllerCharmRisk string
 
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
@@ -628,6 +626,11 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
+	if err := instanceConfig.SetControllerCharm(args.ControllerCharmPath); err != nil {
+		return errors.Trace(err)
+	}
+	instanceConfig.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
+
 	var environVersion int
 	if e, ok := environ.(environs.Environ); ok {
 		environVersion = e.Provider().Version()
@@ -757,11 +760,6 @@ func finalizeInstanceBootstrapConfig(
 		PrivateKey:   string(key),
 		CAPrivateKey: args.CAPrivateKey,
 	}
-	vers, ok := cfg.AgentVersion()
-	if !ok {
-		return errors.New("controller model configuration has no agent-version")
-	}
-
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
@@ -772,14 +770,13 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	icfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
 	icfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
-	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	icfg.Bootstrap.InitialModelConfig = args.InitialModelConfig
 	icfg.Bootstrap.StoragePools = args.StoragePools
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
-	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, true, func(msg string) {
-		ctx.Infof(msg)
-	})
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
 	icfg.Bootstrap.JujuDbSnapAssertionsPath = args.JujuDbSnapAssertionsPath
+	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
+	icfg.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
 	return nil
 }
 
@@ -842,11 +839,6 @@ func finalizePodBootstrapConfig(
 		pcfg.AgentEnvironment[k] = v
 	}
 
-	vers, ok := cfg.AgentVersion()
-	if !ok {
-		return errors.New("controller model configuration has no agent-version")
-	}
-
 	pcfg.Bootstrap.ControllerModelConfig = cfg
 	pcfg.Bootstrap.ControllerCloud = args.Cloud
 	pcfg.Bootstrap.ControllerCloudRegion = args.CloudRegion
@@ -854,15 +846,13 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
-	pcfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	pcfg.Bootstrap.InitialModelConfig = args.InitialModelConfig
 	pcfg.Bootstrap.StoragePools = args.StoragePools
 	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
 	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
-	pcfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, false, func(msg string) {
-		ctx.Infof(msg)
-	})
+	pcfg.Bootstrap.ControllerCharmRisk = args.ControllerCharmRisk
 	return nil
 }
 
@@ -1128,101 +1118,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 	return existingMetadata, nil
 }
 
-// guiArchive returns information on the GUI archive that will be uploaded
-// to the controller. Possible errors in retrieving the GUI archive information
-// do not prevent the model to be bootstrapped. If dataSourceBaseURL is
-// non-empty, remote GUI archive info is retrieved from simplestreams using it
-// as the base URL. The given logProgress function is used to inform users
-// about errors or progress in setting up the Juju GUI.
-func guiArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal bool, logProgress func(string)) *coretools.GUIArchive {
-	// The environment variable is only used for development purposes.
-	path := os.Getenv("JUJU_GUI")
-	if path != "" && !allowLocal {
-		// TODO(wallyworld) - support local archive on k8s controllers at bootstrap
-		// It can't be passed the same way as on IAAS as it's too large.
-		logProgress("Dashboard from local archive on bootstrap not supported")
-	} else if path != "" {
-		vers, err := guiVersion(path)
-		if err != nil {
-			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))
-			return nil
-		}
-		hash, size, err := hashAndSize(path)
-		if err != nil {
-			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))
-			return nil
-		}
-		logProgress(fmt.Sprintf("Fetching Juju Dashboard %s from local archive", vers))
-		return &coretools.GUIArchive{
-			Version: vers,
-			URL:     "file://" + filepath.ToSlash(path),
-			SHA256:  hash,
-			Size:    size,
-		}
-	}
-	// Check if the user requested to bootstrap with no GUI.
-	if dataSourceBaseURL == "" {
-		logProgress("Juju Dashboard installation has been disabled")
-		return nil
-	}
-	// Fetch GUI archives info from simplestreams.
-	source := gui.NewDataSource(dataSourceBaseURL)
-	allMeta, err := guiFetchMetadata(stream, major, minor, source)
-	if err != nil {
-		logProgress(fmt.Sprintf("Unable to fetch Juju Dashboard info: %s", err))
-		return nil
-	}
-	if len(allMeta) == 0 {
-		logProgress("No available Juju Dashboard archives found")
-		return nil
-	}
-	// Metadata info are returned in descending version order.
-	logProgress(fmt.Sprintf("Fetching Juju Dashboard %s", allMeta[0].Version))
-	return &coretools.GUIArchive{
-		Version: allMeta[0].Version,
-		URL:     allMeta[0].FullPath,
-		SHA256:  allMeta[0].SHA256,
-		Size:    allMeta[0].Size,
-	}
-}
-
-// guiFetchMetadata is defined for testing purposes.
-var guiFetchMetadata = gui.FetchMetadata
-
-// guiVersion retrieves the GUI version from the juju-gui-* directory included
-// in the bz2 archive at the given path.
-func guiVersion(path string) (version.Number, error) {
-	var number version.Number
-	f, err := os.Open(path)
-	if err != nil {
-		return number, errors.Annotate(err, "cannot open Juju Dashboard archive")
-	}
-	defer f.Close()
-	return gui.DashboardArchiveVersion(f)
-}
-
-// hashAndSize calculates and returns the SHA256 hash and the size of the file
-// located at the given path.
-func hashAndSize(path string) (hash string, size int64, err error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", 0, errors.Mask(err)
-	}
-	defer f.Close()
-	h := sha256.New()
-	size, err = io.Copy(h, f)
-	if err != nil {
-		return "", 0, errors.Mask(err)
-	}
-	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
-}
-
 // Cancelled returns an error that satisfies IsCancelled.
 func Cancelled() error {
 	return errCancelled
-}
-
-// IsCancelled reports whether err is a "bootstrap cancelled" error.
-func IsCancelled(err error) bool {
-	return errors.Cause(err) == errCancelled
 }

@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"path"
 	"reflect"
-	"runtime"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -23,7 +22,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2021-08-01/storage"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
@@ -67,39 +65,21 @@ var (
 		SKU:       to.Ptr("18.04-LTS"),
 		Version:   to.Ptr("latest"),
 	}
-	win2012ImageReference = armcompute.ImageReference{
-		Publisher: to.Ptr("MicrosoftWindowsServer"),
-		Offer:     to.Ptr("WindowsServer"),
-		SKU:       to.Ptr("2012-Datacenter"),
-		Version:   to.Ptr("latest"),
-	}
 	centos7ImageReference = armcompute.ImageReference{
 		Publisher: to.Ptr("OpenLogic"),
 		Offer:     to.Ptr("CentOS"),
 		SKU:       to.Ptr("7.3"),
 		Version:   to.Ptr("latest"),
 	}
-
-	windowsOsProfile = armcompute.OSProfile{
-		ComputerName:  to.Ptr("machine-0"),
-		CustomData:    to.Ptr("<juju-goes-here>"),
-		AdminUsername: to.Ptr("JujuAdministrator"),
-		AdminPassword: to.Ptr("sorandom"),
-		WindowsConfiguration: &armcompute.WindowsConfiguration{
-			ProvisionVMAgent:       to.Ptr(true),
-			EnableAutomaticUpdates: to.Ptr(true),
-		},
-	}
 )
 
 type environSuite struct {
 	testing.BaseSuite
 
-	provider      environs.EnvironProvider
-	requests      []*http.Request
-	storageClient azuretesting.MockStorageClient
-	sender        azuretesting.Senders
-	retryClock    mockClock
+	provider   environs.EnvironProvider
+	requests   []*http.Request
+	sender     azuretesting.Senders
+	retryClock mockClock
 
 	controllerUUID   string
 	envTags          map[string]string
@@ -127,11 +107,9 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
-		NewStorageClient: s.storageClient.NewClient,
 		RetryClock: &testclock.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
 		},
-		RandomWindowsAdminPassword: func() string { return "sorandom" },
 		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
 			return &azuretesting.FakeCredential{}, nil
 		},
@@ -291,12 +269,6 @@ func openEnviron(
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Legacy storage hasn't been a thing for over 5 years.
-	// We'll disable it in tests due to issues with mocking
-	// the new and legacy SDKs together and only test for
-	// managed storage.
-	azure.DisableLegacyStorage(env)
 	return env
 }
 
@@ -394,19 +366,6 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 		// deployment to complete.
 		if !args.existingAvailabilitySet && !args.existingCommon {
 			senders = append(senders, makeSender("/deployments/common", s.commonDeployment))
-		}
-
-		// If the deployment has any providers, then we assume
-		// storage accounts are in use, for unmanaged storage.
-		if s.commonDeployment.Properties.Providers != nil {
-			storageAccount := &storage.Account{
-				AccountProperties: &storage.AccountProperties{
-					PrimaryEndpoints: &storage.Endpoints{
-						Blob: to.Ptr("https://blob.storage/"),
-					},
-				},
-			}
-			senders = append(senders, makeSender("/storageAccounts/juju400d80004b1d0d06f00d", storageAccount))
 		}
 
 		if args.vaultName != "" {
@@ -790,57 +749,6 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
-}
-
-func (s *environSuite) TestStartInstanceWindowsMinRootDisk(c *gc.C) {
-	// The minimum OS disk size for Windows machines is 127GiB.
-	cons := constraints.MustParse("root-disk=44G")
-	s.testStartInstanceWindows(c, cons, 127*1024, 136)
-}
-
-func (s *environSuite) TestStartInstanceWindowsGrowableRootDisk(c *gc.C) {
-	// The OS disk size may be grown larger than 127GiB.
-	cons := constraints.MustParse("root-disk=200G")
-	s.testStartInstanceWindows(c, cons, 200*1024, 214)
-}
-
-func (s *environSuite) testStartInstanceWindows(
-	c *gc.C, cons constraints.Value,
-	expect uint64, requestValue int,
-) {
-	// Starting a Windows VM, we should not expect an image query.
-	s.PatchValue(&s.ubuntuServerSKUs, nil)
-
-	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
-	s.requests = nil
-	args := makeStartInstanceParams(c, s.controllerUUID, "win2012")
-	args.Constraints = cons
-	result, err := env.StartInstance(s.callCtx, args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Hardware.RootDisk, jc.DeepEquals, &expect)
-
-	vmExtensionSettings := map[string]interface{}{
-		"commandToExecute": `` +
-			`move C:\AzureData\CustomData.bin C:\AzureData\CustomData.ps1 && ` +
-			`powershell.exe -ExecutionPolicy Unrestricted -File C:\AzureData\CustomData.ps1 && ` +
-			`del /q C:\AzureData\CustomData.ps1`,
-	}
-	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference: &win2012ImageReference,
-		diskSizeGB:     requestValue,
-		vmExtension: &armcompute.VirtualMachineExtensionProperties{
-			Publisher:               to.Ptr("Microsoft.Compute"),
-			Type:                    to.Ptr("CustomScriptExtension"),
-			TypeHandlerVersion:      to.Ptr("1.4"),
-			AutoUpgradeMinorVersion: to.Ptr(true),
-			Settings:                &vmExtensionSettings,
-		},
-		osProfile:    &windowsOsProfile,
-		instanceType: "Standard_A1",
-		publicIP:     true,
-	})
 }
 
 func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
@@ -1237,14 +1145,9 @@ func (s *environSuite) assertStartInstanceRequests(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
 			args.availabilitySetName,
 		)
-		var (
-			availabilitySetProperties  interface{}
-			availabilityStorageOptions *armtemplates.Sku
-		)
-		availabilitySetProperties = &armcompute.AvailabilitySetProperties{
+		availabilitySetProperties := &armcompute.AvailabilitySetProperties{
 			PlatformFaultDomainCount: to.Ptr(int32(3)),
 		}
-		availabilityStorageOptions = &armtemplates.Sku{Name: "Aligned"}
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: azure.ComputeAPIVersion,
 			Type:       "Microsoft.Compute/availabilitySets",
@@ -1252,7 +1155,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Location:   "westus",
 			Tags:       s.envTags,
 			Properties: availabilitySetProperties,
-			Sku:        availabilityStorageOptions,
+			Sku:        &armtemplates.Sku{Name: "Aligned"},
 		})
 		availabilitySetSubResource = &armcompute.SubResource{
 			ID: to.Ptr(availabilitySetId),
@@ -1352,9 +1255,9 @@ func (s *environSuite) assertStartInstanceRequests(
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		DiskSizeGB:   to.Ptr(int32(args.diskSizeGB)),
-	}
-	osDisk.ManagedDisk = &armcompute.ManagedDiskParameters{
-		StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
+		ManagedDisk: &armcompute.ManagedDiskParameters{
+			StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
+		},
 	}
 	if args.diskEncryptionSet != "" {
 		osDisk.ManagedDisk.DiskEncryptionSet = &armcompute.DiskEncryptionSetParameters{
@@ -1668,9 +1571,6 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bootstrap not supported on Windows")
-	}
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1720,9 +1620,6 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bootstrap not supported on Windows")
-	}
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)

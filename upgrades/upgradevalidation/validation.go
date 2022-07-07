@@ -14,7 +14,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 )
 
@@ -148,14 +147,13 @@ func getCheckUpgradeSeriesLockForModel(force bool) Validator {
 	}
 }
 
+var windowsSeries = []string{
+	"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
+}
+
 func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	winSeries := set.NewStrings()
-	for _, v := range series.WindowsVersions() {
-		winSeries.Add(v)
-	}
-	result, err := st.MachineCountForSeries(
-		winSeries.SortedValues()..., // sort for tests.
-	)
+	result, err := st.MachineCountForSeries(windowsSeries...)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot count windows machines")
 	}
@@ -264,17 +262,10 @@ func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st St
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mongoVersion, err := mongo.NewVersion(v)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	mongoVersion.StorageEngine = ""
-	mongoMinVersion := mongo.Version{Major: 4, Minor: 4}
-	if mongoVersion.NewerThan(mongoMinVersion) < 0 {
-		// Controllers with mongo version < 4.4 are not able to be upgraded further.
+	if !strings.Contains(v, "4.4") {
+		// Controllers with mongo version != 4.4 are not able to be upgraded further.
 		return NewBlocker(
-			"mongo version has to be %q at least, but current version is %q",
-			mongoMinVersion, mongoVersion,
+			`mongo version has to be "4.4" at least, but current version is %q`, v,
 		), nil
 	}
 	return nil, nil

@@ -14,7 +14,6 @@ import (
 	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
 )
 
 type serviceSuite struct {
@@ -34,9 +33,6 @@ func (s *serviceSuite) TestNewServiceKnown(c *gc.C) {
 		}, {
 			series:     "trusty",
 			initSystem: service.InitSystemUpstart,
-		}, {
-			series:     "win2012",
-			initSystem: service.InitSystemWindows,
 		},
 	} {
 		svc, err := service.NewService(s.Name, s.Conf, test.series)
@@ -49,8 +45,6 @@ func (s *serviceSuite) TestNewServiceKnown(c *gc.C) {
 			c.Check(svc, gc.FitsTypeOf, &systemd.Service{})
 		case service.InitSystemUpstart:
 			c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
-		case service.InitSystemWindows:
-			c.Check(svc, gc.FitsTypeOf, &windows.Service{})
 		}
 		c.Check(svc.Name(), gc.Equals, s.Name)
 		c.Check(svc.Conf(), jc.DeepEquals, s.Conf)

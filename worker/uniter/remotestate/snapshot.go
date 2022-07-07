@@ -89,6 +89,9 @@ type Snapshot struct {
 	// executed by this unit.
 	Commands []string
 
+	// SecretRotations is a list of secret URLs that need to be rotated.
+	SecretRotations []string
+
 	// UpgradeSeriesStatus is the preparation status of
 	// any currently running series upgrade.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus

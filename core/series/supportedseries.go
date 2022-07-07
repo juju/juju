@@ -68,16 +68,16 @@ func AllWorkloadOSTypes(requestedSeries, imageStream string) (set.Strings, error
 		return nil, errors.Trace(err)
 	}
 	result := set.NewStrings()
-	for _, series := range supported.workloadSeries(true) {
-		result.Add(DefaultOSTypeNameFromSeries(series))
+	for _, wSeries := range supported.workloadSeries(true) {
+		result.Add(DefaultOSTypeNameFromSeries(wSeries))
 	}
 	return result, nil
 }
 
 func seriesForTypes(path string, now time.Time, requestedSeries, imageStream string) (*supportedInfo, error) {
 	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruent with the Ubuntu release cycle for it's own series (not
-	// including centos and windows), so that should be reflected here.
+	// Juju is congruent with the Ubuntu release cycle for its own series (not
+	// including centos), so that should be reflected here.
 	//
 	// For non-LTS releases; they'll appear in juju/os as default available, but
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
@@ -165,12 +165,6 @@ func composeSeriesVersions() {
 	for k, v := range ubuntuSeries {
 		allSeriesVersions[k] = v
 	}
-	for _, v := range windowsVersions {
-		allSeriesVersions[SeriesName(v.Version)] = v
-	}
-	for _, v := range windowsNanoVersions {
-		allSeriesVersions[SeriesName(v.Version)] = v
-	}
 	for k, v := range macOSXSeries {
 		allSeriesVersions[k] = v
 	}
@@ -188,45 +182,6 @@ func composeSeriesVersions() {
 		Version:      genericLinuxVersion,
 		Supported:    true,
 	}
-}
-
-// Windows versions come in various flavors:
-// Standard, Datacenter, etc. We use string prefix match them to one
-// of the following. Specify the longest name in a particular series first
-// For example, if we have "Win 2012" and "Win 2012 R2", we specify "Win 2012 R2" first.
-// We need to make sure we manually update this list with each new windows release.
-var windowsVersionMatchOrder = []string{
-	"Hyper-V Server 2012 R2",
-	"Hyper-V Server 2012",
-	"Windows Server 2008 R2",
-	"Windows Server 2012 R2",
-	"Windows Server 2012",
-	"Hyper-V Server 2016",
-	"Windows Server 2016",
-	"Windows Server 2019",
-	"Windows Storage Server 2012 R2",
-	"Windows Storage Server 2012",
-	"Windows Storage Server 2016",
-	"Windows 7",
-	"Windows 8.1",
-	"Windows 8",
-	"Windows 10",
-}
-
-// WindowsVersionSeries returns the series (eg: win2012r2) for the specified version
-// (eg: Windows Server 2012 R2 Standard)
-func WindowsVersionSeries(version string) (string, error) {
-	if version == "" {
-		return "", errors.Trace(unknownVersionSeriesError(""))
-	}
-	for _, val := range windowsVersionMatchOrder {
-		if strings.HasPrefix(version, val) {
-			if vers, ok := windowsVersions[val]; ok {
-				return vers.Version, nil
-			}
-		}
-	}
-	return "", errors.Trace(unknownVersionSeriesError(""))
 }
 
 // CentOSVersionSeries validates that the supplied series (eg: centos7)
@@ -322,31 +277,6 @@ func ubuntuVersions(
 	return save
 }
 
-// WindowsVersions returns all windows versions as a map
-// If we have nan and windows version in common, nano takes precedence
-func WindowsVersions() map[string]string {
-	save := make(map[string]string)
-	for seriesName, val := range windowsVersions {
-		save[seriesName] = val.Version
-	}
-	return save
-}
-
-// IsWindowsNano tells us whether the provided series is a
-// nano series. It may seem futile at this point, but more
-// nano series will come up with time.
-// This is here and not in a windows specific package
-// because we might want to take decisions dependant on
-// whether we have a nano series or not in more general code.
-func IsWindowsNano(series string) bool {
-	for _, val := range windowsNanoVersions {
-		if val.Version == series {
-			return true
-		}
-	}
-	return false
-}
-
 func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
 	if _, ok := ubuntuSeries[series]; ok {
 		return coreos.Ubuntu, nil
@@ -366,16 +296,6 @@ func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
 	if series == genericLinuxSeries {
 		return coreos.GenericLinux, nil
 	}
-	for _, val := range windowsVersions {
-		if val.Version == string(series) {
-			return coreos.Windows, nil
-		}
-	}
-	for _, val := range windowsNanoVersions {
-		if val.Version == string(series) {
-			return coreos.Windows, nil
-		}
-	}
 
 	return coreos.Unknown, errors.Trace(unknownOSForSeriesError(series))
 }
@@ -390,8 +310,8 @@ var (
 // the work to determine the latest lts series once.
 var latestLtsSeries string
 
-// LatestLts returns the Latest LTS Release found in distro-info
-func LatestLts() string {
+// LatestLTS returns the Latest LTS Release found in distro-info
+func LatestLTS() string {
 	if latestLtsSeries != "" {
 		return latestLtsSeries
 	}
@@ -401,11 +321,11 @@ func LatestLts() string {
 	updateSeriesVersionsOnce()
 
 	var latest SeriesName
-	for k, version := range ubuntuSeries {
-		if !version.LTS || !version.Supported {
+	for k, seriesVersion := range ubuntuSeries {
+		if !seriesVersion.LTS || !seriesVersion.Supported {
 			continue
 		}
-		if version.Version > ubuntuSeries[latest].Version {
+		if seriesVersion.Version > ubuntuSeries[latest].Version {
 			latest = k
 		}
 	}

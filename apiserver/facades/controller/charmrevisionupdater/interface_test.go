@@ -5,10 +5,10 @@ package charmrevisionupdater_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6/csclient"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
+	"github.com/juju/charmrepo/v7/csclient"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"

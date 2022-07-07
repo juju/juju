@@ -5,6 +5,7 @@ package caas
 
 import (
 	"github.com/juju/version/v2"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -22,6 +23,9 @@ type Application interface {
 	Delete() error
 	Watch() (watcher.NotifyWatcher, error)
 	WatchReplicas() (watcher.NotifyWatcher, error)
+
+	// ApplicationPodSpec returns the pod spec needed to run the application workload.
+	ApplicationPodSpec(config ApplicationConfig) (*core.PodSpec, error)
 
 	// Scale scales the Application's unit to the value specified. Scale must
 	// be >= 0. Application units will be removed or added to meet the scale

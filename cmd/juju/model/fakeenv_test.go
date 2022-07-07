@@ -63,7 +63,14 @@ func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
 }
 
 func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
-	f.values = config
+	if f.values == nil {
+		f.values = config
+	} else {
+		// Append values rather than overwriting
+		for key, val := range config {
+			f.values[key] = val
+		}
+	}
 	return f.err
 }
 
@@ -85,7 +92,6 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAPIRoot = &fakeAPIConnection{}
 	s.fakeDefaultsAPI = &fakeModelDefaultsAPI{
-		version: 6,
 		values: map[string]interface{}{
 			"name":    "test-model",
 			"special": "special value",
@@ -132,11 +138,6 @@ type fakeModelDefaultsAPI struct {
 	defaults      config.ModelDefaultAttributes
 	err           error
 	keys          []string
-	version       int
-}
-
-func (f *fakeModelDefaultsAPI) BestAPIVersion() int {
-	return f.version
 }
 
 func (f *fakeModelDefaultsAPI) Close() error {

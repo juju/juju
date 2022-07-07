@@ -9,13 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon.v2"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/client/application"
 	applicationapi "github.com/juju/juju/api/client/application"
@@ -69,12 +68,6 @@ func (d *deployCharm) deploy(
 	charmInfo, err := deployAPI.CharmInfo(id.URL.String())
 	if err != nil {
 		return err
-	}
-
-	if len(d.attachStorage) > 0 && deployAPI.BestFacadeVersion("Application") < 5 {
-		// DeployArgs.attachStorage is only supported from
-		// Application API version 5 and onwards.
-		return errors.New("this juju controller does not support --attach-storage")
 	}
 
 	// storage cannot be added to a container.
@@ -145,33 +138,6 @@ func (d *deployCharm) deploy(
 	// Expand the trust flag into the appConfig
 	if d.trust {
 		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(d.trust)
-	}
-
-	// Application facade V5 expects charm config to either all be in YAML
-	// or config map. If config map is specified, that overrides YAML.
-	// So we need to combine the two here to have only one.
-	if deployAPI.BestFacadeVersion("Application") < 6 && len(appConfig) > 0 {
-		var configFromFile map[string]map[string]string
-		err := yaml.Unmarshal(configYAML, &configFromFile)
-		if err != nil {
-			return errors.Annotate(err, "badly formatted YAML config file")
-		}
-		if configFromFile == nil {
-			configFromFile = make(map[string]map[string]string)
-		}
-		charmSettings, ok := configFromFile[applicationName]
-		if !ok {
-			charmSettings = make(map[string]string)
-		}
-		for k, v := range appConfig {
-			charmSettings[k] = v
-		}
-		appConfig = nil
-		configFromFile[applicationName] = charmSettings
-		configYAML, err = yaml.Marshal(configFromFile)
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	bakeryClient, err := d.model.BakeryClient()

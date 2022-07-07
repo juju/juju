@@ -5,7 +5,6 @@
 package meterstatus
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -52,17 +51,6 @@ type MeterStatusAPI struct {
 	resources  facade.Resources
 }
 
-// MeterStatusAPIV1 implements V1 of the Meter Status API.
-type MeterStatusAPIV1 struct {
-	MeterStatusAPI
-}
-
-// SetState isn't on the v1 API.
-func (u *MeterStatusAPIV1) SetState(_ struct{}) {}
-
-// State isn't on the v1 API.
-func (u *MeterStatusAPIV1) State(_ struct{}) {}
-
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
 	st MeterStatusState,
@@ -85,22 +73,6 @@ func NewMeterStatusAPI(
 			accessUnit,
 			logger,
 		),
-	}, nil
-}
-
-// NewMeterStatusAPIV1 creates an instance of the V1 MeterStatus API.
-func NewMeterStatusAPIV1(
-	st MeterStatusState,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*MeterStatusAPIV1, error) {
-	meterStatusAPI, err := NewMeterStatusAPI(st, resources, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &MeterStatusAPIV1{
-		MeterStatusAPI: *meterStatusAPI,
 	}, nil
 }
 

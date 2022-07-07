@@ -1036,9 +1036,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				UpgradeComplete: func() bool {
 					return true
 				},
-				RestoreStatus: func() state.RestoreStatus {
-					return state.RestoreNotActive
-				},
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				RaftOpQueue:      queue,
 				SysLogger:        noopSysLogger{},

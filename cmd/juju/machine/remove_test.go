@@ -29,9 +29,7 @@ var _ = gc.Suite(&RemoveMachineSuite{})
 func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeRemoveMachineAPI{}
-	s.apiConnection = &mockAPIConnection{
-		bestFacadeVersion: 4,
-	}
+	s.apiConnection = &mockAPIConnection{}
 }
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -120,25 +118,6 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	c.Assert(stderr, gc.Equals, `
 removing machine failed: oy vey machine 1
 removing machine 2/lxd/1
-- will remove unit foo/0
-- will remove storage bar/1
-- will detach storage baz/2
-`[1:])
-}
-
-func (s *RemoveMachineSuite) TestRemoveOutputWithoutMachineId(c *gc.C) {
-	s.fake.results = []params.DestroyMachineResult{{
-		Info: &params.DestroyMachineInfo{
-			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
-			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
-			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
-		},
-	}}
-	ctx, err := s.run(c, "0")
-	c.Assert(err, jc.ErrorIsNil)
-	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
-removing machine 0
 - will remove unit foo/0
 - will remove storage bar/1
 - will detach storage baz/2
@@ -247,9 +226,4 @@ func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWa
 
 type mockAPIConnection struct {
 	api.Connection
-	bestFacadeVersion int
-}
-
-func (m *mockAPIConnection) BestFacadeVersion(name string) int {
-	return m.bestFacadeVersion
 }

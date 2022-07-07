@@ -23,6 +23,11 @@ func (op *remoteInit) NeedsGlobalMachineLock() bool {
 	return false
 }
 
+// ExecutionGroup is part of the Operation interface.
+func (remoteInit) ExecutionGroup() string {
+	return ""
+}
+
 // Prepare is part of the Operation interface.
 func (op *remoteInit) Prepare(state State) (*State, error) {
 	return stateChange{
@@ -71,6 +76,11 @@ func (op *skipRemoteInit) String() string {
 // NeedsGlobalMachineLock is part of the Operation interface.
 func (op *skipRemoteInit) NeedsGlobalMachineLock() bool {
 	return false
+}
+
+// ExecutionGroup is part of the Operation interface.
+func (skipRemoteInit) ExecutionGroup() string {
+	return ""
 }
 
 // Prepare is part of the Operation interface.

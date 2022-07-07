@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,7 +39,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+
 	"github.com/juju/juju/caas"
+	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -52,10 +54,10 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/assumes"
 	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -469,14 +471,14 @@ func (k *kubernetesClient) Bootstrap(
 
 		logger.Debugf("controller pod config: \n%+v", pcfg)
 
-		// validate hosted model name if we need to create it.
-		if hostedModelName, has := pcfg.GetHostedModel(); has {
-			_, err := k.getNamespaceByName(hostedModelName)
+		// validate initial model name if we need to create it.
+		if initialModelName, has := pcfg.GetInitialModel(); has {
+			_, err := k.getNamespaceByName(initialModelName)
 			if err == nil {
 				return errors.NewAlreadyExists(nil,
 					fmt.Sprintf(`
 namespace %q already exists in the cluster,
-please choose a different hosted model name then try again.`, hostedModelName),
+please choose a different initial model name then try again.`, initialModelName),
 				)
 			}
 			if !errors.IsNotFound(err) {
@@ -508,7 +510,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(ctx, JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newcontrollerStack(ctx, k8sconstants.JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -518,10 +520,14 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		)
 	}
 
+	podArch := arch.AMD64
+	if args.BootstrapConstraints.HasArch() {
+		podArch = *args.BootstrapConstraints.Arch
+	}
 	return &environs.BootstrapResult{
-		// TODO(bootstrap): review this default arch and series(required for determining DataDir etc.) later.
-		Arch:                   arch.AMD64,
-		Series:                 "kubernetes",
+		Arch: podArch,
+		// TODO(wallyworld) - use actual series of controller pod image
+		Series:                 series.LatestLTS(),
 		CaasBootstrapFinalizer: finalizer,
 	}, nil
 }
@@ -806,244 +812,6 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	return nil
 }
 
-func processConstraints(pod *core.PodSpec, appName string, cons constraints.Value) error {
-	// TODO(caas): Allow constraints to be set at the container level.
-	if mem := cons.Mem; mem != nil {
-		if err := configureConstraint(pod, "memory", fmt.Sprintf("%dMi", *mem)); err != nil {
-			return errors.Annotatef(err, "configuring memory constraint for %s", appName)
-		}
-	}
-	if cpu := cons.CpuPower; cpu != nil {
-		if err := configureConstraint(pod, "cpu", fmt.Sprintf("%dm", *cpu)); err != nil {
-			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
-		}
-	}
-	nodeSelector := map[string]string(nil)
-	if cons.HasArch() {
-		cpuArch := *cons.Arch
-		cpuArch = arch.NormaliseArch(cpuArch)
-		// Convert to Golang arch string
-		switch cpuArch {
-		case arch.AMD64:
-			cpuArch = "amd64"
-		case arch.ARM64:
-			cpuArch = "arm64"
-		case arch.PPC64EL:
-			cpuArch = "ppc64le"
-		case arch.S390X:
-			cpuArch = "s390x"
-		default:
-			return errors.NotSupportedf("architecture %q", cpuArch)
-		}
-		nodeSelector = map[string]string{"kubernetes.io/arch": cpuArch}
-	}
-	if pod.NodeSelector != nil {
-		for k, v := range nodeSelector {
-			pod.NodeSelector[k] = v
-		}
-	} else if nodeSelector != nil {
-		pod.NodeSelector = nodeSelector
-	}
-
-	// Translate tags to pod or node affinity.
-	// Tag names are prefixed with "pod.", "anti-pod.", or "node."
-	// with the default being "node".
-	// The tag 'topology-key', if set, is used for the affinity topology key value.
-	if cons.Tags != nil {
-		affinityLabels := make(map[string]string)
-		for _, labelPair := range *cons.Tags {
-			parts := strings.Split(labelPair, "=")
-			if len(parts) != 2 {
-				return errors.Errorf("invalid affinity constraints: %v", affinityLabels)
-			}
-			key := strings.Trim(parts[0], " ")
-			value := strings.Trim(parts[1], " ")
-			affinityLabels[key] = value
-		}
-
-		if err := processNodeAffinity(pod, affinityLabels); err != nil {
-			return errors.Annotatef(err, "configuring node affinity for %s", appName)
-		}
-		if err := processPodAffinity(pod, affinityLabels); err != nil {
-			return errors.Annotatef(err, "configuring pod affinity for %s", appName)
-		}
-	}
-	if cons.Zones != nil {
-		zones := *cons.Zones
-		affinity := pod.Affinity
-		if affinity == nil {
-			affinity = &core.Affinity{
-				NodeAffinity: &core.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
-						NodeSelectorTerms: []core.NodeSelectorTerm{{}},
-					},
-				},
-			}
-			pod.Affinity = affinity
-		}
-		nodeSelector := &affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
-		nodeSelector.MatchExpressions = append(nodeSelector.MatchExpressions,
-			core.NodeSelectorRequirement{
-				Key:      "failure-domain.beta.kubernetes.io/zone",
-				Operator: core.NodeSelectorOpIn,
-				Values:   zones,
-			})
-	}
-	return nil
-}
-
-const (
-	podPrefix      = "pod."
-	antiPodPrefix  = "anti-pod."
-	topologyKeyTag = "topology-key"
-	nodePrefix     = "node."
-)
-
-func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
-	affinityTags := make(map[string]string)
-	for key, value := range affinityLabels {
-		keyVal := key
-		if strings.HasPrefix(key, "^") {
-			if len(key) == 1 {
-				return errors.Errorf("invalid affinity constraints: %v", affinityLabels)
-			}
-			key = key[1:]
-		}
-		if strings.HasPrefix(key, podPrefix) || strings.HasPrefix(key, antiPodPrefix) {
-			continue
-		}
-		key = strings.TrimPrefix(keyVal, nodePrefix)
-		affinityTags[key] = value
-	}
-
-	updateSelectorTerms := func(nodeSelectorTerm *core.NodeSelectorTerm, tags map[string]string) {
-		// Sort for stable ordering.
-		var keys []string
-		for k := range tags {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, tag := range keys {
-			allValues := strings.Split(tags[tag], "|")
-			for i, v := range allValues {
-				allValues[i] = strings.Trim(v, " ")
-			}
-			op := core.NodeSelectorOpIn
-			if strings.HasPrefix(tag, "^") {
-				tag = tag[1:]
-				op = core.NodeSelectorOpNotIn
-			}
-			nodeSelectorTerm.MatchExpressions = append(nodeSelectorTerm.MatchExpressions, core.NodeSelectorRequirement{
-				Key:      tag,
-				Operator: op,
-				Values:   allValues,
-			})
-		}
-	}
-	var nodeSelectorTerm core.NodeSelectorTerm
-	updateSelectorTerms(&nodeSelectorTerm, affinityTags)
-	if pod.Affinity == nil {
-		pod.Affinity = &core.Affinity{}
-	}
-	pod.Affinity.NodeAffinity = &core.NodeAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
-			NodeSelectorTerms: []core.NodeSelectorTerm{nodeSelectorTerm},
-		},
-	}
-	return nil
-}
-
-func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
-	affinityTags := make(map[string]string)
-	antiAffinityTags := make(map[string]string)
-	for key, value := range affinityLabels {
-		notVal := false
-		if strings.HasPrefix(key, "^") {
-			if len(key) == 1 {
-				return errors.Errorf("invalid affinity constraints: %v", affinityLabels)
-			}
-			notVal = true
-			key = key[1:]
-		}
-		if !strings.HasPrefix(key, podPrefix) && !strings.HasPrefix(key, antiPodPrefix) {
-			continue
-		}
-		if strings.HasPrefix(key, podPrefix) {
-			key = strings.TrimPrefix(key, podPrefix)
-			if notVal {
-				key = "^" + key
-			}
-			affinityTags[key] = value
-		}
-		if strings.HasPrefix(key, antiPodPrefix) {
-			key = strings.TrimPrefix(key, antiPodPrefix)
-			if notVal {
-				key = "^" + key
-			}
-			antiAffinityTags[key] = value
-		}
-	}
-	if len(affinityTags) == 0 && len(antiAffinityTags) == 0 {
-		return nil
-	}
-
-	updateAffinityTerm := func(affinityTerm *core.PodAffinityTerm, tags map[string]string) {
-		// Sort for stable ordering.
-		var keys []string
-		for k := range tags {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		var (
-			labelSelector v1.LabelSelector
-			topologyKey   string
-		)
-		for _, tag := range keys {
-			if tag == topologyKeyTag {
-				topologyKey = tags[tag]
-				continue
-			}
-			allValues := strings.Split(tags[tag], "|")
-			for i, v := range allValues {
-				allValues[i] = strings.Trim(v, " ")
-			}
-			op := v1.LabelSelectorOpIn
-			if strings.HasPrefix(tag, "^") {
-				tag = tag[1:]
-				op = v1.LabelSelectorOpNotIn
-			}
-			labelSelector.MatchExpressions = append(labelSelector.MatchExpressions, v1.LabelSelectorRequirement{
-				Key:      tag,
-				Operator: op,
-				Values:   allValues,
-			})
-		}
-		affinityTerm.LabelSelector = &labelSelector
-		if topologyKey != "" {
-			affinityTerm.TopologyKey = topologyKey
-		}
-	}
-	if pod.Affinity == nil {
-		pod.Affinity = &core.Affinity{}
-	}
-	var affinityTerm core.PodAffinityTerm
-	updateAffinityTerm(&affinityTerm, affinityTags)
-	if len(affinityTerm.LabelSelector.MatchExpressions) > 0 {
-		pod.Affinity.PodAffinity = &core.PodAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{affinityTerm},
-		}
-	}
-
-	var antiAffinityTerm core.PodAffinityTerm
-	updateAffinityTerm(&antiAffinityTerm, antiAffinityTags)
-	if len(antiAffinityTerm.LabelSelector.MatchExpressions) > 0 {
-		pod.Affinity.PodAntiAffinity = &core.PodAntiAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []core.PodAffinityTerm{antiAffinityTerm},
-		}
-	}
-	return nil
-}
-
 const applyRawSpecTimeoutSeconds = 20
 
 func (k *kubernetesClient) applyRawK8sSpec(
@@ -1258,7 +1026,7 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if err := processConstraints(&workloadSpec.Pod.PodSpec, appName, params.Constraints); err != nil {
+	if err := k8sapplication.ApplyConstraints(&workloadSpec.Pod.PodSpec, appName, params.Constraints); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1459,18 +1227,6 @@ func (k *kubernetesClient) configureDevices(unitSpec *workloadSpec, devices []de
 	return nil
 }
 
-func configureConstraint(pod *core.PodSpec, constraint, value string) error {
-	for i := range pod.Containers {
-		resources := pod.Containers[i].Resources
-		err := mergeConstraint(constraint, value, &resources)
-		if err != nil {
-			return errors.Annotatef(err, "merging constraint %q to %#v", constraint, resources)
-		}
-		pod.Containers[i].Resources = resources
-	}
-	return nil
-}
-
 type configMapNameFunc func(fileSetName string) string
 
 func (k *kubernetesClient) configurePodFiles(
@@ -1605,7 +1361,7 @@ func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) er
 
 func getJujuInitContainerAndStorageInfo(operatorImagePath string) (container core.Container, vol core.Volume, volMounts []core.VolumeMount, err error) {
 	dataDir := paths.DataDir(paths.OSUnixLike)
-	jujuRun := paths.JujuRun(paths.OSUnixLike)
+	jujuExec := paths.JujuExec(paths.OSUnixLike)
 	jujudCmd := `
 initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
 if test -n "$initCmd"; then
@@ -1643,7 +1399,7 @@ fi`[1:]
 	}
 	volMounts = []core.VolumeMount{
 		{Name: dataDirVolumeName, MountPath: dataDir},
-		{Name: dataDirVolumeName, MountPath: jujuRun, SubPath: "tools/jujud"},
+		{Name: dataDirVolumeName, MountPath: jujuExec, SubPath: "tools/jujud"},
 	}
 	return container, vol, volMounts, nil
 }
@@ -1891,11 +1647,32 @@ func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 		return errNoNamespace
 	}
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	_, err := deployments.Update(context.TODO(), spec, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		_, err = deployments.Create(context.TODO(), spec, v1.CreateOptions{})
+	_, err := k.createDeployment(spec)
+	if err == nil || !errors.IsAlreadyExists(err) {
+		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
+	}
+	existing, err := k.getDeployment(spec.GetName())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	existing.SetAnnotations(spec.GetAnnotations())
+	existing.Spec = spec.Spec
+	_, err = deployments.Update(context.TODO(), existing, v1.UpdateOptions{})
+	if err != nil {
+		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) createDeployment(spec *apps.Deployment) (*apps.Deployment, error) {
+	out, err := k.client().AppsV1().Deployments(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
+	if k8serrors.IsAlreadyExists(err) {
+		return nil, errors.AlreadyExistsf("deployment %q", spec.GetName())
+	}
+	if k8serrors.IsInvalid(err) {
+		return nil, errors.NotValidf("deployment %q", spec.GetName())
+	}
+	return out, errors.Trace(err)
 }
 
 func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) {
@@ -2384,6 +2161,17 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 	return watcher.NewMultiNotifyWatcher(w1, w2, w3), nil
 }
 
+// CheckCloudCredentials verifies the the cloud credentials provided to the
+// broker are functioning.
+func (k *kubernetesClient) CheckCloudCredentials() error {
+	if _, err := k.Namespaces(); err != nil {
+		// If this call could not be made with provided credential, we
+		// know that the credential is invalid.
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
@@ -2473,6 +2261,21 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 		units = append(units, unitInfo)
 	}
 	return units, nil
+}
+
+// ListPods filters a list of pods for the provided namespace and labels.
+func (k *kubernetesClient) ListPods(namespace string, selector k8slabels.Selector) ([]core.Pod, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: selector.String(),
+	}
+	list, err := k.client().CoreV1().Pods(namespace).List(context.TODO(), listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(list.Items) == 0 {
+		return nil, errors.NotFoundf("pods with selector %q", selector)
+	}
+	return list.Items, nil
 }
 
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
@@ -2822,22 +2625,6 @@ func mergeDeviceConstraints(device devices.KubernetesDeviceParams, resources *co
 	// - https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/#clusters-containing-different-types-of-nvidia-gpus
 	resources.Limits[resourceName] = *resource.NewQuantity(device.Count, resource.DecimalSI)
 	resources.Requests[resourceName] = *resource.NewQuantity(device.Count, resource.DecimalSI)
-	return nil
-}
-
-func mergeConstraint(constraint string, value string, resources *core.ResourceRequirements) error {
-	if resources.Limits == nil {
-		resources.Limits = core.ResourceList{}
-	}
-	resourceName := core.ResourceName(constraint)
-	if v, ok := resources.Limits[resourceName]; ok {
-		return errors.NotValidf("resource limit for %q has already been set to %v!", resourceName, v)
-	}
-	parsedValue, err := resource.ParseQuantity(value)
-	if err != nil {
-		return errors.Annotatef(err, "invalid constraint value %q for %v", value, constraint)
-	}
-	resources.Limits[resourceName] = parsedValue
 	return nil
 }
 

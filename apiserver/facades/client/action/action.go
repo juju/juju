@@ -29,31 +29,6 @@ type ActionAPI struct {
 
 type TagToActionReceiverFunc func(findEntity func(names.Tag) (state.Entity, error)) func(tag string) (state.ActionReceiver, error)
 
-// APIv2 provides the Action API facade for version 2.
-type APIv2 struct {
-	*APIv3
-}
-
-// APIv3 provides the Action API facade for version 3.
-type APIv3 struct {
-	*APIv4
-}
-
-// APIv4 provides the Action API facade for version 4.
-type APIv4 struct {
-	*APIv5
-}
-
-// APIv5 provides the Action API facade for version 5.
-type APIv5 struct {
-	*APIv6
-}
-
-// APIv6 provides the Action API facade for version 6.
-type APIv6 struct {
-	*APIv7
-}
-
 // APIv7 provides the Action API facade for version 7.
 type APIv7 struct {
 	*ActionAPI
@@ -114,19 +89,7 @@ func (a *ActionAPI) checkCanAdmin() error {
 
 // Actions takes a list of ActionTags, and returns the full Action for
 // each ID.
-func (a *APIv4) Actions(arg params.Entities) (params.ActionResults, error) {
-	return a.actions(arg, true)
-}
-
-// Actions takes a list of ActionTags, and returns the full Action for
-// each ID.
 func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
-	return a.actions(arg, false)
-}
-
-// Actions takes a list of ActionTags, and returns the full Action for
-// each ID.
-func (a *ActionAPI) actions(arg params.Entities, compat bool) (params.ActionResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
@@ -158,91 +121,13 @@ func (a *ActionAPI) actions(arg params.Entities, compat bool) (params.ActionResu
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
-		response.Results[i] = common.MakeActionResult(receiverTag, action, compat)
+		response.Results[i] = common.MakeActionResult(receiverTag, action)
 	}
 	return response, nil
-}
-
-// FindActionTagsByPrefix takes a list of string prefixes and finds
-// corresponding ActionTags that match that prefix.
-// TODO(juju3) - rename API method since we only need prefix matching for UUIDs
-func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
-	if err := a.checkCanRead(); err != nil {
-		return params.FindTagsResults{}, errors.Trace(err)
-	}
-
-	response := params.FindTagsResults{Matches: make(map[string][]params.Entity)}
-	for _, prefix := range arg.Prefixes {
-		m, err := a.state.Model()
-		if err != nil {
-			return params.FindTagsResults{}, errors.Trace(err)
-		}
-		found, err := m.FindActionTagsById(prefix)
-		if err != nil {
-			return params.FindTagsResults{}, errors.Trace(err)
-		}
-		matches := make([]params.Entity, len(found))
-		for i, tag := range found {
-			matches[i] = params.Entity{Tag: tag.String()}
-		}
-		response.Matches[prefix] = matches
-	}
-	return response, nil
-}
-
-func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.ActionsByNames, error) {
-	if err := a.checkCanWrite(); err != nil {
-		return params.ActionsByNames{}, errors.Trace(err)
-	}
-
-	response := params.ActionsByNames{Actions: make([]params.ActionsByName, len(arg.ActionNames))}
-	for i, name := range arg.ActionNames {
-		currentResult := &response.Actions[i]
-		currentResult.Name = name
-
-		m, err := a.state.Model()
-		if err != nil {
-			return params.ActionsByNames{}, errors.Trace(err)
-		}
-
-		actions, err := m.FindActionsByName(name)
-		if err != nil {
-			currentResult.Error = apiservererrors.ServerError(err)
-			continue
-		}
-		for _, action := range actions {
-			recvTag, err := names.ActionReceiverTag(action.Receiver())
-			if err != nil {
-				currentResult.Actions = append(currentResult.Actions, params.ActionResult{Error: apiservererrors.ServerError(err)})
-				continue
-			}
-			currentAction := common.MakeActionResult(recvTag, action, true)
-			currentResult.Actions = append(currentResult.Actions, currentAction)
-		}
-	}
-	return response, nil
-}
-
-// Enqueue takes a list of Actions and queues them up to be executed by
-// the designated ActionReceiver, returning the params.Action for each
-// enqueued Action, or an error if there was a problem enqueueing the
-// Action.
-func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
-	_, results, err := a.enqueue(arg)
-	return results, err
-}
-
-// Cancel attempts to cancel enqueued Actions from running.
-func (a *APIv4) Cancel(arg params.Entities) (params.ActionResults, error) {
-	return a.cancel(arg, true)
 }
 
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
-	return a.cancel(arg, false)
-}
-
-func (a *ActionAPI) cancel(arg params.Entities, compat bool) (params.ActionResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
@@ -284,7 +169,7 @@ func (a *ActionAPI) cancel(arg params.Entities, compat bool) (params.ActionResul
 			continue
 		}
 
-		response.Results[i] = common.MakeActionResult(receiverTag, result, compat)
+		response.Results[i] = common.MakeActionResult(receiverTag, result)
 	}
 	return response, nil
 }

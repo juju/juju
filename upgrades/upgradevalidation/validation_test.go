@@ -117,12 +117,12 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 	state := mocks.NewMockState(ctrl)
 	gomock.InOrder(
 		state.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		state.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(map[string]int{"win10": 1, "win7": 2}, nil),
 	)
 

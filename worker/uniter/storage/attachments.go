@@ -7,7 +7,7 @@
 package storage
 
 import (
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 

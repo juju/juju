@@ -25,7 +25,7 @@ var minClientVersions = map[int]version.Number{
 	3: version.MustParse("2.9.33"),
 }
 
-func checkClientVersion(userLogin bool, callerVersion version.Number) func(facadeName, methodName string) error {
+func checkClientVersion(userLogin bool, callerVersion, serverVersion version.Number) func(facadeName, methodName string) error {
 	return func(facadeName, methodName string) error {
 		serverVersion := jujuversion.Current
 		incompatibleClientError := &params.IncompatibleClientError{
@@ -52,6 +52,13 @@ func checkClientVersion(userLogin bool, callerVersion version.Number) func(facad
 				logger.Debugf("rejected agent api all %v.%v for agent version %v", facadeName, methodName, callerVersion)
 				return incompatibleClientError
 			}
+			return nil
+		}
+
+		// Clients can still access the "X+1.0" controller facades.
+		// But we never allow unfetted access to older controllers
+		// as newer clients may have had backwards compatibility removed.
+		if callerVersion.Major < serverVersion.Major && serverVersion.Minor == 0 {
 			return nil
 		}
 

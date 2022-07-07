@@ -53,6 +53,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	// Don't use MgoSuite, because we need to ensure
 	// we have a fresh mongo for each test case.
 	s.mgoInst.EnableAuth = true
+	s.mgoInst.EnableReplicaSet = true
 	err := s.mgoInst.Start(testing.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -151,10 +152,10 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 
-	hostedModelUUID := utils.MustNewUUID().String()
-	hostedModelConfigAttrs := map[string]interface{}{
+	initialModelUUID := utils.MustNewUUID().String()
+	InitialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
-		"uuid": hostedModelUUID,
+		"uuid": initialModelUUID,
 	}
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
@@ -186,7 +187,7 @@ LXC_BRIDGE="ignored"`[1:])
 			ControllerModelEnvironVersion: 666,
 			ModelConstraints:              expectModelConstraints,
 			ControllerInheritedConfig:     controllerInheritedConfig,
-			HostedModelConfig:             hostedModelConfigAttrs,
+			InitialModelConfig:            InitialModelConfigAttrs,
 			StoragePools: map[string]storage.Attrs{
 				"spool": {
 					"type": "loop",
@@ -272,18 +273,18 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
 	// controller model.
-	hostedModelSt, err := ctlr.StatePool().Get(hostedModelUUID)
+	initialModelSt, err := ctlr.StatePool().Get(initialModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer hostedModelSt.Release()
-	gotModelConstraints, err = hostedModelSt.ModelConstraints()
+	defer initialModelSt.Release()
+	gotModelConstraints, err = initialModelSt.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
-	hostedModel, err := hostedModelSt.Model()
+	initialModel, err := initialModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
-	c.Assert(hostedModel.EnvironVersion(), gc.Equals, 123)
-	hostedCfg, err := hostedModel.ModelConfig()
+	c.Assert(initialModel.Name(), gc.Equals, "hosted")
+	c.Assert(initialModel.CloudRegion(), gc.Equals, "dummy-region")
+	c.Assert(initialModel.EnvironVersion(), gc.Equals, 123)
+	hostedCfg, err := initialModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)
@@ -430,7 +431,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	hostedModelConfigAttrs := map[string]interface{}{
+	InitialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
 		"uuid": utils.MustNewUUID().String(),
 	}
@@ -446,7 +447,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			},
 			ControllerConfig:      testing.FakeControllerConfig(),
 			ControllerModelConfig: modelCfg,
-			HostedModelConfig:     hostedModelConfigAttrs,
+			InitialModelConfig:    InitialModelConfigAttrs,
 		},
 		BootstrapMachineJobs: []model.MachineJob{model.JobManageModel},
 		SharedSecret:         "abc123",

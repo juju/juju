@@ -5,9 +5,7 @@ package ec2
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/juju/errors"
@@ -118,9 +116,6 @@ func (e environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 }
 
 func credentialsDir() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("USERPROFILE"), ".aws")
-	}
 	return filepath.Join(utils.Home(), ".aws")
 }
 

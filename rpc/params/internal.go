@@ -405,22 +405,6 @@ type RelationResult struct {
 	OtherApplication string     `json:"other-application,omitempty"`
 }
 
-// RelationResultV5 returns information about a single relation,
-// or an error, but doesn't include the other application name.
-type RelationResultV5 struct {
-	Error    *Error     `json:"error,omitempty"`
-	Life     life.Value `json:"life"`
-	Id       int        `json:"id"`
-	Key      string     `json:"key"`
-	Endpoint Endpoint   `json:"endpoint"`
-}
-
-// RelationResultsV5 holds the result of an API call that returns
-// information about multiple V5 relations.
-type RelationResultsV5 struct {
-	Results []RelationResultV5 `json:"results"`
-}
-
 // EntityCharmURL holds an entity's tag and a charm URL.
 type EntityCharmURL struct {
 	Tag      string `json:"tag"`
@@ -747,11 +731,13 @@ type CharmsResponse struct {
 // Commands and Timeout are expected to have values, and one or more
 // values should be in the Machines, Applications, or Units slices.
 type RunParams struct {
-	Commands     string        `json:"commands"`
-	Timeout      time.Duration `json:"timeout"`
-	Machines     []string      `json:"machines,omitempty"`
-	Applications []string      `json:"applications,omitempty"`
-	Units        []string      `json:"units,omitempty"`
+	Commands       string        `json:"commands"`
+	Timeout        time.Duration `json:"timeout"`
+	Machines       []string      `json:"machines,omitempty"`
+	Applications   []string      `json:"applications,omitempty"`
+	Units          []string      `json:"units,omitempty"`
+	Parallel       *bool         `json:"parallel,omitempty"`
+	ExecutionGroup *string       `json:"execution-group,omitempty"`
 
 	// WorkloadContext for CAAS is true when the Commands should be run on
 	// the workload not the operator.
@@ -782,44 +768,6 @@ type AgentVersionResult struct {
 	Version version.Number `json:"version"`
 }
 
-// ProvisioningInfoBase holds machine provisioning info common
-// across different versions of the provisioner API facade.
-type ProvisioningInfoBase struct {
-	Constraints       constraints.Value        `json:"constraints"`
-	Series            string                   `json:"series"`
-	Placement         string                   `json:"placement"`
-	Jobs              []model.MachineJob       `json:"jobs"`
-	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
-	Volumes           []VolumeParams           `json:"volumes,omitempty"`
-	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
-	Tags              map[string]string        `json:"tags,omitempty"`
-	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
-	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
-	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
-	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
-	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
-}
-
-// ProvisioningInfo holds machine provisioning info returned by
-// versions 9 and lower of the provisioner API facade.
-type ProvisioningInfo struct {
-	ProvisioningInfoBase
-	SubnetsToZones map[string][]string `json:"subnets-to-zones,omitempty"`
-}
-
-// ProvisioningInfoResult holds machine provisioning info or an error
-// for versions 9 and lower of the provisioner API facade.
-type ProvisioningInfoResult struct {
-	Result *ProvisioningInfo `json:"result"`
-	Error  *Error            `json:"error,omitempty"`
-}
-
-// ProvisioningInfoResults holds multiple machine provisioning info results
-// for versions 9 and lower of the provisioner API facade.
-type ProvisioningInfoResults struct {
-	Results []ProvisioningInfoResult `json:"results"`
-}
-
 // ProvisioningNetworkTopology holds a network topology that is based on
 // positive machine space constraints.
 // This is used for creating NICs on instances where the provider is not space
@@ -837,24 +785,34 @@ type ProvisioningNetworkTopology struct {
 	SpaceSubnets map[string][]string `json:"space-subnets"`
 }
 
-// ProvisioningInfoV10 holds machine provisioning info returned by
-// versions 10 and above of the provisioner API facade.
-type ProvisioningInfoV10 struct {
-	ProvisioningInfoBase
+// ProvisioningInfo holds machine provisioning info.
+type ProvisioningInfo struct {
+	Constraints       constraints.Value        `json:"constraints"`
+	Series            string                   `json:"series"`
+	Placement         string                   `json:"placement"`
+	Jobs              []model.MachineJob       `json:"jobs"`
+	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
+	Volumes           []VolumeParams           `json:"volumes,omitempty"`
+	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
+	Tags              map[string]string        `json:"tags,omitempty"`
+	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
+	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
+	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
+	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
+
 	ProvisioningNetworkTopology
 }
 
-// ProvisioningInfoResultV10 holds machine provisioning info or an error
-// for versions 10 and above of the provisioner API facade.
-type ProvisioningInfoResultV10 struct {
-	Result *ProvisioningInfoV10 `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+// ProvisioningInfoResult holds machine provisioning info or an error.
+type ProvisioningInfoResult struct {
+	Result *ProvisioningInfo `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
 }
 
-// ProvisioningInfoResultsV10 holds multiple machine provisioning info results
-// for versions 10 and above of the provisioner API facade.
-type ProvisioningInfoResultsV10 struct {
-	Results []ProvisioningInfoResultV10 `json:"results"`
+// ProvisioningInfoResults holds multiple machine provisioning info results.
+type ProvisioningInfoResults struct {
+	Results []ProvisioningInfoResult `json:"results"`
 }
 
 // Metric holds a single metric.
@@ -918,28 +876,6 @@ type SingularClaim struct {
 // SingularClaims holds any number of SingularClaim~s.
 type SingularClaims struct {
 	Claims []SingularClaim `json:"claims"`
-}
-
-// GUIArchiveVersion holds information on a specific GUI archive version.
-type GUIArchiveVersion struct {
-	// Version holds the Juju GUI version number.
-	Version version.Number `json:"version"`
-	// SHA256 holds the SHA256 hash of the GUI tar.bz2 archive.
-	SHA256 string `json:"sha256"`
-	// Current holds whether this specific version is the current one served
-	// by the controller.
-	Current bool `json:"current"`
-}
-
-// GUIArchiveResponse holds the response to /gui-archive GET requests.
-type GUIArchiveResponse struct {
-	Versions []GUIArchiveVersion `json:"versions"`
-}
-
-// GUIVersionRequest holds the body for /gui-version PUT requests.
-type GUIVersionRequest struct {
-	// Version holds the Juju GUI version number.
-	Version version.Number `json:"version"`
 }
 
 // LogMessage is a structured logging entry.

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure"
-	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -30,11 +29,9 @@ import (
 type storageSuite struct {
 	testing.BaseSuite
 
-	datavhdsContainer azuretesting.MockStorageContainer
-	storageClient     azuretesting.MockStorageClient
-	provider          storage.Provider
-	requests          []*http.Request
-	sender            azuretesting.Senders
+	provider storage.Provider
+	requests []*http.Request
+	sender   azuretesting.Senders
 
 	cloudCallCtx      *context.CloudCallContext
 	invalidCredential bool
@@ -44,18 +41,10 @@ var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.datavhdsContainer = azuretesting.MockStorageContainer{}
-	s.storageClient = azuretesting.MockStorageClient{
-		Containers: map[string]internalazurestorage.Container{
-			"datavhds": &s.datavhdsContainer,
-		},
-	}
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
-		Sender:                     &s.sender,
-		NewStorageClient:           s.storageClient.NewClient,
-		RequestInspector:           &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
-		RandomWindowsAdminPassword: func() string { return "sorandom" },
+		Sender:           &s.sender,
+		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
 			return &azuretesting.FakeCredential{}, nil
 		},
@@ -84,18 +73,10 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.sender = azuretesting.Senders{s.accountNotFoundSender()}
+	s.sender = azuretesting.Senders{}
 	volumeSource, err := s.provider.VolumeSource(storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return volumeSource
-}
-
-func (s *storageSuite) accountNotFoundSender() *mocks.Sender {
-	sender := mocks.NewSender()
-	sender.AppendResponse(mocks.NewResponseWithStatus(
-		"storage account not found", http.StatusNotFound,
-	))
-	return sender
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {

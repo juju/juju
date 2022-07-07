@@ -165,8 +165,8 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 		s.statePool.EXPECT().MongoVersion().Return("4.4", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		// - check if the model has deprecated ubuntu machines;
 		ctrlState.EXPECT().MachineCountForSeries(
@@ -201,8 +201,8 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
 		// - check if the model has win machines;
 		state1.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		// - check if the model has deprecated ubuntu machines;
 		state1.EXPECT().MachineCountForSeries(
@@ -306,8 +306,8 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 		s.statePool.EXPECT().MongoVersion().Return("4.3", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(map[string]int{"win10": 1, "win7": 2}, nil),
 		// - check if the model has deprecated ubuntu machines;
 		ctrlState.EXPECT().MachineCountForSeries(
@@ -344,8 +344,8 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting),
 		// - check if the model has win machines;
 		state1.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(map[string]int{"win10": 1, "win7": 3}, nil),
 		// - check if the model has deprecated ubuntu machines;
 		state1.EXPECT().MachineCountForSeries(
@@ -424,8 +424,8 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool)
 
 		// - check if the model has win machines;
 		st.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		// - check if the model has deprecated ubuntu machines;
 		st.EXPECT().MachineCountForSeries(
@@ -501,8 +501,8 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 
 		// - check if the model has win machines;
 		st.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(map[string]int{"win10": 1, "win7": 3}, nil),
 		// - check if the model has deprecated ubuntu machines;
 		st.EXPECT().MachineCountForSeries(

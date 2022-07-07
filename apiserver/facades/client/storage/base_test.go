@@ -29,7 +29,6 @@ type baseStorageSuite struct {
 
 	api             *storage.StorageAPI
 	apiCaas         *storage.StorageAPI
-	apiv3           *storage.StorageAPIv3
 	storageAccessor *mockStorageAccessor
 	state           *mockState
 
@@ -72,14 +71,6 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
 	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
-	newAPI := storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
-	s.apiv3 = &storage.StorageAPIv3{
-		StorageAPIv4: storage.StorageAPIv4{
-			StorageAPIv5: storage.StorageAPIv5{
-				StorageAPI: *newAPI,
-			},
-		},
-	}
 }
 
 func (s *baseStorageSuite) storageMetadata() (poolmanager.PoolManager, jujustorage.ProviderRegistry, error) {

@@ -25,10 +25,9 @@ type State interface {
 // Model describes model state used by the action facade.
 type Model interface {
 	ActionByTag(tag names.ActionTag) (state.Action, error)
-	AddAction(receiver state.ActionReceiver, operationID, name string, payload map[string]interface{}) (state.Action, error)
+	AddAction(receiver state.ActionReceiver, operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (state.Action, error)
 	EnqueueOperation(summary string, count int) (string, error)
 	FailOperationEnqueuing(operationID, failMessage string, count int) error
-	FindActionTagsById(idValue string) ([]names.ActionTag, error)
 	FindActionsByName(name string) ([]state.Action, error)
 	ListOperations(actionNames []string, actionReceivers []names.Tag, operationStatus []state.ActionStatus,
 		offset, limit int,

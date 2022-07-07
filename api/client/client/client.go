@@ -10,18 +10,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 	"github.com/lxc/lxd/shared/logger"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -103,108 +99,6 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	return history, nil
 }
 
-// Resolved clears errors on a unit.
-// TODO(juju3) - remove
-func (c *Client) Resolved(unit string, retry bool) error {
-	p := params.Resolved{
-		UnitName: unit,
-		Retry:    retry,
-	}
-	return c.facade.FacadeCall("Resolved", p, nil)
-}
-
-// RetryProvisioning updates the provisioning status of a machine allowing the
-// provisioner to retry.
-// TODO(juju3) - remove
-func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
-	p := params.Entities{}
-	p.Entities = make([]params.Entity, len(machines))
-	for i, machine := range machines {
-		p.Entities[i] = params.Entity{Tag: machine.String()}
-	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("RetryProvisioning", p, &results)
-	return results.Results, err
-}
-
-// AddMachines adds new machines with the supplied parameters.
-// TODO(juju3) - remove
-func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	args := params.AddMachines{
-		MachineParams: machineParams,
-	}
-	results := new(params.AddMachinesResults)
-	err := c.facade.FacadeCall("AddMachinesV2", args, results)
-	return results.Machines, err
-}
-
-// ProvisioningScript returns a shell script that, when run,
-// provisions a machine agent on the machine executing the script.
-// TODO(juju3) - remove
-func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
-	var result params.ProvisioningScriptResult
-	if err = c.facade.FacadeCall("ProvisioningScript", args, &result); err != nil {
-		return "", err
-	}
-	return result.Script, nil
-}
-
-// DestroyMachinesWithParams removes a given set of machines and all associated units.
-// TODO(juju3) - remove
-func (c *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) error {
-	if keep {
-		return errors.NotSupportedf("destroy machine with keep-instance=true")
-	}
-	p := params.DestroyMachines{MachineNames: machines}
-	return c.facade.FacadeCall("DestroyMachines", p, nil)
-}
-
-// GetModelConstraints returns the constraints for the model.
-// TODO(juju3) - remove
-func (c *Client) GetModelConstraints() (constraints.Value, error) {
-	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetModelConstraints", nil, results)
-	return results.Constraints, err
-}
-
-// SetModelConstraints specifies the constraints for the model.
-// TODO(juju3) - remove
-func (c *Client) SetModelConstraints(constraints constraints.Value) error {
-	params := params.SetConstraints{
-		Constraints: constraints,
-	}
-	return c.facade.FacadeCall("SetModelConstraints", params, nil)
-}
-
-// ModelUUID returns the model UUID from the client connection
-// and reports whether it is valued.
-func (c *Client) ModelUUID() (string, bool) {
-	tag, ok := c.conn.ModelTag()
-	if !ok {
-		return "", false
-	}
-	return tag.Id(), true
-}
-
-// ModelUserInfo returns information on all users in the model.
-// TODO(juju3) - remove
-func (c *Client) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error) {
-	var results params.ModelUserInfoResults
-	err := c.facade.FacadeCall("ModelUserInfo", nil, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	info := []params.ModelUserInfo{}
-	for i, result := range results.Results {
-		if result.Result == nil {
-			return nil, errors.Errorf("unexpected nil result at position %d", i)
-		}
-		info = append(info, *result.Result)
-	}
-	return info, nil
-}
-
 // WatchAll returns an AllWatcher, from which you can request the Next
 // collection of Deltas.
 func (c *Client) WatchAll() (*api.AllWatcher, error) {
@@ -242,10 +136,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 
 // FindTools returns a List containing all tools matching the specified parameters.
 func (c *Client) FindTools(majorVersion, minorVersion int, osType, arch, agentStream string) (result params.FindToolsResult, err error) {
-	if c.facade.BestAPIVersion() == 1 && agentStream != "" {
-		return params.FindToolsResult{}, errors.New(
-			"passing agent-stream not supported by the controller")
-	}
 	args := params.FindToolsParams{
 		MajorVersion: majorVersion,
 		MinorVersion: minorVersion,
@@ -268,52 +158,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, osType, arch, agentSt
 		}
 	}
 	return result, err
-}
-
-// AddCharm adds the given charm URL (which must include revision) to
-// the model, if it does not exist yet. Local charms are not
-// supported, only charm store URLs. See also AddLocalCharm() in the
-// client-side API.
-//
-// If the AddCharm API call fails because of an authorization error
-// when retrieving the charm from the charm store, an error
-// satisfying params.IsCodeUnauthorized will be returned.
-// TODO(juju3) - remove
-func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel, force bool) error {
-	args := params.AddCharm{
-		URL:     curl.String(),
-		Channel: string(channel),
-		Force:   force,
-	}
-	if err := c.facade.FacadeCall("AddCharm", args, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// AddCharmWithAuthorization is like AddCharm except it also provides
-// the given charmstore macaroon for the juju server to use when
-// obtaining the charm from the charm store. The macaroon is
-// conventionally obtained from the /delegatable-macaroon endpoint in
-// the charm store.
-//
-// If the AddCharmWithAuthorization API call fails because of an
-// authorization error when retrieving the charm from the charm store,
-// an error satisfying params.IsCodeUnauthorized will be returned.
-// Force is used to overload any validation errors that could occur during
-// a deploy
-// TODO(juju3) - remove
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, force bool) error {
-	args := params.AddCharmWithAuthorization{
-		URL:                curl.String(),
-		Channel:            string(channel),
-		CharmStoreMacaroon: csMac,
-		Force:              force,
-	}
-	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.

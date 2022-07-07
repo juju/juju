@@ -6,7 +6,7 @@ package uniter_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/worker/uniter/reboot"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/secrets"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
@@ -106,6 +107,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(logger),
+		Secrets:             secrets.NewSecretsResolver(func(_ string) {}),
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
@@ -588,6 +590,23 @@ func (s *resolverSuite) TestRunHookPendingUpgradeOperation(c *gc.C) {
 	op, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
+}
+
+func (s *resolverSuite) TestRunsSecretRotated(c *gc.C) {
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+			Leader:    true,
+		},
+	}
+	s.remoteState.Leader = true
+	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret://app/mariadb/password) hook")
 }
 
 func (s *conflictedResolverSuite) TestNextOpConflicted(c *gc.C) {

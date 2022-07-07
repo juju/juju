@@ -84,7 +84,6 @@ func NewUpgradeSeriesCommand() cmd.Command {
 }
 
 type UpgradeMachineSeriesAPI interface {
-	BestAPIVersion() int
 	Close() error
 	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
@@ -356,11 +355,6 @@ func getMachineID(fullStatus *params.FullStatus, id string) (string, error) {
 // or the info was malformed, we will fall back to the underlying error
 // and not provide any hints.
 func (c *upgradeSeriesCommand) displayProgressFromError(ctx *cmd.Context, err error) error {
-	if errors.IsNotSupported(err) {
-		return errors.Wrap(err, errors.Errorf(`upgrade-series is not supported.
-Please upgrade your controller to perform the operation.`))
-	}
-
 	errResp, ok := errors.Cause(err).(*params.Error)
 	if !ok {
 		return errors.Trace(err)

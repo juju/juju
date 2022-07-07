@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
@@ -370,7 +370,8 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 }
 
 func (op *DestroyApplicationOperation) eraseHistory() error {
-	if err := eraseStatusHistory(op.app.st, op.app.globalKey()); err != nil {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.app.st, op.app.globalKey()); err != nil {
 		one := errors.Annotate(err, "application")
 		if op.FatalError(one) {
 			return one
@@ -1885,6 +1886,12 @@ func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) erro
 	return errors.Annotatef(err, "merging application bindings")
 }
 
+// unitAppName returns the name of the Application, given a Unit's name.
+func unitAppName(unitName string) string {
+	unitParts := strings.Split(unitName, "/")
+	return unitParts[0]
+}
+
 // UpdateApplicationSeries updates the series for the Application.
 func (a *Application) UpdateApplicationSeries(series string, force bool) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -2222,7 +2229,18 @@ func (a *Application) addUnitOps(
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		if args.machineID != "" {
+		// If the application is deployed to the controller model and the charm
+		// has the special juju- prefix to its name, then bypass the machineID
+		// empty check.
+		if args.machineID != "" && a.st.IsController() {
+			curl, err := charm.ParseURL(*a.doc.CharmURL)
+			if err != nil {
+				return "", nil, errors.Trace(err)
+			}
+			if !strings.HasPrefix(curl.Name, "juju-") {
+				return "", nil, errors.NotSupportedf("non-empty machineID")
+			}
+		} else if args.machineID != "" {
 			return "", nil, errors.NotSupportedf("non-empty machineID")
 		}
 	}

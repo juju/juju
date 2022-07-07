@@ -45,10 +45,9 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
 			},
 		},
-		modelTypes:     map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
-		units:          map[string]int{"def": 4},
-		access:         permission.SuperuserAccess,
-		bestAPIVersion: 8,
+		modelTypes: map[string]model.ModelType{"def": model.CAAS, "xyz": model.CAAS},
+		units:      map[string]int{"def": 4},
+		access:     permission.SuperuserAccess,
 		controllerVersion: apicontroller.ControllerVersion{
 			Version:   "999.99.99",
 			GitCommit: "badf00d0badf00d0badf00d0badf00d0badf00d0",
@@ -78,7 +77,6 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -89,12 +87,10 @@ mallards:
     ca-cert: this-is-another-ca-cert
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -112,7 +108,6 @@ func (s *ShowControllerSuite) TestShowK8sController(c *gc.C) {
 	s.expectedOutput = `
 k8s-controller:
   details:
-    uuid: this-is-a-k8s-uuid
     controller-uuid: this-is-a-k8s-uuid
     api-endpoints: [this-is-one-of-many-k8s-api-endpoints]
     cloud: microk8s
@@ -127,10 +122,8 @@ k8s-controller:
       instance-id: id-0
   models:
     controller:
-      uuid: xyz
       model-uuid: xyz
     my-k8s-model:
-      uuid: def
       model-uuid: def
       unit-count: 4
   current-model: admin/my-k8s-model
@@ -157,7 +150,6 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -168,12 +160,10 @@ mallards:
     ca-cert: this-is-another-ca-cert
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -215,7 +205,6 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -227,12 +216,10 @@ mallards:
     ca-cert: this-is-another-ca-cert
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -251,7 +238,6 @@ func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     cloud: aws
@@ -273,7 +259,6 @@ aws-test:
       ha-status: ha-enabled
   models:
     controller:
-      uuid: ghi
       model-uuid: ghi
       machine-count: 2
       core-count: 4
@@ -290,7 +275,6 @@ func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     cloud: aws
@@ -312,7 +296,6 @@ aws-test:
       ha-status: ha-enabled
   models:
     controller:
-      uuid: ghi
       model-uuid: ghi
       machine-count: 2
       core-count: 4
@@ -322,7 +305,6 @@ aws-test:
     access: superuser
 mark-test-prodstack:
   details:
-    uuid: this-is-a-uuid
     controller-uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     cloud: prodstack
@@ -337,52 +319,6 @@ mark-test-prodstack:
 `[1:]
 
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
-}
-
-func (s *ShowControllerSuite) TestShowOneControllerWithAPIVersionTooLow(c *gc.C) {
-	s.fakeController = &fakeController{
-		machines:       map[string][]base.Machine{},
-		access:         permission.SuperuserAccess,
-		bestAPIVersion: 1,
-	}
-
-	s.controllersYaml = `controllers:
-  mallards:
-    uuid: this-is-another-uuid
-    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
-    cloud: mallards
-    agent-version: 999.99.99
-    ca-cert: this-is-another-ca-cert
-`
-	s.createTestClientStore(c)
-
-	s.expectedOutput = `
-mallards:
-  details:
-    uuid: this-is-another-uuid
-    controller-uuid: this-is-another-uuid
-    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
-    cloud: mallards
-    controller-model-version: 999.99.99
-    ca-cert: this-is-another-ca-cert
-  models:
-    controller:
-      uuid: abc
-      model-uuid: abc
-      machine-count: 2
-      core-count: 4
-    my-model:
-      uuid: def
-      model-uuid: def
-      machine-count: 2
-      core-count: 4
-  current-model: admin/my-model
-  account:
-    user: admin
-    access: superuser
-`[1:]
-
-	s.assertShowController(c, "mallards")
 }
 
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
@@ -494,7 +430,6 @@ func (s *ShowControllerSuite) TestShowControllerForUserWithLoginAccess(c *gc.C) 
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -556,7 +491,6 @@ func (s *ShowControllerSuite) TestShowControllerWithCAFingerprint(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
@@ -582,12 +516,10 @@ mallards:
       -----END CERTIFICATE-----
   models:
     controller:
-      uuid: abc
       model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
       model-uuid: def
       machine-count: 2
       core-count: 4
@@ -620,7 +552,6 @@ func (s *ShowControllerSuite) TestShowControllerPrimary(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     cloud: aws
@@ -643,7 +574,6 @@ aws-test:
       ha-primary: true
   models:
     controller:
-      uuid: ghi
       model-uuid: ghi
       machine-count: 2
       core-count: 4
@@ -664,7 +594,6 @@ func (s *ShowControllerSuite) TestShowControllerPrimaryModelStatusFail(c *gc.C) 
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
     controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     cloud: aws
@@ -695,7 +624,6 @@ type fakeController struct {
 	units             map[string]int
 	modelTypes        map[string]model.ModelType
 	access            permission.Access
-	bestAPIVersion    int
 	identityURL       string
 	controllerVersion apicontroller.ControllerVersion
 	emptyModelStatus  bool
@@ -727,9 +655,6 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 }
 
 func (c *fakeController) MongoVersion() (string, error) {
-	if c.bestAPIVersion < 3 {
-		return "", errors.NotSupportedf("requires APIVersion >= 3")
-	}
 	return "3.5.12", nil
 }
 

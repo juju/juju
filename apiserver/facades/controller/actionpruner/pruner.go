@@ -11,32 +11,29 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// API provides access to the action pruner API.
 type API struct {
 	*common.ModelWatcher
+	cancel     <-chan struct{}
 	st         *state.State
-	model      *state.Model
 	authorizer facade.Authorizer
 }
 
-func newAPI(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	auth := ctx.Auth()
-	return &API{
-		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), auth),
-		st:           st,
-		authorizer:   auth,
-	}, nil
+// Model returns the model for a context (override for tests).
+var Model = func(ctx facade.Context) (state.ModelAccessor, error) {
+	return ctx.State().Model()
 }
 
+// Prune performs the action pruner operation (override for tests).
+var Prune = state.PruneOperations
+
+// Prune endpoint removes action entries until
+// only the ones newer than now - p.MaxHistoryTime remain and
+// the history is smaller than p.MaxHistoryMB.
 func (api *API) Prune(p params.ActionPruneArgs) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}
 
-	return state.PruneOperations(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return Prune(api.cancel, api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

@@ -123,7 +123,6 @@ Continue [y/N]? `[1:]
 // API that the destroy command calls. It is exported for mocking in tests.
 type DestroyModelAPI interface {
 	Close() error
-	BestAPIVersion() int
 	DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout time.Duration) error
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 }
@@ -283,43 +282,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		slaIsSet = slaLevel != "" && slaLevel != slaUnsupported
 	} else {
 		logger.Debugf("could not determine model SLA level: %v", err)
-	}
-
-	if api.BestAPIVersion() < 4 {
-		// Versions before 4 support only destroying the storage,
-		// and will not raise an error if there is storage in the
-		// controller. Force the user to specify up-front.
-		if c.releaseStorage {
-			return errors.New("this juju controller only supports destroying storage")
-		}
-		if !c.destroyStorage {
-			storageAPI, err := c.getStorageAPI()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			defer storageAPI.Close()
-
-			storageDetails, err := storageAPI.ListStorageDetails()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if len(storageDetails) > 0 {
-				return errors.Errorf(`cannot destroy model %q
-
-Destroying this model will destroy the storage, but you
-have not indicated that you want to do that.
-
-Please run the the command again with --destroy-storage
-to confirm that you want to destroy the storage along
-with the model.
-
-If instead you want to keep the storage, you must first
-upgrade the controller to version 2.3 or greater.
-
-`, modelName)
-			}
-			c.destroyStorage = true
-		}
 	}
 
 	// Attempt to destroy the model.

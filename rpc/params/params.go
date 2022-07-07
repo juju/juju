@@ -22,18 +22,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// FindTags wraps a slice of strings that are prefixes to use when
-// searching for matching tags.
-type FindTags struct {
-	Prefixes []string `json:"prefixes"`
-}
-
-// FindTagsResults wraps the mapping between the requested prefix and the
-// matching tags for each requested prefix.
-type FindTagsResults struct {
-	Matches map[string][]Entity `json:"matches"`
-}
-
 // Entity identifies a single entity.
 type Entity struct {
 	Tag string `json:"tag"`
@@ -284,14 +272,6 @@ type AddMachinesResults struct {
 type AddMachinesResult struct {
 	Machine string `json:"machine"`
 	Error   *Error `json:"error,omitempty"`
-}
-
-// DestroyMachines holds parameters for the DestroyMachines call.
-// This is the legacy params struct used with the client facade.
-// TODO(wallyworld) - remove in Juju 3.0
-type DestroyMachines struct {
-	MachineNames []string `json:"machine-names"`
-	Force        bool     `json:"force"`
 }
 
 // DestroyMachinesParams holds parameters for the DestroyMachinesWithParams call.
@@ -773,20 +753,6 @@ type ContainerConfig struct {
 	*UpdateBehavior
 }
 
-// ContainerConfigV5 contains information from the model config that is
-// needed for container cloud-init for version 5 provisioner api calls.
-type ContainerConfigV5 struct {
-	ProviderType               string                 `json:"provider-type"`
-	AuthorizedKeys             string                 `json:"authorized-keys"`
-	SSLHostnameVerification    bool                   `json:"ssl-hostname-verification"`
-	Proxy                      proxy.Settings         `json:"proxy"`
-	AptProxy                   proxy.Settings         `json:"apt-proxy"`
-	AptMirror                  string                 `json:"apt-mirror"`
-	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
-	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
-	*UpdateBehavior
-}
-
 // ProvisioningScriptParams contains the parameters for the
 // ProvisioningScript client API call.
 type ProvisioningScriptParams struct {
@@ -993,11 +959,6 @@ type FindToolsParams struct {
 
 	// Arch will be used to match tools by architecture if non-empty.
 	Arch string `json:"arch"`
-
-	// TODO(juju3) - remove series
-	// Kept foe compatibility with older clients.
-	// Series will be used to match tools by series if non-empty.
-	Series string `json:"series"`
 
 	// OSType will be used to match tools by os type if non-empty.
 	OSType string `json:"os-type"`

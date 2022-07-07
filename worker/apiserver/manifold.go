@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
@@ -42,7 +41,6 @@ type ManifoldConfig struct {
 	ModelCacheName         string
 	MultiwatcherName       string
 	MuxName                string
-	RestoreStatusName      string
 	StateName              string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
@@ -79,9 +77,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
-	}
-	if config.RestoreStatusName == "" {
-		return errors.NotValidf("empty RestoreStatusName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -137,7 +132,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ModelCacheName,
 			config.MultiwatcherName,
 			config.MuxName,
-			config.RestoreStatusName,
 			config.StateName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
@@ -172,11 +166,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var authenticator httpcontext.LocalMacaroonAuthenticator
 	if err := context.Get(config.AuthenticatorName, &authenticator); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var restoreStatus func() state.RestoreStatus
-	if err := context.Get(config.RestoreStatusName, &restoreStatus); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -249,7 +238,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		MultiwatcherFactory:               factory,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-		RestoreStatus:                     restoreStatus,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		Presence:                          config.Presence,

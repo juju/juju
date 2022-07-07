@@ -39,8 +39,6 @@ func (s *ConfigSuite) runWithAPI(c *gc.C, api *fakeControllerAPI, args ...string
 }
 
 func (s *ConfigSuite) TestInit(c *gc.C) {
-	path := writeFile(c, "yamlfile", "")
-
 	tests := []struct {
 		desc string
 		args []string
@@ -53,7 +51,7 @@ func (s *ConfigSuite) TestInit(c *gc.C) {
 	}, {
 		desc: "can't get two keys",
 		args: []string{"one", "two"},
-		err:  "can only retrieve a single value, or all values",
+		err:  "cannot specify multiple keys to get",
 	}, {
 		desc: "set one key",
 		args: []string{"juju-ha-space=value"},
@@ -63,10 +61,11 @@ func (s *ConfigSuite) TestInit(c *gc.C) {
 	}, {
 		desc: "can't mix setting and getting",
 		args: []string{"juju-ha-space=value", "hey2"},
-		err:  "can only retrieve a single value, or all values",
+		err:  "cannot get value and set key=value pairs simultaneously",
 	}, {
-		desc: "can mix setting with files",
-		args: []string{"juju-ha-space=value", path},
+		desc: "can't reset",
+		args: []string{"--reset", "key1,key2"},
+		err:  "option provided but not defined: --reset",
 	}}
 	for i, test := range tests {
 		c.Logf("%d - %s", i, test.desc)
@@ -139,7 +138,7 @@ func (s *ConfigSuite) TestAllValuesJSON(c *gc.C) {
 
 func (s *ConfigSuite) TestNonexistentValue(c *gc.C) {
 	context, err := s.run(c, "courtney-barnett")
-	c.Assert(err, gc.ErrorMatches, `key "courtney-barnett" not found in "mallards" controller`)
+	c.Assert(err, gc.ErrorMatches, `key "courtney-barnett" not found in controller "mallards"`)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, gc.Equals, "")
@@ -194,7 +193,7 @@ func (s *ConfigSuite) TestSettingComplexKey(c *gc.C) {
 func (s *ConfigSuite) TestSettingFromFile(c *gc.C) {
 	path := writeFile(c, "yaml", "juju-ha-space: value\n")
 	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, path)
+	context, err := s.runWithAPI(c, &api, "--file", path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
@@ -203,67 +202,32 @@ func (s *ConfigSuite) TestSettingFromFile(c *gc.C) {
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
 }
 
-func (s *ConfigSuite) TestSettingFromBothNoOverlap(c *gc.C) {
-	path := writeFile(c, "yaml", "juju-ha-space: value\n")
+func (s *ConfigSuite) TestSettingFromStdin(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("juju-ha-space: value\n")
 	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, path, "audit-log-max-backups=123")
-	c.Assert(err, jc.ErrorIsNil)
+	code := cmd.Main(controller.NewConfigCommandForTest(&api, s.store), ctx,
+		[]string{"--file", "-"})
 
-	output := strings.TrimSpace(cmdtesting.Stdout(context))
+	c.Assert(code, gc.Equals, 0)
+	output := strings.TrimSpace(cmdtesting.Stdout(ctx))
 	c.Assert(output, gc.Equals, "")
-
-	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"juju-ha-space":         "value",
-		"audit-log-max-backups": "123",
-	})
+	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{"juju-ha-space": "value"})
 }
 
-func (s *ConfigSuite) TestSettingFromBothArgFirst(c *gc.C) {
-	path := writeFile(c, "yaml", "audit-log-max-backups: value\n")
+func (s *ConfigSuite) TestOverrideFileFromArgs(c *gc.C) {
+	path := writeFile(c, "yaml", "juju-ha-space: value\naudit-log-max-backups: 2\n")
 	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, "audit-log-max-backups=123", path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(output, gc.Equals, "")
-
-	// This is a consequence of ConfigFlag reading input files first
-	// and then overlaying with values from args. It's surprising but
-	// probably not worth fixing - I don't think people will try to
-	// set an option from a file and then override it from an arg.
-	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"audit-log-max-backups": "123",
-	})
-}
-
-func (s *ConfigSuite) TestSettingFromBothFileFirst(c *gc.C) {
-	path := writeFile(c, "yaml", "audit-log-max-backups: value\n")
-	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, path, "audit-log-max-backups=123")
+	context, err := s.runWithAPI(c, &api, "--file", path, "audit-log-max-backups=4")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, gc.Equals, "")
 
 	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"audit-log-max-backups": "123",
-	})
-}
-
-func (s *ConfigSuite) TestSettingMultipleFiles(c *gc.C) {
-	path1 := writeFile(c, "yaml1", "audit-log-max-backups: value\n")
-	path2 := writeFile(c, "yaml2", "audit-log-max-backups: 123\n")
-
-	var api fakeControllerAPI
-	context, err := s.runWithAPI(c, &api, path1, path2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	c.Assert(output, gc.Equals, "")
-
-	c.Assert(api.values, gc.DeepEquals, map[string]interface{}{
-		"audit-log-max-backups": 123,
-	})
+		"juju-ha-space": "value", "audit-log-max-backups": "4"})
 }
 
 func (s *ConfigSuite) TestErrorOnSetting(c *gc.C) {
@@ -311,6 +275,13 @@ func (f *fakeControllerAPI) ControllerConfig() (jujucontroller.Config, error) {
 }
 
 func (f *fakeControllerAPI) ConfigSet(values map[string]interface{}) error {
-	f.values = values
+	if f.values == nil {
+		f.values = values
+	} else {
+		// Append values rather than overwriting
+		for key, val := range values {
+			f.values[key] = val
+		}
+	}
 	return f.err
 }

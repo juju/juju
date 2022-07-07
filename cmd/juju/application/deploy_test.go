@@ -19,11 +19,11 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6"
-	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/charmrepo/v7"
+	csclientparams "github.com/juju/charmrepo/v7/csclient/params"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -435,7 +435,7 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--series", "quantal")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise, trusty, xenial, yakkety, bionic`)
+	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty,xenial,yakkety,bionic`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
@@ -2269,15 +2269,6 @@ func (s *ParseMachineMapSuite) TestMappingWithExisting(c *gc.C) {
 	})
 }
 
-func (s *ParseMachineMapSuite) TestSpaces(c *gc.C) {
-	existing, mapping, err := parseMachineMap("1=2, 3=4, existing")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(existing, jc.IsTrue)
-	c.Check(mapping, jc.DeepEquals, map[string]string{
-		"1": "2", "3": "4",
-	})
-}
-
 func (s *ParseMachineMapSuite) TestErrors(c *gc.C) {
 	checkErr := func(value, expect string) {
 		_, _, err := parseMachineMap(value)
@@ -2828,11 +2819,6 @@ func (f *fakeDeployAPI) SetCharm(branchName string, cfg application.SetCharmConf
 	return jujutesting.TypeAssertError(results[0])
 }
 
-func (f *fakeDeployAPI) Update(args params.ApplicationUpdate) error {
-	results := f.MethodCall(f, "Update", args)
-	return jujutesting.TypeAssertError(results[0])
-}
-
 func (f *fakeDeployAPI) SetConstraints(application string, constraints constraints.Value) error {
 	results := f.MethodCall(f, "SetConstraints", application, constraints)
 	return jujutesting.TypeAssertError(results[0])
@@ -2910,8 +2896,8 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
 	fakeAPI.Call("ModelUUID").Returns("deadbeef-0bad-400d-8000-4b1d0d06f00d", true)
-	fakeAPI.Call("BestFacadeVersion", "Application").Returns(6)
-	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(3)
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(13)
+	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(4)
 
 	return fakeAPI
 }
@@ -3150,10 +3136,7 @@ func withAllWatcher(fakeAPI *fakeDeployAPI) {
 	id := "0"
 	fakeAPI.Call("WatchAll").Returns(api.NewAllWatcher(fakeAPI, &id), error(nil))
 
-	fakeAPI.Call("BestFacadeVersion", "Application").Returns(0)
-	fakeAPI.Call("BestFacadeVersion", "Annotations").Returns(0)
 	fakeAPI.Call("BestFacadeVersion", "AllWatcher").Returns(0)
-	fakeAPI.Call("BestFacadeVersion", "Charms").Returns(0)
 	fakeAPI.Call("APICall", "AllWatcher", 0, "0", "Stop", nil, nil).Returns(error(nil))
 	fakeAPI.Call("Status", []string(nil)).Returns(&params.FullStatus{}, error(nil))
 }

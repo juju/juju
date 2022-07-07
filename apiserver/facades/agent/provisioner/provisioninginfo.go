@@ -32,9 +32,9 @@ import (
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
 // It supports all positive space constraints.
-func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResultsV10, error) {
-	result := params.ProvisioningInfoResultsV10{
-		Results: make([]params.ProvisioningInfoResultV10, len(args.Entities)),
+func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
+	result := params.ProvisioningInfoResults{
+		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -70,7 +70,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
 	spaceInfos network.SpaceInfos,
-) (*params.ProvisioningInfoV10, error) {
+) (*params.ProvisioningInfo, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
 		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
@@ -81,8 +81,8 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
 	}
 
-	var result params.ProvisioningInfoV10
-	if result.ProvisioningInfoBase, err = api.getProvisioningInfoBase(m, env, spaceBindings); err != nil {
+	var result params.ProvisioningInfo
+	if result, err = api.getProvisioningInfoBase(m, env, spaceBindings); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -98,81 +98,13 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	return &result, nil
 }
 
-// ProvisioningInfo returns the provisioning information for each given machine entity.
-// It supports the first of any specified positive space constraints.
-func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
-	result := params.ProvisioningInfoResults{
-		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
-	}
-	canAccess, err := api.getAuthFunc()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	env, err := environs.GetEnviron(api.configGetter, environs.New)
-	if err != nil {
-		return result, errors.Annotate(err, "retrieving environ")
-	}
-
-	spaceInfos, err := api.st.AllSpaceInfos()
-	if err != nil {
-		return result, errors.Annotate(err, "getting all spaces")
-	}
-
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		machine, err := api.getMachine(canAccess, tag)
-		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, spaceInfos)
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine,
-	env environs.Environ,
-	spaceInfos network.SpaceInfos,
-) (*params.ProvisioningInfo, error) {
-	endpointBindings, err := api.machineEndpointBindings(m)
-	if err != nil {
-		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
-	}
-
-	spaceBindings, err := api.translateEndpointBindingsToSpaces(spaceInfos, endpointBindings)
-	if err != nil {
-		return nil, apiservererrors.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
-	}
-
-	base, err := api.getProvisioningInfoBase(m, env, spaceBindings)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	subnetsToZones, err := api.machineSubnetsAndZones(m)
-	if err != nil {
-		return nil, errors.Annotate(err, "matching subnets to zones")
-	}
-
-	return &params.ProvisioningInfo{
-		ProvisioningInfoBase: base,
-		SubnetsToZones:       subnetsToZones,
-	}, nil
-}
-
-// getProvisioningInfoBase returns the component of provisioning
-// info that is common to all versions of the API.
 func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	env environs.Environ,
 	endpointBindings map[string]string,
-) (params.ProvisioningInfoBase, error) {
+) (params.ProvisioningInfo, error) {
 	var err error
 
-	result := params.ProvisioningInfoBase{
+	result := params.ProvisioningInfo{
 		Series:            m.Series(),
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),

@@ -684,19 +684,6 @@ func FromHostPort(nhp network.HostPort) HostPort {
 	}
 }
 
-// UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
-// API. We need to retain until V4 of the Uniter API is removed.
-// TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead
-type UnitsNetworkConfig struct {
-	Args []UnitNetworkConfig `json:"args"`
-}
-
-// UnitNetworkConfig holds a unit tag and an endpoint binding name.
-type UnitNetworkConfig struct {
-	UnitTag     string `json:"unit-tag"`
-	BindingName string `json:"binding-name"`
-}
-
 // SetProviderNetworkConfig holds a slice of machine network configs sourced
 // from a provider.
 type SetProviderNetworkConfig struct {
@@ -846,27 +833,6 @@ type HostNetworkChangeResults struct {
 	Results []HostNetworkChange `json:"results"`
 }
 
-// MachinePortsParams holds the arguments for making a
-// FirewallerAPIV1.GetMachinePorts() API call.
-type MachinePortsParams struct {
-	Params []MachinePorts `json:"params"`
-}
-
-// MachinePortsResult holds a single result of the
-// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
-// API calls.
-type MachinePortsResult struct {
-	Error *Error             `json:"error,omitempty"`
-	Ports []MachinePortRange `json:"ports"`
-}
-
-// MachinePortsResults holds all the results of the
-// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
-// API calls.
-type MachinePortsResults struct {
-	Results []MachinePortsResult `json:"results"`
-}
-
 // OpenMachinePortRangesByEndpointResults holds the results of a request to the
 // uniter's OpenedMachinePortRangesByEndpoint API.
 type OpenMachinePortRangesByEndpointResults struct {
@@ -1014,24 +980,6 @@ type AddSubnetParams struct {
 	Zones             []string `json:"zones,omitempty"`
 }
 
-// AddSubnetsParamsV2 holds the arguments of AddSubnets APIv2 call.
-type AddSubnetsParamsV2 struct {
-	Subnets []AddSubnetParamsV2 `json:"subnets"`
-}
-
-// AddSubnetParamsV2 holds a subnet and space tags, subnet provider ID,
-// and a list of zones to associate the subnet to. Either SubnetTag or
-// SubnetProviderId must be set, but not both. Zones can be empty if
-// they can be discovered.
-type AddSubnetParamsV2 struct {
-	SubnetTag         string   `json:"subnet-tag,omitempty"`
-	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
-	ProviderNetworkId string   `json:"provider-network-id,omitempty"`
-	SpaceTag          string   `json:"space-tag"`
-	VLANTag           int      `json:"vlan-tag,omitempty"`
-	Zones             []string `json:"zones,omitempty"`
-}
-
 // CreateSubnetsParams holds the arguments of CreateSubnets API call.
 type CreateSubnetsParams struct {
 	Subnets []CreateSubnetParams `json:"subnets"`
@@ -1057,20 +1005,6 @@ type RenameSpaceParams struct {
 // RenameSpacesParams holds the arguments of the RenameSpaces API call.
 type RenameSpacesParams struct {
 	Changes []RenameSpaceParams `json:"changes"`
-}
-
-// CreateSpacesParamsV4 holds the arguments of the AddSpaces API call.
-type CreateSpacesParamsV4 struct {
-	Spaces []CreateSpaceParamsV4 `json:"spaces"`
-}
-
-// CreateSpaceParamsV4 holds the space tag and at least one subnet
-// tag required to create a new space.
-type CreateSpaceParamsV4 struct {
-	SubnetTags []string `json:"subnet-tags"`
-	SpaceTag   string   `json:"space-tag"`
-	Public     bool     `json:"public"`
-	ProviderId string   `json:"provider-id,omitempty"`
 }
 
 // CreateSpacesParams holds the arguments of the AddSpaces API call.
@@ -1216,24 +1150,28 @@ type ProxyConfigResultsV1 struct {
 }
 
 // InterfaceAddress represents a single address attached to the interface.
+// The serialization is different between json and yaml because of accidental
+// differences in the past, but should be preserved for compatibility
 type InterfaceAddress struct {
-	Hostname string `json:"hostname"`
-	Address  string `json:"value"`
-	CIDR     string `json:"cidr"`
+	Hostname string `json:"hostname" yaml:"hostname"`
+	Address  string `json:"value" yaml:"address"`
+	CIDR     string `json:"cidr" yaml:"cidr"`
 }
 
 // NetworkInfo describes one interface with IP addresses.
+// The serialization is different between json and yaml because of accidental
+// differences in the past, but should be preserved for compatibility
 type NetworkInfo struct {
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string `json:"mac-address"`
+	MACAddress string `json:"mac-address" yaml:"macaddress"`
 
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
-	InterfaceName string `json:"interface-name"`
+	InterfaceName string `json:"interface-name" yaml:"interfacename"`
 
 	// Addresses contains a list of addresses configured on the interface.
-	Addresses []InterfaceAddress `json:"addresses"`
+	Addresses []InterfaceAddress `json:"addresses" yaml:"addresses"`
 }
 
 // NetworkInfoResult Adds egress and ingress subnets and changes the serialized

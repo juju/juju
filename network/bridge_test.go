@@ -4,7 +4,6 @@
 package network_test
 
 import (
-	"runtime"
 	"time"
 
 	"github.com/juju/clock"
@@ -29,9 +28,6 @@ var _ = gc.Suite(&BridgeSuite{})
 
 func (s *BridgeSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
-	if runtime.GOOS == "windows" {
-		c.Skip("skipping BridgeSuite tests on windows")
-	}
 }
 
 func assertENIBridgerError(c *gc.C, devices []network.DeviceToBridge, timeout time.Duration, clock clock.Clock, filename string, dryRun bool, reconfigureDelay int, expected string) {

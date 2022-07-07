@@ -1,5 +1,5 @@
 dense-scaled:
-  services:
+  applications:
     juju-gui:
       charm: "cs:trusty/juju-gui-16"
       num_units: 1

@@ -90,16 +90,6 @@ type ProxyConfiguration struct {
 // ProxyConfig returns the proxy settings for the current model.
 func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 	var empty ProxyConfiguration
-	if api.facade.BestAPIVersion() <= 1 {
-		legacyProxySettings, aptProxySettings, err := api.proxyConfigV1()
-		if err != nil {
-			return empty, err
-		}
-		return ProxyConfiguration{
-			LegacyProxy: legacyProxySettings,
-			APTProxy:    aptProxySettings,
-		}, nil
-	}
 
 	var results params.ProxyConfigResults
 	args := params.Entities{
@@ -124,22 +114,4 @@ func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 		SnapStoreProxyAssertions: result.SnapStoreProxyAssertions,
 		SnapStoreProxyURL:        result.SnapStoreProxyURL,
 	}, nil
-}
-
-func (api *API) proxyConfigV1() (proxySettings, APTProxySettings proxy.Settings, err error) {
-	var results params.ProxyConfigResultsV1
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: api.tag.String()}},
-	}
-	err = api.facade.FacadeCall("ProxyConfig", args, &results)
-	if err != nil {
-		return proxySettings, APTProxySettings, err
-	}
-	if len(results.Results) != 1 {
-		return proxySettings, APTProxySettings, errors.NotFoundf("ProxyConfig for %q", api.tag)
-	}
-	result := results.Results[0]
-	proxySettings = proxySettingsParamToProxySettings(result.ProxySettings)
-	APTProxySettings = proxySettingsParamToProxySettings(result.APTProxySettings)
-	return proxySettings, APTProxySettings, nil
 }

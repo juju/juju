@@ -19,29 +19,8 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ModelManager", 2, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV2(ctx)
-	}, reflect.TypeOf((*ModelManagerAPIV2)(nil)))
-	registry.MustRegister("ModelManager", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV3(ctx)
-	}, reflect.TypeOf((*ModelManagerAPIV3)(nil)))
-	registry.MustRegister("ModelManager", 4, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV4(ctx)
-	}, reflect.TypeOf((*ModelManagerAPIV4)(nil)))
-	registry.MustRegister("ModelManager", 5, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV5(ctx) // Adds ChangeModelCredential
-	}, reflect.TypeOf((*ModelManagerAPIV5)(nil)))
-	registry.MustRegister("ModelManager", 6, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV6(ctx) // Adds cloud specific default config
-	}, reflect.TypeOf((*ModelManagerAPIV6)(nil)))
-	registry.MustRegister("ModelManager", 7, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV7(ctx) // DestroyModels gains 'force' and max-wait' parameters.
-	}, reflect.TypeOf((*ModelManagerAPIV7)(nil)))
-	registry.MustRegister("ModelManager", 8, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV8(ctx) // ModelInfo gains credential validity in return.
-	}, reflect.TypeOf((*ModelManagerAPIV8)(nil)))
 	registry.MustRegister("ModelManager", 9, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV9(ctx) // Adds ValidateModelUpgrade
+		return newFacadeV9(ctx)
 	}, reflect.TypeOf((*ModelManagerAPI)(nil)))
 }
 
@@ -86,7 +65,6 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(
 		backend,
 		common.NewModelManagerBackend(ctrlModel, pool),
-		statePoolShim{StatePool: pool},
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),
@@ -94,67 +72,4 @@ func newFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 		model,
 		context.CallContext(st),
 	)
-}
-
-// newFacadeV8 is used for API registration.
-func newFacadeV8(ctx facade.Context) (*ModelManagerAPIV8, error) {
-	v9, err := newFacadeV9(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ModelManagerAPIV8{v9}, nil
-}
-
-// newFacadeV7 is used for API registration.
-func newFacadeV7(ctx facade.Context) (*ModelManagerAPIV7, error) {
-	v8, err := newFacadeV8(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ModelManagerAPIV7{v8}, nil
-}
-
-// newFacadeV6 is used for API registration.
-func newFacadeV6(ctx facade.Context) (*ModelManagerAPIV6, error) {
-	v7, err := newFacadeV7(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ModelManagerAPIV6{v7}, nil
-}
-
-// newFacadeV5 is used for API registration.
-func newFacadeV5(ctx facade.Context) (*ModelManagerAPIV5, error) {
-	v6, err := newFacadeV6(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ModelManagerAPIV5{v6}, nil
-}
-
-// newFacadeV4 is used for API registration.
-func newFacadeV4(ctx facade.Context) (*ModelManagerAPIV4, error) {
-	v5, err := newFacadeV5(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ModelManagerAPIV4{v5}, nil
-}
-
-// newFacadeV3 is used for API registration.
-func newFacadeV3(ctx facade.Context) (*ModelManagerAPIV3, error) {
-	v4, err := newFacadeV4(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ModelManagerAPIV3{v4}, nil
-}
-
-// newFacadeV2 is used for API registration.
-func newFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
-	v3, err := newFacadeV3(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ModelManagerAPIV2{v3}, nil
 }

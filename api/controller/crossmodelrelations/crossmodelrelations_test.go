@@ -7,15 +7,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -370,130 +366,6 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
 	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
-}
-
-func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
-	remoteRelationToken := "token"
-	mac, err := apitesting.NewMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
-	var calls jujutesting.Stub
-	apiCaller := testing.BestVersionCaller{
-		BestVersion: 1,
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-			fullRequest := fmt.Sprintf("%s.%s", objType, request)
-			calls.AddCall(fullRequest)
-			c.Check(version, gc.Equals, 1)
-			switch fullRequest {
-			case "CrossModelRelations.WatchRelationUnits":
-				c.Check(id, gc.Equals, "")
-				c.Check(arg, jc.DeepEquals, params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
-					Token: remoteRelationToken, Macaroons: macaroon.Slice{mac},
-					BakeryVersion: bakery.LatestVersion,
-				}}})
-				c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResults{})
-				*(result.(*params.RelationUnitsWatchResults)) = params.RelationUnitsWatchResults{
-					Results: []params.RelationUnitsWatchResult{{
-						RelationUnitsWatcherId: "123",
-						Changes: params.RelationUnitsChange{
-							Changed: map[string]params.UnitSettings{
-								"app/1": {456},
-							},
-						},
-					}},
-				}
-
-			case "CrossModelRelations.RelationUnitSettings":
-				c.Check(id, gc.Equals, "")
-				c.Check(arg, jc.DeepEquals, params.RemoteRelationUnits{
-					RelationUnits: []params.RemoteRelationUnit{{
-						RelationToken: remoteRelationToken,
-						Macaroons:     macaroon.Slice{mac},
-						BakeryVersion: bakery.LatestVersion,
-						Unit:          "unit-app-1",
-					}}})
-				c.Assert(result, gc.FitsTypeOf, &params.SettingsResults{})
-				*(result.(*params.SettingsResults)) = params.SettingsResults{
-					Results: []params.SettingsResult{{
-						Settings: map[string]string{
-							"cartel-madras": "goonda",
-						},
-					}},
-				}
-
-			case "RelationUnitsWatcher.Next":
-				c.Check(id, gc.Equals, "123")
-				c.Check(arg, gc.Equals, nil)
-
-				// The client-side watcher handling for result types
-				// means that we get something here that is just
-				// interface{}, not an interface{} containing
-				// something that the gc.FitsTypeOf checker can see. I
-				// don't totally understand this, but writing it out
-				// using the Lovecraftian machinations of
-				// json.Unmarshal works.
-				data, err := json.Marshal(params.RelationUnitsWatchResult{
-					Error: &params.Error{Message: "UHOH"},
-				})
-				c.Check(err, jc.ErrorIsNil)
-				err = json.Unmarshal(data, result)
-				c.Check(err, jc.ErrorIsNil)
-
-			case "RelationUnitsWatcher.Stop":
-				c.Check(id, gc.Equals, "123")
-				c.Check(arg, gc.Equals, nil)
-
-			default:
-				c.Fatalf("bad objtype %q", objType)
-			}
-			return nil
-		}),
-	}
-	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	w, err := client.WatchRelationChanges(
-		remoteRelationToken,
-		"app-token",
-		macaroon.Slice{mac},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case change, ok := <-w.Changes():
-		c.Assert(ok, gc.Equals, true)
-		c.Assert(change, gc.DeepEquals, params.RemoteRelationChangeEvent{
-			RelationToken:    remoteRelationToken,
-			ApplicationToken: "app-token",
-			ChangedUnits: []params.RemoteRelationUnitChange{{
-				UnitId: 1,
-				Settings: map[string]interface{}{
-					"cartel-madras": "goonda",
-				},
-			}},
-		})
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for change")
-	}
-
-	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "UHOH")
-
-	// The calls occasionally come out of order - the watcher's
-	// commonLoop manages to call Next before its main loop has called
-	// RelationUnitSettings, so instead of seeing [WatchRelationUnits,
-	// RelationUnitSettings, Next, Next, Stop] we see
-	// [WatchRelationUnits, Next, RelationUnitSettings, Next,
-	// Stop]. Just check that all 5 happen at some point for a more
-	// reliable test.
-	callNames := make([]string, len(calls.Calls()))
-	for i, call := range calls.Calls() {
-		callNames[i] = call.FuncName
-	}
-	c.Assert(callNames, jc.SameContents, []string{
-		"CrossModelRelations.WatchRelationUnits",
-		"CrossModelRelations.RelationUnitSettings",
-		"RelationUnitsWatcher.Next",
-		"RelationUnitsWatcher.Next",
-		"RelationUnitsWatcher.Stop",
-	})
 }
 
 func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {

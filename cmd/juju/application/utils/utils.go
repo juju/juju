@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"

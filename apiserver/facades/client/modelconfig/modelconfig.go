@@ -17,8 +17,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ModelConfigAPI provides the base implementation of the methods
-// for the V2 and V1 api calls.
+// ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
 	backend Backend
 	auth    facade.Authorizer
@@ -28,16 +27,6 @@ type ModelConfigAPI struct {
 // ModelConfigAPIV3 is currently the latest.
 type ModelConfigAPIV3 struct {
 	*ModelConfigAPI
-}
-
-// ModelConfigAPIV2 hides V3 functionality
-type ModelConfigAPIV2 struct {
-	*ModelConfigAPIV3
-}
-
-// ModelConfigAPIV1 hides V2 functionality
-type ModelConfigAPIV1 struct {
-	*ModelConfigAPIV2
 }
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
@@ -259,9 +248,6 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	return c.backend.UpdateModelConfig(nil, args.Keys)
 }
 
-// GetModelConstraints is not available via the V2 API.
-func (api *ModelConfigAPIV2) GetModelConstraints(_ struct{}) {}
-
 // GetModelConstraints returns the constraints for the model.
 func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, error) {
 	if err := c.canReadModel(); err != nil {
@@ -274,9 +260,6 @@ func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, er
 	}
 	return params.GetConstraintsResults{cons}, nil
 }
-
-// SetModelConstraints is not available via the V2 API.
-func (api *ModelConfigAPIV2) SetModelConstraints(_ struct{}) {}
 
 // SetModelConstraints sets the constraints for the model.
 func (c *ModelConfigAPI) SetModelConstraints(args params.SetConstraints) error {
@@ -325,10 +308,3 @@ func (c *ModelConfigAPI) Sequences() (params.ModelSequencesResult, error) {
 	result.Sequences = values
 	return result, nil
 }
-
-// Mask the new methods from the V1 API. The API reflection code in
-// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
-// removes the method as far as the RPC machinery is concerned.
-
-// Sequences isn't on the V1 API.
-func (a *ModelConfigAPIV1) Sequences(_, _ struct{}) {}

@@ -396,12 +396,3 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(args params.Entities) (params
 	}
 	return result, nil
 }
-
-// InstancePollerAPIV3 implements the V3 API used by the instance poller
-// worker. Compared to V4, it lacks the SetProviderNetworkConfig method.
-type InstancePollerAPIV3 struct {
-	*InstancePollerAPI
-}
-
-// SetProviderNetworkConfig is not available in V3.
-func (*InstancePollerAPIV3) SetProviderNetworkConfig(_, _ struct{}) {}

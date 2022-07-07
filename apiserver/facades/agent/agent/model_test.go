@@ -24,7 +24,7 @@ type modelSuite struct {
 	resources  *common.Resources
 
 	machine0 *state.Machine
-	api      *agent.AgentAPIV2
+	api      *agent.AgentAPI
 }
 
 var _ = gc.Suite(&modelSuite{})
@@ -42,7 +42,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.api, err = agent.NewAgentAPIV2(facadetest.Context{
+	s.api, err = agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,

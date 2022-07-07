@@ -7,8 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -54,7 +53,6 @@ var supportedJujuSeries = series.WorkloadSeries
 
 type CharmsAPI interface {
 	store.CharmsAPI
-	BestAPIVersion() int
 }
 
 // The following structs exist purely because Go cannot create a
@@ -106,8 +104,6 @@ type spacesClient struct {
 }
 
 type deployAPIAdapter struct {
-	charmsAPIVersion      int
-	modelConfigAPIVersion int
 	api.Connection
 	*charmsClient
 	*applicationClient
@@ -149,24 +145,15 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 }
 
 func (a *deployAPIAdapter) GetModelConstraints() (constraints.Value, error) {
-	if a.modelConfigAPIVersion > 2 {
-		return a.modelConfigClient.GetModelConstraints()
-	}
-	return a.legacyClient.GetModelConstraints()
+	return a.modelConfigClient.GetModelConstraints()
 }
 
 func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharm(curl, origin, force)
-	}
-	return origin, a.legacyClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
+	return a.charmsClient.AddCharm(curl, origin, force)
 }
 
 func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
-	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
-	}
-	return origin, a.legacyClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
+	return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
 }
 
 type modelGetter interface {
@@ -263,18 +250,16 @@ func newDeployCommand() *DeployCommand {
 			return nil, errors.Trace(err)
 		}
 		return &deployAPIAdapter{
-			Connection:            apiRoot,
-			legacyClient:          &apiClient{Client: apiclient.NewClient(apiRoot)},
-			charmsClient:          &charmsClient{Client: apicharms.NewClient(apiRoot)},
-			charmsAPIVersion:      apiRoot.BestFacadeVersion("Charms"),
-			applicationClient:     &applicationClient{Client: application.NewClient(apiRoot)},
-			machineManagerClient:  &machineManagerClient{Client: machinemanager.NewClient(apiRoot)},
-			modelConfigAPIVersion: apiRoot.BestFacadeVersion("ModelConfig"),
-			modelConfigClient:     &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			annotationsClient:     &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			plansClient:           &plansClient{planURL: mURL},
-			offerClient:           &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
-			spacesClient:          &spacesClient{API: spaces.NewAPI(apiRoot)},
+			Connection:           apiRoot,
+			legacyClient:         &apiClient{Client: apiclient.NewClient(apiRoot)},
+			charmsClient:         &charmsClient{Client: apicharms.NewClient(apiRoot)},
+			applicationClient:    &applicationClient{Client: application.NewClient(apiRoot)},
+			machineManagerClient: &machineManagerClient{Client: machinemanager.NewClient(apiRoot)},
+			modelConfigClient:    &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+			annotationsClient:    &annotationsClient{Client: annotations.NewClient(apiRoot)},
+			plansClient:          &plansClient{planURL: mURL},
+			offerClient:          &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
+			spacesClient:         &spacesClient{API: spaces.NewAPI(apiRoot)},
 		}, nil
 	}
 	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {
@@ -888,18 +873,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	charmAPIClient := c.NewCharmsAPI(c.apiRoot)
 	charmAdapter := c.NewResolver(charmAPIClient, csRepoFn, downloadClientFn)
 
-	// Check whether the controller includes charmhub support. If not,
-	// assume that the default schema for charms URL without one is
-	// charm.Charmstore. Otherwise use charm.Charmhub.
-	//
-	// This ensures that we don't break backwards compatibility when using
-	// a 2.9 client and run "juju deploy X" against a 2.8 controller.
-	defaultCharmSchema := charm.CharmHub
-	if charmAPIClient.BestAPIVersion() < 3 {
-		defaultCharmSchema = charm.CharmStore
-	}
-
-	factory, cfg := c.getDeployerFactory(defaultCharmSchema)
+	factory, cfg := c.getDeployerFactory(charm.CharmHub)
 	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdapter)
 	if err != nil {
 		return errors.Trace(err)

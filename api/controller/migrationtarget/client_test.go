@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
@@ -114,7 +114,7 @@ func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "sound hound")
 
 	caller.Stub.CheckCall(c, 0, "ConnectControllerStream", "/migrate/logtransfer",
-		url.Values{"jujuclientversion": {jujuversion.Current.String()}},
+		url.Values{},
 		http.Header{textproto.CanonicalMIMEHeaderKey(params.MigrationModelHTTPHeader): {"bad-dad"}},
 	)
 }

@@ -12,13 +12,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
@@ -150,6 +152,9 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
+	// secretFacade allows the context to access the secrets backend.
+	secretFacade *secretsmanager.Client
+
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
 
@@ -244,7 +249,7 @@ type HookContext struct {
 	assignedMachineTag names.MachineTag
 
 	// process is the process of the command that is being run in the local context,
-	// like a juju-run command or a hook
+	// like a juju-exec command or a hook
 	process HookProcess
 
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority
@@ -305,6 +310,9 @@ type HookContext struct {
 	// seriesUpgradeTarget is the series that the unit's machine is to be
 	// updated to when Juju is issued the `upgrade-series` command.
 	seriesUpgradeTarget string
+
+	// secretURL is the reference to the secret relevant to the hook.
+	secretURL string
 
 	mu sync.Mutex
 }
@@ -724,6 +732,62 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+// GetSecret returns the value of the specified secret.
+func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) {
+	v, err := ctx.secretFacade.GetValue(name)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// CreateSecret creates a secret with the specified data.
+func (ctx *HookContext) CreateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
+	cfg.RotateInterval = args.RotateInterval
+	cfg.Status = args.Status
+	cfg.Description = args.Description
+	cfg.Tags = args.Tags
+	return ctx.secretFacade.Create(cfg, args.Type, args.Value)
+}
+
+// UpdateSecret creates a secret with the specified data.
+func (ctx *HookContext) UpdateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
+	cfg.RotateInterval = args.RotateInterval
+	cfg.Status = args.Status
+	cfg.Description = args.Description
+	cfg.Tags = args.Tags
+	URL := coresecrets.NewSimpleURL(cfg.Path)
+	return ctx.secretFacade.Update(URL.ID(), cfg, args.Value)
+}
+
+// GrantSecret grants access to a specified secret.
+func (ctx *HookContext) GrantSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
+	URL := coresecrets.NewSimpleURL(cfg.Path)
+	return ctx.secretFacade.Grant(URL.ID(), &secretsmanager.SecretRevokeGrantArgs{
+		ApplicationName: args.ApplicationName,
+		UnitName:        args.UnitName,
+		RelationId:      args.RelationId,
+		Role:            coresecrets.RoleView,
+	})
+}
+
+// RevokeSecret revokes access to a specified secret.
+func (ctx *HookContext) RevokeSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
+	app, _ := names.UnitApplication(ctx.UnitName())
+	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
+	URL := coresecrets.NewSimpleURL(cfg.Path)
+	return ctx.secretFacade.Revoke(URL.ID(), &secretsmanager.SecretRevokeGrantArgs{
+		ApplicationName: args.ApplicationName,
+		UnitName:        args.UnitName,
+	})
+}
+
 // GoalState returns the goal state for the current unit.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GoalState() (*application.GoalState, error) {
@@ -853,7 +917,7 @@ func (ctx *HookContext) SetActionFailed() error {
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
-func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+func (ctx *HookContext) UpdateActionResults(keys []string, value interface{}) error {
 	ctx.actionDataMu.Lock()
 	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
@@ -1019,6 +1083,12 @@ func (ctx *HookContext) HookVars(
 	if ctx.seriesUpgradeTarget != "" {
 		vars = append(vars,
 			"JUJU_TARGET_SERIES="+ctx.seriesUpgradeTarget,
+		)
+	}
+
+	if ctx.secretURL != "" {
+		vars = append(vars,
+			"JUJU_SECRET_URL="+ctx.secretURL,
 		)
 	}
 
@@ -1336,4 +1406,14 @@ func (ctx *HookContext) WorkloadName() (string, error) {
 		return "", errors.NotFoundf("workload name")
 	}
 	return ctx.workloadName, nil
+}
+
+// SecretURL returns the secret URL for secret hooks.
+// This is not yet used by any hook commands - it is exported
+// for tests to use.
+func (ctx *HookContext) SecretURL() (string, error) {
+	if ctx.secretURL == "" {
+		return "", errors.NotFoundf("secret URL")
+	}
+	return ctx.secretURL, nil
 }

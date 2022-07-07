@@ -6,9 +6,10 @@ package state_test
 import (
 	"bytes"
 	"sort"
+	"strconv"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -474,6 +475,64 @@ func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	assertLife(c, manager, state.Alive)
 }
 
+func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C) {
+	cons := constraints.Value{
+		Mem: newUint64(100),
+	}
+	changes, err := s.State.EnableHA(3, cons, "quantal", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
+	ch := s.AddTestingCharmWithSeries(c, "juju-controller", "")
+	app := s.AddTestingApplicationForSeries(c, "quantal", "controller", ch)
+
+	var machines []*state.Machine
+	var units []*state.Unit
+	for i := 0; i < 3; i++ {
+		m, err := s.State.Machine(strconv.Itoa(i))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageModel,
+		})
+
+		if i == 0 {
+			node, err := s.State.ControllerNode(m.Id())
+			c.Assert(err, jc.ErrorIsNil)
+			node.SetHasVote(true)
+		}
+
+		u, err := app.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		err = u.SetCharmURL(ch.URL())
+		c.Assert(err, jc.ErrorIsNil)
+		err = u.AssignToMachine(m)
+		c.Assert(err, jc.ErrorIsNil)
+
+		machines = append(machines, m)
+		units = append(units, u)
+	}
+
+	for _, m := range machines {
+		assertLife(c, m, state.Alive)
+	}
+	for _, u := range units {
+		assertLife(c, u, state.Alive)
+	}
+
+	s.assertDoesNotNeedCleanup(c)
+	err = machines[2].Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNeedsCleanup(c)
+	s.assertNextCleanup(c, "evacuateMachine(2)")
+	s.assertNeedsCleanup(c)
+	s.assertNextCleanup(c, `removedUnit("controller/2")`)
+	s.assertNeedsCleanup(c)
+	s.assertNextCleanup(c, "evacuateMachine(2)")
+	s.assertDoesNotNeedCleanup(c)
+}
+
 const dontWait = time.Duration(0)
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
@@ -914,9 +973,9 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a couple actions to the unit
-	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil)
+	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil)
+	_, err = s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure unit still has actions
@@ -966,7 +1025,7 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 		// Add a completed action to the unit.
 		operationID, err := s.Model.EnqueueOperation("a test", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model.AddAction(unit, operationID, "snapshot", nil)
+		action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		action, err = action.Finish(state.ActionResults{
 			Status:  status,

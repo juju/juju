@@ -63,8 +63,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		statePool.EXPECT().MongoVersion().Return("4.4", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		ctrlState.EXPECT().MachineCountForSeries(
 			"artful",
@@ -95,8 +95,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		model1.EXPECT().MigrationMode().Return(state.MigrationModeNone),
 		// - check if the model has win machines;
 		state1.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		state1.EXPECT().MachineCountForSeries(
 			"artful",
@@ -217,8 +217,8 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 		state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
 		// - check if the model has win machines;
 		state.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 		).Return(nil, nil),
 		state.EXPECT().MachineCountForSeries(
 			"artful",

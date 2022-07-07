@@ -178,7 +178,7 @@ func (k *kubernetesClient) deleteStorageClassesModelTeardown(
 ) {
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
 		k.deleteStorageClasses, func(selector k8slabels.Selector) error {
-			_, err := k.listStorageClasses(selector)
+			_, err := k.ListStorageClasses(selector)
 			return err
 		},
 	)

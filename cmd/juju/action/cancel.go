@@ -5,18 +5,17 @@ package action
 
 import (
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 func NewCancelCommand() cmd.Command {
@@ -39,22 +38,11 @@ const cancelDoc = `
 Cancel pending or running tasks matching given IDs or partial ID prefixes.`
 
 func (c *cancelCommand) Info() *cmd.Info {
-	var info *cmd.Info
-	if featureflag.Enabled(feature.ActionsV2) {
-		info = &cmd.Info{
-			Name:    "cancel-task",
-			Args:    "(<task-id>|<task-id-prefix>) [...]",
-			Purpose: "Cancel pending or running tasks.",
-			Doc:     cancelDoc,
-		}
-	} else {
-		info = &cmd.Info{
-			Name:    "cancel-action",
-			Args:    "(<action-id>|<action-id-prefix>) [...]",
-			Purpose: "Cancel pending or running actions.",
-			Doc:     strings.Replace(cancelDoc, "task", "action", -1),
-			Aliases: []string{"cancel-task"},
-		}
+	info := &cmd.Info{
+		Name:    "cancel-task",
+		Args:    "(<task-id>|<task-id-prefix>) [...]",
+		Purpose: "Cancel pending or running tasks.",
+		Doc:     cancelDoc,
 	}
 	return jujucmd.Info(info)
 }
@@ -72,38 +60,16 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	if len(c.requestedIDs) == 0 {
-		return errors.New("no actions specified")
-	}
-	idsToCancel := c.requestedIDs
-
-	var actionIDs = []string{}
-	for _, requestedID := range c.requestedIDs {
-		requestedActionTags, err := getActionTagsByPrefix(api, requestedID)
-		if err != nil {
-			return err
-		}
-
-		// If a non existing ID was submitted we abort the command taking no further action.
-		if len(requestedActionTags) < 1 {
-			return errors.Errorf("no actions found matching prefix %s, no actions have been canceled", requestedID)
-		}
-
-		for _, tag := range requestedActionTags {
-			actionIDs = append(actionIDs, tag.Id())
-		}
-		idsToCancel = actionIDs
+		return errors.Errorf("no task IDs specified")
 	}
 
-	actions, err := api.Cancel(idsToCancel)
+	actions, err := api.Cancel(c.requestedIDs)
 	if err != nil {
 		return err
 	}
 
 	if len(actions) < 1 {
-		if len(actionIDs) > 0 {
-			return errors.Errorf("identifier(s) %q matched action(s) %q, but no actions were canceled", c.requestedIDs, actionIDs)
-		}
-		return errors.New("no actions were canceled")
+		return errors.Errorf("no tasks found, no tasks have been canceled")
 	}
 
 	type unCanceledAction struct {
@@ -117,7 +83,7 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		if result.Action != nil {
 			canceledActions = append(canceledActions, result)
 		} else {
-			failedCancels = append(failedCancels, unCanceledAction{idsToCancel[i], &result})
+			failedCancels = append(failedCancels, unCanceledAction{c.requestedIDs[i], &result})
 		}
 	}
 
@@ -126,13 +92,53 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if len(failedCancels) > 0 {
-		message := "The following actions could not be canceled:\n"
+		message := "The following tasks could not be canceled:\n"
 		for _, a := range failedCancels {
-			message += fmt.Sprintf("action: %s, error: %s\n", a.ID, a.Result.Message)
+			message += fmt.Sprintf("task: %s, error: %s\n", a.ID, a.Result.Message)
 		}
 
 		logger.Warningf(message)
 	}
 
 	return err
+}
+
+// resultsToMap is a helper function that takes in a []params.ActionResult
+// and returns a map[string]interface{} ready to be served to the
+// formatter for printing.
+func resultsToMap(results []actionapi.ActionResult) map[string]interface{} {
+	items := []map[string]interface{}{}
+	for _, item := range results {
+		items = append(items, resultToMap(item))
+	}
+	return map[string]interface{}{"actions": items}
+}
+
+func resultToMap(result actionapi.ActionResult) map[string]interface{} {
+	item := map[string]interface{}{}
+	if result.Error != nil {
+		item["error"] = result.Error.Error()
+	}
+	if result.Action != nil {
+		item["action"] = result.Action.Name
+		item["id"] = result.Action.ID
+
+		rtag, err := names.ParseUnitTag(result.Action.Receiver)
+		if err != nil {
+			item["unit"] = result.Action.Receiver
+		} else {
+			item["unit"] = rtag.Id()
+		}
+
+	}
+	item["status"] = result.Status
+
+	// result.Completed uses the zero-value to indicate not completed
+	if result.Completed.Equal(time.Time{}) {
+		item["completed at"] = "n/a"
+	} else {
+		item["completed at"] = result.Completed.UTC().Format("2006-01-02 15:04:05")
+	}
+
+	return item
 }

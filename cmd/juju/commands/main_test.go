@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -170,12 +169,6 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 }
 
 func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
-	//TODO(bogdanteleaga): cannot read the env file because of some suite
-	//problems. The juju home, when calling something from the command line is
-	//not the same as in the test suite.
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
-	}
 	s.PatchEnvironment(osenv.JujuControllerEnvKey, "current-controller")
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -231,7 +224,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, it has downloaded the latest public cloud information.`[1:]+"\n")
+Since Juju 3 is being run for the first time, it has downloaded the latest public cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -291,7 +284,7 @@ var commandNames = []string{
 	"add-k8s",
 	"add-machine",
 	"add-model",
-	"add-relation",
+	"add-relation", // alias for 'integrate'
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
@@ -352,7 +345,6 @@ var commandNames = []string{
 	"get-model-constraints",
 	"grant",
 	"grant-cloud",
-	"gui",
 	"help",
 	"help-tool",
 	"hook-tool",
@@ -360,6 +352,7 @@ var commandNames = []string{
 	"import-filesystem",
 	"import-ssh-key",
 	"info",
+	"integrate",
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
@@ -373,6 +366,7 @@ var commandNames = []string{
 	"list-machines",
 	"list-models",
 	"list-offers",
+	"list-operations",
 	"list-payloads",
 	"list-plans",
 	"list-regions",
@@ -396,12 +390,13 @@ var commandNames = []string{
 	"move-to-space",
 	"offer",
 	"offers",
+	"operations",
 	"payloads",
 	"plans",
 	"refresh",
 	"regions",
 	"register",
-	"relate", //alias for add-relation
+	"relate", // alias for integrate
 	"reload-spaces",
 	"remove-application",
 	"remove-cached-images",
@@ -449,10 +444,12 @@ var commandNames = []string{
 	"show-machine",
 	"show-model",
 	"show-offer",
+	"show-operation",
 	"show-status",
 	"show-status-log",
 	"show-storage",
 	"show-space",
+	"show-task",
 	"show-unit",
 	"show-user",
 	"show-wallet",
@@ -479,13 +476,12 @@ var commandNames = []string{
 	"update-storage-pool",
 	"upgrade-charm",
 	"upgrade-controller",
-	"upgrade-dashboard",
-	"upgrade-gui",
 	"upgrade-juju",
 	"upgrade-model",
 	"upgrade-series",
 	"users",
 	"version",
+	"wait-for",
 	"wallets",
 	"whoami",
 }
@@ -493,11 +489,13 @@ var commandNames = []string{
 // optionalFeatures are feature flags that impact registration of commands.
 var optionalFeatures = []string{
 	feature.ActionsV2,
+	feature.Secrets,
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
 	"run", "show-task", "operations", "list-operations", "show-operation",
+	"list-secrets", "secrets",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -508,17 +506,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
+	// NB there are no such commands as of now, but leave this step
+	// for when we add some again.
 	cmdSet := set.NewStrings(commandNames...)
-	if !featureflag.Enabled(feature.ActionsV2) {
-		cmdSet.Add("actions")
-		cmdSet.Add("list-actions")
-		cmdSet.Add("run-action")
-		cmdSet.Add("run")
-		cmdSet.Add("show-action")
-		cmdSet.Add("show-action-status")
-		cmdSet.Add("show-action-output")
-		cmdSet.Add("cancel-action")
-	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -536,8 +526,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings(
-		"cancel-action", "run-action", "show-action-status", "show-action-output"))
+	c.Assert(missing.IsEmpty(), jc.IsTrue)
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
@@ -605,9 +594,6 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
-	if !featureflag.Enabled(feature.ActionsV2) {
-		expected = append(expected, "cancel-action", "run-action", "show-action-status", "show-action-output")
-	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)
 }

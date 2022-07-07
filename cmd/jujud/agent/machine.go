@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -95,11 +96,11 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun           = paths.JujuRun(paths.CurrentOS())
+	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
-	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
-	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
+	jujudSymlinks     = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
+	caasJujudSymlinks = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -116,7 +117,7 @@ var (
 	iaasMachineManifolds = machine.IAASManifolds
 )
 
-// Variable to override in tests, default is true
+// ProductionMongoWriteConcern is provided to override in tests, default is true
 var ProductionMongoWriteConcern = true
 
 func init() {
@@ -622,7 +623,6 @@ func (a *MachineAgent) makeEngineCreator(
 				return a.statusSetter(apiConn)
 			},
 			ControllerLeaseDuration:           time.Minute,
-			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			MachineLock:                       a.machineLock,
 			SetStatePool:                      statePoolReporter.Set,
@@ -694,8 +694,8 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 		logger.Infof("Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
-	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
-	// so the agent will simply exit without error pending reboot/shutdown.
+	// We return ErrRebootMachine so the agent will simply exit without error
+	// pending reboot/shutdown.
 	return jworker.ErrRebootMachine
 }
 
@@ -1236,20 +1236,10 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	var mongodVersion mongo.Version
-	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
-	// update Mongo version.
-	if err = a.ChangeConfig(
-		func(config agent.ConfigSetter) error {
-			config.SetMongoVersion(mongodVersion)
-			return nil
-		},
-	); err != nil {
-		return errors.Annotate(err, "cannot set mongo version")
-	}
 	return nil
 }
 
@@ -1391,6 +1381,13 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 
 func (a *MachineAgent) createSymlink(target, link string) error {
 	fullLink := utils.EnsureBaseDir(a.rootDir, link)
+
+	// TODO(juju 4) - remove this legacy behaviour.
+	// Remove the obsolete "juju-run" symlink
+	if strings.Contains(fullLink, "/juju-exec") {
+		runLink := strings.Replace(fullLink, "/juju-exec", "/juju-run", 1)
+		_ = os.Remove(runLink)
+	}
 
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {

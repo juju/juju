@@ -36,7 +36,6 @@ var facadeVersions = map[string]int{
 	"CAASOperatorProvisioner":      1,
 	"CAASOperatorUpgrader":         1,
 	"CAASUnitProvisioner":          2,
-	"CharmHub":                     1, // Unused, removed in Juju 3
 	"CharmDownloader":              1,
 	"CharmRevisionUpdater":         2,
 	"Charms":                       4,
@@ -105,6 +104,9 @@ var facadeVersions = map[string]int{
 	"ResourcesHookContext":         1,
 	"Resumer":                      2,
 	"RetryStrategy":                1,
+	"SecretsRotationWatcher":       1,
+	"Secrets":                      1,
+	"SecretsManager":               1,
 	"Singular":                     2,
 	"Spaces":                       6,
 	"SSHClient":                    3,

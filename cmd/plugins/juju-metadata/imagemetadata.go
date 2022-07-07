@@ -117,7 +117,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 
 	controllerName, err := c.ControllerName()
 	err = errors.Cause(err)
-	if err != nil && err != modelcmd.ErrNoControllersDefined && err != modelcmd.ErrNoCurrentController {
+	if err != nil && err != modelcmd.ErrNoControllersDefined && !modelcmd.IsNoCurrentController(err) {
 		return errors.Trace(err)
 	}
 

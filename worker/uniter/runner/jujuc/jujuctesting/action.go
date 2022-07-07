@@ -32,7 +32,7 @@ func (c *ContextActionHook) ActionParams() (map[string]interface{}, error) {
 }
 
 // UpdateActionResults implements jujuc.ActionHookContext.
-func (c *ContextActionHook) UpdateActionResults(keys []string, value string) error {
+func (c *ContextActionHook) UpdateActionResults(keys []string, value interface{}) error {
 	c.stub.AddCall("UpdateActionResults", keys, value)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

@@ -10,7 +10,7 @@
 # http://bazaar.launchpad.net/~ost-maintainers/openstack-charm-testing/trunk/view/head:/bundles/baremetal/7-default.yaml
 #
 openstack-services:
-  services:
+  applications:
     mysql:
       charm: cs:trusty/mysql
       options:
@@ -184,7 +184,7 @@ openstack-singlerabbit:
     - [ "neutron-gateway:amqp", rabbitmq-server ]
 openstack-icehouse:
   inherits: openstack-singlerabbit
-  services:
+  applications:
     neutron-api:
       charm: cs:~openstack-charmers-next/trusty/neutron-api
       options:
@@ -204,7 +204,7 @@ openstack-icehouse:
   - [ neutron-openvswitch, rabbitmq-server ]
 openstack-icehouse-msg-split:
   inherits: openstack-services
-  services:
+  applications:
     neutron-api:
       charm: cs:~openstack-charmers-next/trusty/neutron-api
       options:
@@ -228,7 +228,7 @@ openstack-icehouse-msg-split:
 precise-icehouse:
   inherits: openstack-icehouse
   series: precise
-  services:
+  applications:
     mysql:
       branch: lp:charms/trusty/mysql
   overrides:

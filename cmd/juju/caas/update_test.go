@@ -16,8 +16,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
+	storagev1 "k8s.io/api/storage/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	jujucaas "github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
@@ -115,9 +117,11 @@ func (s *updateCAASSuite) SetUpTest(c *gc.C) {
 	}
 	s.cloudMetadataStore = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
-	defaultClusterMetadata := &jujucaas.ClusterMetadata{
+	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
-		OperatorStorageClass: &jujucaas.StorageProvisioner{Name: "operator-sc"},
+		OperatorStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "operator-sc"},
+		},
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
 		CallMocker: jujutesting.NewCallMocker(logger),
@@ -140,7 +144,7 @@ func (s *updateCAASSuite) makeCommand() cmd.Command {
 		func() (caas.UpdateCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (jujucaas.ClusterMetadataChecker, error) {
+		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 	)
@@ -301,7 +305,7 @@ func (s *updateCAASSuite) TestBuiltinWithFile(c *gc.C) {
 
 func (s *updateCAASSuite) TestBuiltinToController(c *gc.C) {
 	var logger loggo.Logger
-	microk8sClusterMetadata := &jujucaas.ClusterMetadata{
+	microk8sClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "microk8s",
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
@@ -336,7 +340,7 @@ func (s *updateCAASSuite) TestAffectedModels(c *gc.C) {
 		ModelUUID: "uuid",
 		Errors:    []params.ErrorResult{{Error: &params.Error{Message: "error"}}},
 	}}
-	microk8sClusterMetadata := &jujucaas.ClusterMetadata{
+	microk8sClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "microk8s",
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
@@ -366,7 +370,7 @@ func (s *updateCAASSuite) TestUpdateCredentialError(c *gc.C) {
 		Errors:    []params.ErrorResult{{Error: &params.Error{Message: "error"}}},
 	}}
 	s.fakeCloudAPI.errorResult = &params.Error{Message: "some error"}
-	microk8sClusterMetadata := &jujucaas.ClusterMetadata{
+	microk8sClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "microk8s",
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{

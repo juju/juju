@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"github.com/im7mortal/kmutex"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 

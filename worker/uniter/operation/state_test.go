@@ -5,7 +5,7 @@ package operation_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

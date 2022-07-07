@@ -271,6 +271,11 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	return ebsConfig, nil
 }
 
+func (e *ebsProvider) ValidateForK8s(map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (e *ebsProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newEbsConfig(cfg.Attrs())

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -90,6 +90,7 @@ type State struct {
 func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
+		st.controllerTag,
 		names.NewModelTag(modelUUID),
 		st.controllerModelTag,
 		session,
@@ -386,13 +387,11 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 	return ops, nil
 }
 
-// start makes a *State functional post-creation, by:
-//   * setting controllerTag and cloudName
-//   * starting watcher backends
-//   * creating cloud metadata storage
-//
-// start will close the *State if it fails.
-func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub) (err error) {
+// startWorkers starts the worker backends on the *State
+//   * txn log watcher
+//   * txn log pruner
+// startWorkers will close the *State if it fails.
+func (st *State) startWorkers(hub *pubsub.SimpleHub) (err error) {
 	defer func() {
 		if err == nil {
 			return
@@ -402,22 +401,13 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 		}
 	}()
 
-	st.controllerTag = controllerTag
-
 	logger.Infof("starting standard state workers")
 	workers, err := newWorkers(st, hub)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	st.workers = workers
-
-	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
-		cloudimagemetadataC,
-		&environMongo{st},
-	)
-
-	logger.Infof("started state for %s successfully", st.modelTag)
+	logger.Infof("started state workers for %s successfully", st.modelTag)
 	return nil
 }
 
@@ -1182,8 +1172,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}
 
-	minver := args.Charm.Meta().MinJujuVersion
-	if err := jujuversion.CheckJujuMinVersion(minver, jujuversion.Current); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(args.Charm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return nil, errors.Trace(err)
 	}
 

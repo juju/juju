@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
@@ -28,7 +29,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/feature"
+
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -52,14 +53,6 @@ type API struct {
 
 	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
-}
-
-type APIv2 struct {
-	*APIv3
-}
-
-type APIv3 struct {
-	*API
 }
 
 // CharmInfo returns information about the requested charm.
@@ -145,9 +138,6 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 	}
 	return params.CharmsListResult{CharmURLs: charmURLs}, nil
 }
-
-// GetDownloadInfos is not available via the V2 API.
-func (a *APIv2) GetDownloadInfos(_ struct{}) {}
 
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 //and origin.
@@ -253,9 +243,6 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	return o, nil
 }
 
-// AddCharm is not available via the V2 API.
-func (a *APIv2) AddCharm(_ struct{}) {}
-
 // AddCharm adds the given charm URL (which must include revision) to the
 // environment, if it does not exist yet. Local charms are not supported,
 // only charm store and charm hub URLs. See also AddLocalCharm().
@@ -269,9 +256,6 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 		Series:             args.Series,
 	})
 }
-
-// AddCharmWithAuthorization is not available via the V2 API.
-func (a *APIv2) AddCharmWithAuthorization(_ struct{}) {}
 
 // AddCharmWithAuthorization adds the given charm URL (which must include
 // revision) to the environment, if it does not exist yet. Local charms are
@@ -297,21 +281,9 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	charmURL, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	ctrlCfg, err := a.backendState.ControllerConfig()
-	if err != nil {
-		return params.CharmOriginResult{}, err
-	}
-
-	// TODO(achilleasa): This escape hatch allows us to test the asynchronous
-	// charm download code-path without breaking the existing deploy logic.
-	//
-	// It will be removed once the new universal deploy facade is into place.
-	if ctrlCfg.Features().Contains(feature.AsynchronousCharmDownloads) {
+	// Only the Charmhub API gives us the metadata we need to support async
+	// charm downloads, so don't do it for legacy Charmstore ones.
+	if commoncharm.OriginSource(args.Origin.Source) == commoncharm.OriginCharmHub {
 		actualOrigin, err := a.queueAsyncCharmDownload(args)
 		if err != nil {
 			return params.CharmOriginResult{}, errors.Trace(err)
@@ -320,6 +292,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{
 			Origin: convertOrigin(actualOrigin),
 		}, nil
+	}
+
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return params.CharmOriginResult{}, err
 	}
 
 	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
@@ -440,9 +417,6 @@ func (adapter charmInfoAdapter) Revision() int {
 	return 0 // not part of the essential metadata
 }
 
-// ResolveCharms is not available via the V2 API.
-func (a *APIv2) ResolveCharms(_ struct{}) {}
-
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
@@ -554,10 +528,10 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 
 	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:       logger,
-		Transport:    httpTransport(logger),
-		StateBackend: a.backendState,
-		ModelBackend: a.backendModel,
+		Logger:            logger,
+		CharmhubTransport: httpTransport(logger),
+		StateBackend:      a.backendState,
+		ModelBackend:      a.backendModel,
 	})
 
 	return repoFactory.GetCharmRepository(src)
@@ -582,9 +556,6 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 	}
 	return params.IsMeteredResult{Metered: false}, nil
 }
-
-// CheckCharmPlacement isn't on the v13 API.
-func (a *APIv3) CheckCharmPlacement(_, _ struct{}) {}
 
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
@@ -726,9 +697,6 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 
 	return "", nil
 }
-
-// ListCharmResources is not available via the V2 API.
-func (a *APIv2) ListCharmResources(_ struct{}) {}
 
 // ListCharmResources returns a series of resources for a given charm.
 func (a *API) ListCharmResources(args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {

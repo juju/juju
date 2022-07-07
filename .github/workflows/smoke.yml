@@ -51,12 +51,19 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo snap install *.snap --dangerous --classic
+        sudo snap install *.snap --dangerous
+        # Since we're installing dangerously, we need to
+        # manually grant permissions to juju
+        sudo snap connect juju:lxd lxd
+        sudo snap connect juju:dot-local-share-juju
+        sudo snap connect juju:ssh-public-keys
+        snap connections juju
 
     - name: Smoke Test
       shell: bash
       run: |
-        cd tests && ./main.sh smoke
+        cd tests
+        ./main.sh -v smoke
 
   Upgrade:
     name: Upgrade
@@ -64,7 +71,7 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["2.8/stable"]
+        snap_version: ["3.0/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
@@ -81,6 +88,8 @@ jobs:
         OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
         set -e
         if [ "$OUT" = "NOT FOUND" ]; then
+          echo "RUN_TEST=NO_BASE_VERSION" >> $GITHUB_ENV
+        else
           echo "RUN_TEST=RUN" >> $GITHUB_ENV
         fi
 
@@ -231,6 +240,7 @@ jobs:
     # However we just need to install the `wait-for` binary ourselves,
     # and then Juju 2.8 can use it (amazing!)
     - name: Add `wait-for` plugin
+      if: env.RUN_TEST == 'RUN'
       shell: bash
       run: |
         # Download a stable version of Juju

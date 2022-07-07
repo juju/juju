@@ -166,7 +166,7 @@ func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControl
 // NewConfigCommandForTest returns a ConfigCommand with
 // the api provided as specified.
 func NewConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
-	c := &configCommand{api: api}
+	c := &configCommand{configBase: ctrConfigBase, api: api}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }

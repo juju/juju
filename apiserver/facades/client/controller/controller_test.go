@@ -9,11 +9,13 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -312,7 +314,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	controller, err := controller.NewControllerAPIv4(
+	controller, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     st,
 			StatePool_: s.StatePool,
@@ -342,7 +344,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	defer st.Close()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
-	controller, err := controller.NewControllerAPIv4(
+	controller, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     st,
 			Resources_: common.NewResources(),
@@ -740,21 +742,6 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
-func (s *controllerSuite) TestRevokeAddModelBackwardCompatibility(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-
-	controllerInfo, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.CreateCloudAccess(controllerInfo.CloudName, user.UserTag(), permission.AddModelAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.controllerRevoke(c, user.UserTag(), string(permission.AddModelAccess))
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.GetCloudAccess(controllerInfo.CloudName, user.UserTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
 	err := s.controllerRevoke(c, user, string(permission.SuperuserAccess))
@@ -788,19 +775,6 @@ func (s *controllerSuite) TestGrantControllerAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
-}
-
-func (s *controllerSuite) TestGrantAddModelBackwardCompatibility(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-
-	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerInfo, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	perm, err := s.State.GetCloudAccess(controllerInfo.CloudName, user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(perm, gc.Equals, permission.AddModelAccess)
 }
 
 func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
@@ -921,7 +895,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv4(
+	endpoint, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -953,42 +927,6 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	c.Assert(*results.Results[1].Error, gc.DeepEquals, params.Error{
 		Message: "permission denied", Code: "unauthorized access",
 	})
-}
-
-func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
-	api, err := controller.NewControllerAPIv3(
-		facadetest.Context{
-			State_:     s.State,
-			StatePool_: s.StatePool,
-			Resources_: s.resources,
-			Auth_:      s.authorizer,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that we err out immediately if a model errs.
-	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: "bad-tag",
-	}, {
-		Tag: s.Model.ModelTag().String(),
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we err out if a model errs even if some firsts in collection pass.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.Model.ModelTag().String(),
-	}, {
-		Tag: "bad-tag",
-	}}})
-	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
-
-	// Check that we return successfully if no errors.
-	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.Model.ModelTag().String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
 }
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
@@ -1043,7 +981,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv5(
+	endpoint, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -1238,4 +1176,15 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+type controllerUnitSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&controllerUnitSuite{})
+
+func (s *controllerUnitSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	return ctrl
 }

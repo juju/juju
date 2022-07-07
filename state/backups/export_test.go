@@ -15,18 +15,15 @@ var (
 	Create        = create
 	FileTimestamp = fileTimestamp
 
-	TestGetFilesToBackUp  = &getFilesToBackUp
-	GetDBDumper           = &getDBDumper
-	RunCreate             = &runCreate
-	FinishMeta            = &finishMeta
-	GetMongodumpPath      = &getMongodumpPath
-	GetMongorestorePath   = &getMongorestorePath
-	RunCommand            = &runCommandFn
-	ReplaceableFolders    = &replaceableFolders
-	MongoInstalledVersion = &mongoInstalledVersion
-	AvailableDisk         = &availableDisk
-	TotalDisk             = &totalDisk
-	DirSize               = &dirSize
+	TestGetFilesToBackUp = &getFilesToBackUp
+	GetDBDumper          = &getDBDumper
+	RunCreate            = &runCreate
+	FinishMeta           = &finishMeta
+	GetMongodumpPath     = &getMongodumpPath
+	RunCommand           = &runCommandFn
+	AvailableDisk        = &availableDisk
+	TotalDisk            = &totalDisk
+	DirSize              = &dirSize
 )
 
 // ExposeCreateResult extracts the values in a create() result.

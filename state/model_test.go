@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
@@ -1831,7 +1831,7 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
 		Owner:                   owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	c.Assert(err, gc.ErrorMatches, "missing CloudRegion not valid")
+	c.Assert(err, gc.ErrorMatches, "missing cloud region not valid")
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) {

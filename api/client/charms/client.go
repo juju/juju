@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
@@ -74,10 +74,6 @@ type ResolvedCharm struct {
 // ResolveCharms is only supported in version 3 and above, it is expected that
 // the consumer of the client is intended to handle the fallback.
 func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error) {
-	if c.facade.BestAPIVersion() < 3 {
-		return nil, errors.NotSupportedf("resolve charms")
-	}
-
 	args := params.ResolveCharmsWithChannel{
 		Resolve: make([]params.ResolveCharmWithChannel, len(charms)),
 	}
@@ -123,10 +119,6 @@ type DownloadInfo struct {
 // GetDownloadInfo will get a download information from the given charm URL
 // using the appropriate charm store.
 func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *macaroon.Macaroon) (DownloadInfo, error) {
-	if c.facade.BestAPIVersion() < 3 {
-		return DownloadInfo{}, errors.NotSupportedf("get download info")
-	}
-
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl.String(),
@@ -380,10 +372,6 @@ func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) er
 
 // ListCharmResources returns a list of associated resources for a given charm.
 func (c *Client) ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error) {
-	if c.facade.BestAPIVersion() < 3 {
-		return nil, errors.NotSupportedf("list resources")
-	}
-
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl.String(),

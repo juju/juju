@@ -26,7 +26,6 @@ func NewSetSeriesCommand() cmd.Command {
 // setSeriesAPI defines a subset of the application facade, as required
 // by the set-series command.
 type setSeriesAPI interface {
-	BestAPIVersion() int
 	Close() error
 	UpdateApplicationSeries(string, string, bool) error
 }
@@ -122,9 +121,6 @@ func (c *setSeriesCommand) Run(ctx *cmd.Context) error {
 		if c.setSeriesClient == nil {
 			c.setSeriesClient = application.NewClient(apiRoot)
 			defer func() { _ = c.setSeriesClient.Close() }()
-		}
-		if c.setSeriesClient.BestAPIVersion() < 5 {
-			return errors.New("setting the application series is not supported by this API server")
 		}
 		err := c.updateApplicationSeries()
 		if err == nil {

@@ -20,8 +20,5 @@ func NewContainerProfileContext(result params.ContainerProfileResults, modelName
 }
 
 var (
-	NewProvisionerAPIV5  = newProvisionerAPIV5
-	NewProvisionerAPIV9  = newProvisionerAPIV9
-	NewProvisionerAPIV10 = newProvisionerAPIV10
 	NewProvisionerAPIV11 = newProvisionerAPIV11
 )

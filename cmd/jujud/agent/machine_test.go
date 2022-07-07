@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -49,6 +48,7 @@ import (
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
 	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
@@ -650,13 +650,23 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 			defer st.Close()
 			doRequest(apiclient.NewClient(st))
 		}
+		makeMachineAPIRequest := func(doRequest func(*machinemanager.Client)) {
+			apiInfo, ok := conf.APIInfo()
+			c.Assert(ok, jc.IsTrue)
+			apiInfo.Tag = user.Tag()
+			apiInfo.Password = password
+			st, err := api.Open(apiInfo, fastDialOpts)
+			c.Assert(err, jc.ErrorIsNil)
+			defer st.Close()
+			doRequest(machinemanager.NewClient(st))
+		}
 
 		// Make requests in separate API connections so they're separate conversations.
 		makeAPIRequest(func(client *apiclient.Client) {
 			_, err = client.Status(nil)
 			c.Assert(err, jc.ErrorIsNil)
 		})
-		makeAPIRequest(func(client *apiclient.Client) {
+		makeMachineAPIRequest(func(client *machinemanager.Client) {
 			_, err = client.AddMachines([]params.AddMachineParams{{
 				Jobs: []coremodel.MachineJob{"JobHostUnits"},
 			}})
@@ -668,8 +678,8 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 		records := readAuditLog(c, logPath)
 		c.Assert(records, gc.HasLen, 3)
 		c.Assert(records[1].Request, gc.NotNil)
-		c.Assert(records[1].Request.Facade, gc.Equals, "Client")
-		c.Assert(records[1].Request.Method, gc.Equals, "AddMachinesV2")
+		c.Assert(records[1].Request.Facade, gc.Equals, "MachineManager")
+		c.Assert(records[1].Request.Method, gc.Equals, "AddMachines")
 
 		// Now update the controller config to remove the exclusion.
 		err := s.State.UpdateControllerConfig(map[string]interface{}{
@@ -839,10 +849,6 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
-	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
-	}
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
@@ -892,13 +898,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		// Cannot make symlink to nonexistent file on windows or
-		// create a file point a symlink to it then remove it
-		c.Skip("Cannot test this on windows")
-	}
-
+func (s *MachineSuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, stm)
 	defer ctrl.Finish()
@@ -915,7 +915,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	// Start the agent and wait for it be running.
 	_, done := s.waitForOpenState(c, a)
 
-	// juju-run symlink should have been recreated.
+	// juju-exec symlink should have been recreated.
 	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
@@ -1483,10 +1483,6 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 }
 
 func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("controllers on windows aren't supported")
-	}
-
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()

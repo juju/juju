@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -581,19 +581,20 @@ func (op *DestroyUnitOperation) Done(err error) error {
 }
 
 func (op *DestroyUnitOperation) eraseHistory() error {
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalKey()); err != nil {
+	var stop <-chan struct{} // stop not used here yet.
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalAgentKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
+	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
 		if op.FatalError(one) {
 			return one
@@ -1647,6 +1648,8 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	u.doc.MachineId = m.doc.Id
 	m.doc.Clean = false
+	m.doc.Principals = append(m.doc.Principals, u.doc.Name)
+	sort.Strings(m.doc.Principals)
 	return nil
 }
 
@@ -1712,7 +1715,10 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 			{{"machineid", m.Id()}},
 		},
 	}}...)
-	massert := isAliveDoc
+	massert := append(isAliveDoc, bson.D{{
+		// The machine must be able to accept a unit.
+		"jobs", bson.M{"$in": []MachineJob{JobHostUnits}},
+	}}...)
 	if unused {
 		massert = append(massert, bson.D{{"clean", bson.D{{"$ne", false}}}}...)
 	}
@@ -2724,9 +2730,9 @@ type ActionSpecsByName map[string]charm.ActionSpec
 
 // PrepareActionPayload returns the payload to use in creating an action for this unit.
 // Note that the use of spec.InsertDefaults mutates payload.
-func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}) (map[string]interface{}, error) {
+func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (map[string]interface{}, bool, string, error) {
 	if len(name) == 0 {
-		return nil, errors.New("no action name given")
+		return nil, false, "", errors.New("no action name given")
 	}
 
 	// If the action is predefined inside juju, get spec from map
@@ -2734,38 +2740,47 @@ func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{})
 	if !ok {
 		specs, err := u.ActionSpecs()
 		if err != nil {
-			return nil, err
+			return nil, false, "", err
 		}
 		spec, ok = specs[name]
 		if !ok {
-			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+			return nil, false, "", errors.Errorf("action %q not defined on unit %q", name, u.Name())
 		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
 	err := spec.ValidateParams(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 	payloadWithDefaults, err := spec.InsertDefaults(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, "", errors.Trace(err)
 	}
 
 	// For k8s operators, we run the action on the operator pod by default.
 	if _, ok := payloadWithDefaults["workload-context"]; !ok {
 		app, err := u.Application()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		ch, _, err := app.Charm()
 		if err != nil {
-			return nil, err
+			return nil, false, "", errors.Trace(err)
 		}
 		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
 			payloadWithDefaults["workload-context"] = false
 		}
 	}
-	return payloadWithDefaults, nil
+
+	runParallel := spec.Parallel
+	if parallel != nil {
+		runParallel = *parallel
+	}
+	runExecutionGroup := spec.ExecutionGroup
+	if executionGroup != nil {
+		runExecutionGroup = *executionGroup
+	}
+	return payloadWithDefaults, runParallel, runExecutionGroup, nil
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.

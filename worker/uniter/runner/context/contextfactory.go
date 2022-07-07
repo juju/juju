@@ -8,11 +8,12 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -71,6 +72,7 @@ type contextFactory struct {
 	state     *uniter.State
 	resources *uniter.ResourcesFacadeClient
 	payloads  *uniter.PayloadFacadeClient
+	secrets   *secretsmanager.Client
 	tracker   leadership.Tracker
 
 	logger loggo.Logger
@@ -98,6 +100,7 @@ type contextFactory struct {
 // for the context factory.
 type FactoryConfig struct {
 	State            *uniter.State
+	Secrets          *secretsmanager.Client
 	Unit             *uniter.Unit
 	Resources        *uniter.ResourcesFacadeClient
 	Payloads         *uniter.PayloadFacadeClient
@@ -143,6 +146,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		state:            config.State,
 		resources:        config.Resources,
 		payloads:         config.Payloads,
+		secrets:          config.Secrets,
 		tracker:          config.Tracker,
 		logger:           config.Logger,
 		paths:            config.Paths,
@@ -177,6 +181,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
+		secretFacade:       f.secrets,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
@@ -264,6 +269,9 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	}
 	if hookInfo.Kind == hooks.PreSeriesUpgrade {
 		ctx.seriesUpgradeTarget = hookInfo.SeriesUpgradeTarget
+	}
+	if hookInfo.Kind.IsSecret() {
+		ctx.secretURL = hookInfo.SecretURL
 	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName

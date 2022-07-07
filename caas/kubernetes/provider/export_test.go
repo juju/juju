@@ -43,12 +43,10 @@ var (
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
 	CompileLifecycleModelTeardownSelector      = compileLifecycleModelTeardownSelector
 
-	LabelSetToRequirements = labelSetToRequirements
-	MergeSelectors         = mergeSelectors
-
 	UpdateStrategyForDeployment  = updateStrategyForDeployment
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	UpdateStrategyForDaemonSet   = updateStrategyForDaemonSet
+	DecideKubeConfigDir          = decideKubeConfigDir
 )
 
 type (
@@ -59,17 +57,29 @@ type (
 
 type ControllerStackerForTest interface {
 	controllerStacker
-	GetAgentConfigContent(*gc.C) string
+	GetControllerAgentConfigContent(*gc.C) string
+	GetControllerUnitAgentConfigContent(*gc.C) string
+	GetControllerUnitAgentPassword() string
 	GetSharedSecretAndSSLKey(*gc.C) (string, string)
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 	SetContext(ctx environs.BootstrapContext)
 }
 
-func (cs *controllerStack) GetAgentConfigContent(c *gc.C) string {
+func (cs *controllerStack) GetControllerAgentConfigContent(c *gc.C) string {
 	agentCfg, err := cs.agentConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 	return string(agentCfg)
+}
+
+func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *gc.C) string {
+	agentCfg, err := cs.unitAgentConfig.Render()
+	c.Assert(err, jc.ErrorIsNil)
+	return string(agentCfg)
+}
+
+func (cs *controllerStack) GetControllerUnitAgentPassword() string {
+	return cs.unitAgentConfig.OldPassword()
 }
 
 func (cs *controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {
@@ -113,7 +123,7 @@ func NewProviderWithFakes(
 	runner CommandRunner,
 	credentialGetter func(CommandRunner) (jujucloud.Credential, error),
 	getter func(CommandRunner) (jujucloud.Cloud, error),
-	brokerGetter func(environs.OpenParams) (caas.ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
+	brokerGetter func(environs.OpenParams) (ClusterMetadataStorageChecker, error)) caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{
 		environProviderCredentials: environProviderCredentials{
 			cmdRunner:               runner,

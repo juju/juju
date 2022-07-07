@@ -14,7 +14,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/usermanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -76,18 +75,7 @@ func (c *listCommand) getModelUsersAPI() (modelUsersAPI, error) {
 	if c.modelUserAPI != nil {
 		return c.modelUserAPI, nil
 	}
-	client, err := c.NewUserManagerAPIClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if client.BestAPIVersion() > 2 {
-		return client, nil
-	}
-	conn, err := c.NewModelAPIRoot(c.modelName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apiclient.NewClient(conn), nil
+	return c.NewUserManagerAPIClient()
 }
 
 // Info implements Command.Info.

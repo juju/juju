@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -22,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -32,7 +31,6 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -681,13 +679,13 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
-	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-windows")
+	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
 	cfg := state.SetCharmConfig{
 		Charm:       chDifferentSeries,
 		ForceSeries: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-windows-1": OS "Ubuntu" not supported by charm`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
 }
 
 func (s *ApplicationSuite) TestSetCharmChangeSeriesWhenMovingFromCharmstoreToCharmhub(c *gc.C) {
@@ -5230,14 +5228,6 @@ deployment:
 }
 
 func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
-	// Required to allow charm lookups to return pending charms.
-	err := s.State.UpdateControllerConfig(
-		map[string]interface{}{
-			controller.Features: []interface{}{feature.AsynchronousCharmDownloads},
-		}, nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.State.StartSync()
 	w := s.State.WatchApplicationsWithPendingCharms()
 	defer func() { _ = w.Stop() }()
@@ -5248,7 +5238,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	// Add a pending charm without an origin and associate it with the
 	// application. As it is lacking an origin, it should not trigger a
 	// change.
-	dummy1 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy1 := s.dummyCharm(c, "ch:dummy-1")
 	dummy1.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
 	dummy1.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch1, err := s.State.AddCharmMetadata(dummy1)
@@ -5261,7 +5251,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 
 	// Add a pending charm with an origin and associate it with the
 	// application. This should trigger a change.
-	dummy2 := s.dummyCharm(c, "cs:quantal/dummy-2")
+	dummy2 := s.dummyCharm(c, "ch:dummy-2")
 	dummy2.SHA256 = ""      // indicates that we don't have the data in the blobstore yet.
 	dummy2.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch2, err := s.State.AddCharmMetadata(dummy2)
@@ -5269,20 +5259,20 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm: ch2,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.mysql.Name())
 
 	// "Upload" a charm and check that we don't get a notification for it.
-	dummy3 := s.dummyCharm(c, "cs:quantal/dummy-3")
+	dummy3 := s.dummyCharm(c, "ch:dummy-3")
 	ch3, err := s.State.AddCharm(dummy3)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm: ch3,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source: "charm-hub",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -5303,6 +5293,7 @@ func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmI
 			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
 		)
 	}
+	info.Charm.Meta().Series = []string{"quantal"}
 	return info
 }
 

@@ -1,5 +1,5 @@
 simple-scale:
-  services:
+  applications:
     ubuntu:
       charm: "cs:trusty/ubuntu"
       num_units: 18

@@ -10,9 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
-	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
-	machinemanager "github.com/juju/juju/apiserver/facades/client/machinemanager"
+	v9 "github.com/juju/charm/v9"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	cloud "github.com/juju/juju/cloud"
@@ -1001,10 +999,10 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 }
 
 // Manifest mocks base method.
-func (m *MockCharm) Manifest() *charm.Manifest {
+func (m *MockCharm) Manifest() *v9.Manifest {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Manifest")
-	ret0, _ := ret[0].(*charm.Manifest)
+	ret0, _ := ret[0].(*v9.Manifest)
 	return ret0
 }
 
@@ -1015,10 +1013,10 @@ func (mr *MockCharmMockRecorder) Manifest() *gomock.Call {
 }
 
 // Meta mocks base method.
-func (m *MockCharm) Meta() *charm.Meta {
+func (m *MockCharm) Meta() *v9.Meta {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta")
-	ret0, _ := ret[0].(*charm.Meta)
+	ret0, _ := ret[0].(*v9.Meta)
 	return ret0
 }
 
@@ -1043,10 +1041,10 @@ func (mr *MockCharmMockRecorder) String() *gomock.Call {
 }
 
 // URL mocks base method.
-func (m *MockCharm) URL() *charm.URL {
+func (m *MockCharm) URL() *v9.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*charm.URL)
+	ret0, _ := ret[0].(*v9.URL)
 	return ret0
 }
 

@@ -84,6 +84,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 func (s *manifoldSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
+	testing.MgoServer.EnableReplicaSet = true
 	err := testing.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.IsolationSuite.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })

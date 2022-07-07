@@ -28,20 +28,23 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/dashboard"
 	"github.com/juju/juju/cmd/juju/firewall"
-	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/payload"
 	"github.com/juju/juju/cmd/juju/resource"
 	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
+	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/juju/waitfor"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -78,11 +81,11 @@ See https://juju.is for getting started tutorials and additional documentation.
 Starter commands:
 
     bootstrap           Initializes a cloud environment.
-    add-model           Adds a hosted model.
+    add-model           Adds a workload model.
     deploy              Deploys a new application.
     status              Displays the current status of Juju, applications, and units.
     add-unit            Adds extra units of a deployed application.
-    relate              Adds a relation between two applications.
+    integrate           Adds an integration between two applications.
     expose              Makes an application publicly available over the network.
     models              Lists models a user can access on a controller.
     controllers         Lists all controllers.
@@ -337,7 +340,7 @@ func registerCommands(r commandRegistry) {
 	// NOTE:
 	// When adding a new command here, consider if the command should also
 	// be whitelisted for being enabled as an embedded command accessible to
-	// the GUI Dashboard.
+	// the Dashboard.
 	// Update allowedEmbeddedCommands in apiserver.go
 	r.Register(newVersionCommand())
 	// Creation commands.
@@ -370,16 +373,13 @@ func registerCommands(r commandRegistry) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	if !featureflag.Enabled(feature.ActionsV2) {
-		r.Register(newDefaultRunCommand(nil))
-	}
-	r.Register(newDefaultExecCommand(nil))
-	r.Register(newSCPCommand(nil, defaultSSHRetryStrategy))
-	r.Register(newSSHCommand(nil, nil, defaultSSHRetryStrategy))
+	r.Register(action.NewExecCommand(nil))
+	r.Register(ssh.NewSCPCommand(nil, ssh.DefaultSSHRetryStrategy))
+	r.Register(ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy))
 	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand(nil))
-	r.Register(newDebugHooksCommand(nil, defaultSSHRetryStrategy))
-	r.Register(newDebugCodeCommand(nil, defaultSSHRetryStrategy))
+	r.Register(ssh.NewDebugHooksCommand(nil, ssh.DefaultSSHRetryStrategy))
+	r.Register(ssh.NewDebugCodeCommand(nil, ssh.DefaultSSHRetryStrategy))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())
@@ -459,16 +459,10 @@ func registerCommands(r commandRegistry) {
 	r.Register(action.NewListCommand())
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
-	if featureflag.Enabled(feature.ActionsV2) {
-		r.Register(action.NewRunCommand())
-		r.Register(action.NewListOperationsCommand())
-		r.Register(action.NewShowOperationCommand())
-		r.Register(action.NewShowTaskCommand())
-	} else {
-		r.Register(action.NewRunActionCommand())
-		r.Register(action.NewShowActionOutputCommand())
-		r.Register(action.NewStatusCommand())
-	}
+	r.Register(action.NewRunCommand())
+	r.Register(action.NewListOperationsCommand())
+	r.Register(action.NewShowOperationCommand())
+	r.Register(action.NewShowTaskCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())
@@ -561,9 +555,8 @@ func registerCommands(r commandRegistry) {
 	// Manage Application Credential Access
 	r.Register(application.NewTrustCommand())
 
-	// Juju GUI commands.
-	r.Register(gui.NewGUICommand())
-	r.Register(gui.NewUpgradeGUICommand())
+	// Juju Dashboard commands.
+	r.Register(dashboard.NewDashboardCommand())
 
 	// Resource commands.
 	r.Register(resource.NewUploadCommand())
@@ -575,8 +568,14 @@ func registerCommands(r commandRegistry) {
 	r.Register(charmhub.NewFindCommand())
 	r.Register(charmhub.NewDownloadCommand())
 
+	// Secrets.
+	if featureflag.Enabled(feature.Secrets) {
+		r.Register(secrets.NewListSecretsCommand())
+	}
+
 	// Payload commands.
 	r.Register(payload.NewListCommand())
+	r.Register(waitfor.NewWaitForCommand())
 
 	rcmd.RegisterAll(r)
 }

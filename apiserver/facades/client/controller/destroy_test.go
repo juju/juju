@@ -236,54 +236,6 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecifiedV3(c *gc.C) {
-	testController, err := controller.NewControllerAPIv3(facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	f := factory.NewFactory(s.otherState, s.StatePool)
-	f.MakeUnit(c, &factory.UnitParams{
-		Application: f.MakeApplication(c, &factory.ApplicationParams{
-			Charm: f.MakeCharm(c, &factory.CharmParams{
-				Name: "storage-block",
-			}),
-			Storage: map[string]state.StorageConstraints{
-				"data": {Pool: "modelscoped"},
-			},
-		}),
-	})
-
-	err = testController.DestroyController(params.DestroyControllerArgs{
-		DestroyModels: true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
-}
-
-func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecifiedV3(c *gc.C) {
-	testController, err := controller.NewControllerAPIv3(facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	destroyStorage := true
-	err = testController.DestroyController(params.DestroyControllerArgs{
-		DestroyModels:  true,
-		DestroyStorage: &destroyStorage,
-	})
-	c.Assert(err, gc.ErrorMatches, "destroy-storage unexpected on the v3 API")
-}
-
 func (s *destroyControllerSuite) TestDestroyControllerForce(c *gc.C) {
 	force := true
 	timeout := 1 * time.Hour

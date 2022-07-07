@@ -23,3 +23,15 @@ type StubLeaseManager struct {
 func (m StubLeaseManager) Reader(namespace string, modelUUID string) (lease.Reader, error) {
 	return StubLeaseReader{}, nil
 }
+
+// StubLeasePinner pretends to implement lease.Pinner.
+// The non-implemented methods should not be called by tests in the
+// base apiserver package.
+type StubLeasePinner struct {
+	lease.Pinner
+}
+
+// Pinner returns a StubLeasePinner, which will panic if used.
+func (m StubLeaseManager) Pinner(namespace string, modelUUID string) (lease.Pinner, error) {
+	return StubLeasePinner{}, nil
+}

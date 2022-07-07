@@ -6,7 +6,7 @@ package state_test
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"

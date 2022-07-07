@@ -12,9 +12,6 @@ import (
 // provider for this controller or an empty string if no external identity
 // provider has been configured when the controller was bootstrapped.
 func (c *Client) IdentityProviderURL() (string, error) {
-	if c.BestAPIVersion() < 7 {
-		return "", errors.NotSupportedf("IdentityProviderURL not supported by this version of Juju")
-	}
 	var result params.StringResult
 	err := c.facade.FacadeCall("IdentityProviderURL", nil, &result)
 	if err != nil {

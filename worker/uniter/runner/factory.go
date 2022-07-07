@@ -4,13 +4,12 @@
 package runner
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -28,15 +27,13 @@ type Factory interface {
 	// supplied hook definition (which must be valid).
 	NewHookRunner(hookInfo hook.Info) (Runner, error)
 
-	// NewActionRunner returns an execution context suitable for running the
-	// action identified by the supplied id.
-	NewActionRunner(actionId string, cancel <-chan struct{}) (Runner, error)
+	// NewActionRunner returns an execution context suitable for running the action.
+	NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (Runner, error)
 }
 
 // NewFactory returns a Factory capable of creating runners for executing
 // charm hooks, actions and commands.
 func NewFactory(
-	state *uniter.State,
 	paths context.Paths,
 	contextFactory context.ContextFactory,
 	newProcessRunner NewRunnerFunc,
@@ -45,7 +42,6 @@ func NewFactory(
 	Factory, error,
 ) {
 	f := &factory{
-		state:            state,
 		paths:            paths,
 		contextFactory:   contextFactory,
 		newProcessRunner: newProcessRunner,
@@ -57,9 +53,6 @@ func NewFactory(
 
 type factory struct {
 	contextFactory context.ContextFactory
-
-	// API connection fields.
-	state *uniter.State
 
 	// Fields that shouldn't change in a factory's lifetime.
 	paths            context.Paths
@@ -92,28 +85,13 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 }
 
 // NewActionRunner exists to satisfy the Factory interface.
-func (f *factory) NewActionRunner(actionId string, cancel <-chan struct{}) (Runner, error) {
+func (f *factory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (Runner, error) {
 	ch, err := getCharm(f.paths.GetCharmDir())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ok := names.IsValidAction(actionId)
-	if !ok {
-		return nil, charmrunner.NewBadActionError(actionId, "not valid actionId")
-	}
-	tag := names.NewActionTag(actionId)
-	action, err := f.state.Action(tag)
-	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-		return nil, charmrunner.ErrActionNotAvailable
-	} else if params.IsCodeActionNotAvailable(err) {
-		return nil, charmrunner.ErrActionNotAvailable
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	name := action.Name()
-
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		var ok bool
@@ -128,6 +106,7 @@ func (f *factory) NewActionRunner(actionId string, cancel <-chan struct{}) (Runn
 		return nil, charmrunner.NewBadActionError(name, err.Error())
 	}
 
+	tag := names.NewActionTag(action.ID())
 	actionData := context.NewActionData(name, &tag, params, cancel)
 	ctx, err := f.contextFactory.ActionContext(actionData)
 	if err != nil {

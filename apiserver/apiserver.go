@@ -84,7 +84,6 @@ type Server struct {
 	apiServerLoggers       apiServerLoggers
 	getAuditConfig         func() auditlog.Config
 	upgradeComplete        func() bool
-	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
 	metricsCollector       *Collector
 	execEmbeddedCommand    ExecEmbeddedCommandFunc
@@ -154,12 +153,6 @@ type ServerConfig struct {
 	// running upgrade steps. This is used by the API server to
 	// limit logins during upgrades.
 	UpgradeComplete func() bool
-
-	// RestoreStatus is a function that reports the restore
-	// status most recently observed by the agent running the
-	// API server. This is used by the API server to limit logins
-	// during a restore.
-	RestoreStatus func() state.RestoreStatus
 
 	// PublicDNSName is reported to the API clients who connect.
 	PublicDNSName string
@@ -241,9 +234,6 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
-	}
-	if c.RestoreStatus == nil {
-		return errors.NotValidf("nil RestoreStatus")
 	}
 	if c.GetAuditConfig == nil {
 		return errors.NotValidf("missing GetAuditConfig")
@@ -343,7 +333,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
 		upgradeComplete:               cfg.UpgradeComplete,
-		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
 		authenticator:                 cfg.Authenticator,
@@ -794,8 +783,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	backupHandler := &backupHandler{ctxt: httpCtxt}
 	registerHandler := &registerUserHandler{ctxt: httpCtxt}
-	guiArchiveHandler := &guiArchiveHandler{ctxt: httpCtxt}
-	guiVersionHandler := &guiVersionHandler{ctxt: httpCtxt}
 
 	// HTTP handler for application offer macaroon authentication.
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
@@ -938,18 +925,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		methods:    []string{"POST"},
 		handler:    modelCharmsHTTPHandler,
 		authorizer: modelCharmsUploadAuthorizer,
-	}, {
-		pattern: "/gui-archive",
-		methods: []string{"POST"},
-		handler: guiArchiveHandler,
-	}, {
-		pattern:         "/gui-archive",
-		methods:         []string{"GET"},
-		handler:         guiArchiveHandler,
-		unauthenticated: true,
-	}, {
-		pattern: "/gui-version",
-		handler: guiVersionHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
@@ -965,15 +940,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	for _, handler := range handlers {
 		addHandler(handler)
 	}
-
-	// Finally, register GUI content endpoints.
-
-	// Add the legacy GUI handler.
-	guiEndpoints := guiEndpoints(guiURLPathPrefix, srv.dataDir, httpCtxt)
-	endpoints = append(endpoints, guiEndpoints...)
-	// And the new dashboard handler
-	dashboardEndpoints := dashboardEndpoints(dashboardURLPathPrefix, srv.dataDir, httpCtxt)
-	endpoints = append(endpoints, dashboardEndpoints...)
 
 	return endpoints, nil
 }

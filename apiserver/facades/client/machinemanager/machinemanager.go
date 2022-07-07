@@ -20,14 +20,12 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -82,9 +80,9 @@ type MachineManagerAPI struct {
 	callContext environscontext.ProviderCallContext
 }
 
-// NewFacade create a new server-side MachineManager API facade. This
+// NewFacadeV7 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -141,29 +139,6 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		leadership,
 		chClient,
 	)
-}
-
-// MachineManagerAPIV4 defines the Version 4 of MachineManagerAPI
-type MachineManagerAPIV4 struct {
-	*MachineManagerAPIV5
-}
-
-// MachineManagerAPIV5 defines the Version 5 of Machine Manager API.
-// Adds CreateUpgradeSeriesLock and removes UpdateMachineSeries.
-type MachineManagerAPIV5 struct {
-	*MachineManagerAPIV6
-}
-
-// MachineManagerAPIV6 defines the Version 6 of Machine Manager API.
-// Changes input parameters to DestroyMachineWithParams and ForceDestroyMachine.
-type MachineManagerAPIV6 struct {
-	*MachineManagerAPIV7
-}
-
-// MachineManagerAPIV7 defines the Version 7 of Machine Manager API.
-// Adds provisioning methods moved from client facade.
-type MachineManagerAPIV7 struct {
-	*MachineManagerAPI
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -322,9 +297,6 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-// ProvisioningScript is not available via the V6 API.
-func (api *MachineManagerAPIV6) ProvisioningScript(_ struct{}) {}
-
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
@@ -367,17 +339,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	osSeries, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return result, apiservererrors.ServerError(errors.Annotatef(err,
-			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
-	}
-
 	getProvisioningScript := sshprovisioner.ProvisioningScript
-	if osSeries == coreos.Windows {
-		getProvisioningScript = winrmprovisioner.ProvisioningScript
-	}
-
 	result.Script, err = getProvisioningScript(icfg)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
@@ -387,9 +349,6 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 
 	return result, nil
 }
-
-// RetryProvisioning is not available via the V6 API.
-func (api *MachineManagerAPIV6) RetryProvisioning(_ struct{}) {}
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
 func (mm *MachineManagerAPI) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
@@ -454,29 +413,6 @@ func (mm *MachineManagerAPI) updateInstanceStatus(tag names.Tag, data map[string
 		Since:   &now,
 	}
 	return statusGetterSetter.SetInstanceStatus(sInfo)
-}
-
-// DestroyMachine removes a set of machines from the model.
-// TODO(juju3) - remove
-func (mm *MachineManagerAPI) DestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, false, false, time.Duration(0))
-}
-
-// ForceDestroyMachine forcibly removes a set of machines from the model.
-// TODO(juju3) - remove
-// Also from ModelManger v6 this call is less useful as it does not support MaxWait customisation.
-func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, true, false, time.Duration(0))
-}
-
-// DestroyMachineWithParams removes a set of machines from the model.
-// v5 and prior versions did not support MaxWait.
-func (mm *MachineManagerAPIV5) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
-	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
-	for i, tag := range args.MachineTags {
-		entities.Entities[i].Tag = tag
-	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, time.Duration(0))
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
@@ -829,16 +765,6 @@ func isSeriesLessThan(series1, series2 string) (bool, error) {
 		return vers2Int > vers1Int, nil
 	}
 	return version2 > version1, nil
-}
-
-// UpdateMachineSeries returns an error.
-// DEPRECATED
-func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: apiservererrors.ServerError(errors.New("UpdateMachineSeries is no longer supported")),
-		}},
-	}, nil
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

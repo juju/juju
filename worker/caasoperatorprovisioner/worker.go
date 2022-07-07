@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -55,23 +55,23 @@ type CAASProvisionerFacade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Facade      CAASProvisionerFacade
-	Broker      caas.Broker
-	ModelTag    names.ModelTag
-	AgentConfig agent.Config
-	Clock       clock.Clock
-	Logger      Logger
+	Facade          CAASProvisionerFacade
+	OperatorManager caas.ApplicationOperatorManager
+	ModelTag        names.ModelTag
+	AgentConfig     agent.Config
+	Clock           clock.Clock
+	Logger          Logger
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
 func NewProvisionerWorker(config Config) (worker.Worker, error) {
 	p := &provisioner{
-		facade:      config.Facade,
-		broker:      config.Broker,
-		modelTag:    config.ModelTag,
-		agentConfig: config.AgentConfig,
-		clock:       config.Clock,
-		logger:      config.Logger,
+		provisionerFacade: config.Facade,
+		operatorManager:   config.OperatorManager,
+		modelTag:          config.ModelTag,
+		agentConfig:       config.AgentConfig,
+		clock:             config.Clock,
+		logger:            config.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
@@ -81,11 +81,11 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 }
 
 type provisioner struct {
-	catacomb catacomb.Catacomb
-	facade   CAASProvisionerFacade
-	broker   caas.Broker
-	clock    clock.Clock
-	logger   Logger
+	catacomb          catacomb.Catacomb
+	provisionerFacade CAASProvisionerFacade
+	operatorManager   caas.ApplicationOperatorManager
+	clock             clock.Clock
+	logger            Logger
 
 	modelTag    names.ModelTag
 	agentConfig agent.Config
@@ -107,7 +107,7 @@ func (p *provisioner) loop() error {
 	// away. For some runtimes we *could* rely on the the runtime's
 	// features to do this.
 
-	appWatcher, err := p.facade.WatchApplications()
+	appWatcher, err := p.provisionerFacade.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -141,13 +141,13 @@ func (p *provisioner) loop() error {
 				}
 
 				// Process events for v1 charms.
-				appLife, err := p.facade.Life(app)
+				appLife, err := p.provisionerFacade.Life(app)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
 				if err != nil || appLife == life.Dead {
 					p.logger.Debugf("deleting operator for %q", app)
-					if err := p.broker.DeleteOperator(app); err != nil {
+					if err := p.operatorManager.DeleteOperator(app); err != nil {
 						return errors.Annotatef(err, "failed to stop operator for %q", app)
 					}
 					continue
@@ -168,7 +168,7 @@ func (p *provisioner) loop() error {
 }
 
 func (p *provisioner) charmFormat(appName string) (charm.Format, error) {
-	charmInfo, err := p.facade.ApplicationCharmInfo(appName)
+	charmInfo, err := p.provisionerFacade.ApplicationCharmInfo(appName)
 	if err != nil {
 		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
 	}
@@ -178,7 +178,7 @@ func (p *provisioner) charmFormat(appName string) (charm.Format, error) {
 func (p *provisioner) waitForOperatorTerminated(app string) error {
 	tryAgain := errors.New("try again")
 	existsFunc := func() error {
-		opState, err := p.broker.OperatorExists(app)
+		opState, err := p.operatorManager.OperatorExists(app)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -208,7 +208,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 	var appPasswords []apicaasprovisioner.ApplicationPassword
 	operatorConfig := make([]*caas.OperatorConfig, len(apps))
 	for i, app := range apps {
-		opState, err := p.broker.OperatorExists(app)
+		opState, err := p.operatorManager.OperatorExists(app)
 		if err != nil {
 			return errors.Annotatef(err, "failed to find operator for %q", app)
 		}
@@ -222,7 +222,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 			opState.Exists = false
 		}
 
-		op, err := p.broker.Operator(app)
+		op, err := p.operatorManager.Operator(app)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
@@ -250,7 +250,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 	// If we did create any passwords for new operators, first they need
 	// to be saved so the agent can login when it starts up.
 	if len(appPasswords) > 0 {
-		errorResults, err := p.facade.SetPasswords(appPasswords)
+		errorResults, err := p.provisionerFacade.SetPasswords(appPasswords)
 		if err != nil {
 			return errors.Annotate(err, "failed to set application api passwords")
 		}
@@ -276,7 +276,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 }
 
 func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) error {
-	if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
+	if err := p.operatorManager.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
 		return errors.Annotatef(err, "failed to start operator for %q", app)
 	}
 	p.logger.Infof("started operator for application %q", app)
@@ -284,7 +284,7 @@ func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) er
 }
 
 func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caas.OperatorConfig) (*caas.OperatorConfig, error) {
-	info, err := p.facade.OperatorProvisioningInfo(appName)
+	info, err := p.provisionerFacade.OperatorProvisioningInfo(appName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "fetching operator provisioning info")
 	}
@@ -379,7 +379,7 @@ func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []
 	if operatorInfo.Cert == "" ||
 		operatorInfo.PrivateKey == "" ||
 		operatorInfo.CACert == "" {
-		cert, err := p.facade.IssueOperatorCertificate(appName)
+		cert, err := p.provisionerFacade.IssueOperatorCertificate(appName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "issuing certificate")
 		}

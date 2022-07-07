@@ -4,7 +4,7 @@
 package hook_test
 
 import (
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -49,6 +49,12 @@ var validateTests = []struct {
 	}, {
 		hook.Info{Kind: hooks.PreSeriesUpgrade},
 		`"pre-series-upgrade" hook requires a target series`,
+	}, {
+		hook.Info{Kind: hooks.SecretRotate},
+		`"secret-rotate" hook requires a secret URL`,
+	}, {
+		hook.Info{Kind: hooks.SecretRotate, SecretURL: "foo"},
+		`invalid secret URL "foo"`,
 	},
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},

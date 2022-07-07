@@ -18,18 +18,13 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = maxClientPingInterval
 	NewBackups            = &newBackups
-	BZMimeType            = bzMimeType
-	JSMimeType            = jsMimeType
-	SpritePath            = spritePath
-
-	GUIURLPathPrefix       = guiURLPathPrefix
-	DashboardURLPathPrefix = dashboardURLPathPrefix
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {
@@ -146,18 +141,11 @@ func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 	return restrictRoot(r, check)
 }
 
-// TestingAboutToRestoreRoot returns a limited root which allows
-// methods as per when a restore is about to happen.
-func TestingAboutToRestoreRoot() rpc.Root {
-	r := TestingAPIRoot(AllFacades())
-	return restrictRoot(r, aboutToRestoreMethodsOnly)
-}
-
 // TestingUpgradeOrMigrationOnlyRoot returns a restricted srvRoot
 // as if called from a newer client.
 func TestingUpgradeOrMigrationOnlyRoot(userLogin bool, clientVersion version.Number) rpc.Root {
 	r := TestingAPIRoot(AllFacades())
-	return restrictRoot(r, checkClientVersion(userLogin, clientVersion))
+	return restrictRoot(r, checkClientVersion(userLogin, clientVersion, jujuversion.Current))
 }
 
 // PatchGetMigrationBackend overrides the getMigrationBackend function

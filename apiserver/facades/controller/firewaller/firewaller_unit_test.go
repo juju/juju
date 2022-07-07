@@ -31,10 +31,9 @@ type RemoteFirewallerSuite struct {
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-
-	st  *mocks.MockState
-	cc  *mocks.MockControllerConfigAPI
-	api *firewaller.FirewallerAPIV4
+	st         *mocks.MockState
+	cc         *mocks.MockControllerConfigAPI
+	api        *firewaller.FirewallerAPI
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -54,9 +53,9 @@ func (s *RemoteFirewallerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &firewaller.FirewallerAPIV4{FirewallerAPIV3: api, ControllerConfigAPI: s.cc}
+	s.api = api
 	return ctrl
 }
 
@@ -151,7 +150,7 @@ type FirewallerSuite struct {
 
 	st  *mocks.MockState
 	cc  *mocks.MockControllerConfigAPI
-	api *firewaller.FirewallerAPIV6
+	api *firewaller.FirewallerAPI
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -171,16 +170,9 @@ func (s *FirewallerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
+	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &firewaller.FirewallerAPIV6{
-		&firewaller.FirewallerAPIV5{
-			&firewaller.FirewallerAPIV4{
-				FirewallerAPIV3:     api,
-				ControllerConfigAPI: s.cc,
-			},
-		},
-	}
+	s.api = api
 	return ctrl
 }
 

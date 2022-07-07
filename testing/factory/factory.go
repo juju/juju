@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -567,9 +567,9 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	return unit
 }
 
-// MakeUnitReturningPassword creates an application unit with specified params, filling in sane
-// defaults for missing values. If params is not specified, defaults are used.
-// The unit and its password are returned.
+// MakeUnitReturningPassword creates an application unit with specified params,
+// filling in sane defaults for missing values. If params is not specified,
+// defaults are used. The unit and its password are returned.
 //
 // If the unit is being added to an IAAS model, then it will be assigned to a
 // machine.
@@ -604,6 +604,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
 			Charm:       ch,
+			CharmOrigin: &state.CharmOrigin{},
 		})
 	}
 	if params.Password == "" {
@@ -796,6 +797,8 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		StorageProviderRegistry: params.StorageProviderRegistry,
 		EnvironVersion:          params.EnvironVersion,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = factory.pool.StartWorkers(st)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

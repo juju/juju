@@ -171,10 +171,10 @@ func modelUUIDs(session *mgo.Session) ([]string, error) {
 // size.
 func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error {
 	// Get the collection from the logs DB.
-	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
-
-	capped, maxSize, err := getCollectionCappedInfo(logsColl)
-	if errors.IsNotFound(err) {
+	db := session.DB(logsDB)
+	collName := logCollectionName(modelUUID)
+	logsColl := db.C(collName)
+	createCollection := func() error {
 		// Create the collection as a capped collection.
 		logger.Infof("creating logs collection for %s, capped at %v MiB", modelUUID, size)
 		err := logsColl.Create(&mgo.CollectionInfo{
@@ -190,25 +190,47 @@ func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error 
 			if mgoAlreadyExistsErr(err) {
 				return nil
 			}
-			return errors.Trace(err)
+			return errors.Annotate(err, "cannot create logs collection")
 		}
-	} else if capped {
-		if maxSize == size {
-			// The logs collection size matches, so nothing to do here.
-			logger.Tracef("logs collection for %s already capped at %v MiB", modelUUID, size)
-			return nil
+		return nil
+	}
+
+	existingCollections, err := db.CollectionNames()
+	if err != nil {
+		return errors.Annotatef(err, "cannot get collection names for %s", logsDB)
+	}
+	if !set.NewStrings(existingCollections...).Contains(collName) {
+		err = createCollection()
+		if err != nil {
+			return errors.Annotate(err, "cannot create collection")
+		}
+	} else {
+		capped, maxSize, err := getCollectionCappedInfo(logsColl)
+		if errors.IsNotFound(err) {
+			err = createCollection()
+			if err != nil {
+				return errors.Annotate(err, "cannot create collection")
+			}
+		} else if err != nil {
+			return errors.Annotate(err, "cannot get logs collection capped info")
+		} else if capped {
+			if maxSize == size {
+				// The logs collection size matches, so nothing to do here.
+				logger.Tracef("logs collection for %s already capped at %v MiB", modelUUID, size)
+				return nil
+			} else {
+				logger.Infof("resizing logs collection for %s from %d to %v MiB", modelUUID, maxSize, size)
+				err := convertToCapped(logsColl, size)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
 		} else {
-			logger.Infof("resizing logs collection for %s from %d to %v MiB", modelUUID, maxSize, size)
+			logger.Infof("converting logs collection for %s to capped with max size %v MiB", modelUUID, size)
 			err := convertToCapped(logsColl, size)
 			if err != nil {
 				return errors.Trace(err)
 			}
-		}
-	} else {
-		logger.Infof("converting logs collection for %s to capped with max size %v MiB", modelUUID, size)
-		err := convertToCapped(logsColl, size)
-		if err != nil {
-			return errors.Trace(err)
 		}
 	}
 
@@ -701,7 +723,7 @@ func (t *logTailer) tailOplog() error {
 	oplogTailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, oplogSel), minOplogTs)
 	defer func() { _ = oplogTailer.Stop() }()
 
-	logger.Tracef("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
+	logger.Infof("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
 		recentIds.Length(), t.lastTime, minOplogTs)
 
 	// If we get a deserialisation error, write out the first failure,
@@ -956,18 +978,9 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 		{"scale", humanize.KiByte},
 	}, &result)
 	if err != nil {
-		// In order to return consistent error messages across 2.4 and 3.x
-		// we look for the expected errors. For 2.4 we get error text like
-		// "ns not found", and with 3.x we get either "Database [x] not found."
-		// or "Collection [x.y] not found."
-		if strings.Contains(err.Error(), "not found") {
-			return nil, errors.Wrap(
-				err,
-				errors.NotFoundf("Collection [%s.%s]", coll.Database.Name, coll.Name))
-		}
 		return nil, errors.Trace(err)
 	}
-	// For mongo 4.4, if the collection exists,
+	// For mongo > 4.4, if the collection exists,
 	// there will be a "capped" attribute.
 	_, ok := result["capped"]
 	if !ok {
@@ -999,20 +1012,13 @@ func getCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
 	if err != nil {
 		return false, 0, errors.Trace(err)
 	}
-	// For mongo 2.4, the "capped" key is only available when it is set
-	// to true. For mongo 3.2 and 3.6, it is always there.
-	// If capped is there, but isn't a bool, we treat this as false.
 	capped, _ := stats["capped"].(bool)
 	if !capped {
 		return false, 0, nil
 	}
-	// For mongo 3.2 and 3.6, the value is "maxSize". For 2.4 the value
-	// used is "storageSize"
 	value, found := stats["maxSize"]
 	if !found {
-		if value, found = stats["storageSize"]; !found {
-			return false, 0, errors.NotValidf("no maxSize or storageSize value")
-		}
+		return false, 0, errors.NotValidf("no maxSize value")
 	}
 	maxSize, ok := value.(int)
 	if !ok {

@@ -6,8 +6,6 @@ package crossmodelrelations
 import (
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
@@ -16,22 +14,9 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CrossModelRelations", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newStateCrossModelRelationsAPIV1(ctx)
-	}, reflect.TypeOf((*CrossModelRelationsAPIV1)(nil)))
 	registry.MustRegister("CrossModelRelations", 2, func(ctx facade.Context) (facade.Facade, error) {
 		return newStateCrossModelRelationsAPI(ctx) // Adds WatchRelationChanges, removes WatchRelationUnits
 	}, reflect.TypeOf((*CrossModelRelationsAPI)(nil)))
-}
-
-// newStateCrossModelRelationsAPIV1 creates a new server-side
-// CrossModelRelations v1 API facade backed by state.
-func newStateCrossModelRelationsAPIV1(ctx facade.Context) (*CrossModelRelationsAPIV1, error) {
-	api, err := newStateCrossModelRelationsAPI(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &CrossModelRelationsAPIV1{api}, nil
 }
 
 // newStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade

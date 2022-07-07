@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v8"
-	charmrepotesting "github.com/juju/charmrepo/v6/testing"
+	"github.com/juju/charm/v9"
+	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v3"
@@ -51,7 +51,6 @@ const (
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
-	GUISettingsC      = guisettingsC
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
 	UnitsC            = unitsC
@@ -186,6 +185,10 @@ func ControllerRefCount(st *State, controllerUUID string) (int, error) {
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
+}
+
+func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *Charm {
+	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }
 
 func getCharmRepo(series string) *charmrepotesting.Repo {
@@ -371,10 +374,6 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	sch, err := st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
-}
-
-func init() {
-	txnLogSize = txnLogSizeTests
 }
 
 // TxnRevno returns the txn-revno field of the document
@@ -1049,6 +1048,16 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
+func GetSecretRotateTime(c *gc.C, st *State, id int) time.Time {
+	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+	defer closer()
+
+	var doc secretRotationDoc
+	err := secretRotateCollection.FindId(secretGlobalKey(id)).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.LastRotateTime
+}
+
 // ModelBackendShim is required to live here in the export_test.go file because
 // there is issues placing this in the test files themselves. The strangeness
 // exhibits itself from the fact that `clock() clock.Clock` doesn't type
@@ -1118,7 +1127,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	if db, ok := st.database.(*database); ok {
 		db.clock = clock
 	}
-	err = st.start(st.controllerTag, hub)
+	err = st.startWorkers(hub)
 	if err != nil {
 		return errors.Trace(err)
 	}

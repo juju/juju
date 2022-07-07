@@ -1,9 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:build !windows
-// +build !windows
-
 package initialize_test
 
 import (
@@ -30,6 +27,7 @@ func (*importSuite) TestImports(c *gc.C) {
 
 	expected := set.NewStrings(
 		"agent",
+		"agent/constants",
 		"agent/tools",
 		"api",
 		"api/agent/agent",
@@ -42,10 +40,8 @@ func (*importSuite) TestImports(c *gc.C) {
 		"apiserver/errors",
 		"rpc/params",
 		"cmd/containeragent/utils",
-		"caas/kubernetes",
-		"caas/kubernetes/pod",
 		"caas/kubernetes/provider/constants",
-		"caas/kubernetes/provider/proxy",
+		"cmd/containeragent/utils",
 		"charmhub",
 		"charmhub/path",
 		"charmhub/transport",
@@ -69,6 +65,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/paths",
 		"core/relation",
 		"core/resources",
+		"core/secrets",
 		"core/series",
 		"core/status",
 		"core/watcher",
@@ -94,7 +91,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"pki",
 		"provider/lxd/lxdnames",
 		"proxy",
-		"proxy/errors",
 		"rpc",
 		"rpc/jsoncodec",
 		"service",
@@ -102,7 +98,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"service/snap",
 		"service/systemd",
 		"service/upstart",
-		"service/windows",
 		"state/errors",
 		"storage",
 		"tools",

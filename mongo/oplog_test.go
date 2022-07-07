@@ -71,7 +71,7 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	// Update foo.bar and see the update reported.
 	err := coll.UpdateId("thing", bson.M{"$set": bson.M{"blah": 42}})
 	c.Assert(err, jc.ErrorIsNil)
-	assertOplog("u", bson.D{{"$set", bson.D{{"blah", 42}}}}, bson.D{{"_id", "thing"}})
+	assertOplog("u", bson.D{{"diff", bson.D{{"i", bson.D{{"blah", 42}}}}}}, bson.D{{"_id", "thing"}})
 
 	// Insert into another collection (shouldn't be reported due to filter).
 	s.insertDoc(c, session, db.C("elsewhere"), bson.M{"_id": "boo"})
@@ -227,11 +227,7 @@ func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *gc.C) {
 }
 
 func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
-	inst := &jujutesting.MgoInstance{
-		Params: []string{
-			"--replSet", "juju",
-		},
-	}
+	inst := &jujutesting.MgoInstance{EnableReplicaSet: true}
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })

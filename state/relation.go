@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
@@ -675,6 +675,11 @@ func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 	}
 	msg := fmt.Sprintf("application %q is not a member of %q", applicationname, r)
 	return Endpoint{}, errors.NewNotFound(nil, msg)
+}
+
+// ModelUUID returns the model UUID for the relation.
+func (r *Relation) ModelUUID() string {
+	return r.doc.ModelUUID
 }
 
 // Endpoints returns the endpoints for the relation.

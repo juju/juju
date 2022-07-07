@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/secrets"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
@@ -79,6 +81,7 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
+	secrets                      *secretsmanager.Client
 	paths                        Paths
 	unit                         *uniter.Unit
 	resources                    *uniter.ResourcesFacadeClient
@@ -109,6 +112,10 @@ type Uniter struct {
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
+
+	// secretRotateWatcherFunc returns a watcher that triggers when secrets
+	// created by this unit's application should be rotated.
+	secretRotateWatcherFunc remotestate.SecretRotateWatcherFunc
 
 	Probe Probe
 
@@ -172,9 +179,11 @@ type UniterParams struct {
 	UniterFacade                  *uniter.State
 	ResourcesFacade               *uniter.ResourcesFacadeClient
 	PayloadFacade                 *uniter.PayloadFacadeClient
+	SecretsFacade                 *secretsmanager.Client
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
+	SecretRotateWatcherFunc       remotestate.SecretRotateWatcherFunc
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -245,10 +254,12 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			st:                            uniterParams.UniterFacade,
 			resources:                     uniterParams.ResourcesFacade,
 			payloads:                      uniterParams.PayloadFacade,
+			secrets:                       uniterParams.SecretsFacade,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
 			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
+			secretRotateWatcherFunc:       uniterParams.SecretRotateWatcherFunc,
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -379,6 +390,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
+				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
@@ -478,7 +490,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-			Logger: u.logger,
+			Secrets: secrets.NewSecretsResolver(watcher.RotateSecretCompleted),
+			Logger:  u.logger,
 		}
 		if u.modelType == model.CAAS && u.isRemoteUnit {
 			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewRemoteContainerInitResolver())
@@ -802,6 +815,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            u.st,
+		Secrets:          u.secrets,
 		Unit:             u.unit,
 		Resources:        u.resources,
 		Payloads:         u.payloads,
@@ -820,7 +834,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		remoteExecutor = u.newRemoteRunnerExecutor(u.unit, u.paths)
 	}
 	runnerFactory, err := runner.NewFactory(
-		u.st, u.paths, contextFactory, u.newProcessRunner, remoteExecutor,
+		u.paths, contextFactory, u.newProcessRunner, remoteExecutor,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -829,6 +843,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Deployer:       deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
+		State:          u.st,
 		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 		Logger:         u.logger.Child("operation"),
@@ -860,8 +875,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := os.MkdirAll(u.paths.State.BaseDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
-	socket := u.paths.Runtime.LocalJujuRunSocket.Server
-	u.logger.Debugf("starting local juju-run listener on %v", socket)
+	socket := u.paths.Runtime.LocalJujuExecSocket.Server
+	u.logger.Debugf("starting local juju-exec listener on %v", socket)
 	u.localRunListener, err = NewRunListener(socket, u.logger)
 	if err != nil {
 		return errors.Annotate(err, "creating juju run listener")
@@ -924,13 +939,14 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 // acquireExecutionLock acquires the machine-level execution lock, and
 // returns a func that must be called to unlock it. It's used by operation.Executor
 // when running operations that execute external code.
-func (u *Uniter) acquireExecutionLock(action string) (func(), error) {
+func (u *Uniter) acquireExecutionLock(action, executionGroup string) (func(), error) {
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's catacomb into account.
 	spec := machinelock.Spec{
 		Cancel:  u.catacomb.Dying(),
 		Worker:  fmt.Sprintf("%s uniter", u.unit.Name()),
 		Comment: action,
+		Group:   executionGroup,
 	}
 	releaser, err := u.hookLock.Acquire(spec)
 	if err != nil {
@@ -958,6 +974,9 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 			hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
 			hookMessage = hookName
 		}
+	}
+	if hookInfo.Kind.IsSecret() {
+		statusData["secret-url"] = hookInfo.SecretURL
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)

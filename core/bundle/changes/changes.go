@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
@@ -108,7 +108,7 @@ func FromData(config ChangesConfig) ([]Change, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	return changes.sorted(), nil
+	return changes.sorted()
 }
 
 // alreadyDeployedApplicationsFromBundle returns a set consisting of the
@@ -439,6 +439,15 @@ type AddMachineParams struct {
 	containerMachineID string
 }
 
+// Machine returns the machine for these params, either the container ID,
+// or the machine ID if it doesn't exist.
+func (a AddMachineParams) Machine() string {
+	if a.containerMachineID == "" {
+		return a.machineID
+	}
+	return a.containerMachineID
+}
+
 // newAddRelationChange creates a new change for adding a relation.
 func newAddRelationChange(params AddRelationParams, requires ...string) *AddRelationChange {
 	return &AddRelationChange{
@@ -696,6 +705,21 @@ type AddUnitParams struct {
 	// to explain why the unit is being placed there.
 	directive   string
 	baseMachine string
+}
+
+// Unit returns the unit name for these params.
+func (a AddUnitParams) Unit() string {
+	return a.unitName
+}
+
+// PlacementDescription returns the placement description for these params.
+func (a AddUnitParams) PlacementDescription() string {
+	return a.placementDescription
+}
+
+// BaseMachine returns the base machine for these params.
+func (a AddUnitParams) BaseMachine() string {
+	return a.baseMachine
 }
 
 // newExposeChange creates a new change for exposing an application.
@@ -1232,29 +1256,87 @@ func (cs *changeset) dependents() map[string][]string {
 }
 
 // sorted returns the changes sorted by requirements, required first.
-func (cs *changeset) sorted() []Change {
-	done := set.NewStrings()
-	var sorted []Change
-	changes := cs.changes[:]
-mainloop:
-	for len(changes) != 0 {
-		// Note that all valid bundles have at least two changes
-		// (add one charm and deploy one application).
-		change := changes[0]
-		changes = changes[1:]
-		for _, r := range change.Requires() {
-			if !done.Contains(r) {
+func (cs *changeset) sorted() ([]Change, error) {
+	// Exit it early if there is nothing to sort.
+	if len(cs.changes) == 0 {
+		return nil, nil
+	}
 
-				// This change requires a change which is not yet listed.
-				// Push this change at the end of the list and retry later.
-				changes = append(changes, change)
-				continue mainloop
+	// Create a map to sort the data.
+	data := make(map[string][]string, len(cs.changes))
+	dataOrder := make([]string, len(cs.changes))
+	for i, c := range cs.changes {
+		// Sorting the requirements can be removed if the place in
+		// handlers.go where the order of requirements is not
+		// idempotent can be found and fixed.
+		sort.Sort(sort.StringSlice(c.Requires()))
+		data[c.Id()] = c.Requires()
+		dataOrder[i] = c.Id()
+	}
+	sortedChangeIDs, err := toposortFlatten(dataOrder, data)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// convert the sorted change IDs to a sorted slice
+	// of changes
+	var sortedChanges []Change
+	for _, changeID := range sortedChangeIDs {
+		for _, change := range cs.changes {
+			if changeID == change.Id() {
+				sortedChanges = append(sortedChanges, change)
+				break
 			}
 		}
-		done.Add(change.Id())
-		sorted = append(sorted, change)
 	}
-	return sorted
+	return sortedChanges, nil
+}
+
+// toposortFlatten performs a stable topological sort on the provided
+// data.  dataOrder is a slice of the originally ordered changes. data is a
+// map of change to requirements.  To be idempotent, requirements must be in
+// the same order each time.  Use along with data to ensure that this method
+// is deterministic.
+func toposortFlatten(dataOrder []string, data map[string][]string) ([]string, error) {
+
+	// inDegree tracks the in-degree of each vertex `ch`
+	// i.e. the number of changes that must be done before `ch`.
+	inDegree := make(map[string]int, len(dataOrder))
+	// followers is the inverse of data: for each change `r`, followers[ch] is
+	// the list of all changes which require `r`.
+	followers := make(map[string][]string, len(dataOrder))
+
+	for ch, reqs := range data {
+		inDegree[ch] = len(reqs)
+		for _, r := range reqs {
+			followers[r] = append(followers[r], ch)
+		}
+	}
+
+	sorted := make([]string, 0, len(dataOrder))
+
+	// Loop through and take out changes with in-degree 0
+	//  - these changes can be done now
+	for len(inDegree) > 0 {
+		lStart := len(inDegree)
+
+		for _, ch := range dataOrder {
+			if d, ok := inDegree[ch]; ok && d == 0 {
+				sorted = append(sorted, ch)
+				delete(inDegree, ch)
+				for _, fo := range followers[ch] {
+					inDegree[fo]--
+				}
+			}
+		}
+
+		if lStart == len(inDegree) {
+			// If nothing is removed in an iteration then we are stuck.
+			// Return error because something must have gone wrong somewhere
+			return nil, errors.New("sort failed")
+		}
+	}
+
+	return sorted, nil
 }
 
 func storeLocation(schema string) string {

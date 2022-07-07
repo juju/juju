@@ -6,7 +6,7 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -47,6 +47,19 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	charm, err := testing.PutCharm(s.State, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charm = charm
+}
+
+func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
+	ch := s.AddTestingCharm(c, "juju-controller")
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = application.DeployApplication(stateDeployer{s.State},
+		model,
+		application.DeployApplicationParams{
+			ApplicationName: "my-controller",
+			Charm:           ch,
+		})
+	c.Assert(err, gc.ErrorMatches, "manual deploy of the controller charm not supported")
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {

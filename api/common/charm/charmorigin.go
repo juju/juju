@@ -4,7 +4,7 @@
 package charm
 
 import (
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/rpc/params"

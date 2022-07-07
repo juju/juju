@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
@@ -1657,17 +1657,19 @@ func (e *exporter) actions() error {
 	for _, a := range actions {
 		results, message := a.Results()
 		arg := description.ActionArgs{
-			Receiver:   a.Receiver(),
-			Name:       a.Name(),
-			Operation:  a.(*action).doc.Operation,
-			Parameters: a.Parameters(),
-			Enqueued:   a.Enqueued(),
-			Started:    a.Started(),
-			Completed:  a.Completed(),
-			Status:     string(a.Status()),
-			Results:    results,
-			Message:    message,
-			Id:         a.Id(),
+			Receiver:       a.Receiver(),
+			Name:           a.Name(),
+			Operation:      a.(*action).doc.Operation,
+			Parameters:     a.Parameters(),
+			Enqueued:       a.Enqueued(),
+			Started:        a.Started(),
+			Completed:      a.Completed(),
+			Status:         string(a.Status()),
+			Results:        results,
+			Message:        message,
+			Id:             a.Id(),
+			Parallel:       a.Parallel(),
+			ExecutionGroup: a.ExecutionGroup(),
 		}
 		messages := a.Messages()
 		arg.Messages = make([]description.ActionMessage, len(messages))

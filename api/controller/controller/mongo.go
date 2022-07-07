@@ -10,9 +10,6 @@ import (
 
 // MongoVersion returns the mongo version associated with the state session.
 func (c *Client) MongoVersion() (string, error) {
-	if c.BestAPIVersion() < 6 {
-		return "", errors.NotSupportedf("MongoVersion not supported by this version of Juju")
-	}
 	var result params.StringResult
 	err := c.facade.FacadeCall("MongoVersion", nil, &result)
 	if err != nil {

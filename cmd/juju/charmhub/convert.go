@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -246,7 +246,7 @@ func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {
 }
 
 func unmarshalCharmConfig(configYAML string) *charm.Config {
-	if configYAML == "" {
+	if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
 		return nil
 	}
 	cfgYaml := configYAML

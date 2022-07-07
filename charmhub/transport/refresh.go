@@ -15,8 +15,8 @@ type RefreshRequest struct {
 	// be always present and hence the no omitempty.
 	Context []RefreshRequestContext `json:"context"`
 	Actions []RefreshRequestAction  `json:"actions"`
-	Metrics RequestMetrics          `json:"metrics,omitempty"`
 	Fields  []string                `json:"fields,omitempty"`
+	Metrics RequestMetrics          `json:"metrics,omitempty"`
 }
 
 // RequestMetrics are a map of key value pairs of metrics for the controller

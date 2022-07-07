@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
@@ -176,7 +176,9 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 				return nil, errors.Trace(err)
 			} else if ok {
 				charmOrChange := application.Charm
+				var requires []string
 				if charmChange := charms[key]; charmChange != "" {
+					requires = append(requires, charmChange)
 					charmOrChange = placeholder(charmChange)
 				}
 
@@ -188,7 +190,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 					Resources:      resources,
 					LocalResources: localResources,
 					charmURL:       application.Charm,
-				})
+				}, requires...)
 				add(change)
 			}
 
@@ -395,6 +397,9 @@ func (r *resolver) handleMachines() map[string]*AddMachineChange {
 		names = append(names, name)
 	}
 	naturalsort.Sort(names)
+	// addedChangeIDs ensures that machines get added in numerical order,
+	// by requiring the previously added machines on each new change.
+	addedChangeIDs := set.NewStrings()
 	for _, name := range names {
 		machine := machines[name]
 		if machine == nil {
@@ -418,12 +423,13 @@ func (r *resolver) handleMachines() map[string]*AddMachineChange {
 				Constraints:     machine.Constraints,
 				machineID:       machineID,
 				bundleMachineID: name,
-			})
+			}, addedChangeIDs.Values()...)
 			add(change)
 			addedMachines[name] = change
 			id = placeholder(change.Id())
 			target = "new machine " + machineID
 			requires = append(requires, change.Id())
+			addedChangeIDs.Add(change.Id())
 		} else {
 			id = existingMachine.ID
 			target = "existing machine " + existingMachine.ID
@@ -598,6 +604,8 @@ type unitProcessor struct {
 	// application. The values are consumed from the slice as placements are
 	// processed.
 	newUnitsWithoutApp map[string][]*AddUnitChange
+
+	machineChangeIDs set.Strings
 }
 
 func (p *unitProcessor) unitPlaceholder(appName string, n int) string {
@@ -818,7 +826,7 @@ func (p *unitProcessor) definedUnitForUnit(application *charm.ApplicationSpec, p
 	otherUnit := p.unitPlaceholder(placement.Application, placement.Unit)
 	otherChange := p.addUnitChanges[otherUnit]
 	if otherChange == nil {
-		// There is clearly a wierdness in the to declarations, so fall back to a new machine.
+		// There is clearly a weirdness in the to declarations, so fall back to a new machine.
 		return p.newMachineForUnit(application, placement)
 	}
 
@@ -966,6 +974,7 @@ func (p *unitProcessor) getPlacementForNewUnit(appName string, application *char
 func (p *unitProcessor) addNewMachine(application *charm.ApplicationSpec, containerType string) (unitPlacement, error) {
 	machineID := p.existing.nextMachine()
 	description := "new machine " + machineID
+
 	placeholderContainer := ""
 	if containerType != "" {
 		placeholderContainer = p.existing.nextContainer(machineID, containerType)
@@ -985,8 +994,9 @@ func (p *unitProcessor) addNewMachine(application *charm.ApplicationSpec, contai
 		Constraints:        constraints,
 		machineID:          machineID,
 		containerMachineID: placeholderContainer,
-	})
+	}, p.machineChangeIDs.Values()...)
 	p.add(change)
+	p.machineChangeIDs.Add(change.Id())
 	return unitPlacement{
 		target:               placeholder(change.Id()),
 		requires:             []string{change.Id()},
@@ -1079,8 +1089,10 @@ func (p *unitProcessor) addContainer(up unitPlacement, application *charm.Applic
 		machineID:          up.baseMachine,
 		containerMachineID: placeholderContainer,
 	}
-	change := newAddMachineChange(params, up.requires...)
+	requires := set.NewStrings(up.requires...)
+	change := newAddMachineChange(params, requires.Union(p.machineChangeIDs).Values()...)
 	p.add(change)
+	p.machineChangeIDs.Add(change.Id())
 	return unitPlacement{
 		target:               placeholder(change.Id()),
 		requires:             []string{change.Id()},
@@ -1101,6 +1113,11 @@ func (r *resolver) handleUnits(addedApplications map[string]string, addedMachine
 	}
 	naturalsort.Sort(names)
 
+	machChangeIDs := set.NewStrings()
+	for _, v := range addedMachines {
+		machChangeIDs.Add(v.Id())
+	}
+
 	processor := &unitProcessor{
 		add:                        r.changes.add,
 		existing:                   r.model,
@@ -1114,6 +1131,7 @@ func (r *resolver) handleUnits(addedApplications map[string]string, addedMachine
 		appChanges:                 make(map[string][]*AddUnitChange),
 		existingMachinesWithoutApp: make(map[string][]string),
 		newUnitsWithoutApp:         make(map[string][]*AddUnitChange),
+		machineChangeIDs:           machChangeIDs,
 	}
 
 	processor.addAllNeededUnits()

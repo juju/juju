@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
 )
 
 // DiscoverService returns an interface to a service appropriate
@@ -75,8 +74,6 @@ func versionInitSystem(ser string) (string, error) {
 	}
 
 	switch seriesos {
-	case os.Windows:
-		return InitSystemWindows, nil
 	case os.Ubuntu:
 		switch ser {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
@@ -104,7 +101,6 @@ type discoveryCheck struct {
 var discoveryFuncs = []discoveryCheck{
 	{InitSystemUpstart, upstart.IsRunning},
 	{InitSystemSystemd, func() (bool, error) { return systemd.IsRunning(), nil }},
-	{InitSystemWindows, windows.IsRunning},
 }
 
 func discoverLocalInitSystem() (string, error) {

@@ -53,7 +53,7 @@ clouds:
 }
 
 func (s *regionsSuite) TestListRegionsInvalidCloud(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "invalid", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "invalid", "--client")
 	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "ERROR cloud invalid not found")
 }

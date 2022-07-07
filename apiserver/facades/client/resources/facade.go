@@ -4,8 +4,8 @@
 package resources
 
 import (
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -44,11 +44,7 @@ type API struct {
 	factory func(*charm.URL) (NewCharmRepository, error)
 }
 
-type APIv1 struct {
-	*API
-}
-
-// NewFacade creates a public API facade for resources. It is
+// NewFacadeV2 creates a public API facade for resources. It is
 // used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
@@ -168,23 +164,6 @@ func (a *API) ListResources(args params.ListResourcesArgs) (params.ResourcesResu
 		r.Results[i] = apiresources.ApplicationResources2APIResult(svcRes)
 	}
 	return r, nil
-}
-
-// AddPendingResources adds the provided resources (info) to the Juju
-// model in a pending state, meaning they are not available until
-// resolved.  Only CharmStore and Local charms are handled, therefore
-// the channel is equivalent to risk in new style channels.
-func (a *APIv1) AddPendingResources(args params.AddPendingResourcesArgs) (params.AddPendingResourcesResult, error) {
-	v2Args := params.AddPendingResourcesArgsV2{
-		Entity: args.Entity,
-		URL:    args.URL,
-		CharmOrigin: params.CharmOrigin{
-			Risk: args.Channel,
-		},
-		CharmStoreMacaroon: args.CharmStoreMacaroon,
-		Resources:          args.Resources,
-	}
-	return a.API.AddPendingResources(v2Args)
 }
 
 // AddPendingResources adds the provided resources (info) to the Juju

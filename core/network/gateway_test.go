@@ -131,15 +131,3 @@ func (s *GatewaySuite) TestDefaultRouteLinuxWrongOutput(c *gc.C) {
 	c.Check(dev, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, ".*chewbacca.*")
 }
-
-// We don't return 'not supported' error, we simply give no output.
-func (s *GatewaySuite) TestDefaultRouteWindowsEmpty(c *gc.C) {
-	s.PatchGOOS("windows")
-	s.PatchRunIPRouteShow(func() (string, error) {
-		return "", fmt.Errorf("blam")
-	})
-	ip, dev, err := network.GetDefaultRoute()
-	c.Check(ip, gc.IsNil)
-	c.Check(dev, gc.Equals, "")
-	c.Check(err, gc.IsNil)
-}

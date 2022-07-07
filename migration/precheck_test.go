@@ -6,7 +6,7 @@ package migration_test
 import (
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v2"
@@ -470,7 +470,7 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 
 	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
 	err := s.runPrecheck(backend)
-	c.Assert(err.Error(), gc.Equals,
+	c.Assert(err, gc.ErrorMatches,
 		`model must be upgraded to at least version 2.9.32 before being migrated to a controller with version 3.0.0`)
 
 	s.modelInfo.AgentVersion = version.MustParse("2.9.32")

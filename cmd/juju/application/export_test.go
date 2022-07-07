@@ -6,7 +6,7 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
@@ -93,8 +93,8 @@ func NewBindCommandForTest(
 }
 
 // NewResolvedCommandForTest returns a ResolvedCommand with the api provided as specified.
-func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI, clientAPI: clientAPI}
+func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
@@ -121,7 +121,7 @@ func NewRemoveUnitCommandForTest(api RemoveApplicationAPI, store jujuclient.Clie
 	return modelcmd.Wrap(cmd)
 }
 
-type removeAPIFunc func() (RemoveApplicationAPI, int, error)
+type removeAPIFunc func() (RemoveApplicationAPI, error)
 
 // NewRemoveApplicationCommandForTest returns a RemoveApplicationCommand.
 func NewRemoveApplicationCommandForTest(f removeAPIFunc, store jujuclient.ClientStore) modelcmd.ModelCommand {
@@ -242,6 +242,13 @@ func NewShowUnitCommandForTest(api UnitsInfoAPI, store jujuclient.ClientStore) c
 	}}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
+}
+
+// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
+func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	c := modelcmd.Wrap(&configCommand{configBase: appConfigBase, api: api})
+	c.SetClientStore(store)
+	return c
 }
 
 // RepoSuiteBaseSuite allows the patching of the supported juju suite for

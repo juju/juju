@@ -5,14 +5,16 @@ package spool_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/worker/metrics/spool"
 )
@@ -31,9 +33,6 @@ type listenerSuite struct {
 
 func sockPath(c *gc.C) string {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
-	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
-	}
 	return sockPath
 }
 
@@ -70,4 +69,12 @@ func (h *mockHandler) Handle(c net.Conn, _ <-chan struct{}) error {
 	h.AddCall("Handle")
 	fmt.Fprintf(c, "Hello socket.")
 	return nil
+}
+
+func dial(socketPath string) (io.ReadCloser, error) {
+	conn, err := net.Dial("unix", socketPath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return conn, nil
 }

@@ -26,14 +26,15 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.firewaller")
 
-// FirewallerAPIV3 provides access to the Firewaller v3 API facade.
-type FirewallerAPIV3 struct {
+// FirewallerAPI provides access to the Firewaller API facade.
+type FirewallerAPI struct {
 	*common.LifeGetter
 	*common.ModelWatcher
 	*common.AgentEntityWatcher
 	*common.UnitsWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
+	ControllerConfigAPI
 	cloudspec.CloudSpecer
 
 	st                State
@@ -49,34 +50,14 @@ type FirewallerAPIV3 struct {
 	appEndpointBindings map[string]map[string]string
 }
 
-// FirewallerAPIV4 provides access to the Firewaller v4 API facade.
-type FirewallerAPIV4 struct {
-	*FirewallerAPIV3
-	ControllerConfigAPI
-}
-
-// FirewallerAPIV5 provides access to the Firewaller v5 API facade.
-type FirewallerAPIV5 struct {
-	*FirewallerAPIV4
-}
-
-// FirewallerAPIV6 provides access to the Firewaller v6 API facade.
-type FirewallerAPIV6 struct {
-	*FirewallerAPIV5
-}
-
-// FirewallerAPIV7 provides access to the Firewaller v7 API facade.
-type FirewallerAPIV7 struct {
-	*FirewallerAPIV6
-}
-
-// NewFirewallerAPI creates a new server-side FirewallerAPIV3 facade.
-func NewFirewallerAPI(
+// NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
+func NewStateFirewallerAPI(
 	st State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	cloudSpecAPI cloudspec.CloudSpecer,
-) (*FirewallerAPIV3, error) {
+	controllerConfigAPI ControllerConfigAPI,
+) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.
 		return nil, apiservererrors.ErrPerm
@@ -124,7 +105,7 @@ func NewFirewallerAPI(
 		accessMachine,
 	)
 
-	return &FirewallerAPIV3{
+	return &FirewallerAPI{
 		LifeGetter:           lifeGetter,
 		ModelWatcher:         modelWatcher,
 		AgentEntityWatcher:   entityWatcher,
@@ -132,6 +113,7 @@ func NewFirewallerAPI(
 		ModelMachinesWatcher: machinesWatcher,
 		InstanceIdGetter:     instanceIdGetter,
 		CloudSpecer:          cloudSpecAPI,
+		ControllerConfigAPI:  controllerConfigAPI,
 		st:                   st,
 		resources:            resources,
 		authorizer:           authorizer,
@@ -144,7 +126,7 @@ func NewFirewallerAPI(
 
 // WatchOpenedPorts returns a new StringsWatcher for each given
 // model tag.
-func (f *FirewallerAPIV3) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
+func (f *FirewallerAPI) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -176,7 +158,7 @@ func (f *FirewallerAPIV3) WatchOpenedPorts(args params.Entities) (params.Strings
 	return result, nil
 }
 
-func (f *FirewallerAPIV3) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
+func (f *FirewallerAPI) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
 	// NOTE: tag is ignored, as there is only one model in the
 	// state DB. Once this changes, change the code below accordingly.
 	watch := f.st.WatchOpenedPorts()
@@ -189,7 +171,7 @@ func (f *FirewallerAPIV3) watchOneModelOpenedPorts(tag names.Tag) (string, []str
 
 // GetAssignedMachine returns the assigned machine tag (if any) for
 // each given unit.
-func (f *FirewallerAPIV3) GetAssignedMachine(args params.Entities) (params.StringResults, error) {
+func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -218,7 +200,7 @@ func (f *FirewallerAPIV3) GetAssignedMachine(args params.Entities) (params.Strin
 
 // getSpaceInfos returns the cached SpaceInfos or retrieves them from state
 // and memoizes it for future invocations.
-func (f *FirewallerAPIV3) getSpaceInfos() (network.SpaceInfos, error) {
+func (f *FirewallerAPI) getSpaceInfos() (network.SpaceInfos, error) {
 	if f.spaceInfos != nil {
 		return f.spaceInfos, nil
 	}
@@ -234,7 +216,7 @@ func (f *FirewallerAPIV3) getSpaceInfos() (network.SpaceInfos, error) {
 // getApplicationBindings returns the cached endpoint bindings for all model
 // applications grouped by app name. If the application endpoints have not yet
 // been retrieved they will be retrieved and memoized for future calls.
-func (f *FirewallerAPIV3) getApplicationBindings() (map[string]map[string]string, error) {
+func (f *FirewallerAPI) getApplicationBindings() (map[string]map[string]string, error) {
 	if f.appEndpointBindings == nil {
 		bindings, err := f.st.AllEndpointBindings()
 		if err != nil {
@@ -246,14 +228,14 @@ func (f *FirewallerAPIV3) getApplicationBindings() (map[string]map[string]string
 	return f.appEndpointBindings, nil
 }
 
-func (f *FirewallerAPIV3) getEntity(canAccess common.AuthFunc, tag names.Tag) (state.Entity, error) {
+func (f *FirewallerAPI) getEntity(canAccess common.AuthFunc, tag names.Tag) (state.Entity, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return f.st.FindEntity(tag)
 }
 
-func (f *FirewallerAPIV3) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*state.Unit, error) {
+func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*state.Unit, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err
@@ -263,7 +245,7 @@ func (f *FirewallerAPIV3) getUnit(canAccess common.AuthFunc, tag names.UnitTag) 
 	return entity.(*state.Unit), nil
 }
 
-func (f *FirewallerAPIV3) getApplication(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Application, error) {
+func (f *FirewallerAPI) getApplication(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Application, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err
@@ -273,7 +255,7 @@ func (f *FirewallerAPIV3) getApplication(canAccess common.AuthFunc, tag names.Ap
 	return entity.(*state.Application), nil
 }
 
-func (f *FirewallerAPIV3) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (firewall.Machine, error) {
+func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (firewall.Machine, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -283,13 +265,13 @@ func (f *FirewallerAPIV3) getMachine(canAccess common.AuthFunc, tag names.Machin
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func (f *FirewallerAPIV4) WatchEgressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
+func (f *FirewallerAPI) WatchEgressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
 	return firewall.WatchEgressAddressesForRelations(f.resources, f.st, relations)
 }
 
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
 // that have been recorded against the specified relations.
-func (f *FirewallerAPIV4) WatchIngressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
+func (f *FirewallerAPI) WatchIngressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		make([]params.StringsWatchResult, len(relations.Entities)),
 	}
@@ -326,7 +308,7 @@ func (f *FirewallerAPIV4) WatchIngressAddressesForRelations(relations params.Ent
 }
 
 // MacaroonForRelations returns the macaroon for the specified relations.
-func (f *FirewallerAPIV4) MacaroonForRelations(args params.Entities) (params.MacaroonResults, error) {
+func (f *FirewallerAPI) MacaroonForRelations(args params.Entities) (params.MacaroonResults, error) {
 	var result params.MacaroonResults
 	result.Results = make([]params.MacaroonResult, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -346,7 +328,7 @@ func (f *FirewallerAPIV4) MacaroonForRelations(args params.Entities) (params.Mac
 }
 
 // SetRelationsStatus sets the status for the specified relations.
-func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (f *FirewallerAPI) SetRelationsStatus(args params.SetStatus) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -370,7 +352,7 @@ func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.Erro
 }
 
 // FirewallRules returns the firewall rules for the specified well known service types.
-func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.ListFirewallRulesResults, error) {
+func (f *FirewallerAPI) FirewallRules(args params.KnownServiceArgs) (params.ListFirewallRulesResults, error) {
 	var result params.ListFirewallRulesResults
 	for _, knownService := range args.KnownServices {
 		rule, err := f.st.FirewallRule(corefirewall.WellKnownServiceType(knownService))
@@ -390,7 +372,7 @@ func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.Li
 
 // AreManuallyProvisioned returns whether each given entity is
 // manually provisioned or not. Only machine tags are accepted.
-func (f *FirewallerAPIV5) AreManuallyProvisioned(args params.Entities) (params.BoolResults, error) {
+func (f *FirewallerAPI) AreManuallyProvisioned(args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
@@ -417,7 +399,7 @@ func (f *FirewallerAPIV5) AreManuallyProvisioned(args params.Entities) (params.B
 // specified machines where each result is broken down by unit. The list of
 // opened ports for each unit is further grouped by endpoint name and includes
 // the subnet CIDRs that belong to the space that each endpoint is bound to.
-func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.OpenMachinePortRangesResults, error) {
+func (f *FirewallerAPI) OpenedMachinePortRanges(args params.Entities) (params.OpenMachinePortRangesResults, error) {
 	result := params.OpenMachinePortRangesResults{
 		Results: make([]params.OpenMachinePortRangesResult, len(args.Entities)),
 	}
@@ -450,7 +432,7 @@ func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.
 	return result, nil
 }
 
-func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
+func (f *FirewallerAPI) openedPortRangesForOneMachine(machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
 	machPortRanges, err := machine.OpenedPortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -555,7 +537,7 @@ func mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint network.GroupedPortR
 
 // GetExposeInfo returns the expose flag and per-endpoint expose settings
 // for the specified applications.
-func (f *FirewallerAPIV6) GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error) {
+func (f *FirewallerAPI) GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error) {
 	canAccess, err := f.accessApplication()
 	if err != nil {
 		return params.ExposeInfoResults{}, err
@@ -598,7 +580,7 @@ func (f *FirewallerAPIV6) GetExposeInfo(args params.Entities) (params.ExposeInfo
 
 // SpaceInfos returns a comprehensive representation of either all spaces or
 // a filtered subset of the known spaces and their associated subnet details.
-func (f *FirewallerAPIV6) SpaceInfos(args params.SpaceInfosParams) (params.SpaceInfos, error) {
+func (f *FirewallerAPI) SpaceInfos(args params.SpaceInfosParams) (params.SpaceInfos, error) {
 	if !f.authorizer.AuthController() {
 		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -628,7 +610,7 @@ func (f *FirewallerAPIV6) SpaceInfos(args params.SpaceInfosParams) (params.Space
 
 // WatchSubnets returns a new StringsWatcher that watches the specified
 // subnet tags or all tags if no entities are specified.
-func (f *FirewallerAPIV6) WatchSubnets(args params.Entities) (params.StringsWatchResult, error) {
+func (f *FirewallerAPI) WatchSubnets(args params.Entities) (params.StringsWatchResult, error) {
 	if !f.authorizer.AuthController() {
 		return params.StringsWatchResult{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -665,7 +647,7 @@ func (f *FirewallerAPIV6) WatchSubnets(args params.Entities) (params.StringsWatc
 	return result, nil
 }
 
-func (f *FirewallerAPIV6) watchModelSubnets(filterFn func(interface{}) bool) (string, []string, error) {
+func (f *FirewallerAPI) watchModelSubnets(filterFn func(interface{}) bool) (string, []string, error) {
 	watch := f.st.WatchSubnets(filterFn)
 
 	// Consume the initial event and forward it to the result.

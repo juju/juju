@@ -5,8 +5,8 @@ package deployer
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -56,9 +56,6 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 
 func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(7).AnyTimes()
-	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil)
-	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true)
 	s.modelCommand.EXPECT().BakeryClient().Return(nil, nil)
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem)
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
@@ -120,6 +117,9 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
+	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil).AnyTimes()
+	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true).AnyTimes()
+
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)
 	return ctrl

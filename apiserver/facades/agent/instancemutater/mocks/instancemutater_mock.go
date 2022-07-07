@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"

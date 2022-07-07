@@ -388,6 +388,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
 	newSt, err := newState(
+		st.controllerTag,
 		names.NewModelTag(uuid),
 		controllerInfo.ModelTag,
 		session,
@@ -452,11 +453,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag, ctlr.pool.hub)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not start state for new model")
-	}
-
 	newModel, err := newSt.Model()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -501,7 +497,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 		}
 	} else {
 		if len(cloud.Regions) > 0 {
-			return txn.Op{}, errors.NotValidf("missing CloudRegion")
+			return txn.Op{}, errors.NotValidf("missing cloud region")
 		}
 		assertCloudRegionOp.Assert = bson.D{
 			{"regions", bson.D{{"$exists", false}}},
@@ -1430,8 +1426,8 @@ func (m *Model) destroyOps(
 		// We only need to destroy resources if the model is non-empty.
 		// It wouldn't normally be harmful to enqueue the cleanups
 		// otherwise, except for when we're destroying an empty
-		// hosted model in the course of destroying the controller. In
-		// that case we'll get errors if we try to enqueue hosted-model
+		// model in the course of destroying the controller. In
+		// that case we'll get errors if we try to enqueue model
 		// cleanups, because the cleanups collection is non-global.
 		ops = append(ops, newCleanupOp(cleanupApplicationsForDyingModel, modelUUID, args))
 		if m.Type() == ModelTypeIAAS {
@@ -1749,7 +1745,7 @@ func hostedModelCount(st *State) (int, error) {
 }
 
 // createUniqueOwnerModelNameOp returns the operation needed to create
-// an usermodelnameC document with the given owner and model name.
+// a usermodelnameC document with the given owner and model name.
 func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,

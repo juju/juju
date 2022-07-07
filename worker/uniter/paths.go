@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -88,12 +87,12 @@ type SocketPair struct {
 
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
-	// JujuRunSocket listens for juju-run invocations, and is always
+	// LocalJujuExecSocket listens for juju-exec invocations, and is always
 	// active.
-	LocalJujuRunSocket SocketPair
+	LocalJujuExecSocket SocketPair
 
-	// RemoteJujuRunSocket listens for remote juju-run invocations.
-	RemoteJujuRunSocket SocketPair
+	// RemoteJujuExecSocket listens for remote juju-exec invocations.
+	RemoteJujuExecSocket SocketPair
 
 	// JujucServerSocket listens for jujuc invocations, and is only
 	// active when supporting a jujuc execution context.
@@ -161,7 +160,7 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, socket
 				port = jujucServerSocketPort + unitTag.Number()
 				address = socketConfig.OperatorAddress
 			case "run":
-				port = caasconstants.JujuRunServerSocketPort
+				port = caasconstants.JujuExecServerSocketPort
 				address = socketConfig.ServiceAddress
 			default:
 				return SocketPair{}
@@ -189,9 +188,9 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, socket
 	return Paths{
 		ToolsDir: filepath.FromSlash(toolsDir),
 		Runtime: RuntimePaths{
-			RemoteJujuRunSocket:     newSocket("run"),
+			RemoteJujuExecSocket:    newSocket("run"),
 			RemoteJujucServerSocket: newSocket("agent"),
-			LocalJujuRunSocket:      newUnixSocket(baseDir, unitTag, worker, "run", false),
+			LocalJujuExecSocket:     newUnixSocket(baseDir, unitTag, worker, "run", false),
 			LocalJujucServerSocket:  newUnixSocket(baseDir, unitTag, worker, "agent", true),
 		},
 		State: StatePaths{
@@ -207,14 +206,6 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, socket
 
 func newUnixSocket(baseDir string, unitTag names.UnitTag, worker string, name string, abstract bool) SocketPair {
 	socket := sockets.Socket{Network: "unix"}
-	if jujuos.HostOS() == jujuos.Windows {
-		base := fmt.Sprintf("%s", unitTag)
-		if worker != "" {
-			base = fmt.Sprintf("%s-%s", unitTag, worker)
-		}
-		socket.Address = fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
-		return SocketPair{socket, socket}
-	}
 	path := filepath.Join(baseDir, name+".socket")
 	if worker != "" {
 		path = filepath.Join(baseDir, fmt.Sprintf("%s-%s.socket", worker, name))

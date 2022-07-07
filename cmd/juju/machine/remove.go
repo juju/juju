@@ -117,9 +117,6 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	if err != nil {
 		return nil, err
 	}
-	if root.BestFacadeVersion("MachineManager") < 4 && c.KeepInstance {
-		return nil, errors.New("this version of Juju doesn't support --keep-instance")
-	}
 	return machinemanager.NewClient(root), nil
 }
 
@@ -157,13 +154,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	anyFailed := false
-	for i, result := range results {
-		// This is for backwards compatibility with controllers that
-		// don't include MachineID (and DestroyedContainers) in results
-		// TODO(jack-w-shaw) Drop this in 3.0
-		if result.Error == nil && result.Info.MachineId == "" {
-			result.Info.MachineId = c.MachineIds[i]
-		}
+	for _, result := range results {
 		err = logRemovedMachine(ctx, result, c.KeepInstance)
 		if err != nil {
 			anyFailed = true

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v2"
 
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -1877,10 +1876,9 @@ func validateStoragePool(
 			*machineId = ""
 		}
 	}
-
-	// Validate any k8s config.
+	//
 	if sb.modelType == ModelTypeCAAS {
-		if err := k8sprovider.ValidateStorageProvider(providerType, poolConfig); err != nil {
+		if err := aProvider.ValidateForK8s(poolConfig); err != nil {
 			return errors.Annotatef(err, "invalid storage config")
 		}
 	}

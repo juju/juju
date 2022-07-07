@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -109,10 +108,7 @@ func (c *modelGetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	client := modelconfig.NewClient(root)
-	if client.BestAPIVersion() > 2 {
-		return client, nil
-	}
-	return apiclient.NewClient(root), nil
+	return client, nil
 }
 
 func formatConstraints(writer io.Writer, value interface{}) error {
@@ -178,10 +174,7 @@ func (c *modelSetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	client := modelconfig.NewClient(root)
-	if client.BestAPIVersion() > 2 {
-		return client, nil
-	}
-	return apiclient.NewClient(root), nil
+	return client, nil
 }
 
 func (c *modelSetConstraintsCommand) Run(_ *cmd.Context) (err error) {

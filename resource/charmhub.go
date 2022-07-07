@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"

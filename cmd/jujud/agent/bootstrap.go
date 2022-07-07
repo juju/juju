@@ -160,10 +160,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
 
+	var controllerUnitPassword string
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
 			return errors.Trace(err)
 		}
+		controllerUnitPassword = os.Getenv(k8sconstants.EnvJujuK8sUnitPassword)
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
@@ -371,12 +373,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	// Populate the GUI archive catalogue.
-	if err := c.populateGUIArchive(st, env); err != nil {
-		// Do not stop the bootstrapping process for Juju GUI archive errors.
-		logger.Warningf("cannot set up Juju GUI: %s", err)
-	} else {
-		logger.Debugf("Juju GUI successfully set up")
+	// Deploy and set up the controller charm and application.
+	if err := c.deployControllerCharm(st, args.BootstrapMachineConstraints, args.ControllerCharmRisk, isCAAS, controllerUnitPassword); err != nil {
+		return errors.Annotate(err, "cannot deploy controller application")
 	}
 
 	// bootstrap nodes always get the vote
@@ -478,7 +477,7 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddress
 		if err != nil {
 			return err
 		}
-		_, err = cmdutil.EnsureMongoServer(ensureServerParams)
+		err = cmdutil.EnsureMongoServer(ensureServerParams)
 		if err != nil {
 			return err
 		}
@@ -540,40 +539,6 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
-// updates the GUI metadata and set the current Juju GUI version.
-func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.BootstrapEnviron) error {
-	agentConfig := c.CurrentConfig()
-	dataDir := agentConfig.DataDir()
-
-	guiStorage, err := st.GUIStorage()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() { _ = guiStorage.Close() }()
-
-	gui, err := agenttools.ReadGUIArchive(dataDir)
-	if err != nil {
-		return errors.Annotate(err, "cannot fetch GUI info")
-	}
-
-	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
-	if err != nil {
-		return errors.Annotate(err, "cannot read GUI archive")
-	}
-	defer func() { _ = f.Close() }()
-
-	if err := guiStorage.Add(f, binarystorage.Metadata{
-		Version: gui.Version.String(),
-		Size:    gui.Size,
-		SHA256:  gui.SHA256,
-	}); err != nil {
-		return errors.Annotate(err, "cannot store GUI archive")
-	}
-
-	return errors.Annotate(st.GUISetVersion(gui.Version), "cannot set current GUI version")
 }
 
 // Override for testing.

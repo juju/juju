@@ -19,8 +19,6 @@ func (OpenstackRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
 		return renderers.RenderYAML(cfg, utils.Gzip)
-	case jujuos.Windows:
-		return renderers.RenderYAML(cfg, renderers.WinEmbedInScript)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

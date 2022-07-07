@@ -5,10 +5,7 @@ package action_test
 
 import (
 	"encoding/json"
-	"fmt"
-	"sort"
 	"testing"
-	"time"
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -54,16 +51,6 @@ type actionSuite struct {
 }
 
 var _ = gc.Suite(&actionSuite{})
-
-func (s *baseSuite) toSupportNewActionID(c *gc.C) {
-	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if !state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, nil, true)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -129,9 +116,9 @@ func (s *actionSuite) TestActions(c *gc.C) {
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{"baz": true}},
 		}}
 
-	r, err := s.action.Enqueue(arg)
+	r, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 
 	// There's only one operation created.
 	operations, err := s.Model.AllOperations()
@@ -139,119 +126,21 @@ func (s *actionSuite) TestActions(c *gc.C) {
 	c.Assert(operations, gc.HasLen, 1)
 	c.Assert(operations[0].Summary(), gc.Equals, "fakeaction run on unit-wordpress-0,unit-mysql-0,unit-wordpress-0,unit-mysql-0")
 
-	entities := make([]params.Entity, len(r.Results))
-	for i, result := range r.Results {
-		entities[i] = params.Entity{Tag: result.Action.Tag}
-	}
-
-	actions, err := s.action.Actions(params.Entities{Entities: entities})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(actions.Results), gc.Equals, len(entities))
-	for i, got := range actions.Results {
-		c.Logf("check index %d (%s: %s)", i, entities[i].Tag, arg.Actions[i].Name)
+	emptyActionTag := names.ActionTag{}
+	for i, got := range r.Actions {
+		c.Assert(got.Action, gc.NotNil)
+		c.Logf("check index %d (%s: %s)", i, got.Action.Tag, arg.Actions[i].Name)
 		c.Assert(got.Error, gc.Equals, (*params.Error)(nil))
 		c.Assert(got.Action, gc.Not(gc.Equals), (*params.Action)(nil))
-		c.Assert(got.Action.Tag, gc.Equals, entities[i].Tag)
+		c.Assert(got.Action.Tag, gc.Not(gc.Equals), emptyActionTag)
 		c.Assert(got.Action.Name, gc.Equals, arg.Actions[i].Name)
 		c.Assert(got.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
 		c.Assert(got.Action.Parameters, gc.DeepEquals, arg.Actions[i].Parameters)
 		c.Assert(got.Status, gc.Equals, params.ActionPending)
 		c.Assert(got.Message, gc.Equals, "")
-		c.Assert(got.Output, gc.DeepEquals, map[string]interface{}{})
+		c.Assert(got.Output, gc.IsNil)
 	}
 }
-
-func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
-	// NOTE: full testing with multiple matches has been moved to state package.
-	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}}}}
-	r, err := s.action.Enqueue(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
-
-	actionTag, err := names.ParseActionTag(r.Results[0].Action.Tag)
-	c.Assert(err, jc.ErrorIsNil)
-	prefix := actionTag.Id()
-	tags, err := s.action.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	entities, ok := tags.Matches[prefix]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(len(entities), gc.Equals, 1)
-	c.Assert(entities[0].Tag, gc.Equals, actionTag.String())
-}
-
-func (s *actionSuite) TestFindActionsByName(c *gc.C) {
-	machine := s.JujuConnSuite.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	})
-	dummyUnit := s.JujuConnSuite.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.dummy,
-		Machine:     machine,
-	})
-	// NOTE: full testing with multiple matches has been moved to state package.
-	arg := params.Actions{Actions: []params.Action{
-		{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
-		{Receiver: dummyUnit.Tag().String(), Name: "snapshot", Parameters: map[string]interface{}{"outfile": "lol"}},
-		{Receiver: s.wordpressUnit.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{"command": "boo", "timeout": 5}},
-		{Receiver: s.mysqlUnit.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{"command": "boo", "timeout": 5}},
-	}}
-	r, err := s.action.Enqueue(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
-
-	actionNames := []string{"snapshot", "juju-run"}
-	actions, err := s.action.FindActionsByNames(params.FindActionsByNames{ActionNames: actionNames})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(actions.Actions), gc.Equals, 2)
-	for i, actions := range actions.Actions {
-		for _, act := range actions.Actions {
-			c.Assert(act.Action.Name, gc.Equals, actionNames[i])
-			c.Assert(act.Action.Name, gc.Matches, actions.Name)
-		}
-	}
-}
-
-type testCaseAction struct {
-	Name       string
-	Parameters map[string]interface{}
-	Execute    bool
-}
-
-type receiverGroup struct {
-	ExpectedError *params.Error
-	Receiver      names.Tag
-	Actions       []testCaseAction
-}
-
-type testCase struct {
-	Groups []receiverGroup
-}
-
-var testCases = []testCase{{
-	Groups: []receiverGroup{
-		{
-			ExpectedError: &params.Error{Message: "id not found", Code: "not found"},
-			Receiver:      names.NewApplicationTag("wordpress"),
-			Actions:       []testCaseAction{},
-		}, {
-			Receiver: names.NewUnitTag("wordpress/0"),
-			Actions: []testCaseAction{
-				{"fakeaction", map[string]interface{}{}, false},
-				{"fakeaction", map[string]interface{}{"asdf": 3}, true},
-				{"fakeaction", map[string]interface{}{"qwer": "ty"}, false},
-			},
-		}, {
-			Receiver: names.NewUnitTag("mysql/0"),
-			Actions: []testCaseAction{
-				{"fakeaction", map[string]interface{}{"zxcv": false}, false},
-				{"fakeaction", map[string]interface{}{}, true},
-			},
-		},
-	},
-}}
 
 func (s *actionSuite) TestCancel(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
@@ -281,10 +170,10 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 		}},
 	}
 
-	results, err := s.action.Enqueue(tests)
+	results, err := s.action.EnqueueOperation(tests)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 4)
-	for _, res := range results.Results {
+	c.Assert(results.Actions, gc.HasLen, 4)
+	for _, res := range results.Actions {
 		c.Assert(res.Error, gc.IsNil)
 	}
 
@@ -295,36 +184,34 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	arg := params.Entities{
 		Entities: []params.Entity{
 			// "wp-two"
-			{Tag: results.Results[1].Action.Tag},
+			{Tag: results.Actions[1].Action.Tag},
 			// "my-one"
-			{Tag: results.Results[2].Action.Tag},
+			{Tag: results.Actions[2].Action.Tag},
 		}}
-	results, err = s.action.Cancel(arg)
+	cancelled, err := s.action.Cancel(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(cancelled.Results, gc.HasLen, 2)
 
 	// Assert the Actions are all in the expected state.
-	tags := params.Entities{Entities: []params.Entity{
-		{Tag: s.wordpressUnit.Tag().String()},
-		{Tag: s.mysqlUnit.Tag().String()},
-	}}
-	obtained, err := s.action.ListAll(tags)
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+		Units: []string{
+			s.wordpressUnit.Name(),
+			s.mysqlUnit.Name(),
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained.Actions, gc.HasLen, 2)
+	c.Assert(operations.Results, gc.HasLen, 1)
 
-	wpActions := obtained.Actions[0].Actions
-	c.Assert(wpActions, gc.HasLen, 2)
-	c.Assert(wpActions[0].Action.Name, gc.Equals, "fakeaction")
-	c.Assert(wpActions[0].Status, gc.Equals, params.ActionPending)
-	c.Assert(wpActions[1].Action.Name, gc.Equals, "fakeaction")
-	c.Assert(wpActions[1].Status, gc.Equals, params.ActionCancelled)
-
-	myActions := obtained.Actions[1].Actions
-	c.Assert(myActions, gc.HasLen, 2)
-	c.Assert(myActions[0].Action.Name, gc.Equals, "fakeaction")
-	c.Assert(myActions[0].Status, gc.Equals, params.ActionPending)
-	c.Assert(myActions[1].Action.Name, gc.Equals, "fakeaction")
-	c.Assert(myActions[1].Status, gc.Equals, params.ActionCancelled)
+	resultActions := operations.Results[0].Actions
+	c.Assert(resultActions, gc.HasLen, 4)
+	c.Assert(resultActions[0].Action.Name, gc.Equals, "fakeaction")
+	c.Assert(resultActions[0].Status, gc.Equals, params.ActionPending)
+	c.Assert(resultActions[1].Action.Name, gc.Equals, "fakeaction")
+	c.Assert(resultActions[1].Status, gc.Equals, params.ActionCancelled)
+	c.Assert(resultActions[2].Action.Name, gc.Equals, "fakeaction")
+	c.Assert(resultActions[2].Status, gc.Equals, params.ActionCancelled)
+	c.Assert(resultActions[3].Action.Name, gc.Equals, "fakeaction")
+	c.Assert(resultActions[3].Status, gc.Equals, params.ActionPending)
 }
 
 func (s *actionSuite) TestAbort(c *gc.C) {
@@ -341,10 +228,10 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 		}},
 	}
 
-	results, err := s.action.Enqueue(tests)
+	results, err := s.action.EnqueueOperation(tests)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Actions, gc.HasLen, 1)
+	c.Assert(results.Actions[0].Error, gc.IsNil)
 
 	actions, err = s.wordpressUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,23 +247,22 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 	arg := params.Entities{
 		Entities: []params.Entity{
 			// "wp-one"
-			{Tag: results.Results[0].Action.Tag},
+			{Tag: results.Actions[0].Action.Tag},
 		}}
-	results, err = s.action.Cancel(arg)
+	cancelled, err := s.action.Cancel(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Action.Name, gc.Equals, "fakeaction")
-	c.Assert(results.Results[0].Status, gc.Equals, params.ActionAborting)
+	c.Assert(cancelled.Results, gc.HasLen, 1)
+	c.Assert(cancelled.Results[0].Action.Name, gc.Equals, "fakeaction")
+	c.Assert(cancelled.Results[0].Status, gc.Equals, params.ActionAborting)
 
 	// Assert the Actions are all in the expected state.
-	tags := params.Entities{Entities: []params.Entity{
-		{Tag: s.wordpressUnit.Tag().String()},
-	}}
-	obtained, err := s.action.ListAll(tags)
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+		Units: []string{s.wordpressUnit.Name()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained.Actions, gc.HasLen, 1)
+	c.Assert(operations.Results, gc.HasLen, 1)
 
-	wpActions := obtained.Actions[0].Actions
+	wpActions := operations.Results[0].Actions
 	c.Assert(wpActions, gc.HasLen, 1)
 	c.Assert(wpActions[0].Action.Name, gc.Equals, "fakeaction")
 	c.Assert(wpActions[0].Status, gc.Equals, params.ActionAborting)
@@ -491,57 +377,14 @@ func assertReadyToTest(c *gc.C, receiver state.ActionReceiver) {
 	c.Assert(actions, gc.HasLen, 0)
 }
 
-func assertSame(c *gc.C, got, expected params.ActionsByReceivers) {
-	c.Assert(got.Actions, gc.HasLen, len(expected.Actions))
-	for i, g1 := range got.Actions {
-		e1 := expected.Actions[i]
-		c.Assert(g1.Error, gc.DeepEquals, e1.Error)
-		c.Assert(g1.Receiver, gc.DeepEquals, e1.Receiver)
-		for _, a1 := range g1.Actions {
-			for _, m := range a1.Log {
-				c.Assert(m.Timestamp.IsZero(), jc.IsFalse)
-				m.Timestamp = time.Time{}
-			}
-		}
-		c.Assert(toStrings(g1.Actions), jc.SameContents, toStrings(e1.Actions))
-	}
-}
-
-func toStrings(items []params.ActionResult) []string {
-	ret := make([]string, len(items))
-	for i, a := range items {
-		ret[i] = stringify(a)
-	}
-	return ret
-}
-
-func stringify(r params.ActionResult) string {
-	a := r.Action
-	if a == nil {
-		a = &params.Action{}
-	}
-	// Convert action output map to ordered result.
-	var keys, orderedOut []string
-	for k := range r.Output {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		orderedOut = append(orderedOut, fmt.Sprintf("%v=%v", k, r.Output[k]))
-	}
-	return fmt.Sprintf("%s-%s-%#v-%s-%s-%v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, orderedOut)
-}
-
 func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	unit, err := s.State.Unit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	assertReadyToTest(c, unit)
 
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	added, err := s.Model.AddAction(unit, operationID, "fakeaction", nil)
+	added, err := s.Model.AddAction(unit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(

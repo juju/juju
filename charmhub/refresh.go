@@ -234,7 +234,8 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 // CreateInstanceKey creates an InstanceKey which can be unique and stable
 // from Refresh action to Refresh action.  Required for KPI collection
 // on the charmhub side, see LP:1944582.  Rather than saving in
-// state, use a hash of the model uuid + the app name, which are unique.
+// state, use the model uuid + the app name, which are unique.  Modeled
+// after the applicationDoc DocID and globalKey in state.
 func CreateInstanceKey(app names.ApplicationTag, model names.ModelTag) string {
 	h := pbkdf2.Key([]byte(app.Id()), []byte(model.Id()), 8192, 32, sha512.New)
 	return base64.RawURLEncoding.EncodeToString(h)
@@ -274,7 +275,6 @@ func AddResource(config RefreshConfig, name string, revision int) (RefreshConfig
 		Revision: revision,
 	})
 	return c, true
-
 }
 
 // AddConfigMetrics adds metrics to a refreshOne config.  All values are

@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1981,12 +1981,6 @@ func (m *Model) Watch() NotifyWatcher {
 // synchronisation state.
 func (st *State) WatchUpgradeInfo() NotifyWatcher {
 	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
-}
-
-// WatchRestoreInfoChanges returns a NotifyWatcher that will inform
-// when the restore status changes.
-func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
-	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
 }
 
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model

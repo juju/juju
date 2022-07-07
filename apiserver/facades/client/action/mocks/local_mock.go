@@ -195,18 +195,18 @@ func (mr *MockModelMockRecorder) ActionByTag(arg0 interface{}) *gomock.Call {
 }
 
 // AddAction mocks base method.
-func (m *MockModel) AddAction(arg0 state.ActionReceiver, arg1, arg2 string, arg3 map[string]interface{}) (state.Action, error) {
+func (m *MockModel) AddAction(arg0 state.ActionReceiver, arg1, arg2 string, arg3 map[string]interface{}, arg4 *bool, arg5 *string) (state.Action, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddAction", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AddAction", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(state.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddAction indicates an expected call of AddAction.
-func (mr *MockModelMockRecorder) AddAction(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockModelMockRecorder) AddAction(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAction", reflect.TypeOf((*MockModel)(nil).AddAction), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAction", reflect.TypeOf((*MockModel)(nil).AddAction), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // EnqueueOperation mocks base method.
@@ -236,21 +236,6 @@ func (m *MockModel) FailOperationEnqueuing(arg0, arg1 string, arg2 int) error {
 func (mr *MockModelMockRecorder) FailOperationEnqueuing(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FailOperationEnqueuing", reflect.TypeOf((*MockModel)(nil).FailOperationEnqueuing), arg0, arg1, arg2)
-}
-
-// FindActionTagsById mocks base method.
-func (m *MockModel) FindActionTagsById(arg0 string) ([]names.ActionTag, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindActionTagsById", arg0)
-	ret0, _ := ret[0].([]names.ActionTag)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindActionTagsById indicates an expected call of FindActionTagsById.
-func (mr *MockModelMockRecorder) FindActionTagsById(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindActionTagsById", reflect.TypeOf((*MockModel)(nil).FindActionTagsById), arg0)
 }
 
 // FindActionsByName mocks base method.

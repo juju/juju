@@ -5,8 +5,6 @@ package lxd
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -119,11 +117,11 @@ func (s *Server) VerifyNetworkDevice(profile *api.Profile, eTag string) error {
 		return errors.Errorf("profile %q does not have any devices configured with type %q", profile.Name, nic)
 	}
 
-	if s.networkAPISupport {
-		return errors.Annotatef(s.verifyNICsWithAPI(nics), "profile %q", profile.Name)
+	if !s.networkAPISupport {
+		return errors.NotSupportedf("versions of LXD without network API")
 	}
 
-	return errors.Annotatef(s.verifyNICsWithConfigFile(nics, ioutil.ReadFile), "profile %q", profile.Name)
+	return errors.Annotatef(s.verifyNICsWithAPI(nics), "profile %q", profile.Name)
 }
 
 // ensureDefaultNetworking ensures that the default LXD bridge exists,
@@ -242,35 +240,6 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 		nicTypeBridged, nicTypeMACVLAN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN))
 }
 
-// verifyNICsWithConfigFile is recruited for legacy LXD installations.
-// It checks the LXD bridge configuration file and ensure that one of the input
-// devices is suitable for LXD to work with Juju.
-func (s *Server) verifyNICsWithConfigFile(nics map[string]device, reader func(string) ([]byte, error)) error {
-	netName, err := checkBridgeConfigFile(reader)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	checked := make([]string, 0, len(nics))
-	for name, nic := range nics {
-		checked = append(checked, name)
-
-		if nic["parent"] != netName {
-			continue
-		}
-		if !isValidNICType(nic) {
-			continue
-		}
-
-		logger.Tracef("found usable network device %q with parent %q", name, netName)
-		s.localBridgeName = netName
-		return nil
-	}
-
-	return errors.Errorf("no network device found with nictype %q or %q that uses the configured bridge in %s"+
-		"\n\tthe following devices were checked: %v", nicTypeBridged, nicTypeMACVLAN, BridgeConfigFile, checked)
-}
-
 // generateNICDeviceName attempts to generate a new NIC device name that is not
 // already in the input profile. If none can be determined in a reasonable
 // search space, an empty name is returned. This should never really happen,
@@ -332,91 +301,6 @@ func isValidNICType(nic device) bool {
 
 func isValidNetworkType(net *api.Network) bool {
 	return net.Type == netTypeBridge || net.Type == nicTypeMACVLAN
-}
-
-const BridgeConfigFile = "/etc/default/lxd-bridge"
-const SnapBridgeConfigFile = "/var/snap/lxd/common/lxd-bridge/config"
-
-// checkBridgeConfigFile verifies that the file configuration for the LXD
-// bridge has a a bridge name, that it is set to be used by LXD and that
-// it has (only) IPv4 configuration.
-// TODO (manadart 2018-05-28) The error messages are invalid for LXD
-// installations that pre-date the network API support and that were installed
-// via Snap. The question of the correct user action was posed on the #lxd IRC
-// channel, but has not be answered to-date.
-func checkBridgeConfigFile(reader func(string) ([]byte, error)) (string, error) {
-	// installed via snap is used to customise the error message, so that if
-	// you're running apt install on older series than bionic then it will
-	// still show the older messages.
-	installedViaSnap := lxdViaSnap()
-	fileName := BridgeConfigFile
-	if installedViaSnap {
-		fileName = SnapBridgeConfigFile
-	}
-	bridgeConfig, err := reader(fileName)
-	if os.IsNotExist(err) {
-		return "", bridgeConfigError("no config file found at "+fileName, installedViaSnap)
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	foundSubnetConfig := false
-	bridgeName := ""
-	for _, line := range strings.Split(string(bridgeConfig), "\n") {
-		if strings.HasPrefix(line, "USE_LXD_BRIDGE=") {
-			b, err := strconv.ParseBool(strings.Trim(line[len("USE_LXD_BRIDGE="):], " \""))
-			if err != nil {
-				logger.Debugf("unable to parse bool, skipping USE_LXD_BRIDGE check: %s", err)
-				continue
-			}
-			if !b {
-				return "", bridgeConfigError(fmt.Sprintf("%s has USE_LXD_BRIDGE set to false", fileName), installedViaSnap)
-			}
-		} else if strings.HasPrefix(line, "LXD_BRIDGE=") {
-			bridgeName = strings.Trim(line[len("LXD_BRIDGE="):], " \"")
-			if bridgeName == "" {
-				return "", bridgeConfigError(fmt.Sprintf("%s has no LXD_BRIDGE set", fileName), installedViaSnap)
-			}
-		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") {
-			contents := strings.Trim(line[len("LXD_IPV4_ADDR="):], " \"")
-			if len(contents) > 0 {
-				foundSubnetConfig = true
-			}
-		} else if strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
-			contents := strings.Trim(line[len("LXD_IPV6_ADDR="):], " \"")
-			if len(contents) > 0 {
-				return "", ipv6BridgeConfigError(fileName, installedViaSnap)
-			}
-		}
-	}
-
-	if !foundSubnetConfig {
-		// TODO (hml) 2018-08-09 Question
-		// Should the error mention ipv6 is not enabled if juju doesn't support it?
-		return "", bridgeConfigError(bridgeName+" has no ipv4 or ipv6 subnet enabled", installedViaSnap)
-	}
-	return bridgeName, nil
-}
-
-func bridgeConfigError(err string, installedViaSnap bool) error {
-	errMsg := "%s\nIt looks like your LXD bridge has not yet been configured."
-	if !installedViaSnap {
-		errMsg += " Configure it via:\n\n" +
-			"\tsudo dpkg-reconfigure -p medium lxd\n\n" +
-			"and run the command again."
-	}
-	return errors.Errorf(errMsg, err)
-}
-
-func ipv6BridgeConfigError(fileName string, installedViaSnap bool) error {
-	errMsg := "%s has IPv6 enabled.\nJuju doesn't currently support IPv6."
-	if !installedViaSnap {
-		errMsg += "\n" +
-			"Disable IPv6 via:\n\n" +
-			"\tsudo dpkg-reconfigure -p medium lxd\n\n" +
-			"and run the command again."
-	}
-	return errors.Errorf(errMsg, fileName)
 }
 
 // InterfaceInfoFromDevices returns a slice of interface info congruent with the

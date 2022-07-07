@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -109,9 +108,6 @@ func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpat
 }
 
 func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("skipping on Windows")
-	}
 	home := utils.Home()
 	dir := c.MkDir()
 	err := utils.SetHome(dir)
@@ -122,19 +118,6 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
 	})
 	path := filepath.Join(dir, ".config", "gcloud")
 	err = os.MkdirAll(path, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
-	s.assertDetectCredentialsKnownLocation(c, jsonpath)
-}
-
-func (s *credentialsSuite) TestDetectCredentialsKnownLocationWindows(c *gc.C) {
-	if runtime.GOOS != "windows" {
-		c.Skip("skipping on non-Windows platform")
-	}
-	dir := c.MkDir()
-	s.PatchEnvironment("APPDATA", dir)
-	path := filepath.Join(dir, "gcloud")
-	err := os.MkdirAll(path, 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
 	s.assertDetectCredentialsKnownLocation(c, jsonpath)

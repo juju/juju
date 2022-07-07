@@ -44,7 +44,7 @@ run_deploy_revision_fail() {
 
 	got=$(juju deploy juju-qa-test --revision 9 2>&1 || true)
 	# bad request should be caught by client
-	check_contains "${got}" 'ERROR specifying a revision requires a channel for future upgrades. Please use --channel'
+	check_contains "${got}" 'ERROR invalid channel for "ch:juju-qa-test": channel cannot be empty'
 
 	destroy_model "${model_name}"
 }

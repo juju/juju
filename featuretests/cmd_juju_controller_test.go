@@ -318,7 +318,7 @@ func (s *cmdControllerSuite) TestControllerDestroyUsingAPI(c *gc.C) {
 
 func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:        "just-a-hosted-model",
+		Name:        "just-a-model",
 		ConfigAttrs: testing.Attrs{"controller": true},
 		CloudRegion: "dummy-region",
 	})

@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
@@ -152,13 +152,14 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, re
 	// Only charms being upgraded will have an ID and Hash. Those values should
 	// only ever be updated in DownloadURL.
 	resOrigin := corecharm.Origin{
-		Source:   requestedOrigin.Source,
-		ID:       requestedOrigin.ID,
-		Hash:     requestedOrigin.Hash,
-		Type:     string(res.Entity.Type),
-		Channel:  &channel,
-		Revision: &revision,
-		Platform: chSuggestedOrigin.Platform,
+		Source:      requestedOrigin.Source,
+		ID:          requestedOrigin.ID,
+		Hash:        requestedOrigin.Hash,
+		Type:        string(res.Entity.Type),
+		Channel:     &channel,
+		Revision:    &revision,
+		Platform:    chSuggestedOrigin.Platform,
+		InstanceKey: requestedOrigin.InstanceKey,
 	}
 
 	outputOrigin, err := sanitizeCharmOrigin(resOrigin, requestedOrigin)
@@ -424,7 +425,7 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 
 	var metaRes = make([]corecharm.EssentialMetadata, len(reqs))
 	for resIdx, refreshResult := range refreshResults {
-		if len(refreshResult.Entity.MetadataYAML) == 0 {
+		if refreshResult.Entity.MetadataYAML == "" {
 			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of metadata.yaml", reqs[resIdx].CharmURL)
 		}
 		chMeta, err := charm.ReadMeta(strings.NewReader(refreshResult.Entity.MetadataYAML))
@@ -432,12 +433,18 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 			return nil, errors.Annotatef(err, "parsing metadata.yaml for %q", reqs[resIdx].CharmURL)
 		}
 
-		if len(refreshResult.Entity.ConfigYAML) == 0 {
-			return nil, errors.Errorf("charmhub refresh response for %q does not include the contents of config.yaml", reqs[resIdx].CharmURL)
-		}
-		chConfig, err := charm.ReadConfig(strings.NewReader(refreshResult.Entity.ConfigYAML))
-		if err != nil {
-			return nil, errors.Annotatef(err, "parsing config.yaml for %q", reqs[resIdx].CharmURL)
+		// It's okay for a charm not to have a config.yaml. But the CharmHub
+		// API currently returns "{}\n" for charms that have no config.yaml,
+		// so handle that as no config as well.
+		var chConfig *charm.Config
+		configYAML := refreshResult.Entity.ConfigYAML
+		if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
+			chConfig = charm.NewConfig()
+		} else {
+			chConfig, err = charm.ReadConfig(strings.NewReader(configYAML))
+			if err != nil {
+				return nil, errors.Annotatef(err, "parsing config.yaml for %q", reqs[resIdx].CharmURL)
+			}
 		}
 
 		chManifest := new(charm.Manifest)
@@ -592,7 +599,7 @@ const (
 // If the origin.ID is set, a refresh config is returned.
 //
 // NOTE: There is one idiosyncrasy of this method.  The charm URL and and
-// origin have a revision number in them when called by FindDownloadURL
+// origin have a revision number in them when called by GetDownloadURL
 // to install a charm. Potentially causing an unexpected install by revision.
 // This is okay as all of the data is ready and correct in the origin.
 func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.RefreshConfig, error) {

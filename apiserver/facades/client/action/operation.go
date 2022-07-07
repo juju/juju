@@ -17,41 +17,17 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// EnqueueOperation isn't on the V5 API.
-func (*APIv5) EnqueueOperation(_, _ struct{}) {}
-
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
-func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActionsV2, error) {
-	operationId, actionResults, err := a.enqueue(arg)
-	if err != nil {
-		return params.EnqueuedActionsV2{}, err
-	}
-	results := params.EnqueuedActionsV2{
-		OperationTag: names.NewOperationTag(operationId).String(),
-		Actions:      actionResults.Results,
-	}
-	return results, nil
-}
-
-// EnqueueOperation takes a list of Actions and queues them up to be executed as
-// an operation, each action running as a task on the designated ActionReceiver.
-// We return the ID of the overall operation and each individual task.
-func (a *APIv6) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
+func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
 	operationId, actionResults, err := a.enqueue(arg)
 	if err != nil {
 		return params.EnqueuedActions{}, err
 	}
 	results := params.EnqueuedActions{
 		OperationTag: names.NewOperationTag(operationId).String(),
-		Actions:      make([]params.StringResult, len(actionResults.Results)),
-	}
-	for i, action := range actionResults.Results {
-		results.Actions[i].Error = action.Error
-		if action.Action != nil {
-			results.Actions[i].Result = action.Action.Tag
-		}
+		Actions:      actionResults.Results,
 	}
 	return results, nil
 }
@@ -120,13 +96,13 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 			response.Results[i].Error = apiservererrors.ServerError(actionErr)
 			continue
 		}
-
-		enqueued, actionErr = a.model.AddAction(receiver, operationID, action.Name, action.Parameters)
+		enqueued, actionErr = a.model.AddAction(receiver, operationID, action.Name, action.Parameters, action.Parallel, action.ExecutionGroup)
 		if actionErr != nil {
 			response.Results[i].Error = apiservererrors.ServerError(actionErr)
 			continue
 		}
-		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued, false)
+
+		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued)
 		continue
 	}
 
@@ -223,7 +199,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 		for j, a := range r.Actions {
 			receiver, err := names.ActionReceiverTag(a.Receiver())
 			if err == nil {
-				result.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+				result.Results[i].Actions[j] = common.MakeActionResult(receiver, a)
 				continue
 			}
 			result.Results[i].Actions[j] = params.ActionResult{
@@ -264,8 +240,14 @@ func (a *ActionAPI) Operations(arg params.Entities) (params.OperationResults, er
 			Actions:      make([]params.ActionResult, len(op.Actions)),
 		}
 		for j, a := range op.Actions {
-			receiver := names.NewUnitTag(a.Receiver())
-			results.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+			receiver, err := names.ActionReceiverTag(a.Receiver())
+			if err == nil {
+				results.Results[i].Actions[j] = common.MakeActionResult(receiver, a)
+				continue
+			}
+			results.Results[i].Actions[j] = params.ActionResult{
+				Error: apiservererrors.ServerError(errors.Errorf("unknown action receiver %q", a.Receiver())),
+			}
 		}
 	}
 	return results, nil

@@ -86,7 +86,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		LeaseManager:                      s.leaseManager,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		UpgradeComplete:                   func() bool { return true },
-		RestoreStatus:                     func() state.RestoreStatus { return "" },
 		NewServer:                         s.newServer,
 		MetricsCollector:                  s.metricsCollector,
 		RaftOpQueue:                       s.queue,
@@ -148,9 +147,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.UpgradeComplete = nil },
 		"nil UpgradeComplete not valid",
-	}, {
-		func(cfg *apiserver.Config) { cfg.RestoreStatus = nil },
-		"nil RestoreStatus not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.NewServer = nil },
 		"nil NewServer not valid",

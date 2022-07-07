@@ -39,7 +39,6 @@ type syncToolsCommand struct {
 	majorVersion int
 	minorVersion int
 	dryRun       bool
-	dev          bool
 	public       bool
 	source       string
 	stream       string
@@ -81,7 +80,6 @@ func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.allVersions, "all", false, "Copy all versions, not just the latest")
 	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
-	f.BoolVar(&c.dev, "dev", false, "Consider development versions as well as released ones\n    DEPRECATED: use --stream instead")
 	f.BoolVar(&c.public, "public", false, "Tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "Local source directory")
 	f.StringVar(&c.stream, "stream", "", "Simplestreams stream for which to sync metadata")
@@ -94,9 +92,6 @@ func (c *syncToolsCommand) Init(args []string) error {
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {
 			return err
 		}
-	}
-	if c.dev {
-		c.stream = envtools.TestingStream
 	}
 	return cmd.CheckEmpty(args)
 }

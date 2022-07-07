@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi/v2"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
-////////////////////////////////////////////////////////////////////////////////
 // TODO(dimitern): The types below should be part of gomaasapi.
 // LKK Card: https://canonical.leankit.com/Boards/View/101652562/119310616
 
@@ -115,34 +113,21 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 	}
 
 	infos := make([]corenetwork.InterfaceInfos, len(ids))
-	if env.usingMAAS2() {
-		dnsSearchDomains, err := env.Domains(ctx)
+	dnsSearchDomains, err := env.Domains(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for idx, inst := range insts {
+		if inst == nil {
+			continue // unknown instance ID
+		}
+
+		ifList, err := maasNetworkInterfaces(ctx, inst.(*maasInstance), subnetsMap, dnsSearchDomains...)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "obtaining network interfaces for instance %v", ids[idx])
 		}
-
-		for idx, inst := range insts {
-			if inst == nil {
-				continue // unknown instance ID
-			}
-
-			ifList, err := maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
-			if err != nil {
-				return nil, errors.Annotatef(err, "obtaining network interfaces for instance %v", ids[idx])
-			}
-			infos[idx] = ifList
-		}
-	} else {
-		for idx, inst := range insts {
-			if inst == nil {
-				continue // unknown instance ID
-			}
-			ifList, err := maasObjectNetworkInterfaces(ctx, inst.(*maas1Instance).maasObject, subnetsMap)
-			if err != nil {
-				return nil, errors.Annotatef(err, "obtaining network interfaces for instance %v", ids[idx])
-			}
-			infos[idx] = ifList
-		}
+		infos[idx] = ifList
 	}
 
 	if partialInfo {
@@ -160,163 +145,16 @@ func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallCon
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if env.usingMAAS2() {
-		dnsSearchDomains, err := env.Domains(ctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
-	} else {
-		mi := inst.(*maas1Instance)
-		return maasObjectNetworkInterfaces(ctx, mi.maasObject, subnetsMap)
-	}
-}
-
-// maasObjectNetworkInterfaces implements environs.NetworkInterfaces() using the
-// new (1.9+) MAAS API, parsing the node details JSON embedded into the given
-// maasObject to extract all the relevant InterfaceInfo fields. It returns an
-// error satisfying errors.IsNotSupported() if it cannot find the required
-// "interface_set" node details field.
-func maasObjectNetworkInterfaces(
-	_ context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]corenetwork.Id,
-) (corenetwork.InterfaceInfos, error) {
-	interfaceSet, ok := maasObject.GetMap()["interface_set"]
-	if !ok || interfaceSet.IsNil() {
-		// This means we're using an older MAAS API.
-		return nil, errors.NotSupportedf("interface_set")
-	}
-
-	// TODO(dimitern): Change gomaasapi JSONObject to give access to the raw
-	// JSON bytes directly, rather than having to do call MarshalJSON just so
-	// the result can be unmarshaled from it.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311323
-
-	rawBytes, err := interfaceSet.MarshalJSON()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get interface_set JSON bytes")
-	}
-
-	interfaces, err := parseInterfaces(rawBytes)
+	dnsSearchDomains, err := env.Domains(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	infos := make(corenetwork.InterfaceInfos, 0, len(interfaces))
-	for i, iface := range interfaces {
-		// The below works for all types except bonds and their members.
-		parentName := strings.Join(iface.Parents, "")
-		var nicType corenetwork.LinkLayerDeviceType
-		switch iface.Type {
-		case typePhysical:
-			nicType = corenetwork.EthernetDevice
-			children := strings.Join(iface.Children, "")
-			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
-				// FIXME: Verify the bond exists, regardless of its name.
-				// This is a bond member, set the parent correctly (from
-				// Juju's perspective) - to the bond itself.
-				parentName = children
-			}
-		case typeBond:
-			parentName = ""
-			nicType = corenetwork.BondDevice
-		case typeVLAN:
-			nicType = corenetwork.VLAN8021QDevice
-		case typeBridge:
-			nicType = corenetwork.BridgeDevice
-		}
-
-		nicInfo := corenetwork.InterfaceInfo{
-			DeviceIndex:         i,
-			MACAddress:          iface.MACAddress,
-			ProviderId:          corenetwork.Id(fmt.Sprintf("%v", iface.ID)),
-			VLANTag:             iface.VLAN.VID,
-			InterfaceName:       iface.Name,
-			InterfaceType:       nicType,
-			ParentInterfaceName: parentName,
-			Disabled:            !iface.Enabled,
-			NoAutoStart:         !iface.Enabled,
-			Origin:              corenetwork.OriginProvider,
-		}
-
-		if len(iface.Links) == 0 {
-			logger.Debugf("interface %q has no links", iface.Name)
-			infos = append(infos, nicInfo)
-			continue
-		}
-
-		for _, link := range iface.Links {
-			configType := maasLinkToInterfaceConfigType(string(link.Mode))
-
-			if link.IPAddress == "" && link.Subnet == nil {
-				logger.Debugf("interface %q link %d has neither subnet nor address", iface.Name, link.ID)
-				infos = append(infos, nicInfo)
-			} else {
-				// We set it here initially without a space, just so we don't
-				// lose it when we have no linked subnet below.
-				//
-				// NOTE(achilleasa): this bit of code preserves the
-				// long-standing last-write-wins behavior that was
-				// present in the original code. Do we need to revisit
-				// this in the future and append link addresses to the list?
-				nicInfo.Addresses = corenetwork.ProviderAddresses{
-					corenetwork.NewMachineAddress(link.IPAddress, corenetwork.WithConfigType(configType)).AsProviderAddress(),
-				}
-				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID))
-			}
-
-			sub := link.Subnet
-			if sub == nil {
-				logger.Debugf("interface %q link %d missing subnet", iface.Name, link.ID)
-				infos = append(infos, nicInfo)
-				continue
-			}
-
-			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID))
-			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN.ID))
-
-			// Provider addresses are created with a space name massaged
-			// to conform to Juju's space name rules.
-			space := corenetwork.ConvertSpaceName(sub.Space, nil)
-
-			// Now we know the subnet and space, we can update the address to
-			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewMachineAddress(
-				link.IPAddress, corenetwork.WithCIDR(sub.CIDR), corenetwork.WithConfigType(configType),
-			).AsProviderAddress(corenetwork.WithSpaceName(space))
-
-			spaceId, ok := subnetsMap[sub.CIDR]
-			if !ok {
-				// The space we found is not recognised.
-				// No provider space info is available.
-				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
-			} else {
-				nicInfo.Addresses[0].ProviderSpaceID = spaceId
-				nicInfo.ProviderSpaceId = spaceId
-			}
-
-			gwAddr := corenetwork.NewMachineAddress(sub.GatewayIP).AsProviderAddress(corenetwork.WithSpaceName(space))
-			nicInfo.DNSServers = corenetwork.NewMachineAddresses(sub.DNSServers).AsProviderAddresses(corenetwork.WithSpaceName(space))
-			if ok {
-				gwAddr.ProviderSpaceID = spaceId
-				for i := range nicInfo.DNSServers {
-					nicInfo.DNSServers[i].ProviderSpaceID = spaceId
-				}
-			}
-			nicInfo.GatewayAddress = gwAddr
-			nicInfo.MTU = sub.VLAN.MTU
-
-			// Each link we represent as a separate InterfaceInfo, but with the
-			// same name and device index, just different address, subnet, etc.
-			infos = append(infos, nicInfo)
-		}
-	}
-	return infos, nil
+	return maasNetworkInterfaces(ctx, inst.(*maasInstance), subnetsMap, dnsSearchDomains...)
 }
 
-func maas2NetworkInterfaces(
+func maasNetworkInterfaces(
 	_ context.ProviderCallContext,
-	instance *maas2Instance,
+	instance *maasInstance,
 	subnetsMap map[string]corenetwork.Id,
 	dnsSearchDomains ...string,
 ) (corenetwork.InterfaceInfos, error) {

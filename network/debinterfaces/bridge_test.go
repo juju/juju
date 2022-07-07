@@ -4,12 +4,11 @@
 package debinterfaces_test
 
 import (
-	"runtime"
-
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network/debinterfaces"
 	"github.com/juju/testing"
+
+	"github.com/juju/juju/network/debinterfaces"
 )
 
 type BridgeSuite struct {
@@ -21,9 +20,6 @@ type BridgeSuite struct {
 var _ = gc.Suite(&BridgeSuite{})
 
 func (s *BridgeSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("skipping ActivationSuite tests on windows")
-	}
 	s.IsolationSuite.SetUpSuite(c)
 }
 
