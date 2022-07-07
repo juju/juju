@@ -24,122 +24,124 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-const addRelationDoc = `
-Relate two applications. Relations are a communication interface provided by 
-the Juju controller that enable units to transfer data. This star messaging 
-topology allows units to send and receive data, even if direct connectivity
-between units is restricted by firewall rules. Charms define the logic for 
-transferring and interpreting relation data.
+const integrateDoc = `
+Integrate two applications. Integrated applications communicate over a common
+interface provided by the Juju controller that enables units to share information.
+This topology allows units to share data, without needing direct connectivity
+between units is restricted by firewall rules. Charms define the logic for
+transferring and interpreting integration data.
 
-The most common use of 'juju relate' specifies two applications that co-exist
+The most common use of 'juju integrate' specifies two applications that co-exist
 within the same model:
 
-    juju relate <application> <application> 
+    juju integrate <application> <application>
 
-Occasionally, more explicit syntax is required. Juju is able to relate 
+Occasionally, more explicit syntax is required. Juju is able to integrate
 units that span models, controllers and clouds, as described below.
 
 
-Relating applications in the same model
+Integrating applications in the same model
 
-The most common case specifying two applications, and adding the specific 
-relation name when required.
+The most common case specifies two applications, adding specific endpoint
+name(s) when required.
 
-    juju relate <application>[:<relation>] <application>[:<relation>]
+    juju integrate <application>[:<endpoint>] <application>[:<endpoint>]
 
-Juju uses these arguments to create an "application endpoint". An application
-endpoint is the combination of an "application name", a "relation name" and a 
-"role". The role and relation name are described by charms' metadata.yaml file.
+The role and endpoint names are described by charms' metadata.yaml file.
 
-The order does not matter, however each side must perform complementary roles.
-One side performs the "provides" role and the other side performs the "requires" 
-role. Juju can always infer the role that each side is performing, so specifying
+The order does not matter, however each side must implement complementary roles.
+One side implements the "provides" role and the other implements the "requires"
+role. Juju can always infer the role that each side is implementing, so specifying
 them is not necessary as command-line arguments.
 
-<app-name> is the name of an application that has already been added to the 
+<application> is the name of an application that has already been added to the
 model. The Applications section of 'juju status' provides a list of current
 applications.
 
-<relation-name> is the name of a relation defined within the metadata.yaml 
-of the charm for <app-name>. Valid relation names are defined within the 
+<endpoint> is the name of an endpoint defined within the metadata.yaml
+of the charm for <application>. Valid endpoint names are defined within the
 "provides:" and "requires:" section of that file. Juju will request that you
-specify the <relation-name> when it is unable to resolve the name itself.
+specify the <endpoint> if there is more than one possible integration between
+the two applications.
 
 
 Subordinate applications
 
-Relating a principal application to a subordinate application has the effect of
-deploying the subordinate alongside its principal. This functionality use the 
-same syntax as relating applications within the same model.
- 
+Subordinate applications are designed to be deployed alongside a primary
+application. They must define a container scoped endpoint. When that endpoint
+is related to a primary application, wherever a unit of the primary application
+is deployed, a corresponding unit of the subordinate application will also be
+deployed. Integration with the primary application has the same syntax as
+integration any two applications within the same model.
 
-Peer relations
 
-Relations within an application between units (known as "peer relations") do 
+Peer integrations
+
+Integrations within an application between units (known as "peer integrations") do
 not need to be added manually. They are created when the 'juju add-unit' and
-'juju scale-application' commands are executed. 
+'juju scale-application' commands are executed.
 
 
-Cross-model relations
+Cross-model integrations
 
-Applications can be related, even when they are deployed to different models.
-Those models may be managed by different controllers and/or be hosted on 
-different clouds. This functionality is known as "cross-model relations" or CMR.
-
-
-Cross-model relations: different model on the same controller
-
-Adding a relation between applications in models managed by the same controller
-is very similar to adding a relation between applications in the same model:
-
-    juju relate <application>[:<relation>] <model>.<application>[:<relation>]
-
-<model> is the name of the model outside of the current context. enables the 
-Juju controller to bridge two models. List the model currently available with
-the 'juju models' command.
-
-To relate models outside of the current context, add the '-m <model>' option:
-
-    juju relate -m <model> <application>[:<relation>] \
-                   <model>.<application>[:<relation>]
+Applications can be integrated, even when they are deployed to different models.
+Those models may be managed by different controllers and/or be hosted on
+different clouds. This functionality is known as "cross-model integration" or CMI.
 
 
-Cross-model relations: different controllers
+Cross-model integrations: different model on the same controller
 
-Applications can relate to a remove application via an "offer URL" that has 
-been generated by the 'juju offer' command. The syntax for adding a cross-model 
-relation is similar to adding a local relation:
+Integrating applications in models managed by the same controller
+is very similar to adding an integration between applications in the same model:
 
-    juju relate <application>[:<relation>] <offer-endpoint>
+    juju integrate <application>[:<endpoint>] <model>.<application>[:<endpoint>]
+
+<model> is the name of the model outside of the current context. This enables the
+Juju controller to bridge two models. You can list the currently available
+models with 'juju models'.
+
+To integrate models outside of the current context, add the '-m <model>' option:
+
+    juju integrate -m <model> <application>[:<endpoint>] \
+                     <model>.<application>[:<endpoint>]
+
+
+Cross-model integrations: different controllers
+
+Applications can be integrated with a remote application via an "offer URL" that has
+been generated by the 'juju offer' command. The syntax for adding a cross-model
+integration is similar to adding a local integration:
+
+    juju integrate <application>[:<endpoint>] <offer-endpoint>
 
 <offer-endpoint> describes the remote application, from the point of view of the
 local one. An <offer-endpoint> takes one of two forms:
 
     <offer-alias>
-    <offer-url>[:<relation-name>]
+    <offer-url>[:<endpoint>]
 
-<offer-alias> is an alias that has been defined by the 'juju consume' command. 
+<offer-alias> is an alias that has been defined by the 'juju consume' command.
 Use the 'juju find-offers' command to list aliases.
 
-<offer-url> is a path to enable Juju to resolve communication between 
+<offer-url> is a path to enable Juju to resolve communication between
 controllers and the models they control.
 
     [[<controller>:]<user>/]<model-name>.<application-name>
 
-<controller> is the name of a controller. The 'juju controllers' command 
+<controller> is the name of a controller. The 'juju controllers' command
 provides a list of controllers.
 
-<user> is the user account of the model's owner. 
+<user> is the user account of the model's owner.
 
 
-Cross-model relations: network management
+Cross-model integration: network management
 
-When the consuming side (the local application) is behind a firewall and/or 
-NAT is used for outbound traffic, it is possible to use the '--via' option to 
-inform the offering side (the remote application) the source of traffic to 
+When the consuming side (the local application) is behind a firewall and/or
+NAT is used for outbound traffic, it is possible to use the '--via' option to
+inform the offering side (the remote application) the source of traffic to
 enable network ports to be opened.
 
-    ... --via <cidr-subnet>[,<cidr-subnet>[, ...]] 
+    ... --via <cidr-subnet>[,<cidr-subnet>[, ...]]
 
 
 Further reading:
@@ -149,24 +151,24 @@ Further reading:
 
 
 Examples:
-    
-    # Relate the wordpress and percona-cluster applications, asking Juju to resolve
-    # the relation names. Expands to "wordpress:db" (with the requires role) and 
-    # "percona-cluster:server" (with the provides role). 
-    juju relate wordpress percona-cluster
+   
+    # Integrate wordpress and percona-cluster, asking Juju to resolve
+    # the endpoint names. Expands to "wordpress:db" (with the requires role) and
+    # "percona-cluster:server" (with the provides role).
+    juju integrate wordpress percona-cluster
 
-    # Relate the wordpress and postgresql applications, using an explicit
-    # relation name.
-    juju relate wordpress postgresql:db
+    # Integrate wordpress and postgresql, using an explicit
+    # endpoint name.
+    juju integrate wordpress postgresql:db
 
-    # Relate an etcd instance within the current model to centrally managed
+    # Integrate an etcd instance within the current model to centrally managed
     # EasyRSA Certificate Authority hosted in the "secrets" model
-    juju relate etcd secrets.easyrsa
+    juju integrate etcd secrets.easyrsa
 
-    # Relate a wordpress application with a mysql application hosted within the 
+    # Integrate a wordpress application with a mysql application hosted within the
     # "prod" model, using the "automation" user. Facilitate firewall management
-    # by specifying the routes used for relation data.
-    juju add-relation wordpress automation/prod.mysql --via 192.168.0.0/16,10.0.0.0/8
+    # by specifying the routes used for integration data.
+    juju integrate wordpress automation/prod.mysql --via 192.168.0.0/16,10.0.0.0/8
 
 
 See also:
@@ -174,7 +176,7 @@ See also:
     consume
     find-offers
     set-firewall-rule
-    suspend-relation
+    suspend-integration
 `
 
 var localEndpointRegEx = regexp.MustCompile("^" + names.RelationSnippet + "$")
@@ -197,18 +199,18 @@ type addRelationCommand struct {
 
 func (c *addRelationCommand) Info() *cmd.Info {
 	addCmd := &cmd.Info{
-		Name:    "add-relation",
-		Aliases: []string{"relate"},
+		Name:    "integrate",
+		Aliases: []string{"relate", "add-relation"},
 		Args:    "<application>[:<relation>] <application>[:<relation>]",
-		Purpose: "Relate two applications.",
-		Doc:     addRelationDoc,
+		Purpose: "Integrate two applications.",
+		Doc:     integrateDoc,
 	}
 	return jujucmd.Info(addCmd)
 }
 
 func (c *addRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
-		return errors.Errorf("a relation must involve two applications")
+		return errors.Errorf("an integration must involve two applications")
 	}
 	if err := c.validateEndpoints(args); err != nil {
 		return err
@@ -217,13 +219,13 @@ func (c *addRelationCommand) Init(args []string) error {
 		return err
 	}
 	if c.remoteEndpoint == nil && len(c.viaCIDRs) > 0 {
-		return errors.New("the --via option can only be used when relating to offers in a different model")
+		return errors.New("the --via option can only be used when integrating with offers in a different model")
 	}
 	return nil
 }
 
 func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.viaValue, "via", "", "for cross model relations, specify the egress subnets for outbound traffic")
+	f.StringVar(&c.viaValue, "via", "", "for cross model integrations, specify the egress subnets for outbound traffic")
 }
 
 // applicationAddRelationAPI defines the API methods that application add relation command uses.
@@ -284,13 +286,14 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 
 	_, err = client.AddRelation(c.endpoints, c.viaCIDRs)
 	if params.IsCodeUnauthorized(err) {
-		common.PermissionsMessage(ctx.Stderr, "add a relation")
+		// XXX: Double check the error message looks sane
+		common.PermissionsMessage(ctx.Stderr, "integrate")
 	}
 	if params.IsCodeAlreadyExists(err) {
 		splitError := strings.Join(strings.Split(err.Error(), ": "), "\n")
 		infoErr := errors.Errorf(`
 
-Use 'juju status --relations' to view the current relations.`)
+Use 'juju status --integrations' to view the current integrations.`)
 		return errors.Annotatef(infoErr, splitError)
 	}
 	if err != nil {
@@ -298,14 +301,14 @@ Use 'juju status --relations' to view the current relations.`)
 			offerName := offerTerminatedRegexp.ReplaceAllString(err.Error(), "$offer")
 			return errors.New(fmt.Sprintf(
 				`Offer %q has been removed from the remote model.
-To relate to a new offer with the same name, first run
+To integrate with a new offer with the same name, first run
 'juju remove-saas %s' to remove the SAAS record from this model.`, offerName, offerName))
 		}
 		if c.remoteEndpoint != nil && strings.HasSuffix(err.Error(), "not alive") {
 			saasName := c.remoteEndpoint.ApplicationName
 			return errors.New(fmt.Sprintf(
 				`SAAS application %q has been removed but termination has not completed.
-To relate to a new offer with the same name, first run
+To integrate with a new offer with the same name, first run
 'juju remove-saas %s --force' to remove the SAAS record from this model.`, saasName, saasName))
 		}
 	}
