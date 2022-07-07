@@ -137,6 +137,14 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 			continue
 		}
 
+		// We assert in transactions that the machine is alive.
+		// If it is not, we assume that it will be removed from the
+		// instance-poller worker subsequently.
+		if machine.Life() != state.Alive {
+			logger.Debugf("machine %q is not alive; skipping provider network config update", machine.Id())
+			continue
+		}
+
 		configs := arg.Configs
 		logger.Tracef("provider network config for machine %q: %+v", machine.Id(), configs)
 
