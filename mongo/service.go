@@ -206,9 +206,8 @@ type ConfigArgs struct {
 	SSLMode          string
 
 	// logging
-	Syslog    bool
-	LogAppend bool
-	LogPath   string
+	Syslog  bool
+	LogPath string
 
 	// db kernel
 	WantNUMACtl           bool
@@ -299,10 +298,6 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	if mongoArgs.SSLMode != "" {
 		result["sslMode"] = mongoArgs.SSLMode
 	}
-	if mongoArgs.LogAppend {
-		result["logappend"] = flagMarker
-	}
-
 	if mongoArgs.SSLOnNormalPorts {
 		result["sslOnNormalPorts"] = flagMarker
 	}
@@ -494,7 +489,6 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 		// Switch from syslog to appending to dataDir, because snaps don't
 		// have the same permissions.
 		mongoArgs.Syslog = false
-		mongoArgs.LogAppend = true
 		mongoArgs.LogPath = logPath(args.LogDir, args.DataDir, true)
 		mongoArgs.BindToAllIP = true // TODO(tsm): disable when not needed
 	}
