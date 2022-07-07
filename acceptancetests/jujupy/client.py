@@ -879,10 +879,11 @@ class ModelClient:
         if self.env.provider == 'kubernetes':
             return tuple(args)
 
-        args += [
-            '--constraints', self._get_substrate_constraints(arch),
-            '--add-model', self.env.environment
-        ]
+        args += ['--constraints', self._get_substrate_constraints(arch)]
+        if self.is_juju2x():
+            args += ['--default-model', self.env.environment]
+        else:
+            args += ['--add-model', self.env.environment]
         if force:
             args.extend(['--force'])
         if config_options:
@@ -1964,6 +1965,9 @@ class ModelClient:
 
     def is_juju1x(self):
         return self.version.startswith('1.')
+
+    def is_juju2x(self):
+        return self.version.startswith('2.')
 
     def _get_register_command(self, output):
         """Return register token from add-user output.
