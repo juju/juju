@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -56,22 +55,10 @@ type CertificateGenerator interface {
 	Generate(client bool, addHosts bool) (certPEM, keyPEM []byte, err error)
 }
 
-// NetLookup groups methods for looking up hosts and interface addresses.
-type NetLookup interface {
-	// LookupHost looks up the given host using the local resolver.
-	// It returns a slice of that host's addresses.
-	LookupHost(string) ([]string, error)
-
-	// InterfaceAddrs returns a list of the system's unicast interface
-	// addresses.
-	InterfaceAddrs() ([]net.Addr, error)
-}
-
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
 	certReadWriter  CertificateReadWriter
 	certGenerator   CertificateGenerator
-	lookup          NetLookup
 	serverFactory   ServerFactory
 	lxcConfigReader LXCConfigReader
 }
@@ -120,7 +107,7 @@ func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[st
 	// only register credentials if the operator is attempting to access "lxd"
 	// or "localhost"
 	cloudName := cld.Name
-	if cloudName != lxdnames.DefaultCloud && cloudName != lxdnames.DefaultCloudAltName {
+	if !lxdnames.IsDefaultCloud(cloudName) {
 		return make(map[string]*cloud.CloudCredential), nil
 	}
 
@@ -171,7 +158,7 @@ func (p environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 		authCredentials[k] = v
 	}
 	if localCertCredentials != nil {
-		if cloudName == "" || cloudName == lxdnames.DefaultCloud || cloudName == lxdnames.DefaultCloudAltName {
+		if cloudName == "" || lxdnames.IsDefaultCloud(cloudName) {
 			authCredentials["localhost"] = *localCertCredentials
 		}
 	}
@@ -368,14 +355,14 @@ func (p environProviderCredentials) finalizeCredential(
 		return nil, errors.NotValidf("missing or empty %q attribute", credAttrClientKey)
 	}
 
-	isLocalEndpoint, err := p.isLocalEndpoint(args.CloudEndpoint)
+	localHostAddr, err := getLocalHostAddress(ctx, p.serverFactory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// If the end point is local, set up the local server and automate the local
 	// certificate credentials.
-	if isLocalEndpoint {
+	if localHostAddr == args.CloudEndpoint {
 		svr, err := p.serverFactory.LocalServer()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -544,32 +531,6 @@ func (p environProviderCredentials) finalizeLocalCredential(
 	return &out, nil
 }
 
-func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, error) {
-	if endpoint == "" {
-		// No endpoint specified, so assume we're local. This
-		// will happen, for example, when destroying a 2.0
-		// LXD controller.
-		return true, nil
-	}
-	endpointURL, err := endpointURL(endpoint)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	host, _, err := net.SplitHostPort(endpointURL.Host)
-	if err != nil {
-		host = endpointURL.Host
-	}
-	endpointAddrs, err := p.lookup.LookupHost(host)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	localAddrs, err := p.lookup.InterfaceAddrs()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return addrsContainsAny(localAddrs, endpointAddrs), nil
-}
-
 // certificateReadWriter is the default implementation for reading and writing
 // certificates to disk.
 type certificateReadWriter struct{}
@@ -611,16 +572,6 @@ func (certificateGenerator) Generate(client bool, addHosts bool) (certPEM, keyPE
 	return shared.GenerateMemCert(client, addHosts)
 }
 
-type netLookup struct{}
-
-func (netLookup) LookupHost(host string) ([]string, error) {
-	return net.LookupHost(host)
-}
-
-func (netLookup) InterfaceAddrs() ([]net.Addr, error) {
-	return net.InterfaceAddrs()
-}
-
 func endpointURL(endpoint string) (*url.URL, error) {
 	remoteURL, err := url.Parse(endpoint)
 	if err != nil || remoteURL.Scheme == "" {
@@ -640,28 +591,6 @@ func endpointURL(endpoint string) (*url.URL, error) {
 		}
 	}
 	return remoteURL, nil
-}
-
-func addrsContainsAny(haystack []net.Addr, needles []string) bool {
-	for _, needle := range needles {
-		if addrsContains(haystack, needle) {
-			return true
-		}
-	}
-	return false
-}
-
-func addrsContains(haystack []net.Addr, needle string) bool {
-	ip := net.ParseIP(needle)
-	if ip == nil {
-		return false
-	}
-	for _, addr := range haystack {
-		if addr, ok := addr.(*net.IPNet); ok && addr.IP.Equal(ip) {
-			return true
-		}
-	}
-	return false
 }
 
 func getCertificates(credentials cloud.Credential) (client *lxd.Certificate, server string, ok bool) {
