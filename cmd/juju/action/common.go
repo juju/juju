@@ -108,11 +108,17 @@ func (c *runCommandBase) ensureAPI() (err error) {
 }
 
 func (c *runCommandBase) operationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
-	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+	var noColor bool
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color {
+		noColor = true
 		return c.processOperationResults(ctx, results)
 	}
 
-	if isTerminal(ctx.Stdout) {
+	if noColor && c.color {
+		return c.processOperationResultsWithColor(ctx, results)
+	}
+
+	if isTerminal(ctx.Stdout) && !c.noColor {
 		return c.processOperationResultsWithColor(ctx, results)
 	}
 
@@ -329,17 +335,17 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 
 	failed := make(map[string]int)
 	resultReceivers := set.NewStrings()
-	forceColor := false
-	if isTerminal(ctx.Stdout) {
+	var forceColor, noColor bool
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") || c.noColor {
+		noColor = true
+	}
+
+	if isTerminal(ctx.Stdout) && !noColor || isTerminal(ctx.Stdout) && c.color {
 		forceColor = true
 	}
 
 	if !isTerminal(ctx.Stdout) && c.color {
 		forceColor = true
-	}
-
-	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
-		forceColor = false
 	}
 
 	for i, result := range runningTasks {
@@ -422,11 +428,18 @@ func (c *runCommandBase) progressf(ctx *cmd.Context, format string, params ...in
 }
 
 func (c *runCommandBase) printOutput(writer io.Writer, value interface{}) error {
-	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+	var noColor bool
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		noColor = true
 		return printPlainOutput(writer, value)
 	}
 
-	if isTerminal(writer) {
+	if noColor && c.color {
+		return printColoredOutput(writer, value)
+	}
+
+	if isTerminal(writer) && !noColor {
 		return printColoredOutput(writer, value)
 	}
 
@@ -438,11 +451,18 @@ func (c *runCommandBase) printOutput(writer io.Writer, value interface{}) error 
 }
 
 func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
-	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+	var noColor bool
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		noColor = true
 		return cmd.FormatYaml(writer, value)
 	}
 
-	if isTerminal(writer) {
+	if noColor && c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !noColor {
 		return output.FormatYamlWithColor(writer, value)
 	}
 
@@ -454,11 +474,17 @@ func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
 }
 
 func (c *runCommandBase) formatJson(writer io.Writer, value interface{}) error {
-	if _, ok := os.LookupEnv("NO_COLOR"); ok || c.noColor {
+	var noColor bool
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		noColor = true
 		return cmd.FormatJson(writer, value)
 	}
 
-	if isTerminal(writer) {
+	if noColor && c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !c.noColor {
 		return output.FormatJsonWithColor(writer, value)
 	}
 
