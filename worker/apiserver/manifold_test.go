@@ -212,7 +212,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.EmbeddedCommand, gc.NotNil)
 	config.EmbeddedCommand = nil
 
-	config.HTTPClient = nil // TODO(benhoyt): remove once it's properly dependency-injected
+	config.CharmhubHTTPClient = nil // TODO(benhoyt): remove once it's properly dependency-injected
 
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
 		AgentConfig:         &s.agent.conf,

@@ -232,7 +232,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	// TODO(benhoyt): pass this in properly via dependency engine
-	httpClient := charmhub.DefaultHTTPTransport(nullLogger{})
+	charmhubHTTPClient := charmhub.DefaultHTTPTransport(nullLogger{})
 
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
@@ -253,7 +253,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		RaftOpQueue:                       config.RaftOpQueue,
 		SysLogger:                         sysLogger,
-		HTTPClient:                        httpClient,
+		CharmhubHTTPClient:                charmhubHTTPClient,
 	})
 	if err != nil {
 		_ = stTracker.Done()

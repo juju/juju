@@ -106,7 +106,7 @@ func NewFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
 
 	options := []charmhub.Option{
 		charmhub.WithHTTPTransport(func(l charmhub.Logger) charmhub.Transport {
-			return ctx.HTTPClient()
+			return ctx.CharmhubHTTPClient()
 		}),
 	}
 

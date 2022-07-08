@@ -38,11 +38,11 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
-	charmInfoAPI *charmscommon.CharmInfoAPI
-	authorizer   facade.Authorizer
-	backendState charmsinterfaces.BackendState
-	backendModel charmsinterfaces.BackendModel
-	httpClient   facade.HTTPClient
+	charmInfoAPI       *charmscommon.CharmInfoAPI
+	authorizer         facade.Authorizer
+	backendState       charmsinterfaces.BackendState
+	backendModel       charmsinterfaces.BackendModel
+	charmhubHTTPClient facade.HTTPClient
 
 	tag             names.ModelTag
 	requestRecorder facade.RequestRecorder
@@ -301,7 +301,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
 		Logger:            logger,
-		CharmhubTransport: a.httpClient,
+		CharmhubTransport: a.charmhubHTTPClient,
 		StorageFactory:    a.newStorage,
 		StateBackend:      a.backendState,
 		ModelBackend:      a.backendModel,
@@ -526,7 +526,7 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
 		Logger:            logger,
-		CharmhubTransport: a.httpClient,
+		CharmhubTransport: a.charmhubHTTPClient,
 		StateBackend:      a.backendState,
 		ModelBackend:      a.backendModel,
 	})

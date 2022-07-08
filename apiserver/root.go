@@ -601,8 +601,8 @@ func (ctx *facadeContext) Raft() facade.RaftContext {
 	}
 }
 
-func (ctx *facadeContext) HTTPClient() facade.HTTPClient {
-	return ctx.r.shared.httpClient
+func (ctx *facadeContext) CharmhubHTTPClient() facade.HTTPClient {
+	return ctx.r.shared.charmhubHTTPClient
 }
 
 // adminRoot dispatches API calls to those available to an anonymous connection

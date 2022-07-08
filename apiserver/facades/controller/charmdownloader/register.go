@@ -37,7 +37,7 @@ func newFacadeV1(ctx facade.Context) (*CharmDownloaderAPI, error) {
 		stateBackend,
 		modelBackend,
 		clock.WallClock,
-		ctx.HTTPClient(),
+		ctx.CharmhubHTTPClient(),
 		func(modelUUID string) services.Storage {
 			return storage.NewStorage(modelUUID, rawState.MongoSession())
 		},

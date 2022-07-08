@@ -263,6 +263,20 @@ func (mr *MockContextMockRecorder) Cancel() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockContext)(nil).Cancel))
 }
 
+// CharmhubHTTPClient mocks base method.
+func (m *MockContext) CharmhubHTTPClient() facade.HTTPClient {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CharmhubHTTPClient")
+	ret0, _ := ret[0].(facade.HTTPClient)
+	return ret0
+}
+
+// CharmhubHTTPClient indicates an expected call of CharmhubHTTPClient.
+func (mr *MockContextMockRecorder) CharmhubHTTPClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmhubHTTPClient", reflect.TypeOf((*MockContext)(nil).CharmhubHTTPClient))
+}
+
 // Controller mocks base method.
 func (m *MockContext) Controller() *cache.Controller {
 	m.ctrl.T.Helper()
@@ -287,20 +301,6 @@ func (m *MockContext) Dispose() {
 func (mr *MockContextMockRecorder) Dispose() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dispose", reflect.TypeOf((*MockContext)(nil).Dispose))
-}
-
-// HTTPClient mocks base method.
-func (m *MockContext) HTTPClient() facade.HTTPClient {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HTTPClient")
-	ret0, _ := ret[0].(facade.HTTPClient)
-	return ret0
-}
-
-// HTTPClient indicates an expected call of HTTPClient.
-func (mr *MockContextMockRecorder) HTTPClient() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockContext)(nil).HTTPClient))
 }
 
 // Hub mocks base method.

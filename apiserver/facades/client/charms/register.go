@@ -44,11 +44,11 @@ func newFacadeV4(ctx facade.Context) (*API, error) {
 	}
 
 	return &API{
-		charmInfoAPI: charmInfoAPI,
-		authorizer:   authorizer,
-		backendState: newStateShim(st),
-		backendModel: m,
-		httpClient:   ctx.HTTPClient(),
+		charmInfoAPI:       charmInfoAPI,
+		authorizer:         authorizer,
+		backendState:       newStateShim(st),
+		backendModel:       m,
+		charmhubHTTPClient: ctx.CharmhubHTTPClient(),
 		newStorage: func(modelUUID string) services.Storage {
 			return storage.NewStorage(modelUUID, st.MongoSession())
 		},

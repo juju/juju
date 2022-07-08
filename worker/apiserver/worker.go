@@ -56,7 +56,7 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
-	HTTPClient                        HTTPClient
+	CharmhubHTTPClient                HTTPClient
 }
 
 type HTTPClient interface {
@@ -175,7 +175,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
 		SysLogger:                     config.SysLogger,
-		HTTPClient:                    config.HTTPClient,
+		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 	}
 	return config.NewServer(serverConfig)
 }

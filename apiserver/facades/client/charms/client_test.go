@@ -75,7 +75,7 @@ func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, erro
 func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)   { return nil, nil }
 func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)              { return nil, nil }
 func (ctx *charmsSuiteContext) Raft() facade.RaftContext                             { return nil }
-func (ctx *charmsSuiteContext) HTTPClient() facade.HTTPClient                        { return nil }
+func (ctx *charmsSuiteContext) CharmhubHTTPClient() facade.HTTPClient                { return nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

@@ -202,8 +202,8 @@ type ServerConfig struct {
 	// instance.
 	RaftOpQueue Queue
 
-	// HTTPClient is the HTTP client used for HTTP requests.
-	HTTPClient facade.HTTPClient
+	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
+	CharmhubHTTPClient facade.HTTPClient
 }
 
 // Validate validates the API server configuration.
@@ -304,7 +304,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		controllerConfig:    controllerConfig,
 		raftOpQueue:         cfg.RaftOpQueue,
 		logger:              loggo.GetLogger("juju.apiserver"),
-		httpClient:          cfg.HTTPClient,
+		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

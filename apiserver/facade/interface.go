@@ -161,8 +161,9 @@ type Context interface {
 	// Raft returns a lease context for managing raft.
 	Raft() RaftContext
 
-	// HTTPClient returns a client to use for sending HTTP requests.
-	HTTPClient() HTTPClient
+	// CharmhubHTTPClient returns an HTTP client to use for sending Charmhub
+	// API requests.
+	CharmhubHTTPClient() HTTPClient
 }
 
 // RequestRecorder is implemented by types that can record information about

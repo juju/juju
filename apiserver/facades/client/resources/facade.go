@@ -75,7 +75,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		case charm.CharmHub.Matches(schema):
 			options := []charmhub.Option{
 				charmhub.WithHTTPTransport(func(l charmhub.Logger) charmhub.Transport {
-					return ctx.HTTPClient()
+					return ctx.CharmhubHTTPClient()
 				}),
 			}
 

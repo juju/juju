@@ -46,7 +46,7 @@ type sharedServerContext struct {
 	raftOpQueue         Queue
 	logger              loggo.Logger
 	cancel              <-chan struct{}
-	httpClient          facade.HTTPClient
+	charmhubHTTPClient  facade.HTTPClient
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -65,7 +65,7 @@ type sharedServerConfig struct {
 	controllerConfig    jujucontroller.Config
 	raftOpQueue         Queue
 	logger              loggo.Logger
-	httpClient          facade.HTTPClient
+	charmhubHTTPClient  facade.HTTPClient
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -110,7 +110,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
 		raftOpQueue:         config.raftOpQueue,
-		httpClient:          config.httpClient,
+		charmhubHTTPClient:  config.charmhubHTTPClient,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

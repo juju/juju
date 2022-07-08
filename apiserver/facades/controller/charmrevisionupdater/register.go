@@ -36,7 +36,7 @@ func newCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
 	}
 	newCharmhubClient := func(st State) (CharmhubRefreshClient, error) {
-		return common.CharmhubClient(charmhubClientStateShim{state: st}, ctx.HTTPClient(), logger)
+		return common.CharmhubClient(charmhubClientStateShim{state: st}, ctx.CharmhubHTTPClient(), logger)
 	}
 	return NewCharmRevisionUpdaterAPIState(
 		StateShim{State: ctx.State()},
