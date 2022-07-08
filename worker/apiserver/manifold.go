@@ -49,7 +49,6 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	RaftTransportName      string
 	SyslogName             string
-	HTTPClientName         string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
