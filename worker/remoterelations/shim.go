@@ -4,8 +4,6 @@
 package remoterelations
 
 import (
-	"io"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -43,16 +41,6 @@ func remoteRelationsFacadeForModelFunc(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		facade := crossmodelrelations.NewClient(conn)
-		return &remoteModelRelationsFacadeCloser{facade, conn}, nil
+		return crossmodelrelations.NewClient(conn), nil
 	}
-}
-
-type remoteModelRelationsFacadeCloser struct {
-	RemoteModelRelationsFacade
-	conn io.Closer
-}
-
-func (p *remoteModelRelationsFacadeCloser) Close() error {
-	return p.conn.Close()
 }
