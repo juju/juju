@@ -205,9 +205,12 @@ type ConfigArgs struct {
 	SSLOnNormalPorts bool
 	SSLMode          string
 
-	// logging
+	// Logging. Syslog cannot be true with LogPath set to a non-empty string.
+	// SlowMS is the threshold time in milliseconds that Mongo will consider an
+	// operation to be slow, causing it to be written to the log.
 	Syslog  bool
 	LogPath string
+	SlowMS  int
 
 	// db kernel
 	WantNUMACtl           bool
@@ -322,9 +325,6 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	}
 
 	// ops config
-	if mongoArgs.Syslog {
-		result["syslog"] = flagMarker
-	}
 	if mongoArgs.Journal {
 		result["journal"] = flagMarker
 	}
@@ -344,6 +344,14 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	}
 	if mongoArgs.WiredTigerCacheSizeGB > 0.0 {
 		result["wiredTigerCacheSizeGB"] = fmt.Sprint(mongoArgs.WiredTigerCacheSizeGB)
+	}
+
+	// Logging
+	if mongoArgs.Syslog {
+		result["syslog"] = flagMarker
+	}
+	if mongoArgs.SlowMS != 0 {
+		result["slowms"] = strconv.Itoa(mongoArgs.SlowMS)
 	}
 
 	// misc
@@ -442,16 +450,18 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 	useLowMemory := args.MemoryProfile == MemoryProfileLow
 
 	mongoArgs := &ConfigArgs{
-		DataDir:          args.DataDir,
-		DBDir:            DbDir(args.DataDir),
-		MongoPath:        mongoPath,
-		Port:             args.StatePort,
-		OplogSizeMB:      oplogSizeMB,
-		WantNUMACtl:      args.SetNUMAControlPolicy,
-		Version:          version,
-		IPv6:             network.SupportsIPv6(),
-		MemoryProfile:    args.MemoryProfile,
-		Syslog:           true,
+		DataDir:       args.DataDir,
+		DBDir:         DbDir(args.DataDir),
+		MongoPath:     mongoPath,
+		Port:          args.StatePort,
+		OplogSizeMB:   oplogSizeMB,
+		WantNUMACtl:   args.SetNUMAControlPolicy,
+		Version:       version,
+		IPv6:          network.SupportsIPv6(),
+		MemoryProfile: args.MemoryProfile,
+		Syslog:        true,
+		// SlowMS defaults to 100. This appears to log excessively.
+		SlowMS:           1000,
 		Journal:          true,
 		Quiet:            true,
 		ReplicaSet:       ReplicaSetName,

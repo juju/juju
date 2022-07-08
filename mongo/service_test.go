@@ -51,6 +51,7 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 		"--sslPEMKeyPassword=ignored",
 		"--port",
 		"--syslog",
+		"--slowms",
 		"--journal",
 		"--port",
 		"--quiet",
@@ -70,9 +71,10 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 		"--dbpath":        "'/var/lib/juju/db'",
 		"--sslPEMKeyFile": "'/var/lib/juju/server.pem'",
 		"--port":          "12345",
-		" --keyFile":      "'/var/lib/juju/shared-secret'",
-		" --oplogSize":    "10",
-		" --replSet":      "juju",
+		"--keyFile":       "'/var/lib/juju/shared-secret'",
+		"--oplogSize":     "10",
+		"--replSet":       "juju",
+		"--slowms":        "1000",
 	}
 
 	c.Assert(conf.Desc, gc.Not(gc.Equals), "")
@@ -162,6 +164,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 		"--sslPEMKeyPassword=ignored",
 		"--port",
 		"--syslog",
+		"--slowms",
 		"--journal",
 		"--port",
 		"--quiet",
@@ -187,6 +190,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 		"--storageEngine":         "wiredTiger",
 		"--wiredTigerCacheSizeGB": "1",
 		"--sslMode":               "requireSSL",
+		"--slowms":                "1000",
 	}
 
 	c.Assert(conf.Desc, gc.Not(gc.Equals), "")
@@ -195,8 +199,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 		if !strings.HasPrefix(field, "-") {
 			continue
 		}
-		logger.Debugf("checking argument %v", field)
-		c.Assert(expectedArgs.Contains(field), gc.Equals, true)
+		c.Assert(expectedArgs.Contains(field), gc.Equals, true, gc.Commentf("expected arg %q not found", field))
 		expectedArgs.Remove(field)
 
 		expectedVal, ok := expectedKwArgs[field]
