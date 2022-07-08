@@ -17,14 +17,8 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 )
 
-func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {
-	facade := remoterelations.NewClient(apiCaller)
-	return facade, nil
-}
-
-func NewRemoteModelRelationsFacade(apiCaller base.APICallCloser) (RemoteModelRelationsFacade, error) {
-	facade := crossmodelrelations.NewClient(apiCaller)
-	return facade, nil
+func NewRemoteRelationsFacade(apiCaller base.APICaller) RemoteRelationsFacade {
+	return remoterelations.NewClient(apiCaller)
 }
 
 func NewWorker(config Config) (worker.Worker, error) {
@@ -49,11 +43,7 @@ func remoteRelationsFacadeForModelFunc(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		facade, err := NewRemoteModelRelationsFacade(conn)
-		if err != nil {
-			conn.Close()
-			return nil, errors.Trace(err)
-		}
+		facade := crossmodelrelations.NewClient(conn)
 		return &remoteModelRelationsFacadeCloser{facade, conn}, nil
 	}
 }
