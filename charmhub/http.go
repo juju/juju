@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"golang.org/x/net/http/httpproxy"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
@@ -103,17 +102,6 @@ func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err err
 func RequestHTTPTransport(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger Logger) Transport {
 	return func(logger Logger) Transport {
 		return jujuhttp.NewClient(
-			jujuhttp.WithTransportMiddlewares(func(transport *http.Transport) *http.Transport {
-				// Look at HTTP_PROXY and related environment variables on
-				// every request (net/http caches them the first time). This
-				// takes about 500ns (0.5us) on my machine, so it's overhead,
-				// but insignificant compared to the request time.
-				transport.Proxy = func(request *http.Request) (*url.URL, error) {
-					proxyFunc := httpproxy.FromEnvironment().ProxyFunc()
-					return proxyFunc(request.URL)
-				}
-				return transport
-			}),
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
 			jujuhttp.WithLogger(logger.ChildWithLabels("transport", corelogger.CHARMHUB, corelogger.HTTP)),
