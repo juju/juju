@@ -2731,11 +2731,6 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 	return false, nil
 }
 
-// SSHAddresses implements environs.SSHAddresses.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
-}
-
 // SuperSubnets implements NetworkingEnviron.SuperSubnets
 func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	vpcId := e.ecfg().vpcID()
