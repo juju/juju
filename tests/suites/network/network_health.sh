@@ -6,12 +6,12 @@ run_network_health() {
 	ensure "network-health" "${file}"
 
 	# Deploy some applications for different series.
-	juju deploy ubuntu ubuntu-focal --series focal
-	juju deploy ubuntu ubuntu-jammy --series jammy
+	juju deploy ./tests/suites/network/charms/ubuntu ubuntu-focal --series focal
+	juju deploy ./tests/suites/network/charms/ubuntu ubuntu-jammy --series jammy
 
 	# Now the testing charm for each series.
-	juju deploy 'cs:~juju-qa/network-health' network-health-focal --series focal
-	juju deploy 'cs:~juju-qa/network-health' network-health-jammy --series jammy
+	juju deploy ./tests/suites/network/charms/network-health network-health-focal --series focal
+	juju deploy ./tests/suites/network/charms/network-health network-health-jammy --series jammy
 
 	juju add-relation network-health-focal ubuntu-focal
 	juju add-relation network-health-jammy ubuntu-jammy
@@ -19,8 +19,8 @@ run_network_health() {
 	juju expose network-health-focal
 	juju expose network-health-jammy
 
-	wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 3)"
-	wait_for "ubuntu-jammy" "$(idle_condition "ubuntu-jammy" 4)"
+	wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 2)"
+	wait_for "ubuntu-jammy" "$(idle_condition "ubuntu-jammy" 3)"
 	wait_for "network-health-focal" "$(idle_subordinate_condition "network-health-focal" "ubuntu-focal")"
 	wait_for "network-health-jammy" "$(idle_subordinate_condition "network-health-jammy" "ubuntu-jammy")"
 
@@ -45,13 +45,13 @@ check_default_routes() {
 check_accessibility() {
 	echo "[+] checking neighbour connectivity and external access"
 
-	for net_health_unit in "network-health-jammy/0" "network-health-focal/0"; do
+	for net_health_unit in "network-health-focal/0" "network-health-jammy/0" ; do
 		ip="$(juju show-unit $net_health_unit --format json | jq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
 
 		curl_cmd="curl 2>/dev/null ${ip}:8039"
 
 		# Check that each of the principles can access the subordinate.
-		for principle_unit in "ubuntu-focal/0" "ubuntu-jammy/0"; do
+		for principle_unit in "ubuntu-focal/0" "ubuntu-jammy/0" ; do
 			check_contains "$(juju exec --unit $principle_unit "$curl_cmd")" "pass"
 		done
 

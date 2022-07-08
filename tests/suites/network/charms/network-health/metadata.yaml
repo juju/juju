@@ -1,0 +1,17 @@
+name: network-health
+summary: A simple charm used for Juju networking tests
+maintainer: Jack Shaw <jack.shaw@canonical.com>
+description: |
+  A simple charm used for Juju networking tests
+tags:
+  - misc
+series:
+  - xenial
+  - bionic
+  - focal
+  - jammy
+subordinate: true
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container
