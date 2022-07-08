@@ -32,6 +32,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.machinemanager")
 
+var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
+
 // Leadership represents a type for modifying the leadership settings of an
 // application for series upgrades.
 type Leadership interface {
@@ -67,7 +69,7 @@ type CharmhubClient interface {
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st               Backend
-	storageAccess    storageInterface
+	storageAccess    StorageInterface
 	pool             Pool
 	authorizer       Authorizer
 	check            *common.BlockChecker
@@ -142,7 +144,7 @@ func NewFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
 	backend Backend,
-	storageAccess storageInterface,
+	storageAccess StorageInterface,
 	pool Pool,
 	auth Authorizer,
 	callCtx environscontext.ProviderCallContext,
@@ -578,7 +580,7 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 		}
 		storage = unseen
 
-		unitDestroyed, unitDetached, err := storagecommon.ClassifyDetachedStorage(
+		unitDestroyed, unitDetached, err := ClassifyDetachedStorage(
 			mm.storageAccess.VolumeAccess(), mm.storageAccess.FilesystemAccess(), storage,
 		)
 		if err != nil {

@@ -8,7 +8,8 @@ run_relation_list_app() {
 
 	# Deploy 2 departer instances
 	juju deploy cs:wordpress
-	juju deploy mysql
+	# mysql charm does not have stable channel, so we use edge channel
+	juju deploy mysql --channel=edge
 	juju relate wordpress mysql
 	wait_for "wordpress" "$(idle_condition "wordpress" 1 0)"
 	wait_for "mysql" "$(idle_condition "mysql" 0 0)"
