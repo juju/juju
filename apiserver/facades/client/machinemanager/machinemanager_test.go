@@ -315,7 +315,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
@@ -341,7 +340,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
@@ -371,7 +369,6 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
@@ -408,7 +405,7 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 
 	noWait := 0 * time.Second
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
+		Force:       true,
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
