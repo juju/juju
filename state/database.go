@@ -102,6 +102,10 @@ type Database interface {
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
 	Schema() CollectionSchema
+
+	// NoChangeLog returns the same Database without changelog recording.
+	// NOTE: Only to be used by txns.log upgrade from client-side txn to server-side txn.
+	NoChangeLog() Database
 }
 
 // Change represents any mgo/txn-representable change to a Database.
@@ -236,7 +240,6 @@ func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 
 // database implements Database.
 type database struct {
-
 	// raw is the underlying mgo Database.
 	raw *mgo.Database
 
@@ -363,46 +366,55 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 	runner = db.runner
 	closer = dontCloseAnything
 	if runner == nil {
-		raw := db.raw
-		if !db.ownSession {
-			session := raw.Session.Copy()
-			raw = raw.With(session)
-			closer = session.Close
-		}
-		observer := func(t jujutxn.Transaction) {
-			if txnLogger.IsTraceEnabled() {
-				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
-					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
-			}
-		}
-		if db.runTransactionObserver != nil {
-			observer = func(t jujutxn.Transaction) {
-				if txnLogger.IsTraceEnabled() {
-					txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
-						t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
-				}
-				db.runTransactionObserver(
-					db.raw.Name, db.modelUUID,
-					t.Attempt,
-					t.Duration,
-					t.Ops, t.Error,
-				)
-			}
-		}
-		params := jujutxn.RunnerParams{
-			Database:               raw,
-			RunTransactionObserver: observer,
-			Clock:                  db.clock,
-			ServerSideTransactions: db.serverSideTransactions,
-			MaxRetryAttempts:       40,
-		}
-		runner = jujutxn.NewRunner(params)
+		runner, closer = db.newTransactionRunner(false)
 	}
 	return &multiModelRunner{
 		rawRunner: runner,
 		modelUUID: db.modelUUID,
 		schema:    db.schema,
 	}, closer
+}
+
+func (db *database) newTransactionRunner(noChangeLog bool) (runner jujutxn.Runner, closer SessionCloser) {
+	raw := db.raw
+	closer = dontCloseAnything
+	if !db.ownSession {
+		session := raw.Session.Copy()
+		raw = raw.With(session)
+		closer = session.Close
+	}
+	observer := func(t jujutxn.Transaction) {
+		if txnLogger.IsTraceEnabled() {
+			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+		}
+	}
+	if db.runTransactionObserver != nil {
+		observer = func(t jujutxn.Transaction) {
+			if txnLogger.IsTraceEnabled() {
+				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
+					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
+			}
+			db.runTransactionObserver(
+				db.raw.Name, db.modelUUID,
+				t.Attempt,
+				t.Duration,
+				t.Ops, t.Error,
+			)
+		}
+	}
+	params := jujutxn.RunnerParams{
+		Database:               raw,
+		RunTransactionObserver: observer,
+		Clock:                  db.clock,
+		ServerSideTransactions: db.serverSideTransactions,
+		MaxRetryAttempts:       40,
+	}
+	if noChangeLog {
+		params.ChangeLogName = "-"
+	}
+	runner = jujutxn.NewRunner(params)
+	return
 }
 
 // RunTransaction is part of the Database interface.
@@ -441,4 +453,63 @@ func (db *database) Run(transactions jujutxn.TransactionSource) error {
 // Schema is part of the Database interface.
 func (db *database) Schema() CollectionSchema {
 	return db.schema
+}
+
+// NoChangeLog is part of the Database interface.
+func (db *database) NoChangeLog() Database {
+	return &noChangeLogDatabase{db}
+}
+
+type noChangeLogDatabase struct {
+	*database
+}
+
+// RunTransactionFor is part of the Database interface.
+func (db *noChangeLogDatabase) RunTransactionFor(modelUUID string, ops []txn.Op) error {
+	newDB, dbcloser := db.CopyForModel(modelUUID)
+	defer dbcloser()
+	runner, closer := newDB.NoChangeLog().TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
+}
+
+// TransactionRunner is part of the Database interface.
+func (db *noChangeLogDatabase) TransactionRunner() (runner jujutxn.Runner, closer SessionCloser) {
+	runner, closer = db.newTransactionRunner(true)
+	return &multiModelRunner{
+		rawRunner: runner,
+		modelUUID: db.modelUUID,
+		schema:    db.schema,
+	}, closer
+}
+
+// RunRawTransaction is part of the Database interface.
+func (db *noChangeLogDatabase) RunRawTransaction(ops []txn.Op) error {
+	runner, closer := db.newTransactionRunner(true)
+	defer closer()
+	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
+}
+
+// RunTransaction is part of the Database interface.
+func (db *noChangeLogDatabase) RunTransaction(ops []txn.Op) error {
+	runner, closer := db.newTransactionRunner(true)
+	defer closer()
+	runner = &multiModelRunner{
+		rawRunner: runner,
+		modelUUID: db.modelUUID,
+		schema:    db.schema,
+	}
+	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
+}
+
+// Run is part of the Database interface.
+func (db *noChangeLogDatabase) Run(transactions jujutxn.TransactionSource) error {
+	runner, closer := db.newTransactionRunner(true)
+	defer closer()
+	runner = &multiModelRunner{
+		rawRunner: runner,
+		modelUUID: db.modelUUID,
+		schema:    db.schema,
+	}
+	return runner.Run(transactions)
 }

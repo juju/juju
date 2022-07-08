@@ -19,6 +19,7 @@ import (
 // (below).
 var stateUpgradeOperations = func() []Operation {
 	steps := []Operation{
+		upgradeToVersion{version.Zero, stateStepsForSSTXN()},
 		upgradeToVersion{version.MustParse("2.9.5"), stateStepsFor295()},
 		upgradeToVersion{version.MustParse("2.9.6"), stateStepsFor296()},
 		upgradeToVersion{version.MustParse("2.9.9"), stateStepsFor299()},
@@ -66,11 +67,6 @@ func newUpgradeOpsIterator(from version.Number) *opsIterator {
 }
 
 func newOpsIterator(from, to version.Number, ops []Operation) *opsIterator {
-	// If from is not known, it is 1.16.
-	if from == version.Zero {
-		from = version.MustParse("1.16.0")
-	}
-
 	// Clear the version tag of the target release to ensure that all
 	// upgrade steps for the release are run for alpha and beta
 	// releases.
@@ -96,6 +92,11 @@ func (it *opsIterator) Next() bool {
 			return false
 		}
 		targetVersion := it.allOps[it.current].TargetVersion()
+
+		// Always run zero version steps.
+		if targetVersion.Compare(version.Zero) == 0 {
+			return true
+		}
 
 		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
 		if targetVersion.Compare(it.from) <= 0 {

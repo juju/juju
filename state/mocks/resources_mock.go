@@ -13,7 +13,6 @@ import (
 	resource "github.com/juju/charm/v9/resource"
 	resources "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
-	txn "github.com/juju/mgo/v2/txn"
 )
 
 // MockResources is a mock of Resources interface.
@@ -112,21 +111,6 @@ func (m *MockResources) ListResources(arg0 string) (resources.ApplicationResourc
 func (mr *MockResourcesMockRecorder) ListResources(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResources", reflect.TypeOf((*MockResources)(nil).ListResources), arg0)
-}
-
-// NewResolvePendingResourcesOps mocks base method.
-func (m *MockResources) NewResolvePendingResourcesOps(arg0 string, arg1 map[string]string) ([]txn.Op, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewResolvePendingResourcesOps", arg0, arg1)
-	ret0, _ := ret[0].([]txn.Op)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewResolvePendingResourcesOps indicates an expected call of NewResolvePendingResourcesOps.
-func (mr *MockResourcesMockRecorder) NewResolvePendingResourcesOps(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewResolvePendingResourcesOps", reflect.TypeOf((*MockResources)(nil).NewResolvePendingResourcesOps), arg0, arg1)
 }
 
 // OpenResource mocks base method.

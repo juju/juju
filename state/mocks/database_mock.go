@@ -113,6 +113,20 @@ func (mr *MockDatabaseMockRecorder) GetRawCollection(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawCollection", reflect.TypeOf((*MockDatabase)(nil).GetRawCollection), arg0)
 }
 
+// NoChangeLog mocks base method.
+func (m *MockDatabase) NoChangeLog() state.Database {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NoChangeLog")
+	ret0, _ := ret[0].(state.Database)
+	return ret0
+}
+
+// NoChangeLog indicates an expected call of NoChangeLog.
+func (mr *MockDatabaseMockRecorder) NoChangeLog() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NoChangeLog", reflect.TypeOf((*MockDatabase)(nil).NoChangeLog))
+}
+
 // Run mocks base method.
 func (m *MockDatabase) Run(arg0 txn0.TransactionSource) error {
 	m.ctrl.T.Helper()

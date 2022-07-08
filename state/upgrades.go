@@ -1783,3 +1783,70 @@ func RemoveUseFloatingIPConfigFalse(pool *StatePool) error {
 		return changed, nil
 	}))
 }
+
+// MigrateCappedTxnsLogCollection migrates from a capped txns.log collection to
+// a normal collection.
+func MigrateCappedTxnsLogCollection(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	session := st.MongoSession()
+	db := session.DB(jujuDB)
+
+	var result struct {
+		Cursor struct {
+			FirstBatch []bson.Raw "firstBatch"
+			NextBatch  []bson.Raw "nextBatch"
+			NS         string
+			Id         int64
+		}
+	}
+	err = db.Run(bson.D{{"listCollections", 1}, {"filter", bson.D{{"name", txnLogC}}}, {"cursor", bson.D{{"batchSize", 1}}}}, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ns := strings.SplitN(result.Cursor.NS, ".", 2)
+	if len(ns) != 2 || ns[0] != db.Name {
+		return errors.Errorf("invalid NS %q in listCollections response", result.Cursor.NS)
+	}
+
+	var collectionInfo struct {
+		Name    string
+		Options struct {
+			Capped bool
+		}
+	}
+
+	iter := db.C(ns[1]).NewIter(nil, result.Cursor.FirstBatch, result.Cursor.Id, nil)
+	if !iter.Next(&collectionInfo) {
+		return errors.Errorf("bad response from mongo for listCollections")
+	}
+
+	if collectionInfo.Name != txnLogC {
+		return errors.Errorf("wrong collection %q != %q", collectionInfo.Name, txnLogC)
+	}
+
+	if !collectionInfo.Options.Capped {
+		// Already upgraded to a non-capped txns.log collection.
+		return nil
+	}
+
+	err = db.C(txnLogC).DropCollection()
+	if err != nil {
+		return errors.Annotatef(err, "dropping capped %s", txnLogC)
+	}
+
+	spec := &mgo.CollectionInfo{}
+	if schema, ok := allCollections()[txnLogC]; ok && schema.explicitCreate != nil {
+		spec = schema.explicitCreate
+	}
+	err = createCollection(db.C(txnLogC), spec)
+	if err != nil {
+		return errors.Annotatef(err, "creating new %s", txnLogC)
+	}
+
+	return nil
+}

@@ -49,6 +49,9 @@ type StateBackend interface {
 	RemoveLocalCharmOriginChannels() error
 	FixCharmhubLastPolltime() error
 	RemoveUseFloatingIPConfigFalse() error
+
+	// 3.0.x related functions
+	MigrateCappedTxnsLogCollection() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -227,4 +230,8 @@ func (s stateBackend) FixCharmhubLastPolltime() error {
 
 func (s stateBackend) RemoveUseFloatingIPConfigFalse() error {
 	return state.RemoveUseFloatingIPConfigFalse(s.pool)
+}
+
+func (s stateBackend) MigrateCappedTxnsLogCollection() error {
+	return state.MigrateCappedTxnsLogCollection(s.pool)
 }

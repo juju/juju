@@ -359,21 +359,24 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) err
 		c.Logf("Run: %d", i)
 		err := upgrade(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
+		s.assertData(c, expect...)
+	}
+}
 
-		for _, expect := range expect {
-			var docs []bson.M
-			err = expect.coll.Find(expect.filter).Sort("_id").All(&docs)
-			c.Assert(err, jc.ErrorIsNil)
-			for i, d := range docs {
-				doc := d
-				delete(doc, "txn-queue")
-				delete(doc, "txn-revno")
-				delete(doc, "version")
-				docs[i] = doc
-			}
-			c.Assert(docs, jc.DeepEquals, expect.expected,
-				gc.Commentf("differences: %s", pretty.Diff(docs, expect.expected)))
+func (s *upgradesSuite) assertData(c *gc.C, expect ...expectUpgradedData) {
+	for _, expect := range expect {
+		var docs []bson.M
+		err := expect.coll.Find(expect.filter).Sort("_id").All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+		for i, d := range docs {
+			doc := d
+			delete(doc, "txn-queue")
+			delete(doc, "txn-revno")
+			delete(doc, "version")
+			docs[i] = doc
 		}
+		c.Assert(docs, jc.DeepEquals, expect.expected,
+			gc.Commentf("differences: %s", pretty.Diff(docs, expect.expected)))
 	}
 }
 
@@ -2758,6 +2761,55 @@ func (s *upgradesSuite) TestRemoveUseFloatingIPConfigFalse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok = cfg3.AllAttrs()["use-floating-ip"]
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestMigrateCappedTxnsLogCollection(c *gc.C) {
+	coll, resCloser := s.state.db().GetRawCollection(txnLogC)
+	defer resCloser()
+
+	err := coll.DropCollection()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = createCollection(coll, &mgo.CollectionInfo{
+		Capped:   true,
+		MaxBytes: 1024 * 1024,
+		MaxDocs:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = coll.Insert(bson.D{{Name: "_id", Value: "0"}})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.D{{Name: "_id", Value: "1"}})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.D{{Name: "_id", Value: "2"}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	n, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
+	s.assertData(c, upgradedData(coll, bsonMById{{
+		"_id": "2",
+	}}))
+
+	s.assertUpgradedData(c, MigrateCappedTxnsLogCollection,
+		upgradedData(coll, bsonMById{}),
+	)
+
+	err = coll.Insert(bson.D{{Name: "_id", Value: "3"}})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.D{{Name: "_id", Value: "4"}})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.D{{Name: "_id", Value: "5"}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertData(c, upgradedData(coll, bsonMById{{
+		"_id": "3",
+	}, {
+		"_id": "4",
+	}, {
+		"_id": "5",
+	}}))
 }
 
 type docById []bson.M

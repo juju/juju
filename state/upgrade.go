@@ -330,7 +330,7 @@ func (st *State) EnsureUpgradeInfo(
 			Assert: txn.DocExists,
 		})
 	}
-	if err := st.runRawTransaction(ops); err == nil {
+	if err := st.db().NoChangeLog().RunRawTransaction(ops); err == nil {
 		return &UpgradeInfo{st: st, doc: doc}, nil
 	} else if err != txn.ErrAborted {
 		return nil, errors.Annotate(err, "cannot create upgrade info")
@@ -360,7 +360,7 @@ func (st *State) EnsureUpgradeInfo(
 			"$addToSet", bson.D{{"controllersReady", controllerId}},
 		}},
 	}}
-	switch err := st.db().RunTransaction(ops); err {
+	switch err := st.db().NoChangeLog().RunTransaction(ops); err {
 	case nil:
 		return ensureUpgradeInfoUpdated(st, controllerId, previousVersion, targetVersion)
 	case txn.ErrAborted:
