@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
@@ -45,6 +46,7 @@ type sharedServerContext struct {
 	raftOpQueue         Queue
 	logger              loggo.Logger
 	cancel              <-chan struct{}
+	httpClient          facade.HTTPClient
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -63,6 +65,7 @@ type sharedServerConfig struct {
 	controllerConfig    jujucontroller.Config
 	raftOpQueue         Queue
 	logger              loggo.Logger
+	httpClient          facade.HTTPClient
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -107,6 +110,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		logger:              config.logger,
 		controllerConfig:    config.controllerConfig,
 		raftOpQueue:         config.raftOpQueue,
+		httpClient:          config.httpClient,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes

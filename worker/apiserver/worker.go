@@ -56,6 +56,11 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
+	HTTPClient                        HTTPClient
+}
+
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
 }
 
 // NewServerFunc is the type of function that will be used
@@ -170,6 +175,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
 		SysLogger:                     config.SysLogger,
+		HTTPClient:                    config.HTTPClient,
 	}
 	return config.NewServer(serverConfig)
 }

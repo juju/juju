@@ -48,6 +48,7 @@ func newFacadeV4(ctx facade.Context) (*API, error) {
 		authorizer:   authorizer,
 		backendState: newStateShim(st),
 		backendModel: m,
+		httpClient:   ctx.HTTPClient(),
 		newStorage: func(modelUUID string) services.Storage {
 			return storage.NewStorage(modelUUID, st.MongoSession())
 		},

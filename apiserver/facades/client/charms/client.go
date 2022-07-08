@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
@@ -43,6 +42,7 @@ type API struct {
 	authorizer   facade.Authorizer
 	backendState charmsinterfaces.BackendState
 	backendModel charmsinterfaces.BackendModel
+	httpClient   facade.HTTPClient
 
 	tag             names.ModelTag
 	requestRecorder facade.RequestRecorder
@@ -299,14 +299,12 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
-
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:         logger,
-		Transport:      httpTransport(logger),
-		StorageFactory: a.newStorage,
-		StateBackend:   a.backendState,
-		ModelBackend:   a.backendModel,
+		Logger:            logger,
+		CharmhubTransport: a.httpClient,
+		StorageFactory:    a.newStorage,
+		StateBackend:      a.backendState,
+		ModelBackend:      a.backendModel,
 	})
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
@@ -516,28 +514,24 @@ func validateOrigin(origin params.CharmOrigin, schema string, switchCharm bool) 
 	return nil
 }
 
-// getRepoFactory returns the repository factory, caching it after first call.
-func (a *API) getRepoFactory() corecharm.RepositoryFactory {
+func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+	// The following is only required for testing, as we generate a new http
+	// client here for production.
 	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	if a.repoFactory != nil {
-		return a.repoFactory
+		defer a.mu.Unlock()
+		return a.repoFactory.GetCharmRepository(src)
 	}
+	a.mu.Unlock()
 
-	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
 		Logger:            logger,
-		CharmhubTransport: httpTransport(logger),
+		CharmhubTransport: a.httpClient,
 		StateBackend:      a.backendState,
 		ModelBackend:      a.backendModel,
 	})
-	a.repoFactory = repoFactory
-	return repoFactory
-}
 
-func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
-	return a.getRepoFactory().GetCharmRepository(src)
+	return repoFactory.GetCharmRepository(src)
 }
 
 // IsMetered returns whether or not the charm is metered.

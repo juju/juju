@@ -160,6 +160,9 @@ type Context interface {
 
 	// Raft returns a lease context for managing raft.
 	Raft() RaftContext
+
+	// HTTPClient returns a client to use for sending HTTP requests.
+	HTTPClient() HTTPClient
 }
 
 // RequestRecorder is implemented by types that can record information about
@@ -256,4 +259,9 @@ type ModelPresence interface {
 // Hub represents the central hub that the API server has.
 type Hub interface {
 	Publish(topic string, data interface{}) (func(), error)
+}
+
+// HTTPClient represents an HTTP client, for example, an *http.Client.
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
 }

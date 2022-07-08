@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/state/storage"
 )
 
@@ -32,15 +31,13 @@ func newFacadeV1(ctx facade.Context) (*CharmDownloaderAPI, error) {
 	}
 	resourcesBackend := resourcesShim{ctx.Resources()}
 
-	httpTransport := charmhub.RequestHTTPTransport(ctx.RequestRecorder(), charmhub.DefaultRetryPolicy())
-
 	return newAPI(
 		authorizer,
 		resourcesBackend,
 		stateBackend,
 		modelBackend,
 		clock.WallClock,
-		httpTransport(logger),
+		ctx.HTTPClient(),
 		func(modelUUID string) services.Storage {
 			return storage.NewStorage(modelUUID, rawState.MongoSession())
 		},

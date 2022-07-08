@@ -35,6 +35,7 @@ type Context struct {
 	LeadershipReader_  leadership.Reader
 	SingularClaimer_   lease.Claimer
 	Raft_              facade.RaftContext
+	HTTPClient_        facade.HTTPClient
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
@@ -143,4 +144,8 @@ func (context Context) SingularClaimer() (lease.Claimer, error) {
 
 func (context Context) Raft() facade.RaftContext {
 	return context.Raft_
+}
+
+func (context Context) HTTPClient() facade.HTTPClient {
+	return context.HTTPClient_
 }

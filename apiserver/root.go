@@ -601,6 +601,10 @@ func (ctx *facadeContext) Raft() facade.RaftContext {
 	}
 }
 
+func (ctx *facadeContext) HTTPClient() facade.HTTPClient {
+	return ctx.r.shared.httpClient
+}
+
 // adminRoot dispatches API calls to those available to an anonymous connection
 // which has not logged in, which here is the admin facade.
 type adminRoot struct {
