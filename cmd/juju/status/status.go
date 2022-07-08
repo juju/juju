@@ -438,10 +438,5 @@ func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error
 		return FormatTabular(writer, !c.noColor, value)
 	}
 
-	// color mode enabled by default if on tty, overrides --color=false
-	if isTerminal(writer) {
-		c.color = true
-	}
-
 	return FormatTabular(writer, c.color, value)
 }
