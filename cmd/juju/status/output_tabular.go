@@ -6,7 +6,6 @@ package status
 import (
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -46,14 +45,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
 
-	// overrides the --color=true
-	if _, ok := os.LookupEnv("NO_COLOR"); ok {
-		forceColor = false
-	}
-
 	// To format things into columns.
 	tw := output.TabWriter(writer)
-	tw.SetColorCapable(forceColor)
+	if forceColor {
+		tw.SetColorCapable(forceColor)
+	}
 
 	cloudRegion := fs.Model.Cloud
 	if fs.Model.CloudRegion != "" {
