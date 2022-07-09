@@ -52,6 +52,7 @@ func NewFormatter() *JSONFormatter {
 			KeyValSep: ansiterm.Foreground(ansiterm.BrightMagenta),
 			String:    ansiterm.Foreground(ansiterm.Default),
 		},
+		Indent: 1,
 		writer: writer,
 		buff:   buff,
 	}
@@ -158,6 +159,7 @@ func (f *JSONFormatter) marshalArray(a []interface{}, buf *bytes.Buffer, depth i
 }
 
 func (f *JSONFormatter) marshalValue(val interface{}, buf *bytes.Buffer, depth int) {
+
 	switch v := val.(type) {
 	case map[string]interface{}:
 		f.marshalMap(v, buf, depth)
@@ -181,5 +183,10 @@ func (f *JSONFormatter) marshalValue(val interface{}, buf *bytes.Buffer, depth i
 		f.Colors.Number.Fprint(f.writer, v.String())
 		buf.WriteString(f.buff.String())
 		f.buff.Reset()
+	default:
+		b, _ := json.Marshal(val)
+		m := map[string]interface{}{}
+		json.Unmarshal(b, &m)
+		f.marshalMap(m, buf, depth)
 	}
 }
