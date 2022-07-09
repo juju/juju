@@ -5,6 +5,7 @@ package status
 
 import (
 	"fmt"
+	"github.com/juju/juju/cmd/output"
 	"io"
 	"os"
 	"runtime"
@@ -203,13 +204,13 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "tabular"
 
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
-		"yaml":    cmd.FormatYaml,
-		"json":    cmd.FormatJson,
-		"short":   FormatOneline,
-		"oneline": FormatOneline,
-		"line":    FormatOneline,
+		"yaml":    c.formatYaml,
+		"json":    c.formatJson,
+		"short":   c.formatOneline,
+		"oneline": c.formatOneline,
+		"line":    c.formatOneline,
 		"tabular": c.FormatTabular,
-		"summary": FormatSummary,
+		"summary": c.formatSummary,
 	})
 }
 
@@ -433,9 +434,80 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
+func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
+	var noColor bool
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		noColor = true
+		return cmd.FormatYaml(writer, value)
+	}
+
+	if noColor && c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !noColor {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	return cmd.FormatYaml(writer, value)
+}
+
+func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error {
+	var noColor bool
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		noColor = true
+		return FormatOneline(writer, value)
+	}
+	// NO_COLOR="" and --color=true
+	if noColor && c.color {
+		return FormatOnelineWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !c.noColor {
+		return FormatOnelineWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return FormatOnelineWithColor(writer, value)
+	}
+
+	return FormatOneline(writer, value)
+}
+
+func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
+	var noColor bool
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		noColor = true
+		return cmd.FormatJson(writer, value)
+	}
+	// NO_COLOR="" and --color=true
+	if noColor && c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !c.noColor {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	return cmd.FormatJson(writer, value)
+}
+
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
+
 	if c.noColor {
-		return FormatTabular(writer, !c.noColor, value)
+		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
+			defer os.Unsetenv("NO_COLOR")
+			os.Setenv("NO_COLOR", "")
+		}
 	}
 
 	return FormatTabular(writer, c.color, value)
