@@ -5,10 +5,10 @@ package caasenvironupgrader
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/modelupgrader"
+	"github.com/juju/juju/api/controller/environupgrader"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {
-	facade := modelupgrader.NewClient(apiCaller)
+	facade := environupgrader.NewClient(apiCaller)
 	return facade, nil
 }

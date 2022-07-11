@@ -67,8 +67,16 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
+func (s *ConnSuite) AddTestingCharmWithSeries(c *gc.C, name string, series string) *state.Charm {
+	return state.AddTestingCharmWithSeries(c, s.State, name, series)
+}
+
 func (s *ConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
 	return state.AddTestingApplication(c, s.State, name, ch)
+}
+
+func (s *ConnSuite) AddTestingApplicationForSeries(c *gc.C, series string, name string, ch *state.Charm) *state.Application {
+	return state.AddTestingApplicationForSeries(c, s.State, series, name, ch)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithNumUnits(c *gc.C, numUnits int, name string, ch *state.Charm) *state.Application {

@@ -68,4 +68,5 @@ jobs:
       run: |
         set -euxo pipefail
         lxc network set lxdbr0 ipv6.address none
+        mkdir ~/.ssh
         juju bootstrap localhost --debug

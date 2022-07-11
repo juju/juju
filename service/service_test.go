@@ -60,7 +60,7 @@ func (s *serviceSuite) TestNewServiceMissingName(c *gc.C) {
 func (s *serviceSuite) TestNewServiceUnknown(c *gc.C) {
 	_, err := service.NewService(s.Name, s.Conf, "<unknown>")
 
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *serviceSuite) TestListServices(c *gc.C) {

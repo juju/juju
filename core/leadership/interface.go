@@ -22,17 +22,19 @@ import (
 // separated by commas, as they become required for mocking in tests.
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
 
-// ErrClaimDenied is the error which will be returned when a
-// leadership claim has been denied.
-var ErrClaimDenied = errors.New("leadership claim denied")
+const (
+	// ErrClaimDenied is the error which will be returned when a
+	// leadership claim has been denied.
+	ErrClaimDenied = errors.ConstError("leadership claim denied")
 
-// ErrClaimNotHeld is the error which will be returned when a
-// leadership lease is not held.
-var ErrClaimNotHeld = errors.New("leadership lease not held")
+	// ErrClaimNotHeld is the error which will be returned when a
+	// leadership lease is not held.
+	ErrClaimNotHeld = errors.ConstError("leadership lease not held")
 
-// ErrBlockCancelled is returned from BlockUntilLeadershipReleased
-// if the client cancels the request by closing the cancel channel.
-var ErrBlockCancelled = errors.New("waiting for leadership cancelled by client")
+	// ErrBlockCancelled is returned from BlockUntilLeadershipReleased
+	// if the client cancels the request by closing the cancel channel.
+	ErrBlockCancelled = errors.ConstError("waiting for leadership cancelled by client")
+)
 
 // NewNotLeaderError returns an error indicating that this unit is not
 // the leader of that application.

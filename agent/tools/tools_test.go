@@ -32,7 +32,7 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 	// resulting slice has that prefix removed to keep the output short.
 	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
 		gc.DeepEquals,
-		[]string{"core/os", "core/series", "juju/names", "tools"})
+		[]string{"juju/names", "tools"})
 }
 
 type ToolsSuite struct {

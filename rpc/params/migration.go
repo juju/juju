@@ -65,6 +65,12 @@ type SetMigrationStatusMessageArgs struct {
 	Message string `json:"message"`
 }
 
+// PrechecksArgs provides the target controller version
+// to the migrationmaster.Prechecks API method.
+type PrechecksArgs struct {
+	TargetControllerVersion version.Number `json:"target-controller-version"`
+}
+
 // SerializedModel wraps a buffer contain a serialised Juju model. It
 // also contains lists of the charms and tools used in the model.
 type SerializedModel struct {

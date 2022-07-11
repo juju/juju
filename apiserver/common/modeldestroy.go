@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {
@@ -153,14 +154,8 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 }
 
 func filterNonCriticalErrorForForce(err error) error {
-	checks := []func(error) bool{
-		// We don't want to ignore below errors even with `--force`.
-		state.IsHasPersistentStorageError,
-	}
-	for _, f := range checks {
-		if f(err) {
-			return err
-		}
+	if errors.Is(err, stateerrors.PersistentStorageError) {
+		return err
 	}
 	return nil
 }

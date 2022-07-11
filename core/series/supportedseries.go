@@ -254,6 +254,29 @@ func UbuntuSeriesVersion(series string) (string, error) {
 	return "", errors.Trace(unknownSeriesVersionError(series))
 }
 
+// UbuntuVersions returns the ubuntu versions as a map..
+func UbuntuVersions(supported, esmSupported *bool) map[string]string {
+	return ubuntuVersions(supported, esmSupported, ubuntuSeries)
+}
+
+func ubuntuVersions(
+	supported, esmSupported *bool, ubuntuSeries map[SeriesName]seriesVersion,
+) map[string]string {
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
+	save := make(map[string]string)
+	for seriesName, val := range ubuntuSeries {
+		if supported != nil && val.Supported != *supported {
+			continue
+		}
+		if esmSupported != nil && val.ESMSupported != *esmSupported {
+			continue
+		}
+		save[seriesName.String()] = val.Version
+	}
+	return save
+}
+
 func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
 	if _, ok := ubuntuSeries[series]; ok {
 		return coreos.Ubuntu, nil

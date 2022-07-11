@@ -2286,6 +2286,9 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 		return result
 	}
 
+	if allocate := cons.AllocatePublicIP(); allocate {
+		result.AllocatePublicIP = &allocate
+	}
 	if arch := cons.Architecture(); arch != "" {
 		result.Arch = &arch
 	}

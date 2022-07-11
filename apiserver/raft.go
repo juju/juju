@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -87,7 +88,7 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd raftlease.Command) er
 
 	case <-m.clock.After(ApplyLeaseTimeout):
 		m.logger.Errorf("Applying Lease timed out, waiting for enqueue: %v", m.clock.Now().Sub(start))
-		return apiservererrors.NewDeadlineExceededError("Apply lease upper bound timeout")
+		return fmt.Errorf("Apply lease upper bound timeout%w", errors.Hide(apiservererrors.DeadlineExceededError))
 	}
 
 	switch {
@@ -104,12 +105,12 @@ func (m *raftMediator) ApplyLease(ctx context.Context, cmd raftlease.Command) er
 	case queue.IsDeadlineExceeded(err):
 		// If the deadline is exceeded, get original caller to handle the
 		// timeout correctly.
-		return apiservererrors.NewDeadlineExceededError(err.Error())
+		return errors.WithType(err, apiservererrors.DeadlineExceededError)
 
 	case queue.IsCanceled(err):
 		// If the operation is canceled from the context (facade),
 		// then let the original caller handle it correctly.
-		return apiservererrors.NewDeadlineExceededError(err.Error())
+		return errors.WithType(err, apiservererrors.DeadlineExceededError)
 
 	}
 	return errors.Trace(err)

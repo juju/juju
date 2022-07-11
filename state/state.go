@@ -715,6 +715,50 @@ func (st *State) AllMachines() ([]*Machine, error) {
 	return st.allMachines(machinesCollection)
 }
 
+// MachineCountForSeries counts the machines for the provided series in the model.
+func (st *State) MachineCountForSeries(series ...string) (map[string]int, error) {
+	machinesCollection, closer := st.db().GetCollection(machinesC)
+	defer closer()
+	pipe := machinesCollection.Pipe([]bson.M{
+		{
+			"$match": bson.M{
+				"series":     bson.M{"$in": series},
+				"model-uuid": st.ModelUUID(),
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "$series", "count": bson.M{"$sum": 1},
+			},
+		},
+		{
+			"$sort": bson.M{"_id": 1},
+		},
+		{
+			"$group": bson.M{
+				"_id": nil,
+				"counts": bson.M{
+					"$push": bson.M{"k": "$_id", "v": "$count"},
+				},
+			},
+		},
+		{
+			"$replaceRoot": bson.M{
+				"newRoot": bson.M{"$arrayToObject": "$counts"},
+			},
+		},
+	})
+	var result []map[string]int
+	err := pipe.All(&result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result) > 0 {
+		return result[0], nil
+	}
+	return nil, nil
+}
+
 type machineDocSlice []machineDoc
 
 func (ms machineDocSlice) Len() int      { return len(ms) }

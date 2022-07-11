@@ -391,7 +391,7 @@ func (p environProviderCredentials) finalizeCredential(
 		return &args.Credential, validateServerCertificate(v)
 	}
 
-	// We're not local, so setup the remote server and automate the remote
+	// We're not local, so set up the remote server and automate the remote
 	// certificate credentials.
 	return p.finalizeRemoteCredential(
 		stderr,
@@ -443,17 +443,17 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	if err != nil || cert == nil {
 		if err := server.CreateCertificate(api.CertificatesPost{
 			CertificatePut: api.CertificatePut{
-				Name: credentials.Label,
-				Type: "client",
+				Name:        credentials.Label,
+				Type:        "client",
+				Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
 			},
-			Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
-			Password:    trustPassword,
+			Password: trustPassword,
 		}); err != nil {
 			return nil, errors.Trace(err)
 		}
-		fmt.Fprintln(output, "Uploaded certificate to LXD server.")
+		_, _ = fmt.Fprintln(output, "Uploaded certificate to LXD server.")
 	} else {
-		fmt.Fprintln(output, "Reusing certificate from LXD server.")
+		_, _ = fmt.Fprintln(output, "Reusing certificate from LXD server.")
 	}
 
 	lxdServer, _, err := server.GetServer()
@@ -463,7 +463,7 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	lxdServerCert := lxdServer.Environment.Certificate
 
 	// request to make sure that we can actually query correctly in a secure
-	// manor.
+	// manner.
 	attributes := make(map[string]string)
 	for k, v := range credAttrs {
 		if k == credAttrTrustPassword {
@@ -704,7 +704,6 @@ func configDirs() []string {
 	}
 	dirs = append(dirs, filepath.Join(utils.Home(), ".config", "lxc"))
 	if runtime.GOOS == "linux" {
-		// TODO(juju3) - remove "~/snap/lxd/current/.config/lxc"
 		dirs = append(dirs, filepath.Join(utils.Home(), "snap", "lxd", "current", ".config", "lxc"))
 		dirs = append(dirs, filepath.Join(utils.Home(), "snap", "lxd", "common", "config"))
 	}

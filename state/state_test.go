@@ -1450,6 +1450,42 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
+	add_machine := func(series string) {
+		m, err := s.State.AddMachine(series, state.JobHostUnits)
+		c.Check(err, jc.ErrorIsNil)
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%s", series)), "", "fake_nonce", nil)
+		c.Check(err, jc.ErrorIsNil)
+		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-ubuntu-amd64"))
+		c.Check(err, jc.ErrorIsNil)
+		err = m.Destroy()
+		c.Check(err, jc.ErrorIsNil)
+	}
+
+	var windowsSeries = []string{
+		"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+		"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
+	}
+	expectedWinResult := map[string]int{}
+	for _, winSeries := range windowsSeries {
+		add_machine(winSeries)
+		expectedWinResult[winSeries] = 1
+	}
+	add_machine("quantal")
+	s.AssertMachineCount(c, len(windowsSeries)+1)
+
+	result, err := s.State.MachineCountForSeries(windowsSeries...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expectedWinResult)
+
+	result, err = s.State.MachineCountForSeries(
+		"quantal", // count 1
+		"xenial",  // count 0
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, map[string]int{"quantal": 1})
+}
+
 func (s *StateSuite) TestAllRelations(c *gc.C) {
 	const numRelations = 32
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -2725,7 +2761,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	// Make the container Dying: cannot because of nested container.
 	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers ".*"`)
+	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers? ".*"`)
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3925,12 +3961,6 @@ func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
-	c.Assert(stateerrors.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
-	c.Assert(stateerrors.IsUpgradeInProgressError(stateerrors.ErrUpgradeInProgress), jc.IsTrue)
-	c.Assert(stateerrors.IsUpgradeInProgressError(errors.Trace(stateerrors.ErrUpgradeInProgress)), jc.IsTrue)
-}
-
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
 	modelConfig, err := s.Model.ModelConfig()
@@ -4188,7 +4218,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
-	c.Assert(err, jc.Satisfies, stateerrors.IsUpgradeInProgressError)
+	c.Assert(errors.Is(err, stateerrors.ErrUpgradeInProgress), jc.IsTrue)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {

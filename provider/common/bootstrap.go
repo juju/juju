@@ -273,7 +273,7 @@ func BootstrapInstance(
 		default:
 		}
 
-		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
+		if zone == "" || errors.Is(err, environs.ErrAvailabilityZoneIndependent) {
 			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 		}
 

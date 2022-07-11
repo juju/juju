@@ -49,7 +49,7 @@ func (k *kubernetesClient) ensureConfigMaps(
 }
 
 // ensureConfigMapLegacy is a tmp fix for upgrading configmap(no proper labels) created in 2.6.
-// TODO(caas): remove this and use "updateConfigMap" once `modelupgrader` supports CaaS models.
+// TODO(caas): remove this and use "updateConfigMap" once `environupgrader` supports CaaS models.
 func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp func(), err error) {
 	cleanUp = func() {}
 	if k.namespace == "" {

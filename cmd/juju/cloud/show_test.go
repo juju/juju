@@ -279,11 +279,6 @@ use-default-secgroup:
   type: bool
   description: Whether new machine instances should have the "default" Openstack security
     group assigned in addition to juju defined security groups.
-use-floating-ip:
-  type: bool
-  description: Whether a floating IP address is required to give the nodes a public
-    IP address. Some installations assign public IP addresses by default without requiring
-    a floating IP address.
 use-openstack-gbp:
   type: bool
   description: Whether to use Neutrons Group-Based Policy
@@ -306,7 +301,6 @@ clouds:
     region-config:
       london:
         bootstrap-timeout: 1800
-        use-floating-ip: true
 `[1:]
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
@@ -331,7 +325,6 @@ config:
 region-config:
   london:
     bootstrap-timeout: 1800
-    use-floating-ip: true
 `[1:], openstackProviderConfig}, ""))
 }
 

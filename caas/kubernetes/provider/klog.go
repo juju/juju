@@ -14,6 +14,7 @@ type KlogMessagePrefixes []string
 
 var (
 	klogIgnorePrefixes = KlogMessagePrefixes{
+		"lost connection to pod",
 		"an error occurred forwarding",
 		"error copying from remote stream to local connection",
 		"error copying from local connection to remote stream",

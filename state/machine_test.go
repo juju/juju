@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -335,6 +336,60 @@ func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 }
 
+func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
+	cons := constraints.Value{
+		Mem: newUint64(100),
+	}
+	changes, err := s.State.EnableHA(3, cons, "quantal", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+
+	m2, err := s.State.Machine("2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m2.Jobs(), gc.DeepEquals, []state.MachineJob{
+		state.JobHostUnits,
+		state.JobManageModel,
+	})
+
+	ch := s.AddTestingCharmWithSeries(c, "juju-controller", "")
+	app := s.AddTestingApplicationForSeries(c, "quantal", "controller", ch)
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetCharmURL(ch.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(m2)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(m2.Life(), gc.Equals, state.Alive)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i := 0; i < 3; i++ {
+		needsCleanup, err := s.State.NeedsCleanup()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(needsCleanup, jc.IsTrue)
+		err = s.State.Cleanup()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	needsCleanup, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needsCleanup, jc.IsFalse)
+
+	err = m2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m2.Life(), gc.Equals, state.Dying)
+
+	cn2, err := s.State.ControllerNode(m2.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveControllerReference(cn2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m2.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m2.Life(), gc.Equals, state.Dead)
+}
+
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	// A machine hosting a container must not advance lifecycle.
 	_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
@@ -344,11 +399,11 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Destroy()
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsHasContainersError)
+	c.Assert(errors.Is(err, stateerrors.HasContainersError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
 	err = s.machine.EnsureDead()
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsHasContainersError)
+	c.Assert(errors.Is(err, stateerrors.HasContainersError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
@@ -374,11 +429,11 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
-	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 
 	err = s.machine.EnsureDead()
-	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
@@ -471,7 +526,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 		c.Assert(unit.AssignToMachine(s.machine), gc.IsNil)
 	}).Check()
 	err = s.machine.Destroy()
-	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
 }
 
 func (s *MachineSuite) TestDestroyContention(c *gc.C) {
@@ -524,7 +579,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 	}).Check()
 
 	err = s.machine.Destroy()
-	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
 	life := s.machine.Life()
 	c.Assert(life, gc.Equals, state.Alive)
 }
@@ -564,7 +619,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 	}).Check()
 
 	err = s.machine.Destroy()
-	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
 	life := s.machine.Life()
 	c.Assert(life, gc.Equals, state.Alive)
 }

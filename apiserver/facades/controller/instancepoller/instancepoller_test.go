@@ -932,6 +932,26 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
 	})
 }
 
+func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *gc.C) {
+	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Dying})
+
+	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{{
+			Tag: "machine-1",
+			Configs: []params.NetworkConfig{{
+				Addresses: []params.Address{{Value: "10.0.0.42", Scope: "local-cloud"}},
+			}},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, jc.DeepEquals, params.SetProviderNetworkConfigResults{
+		Results: []params.SetProviderNetworkConfigResult{{}},
+	})
+
+	// We should just return after seeing that the machine is dying.
+	s.st.Stub.CheckCallNames(c, "AllSpaceInfos", "Machine", "Life", "Id")
+}
+
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -203,7 +203,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 				if err == nil {
 					result.Results[i].Result = address.Value
 				} else if network.IsNoAddressError(err) {
-					err = apiservererrors.NoAddressSetError(tag, "public")
+					err = apiservererrors.NewNoAddressSetError(tag, "public")
 				}
 			}
 		}
@@ -237,7 +237,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 				if err == nil {
 					result.Results[i].Result = address.Value
 				} else if network.IsNoAddressError(err) {
-					err = apiservererrors.NoAddressSetError(tag, "private")
+					err = apiservererrors.NewNoAddressSetError(tag, "private")
 				}
 			}
 		}

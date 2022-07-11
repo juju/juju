@@ -31,22 +31,23 @@ func (s *CmdRelationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CmdRelationSuite) TestAddRelationSuccess(c *gc.C) {
-	runCommandExpectSuccess(c, "add-relation", s.apps...)
+	runCommandExpectSuccess(c, "integrate", s.apps...)
 }
 
 func (s *CmdRelationSuite) TestAddRelationSuccessOnAlreadyExists(c *gc.C) {
-	runCommandExpectSuccess(c, "add-relation", s.apps...)
-	context, err := runCommand(c, append([]string{"add-relation"}, s.apps...)...)
+	runCommandExpectSuccess(c, "integrate", s.apps...)
+	context, err := runCommand(c, append([]string{"integrate"}, s.apps...)...)
 	c.Assert(err, gc.NotNil)
+	// TODO: (jam) 2022-06-29 the error messages need to be updated for 'integrations'
 	c.Check(cmdtesting.Stderr(context), jc.Contains, `ERROR cannot add relation "wordpress:db mysql:server"
 relation wordpress:db mysql:server (already exists): 
 
-Use 'juju status --relations' to view the current relations.
+Use 'juju status --integrations' to view the current integrations.
 `)
 }
 
 func (s *CmdRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
-	runCommandExpectSuccess(c, "add-relation", s.apps...)
+	runCommandExpectSuccess(c, "integrate", s.apps...)
 	runCommandExpectSuccess(c, "remove-relation", s.apps...)
 }
 

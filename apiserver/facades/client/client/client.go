@@ -4,14 +4,10 @@
 package client
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,7 +21,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
@@ -33,7 +28,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.client")
@@ -252,121 +246,6 @@ func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
 		}
 	}
 	return result, nil
-}
-
-// SetModelAgentVersion sets the model agent version.
-func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	// Before changing the agent version to trigger an upgrade or downgrade,
-	// we'll do a very basic check to ensure the environment is accessible.
-	envOrBroker, err := c.newEnviron()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := environs.CheckProviderAPI(envOrBroker, c.callContext); err != nil {
-		return err
-	}
-
-	// If this is the controller model, also check to make sure that there are
-	// no running migrations.  All models should have migration mode of None.
-	// For major version upgrades, also check that all models are at a version high
-	// enough to allow the upgrade.
-	if c.api.stateAccessor.IsController() {
-		// Check to ensure that the replicaset is happy.
-		if err := c.CheckMongoStatusForUpgrade(c.api.stateAccessor.MongoSession()); err != nil {
-			return errors.Trace(err)
-		}
-
-		modelUUIDs, err := c.api.stateAccessor.AllModelUUIDs()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		var oldModels []string
-		var requiredVersion version.Number
-		for _, modelUUID := range modelUUIDs {
-			model, release, err := c.api.pool.GetModel(modelUUID)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			vers, err := model.AgentVersion()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			allowed, minVer, err := upgrades.UpgradeAllowed(vers, args.Version)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if !allowed {
-				requiredVersion = minVer
-				oldModels = append(oldModels, fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name()))
-			}
-			if mode := model.MigrationMode(); mode != state.MigrationModeNone {
-				release()
-				return errors.Errorf("model \"%s/%s\" is %s, upgrade blocked", model.Owner().Name(), model.Name(), mode)
-			}
-			release()
-		}
-		if len(oldModels) > 0 {
-			return errors.Errorf("these models must first be upgraded to at least %v before upgrading the controller:\n -%s",
-				requiredVersion, strings.Join(oldModels, "\n -"))
-		}
-	}
-
-	return c.api.stateAccessor.SetModelAgentVersion(args.Version, &args.AgentStream, args.IgnoreAgentVersions)
-}
-
-// CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good
-// enough state for an upgrade to continue. Exported for testing.
-func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
-	if skipReplicaCheck {
-		// Skipping only occurs in tests where we need to avoid actually checking
-		// the replicaset as tests don't run with this setting.
-		return nil
-	}
-	replicaStatus, err := session.CurrentStatus()
-	if err != nil {
-		return errors.Annotate(err, "checking replicaset status")
-	}
-
-	// Iterate over the replicaset, and record any nodes that aren't either
-	// primary or secondary.
-	var notes []string
-	for _, member := range replicaStatus.Members {
-		switch member.State {
-		case replicaset.PrimaryState:
-			// All good.
-		case replicaset.SecondaryState:
-			// Also good.
-		default:
-			msg := fmt.Sprintf("node %d (%s) has state %s", member.Id, member.Address, member.State)
-			notes = append(notes, msg)
-		}
-	}
-
-	if len(notes) > 0 {
-		return errors.Errorf("unable to upgrade, database %s", strings.Join(notes, ", "))
-	}
-	return nil
-}
-
-// AbortCurrentUpgrade aborts and archives the current upgrade
-// synchronisation record, if any.
-func (c *Client) AbortCurrentUpgrade() error {
-	if err := c.checkCanWrite(); err != nil {
-		return err
-	}
-
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	return c.api.stateAccessor.AbortCurrentUpgrade()
 }
 
 // FindTools returns a List containing all tools matching the given parameters.

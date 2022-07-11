@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/version"
 )
 
 // LogWriter is the interface that allows sending log
@@ -39,8 +38,6 @@ func NewAPI(connector base.StreamConnector) *API {
 // which must be closed when finished with.
 func (api *API) LogWriter() (LogWriter, error) {
 	attrs := make(url.Values)
-	// TODO(wallyworld) - remove in juju 4
-	attrs.Set("jujuclientversion", version.Current.String())
 	// Version 1 does ping/pong handling.
 	attrs.Set("version", "1")
 	conn, err := api.connector.ConnectStream("/logsink", attrs)

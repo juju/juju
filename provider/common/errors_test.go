@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,44 +25,38 @@ var _ = gc.Suite(&ErrorsSuite{})
 func (*ErrorsSuite) TestWrapZoneIndependentError(c *gc.C) {
 	err1 := errors.New("foo")
 	err2 := errors.Annotate(err1, "bar")
-	wrapped := common.ZoneIndependentError(err2)
-	c.Assert(wrapped, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+	wrapped := environs.ZoneIndependentError(err2)
+	c.Assert(errors.Is(wrapped, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 	c.Assert(wrapped, gc.ErrorMatches, "bar: foo")
-
-	stack := errors.ErrorStack(wrapped)
-	c.Assert(stack, gc.Matches, `
-.*/provider/common/errors_test.go:.*: foo
-.*/provider/common/errors_test.go:.*: bar
-.*/provider/common/errors_test.go:.*: bar: foo`[1:])
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialWrapped(c *gc.C) {
 	err1 := errors.New("foo")
 	err2 := errors.Annotate(err1, "bar")
-	err := common.CredentialNotValid(err2)
+	err := common.CredentialNotValidError(err2)
 
-	// This is to confirm that IsCredentialNotValid is correct.
-	c.Assert(err2, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	// This is to confirm that Is(err, ErrorCredentialNotValid) is correct.
+	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "bar: foo")
+}
 
-	stack := errors.ErrorStack(err)
-	c.Assert(stack, gc.Matches, `
-.*/provider/common/errors_test.go:.*: foo
-.*/provider/common/errors_test.go:.*: bar
-.*/provider/common/errors_test.go:.*: bar: foo`[1:])
+func (s *ErrorsSuite) TestCredentialNotValidErrorLocationer(c *gc.C) {
+	err := errors.New("some error")
+	err = common.CredentialNotValidError(err)
+	_, ok := err.(errors.Locationer)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialNew(c *gc.C) {
-	err := common.NewCredentialNotValid("Your account is blocked.")
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	err := fmt.Errorf("%w: Your account is blocked.", common.ErrorCredentialNotValid)
+	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "credential not valid: Your account is blocked.")
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialf(c *gc.C) {
 	err1 := errors.New("foo")
-	err := common.CredentialNotValidf(err1, "bar")
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	err := fmt.Errorf("bar: %w", common.CredentialNotValidError(err1))
+	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "bar: foo")
 }
 

@@ -30,6 +30,15 @@ var (
 	_ storage.Provider = (*tmpfsProvider)(nil)
 )
 
+func (p *tmpfsProvider) ValidateForK8s(attributes map[string]any) error {
+	if attributes == nil {
+		return nil
+	}
+
+	// check the configuration
+	return checkK8sConfig(attributes)
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (p *tmpfsProvider) ValidateConfig(cfg *storage.Config) error {
 	// Tmpfs provider has no configuration.

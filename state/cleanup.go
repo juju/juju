@@ -46,6 +46,7 @@ const (
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupForceRemoveMachine            cleanupKind = "forceRemoveMachine"
+	cleanupEvacuateMachine               cleanupKind = "evacuateMachine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
 	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
@@ -218,6 +219,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupForceDestroyedMachine(doc.Prefix, args)
 		case cleanupForceRemoveMachine:
 			err = st.cleanupForceRemoveMachine(doc.Prefix, args)
+		case cleanupEvacuateMachine:
+			err = st.cleanupEvacuateMachine(doc.Prefix, args)
 		case cleanupAttachmentsForDyingStorage:
 			err = st.cleanupAttachmentsForDyingStorage(doc.Prefix, args)
 		case cleanupAttachmentsForDyingVolume:
@@ -1431,6 +1434,62 @@ func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.
 		return errors.Trace(err)
 	}
 	return machine.Remove()
+}
+
+// cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
+// from the machine before then kicking off machine destroy.
+func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw) error {
+	if len(cleanupArgs) > 0 {
+		return errors.Errorf("expected no arguments, got %d", len(cleanupArgs))
+	}
+
+	machine, err := st.Machine(machineId)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if machine.Life() != Alive {
+		return nil
+	}
+
+	units, err := machine.Units()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(units) == 0 {
+		if err := machine.advanceLifecycle(Dying, false, false, 0); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			units, err = machine.Units()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		var ops []txn.Op
+		for _, unit := range units {
+			destroyOp := unit.DestroyOperation()
+			op, err := destroyOp.Build(attempt)
+			if err != nil && !errors.Is(err, jujutxn.ErrNoOperations) {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, op...)
+		}
+		return ops, nil
+	}
+
+	err = st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Errorf("waiting for units to be removed from %s", machineId)
 }
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied

@@ -33,23 +33,22 @@ func extend(lists ...tools.List) tools.List {
 }
 
 var (
-	t100ubuntu    = mustParseTools("1.0.0-ubuntu-amd64")
-	t100ubuntu32  = mustParseTools("1.0.0-ubuntu-i386")
-	t100windows   = mustParseTools("1.0.0-windows-amd64")
-	t100windows32 = mustParseTools("1.0.0-windows-i386")
-	t100all       = tools.List{
-		t100ubuntu, t100ubuntu32, t100windows, t100windows32,
+	t100ubuntu   = mustParseTools("1.0.0-ubuntu-amd64")
+	t100ubuntu32 = mustParseTools("1.0.0-ubuntu-i386")
+	t100centos   = mustParseTools("1.0.0-centos-amd64")
+	t100all      = tools.List{
+		t100ubuntu, t100ubuntu32, t100centos,
 	}
 	t190ubuntu   = mustParseTools("1.9.0-ubuntu-amd64")
 	t190ubuntu32 = mustParseTools("1.9.0-ubuntu-i386")
-	t190windows  = mustParseTools("1.9.0-windows-amd64")
+	t190centos   = mustParseTools("1.9.0-centos-amd64")
 	t190all      = tools.List{
-		t190ubuntu, t190ubuntu32, t190windows,
+		t190ubuntu, t190ubuntu32, t190centos,
 	}
-	t200ubuntu    = mustParseTools("2.0.0-ubuntu-amd64")
-	t200windows32 = mustParseTools("2.0.0-windows-i386")
-	t200all       = tools.List{
-		t200ubuntu, t200windows32,
+	t200ubuntu   = mustParseTools("2.0.0-ubuntu-amd64")
+	t200centos32 = mustParseTools("2.0.0-centos-i386")
+	t200all      = tools.List{
+		t200ubuntu, t200centos32,
 	}
 	t2001ubuntu   = mustParseTools("2.0.0.1-ubuntu-amd64")
 	tAllBefore210 = extend(t100all, t190all, append(t200all, t2001ubuntu))
@@ -73,7 +72,7 @@ var releaseTests = []releaseTest{{
 	expect: []string{"ubuntu"},
 }, {
 	src:    tAllBefore210,
-	expect: []string{"ubuntu", "windows"},
+	expect: []string{"centos", "ubuntu"},
 }}
 
 func (s *ListSuite) TestReleases(c *gc.C) {
@@ -96,7 +95,7 @@ var archesTests = []archTest{{
 	src:    tools.List{t100ubuntu},
 	expect: "amd64",
 }, {
-	src:    tools.List{t100ubuntu, t100windows, t200ubuntu},
+	src:    tools.List{t100ubuntu, t100centos, t200ubuntu},
 	expect: "amd64",
 }, {
 	src: tAllBefore210,
@@ -123,19 +122,19 @@ func (s *ListSuite) TestURLs(c *gc.C) {
 	empty := tools.List{}
 	c.Check(empty.URLs(), gc.DeepEquals, map[version.Binary][]string{})
 
-	alt := *t100windows
+	alt := *t100centos
 	alt.URL = strings.Replace(alt.URL, "testing.invalid", "testing.invalid2", 1)
 	full := tools.List{
 		t100ubuntu,
-		t190windows,
-		t100windows,
+		t190centos,
+		t100centos,
 		&alt,
 		t2001ubuntu,
 	}
 	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary][]string{
 		t100ubuntu.Version:  {t100ubuntu.URL},
-		t100windows.Version: {t100windows.URL, alt.URL},
-		t190windows.Version: {t190windows.URL},
+		t100centos.Version:  {t100centos.URL, alt.URL},
+		t190centos.Version:  {t190centos.URL},
 		t2001ubuntu.Version: {t2001ubuntu.URL},
 	})
 }
@@ -262,10 +261,10 @@ var excludeTests = []struct {
 }, {
 	t100all,
 	tools.List{t100ubuntu},
-	tools.List{t100ubuntu32, t100windows, t100windows32},
+	tools.List{t100ubuntu32, t100centos},
 }, {
 	t100all,
-	tools.List{t100ubuntu32, t100windows, t100windows32},
+	tools.List{t100ubuntu32, t100centos},
 	tools.List{t100ubuntu},
 }, {
 	t100all, t190all, t100all,
@@ -306,8 +305,8 @@ var matchTests = []struct {
 	nil,
 }, {
 	tAllBefore210,
-	tools.Filter{OSType: "windows"},
-	tools.List{t100windows, t100windows32, t190windows, t200windows32},
+	tools.Filter{OSType: "centos"},
+	tools.List{t100centos, t190centos, t200centos32},
 }, {
 	tAllBefore210,
 	tools.Filter{OSType: "opensuse"},
@@ -315,7 +314,7 @@ var matchTests = []struct {
 }, {
 	tAllBefore210,
 	tools.Filter{Arch: "i386"},
-	tools.List{t100ubuntu32, t100windows32, t190ubuntu32, t200windows32},
+	tools.List{t100ubuntu32, t190ubuntu32, t200centos32},
 }, {
 	tAllBefore210,
 	tools.Filter{Arch: "arm"},
@@ -324,10 +323,10 @@ var matchTests = []struct {
 	tAllBefore210,
 	tools.Filter{
 		Number: version.MustParse("2.0.0"),
-		OSType: "windows",
+		OSType: "centos",
 		Arch:   "i386",
 	},
-	tools.List{t200windows32},
+	tools.List{t200centos32},
 }}
 
 func (s *ListSuite) TestMatch(c *gc.C) {
@@ -363,12 +362,4 @@ func (s *ListSuite) TestMatchVersions(c *gc.C) {
 		}
 		c.Check(actual, gc.DeepEquals, expectVersions)
 	}
-}
-
-// TODO(juju4) - remove
-func (s *ListSuite) TestMatchLegacy(c *gc.C) {
-	bionic := tools.List{mustParseTools("2.1.0-bionic-amd64")}
-	actual, err := bionic.Match(tools.Filter{OSType: "ubuntu"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.DeepEquals, bionic)
 }

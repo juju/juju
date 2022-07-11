@@ -274,14 +274,6 @@ type AddMachinesResult struct {
 	Error   *Error `json:"error,omitempty"`
 }
 
-// DestroyMachines holds parameters for the DestroyMachines call.
-// This is the legacy params struct used with the client facade.
-// TODO(wallyworld) - remove in Juju 3.0
-type DestroyMachines struct {
-	MachineNames []string `json:"machine-names"`
-	Force        bool     `json:"force"`
-}
-
 // DestroyMachinesParams holds parameters for the DestroyMachinesWithParams call.
 type DestroyMachinesParams struct {
 	MachineTags []string `json:"machine-tags"`
@@ -967,11 +959,6 @@ type FindToolsParams struct {
 
 	// Arch will be used to match tools by architecture if non-empty.
 	Arch string `json:"arch"`
-
-	// TODO(juju3) - remove series
-	// Kept foe compatibility with older clients.
-	// Series will be used to match tools by series if non-empty.
-	Series string `json:"series"`
 
 	// OSType will be used to match tools by os type if non-empty.
 	OSType string `json:"os-type"`

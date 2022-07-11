@@ -20,4 +20,7 @@ const (
 
 	// CMR defines a common label for dealing with cross model relations.
 	CMR Label = "cmr"
+
+	// CMR_AUTH defines a common label for dealing with cross model relations auth.
+	CMR_AUTH Label = "cmr-auth"
 )

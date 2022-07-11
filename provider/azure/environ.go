@@ -676,7 +676,7 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 	diskEncryptionID, err := env.diskEncryptionInfo(ctx, args.RootDisk, envTags)
 	if err != nil {
-		return common.ZoneIndependentError(errors.Annotate(err, "creating disk encryption info"))
+		return environs.ZoneIndependentError(fmt.Errorf("creating disk encryption info: %w", err))
 	}
 	if diskEncryptionID != "" && storageProfile.OSDisk.ManagedDisk != nil {
 		storageProfile.OSDisk.ManagedDisk.DiskEncryptionSet = &armcompute.DiskEncryptionSetParameters{
@@ -732,11 +732,11 @@ func (env *azureEnviron) createVirtualMachine(
 
 	placementSubnetID, err := env.findPlacementSubnet(ctx, args.Placement)
 	if err != nil {
-		return common.ZoneIndependentError(err)
+		return environs.ZoneIndependentError(err)
 	}
 	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
 	if err != nil {
-		return common.ZoneIndependentError(err)
+		return environs.ZoneIndependentError(err)
 	}
 	logger.Debugf("creating instance using vnet %v, subnets %q", vnetId, subnetIds)
 

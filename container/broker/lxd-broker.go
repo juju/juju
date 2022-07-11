@@ -4,6 +4,8 @@
 package broker
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -16,7 +18,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/common"
 )
 
 var lxdLogger = loggo.GetLogger("juju.container.broker.lxd")
@@ -80,7 +81,8 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 
 	pNames, err := broker.writeProfiles(containerMachineID)
 	if err != nil {
-		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot write charm profile"))
+		err = fmt.Errorf("cannot write charm profile: %w", err)
+		return nil, errors.WithType(err, environs.ErrAvailabilityZoneIndependent)
 	}
 
 	// The provisioner worker will provide all tools it knows about

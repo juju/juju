@@ -46,15 +46,14 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
 
-	// NO_COLOR; regardless of its value,is required by ansiterm to enable
-	// toggling color capability on or off
-	os.Setenv("NO_COLOR", "")
+	// overrides the --color=true
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		forceColor = false
+	}
 
 	// To format things into columns.
 	tw := output.TabWriter(writer)
-	if forceColor {
-		tw.SetColorCapable(forceColor)
-	}
+	tw.SetColorCapable(forceColor)
 
 	cloudRegion := fs.Model.Cloud
 	if fs.Model.CloudRegion != "" {
@@ -320,24 +319,141 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	endSection(tw)
 }
 
+type protocol struct {
+	group      map[string]string
+	groups     map[string][]string
+	grouped    map[string]bool
+	components map[string][]string
+}
+
+type sortablePorts []string
+
+func (s sortablePorts) Len() int {
+	return len(s)
+}
+
+func (s sortablePorts) Less(i, j int) bool {
+	if len(s[i]) < len(s[j]) {
+		return true
+	}
+	if len(s[i]) > len(s[j]) {
+		return false
+	}
+	return s[i] < s[j]
+}
+
+func (s sortablePorts) Swap(i, j int) {
+	t := s[i]
+	s[i] = s[j]
+	s[j] = t
+}
+
 func printPorts(w output.Wrapper, ps []string) {
-	size := len(ps)
-	for i, op := range ps {
-		if strings.Contains(op, "/") { //some port values just contain the protocol name e.g icmp
-			pp := strings.Split(op, "/")
-			w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, pp[0]) //port e.g 3306
-			w.PrintNoTab(fmt.Sprintf("/%s", pp[1]))                          //append back the forward slash to the protocol name (3306/tcp)
+	sorted := append([]string(nil), ps...)
+	sort.Strings(sorted)
+
+	protocols := map[string]*protocol{}
+	proto := func(p string) *protocol {
+		v, ok := protocols[p]
+		if !ok {
+			v = &protocol{
+				group:      map[string]string{},
+				groups:     map[string][]string{},
+				grouped:    map[string]bool{},
+				components: map[string][]string{},
+			}
+			protocols[p] = v
+		}
+		return v
+	}
+
+	for _, port := range sorted {
+		split := strings.Split(port, "/")
+		protocolId := ""
+		if len(split) == 1 {
+			protocolId = split[0]
 		} else {
-			if _, err := strconv.Atoi(op); err == nil { //if string is a port number i.e 3306
-				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, op)
-			} else { //the string is a protocol name i.e icmp
-				w.PrintNoTab(op)
+			protocolId = strings.Join(append([]string{""}, split[1:]...), "/")
+		}
+		protocol := proto(protocolId)
+		protocol.components[port] = split
+		if len(split) == 1 {
+			continue
+		}
+		n, err := strconv.Atoi(split[0])
+		if err != nil || n <= 1 {
+			continue
+		}
+		prev := strings.Join(append([]string{strconv.Itoa(n - 1)}, split[1:]...), "/")
+		if _, ok := protocol.components[prev]; !ok {
+			continue
+		}
+		groupName := protocol.group[prev]
+		if groupName == "" {
+			groupName = prev
+		}
+		protocol.group[port] = groupName
+		protocol.groups[groupName] = append(protocol.groups[groupName], port)
+		protocol.grouped[port] = true
+	}
+
+	protocolKeys := []string{}
+	for k := range protocols {
+		protocolKeys = append(protocolKeys, k)
+	}
+	sort.Strings(protocolKeys)
+
+	hasOutput := false
+	for _, pk := range protocolKeys {
+		protocol := protocols[pk]
+
+		portKeys := []string{}
+		for k := range protocol.components {
+			portKeys = append(portKeys, k)
+		}
+		sort.Sort(sortablePorts(portKeys))
+
+		hasPrev := false
+		for _, port := range portKeys {
+			if protocol.grouped[port] {
+				continue
+			}
+			if hasOutput {
+				hasOutput = false
+				w.PrintNoTab(" ")
+			}
+			if hasPrev {
+				w.PrintNoTab(",")
+			}
+			hasPrev = true
+			split := protocol.components[port]
+			group := protocol.groups[port]
+			// Print grouped ports.
+			if len(group) > 0 {
+				last := group[len(group)-1]
+				lastSplit := protocol.components[last]
+				portRange := fmt.Sprintf("%s-%s", split[0], lastSplit[0])
+				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, portRange)
+				continue
+			}
+			// Print single port with protocol.
+			if len(split) > 1 {
+				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, split[0])
+				continue
+			}
+			// Everything else.
+			break
+		}
+		if hasPrev {
+			hasOutput = true
+			if _, err := strconv.Atoi(pk); err == nil {
+				w.PrintColorNoTab(output.EmphasisHighlight.BrightMagenta, pk)
+			} else {
+				w.PrintNoTab(pk)
 			}
 		}
-		if i != size-1 && size > 1 {
-			w.PrintNoTab(", ")
-		}
 	}
+
 	w.Print("") //Print empty tab after the ports
 }
 

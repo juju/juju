@@ -305,7 +305,7 @@ func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) erro
 type mockApplication struct {
 	tag                   names.ApplicationTag
 	life                  life.Value
-	curl                  *charm.URL
+	curl                  string
 	charmModifiedVersion  int
 	forceUpgrade          bool
 	applicationWatcher    *mockNotifyWatcher
@@ -316,7 +316,7 @@ func (s *mockApplication) CharmModifiedVersion() (int, error) {
 	return s.charmModifiedVersion, nil
 }
 
-func (s *mockApplication) CharmURL() (*charm.URL, bool, error) {
+func (s *mockApplication) CharmURL() (string, bool, error) {
 	return s.curl, s.forceUpgrade, nil
 }
 

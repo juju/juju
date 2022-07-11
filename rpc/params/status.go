@@ -6,7 +6,6 @@ package params
 // TODO(ericsnow) Eliminate the juju-related imports.
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/juju/juju/core/instance"
@@ -163,19 +162,6 @@ type ApplicationStatus struct {
 	Scale         int    `json:"int,omitempty"`
 	ProviderId    string `json:"provider-id,omitempty"`
 	PublicAddress string `json:"public-address"`
-}
-
-// MarshalJSON marshals a status with a typo left in for compatibility.
-// TODO(wallyworld) - remove in Juju 3
-func (as ApplicationStatus) MarshalJSON() ([]byte, error) {
-	type Alias ApplicationStatus
-	return json.Marshal(&struct {
-		LegacyCharmVersion string `json:"charm-verion"`
-		Alias
-	}{
-		LegacyCharmVersion: as.CharmVersion,
-		Alias:              Alias(as),
-	})
 }
 
 // RemoteApplicationStatus holds status info about a remote application.
