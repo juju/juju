@@ -18,12 +18,12 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy cs:postgresql --series bionic
+	juju deploy postgresql --series focal
 	series=$(juju status --format=json | jq ".applications.postgresql.series")
 
 	destroy_model "test-deploy-specific-series"
 
-	echo "$series" | check "bionic"
+	echo "$series" | check "focal"
 }
 
 run_deploy_lxd_profile_charm() {
@@ -33,7 +33,8 @@ run_deploy_lxd_profile_charm() {
 
 	ensure "test-deploy-lxd-profile" "${file}"
 
-	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5
+	# TODO - upgrade the charm to support focal
+	juju deploy juju-qa-lxd-profile-without-devices --channel beta
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
 	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
@@ -48,7 +49,8 @@ run_deploy_lxd_profile_charm_container() {
 
 	ensure "test-deploy-lxd-profile-container" "${file}"
 
-	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic
+	# TODO - upgrade the charm to support focal
+	juju deploy juju-qa-lxd-profile-without-devices --channel beta --to lxd
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
@@ -64,7 +66,7 @@ run_deploy_local_lxd_profile_charm() {
 
 	ensure "test-deploy-local-lxd-profile" "${file}"
 
-	juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
+	juju deploy ./tests/suites/deploy/charms/lxd-profile
 	juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
 	juju add-relation lxd-profile-subordinate lxd-profile
 
@@ -108,10 +110,10 @@ run_deploy_lxd_to_machine() {
 
 	ensure "${model_name}" "${file}"
 
-	juju add-machine -n 1 --series=bionic
+	juju add-machine -n 1 --series=jammy
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to 0 --series=bionic
+	juju deploy "${charm}" --to 0
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
@@ -169,7 +171,7 @@ run_deploy_lxd_to_container() {
 	ensure "${model_name}" "${file}"
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to lxd --series=bionic
+	juju deploy "${charm}" --to lxd
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
