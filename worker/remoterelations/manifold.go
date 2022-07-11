@@ -31,7 +31,7 @@ type ManifoldConfig struct {
 	APICallerName string
 
 	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
-	NewRemoteRelationsFacade func(base.APICaller) (RemoteRelationsFacade, error)
+	NewRemoteRelationsFacade func(base.APICaller) RemoteRelationsFacade
 	NewWorker                func(Config) (worker.Worker, error)
 	Logger                   Logger
 }
@@ -73,14 +73,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
-	facade, err := config.NewRemoteRelationsFacade(apiConn)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	w, err := config.NewWorker(Config{
 		ModelUUID:                agent.CurrentConfig().Model().Id(),
-		RelationsFacade:          facade,
+		RelationsFacade:          config.NewRemoteRelationsFacade(apiConn),
 		NewRemoteModelFacadeFunc: remoteRelationsFacadeForModelFunc(config.NewControllerConnection),
 		Clock:                    clock.WallClock,
 		Logger:                   config.Logger,

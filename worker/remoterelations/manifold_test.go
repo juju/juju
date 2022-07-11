@@ -33,7 +33,7 @@ func (s *ManifoldConfigSuite) validConfig() remoterelations.ManifoldConfig {
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
 		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
-		NewRemoteRelationsFacade: func(base.APICaller) (remoterelations.RemoteRelationsFacade, error) { return nil, nil },
+		NewRemoteRelationsFacade: func(base.APICaller) remoterelations.RemoteRelationsFacade { return nil },
 		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
 		Logger:                   loggo.GetLogger("test"),
 	}

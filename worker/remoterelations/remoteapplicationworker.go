@@ -162,7 +162,11 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 			return errors.Trace(err)
 		}
-		defer func() { _ = w.remoteModelFacade.Close() }()
+		defer func() {
+			if err := w.remoteModelFacade.Close(); err != nil {
+				w.logger.Errorf("error closing remote-relations facade: %s", err)
+			}
+		}()
 
 		arg := params.OfferArg{
 			OfferUUID: w.offerUUID,
