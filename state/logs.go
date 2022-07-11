@@ -173,30 +173,25 @@ func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error 
 	// Get the collection from the logs DB.
 	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
 
+	// First try to create it.
+	logger.Infof("ensuring logs collection for %s, capped at %v MiB", modelUUID, size)
+	err := createCollection(logsColl, &mgo.CollectionInfo{
+		Capped:   true,
+		MaxBytes: size * humanize.MiByte,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	capped, maxSize, err := getCollectionCappedInfo(logsColl)
-	if errors.IsNotFound(err) {
-		// Create the collection as a capped collection.
-		logger.Infof("creating logs collection for %s, capped at %v MiB", modelUUID, size)
-		err := logsColl.Create(&mgo.CollectionInfo{
-			Capped:   true,
-			MaxBytes: size * humanize.MiByte,
-		})
-		if err != nil {
-			// There is a potential race happening by calling
-			// InitDbLogsForModel twice from libraries creating models. If the
-			// collection already exists, we expect that the first call of this
-			// method has the correct settings. Calling it again should return
-			// nil, as it's already been setup.
-			if mgoAlreadyExistsErr(err) {
-				return nil
-			}
-			return errors.Trace(err)
-		}
-	} else if capped {
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if capped {
 		if maxSize == size {
 			// The logs collection size matches, so nothing to do here.
 			logger.Tracef("logs collection for %s already capped at %v MiB", modelUUID, size)
-			return nil
 		} else {
 			logger.Infof("resizing logs collection for %s from %d to %v MiB", modelUUID, maxSize, size)
 			err := convertToCapped(logsColl, size)

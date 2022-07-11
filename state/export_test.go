@@ -1134,3 +1134,7 @@ var (
 func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
 	st.scheduleForceCleanup(kind, name, maxWait)
 }
+
+func GetCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
+	return getCollectionCappedInfo(coll)
+}
