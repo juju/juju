@@ -1,0 +1,21 @@
+Model        Controller        Cloud/Region         Version    SLA          Timestamp
+local-model  local-controller  localhost/localhost  3.0-beta1  unsupported  22:41:07+03:00
+
+App         Version  Status   Scale  Charm       Channel  Rev  Exposed  Message
+haproxy              unknown    0/1  haproxy     stable    66  no       
+mediawiki   1.19.14  unknown    0/1  mediawiki   stable    28  no       
+mysql       5.5.62   unknown    0/1  mysql       stable    58  no       
+postgresql  12.11    unknown    0/1  postgresql  stable   239  no       
+
+Unit          Workload  Agent  Machine  Public address  Ports     Message
+haproxy/0     unknown   lost   2        10.117.119.67   80/tcp    agent lost, see 'juju show-status-log haproxy/0'
+mediawiki/0   unknown   lost   3        10.117.119.101  80/tcp    agent lost, see 'juju show-status-log mediawiki/0'
+mysql/0       unknown   lost   1        10.117.119.31   3306/tcp  agent lost, see 'juju show-status-log mysql/0'
+postgresql/0  unknown   lost   0        10.117.119.126  5432/tcp  agent lost, see 'juju show-status-log postgresql/0'
+
+Machine  State  Address         Inst id        Series  AZ  Message
+0        down   10.117.119.126  juju-9ee80e-0  focal       Running
+1        down   10.117.119.31   juju-9ee80e-1  trusty      Running
+2        down   10.117.119.67   juju-9ee80e-2  xenial      Running
+3        down   10.117.119.101  juju-9ee80e-3  trusty      Running
+

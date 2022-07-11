@@ -6,11 +6,12 @@ package status
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/ansiterm"
 	"io"
 	"net"
 	"os"
 	"strings"
+
+	"github.com/juju/ansiterm"
 
 	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/collections/set"
@@ -129,12 +130,10 @@ type summaryFormatter struct {
 }
 
 func (f *summaryFormatter) delimitKeysWithTabs(ctx *ansiterm.Context, values ...string) {
-	splitted := make([]string, 0)
 	cCtx := output.EmphasisHighlight.BoldBrightMagenta
-
 	for i, v := range values {
 		if strings.Contains(v, ":") {
-			splitted = strings.Split(v, ":")
+			splitted := strings.Split(v, ":")
 			str := splitted[i]
 			ctx.Fprintf(f.tw, "%s", str)
 			cCtx.Fprintf(f.tw, "%s\t", ":")

@@ -108,13 +108,12 @@ func (c *runCommandBase) ensureAPI() (err error) {
 }
 
 func (c *runCommandBase) operationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
-	var noColor bool
-	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color {
-		noColor = true
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
 		return c.processOperationResults(ctx, results)
 	}
 
-	if noColor && c.color {
+	if c.color {
 		return c.processOperationResultsWithColor(ctx, results)
 	}
 
@@ -428,18 +427,15 @@ func (c *runCommandBase) progressf(ctx *cmd.Context, format string, params ...in
 }
 
 func (c *runCommandBase) printOutput(writer io.Writer, value interface{}) error {
-	var noColor bool
-
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		noColor = true
 		return printPlainOutput(writer, value)
 	}
 
-	if noColor && c.color {
+	if c.color {
 		return printColoredOutput(writer, value)
 	}
 
-	if isTerminal(writer) && !noColor {
+	if isTerminal(writer) && !c.noColor {
 		return printColoredOutput(writer, value)
 	}
 
@@ -451,18 +447,16 @@ func (c *runCommandBase) printOutput(writer io.Writer, value interface{}) error 
 }
 
 func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
-	var noColor bool
 
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		noColor = true
 		return cmd.FormatYaml(writer, value)
 	}
 
-	if noColor && c.color {
+	if c.color {
 		return output.FormatYamlWithColor(writer, value)
 	}
 
-	if isTerminal(writer) && !noColor {
+	if isTerminal(writer) && !c.noColor {
 		return output.FormatYamlWithColor(writer, value)
 	}
 
@@ -474,13 +468,12 @@ func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
 }
 
 func (c *runCommandBase) formatJson(writer io.Writer, value interface{}) error {
-	var noColor bool
+
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		noColor = true
 		return cmd.FormatJson(writer, value)
 	}
 
-	if noColor && c.color {
+	if c.color {
 		return output.FormatJsonWithColor(writer, value)
 	}
 

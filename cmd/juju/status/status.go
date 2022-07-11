@@ -5,13 +5,14 @@ package status
 
 import (
 	"fmt"
-	"github.com/juju/juju/cmd/output"
 	"io"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/juju/juju/cmd/output"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
@@ -438,7 +439,6 @@ func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
 	var noColor bool
 
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		noColor = true
 		return cmd.FormatYaml(writer, value)
 	}
 
@@ -460,7 +460,6 @@ func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
 func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error {
 	var noColor bool
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		noColor = true
 		return FormatOneline(writer, value)
 	}
 	// NO_COLOR="" and --color=true
@@ -482,7 +481,6 @@ func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error
 func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
 	var noColor bool
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		noColor = true
 		return cmd.FormatJson(writer, value)
 	}
 	// NO_COLOR="" and --color=true

@@ -6,13 +6,14 @@ package status
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/ansiterm"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/status"
 	"io"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/juju/ansiterm"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/status"
 
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
