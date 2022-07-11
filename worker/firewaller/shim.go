@@ -17,9 +17,8 @@ import (
 )
 
 // NewRemoteRelationsFacade creates a remote relations API facade.
-func NewRemoteRelationsFacade(apiCaller base.APICaller) (*remoterelations.Client, error) {
-	facade := remoterelations.NewClient(apiCaller)
-	return facade, nil
+func NewRemoteRelationsFacade(apiCaller base.APICaller) *remoterelations.Client {
+	return remoterelations.NewClient(apiCaller)
 }
 
 // NewFirewallerFacade creates a firewaller API facade.

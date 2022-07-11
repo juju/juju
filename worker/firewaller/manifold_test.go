@@ -84,7 +84,7 @@ func validConfig() firewaller.ManifoldConfig {
 		NewControllerConnection:      func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:          func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
 		NewFirewallerWorker:          func(firewaller.Config) (worker.Worker, error) { return nil, nil },
-		NewRemoteRelationsFacade:     func(base.APICaller) (*remoterelations.Client, error) { return nil, nil },
+		NewRemoteRelationsFacade:     func(base.APICaller) *remoterelations.Client { return nil },
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	}
 }
