@@ -12,10 +12,8 @@ import (
 	"strings"
 
 	"github.com/juju/ansiterm"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/status"
-
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/naturalsort"
 )
 
@@ -45,10 +43,11 @@ func FormatOnelineWithColor(writer io.Writer, value interface{}) error {
 		status := fmt.Sprintf(
 			"%s:%s, %s:%s",
 			colorVal(output.EmphasisHighlight.DefaultBold, "agent"),
-			colorStatus(u.JujuStatusInfo.Current),
+			colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.JujuStatusInfo.Current),
 			colorVal(output.EmphasisHighlight.DefaultBold, "workload"),
-			colorStatus(u.WorkloadStatusInfo.Current),
+			colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.WorkloadStatusInfo.Current),
 		)
+
 		fmt.Fprintf(out, format,
 			uName,
 			colorVal(output.InfoHighlight, u.PublicAddress),
@@ -111,10 +110,6 @@ func formatOnelineWithColor(writer io.Writer, value interface{}, printf onelineP
 	}
 
 	return nil
-}
-
-func colorStatus(stat status.Status) string {
-	return colorVal(output.StatusColor(stat), stat)
 }
 
 func colorPorts(ps []string) string {
@@ -231,11 +226,8 @@ func colorPorts(ps []string) string {
 //colorVal appends ansi color codes to the given value
 func colorVal(ctx *ansiterm.Context, val interface{}) string {
 	buff := &bytes.Buffer{}
-	coloredWriter := ansiterm.NewWriter(buff)
+	coloredWriter := output.Writer(buff)
 	coloredWriter.SetColorCapable(true)
-
-	ctx.Fprintf(coloredWriter, "%v", val)
-	str := buff.String()
-	buff.Reset()
-	return str
+	ctx.Fprint(coloredWriter, val)
+	return buff.String()
 }

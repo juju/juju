@@ -458,12 +458,11 @@ func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
 }
 
 func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error {
-	var noColor bool
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
 		return FormatOneline(writer, value)
 	}
 	// NO_COLOR="" and --color=true
-	if noColor && c.color {
+	if c.color {
 		return FormatOnelineWithColor(writer, value)
 	}
 
@@ -479,12 +478,11 @@ func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error
 }
 
 func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
-	var noColor bool
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
 		return cmd.FormatJson(writer, value)
 	}
 	// NO_COLOR="" and --color=true
-	if noColor && c.color {
+	if c.color {
 		return output.FormatJsonWithColor(writer, value)
 	}
 
@@ -500,7 +498,6 @@ func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
-
 	if c.noColor {
 		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
 			defer os.Unsetenv("NO_COLOR")
