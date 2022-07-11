@@ -10,8 +10,8 @@ run_network_health() {
 	juju deploy ubuntu ubuntu-jammy --series jammy
 
 	# Now the testing charm for each series.
-	juju deploy 'cs:~juju-qa/network-health' network-health-focal --series focal
-	juju deploy 'cs:~juju-qa/network-health' network-health-jammy --series jammy
+	juju deploy 'juju-qa-network-health' network-health-focal --series focal
+	juju deploy 'juju-qa-network-health' network-health-jammy --series jammy
 
 	juju add-relation network-health-focal ubuntu-focal
 	juju add-relation network-health-jammy ubuntu-jammy
