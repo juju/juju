@@ -211,11 +211,6 @@ func (*environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, e
 	return false, nil
 }
 
-// SSHAddresses filters the input addaddresses to those suitable for SSH use.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
-}
-
 // SupportsSpaceDiscovery returns whether the current environment
 // supports discovering spaces from the provider. The returned error
 // satisfies errors.IsNotSupported(), unless a general API failure occurs.
