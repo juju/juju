@@ -192,7 +192,6 @@ func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error 
 		if maxSize == size {
 			// The logs collection size matches, so nothing to do here.
 			logger.Tracef("logs collection for %s already capped at %v MiB", modelUUID, size)
-			return nil
 		} else {
 			logger.Infof("resizing logs collection for %s from %d to %v MiB", modelUUID, maxSize, size)
 			err := convertToCapped(logsColl, size)
