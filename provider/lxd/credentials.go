@@ -145,9 +145,13 @@ func (p environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 		logger.Debugf("unable to detect remote LXC credentials: %s", err)
 	}
 
-	localCertCredentials, err := p.detectLocalCredentials(certPEM, keyPEM)
-	if err != nil {
-		logger.Debugf("unable to detect local LXC credentials: %s", err)
+	// If the cloud is built-in, we can start a local server to
+	// finalise the credential over the LXD Unix docket.
+	var localCertCredentials *cloud.Credential
+	if cloudName == "" || lxdnames.IsDefaultCloud(cloudName) {
+		if localCertCredentials, err = p.detectLocalCredentials(certPEM, keyPEM); err != nil {
+			logger.Debugf("unable to detect local LXC credentials: %s", err)
+		}
 	}
 
 	authCredentials := make(map[string]cloud.Credential)
@@ -159,7 +163,7 @@ func (p environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 	}
 	if localCertCredentials != nil {
 		if cloudName == "" || lxdnames.IsDefaultCloud(cloudName) {
-			authCredentials["localhost"] = *localCertCredentials
+			authCredentials[lxdnames.DefaultCloud] = *localCertCredentials
 		}
 	}
 	return &cloud.CloudCredential{
@@ -355,14 +359,10 @@ func (p environProviderCredentials) finalizeCredential(
 		return nil, errors.NotValidf("missing or empty %q attribute", credAttrClientKey)
 	}
 
-	localHostAddr, err := getLocalHostAddress(ctx, p.serverFactory)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// If the end point is local, set up the local server and automate the local
-	// certificate credentials.
-	if localHostAddr == args.CloudEndpoint {
+	// If the cloud is built-in, the endpoint will be empty
+	// and we can start a local server to finalise the credential
+	// over the LXD Unix docket.
+	if args.CloudEndpoint == "" {
 		svr, err := p.serverFactory.LocalServer()
 		if err != nil {
 			return nil, errors.Trace(err)
