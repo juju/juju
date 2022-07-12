@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
@@ -1286,4 +1287,50 @@ func (w *SrvModelSummaryWatcher) translateMessages(messages []cache.ModelSummary
 		}
 	}
 	return result
+}
+
+type secretsRotationWatcher interface {
+	state.Watcher
+	Changes() secretsmanager.SecretRotationChannel
+}
+
+type srvSecretRotationWatcher struct {
+	watcherCommon
+	st      *state.State
+	watcher secretsRotationWatcher
+}
+
+func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	st := context.State()
+
+	if !isAgent(auth) {
+		return nil, apiservererrors.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(secretsRotationWatcher)
+	if !ok {
+		return nil, apiservererrors.ErrUnknownWatcher
+	}
+	return &srvSecretRotationWatcher{
+		watcherCommon: newWatcherCommon(context),
+		st:            st,
+		watcher:       watcher,
+	}, nil
+}
+
+// Next returns when a change has occurred to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvSecretRotationWatcher.
+func (w *srvSecretRotationWatcher) Next() (secretsmanager.SecretRotationWatchResult, error) {
+	if _, ok := <-w.watcher.Changes(); ok {
+		return secretsmanager.SecretRotationWatchResult{}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = apiservererrors.ErrStoppedWatcher
+	}
+	return secretsmanager.SecretRotationWatchResult{}, err
 }
