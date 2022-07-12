@@ -178,6 +178,10 @@ type RequestFinalizeCredential interface {
 // to provide a means of interacting with the user when finalizing credentials.
 type FinalizeCredentialContext interface {
 	GetStderr() io.Writer
+
+	// Verbosef will write the formatted string to Stderr if the
+	// verbose flag is true, and to the logger if not.
+	Verbosef(string, ...interface{})
 }
 
 // FinalizeCredentialParams contains the parameters for
