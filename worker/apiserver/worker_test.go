@@ -45,6 +45,7 @@ type workerFixture struct {
 	multiwatcherFactory  multiwatcher.Factory
 	queue                *queue.OpQueue
 	sysLogger            syslogger.SysLogger
+	charmhubHTTPClient   *http.Client
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -71,6 +72,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
 	s.sysLogger = &mockSysLogger{}
+	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -90,6 +92,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		MetricsCollector:                  s.metricsCollector,
 		RaftOpQueue:                       s.queue,
 		SysLogger:                         s.sysLogger,
+		CharmhubHTTPClient:                s.charmhubHTTPClient,
 	}
 }
 

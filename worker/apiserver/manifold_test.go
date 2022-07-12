@@ -60,6 +60,7 @@ type ManifoldSuite struct {
 	upgradeGate          stubGateWaiter
 	queue                *queue.OpQueue
 	sysLogger            syslogger.SysLogger
+	charmhubHTTPClient   *http.Client
 
 	stub testing.Stub
 }
@@ -86,6 +87,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.queue = queue.NewOpQueue(testclock.NewClock(time.Now()))
 	s.sysLogger = &mockSysLogger{}
+	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -102,6 +104,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LeaseManagerName:                  "lease-manager",
 		RaftTransportName:                 "raft-transport",
 		SyslogName:                        "syslog",
+		CharmhubHTTPClientName:            "charmhub-http-client",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -114,18 +117,19 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":               s.agent,
-		"authenticator":       s.authenticator,
-		"clock":               s.clock,
-		"mux":                 s.mux,
-		"modelcache":          s.controller,
-		"multiwatcher":        s.multiwatcherFactory,
-		"state":               &s.state,
-		"upgrade":             &s.upgradeGate,
-		"auditconfig-updater": s.auditConfig.get,
-		"lease-manager":       s.leaseManager,
-		"raft-transport":      nil,
-		"syslog":              s.sysLogger,
+		"agent":                s.agent,
+		"authenticator":        s.authenticator,
+		"clock":                s.clock,
+		"mux":                  s.mux,
+		"modelcache":           s.controller,
+		"multiwatcher":         s.multiwatcherFactory,
+		"state":                &s.state,
+		"upgrade":              &s.upgradeGate,
+		"auditconfig-updater":  s.auditConfig.get,
+		"lease-manager":        s.leaseManager,
+		"raft-transport":       nil,
+		"syslog":               s.sysLogger,
+		"charmhub-http-client": s.charmhubHTTPClient,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -156,7 +160,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"raft-transport", "syslog",
+	"raft-transport", "syslog", "charmhub-http-client",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -212,8 +216,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.EmbeddedCommand, gc.NotNil)
 	config.EmbeddedCommand = nil
 
-	config.CharmhubHTTPClient = nil // TODO(benhoyt): remove once it's properly dependency-injected
-
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
 		AgentConfig:         &s.agent.conf,
 		Authenticator:       s.authenticator,
@@ -227,6 +229,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Hub:                 &s.hub,
 		RaftOpQueue:         s.queue,
 		SysLogger:           s.sysLogger,
+		CharmhubHTTPClient:  s.charmhubHTTPClient,
 	})
 }
 
