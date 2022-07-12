@@ -65,7 +65,7 @@ require (
 	github.com/juju/jsonschema-gen v0.0.0-20220207021829-b1697c753155
 	github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
-	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
+	github.com/juju/mgo/v2 v2.0.0-20220712085729-cbd51d65d65a
 	github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c
 	github.com/juju/names/v4 v4.0.0-20220518060443-d77cb46f6093
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
@@ -203,7 +203,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
-	github.com/xdg-go/stringprep v1.0.2 // indirect
+	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
