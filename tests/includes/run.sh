@@ -6,7 +6,7 @@ run() {
 		# shellcheck disable=SC2143
 		if [[ ! "$(echo "${RUN_SUBTEST}" | grep -E "^${CMD}$")" ]]; then
 			echo "SKIPPING: ${RUN_SUBTEST} ${CMD}"
-			exit 0
+			return 0
 		fi
 	fi
 
