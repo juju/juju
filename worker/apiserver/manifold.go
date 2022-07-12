@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
@@ -49,6 +47,7 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	RaftTransportName      string
 	SyslogName             string
+	CharmhubHTTPClientName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -104,6 +103,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.SyslogName == "" {
 		return errors.NotValidf("empty SyslogName")
 	}
+	if config.CharmhubHTTPClientName == "" {
+		return errors.NotValidf("nil CharmhubHTTPClientName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -140,6 +142,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 			config.RaftTransportName,
 			config.SyslogName,
+			config.CharmhubHTTPClientName,
 		},
 		Start: config.start,
 	}
@@ -213,6 +216,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var charmhubHTTPClient HTTPClient
+	if err := context.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -230,9 +238,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// TODO(benhoyt): pass this in properly via dependency engine
-	charmhubHTTPClient := charmhub.DefaultHTTPTransport(nullLogger{})
 
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
@@ -268,17 +273,4 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		// created we can safely register the metrics again.
 		config.PrometheusRegisterer.Unregister(metricsCollector)
 	}), nil
-}
-
-// TODO(benhoyt): remove this
-type nullLogger struct{}
-
-func (nullLogger) IsTraceEnabled() bool { return false }
-
-func (nullLogger) Errorf(string, ...interface{}) {}
-func (nullLogger) Debugf(string, ...interface{}) {}
-func (nullLogger) Tracef(string, ...interface{}) {}
-
-func (nullLogger) ChildWithLabels(name string, labels ...string) loggo.Logger {
-	return loggo.GetLogger("apiserver.httpclient").ChildWithLabels(name, labels...)
 }

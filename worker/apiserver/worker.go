@@ -117,6 +117,9 @@ func (config Config) Validate() error {
 	if config.RaftOpQueue == nil {
 		return errors.NotValidf("nil RaftOpQueue")
 	}
+	if config.CharmhubHTTPClient == nil {
+		return errors.NotValidf("nil CharmhubHTTPClient")
+	}
 	return nil
 }
 
