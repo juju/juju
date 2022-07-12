@@ -538,8 +538,8 @@ github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible h1:7L
 github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible/go.mod h1:YQBneJkXlAAye6yHFYH8CabVID+0Oq2by8DDKGj5OIU=
 github.com/juju/mempool v0.0.0-20160205104927-24974d6c264f/go.mod h1:+7K7MqWi5xWI+s1LyB2g0Di71jZo27y+XOlmhNtV1Y0=
 github.com/juju/mgo/v2 v2.0.0-20210302023703-70d5d206e208/go.mod h1:0OChplkvPTZ174D2FYZXg4IB9hbEwyHkD+zT+/eK+Fg=
-github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090 h1:zX5GoH3Jp8k1EjUFkApu/YZAYEn0PYQfg/U6IDyNyYs=
-github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090/go.mod h1:N614SE0a4e+ih2rg96Vi2PeC3cTpUOWgCTv3Cgk974c=
+github.com/juju/mgo/v2 v2.0.0-20220712085729-cbd51d65d65a h1:uVsREhlekoeVTCIZRqxtN3bTQfwpKoo/6ieFNNYI35g=
+github.com/juju/mgo/v2 v2.0.0-20220712085729-cbd51d65d65a/go.mod h1:N614SE0a4e+ih2rg96Vi2PeC3cTpUOWgCTv3Cgk974c=
 github.com/juju/mgomonitor v0.0.0-20181029151116-52206bb0cd31/go.mod h1:m6E+J+I+cE+6rcaVxSI4HwGLIEOCSOBMYedt3Sewh+U=
 github.com/juju/mgotest v1.0.1/go.mod h1:vTaDufYul+Ps8D7bgseHjq87X8eu0ivlKLp9mVc/Bfc=
 github.com/juju/mgotest v1.0.2/go.mod h1:04v1Xi2RiTO3h77YWtaXB2LAaGRSSi+Vl4hOV1coD0k=
@@ -872,8 +872,9 @@ github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74/go.mod h1:DD4vA1
 github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45 h1:zpQBW+l4uPQTfTOxedN5GEcSONhabbCf3X+5+P/H4Jk=
 github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45/go.mod h1:zbnFoBQ9GIjs2RVETy8CNEpb+L+Lwkjs3XZUL0B3/m0=
 github.com/vmware/vmw-guestinfo v0.0.0-20170707015358-25eff159a728/go.mod h1:x9oS4Wk2s2u4tS29nEaDLdzvuHdB19CvSGJjPgkZJNk=
-github.com/xdg-go/stringprep v1.0.2 h1:6iq84/ryjjeRmMJwxutI51F2GIPlP5BfTvXHeYjyhBc=
 github.com/xdg-go/stringprep v1.0.2/go.mod h1:8F9zXuvzgwmyT5DUm4GUfZGDdT3W+LCvS6+da4O5kxM=
+github.com/xdg-go/stringprep v1.0.3 h1:kdwGpVNwPFtjs98xCGkHjQtGKh86rDcRZN17QEMCOIs=
+github.com/xdg-go/stringprep v1.0.3/go.mod h1:W3f5j4i+9rC0kuIEJL0ky1VpHXQU3ocBgklLGvcBnW8=
 github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb h1:zGWFAtiMcyryUHoUjUJX0/lt1H2+i2Ka2n+D3DImSNo=
 github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
 github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=
