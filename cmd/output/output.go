@@ -137,6 +137,11 @@ func (w *Wrapper) PrintStatus(status status.Status) {
 	w.PrintColor(statusColors[status], status)
 }
 
+// StatusColor returns the status's standard color
+func StatusColor(status status.Status) *ansiterm.Context {
+	return statusColors[status]
+}
+
 // CurrentHighlight is the color used to show the current
 // controller, user or model in tabular
 var CurrentHighlight = ansiterm.Foreground(ansiterm.Green)
