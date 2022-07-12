@@ -11,6 +11,7 @@ type Logger interface {
 	Infof(format string, values ...interface{})
 	Debugf(format string, values ...interface{})
 	Tracef(format string, values ...interface{})
+	Errorf(format string, values ...interface{})
 	IsTraceEnabled() bool
 }
 
@@ -21,4 +22,5 @@ func (noOpLogger) Warningf(format string, values ...interface{})  {}
 func (noOpLogger) Infof(format string, values ...interface{})     {}
 func (noOpLogger) Debugf(format string, values ...interface{})    {}
 func (noOpLogger) Tracef(format string, values ...interface{})    {}
+func (noOpLogger) Errorf(format string, values ...interface{})    {}
 func (noOpLogger) IsTraceEnabled() bool                           { return false }

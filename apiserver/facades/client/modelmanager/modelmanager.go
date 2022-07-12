@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v3"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -1090,7 +1090,7 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if errors.IsNotFound(err) {
 				// Conflicts with prior check, must be inconsistent state.
-				err = txn.ErrExcessiveContention
+				err = jujutxn.ErrExcessiveContention
 			}
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v3"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -801,7 +801,7 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 		}
 	}
 
-	bumpTxnRevno := txn.TestHook{Before: addRelation, After: rmRelations}
+	bumpTxnRevno := jujutxn.TestHook{Before: addRelation, After: rmRelations}
 	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
 
 	err = s.mysql.Destroy()

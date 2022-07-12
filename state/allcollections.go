@@ -654,7 +654,7 @@ const (
 	linkLayerDevicesC          = "linklayerdevices"
 	ipAddressesC               = "ip.addresses"
 	toolsmetadataC             = "toolsmetadata"
-	txnLogC                    = "txns.log"
+	txnLogC                    = "sstxns.log"
 	txnsC                      = "txns"
 	unitsC                     = "units"
 	unitStatesC                = "unitstates"

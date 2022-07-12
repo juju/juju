@@ -74,8 +74,10 @@ func (s *imageStorage) txnRunner(session *mgo.Session) jujutxn.Runner {
 // Override for testing.
 var txnRunner = func(db *mgo.Database) jujutxn.Runner {
 	return jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database:               db,
-		ServerSideTransactions: true,
+		Database:                  db,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
 	})
 }
 

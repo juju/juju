@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v3"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -69,7 +69,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeDead,
 }, {
-	err:        txn.ErrExcessiveContention,
+	err:        jujutxn.ErrExcessiveContention,
 	code:       params.CodeExcessiveContention,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeExcessiveContention,

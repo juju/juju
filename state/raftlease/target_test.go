@@ -536,7 +536,10 @@ func NewMongo(database *mgo.Database) *Mongo {
 	return &Mongo{
 		database: database,
 		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
-			Database: database,
+			Database:                  database,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "sstxns.log",
+			ServerSideTransactions:    true,
 		}),
 	}
 }

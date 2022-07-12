@@ -22,7 +22,7 @@ import (
 	mgotxn "github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v3"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
@@ -4272,7 +4272,7 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
 	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
-	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
+	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion, "released")
 }

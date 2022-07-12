@@ -146,7 +146,8 @@ func main() {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  session.DB(args.Database),
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "txns.log",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
 		Clock:                     clock.WallClock,
 	})
 	txnOps := make([]txn.Op, len(ops))

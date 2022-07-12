@@ -135,6 +135,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Transaction stuff.
 		"txns",
 		"txns.log",
+		"sstxns.log",
 
 		// We don't import any of the migration collections.
 		migrationsC,

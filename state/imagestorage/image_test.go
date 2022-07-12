@@ -16,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v3"
 	jujutxn "github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"
 	gc "gopkg.in/check.v1"
@@ -42,7 +41,12 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	s.IsolatedMgoSuite.SetUpTest(c)
 	s.storage = imagestorage.NewStorage(s.Session, "my-uuid")
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
-	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
+	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  s.metadataCollection.Database,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
+	})
 	s.patchTransactionRunner()
 }
 
@@ -54,7 +58,7 @@ func (s *ImageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ImageSuite) patchTransactionRunner() {
-	s.PatchValue(imagestorage.TxnRunner, func(db *mgo.Database) txn.Runner {
+	s.PatchValue(imagestorage.TxnRunner, func(db *mgo.Database) jujutxn.Runner {
 		return s.txnRunner
 	})
 }
@@ -202,10 +206,10 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 }
 
 type errorTransactionRunner struct {
-	txn.Runner
+	jujutxn.Runner
 }
 
-func (errorTransactionRunner) Run(transactions txn.TransactionSource) error {
+func (errorTransactionRunner) Run(transactions jujutxn.TransactionSource) error {
 	return errors.New("Run fails")
 }
 

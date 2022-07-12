@@ -385,11 +385,13 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			}
 		}
 		params := jujutxn.RunnerParams{
-			Database:               raw,
-			RunTransactionObserver: observer,
-			Clock:                  db.clock,
-			ServerSideTransactions: true,
-			MaxRetryAttempts:       40,
+			Database:                  raw,
+			RunTransactionObserver:    observer,
+			Clock:                     db.clock,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "sstxns.log",
+			ServerSideTransactions:    true,
+			MaxRetryAttempts:          40,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

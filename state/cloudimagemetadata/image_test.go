@@ -12,8 +12,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v3"
-	txntesting "github.com/juju/txn/v3/testing"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
@@ -635,13 +634,13 @@ func (s *cloudImageMetadataSuite) assertNoMetadata(c *gc.C) {
 
 type TestMongo struct {
 	database *mgo.Database
-	runner   txn.Runner
+	runner   jujutxn.Runner
 }
 
 func NewTestMongo(database *mgo.Database) *TestMongo {
 	return &TestMongo{
 		database: database,
-		runner: txn.NewRunner(txn.RunnerParams{
+		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
 			Database: database,
 		}),
 	}
@@ -651,6 +650,6 @@ func (m *TestMongo) GetCollection(name string) (mongo.Collection, func()) {
 	return mongo.CollectionFromName(m.database, name)
 }
 
-func (m *TestMongo) RunTransaction(getTxn txn.TransactionSource) error {
+func (m *TestMongo) RunTransaction(getTxn jujutxn.TransactionSource) error {
 	return m.runner.Run(getTxn)
 }
