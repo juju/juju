@@ -280,19 +280,3 @@ func (s *FacadeSuite) TestProxyError(c *gc.C) {
 	_, err := facade.Proxy()
 	c.Check(err, gc.ErrorMatches, "boom")
 }
-
-func (s *FacadeSuite) TestLeader(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SSHClient")
-		c.Check(request, gc.Equals, "Leader")
-		c.Assert(arg, gc.Equals, params.Entity{Tag: names.NewApplicationTag("ubuntu").String()})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
-		*(result.(*params.StringResult)) = params.StringResult{Result: "ubuntu/42"}
-		return nil
-	})
-
-	facade := sshclient.NewFacade(apiCaller)
-	obtainedUnit, err := facade.Leader("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedUnit, gc.Equals, "ubuntu/42")
-}

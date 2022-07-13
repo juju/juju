@@ -217,9 +217,11 @@ type ModelCommand interface {
 type sshProvider interface {
 	initRun(ModelCommand) error
 	cleanupRun()
+	setLeaderAPI(leaderAPI LeaderAPI)
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
 	maybePopulateTargetViaField(*resolvedTarget, func([]string) (*params.FullStatus, error)) error
+	maybeResolveLeaderUnit(string) (string, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	copy(Context) error
 
@@ -307,24 +309,29 @@ func (b *autoBoolValue) IsBoolFlag() bool { return true }
 // application name.
 type LeaderAPI interface {
 	Leader(string) (string, error)
+	Close() error
 }
 
-type leaderAPIGetterFunc func() (LeaderAPI, error)
+type leaderResolver struct {
+	leaderAPI      LeaderAPI
+	resolvedLeader string
+}
 
-func maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, target string) (string, error) {
+func (c *leaderResolver) maybeResolveLeaderUnit(target string) (string, error) {
 	if !strings.HasSuffix(target, "/leader") {
 		return target, nil
+	}
+	if c.resolvedLeader != "" {
+		return c.resolvedLeader, nil
 	}
 
 	app := strings.Split(target, "/")[0]
 
-	lapi, err := leaderAPIGetter()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	// Do not call lapi.Close() here, it's used again
+	// Do not call leaderAPI.Close() here, it's used again
 	// upstream from here.
-	return lapi.Leader(app)
+	var err error
+	c.resolvedLeader, err = c.leaderAPI.Leader(app)
+	return c.resolvedLeader, errors.Trace(err)
 }
 
 func isTerminal(f interface{}) bool {

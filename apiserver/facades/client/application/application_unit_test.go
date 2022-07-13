@@ -63,7 +63,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv13
+	api          *application.APIv14
 	deployParams map[string]application.DeployApplicationParams
 }
 
@@ -95,7 +95,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv13{api}
+	s.api = &application.APIv14{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -2334,4 +2334,11 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 		Force:           true,
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to succeed when --force is set"))
+}
+
+func (s *ApplicationSuite) TestLeader(c *gc.C) {
+	result, err := s.api.Leader(params.Entity{Tag: names.NewApplicationTag("postgresql").String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "postgresql/0")
 }
