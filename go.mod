@@ -52,7 +52,7 @@ require (
 	github.com/juju/charmrepo/v7 v7.0.0
 	github.com/juju/clock v1.0.0
 	github.com/juju/cmd/v3 v3.0.0
-	github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a
+	github.com/juju/collections v1.0.0
 	github.com/juju/description/v3 v3.0.1
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
@@ -60,7 +60,7 @@ require (
 	github.com/juju/gojsonschema v1.0.0
 	github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471
 	github.com/juju/http/v2 v2.0.0
-	github.com/juju/idmclient/v2 v2.0.0-20220207024613-525e1ac3a890
+	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
@@ -70,23 +70,23 @@ require (
 	github.com/juju/names/v4 v4.0.0
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.3
-	github.com/juju/packaging/v2 v2.0.0-20220207023655-2ed4de2dc5b4
+	github.com/juju/packaging/v2 v2.0.0
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
-	github.com/juju/pubsub/v2 v2.0.0-20220207005728-39d68caef4a7
-	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441
-	github.com/juju/replicaset/v2 v2.0.1-0.20220330042111-ec94259ca14f
+	github.com/juju/pubsub/v2 v2.0.0
+	github.com/juju/ratelimit v1.0.2
+	github.com/juju/replicaset/v2 v2.0.1
 	github.com/juju/retry v1.0.0
 	github.com/juju/rfc/v2 v2.0.0
 	github.com/juju/romulus v1.0.0
 	github.com/juju/rpcreflect v1.0.0
-	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
-	github.com/juju/terms-client/v2 v2.0.0-20220207005045-25aa57bf93cd
+	github.com/juju/schema v1.0.1
+	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.0.0
-	github.com/juju/txn/v2 v2.0.0-20220204100656-93c9d8a9b89f
+	github.com/juju/txn/v2 v2.0.0
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
-	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
-	github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935
+	github.com/juju/utils/v3 v3.0.0
+	github.com/juju/version/v2 v2.0.0
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
