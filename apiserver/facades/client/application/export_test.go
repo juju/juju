@@ -24,7 +24,7 @@ func GetModel(m *state.Model) Model {
 	return modelShim{m}
 }
 
-func SetModelType(api *APIv13, modelType state.ModelType) {
+func SetModelType(api *APIv14, modelType state.ModelType) {
 	api.modelType = modelType
 }
 

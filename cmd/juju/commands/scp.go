@@ -158,7 +158,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 	} else {
 		c.provider = &c.sshMachine
 	}
-
+	c.provider.setModelType(c.modelType)
 	c.provider.setArgs(args)
 	c.provider.setHostChecker(c.hostChecker)
 	c.provider.setRetryStrategy(c.retryStrategy)

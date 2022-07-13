@@ -195,6 +195,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 	} else {
 		c.provider = &c.sshMachine
 	}
+	c.provider.setModelType(c.modelType)
 	c.provider.setTarget(args[0])
 	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
@@ -218,8 +219,12 @@ type sshProvider interface {
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
 	maybePopulateTargetViaField(*resolvedTarget, func([]string) (*params.FullStatus, error)) error
+	maybeResolveLeaderUnit(leaderAPIGetterFunc, statusAPIGetterFunc, string) (string, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	copy(Context) error
+
+	getModelType() model.ModelType
+	setModelType(modelType model.ModelType)
 
 	getTarget() string
 	setTarget(target string)
@@ -308,32 +313,39 @@ type StatusAPI interface {
 }
 
 type statusAPIGetterFunc func() (StatusAPI, error)
+type leaderAPIGetterFunc func() (LeaderAPI, bool, error)
 
-// LeaderAPI is implemented by types that can query for a Leader based on
-// application name.
 type LeaderAPI interface {
-	BestAPIVersion() int
 	Leader(string) (string, error)
+	BestAPIVersion() int
+	Close() error
 }
 
-type leaderAPIGetterFunc func() (LeaderAPI, error)
+type leaderResolver struct {
+	resolvedLeader string
+}
 
-func maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, statusAPIGetter statusAPIGetterFunc, target string) (string, error) {
+func (c *leaderResolver) maybeResolveLeaderUnit(leaderAPIGetter leaderAPIGetterFunc, statusAPIGetter statusAPIGetterFunc, target string) (resolved string, _ error) {
 	if !strings.HasSuffix(target, "/leader") {
 		return target, nil
 	}
+	if c.resolvedLeader != "" {
+		return c.resolvedLeader, nil
+	}
+
+	defer func() {
+		c.resolvedLeader = resolved
+	}()
 
 	app := strings.Split(target, "/")[0]
 
-	lapi, err := leaderAPIGetter()
+	leaderAPI, useLeaderAPI, err := leaderAPIGetter()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// Do not call lapi.Close() here, it's used again
-	// upstream from here.
-	if lapi.BestAPIVersion() > 2 {
-		// Leader() is part of facade version 3.
-		return lapi.Leader(app)
+	// Do not call leaderAPI.Close() here, it's closed upstream from here.
+	if useLeaderAPI {
+		return leaderAPI.Leader(app)
 	}
 
 	sapi, err := statusAPIGetter()

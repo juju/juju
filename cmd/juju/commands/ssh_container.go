@@ -24,6 +24,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/model"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -33,6 +34,7 @@ import (
 // sshContainer implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand for CAAS model.
 type sshContainer struct {
+	leaderResolver
 	// remote indicates if it should target to the operator or workload pod.
 	remote    bool
 	target    string
@@ -48,7 +50,10 @@ type sshContainer struct {
 	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
 	statusAPIGetter    statusAPIGetterFunc
-	leaderAPIGetter    leaderAPIGetterFunc
+	// TODO(juju3) - remove
+	modelType       model.ModelType
+	sshClient       *sshclient.Facade
+	leaderAPIGetter leaderAPIGetterFunc
 }
 
 // CloudCredentialAPI defines cloud credential related APIs.
@@ -61,6 +66,8 @@ type CloudCredentialAPI interface {
 
 // ApplicationAPI defines application related APIs.
 type ApplicationAPI interface {
+	Leader(string) (string, error)
+	BestAPIVersion() int
 	Close() error
 	UnitsInfo(units []names.UnitTag) ([]application.UnitInfo, error)
 }
@@ -106,6 +113,14 @@ func (c *sshContainer) setArgs(args []string) {
 
 func (c *sshContainer) setRetryStrategy(_ retry.CallArgs) {}
 
+func (c *sshContainer) getModelType() model.ModelType {
+	return c.modelType
+}
+
+func (c *sshContainer) setModelType(modelType model.ModelType) {
+	c.modelType = modelType
+}
+
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.
 func (c *sshContainer) initRun(mc ModelCommand) (err error) {
@@ -142,8 +157,15 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		}
 		c.applicationAPI = application.NewClient(root)
 		if c.leaderAPIGetter == nil {
-			c.leaderAPIGetter = func() (LeaderAPI, error) {
-				return sshclient.NewFacade(root), nil
+			c.leaderAPIGetter = func() (LeaderAPI, bool, error) {
+				if c.applicationAPI.BestAPIVersion() > 13 {
+					return c.applicationAPI, true, nil
+				}
+				c.sshClient = sshclient.NewFacade(root)
+				if c.sshClient.BestAPIVersion() > 2 && c.modelType != model.CAAS {
+					return c.sshClient, true, nil
+				}
+				return nil, false, nil
 			}
 		}
 	}
@@ -189,6 +211,10 @@ func (c *sshContainer) cleanupRun() {
 		_ = c.charmsAPI.Close()
 		c.charmsAPI = nil
 	}
+	if c.sshClient != nil {
+		_ = c.sshClient.Close()
+		c.sshClient = nil
+	}
 }
 
 const charmContainerName = "charm"
@@ -204,7 +230,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	}
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, c.statusAPIGetter, target)
+	resolvedTargetName, err := c.maybeResolveLeaderUnit(c.leaderAPIGetter, c.statusAPIGetter, target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

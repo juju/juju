@@ -1992,3 +1992,19 @@ func (s *applicationSuite) TestUnexposeVersionChecks(c *gc.C) {
 		}
 	}
 }
+
+func (s *applicationSuite) TestLeader(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Application")
+		c.Check(request, gc.Equals, "Leader")
+		c.Assert(arg, gc.Equals, params.Entity{Tag: names.NewApplicationTag("ubuntu").String()})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+		*(result.(*params.StringResult)) = params.StringResult{Result: "ubuntu/42"}
+		return nil
+	})
+
+	facade := application.NewClient(apiCaller)
+	obtainedUnit, err := facade.Leader("ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedUnit, gc.Equals, "ubuntu/42")
+}
