@@ -1933,6 +1933,32 @@ func (st *State) AllApplications() (applications []*Application, err error) {
 	return applications, nil
 }
 
+// InferActiveRelation returns the relation corresponding to the supplied
+// application or endpoint name(s), assuming such a relation exists and is unique.
+// There must be 1 or 2 supplied names, of the form <application>[:<relation>].
+func (st *State) InferActiveRelation(names ...string) (*Relation, error) {
+	candidates, err := matchingRelations(st, names...)
+	if err != nil {
+		return nil, err
+	}
+
+	relationQuery := strings.Join(names, " ")
+	if len(candidates) == 0 {
+		return nil, errors.NotFoundf("relation matching %q", relationQuery)
+	}
+	if len(candidates) == 1 {
+		return candidates[0], nil
+	}
+
+	keys := make([]string, len(candidates))
+	for i, relation := range candidates {
+		keys[i] = fmt.Sprintf("%q", relation.String())
+	}
+	return nil, errors.Errorf("ambiguous relation: %q could refer to %s",
+		relationQuery, strings.Join(keys, "; "),
+	)
+}
+
 // InferEndpoints returns the endpoints corresponding to the supplied names.
 // There must be 1 or 2 supplied names, of the form <application>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
@@ -1942,6 +1968,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
 	switch len(names) {
+	// Implcitly assume this is a peer relationship, as they have only one endpoint
 	case 1:
 		eps, err := st.endpoints(names[0], isPeer)
 		if err != nil {
@@ -1950,6 +1977,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		for _, ep := range eps {
 			candidates = append(candidates, []Endpoint{ep})
 		}
+	// All other relationships are between two endpoints
 	case 2:
 		eps1, err := st.endpoints(names[0], notPeer)
 		if err != nil {
@@ -1973,13 +2001,13 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	default:
 		return nil, errors.Errorf("cannot relate %d endpoints", len(names))
 	}
-	// If there's ambiguity, try discarding implicit relations.
 	switch len(candidates) {
 	case 0:
 		return nil, errors.Errorf("no relations found")
 	case 1:
 		return candidates[0], nil
 	}
+	// If there's ambiguity, try discarding implicit relations.
 	var filtered [][]Endpoint
 outer:
 	for _, cand := range candidates {
@@ -2031,6 +2059,16 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 	return subordinateCount >= 1, nil
 }
 
+func splitEndpointName(name string) (string, string, error) {
+	if i := strings.Index(name, ":"); i == -1 {
+		return name, "", nil
+	} else if i != 0 && i != len(name)-1 {
+		return name[:i], name[i+1:], nil
+	} else {
+		return "", "", errors.Errorf("invalid endpoint %q", name)
+	}
+}
+
 func applicationByName(st *State, name string) (ApplicationEntity, error) {
 	app, err := st.Application(name)
 	if err == nil {
@@ -2053,14 +2091,9 @@ func applicationByName(st *State, name string) (ApplicationEntity, error) {
 // supplied endpoint name, and which cause the filter param to
 // return true.
 func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
-	var appName, relName string
-	if i := strings.Index(name, ":"); i == -1 {
-		appName = name
-	} else if i != 0 && i != len(name)-1 {
-		appName = name[:i]
-		relName = name[i+1:]
-	} else {
-		return nil, errors.Errorf("invalid endpoint %q", name)
+	appName, relName, err := splitEndpointName(name)
+	if err != nil {
+		return nil, err
 	}
 	app, err := applicationByName(st, appName)
 	if err != nil {
