@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
@@ -39,10 +38,11 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
-	charmInfoAPI *charmscommon.CharmInfoAPI
-	authorizer   facade.Authorizer
-	backendState charmsinterfaces.BackendState
-	backendModel charmsinterfaces.BackendModel
+	charmInfoAPI       *charmscommon.CharmInfoAPI
+	authorizer         facade.Authorizer
+	backendState       charmsinterfaces.BackendState
+	backendModel       charmsinterfaces.BackendModel
+	charmhubHTTPClient facade.HTTPClient
 
 	tag             names.ModelTag
 	requestRecorder facade.RequestRecorder
@@ -299,14 +299,12 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
-
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:         logger,
-		Transport:      httpTransport(logger),
-		StorageFactory: a.newStorage,
-		StateBackend:   a.backendState,
-		ModelBackend:   a.backendModel,
+		Logger:            logger,
+		CharmhubTransport: a.charmhubHTTPClient,
+		StorageFactory:    a.newStorage,
+		StateBackend:      a.backendState,
+		ModelBackend:      a.backendModel,
 	})
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
@@ -526,10 +524,9 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 	}
 	a.mu.Unlock()
 
-	httpTransport := charmhub.RequestHTTPTransport(a.requestRecorder, charmhub.DefaultRetryPolicy())
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
 		Logger:            logger,
-		CharmhubTransport: httpTransport(logger),
+		CharmhubTransport: a.charmhubHTTPClient,
 		StateBackend:      a.backendState,
 		ModelBackend:      a.backendModel,
 	})

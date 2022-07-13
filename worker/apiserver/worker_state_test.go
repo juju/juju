@@ -120,5 +120,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		MetricsCollector:    s.metricsCollector,
 		RaftOpQueue:         s.queue,
 		SysLogger:           s.sysLogger,
+		CharmhubHTTPClient:  s.charmhubHTTPClient,
 	})
 }

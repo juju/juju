@@ -107,8 +107,9 @@ func NewFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
 	}
 
 	options := []charmhub.Option{
-		// TODO (stickupkid): Get the http transport from the facade context
-		charmhub.WithHTTPTransport(charmhub.DefaultHTTPTransport),
+		charmhub.WithHTTPTransport(func(l charmhub.Logger) charmhub.Transport {
+			return ctx.HTTPClient(facade.CharmhubHTTPClient)
+		}),
 	}
 
 	var chCfg charmhub.Config

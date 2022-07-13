@@ -56,6 +56,11 @@ type Config struct {
 	MetricsCollector                  *apiserver.Collector
 	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	RaftOpQueue                       Queue
+	CharmhubHTTPClient                HTTPClient
+}
+
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
 }
 
 // NewServerFunc is the type of function that will be used
@@ -111,6 +116,9 @@ func (config Config) Validate() error {
 	}
 	if config.RaftOpQueue == nil {
 		return errors.NotValidf("nil RaftOpQueue")
+	}
+	if config.CharmhubHTTPClient == nil {
+		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
 	return nil
 }
@@ -170,6 +178,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		RaftOpQueue:                   config.RaftOpQueue,
 		SysLogger:                     config.SysLogger,
+		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 	}
 	return config.NewServer(serverConfig)
 }
