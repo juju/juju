@@ -44,7 +44,7 @@ type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv13
+	applicationAPI *application.APIv14
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
@@ -66,7 +66,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.lastKnownRev = make(map[string]int)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv13 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv14 {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -92,7 +92,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv13 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv13{api}
+	return &application.APIv14{api}
 }
 
 func (s *applicationSuite) TestCharmConfig(c *gc.C) {

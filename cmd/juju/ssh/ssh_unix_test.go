@@ -281,9 +281,9 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnit(c *gc.C) {
 
 	leaderAPI := mocks.NewMockLeaderAPI(ctrl)
 	leaderAPI.EXPECT().Leader("loop").Return("loop/1", nil)
-	leaderFunc := func() (LeaderAPI, error) { return leaderAPI, nil }
 
-	resolvedUnit, err := maybeResolveLeaderUnit(leaderFunc, "loop/leader")
+	ldr := leaderResolver{leaderAPI: leaderAPI}
+	resolvedUnit, err := ldr.maybeResolveLeaderUnit("loop/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
 }
