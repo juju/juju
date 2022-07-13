@@ -75,7 +75,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPost(restClient, baseURLPath, id, body)
 
-	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	responses, err := client.Refresh(context.TODO(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
@@ -125,12 +125,12 @@ func (s *RefreshSuite) testRefeshConfigValidate(c *gc.C, rp RefreshBase) error {
 	return err
 }
 
-type metadataTransport struct {
+type metadataHTTPClient struct {
 	requestHeaders http.Header
 	responseBody   string
 }
 
-func (t *metadataTransport) Do(req *http.Request) (*http.Response, error) {
+func (t *metadataHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	t.requestHeaders = req.Header
 	resp := &http.Response{
 		Status:        "200 OK",
@@ -150,7 +150,7 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 	baseURLPath := path.MakePath(baseURL)
 
-	httpTransport := &metadataTransport{
+	httpClient := &metadataHTTPClient{
 		responseBody: `
 {
   "error-list": [],
@@ -168,9 +168,8 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 `,
 	}
 
-	headers := http.Header{"User-Agent": []string{"Test Agent 1.0"}}
-	restClient := NewHTTPRESTClient(httpTransport, headers)
-	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	restClient := newHTTPRESTClient(httpClient)
+	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
 
 	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -191,8 +190,6 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	response, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
-
 	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
 		{ID: "foo", InstanceKey: "instance-key-foo"},
 		{ID: "bar", InstanceKey: "instance-key-bar"},
@@ -203,7 +200,7 @@ func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 	baseURLPath := path.MakePath(baseURL)
 
-	httpTransport := &metadataTransport{
+	httpClient := &metadataHTTPClient{
 		responseBody: `
 {
   "error-list": [],
@@ -221,9 +218,8 @@ func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
 `,
 	}
 
-	headers := http.Header{"User-Agent": []string{"Test Agent 1.0"}}
-	restClient := NewHTTPRESTClient(httpTransport, headers)
-	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	restClient := newHTTPRESTClient(httpClient)
+	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
 
 	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -243,8 +239,6 @@ func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
 
 	response, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
 
 	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
 		{ID: "foo", InstanceKey: "instance-key-foo"},
@@ -284,7 +278,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 		},
 	}
 
-	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	err := client.RefreshWithMetricsOnly(context.TODO(), metrics)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -360,7 +354,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 			InstanceKey: "instance-key-bar",
 			Name:        id,
 		}}
-	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
+	}).Return(restResponse{StatusCode: http.StatusOK}, nil)
 
 	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
 		charmmetrics.Controller: {
@@ -373,7 +367,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 		},
 	}
 
-	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	responses, err := client.RefreshWithRequestMetrics(context.TODO(), config, metrics)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 2)
@@ -399,7 +393,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPostFailure(restClient)
 
-	client := NewRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
 	_, err = client.Refresh(context.TODO(), config)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -410,11 +404,11 @@ func (s *RefreshSuite) expectPost(client *MockRESTClient, p path.Path, name stri
 			InstanceKey: "instance-key",
 			Name:        name,
 		}}
-	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
+	}).Return(restResponse{StatusCode: http.StatusOK}, nil)
 }
 
 func (s *RefreshSuite) expectPostFailure(client *MockRESTClient) {
-	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
+	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(restResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func DefineInstanceKey(c *gc.C, config RefreshConfig, key string) RefreshConfig {
@@ -680,8 +674,8 @@ func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
 			Name:        &name,
 			Channel:     &channel,
 			Base: &transport.Base{
-				Name:         NotAvailable,
-				Channel:      NotAvailable,
+				Name:         notAvailable,
+				Channel:      notAvailable,
 				Architecture: arch.DefaultArchitecture,
 			},
 		}},

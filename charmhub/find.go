@@ -81,17 +81,17 @@ func newFindOptions() *findOptions {
 	return &findOptions{}
 }
 
-// FindClient defines a client for querying information about a given charm or
+// findClient defines a client for querying information about a given charm or
 // bundle for a given CharmHub store.
-type FindClient struct {
+type findClient struct {
 	path   path.Path
 	client RESTClient
 	logger Logger
 }
 
-// NewFindClient creates a FindClient for querying charm or bundle information.
-func NewFindClient(path path.Path, client RESTClient, logger Logger) *FindClient {
-	return &FindClient{
+// newFindClient creates a findClient for querying charm or bundle information.
+func newFindClient(path path.Path, client RESTClient, logger Logger) *findClient {
+	return &findClient{
 		path:   path,
 		client: client,
 		logger: logger,
@@ -99,7 +99,7 @@ func NewFindClient(path path.Path, client RESTClient, logger Logger) *FindClient
 }
 
 // Find searches Charm Hub and provides results matching a string.
-func (c *FindClient) Find(ctx context.Context, query string, options ...FindOption) ([]transport.FindResponse, error) {
+func (c *findClient) Find(ctx context.Context, query string, options ...FindOption) ([]transport.FindResponse, error) {
 	opts := newFindOptions()
 	for _, option := range options {
 		option(opts)

@@ -1205,7 +1205,7 @@ func (s *ConfigSuite) TestCharmHubURL(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{})
 	chURL, ok := config.CharmHubURL()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(chURL, gc.Equals, charmhub.CharmHubServerURL)
+	c.Assert(chURL, gc.Equals, charmhub.DefaultServerURL)
 }
 
 func (s *ConfigSuite) TestMode(c *gc.C) {

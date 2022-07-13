@@ -125,12 +125,12 @@ func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 // Run is the business logic of the info command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *infoCommand) Run(cmdContext *cmd.Context) error {
-	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, logger)
-	if err != nil {
-		return errors.Trace(err)
+	cfg := charmhub.Config{
+		URL:    c.charmHubURL,
+		Logger: logger,
 	}
 
-	client, err := c.CharmHubClientFunc(config, charmhub.DefaultFileSystem())
+	client, err := c.CharmHubClientFunc(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

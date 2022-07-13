@@ -516,7 +516,7 @@ var defaultConfigValues = map[string]interface{}{
 	BackupDirKey:                    "",
 	LXDSnapChannel:                  "latest/stable",
 
-	CharmHubURLKey: charmhub.CharmHubServerURL,
+	CharmHubURLKey: charmhub.DefaultServerURL,
 
 	// Image and agent streams and URLs.
 	"image-stream":               "released",
@@ -1366,7 +1366,7 @@ func (c *Config) CharmHubURL() (string, bool) {
 	if v, ok := c.defined[CharmHubURLKey].(string); ok && v != "" {
 		return v, true
 	}
-	return charmhub.CharmHubServerURL, false
+	return charmhub.DefaultServerURL, false
 }
 
 func (c *Config) validateCharmHubURL() error {

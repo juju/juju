@@ -68,11 +68,10 @@ func newRefreshCommand() *refreshCommand {
 			return modelconfig.NewClient(api)
 		},
 		NewCharmHubClient: func(url string) (store.DownloadBundleClient, error) {
-			cfg, err := charmhub.CharmHubConfigFromURL(url, logger)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return charmhub.NewClient(cfg)
+			return charmhub.NewClient(charmhub.Config{
+				URL:    url,
+				Logger: logger,
+			})
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
 		NewCharmStore: func(

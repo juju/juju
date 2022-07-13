@@ -51,14 +51,10 @@ var (
 )
 
 const (
-	// NotAvailable is used a placeholder for Name and Channel for a refresh
+	// notAvailable is used a placeholder for Name and Channel for a refresh
 	// base request, if the Name and Channel is not known.
-	NotAvailable = "NA"
+	notAvailable = "NA"
 )
-
-// Headers represents a series of headers that we would like to pass to the REST
-// API.
-type Headers = map[string][]string
 
 // RefreshBase defines a base for selecting a specific charm.
 // Continues to exist to allow for incoming bases to be converted
@@ -80,16 +76,16 @@ func (p RefreshBase) String() string {
 	return path
 }
 
-// RefreshClient defines a client for refresh requests.
-type RefreshClient struct {
+// refreshClient defines a client for refresh requests.
+type refreshClient struct {
 	path   path.Path
 	client RESTClient
 	logger Logger
 }
 
-// NewRefreshClient creates a RefreshClient for requesting
-func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *RefreshClient {
-	return &RefreshClient{
+// newRefreshClient creates a refreshClient for requesting
+func newRefreshClient(path path.Path, client RESTClient, logger Logger) *refreshClient {
+	return &refreshClient{
 		path:   path,
 		client: client,
 		logger: logger,
@@ -97,7 +93,7 @@ func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *Refresh
 }
 
 // Refresh is used to refresh installed charms to a more suitable revision.
-func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
+func (c *refreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	if c.logger.IsTraceEnabled() {
 		c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
 	}
@@ -110,7 +106,7 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 
 // RefreshWithRequestMetrics is to get refreshed charm data and provide metrics
 // at the same time.  Used as part of the charm revision updater facade.
-func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
+func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
 	if c.logger.IsTraceEnabled() {
 		c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
 	}
@@ -128,7 +124,7 @@ func (c *RefreshClient) RefreshWithRequestMetrics(ctx context.Context, config Re
 
 // RefreshWithMetricsOnly is to provide metrics without context or actions. Used
 // as part of the charm revision updater facade.
-func (c *RefreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+func (c *refreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
 	c.logger.Tracef("RefreshWithMetricsOnly(%+v)", metrics)
 	m, err := contextMetrics(metrics)
 	if err != nil {
@@ -163,7 +159,7 @@ func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKe
 	return m, nil
 }
 
-func (c *RefreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest) ([]transport.RefreshResponse, error) {
+func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest) ([]transport.RefreshResponse, error) {
 	httpHeaders := make(http.Header)
 
 	var resp transport.RefreshResponses
@@ -410,14 +406,14 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 
 	name := base.Name
 	if name == "" {
-		name = NotAvailable
+		name = notAvailable
 	}
 
 	var channel string
 	var err error
 	switch base.Channel {
 	case "":
-		channel = NotAvailable
+		channel = notAvailable
 	case "kubernetes":
 		// Kubernetes is not a valid channel for a base.
 		// Instead use the latest LTS version of ubuntu.
@@ -480,6 +476,7 @@ func ExtractConfigInstanceKey(cfg RefreshConfig) string {
 	return ""
 }
 
+// TODO(benhoyt): this global logger should not exist; just get rid of logAndReturnError?
 var logger = loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
 
 func logAndReturnError(err error) error {

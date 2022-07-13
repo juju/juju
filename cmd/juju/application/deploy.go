@@ -229,12 +229,10 @@ func newDeployCommand() *DeployCommand {
 			return nil, errors.Trace(err)
 		}
 
-		cfg, err := charmhub.CharmHubConfigFromURL(charmHubURL, logger)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return charmhub.NewClient(cfg)
+		return charmhub.NewClient(charmhub.Config{
+			URL:    charmHubURL,
+			Logger: logger,
+		})
 	}
 	deployCmd.NewDeployAPI = func() (deployer.DeployerAPI, error) {
 		apiRoot, err := deployCmd.newAPIRoot()

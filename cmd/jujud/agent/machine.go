@@ -600,7 +600,7 @@ func (a *MachineAgent) makeEngineCreator(
 		// Create a single HTTP client so we can reuse HTTP connections, for
 		// example across the various Charmhub API requests required for deploy.
 		charmhubLogger := loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
-		charmhubHTTPClient := charmhub.DefaultHTTPTransport(charmhubLogger)
+		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,

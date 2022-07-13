@@ -16,23 +16,13 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) TestBasePath(c *gc.C) {
-	config := Config{
-		URL:     "http://api.foo.bar.com",
-		Version: "v2",
-		Entity:  "meshuggah",
-	}
-	path, err := config.BasePath()
+	path, err := basePath("http://api.foo.bar.com")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path.String(), gc.Equals, "http://api.foo.bar.com/v2/meshuggah")
+	c.Assert(path.String(), gc.Equals, "http://api.foo.bar.com/v2/charms")
 }
 
 func (s *ConfigSuite) TestBasePathWithTrailingSlash(c *gc.C) {
-	config := Config{
-		URL:     "http://api.foo.bar.com/",
-		Version: "v2",
-		Entity:  "meshuggah",
-	}
-	path, err := config.BasePath()
+	path, err := basePath("http://api.foo.bar.com/")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path.String(), gc.Equals, "http://api.foo.bar.com/v2/meshuggah")
+	c.Assert(path.String(), gc.Equals, "http://api.foo.bar.com/v2/charms")
 }

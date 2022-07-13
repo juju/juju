@@ -30,10 +30,10 @@ func (s *APIRequesterSuite) TestDo(c *gc.C) {
 
 	req := MustNewRequest(c, "http://api.foo.bar")
 
-	mockTransport := NewMockTransport(ctrl)
-	mockTransport.EXPECT().Do(req).Return(emptyResponse(), nil)
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil)
 
-	requester := NewAPIRequester(mockTransport, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -45,10 +45,10 @@ func (s *APIRequesterSuite) TestDoWithFailure(c *gc.C) {
 
 	req := MustNewRequest(c, "http://api.foo.bar")
 
-	mockTransport := NewMockTransport(ctrl)
-	mockTransport.EXPECT().Do(req).Return(emptyResponse(), errors.Errorf("boom"))
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), errors.Errorf("boom"))
 
-	requester := NewAPIRequester(mockTransport, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	_, err := requester.Do(req)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -59,10 +59,10 @@ func (s *APIRequesterSuite) TestDoWithInvalidContentType(c *gc.C) {
 
 	req := MustNewRequest(c, "http://api.foo.bar")
 
-	mockTransport := NewMockTransport(ctrl)
-	mockTransport.EXPECT().Do(req).Return(invalidContentTypeResponse(), nil)
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(invalidContentTypeResponse(), nil)
 
-	requester := NewAPIRequester(mockTransport, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	_, err := requester.Do(req)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -73,10 +73,10 @@ func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
 
 	req := MustNewRequest(c, "http://api.foo.bar")
 
-	mockTransport := NewMockTransport(ctrl)
-	mockTransport.EXPECT().Do(req).Return(notFoundResponse(), nil)
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(notFoundResponse(), nil)
 
-	requester := NewAPIRequester(mockTransport, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
@@ -94,14 +94,14 @@ func (s *RESTSuite) TestGet(c *gc.C) {
 
 	var recievedURL string
 
-	mockTransport := NewMockTransport(ctrl)
-	mockTransport.EXPECT().Do(gomock.Any()).Do(func(req *http.Request) {
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(gomock.Any()).Do(func(req *http.Request) {
 		recievedURL = req.URL.String()
 	}).Return(emptyResponse(), nil)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
-	client := NewHTTPRESTClient(mockTransport, nil)
+	client := newHTTPRESTClient(mockHTTPClient)
 
 	var result interface{}
 	_, err := client.Get(context.TODO(), base, &result)
@@ -113,8 +113,8 @@ func (s *RESTSuite) TestGetWithInvalidContext(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockTransport := NewMockTransport(ctrl)
-	client := NewHTTPRESTClient(mockTransport, nil)
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	client := newHTTPRESTClient(mockHTTPClient)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
@@ -127,10 +127,10 @@ func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockTransport := NewMockTransport(ctrl)
-	mockTransport.EXPECT().Do(gomock.Any()).Return(emptyResponse(), errors.Errorf("boom"))
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(gomock.Any()).Return(emptyResponse(), errors.Errorf("boom"))
 
-	client := NewHTTPRESTClient(mockTransport, nil)
+	client := newHTTPRESTClient(mockHTTPClient)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
@@ -147,12 +147,12 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
 	}))
 	defer server.Close()
 
-	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
+	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
 	})(&FakeLogger{})
-	client := NewHTTPRESTClient(transport, nil)
+	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)
 
@@ -170,12 +170,12 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
 	}))
 	defer server.Close()
 
-	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
+	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
 	})(&FakeLogger{})
-	client := NewHTTPRESTClient(transport, nil)
+	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)
 
@@ -195,12 +195,12 @@ func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
 	}))
 	defer server.Close()
 
-	transport := RequestHTTPTransport(nil, jujuhttp.RetryPolicy{
+	httpClient := requestHTTPClient(nil, jujuhttp.RetryPolicy{
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
 	})(&FakeLogger{})
-	client := NewHTTPRESTClient(transport, nil)
+	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)
 
@@ -214,33 +214,16 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockTransport := NewMockTransport(ctrl)
-	mockTransport.EXPECT().Do(gomock.Any()).Return(invalidResponse(), nil)
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(gomock.Any()).Return(invalidResponse(), nil)
 
-	client := NewHTTPRESTClient(mockTransport, nil)
+	client := newHTTPRESTClient(mockHTTPClient)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
 	var result interface{}
 	_, err := client.Get(context.TODO(), base, &result)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
-}
-
-func (s *RESTSuite) TestComposeHeaders(c *gc.C) {
-	clientHeaders := http.Header{
-		"User-Agent": []string{"Juju/3.14.159"},
-	}
-	requestHeaders := http.Header{
-		"Something-Else": []string{"foo"},
-	}
-
-	client := NewHTTPRESTClient(nil, clientHeaders)
-	got := client.composeHeaders(requestHeaders)
-
-	c.Assert(got, gc.DeepEquals, http.Header{
-		"User-Agent":     []string{"Juju/3.14.159"},
-		"Something-Else": []string{"foo"},
-	})
 }
 
 func emptyResponse() *http.Response {

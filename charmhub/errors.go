@@ -9,37 +9,20 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
-// APIError extracts an API error from the given error or returns an error.
-func APIError(err error) (transport.APIError, error) {
-	if err == nil {
-		return transport.APIError{}, nil
-	}
-	if IsAPIError(err) {
-		return err.(transport.APIError), nil
-	}
-	return transport.APIError{}, errors.Annotatef(err, "not valid APIError")
-}
-
-// APIErrors extracts a slice of API errors from the given error or returns an
+// apiErrors extracts a slice of API errors from the given error or returns an
 // error.
-func APIErrors(err error) (transport.APIErrors, error) {
+func apiErrors(err error) (transport.APIErrors, error) {
 	if err == nil {
 		return nil, nil
 	}
-	if IsAPIErrors(err) {
+	if isAPIErrors(err) {
 		return err.(transport.APIErrors), nil
 	}
-	return nil, errors.Annotatef(err, "not valid APIErrors")
+	return nil, errors.Annotatef(err, "not valid apiErrors")
 }
 
-// IsAPIError checks to see if the error is a valid API error.
-func IsAPIError(err error) bool {
-	_, ok := errors.Cause(err).(transport.APIError)
-	return ok
-}
-
-// IsAPIErrors checks to see if the error is a valid series of API errors.
-func IsAPIErrors(err error) bool {
+// isAPIErrors checks to see if the error is a valid series of API errors.
+func isAPIErrors(err error) bool {
 	_, ok := errors.Cause(err).(transport.APIErrors)
 	return ok
 }
@@ -50,7 +33,7 @@ func handleBasicAPIErrors(list transport.APIErrors, logger Logger) error {
 		return nil
 	}
 
-	if errs, _ := APIErrors(list); errs != nil {
+	if errs, _ := apiErrors(list); errs != nil {
 		masked := true
 		defer func() {
 			// Only log out the error if we're masking the original error, that

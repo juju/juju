@@ -148,11 +148,11 @@ func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
 	}
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:            logger,
-		CharmhubTransport: a.charmhubHTTPClient,
-		StorageFactory:    a.newStorage,
-		StateBackend:      a.stateBackend,
-		ModelBackend:      a.modelBackend,
+		Logger:             logger,
+		CharmhubHTTPClient: a.charmhubHTTPClient,
+		StorageFactory:     a.newStorage,
+		StateBackend:       a.stateBackend,
+		ModelBackend:       a.modelBackend,
 	})
 
 	if err != nil {

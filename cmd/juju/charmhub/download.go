@@ -139,21 +139,16 @@ func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) (*charm.UR
 // Run is the business logic of the download command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
-	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, downloadLogger{
-		Context: cmdContext,
-	})
-	if err != nil {
-		return errors.Trace(err)
+	cfg := charmhub.Config{
+		URL:    c.charmHubURL,
+		Logger: downloadLogger{Context: cmdContext},
 	}
 
-	var fileSystem charmhub.FileSystem
 	if c.pipeToStdout {
-		fileSystem = stdoutFileSystem{}
-	} else {
-		fileSystem = charmhub.DefaultFileSystem()
+		cfg.FileSystem = stdoutFileSystem{}
 	}
 
-	client, err := c.CharmHubClientFunc(config, fileSystem)
+	client, err := c.CharmHubClientFunc(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
