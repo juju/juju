@@ -61,8 +61,8 @@ run_basic_backup_restore() {
 	# Only do this check if provider is LXD (too hard to do for all providers)
 	if [ "${BOOTSTRAP_PROVIDER}" == "lxd" ] || [ "${BOOTSTRAP_PROVIDER}" == "localhost" ]; then
 		echo "Ensure that both instances are running (restore shouldn't terminate machines)"
-		lxc info "${id0}" | grep Status | check Running
-		lxc info "${id1}" | grep Status | check Running
+		lxc info "${id0}" | grep Status | check "Status: RUNNING"
+		lxc info "${id1}" | grep Status | check "Status: RUNNING"
 	fi
 
 	destroy_model "test-basic-backup-restore"
