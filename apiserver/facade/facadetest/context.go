@@ -146,6 +146,11 @@ func (context Context) Raft() facade.RaftContext {
 	return context.Raft_
 }
 
-func (context Context) CharmhubHTTPClient() facade.HTTPClient {
-	return context.CharmhubHTTPClient_
+func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
+	switch purpose {
+	case facade.CharmhubHTTPClient:
+		return context.CharmhubHTTPClient_
+	default:
+		return nil
+	}
 }

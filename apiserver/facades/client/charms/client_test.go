@@ -68,14 +68,14 @@ func (ctx *charmsSuiteContext) Controller() *cache.Controller                 { 
 func (ctx *charmsSuiteContext) CachedModel(uuid string) (*cache.Model, error) { return nil, nil }
 func (ctx *charmsSuiteContext) MultiwatcherFactory() multiwatcher.Factory     { return nil }
 
-func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipRevoker(string) (leadership.Revoker, error) { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)   { return nil, nil }
-func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)   { return nil, nil }
-func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)              { return nil, nil }
-func (ctx *charmsSuiteContext) Raft() facade.RaftContext                             { return nil }
-func (ctx *charmsSuiteContext) CharmhubHTTPClient() facade.HTTPClient                { return nil }
+func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error)  { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipRevoker(string) (leadership.Revoker, error)  { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)        { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)    { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)    { return nil, nil }
+func (ctx *charmsSuiteContext) SingularClaimer() (lease.Claimer, error)               { return nil, nil }
+func (ctx *charmsSuiteContext) Raft() facade.RaftContext                              { return nil }
+func (ctx *charmsSuiteContext) HTTPClient(facade.HTTPClientPurpose) facade.HTTPClient { return nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

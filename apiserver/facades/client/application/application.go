@@ -144,7 +144,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 
 	options := []charmhub.Option{
 		charmhub.WithHTTPTransport(func(l charmhub.Logger) charmhub.Transport {
-			return ctx.CharmhubHTTPClient()
+			return ctx.HTTPClient(facade.CharmhubHTTPClient)
 		}),
 	}
 
