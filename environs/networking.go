@@ -95,17 +95,6 @@ type Networking interface {
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
 	ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error
-
-	// SSHAddresses filters the input addresses to those suitable for SSH use.
-	// Usually we would have the provider deal only with ProviderAddresses.
-	// This method is called from the sshclient API facade to filter addresses
-	// obtained from a `state.Machine` (which are SpaceAddresses).
-	// At the time of writing, each provider generally does one of two things:
-	// - just returns all the addresses back or;
-	// - returns a subset based on public scope matching.
-	// The address `Value` is then returned to the client,
-	// which is just a string, so we do not actually leak a SpaceAddress.
-	SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the

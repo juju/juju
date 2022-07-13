@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/juju/ansiterm"
+
 	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -19,6 +21,19 @@ import (
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/status"
 )
+
+func (c *statusCommand) formatSummary(writer io.Writer, value interface{}) error {
+
+	if c.noColor {
+		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
+			defer os.Unsetenv("NO_COLOR")
+			os.Setenv("NO_COLOR", "")
+		}
+
+	}
+
+	return FormatSummary(writer, c.color, value)
+}
 
 // FormatSummary writes a summary of the current environment
 // including the following information:
@@ -31,57 +46,76 @@ import (
 //   - Applications: Displays total #, their names, and how many of each
 //     are exposed.
 //   - RemoteApplications: Displays total #, their names and URLs.
-func FormatSummary(writer io.Writer, value interface{}) error {
+func FormatSummary(writer io.Writer, forceColor bool, value interface{}) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
 
-	f := newSummaryFormatter(writer)
+	f := newSummaryFormatter(writer, forceColor)
 	stateToMachine := f.aggregateMachineStates(fs.Machines)
 	appExposure := f.aggregateApplicationAndUnitStates(fs.Applications)
+	kColor := ansiterm.Foreground(ansiterm.BrightCyan).SetStyle(ansiterm.Bold)
+	k := f.delimitKeysWithTabs
 	p := f.delimitValuesWithTabs
 
 	// Print everything out
-	p("Running on subnets:", strings.Join(f.netStrings, ", "))
-	p(" Utilizing ports:", f.portsInColumnsOf(3))
+	k(kColor, "Running on subnets:")
+	p(output.InfoHighlight, strings.Join(f.netStrings, ", "))
+	k(kColor, " Utilizing ports:")
+	printPorts(f.tw, strings.Split(f.portsInColumnsOf(3), ", "))
+	f.tw.Println()
 	f.tw.Flush()
 
 	// Right align summary information
 	f.tw.Init(writer, 0, 1, 2, ' ', tabwriter.AlignRight)
-	p("# Machines:", fmt.Sprintf("(%d)", len(fs.Machines)))
+	if forceColor {
+		f.tw.SetColorCapable(forceColor)
+	}
+	k(kColor, "# Machines:")
+	p(output.EmphasisHighlight.Magenta, fmt.Sprintf("(%d)", len(fs.Machines)))
 	f.printStateToCount(stateToMachine)
-	p(" ")
+	p(output.CurrentHighlight, " ")
 
-	p("# Units:", fmt.Sprintf("(%d)", f.numUnits))
+	k(kColor, "# Units:")
+	p(output.EmphasisHighlight.Magenta, fmt.Sprintf("(%d)", f.numUnits))
 	f.printStateToCount(f.stateToUnit)
-	p(" ")
+	p(output.CurrentHighlight, " ")
 
-	p("# Applications:", fmt.Sprintf("(%d)", len(fs.Applications)))
+	k(kColor, "# Applications:")
+	p(output.EmphasisHighlight.Magenta, fmt.Sprintf("(%d)", len(fs.Applications)))
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(appExposure)) {
 		s := appExposure[appName]
-		p(appName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
+		k(output.EmphasisHighlight.BrightGreen, appName)
+		p(output.CurrentHighlight, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
-	p(" ")
+	p(output.CurrentHighlight, " ")
 
-	p("# Remote:", fmt.Sprintf("(%d)", len(fs.RemoteApplications)))
+	k(kColor, "# Remote:")
+	p(output.EmphasisHighlight.Magenta, fmt.Sprintf("(%d)", len(fs.RemoteApplications)))
 	for _, svcName := range naturalsort.Sort(stringKeysFromMap(fs.RemoteApplications)) {
 		s := fs.RemoteApplications[svcName]
-		p(svcName, "", s.OfferURL)
+		k(output.InfoHighlight, svcName)
+		p(output.GoodHighlight, "", s.OfferURL)
 	}
 	f.tw.Flush()
 
 	return nil
 }
 
-func newSummaryFormatter(writer io.Writer) *summaryFormatter {
+func newSummaryFormatter(writer io.Writer, forceColor bool) *summaryFormatter {
+	w := output.TabWriter(writer)
+	if forceColor {
+		w.SetColorCapable(forceColor)
+	}
+
 	f := &summaryFormatter{
 		ipAddrs:     make([]net.IPNet, 0),
 		netStrings:  make([]string, 0),
 		openPorts:   set.NewStrings(),
 		stateToUnit: make(map[status.Status]int),
 	}
-	f.tw = output.TabWriter(writer)
+	f.tw = output.Wrapper{TabWriter: w}
 	return f
 }
 
@@ -92,12 +126,35 @@ type summaryFormatter struct {
 	openPorts  set.Strings
 	// status -> count
 	stateToUnit map[status.Status]int
-	tw          *ansiterm.TabWriter
+	tw          output.Wrapper
 }
 
-func (f *summaryFormatter) delimitValuesWithTabs(values ...string) {
+func (f *summaryFormatter) delimitKeysWithTabs(ctx *ansiterm.Context, values ...string) {
+	cCtx := output.EmphasisHighlight.BoldBrightMagenta
+	for i, v := range values {
+		if strings.Contains(v, ":") {
+			splitted := strings.Split(v, ":")
+			str := splitted[i]
+			ctx.Fprintf(f.tw, "%s", str)
+			cCtx.Fprintf(f.tw, "%s\t", ":")
+		} else {
+			ctx.Fprintf(f.tw, "%s\t", v)
+		}
+	}
+	fmt.Fprint(f.tw)
+}
+
+func (f *summaryFormatter) delimitValuesWithTabs(ctx *ansiterm.Context, values ...string) {
 	for _, v := range values {
-		fmt.Fprintf(f.tw, "%s\t", v)
+		val := strings.TrimSpace(v)
+		if strings.HasPrefix(val, "(") && strings.HasSuffix(val, ")") {
+			val = strings.Split(strings.Split(val, "(")[1], ")")[0]
+			fmt.Fprint(f.tw, "(")
+			ctx.Fprintf(f.tw, "%s", val)
+			fmt.Fprint(f.tw, ")\t")
+		} else {
+			ctx.Fprintf(f.tw, "%s\t", v)
+		}
 	}
 	fmt.Fprintln(f.tw)
 }
@@ -134,7 +191,8 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 func (f *summaryFormatter) printStateToCount(m map[status.Status]int) {
 	for _, stateToCount := range naturalsort.Sort(stringKeysFromMap(m)) {
 		numInStatus := m[status.Status(stateToCount)]
-		f.delimitValuesWithTabs(stateToCount+":", fmt.Sprintf(" %d ", numInStatus))
+		f.delimitKeysWithTabs(output.StatusColor(status.Status(stateToCount)), stateToCount+":")
+		f.delimitValuesWithTabs(output.EmphasisHighlight.Magenta, fmt.Sprintf(" %d ", numInStatus))
 	}
 }
 

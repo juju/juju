@@ -501,21 +501,6 @@ func (mr *MockNetworkingEnvironMockRecorder) ReleaseContainerAddresses(arg0, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockNetworkingEnviron)(nil).ReleaseContainerAddresses), arg0, arg1)
 }
 
-// SSHAddresses mocks base method.
-func (m *MockNetworkingEnviron) SSHAddresses(arg0 context.ProviderCallContext, arg1 network.SpaceAddresses) (network.SpaceAddresses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SSHAddresses", arg0, arg1)
-	ret0, _ := ret[0].(network.SpaceAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SSHAddresses indicates an expected call of SSHAddresses.
-func (mr *MockNetworkingEnvironMockRecorder) SSHAddresses(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHAddresses", reflect.TypeOf((*MockNetworkingEnviron)(nil).SSHAddresses), arg0, arg1)
-}
-
 // SetConfig mocks base method.
 func (m *MockNetworkingEnviron) SetConfig(arg0 *config.Config) error {
 	m.ctrl.T.Helper()

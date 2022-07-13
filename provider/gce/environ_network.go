@@ -345,19 +345,6 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 	return false, nil
 }
 
-// SSHAddresses implements environs.SSHAddresses.
-// For GCE we want to make sure we're returning only one public address, so that probing won't
-// cause SSHGuard to lock us out
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
-	bestAddress, ok := addresses.OneMatchingScope(corenetwork.ScopeMatchPublic)
-	if ok {
-		return corenetwork.SpaceAddresses{bestAddress}, nil
-	} else {
-		// fallback
-		return addresses, nil
-	}
-}
-
 // SuperSubnets implements environs.SuperSubnets
 func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	subnets, err := e.Subnets(ctx, "", nil)

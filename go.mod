@@ -31,7 +31,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dustin/go-humanize v1.0.0
-	github.com/go-goose/goose/v5 v5.0.0-20220419055500-7227d44183a5
+	github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4
 	github.com/go-logr/logr v1.2.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20220204130128-afeebcc9521d
 	github.com/gofrs/uuid v4.2.0+incompatible
@@ -65,7 +65,6 @@ require (
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
 	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
-	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v4 v4.0.0
 	github.com/juju/naturalsort v1.0.0
@@ -203,7 +202,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
-	github.com/xdg-go/stringprep v1.0.2 // indirect
+	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect

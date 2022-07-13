@@ -48,13 +48,15 @@ check_accessibility() {
 	for net_health_unit in "network-health-jammy/0" "network-health-focal/0"; do
 		ip="$(juju show-unit $net_health_unit --format json | jq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
 
-		curl_cmd="curl 2>/dev/null ${ip}:8039"
+		curl_cmd="curl -s http://${ip}:8039"
 
 		# Check that each of the principles can access the subordinate.
 		for principle_unit in "ubuntu-focal/0" "ubuntu-jammy/0"; do
+			echo "checking network health unit ${net_health_unit} reachability from ${principle_unit} using ${ip}:8039"
 			check_contains "$(juju exec --unit $principle_unit "$curl_cmd")" "pass"
 		done
 
+		echo "checking network health unit ${net_health_unit} reachability from host using ${ip}:8039"
 		# Check that the exposed subordinate is accessible externally.
 		check_contains "$($curl_cmd)" "pass"
 	done

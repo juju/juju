@@ -5,7 +5,11 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
+
+	"github.com/mattn/go-isatty"
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
@@ -169,4 +173,14 @@ func ReadValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string
 		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
 	}
 	return string(content), nil
+}
+
+// isTerminal checks if the file descriptor is a terminal.
+func IsTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+
+	return isatty.IsTerminal(f.Fd())
 }

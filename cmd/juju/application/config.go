@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"unicode/utf8"
 
@@ -362,16 +363,42 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 
 // FormatYaml serializes value into valid yaml string. If color flag is passed it adds ANSI color escape codes to the output.
 func (c *configCommand) FormatYaml(w io.Writer, value interface{}) error {
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.configBase.Color || c.configBase.NoColor {
+		return cmd.FormatYaml(w, value)
+	}
+
 	if c.configBase.Color {
 		return output.FormatYamlWithColor(w, value)
 	}
+
+	if utils.IsTerminal(w) && !c.configBase.NoColor {
+		return output.FormatYamlWithColor(w, value)
+	}
+
+	if !utils.IsTerminal(w) && c.configBase.Color {
+		return output.FormatYamlWithColor(w, value)
+	}
+
 	return cmd.FormatYaml(w, value)
 }
 
 // FormatJson serializes value into valid json string. If color flag is passed it adds ANSI color escape codes to the output.
 func (c *configCommand) FormatJson(w io.Writer, val interface{}) error {
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.configBase.Color || c.configBase.NoColor {
+		return cmd.FormatJson(w, val)
+	}
+
 	if c.configBase.Color {
 		return output.FormatJsonWithColor(w, val)
 	}
+
+	if utils.IsTerminal(w) && !c.configBase.NoColor {
+		return output.FormatJsonWithColor(w, val)
+	}
+
+	if !utils.IsTerminal(w) && c.configBase.Color {
+		return output.FormatJsonWithColor(w, val)
+	}
+
 	return cmd.FormatJson(w, val)
 }
