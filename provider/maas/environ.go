@@ -1670,11 +1670,6 @@ func (*maasEnviron) AreSpacesRoutable(ctx context.ProviderCallContext, space1, s
 	return false, nil
 }
 
-// SSHAddresses implements environs.SSHAddresses.
-func (*maasEnviron) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
-	return addresses, nil
-}
-
 // SuperSubnets implements environs.SuperSubnets
 func (*maasEnviron) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")

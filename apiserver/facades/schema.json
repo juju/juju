@@ -38101,7 +38101,7 @@
                             "$ref": "#/definitions/SSHAddressesResults"
                         }
                     },
-                    "description": "AllAddresses reports all addresses that might have SSH listening for each given\nentity in args. Machines and units are supported as entity types.\nTODO(wpk): 2017-05-17 This is a temporary solution, we should not fetch environ here\nbut get the addresses from state. We will be changing it since we want to have space-aware\nSSH settings."
+                    "description": "AllAddresses reports all addresses that might have SSH listening for each\nentity in args. The result is sorted with public addresses first.\nMachines and units are supported as entity types."
                 },
                 "Leader": {
                     "type": "object",

@@ -168,12 +168,6 @@ func (*azureEnviron) AreSpacesRoutable(_ context.ProviderCallContext, _, _ *envi
 	return false, nil
 }
 
-// SSHAddresses implements environs.NetworkingEnviron.
-func (*azureEnviron) SSHAddresses(
-	_ context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron. It returns back
 // a slice where the i_th element contains the list of network interfaces
 // for the i_th provided instance ID.

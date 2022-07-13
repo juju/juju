@@ -193,7 +193,9 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
+		cmds = append(cmds, looper+"apt-mark hold cloud-init")
 		cmds = append(cmds, looper+pkgCmder.UpgradeCmd())
+		cmds = append(cmds, looper+"apt-mark unhold cloud-init")
 	}
 
 	var pkgCmds []string

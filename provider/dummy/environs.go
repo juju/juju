@@ -2028,18 +2028,6 @@ func (*environ) AssignLXDProfiles(instId string, profilesNames []string, profile
 	return profilesNames, nil
 }
 
-// SSHAddresses implements environs.SSHAddresses.
-// For testing we cut "100.100.100.100" out of this list.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	var rv network.SpaceAddresses
-	for _, addr := range addresses {
-		if addr.Value != "100.100.100.100" {
-			rv = append(rv, addr)
-		}
-	}
-	return rv, nil
-}
-
 // SuperSubnets implements environs.SuperSubnets
 func (*environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")

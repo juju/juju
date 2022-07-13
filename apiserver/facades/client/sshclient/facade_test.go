@@ -15,10 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/sshclient"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -121,19 +119,24 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 	c.Check(results, gc.DeepEquals, params.SSHAddressesResults{
 		Results: []params.SSHAddressesResult{
 			{Error: apiservertesting.NotFoundError("entity")},
+			// Addresses include those from both the machine and devices.
+			// Sorted by scope - public first, then cloud local.
+			// Then sorted lexically within the same scope.
 			{Addresses: []string{
-				"0.1.2.3", "1.1.1.1", "2.2.2.2", // From AllDeviceSpaceAddresses()
-				"9.9.9.9", // From Addresses()
+				"1.1.1.1",
+				"9.9.9.9",
+				"0.1.2.3",
+				"2.2.2.2",
 			}},
 			{Addresses: []string{
-				"0.3.2.1", "3.3.3.3", "4.4.4.4", // From AllDeviceSpaceAddresses()
-				"10.10.10.10", // From Addresses()
+				"10.10.10.10",
+				"3.3.3.3",
+				"0.3.2.1",
+				"4.4.4.4",
 			}},
 		},
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"ModelConfig", nil},
-		{"CloudSpec", nil},
 		{"GetMachineForEntity", []interface{}{s.uOther}},
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetMachineForEntity", []interface{}{s.uFoo}},
@@ -224,20 +227,28 @@ func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSH
 			tag:            names.NewMachineTag("0"),
 			publicAddress:  "1.1.1.1",
 			privateAddress: "2.2.2.2",
-			addresses:      network.NewSpaceAddresses("9.9.9.9"),
-			allNetworkAddresses: network.NewSpaceAddresses("0.1.2.3", "1.1.1.1", "2.2.2.2",
-				"100.100.100.100", // This one will be filtered by provider
-			),
+			addresses: network.SpaceAddresses{
+				network.NewSpaceAddress("9.9.9.9", network.WithScope(network.ScopePublic)),
+			},
+			allNetworkAddresses: network.SpaceAddresses{
+				network.NewSpaceAddress("0.1.2.3", network.WithScope(network.ScopeCloudLocal)),
+				network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopePublic)),
+				network.NewSpaceAddress("2.2.2.2", network.WithScope(network.ScopeCloudLocal)),
+			},
 		}, nil
 	case names.NewUnitTag("foo/0").String():
 		return &mockMachine{
 			tag:            names.NewMachineTag("1"),
 			publicAddress:  "3.3.3.3",
 			privateAddress: "4.4.4.4",
-			addresses: network.NewSpaceAddresses("10.10.10.10",
-				"100.100.100.100", // This one will be filtered by provider
-			),
-			allNetworkAddresses: network.NewSpaceAddresses("0.3.2.1", "3.3.3.3", "4.4.4.4"),
+			addresses: network.SpaceAddresses{
+				network.NewSpaceAddress("10.10.10.10", network.WithScope(network.ScopePublic)),
+			},
+			allNetworkAddresses: network.SpaceAddresses{
+				network.NewSpaceAddress("0.3.2.1", network.WithScope(network.ScopeCloudLocal)),
+				network.NewSpaceAddress("3.3.3.3", network.WithScope(network.ScopePublic)),
+				network.NewSpaceAddress("4.4.4.4", network.WithScope(network.ScopeCloudLocal)),
+			},
 		}, nil
 	}
 	return nil, errors.NotFoundf("entity")
@@ -254,11 +265,6 @@ func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostK
 	return nil, errors.New("machine not found")
 }
 
-func (backend *mockBackend) CloudSpec() (environscloudspec.CloudSpec, error) {
-	backend.stub.AddCall("CloudSpec")
-	return dummy.SampleCloudSpec(), nil
-}
-
 type mockMachine struct {
 	tag            names.MachineTag
 	publicAddress  string
@@ -273,11 +279,11 @@ func (m *mockMachine) MachineTag() names.MachineTag {
 }
 
 func (m *mockMachine) PublicAddress() (network.SpaceAddress, error) {
-	return network.NewSpaceAddress(m.publicAddress), nil
+	return network.NewSpaceAddress(m.publicAddress, network.WithScope(network.ScopePublic)), nil
 }
 
 func (m *mockMachine) PrivateAddress() (network.SpaceAddress, error) {
-	return network.NewSpaceAddress(m.privateAddress), nil
+	return network.NewSpaceAddress(m.privateAddress, network.WithScope(network.ScopeCloudLocal)), nil
 }
 
 func (m *mockMachine) AllDeviceSpaceAddresses() (network.SpaceAddresses, error) {

@@ -4,8 +4,6 @@
 package firewaller
 
 import (
-	"io"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -19,9 +17,8 @@ import (
 )
 
 // NewRemoteRelationsFacade creates a remote relations API facade.
-func NewRemoteRelationsFacade(apiCaller base.APICaller) (*remoterelations.Client, error) {
-	facade := remoterelations.NewClient(apiCaller)
-	return facade, nil
+func NewRemoteRelationsFacade(apiCaller base.APICaller) *remoterelations.Client {
+	return remoterelations.NewClient(apiCaller)
 }
 
 // NewFirewallerFacade creates a firewaller API facade.
@@ -56,16 +53,6 @@ func crossmodelFirewallerFacadeFunc(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		facade := crossmodelrelations.NewClient(conn)
-		return &crossModelFirewallerFacadeCloser{facade, conn}, nil
+		return crossmodelrelations.NewClient(conn), nil
 	}
-}
-
-type crossModelFirewallerFacadeCloser struct {
-	CrossModelFirewallerFacade
-	conn io.Closer
-}
-
-func (p *crossModelFirewallerFacadeCloser) Close() error {
-	return p.conn.Close()
 }
