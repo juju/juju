@@ -46,7 +46,9 @@ run_deploy_cmr_bundle() {
 
 	bundle=./tests/suites/deploy/bundles/cmr_bundles_test_deploy.yaml
 	sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" >"${TEST_DIR}/cmr_bundles_test_deploy.yaml"
-	# TODO - upgrade the charm to support focal
+	# TODO - upgrade this bundle to use focal
+	# Must wait until the wordpress charm is updated to support focal/jammy
+	# https://charmhub.io/wordpress
 	juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
 	wait_for "wordpress" "$(idle_condition "wordpress")"
