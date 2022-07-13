@@ -207,6 +207,7 @@ func (facade *Facade) Proxy() (params.SSHProxyResult, error) {
 func (a *FacadeV2) Leader(_ struct{}) {}
 
 // Leader returns the unit name of the leader for the given application.
+// TODO(juju3) - remove
 func (facade *Facade) Leader(entity params.Entity) (params.StringResult, error) {
 	result := params.StringResult{}
 	application, err := names.ParseApplicationTag(entity.Tag)

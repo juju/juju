@@ -91,6 +91,8 @@ func (c *debugHooksCommand) Init(args []string) error {
 
 type applicationAPI interface {
 	GetCharmURL(branchName, applicationName string) (*charm.URL, error)
+	Leader(string) (string, error)
+	BestAPIVersion() int
 	Close() error
 }
 
@@ -116,8 +118,17 @@ func (c *debugHooksCommand) initAPIs() (err error) {
 		c.charmAPI = charms.NewClient(root)
 	}
 	if c.leaderAPIGetter == nil {
-		c.leaderAPIGetter = func() (LeaderAPI, error) {
-			return sshclient.NewFacade(root), nil
+		c.leaderAPIGetter = func() (LeaderAPI, bool, error) {
+			if c.applicationAPI.BestAPIVersion() > 13 {
+				return c.applicationAPI, true, nil
+			}
+			if c.sshClient == nil {
+				c.sshClient = sshclient.NewFacade(root)
+			}
+			if c.sshClient.BestAPIVersion() > 2 && c.provider.getModelType() != model.CAAS {
+				return c.sshClient, true, nil
+			}
+			return nil, false, nil
 		}
 	}
 	return nil
@@ -131,6 +142,10 @@ func (c *debugHooksCommand) closeAPIs() {
 	if c.charmAPI != nil {
 		_ = c.charmAPI.Close()
 		c.charmAPI = nil
+	}
+	if c.sshClient != nil {
+		_ = c.sshClient.Close()
+		c.sshClient = nil
 	}
 }
 
@@ -234,9 +249,10 @@ func (c *debugHooksCommand) commonRun(
 		return err
 	}
 
+	// TODO(juju3) - remove
 	// If the unit/leader syntax is used, we first need to resolve it into
 	// the unit name that corresponds to the current leader.
-	resolvedTargetName, err := maybeResolveLeaderUnit(
+	resolvedTargetName, err := c.provider.maybeResolveLeaderUnit(
 		c.leaderAPIGetter,
 		func() (StatusAPI, error) {
 			return c.ModelCommandBase.NewAPIClient()

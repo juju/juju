@@ -64,7 +64,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv13
+	api          *application.APIv14
 	deployParams map[string]application.DeployApplicationParams
 }
 
@@ -96,7 +96,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv13{api}
+	s.api = &application.APIv14{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -406,7 +406,7 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
 		ApplicationName: "postgresql",
 		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
 	}
-	api := &application.APIv12{s.api}
+	api := &application.APIv12{&application.APIv13{s.api}}
 	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -484,7 +484,7 @@ func (s *ApplicationSuite) TestUpdateCAASApplicationSettingsInIAASModelTriggersE
 		ApplicationName: "postgresql",
 		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
 	}
-	api := &application.APIv12{s.api}
+	api := &application.APIv12{&application.APIv13{s.api}}
 	err := api.Update(args)
 	c.Assert(err, gc.ErrorMatches, `.*unknown option "juju-external-hostname"`, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
 }
@@ -1947,7 +1947,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigEmptyUsesMaster(c *gc.C) {
 
 func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
-	api := &application.APIv12{s.api}
+	api := &application.APIv12{&application.APIv13{s.api}}
 	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -1983,7 +1983,7 @@ func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) 
 
 func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
-	api := &application.APIv12{s.api}
+	api := &application.APIv12{&application.APIv13{s.api}}
 	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -2018,7 +2018,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigBranch(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetApplicationsEmptyConfigMasterBranch(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
-	api := &application.APIv12{s.api}
+	api := &application.APIv12{&application.APIv13{s.api}}
 	result, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -2117,7 +2117,7 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 
 func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
 	s.blockChecker.SetErrors(errors.New("blocked"))
-	api := &application.APIv12{s.api}
+	api := &application.APIv12{&application.APIv13{s.api}}
 	_, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{})
 	c.Assert(err, gc.ErrorMatches, "blocked")
 	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
@@ -2126,7 +2126,7 @@ func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("fred"))
-	api := &application.APIv12{s.api}
+	api := &application.APIv12{&application.APIv13{s.api}}
 	_, err := api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -2527,4 +2527,11 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 		Force:           true,
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to succeed when --force is set"))
+}
+
+func (s *ApplicationSuite) TestLeader(c *gc.C) {
+	result, err := s.api.Leader(params.Entity{Tag: names.NewApplicationTag("postgresql").String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "postgresql/0")
 }

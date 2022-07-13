@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"runtime"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -355,16 +355,18 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnitFromFullStatus(c *gc.C) {
 	statusFunc := func() (StatusAPI, error) { return statusAPI, nil }
 
 	leaderAPI := mocks.NewMockLeaderAPI(ctrl)
-	leaderAPI.EXPECT().BestAPIVersion().Return(2).AnyTimes()
-	leaderFunc := func() (LeaderAPI, error) { return leaderAPI, nil }
+	leaderAPI.EXPECT().BestAPIVersion().Return(13).AnyTimes()
+	leaderFunc := func() (LeaderAPI, bool, error) { return leaderAPI, false, nil }
 
 	// Resolve principal application leader.
-	resolvedUnit, err := maybeResolveLeaderUnit(leaderFunc, statusFunc, "loop/leader")
+	ldr := leaderResolver{}
+	resolvedUnit, err := ldr.maybeResolveLeaderUnit(leaderFunc, statusFunc, "loop/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
 
 	// Resolve subordinate application leader.
-	resolvedUnit, err = maybeResolveLeaderUnit(leaderFunc, statusFunc, "wormhole/leader")
+	ldr.resolvedLeader = ""
+	resolvedUnit, err = ldr.maybeResolveLeaderUnit(leaderFunc, statusFunc, "wormhole/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "wormhole/1", gc.Commentf("expected leader to resolve to wormhole/1 for subordinate application"))
 }
@@ -377,11 +379,12 @@ func (s *SSHSuite) TestMaybeResolveLeaderUnitFromLeader(c *gc.C) {
 	statusFunc := func() (StatusAPI, error) { return statusAPI, nil }
 
 	leaderAPI := mocks.NewMockLeaderAPI(ctrl)
-	leaderAPI.EXPECT().BestAPIVersion().Return(3)
+	leaderAPI.EXPECT().BestAPIVersion().Return(14).AnyTimes()
 	leaderAPI.EXPECT().Leader("loop").Return("loop/1", nil)
-	leaderFunc := func() (LeaderAPI, error) { return leaderAPI, nil }
+	leaderFunc := func() (LeaderAPI, bool, error) { return leaderAPI, true, nil }
 
-	resolvedUnit, err := maybeResolveLeaderUnit(leaderFunc, statusFunc, "loop/leader")
+	ldr := leaderResolver{}
+	resolvedUnit, err := ldr.maybeResolveLeaderUnit(leaderFunc, statusFunc, "loop/leader")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resolvedUnit, gc.Equals, "loop/1", gc.Commentf("expected leader to resolve to loop/1 for principal application"))
 }

@@ -113,6 +113,12 @@ type APIv12 struct {
 // It adds CharmOrigin. The ApplicationsInfo call populates the exposed
 // endpoints field in its response entries.
 type APIv13 struct {
+	*APIv14
+}
+
+// APIv14 provides the Application API facade for version 14.
+// It adds Leader.
+type APIv14 struct {
 	*APIBase
 }
 
@@ -3256,4 +3262,26 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 		erd.UnitRelationData[ru.UnitName()] = urd
 	}
 	return nil
+}
+
+// Leader is not available via the V13 Facade.
+func (*APIv13) Leader(_ struct{}) {}
+
+// Leader returns the unit name of the leader for the given application.
+func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
+	result := params.StringResult{}
+	application, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return result, err
+	}
+	leaders, err := api.leadershipReader.Leaders()
+	if err != nil {
+		return result, errors.Annotate(err, "could not fetch leaders")
+	}
+	var ok bool
+	result.Result, ok = leaders[application.Name]
+	if !ok || result.Result == "" {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
+	}
+	return result, nil
 }

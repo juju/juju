@@ -101,6 +101,7 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 }
 
 // Leader returns the unit name for the leader of the provided application.
+// TODO(juju3) - remove
 func (facade *Facade) Leader(app string) (string, error) {
 	var result params.StringResult
 	p := params.Entity{Tag: names.NewApplicationTag(app).String()}

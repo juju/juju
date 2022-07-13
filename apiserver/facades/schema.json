@@ -2010,8 +2010,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin. The ApplicationsInfo call populates the exposed\nendpoints field in its response entries.",
-        "Version": 13,
+        "Description": "APIv14 provides the Application API facade for version 14.\nIt adds Leader.",
+        "Version": 14,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2236,6 +2236,18 @@
                         }
                     },
                     "description": "GetConstraints returns the constraints for a given application."
+                },
+                "Leader": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    },
+                    "description": "Leader returns the unit name of the leader for the given application."
                 },
                 "MergeBindings": {
                     "type": "object",
@@ -40446,7 +40458,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "Leader returns the unit name of the leader for the given application."
+                    "description": "Leader returns the unit name of the leader for the given application.\nTODO(juju3) - remove"
                 },
                 "PrivateAddress": {
                     "type": "object",

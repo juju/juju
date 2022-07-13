@@ -47,6 +47,20 @@ func (mr *MockLeaderAPIMockRecorder) BestAPIVersion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestAPIVersion", reflect.TypeOf((*MockLeaderAPI)(nil).BestAPIVersion))
 }
 
+// Close mocks base method.
+func (m *MockLeaderAPI) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockLeaderAPIMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockLeaderAPI)(nil).Close))
+}
+
 // Leader mocks base method.
 func (m *MockLeaderAPI) Leader(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
