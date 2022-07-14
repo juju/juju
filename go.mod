@@ -50,9 +50,9 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
-	github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4
-	github.com/juju/charm/v8 v8.0.0-20220509231111-ed6d505a46f4
-	github.com/juju/charmrepo/v6 v6.0.0-20220207014006-e6af52d614e4
+	github.com/juju/blobstore/v2 v2.0.0
+	github.com/juju/charm/v8 v8.0.1
+	github.com/juju/charmrepo/v6 v6.0.1
 	github.com/juju/clock v1.0.0
 	github.com/juju/cmd/v3 v3.0.0
 	github.com/juju/collections v1.0.0
@@ -61,13 +61,13 @@ require (
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
-	github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471
+	github.com/juju/gomaasapi/v2 v2.0.0
 	github.com/juju/http/v2 v2.0.0
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
-	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
+	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v4 v4.0.0
@@ -246,9 +246,9 @@ require (
 // go: google.golang.org/grpc/naming@v0.0.0-00010101000000-000000000000: invalid version: unknown revision 000000000000
 replace google.golang.org/grpc/naming => google.golang.org/grpc v1.29.1
 
-replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
+replace github.com/altoros/gosigma => github.com/juju/gosigma v1.0.0
 
-replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07
+replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
