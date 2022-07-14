@@ -4,7 +4,7 @@ run_constraints_aws() {
 
   file="${TEST_DIR}/constraints-aws.txt"
 
-#  ensure "constraints-aws" "${file}"
+  ensure "constraints-aws" "${file}"
 
 	echo "Deploy 5 machines with different constraints"
   juju add-machine --constraints "root-disk=16G"
@@ -41,12 +41,11 @@ run_constraints_aws() {
   machine4_constraints=$(juju machines --format json | jq -r '.["machines"]["4"]["constraints"]')
   check_contains "${machine4_constraints}" "instance-type=i3.xlarge"
 
-#  destroy_model "constraints-aws"
+  destroy_model "constraints-aws"
 }
 
 test_constraints_aws() {
-  if [ "$(skip 'test_constraints_aws')" ] ||
-     [ "${BOOTSTRAP_PROVIDER}" != "aws" ] || [ "${BOOTSTRAP_PROVIDER}" != "aws" ]; then
+  if [ "$(skip 'test_constraints_aws')" ]; then
   		echo "==> TEST SKIPPED: constraints aws"
   		return
   fi
