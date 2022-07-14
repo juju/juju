@@ -76,7 +76,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	s.expectPost(restClient, baseURLPath, id, body)
 
 	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
-	responses, err := client.Refresh(context.TODO(), config)
+	responses, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
 	c.Assert(responses[0].Name, gc.Equals, id)
@@ -279,7 +279,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 	}
 
 	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
-	err := client.RefreshWithMetricsOnly(context.TODO(), metrics)
+	err := client.RefreshWithMetricsOnly(context.Background(), metrics)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -368,7 +368,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 	}
 
 	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
-	responses, err := client.RefreshWithRequestMetrics(context.TODO(), config, metrics)
+	responses, err := client.RefreshWithRequestMetrics(context.Background(), config, metrics)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 2)
 	c.Assert(responses[0].Name, gc.Equals, id)
@@ -394,7 +394,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	s.expectPostFailure(restClient)
 
 	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
-	_, err = client.Refresh(context.TODO(), config)
+	_, err = client.Refresh(context.Background(), config)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 

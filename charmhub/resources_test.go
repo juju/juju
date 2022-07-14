@@ -39,7 +39,7 @@ func (s *ResourcesSuite) TestListResourceRevisions(c *gc.C) {
 	s.expectGet(c, restClient, path, name, resource)
 
 	client := newResourcesClient(path, restClient, &FakeLogger{})
-	response, err := client.ListResourceRevisions(context.TODO(), name, resource)
+	response, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.HasLen, 3)
 }
@@ -58,7 +58,7 @@ func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *gc.C) {
 	s.expectGetFailure(restClient)
 
 	client := newResourcesClient(path, restClient, &FakeLogger{})
-	_, err := client.ListResourceRevisions(context.TODO(), name, resource)
+	_, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -102,7 +102,7 @@ func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newResourcesClient(resourcesPath, restClient, &FakeLogger{})
-	response, err := client.ListResourceRevisions(context.TODO(), "wordpress", "image")
+	response, err := client.ListResourceRevisions(context.Background(), "wordpress", "image")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, resourcesResponse.Revisions)
 }

@@ -37,7 +37,7 @@ func (s *FindSuite) TestFind(c *gc.C) {
 	s.expectGet(c, restClient, path, name)
 
 	client := newFindClient(path, restClient, &FakeLogger{})
-	responses, err := client.Find(context.TODO(), name)
+	responses, err := client.Find(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
 	c.Assert(responses[0].Name, gc.Equals, name)
@@ -61,7 +61,7 @@ func (s *FindSuite) TestFindWithOptions(c *gc.C) {
 	s.expectGet(c, restClient, expect, name)
 
 	client := newFindClient(path, restClient, &FakeLogger{})
-	responses, err := client.Find(context.TODO(), name, WithFindChannel("1.0/stable"), WithFindType("bundle"))
+	responses, err := client.Find(context.Background(), name, WithFindChannel("1.0/stable"), WithFindType("bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
 	c.Assert(responses[0].Name, gc.Equals, name)
@@ -80,7 +80,7 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 	s.expectGetFailure(restClient)
 
 	client := newFindClient(path, restClient, &FakeLogger{})
-	_, err := client.Find(context.TODO(), name)
+	_, err := client.Find(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -176,7 +176,7 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newFindClient(findPath, restClient, &FakeLogger{})
-	responses, err := client.Find(context.TODO(), "wordpress")
+	responses, err := client.Find(context.Background(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responses, gc.DeepEquals, findResponses.Results)
 }
@@ -210,6 +210,6 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newFindClient(findPath, restClient, &FakeLogger{})
-	_, err = client.Find(context.TODO(), "wordpress")
+	_, err = client.Find(context.Background(), "wordpress")
 	c.Assert(err, gc.ErrorMatches, "not found error code")
 }

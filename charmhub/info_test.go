@@ -38,7 +38,7 @@ func (s *InfoSuite) TestInfoCharm(c *gc.C) {
 	s.expectCharmGet(c, restClient, path, name)
 
 	client := newInfoClient(path, restClient, &FakeLogger{})
-	response, err := client.Info(context.TODO(), name)
+	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
 	c.Assert(response.DefaultRelease.Revision.MetadataYAML, gc.Equals, "YAML")
@@ -57,7 +57,7 @@ func (s *InfoSuite) TestInfoBundle(c *gc.C) {
 	s.expectBundleGet(c, restClient, path, name)
 
 	client := newInfoClient(path, restClient, &FakeLogger{})
-	response, err := client.Info(context.TODO(), name)
+	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
 	c.Assert(response.DefaultRelease.Revision.BundleYAML, gc.Equals, "YAML")
@@ -76,7 +76,7 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	s.expectGetFailure(restClient)
 
 	client := newInfoClient(path, restClient, &FakeLogger{})
-	_, err := client.Info(context.TODO(), name)
+	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -93,7 +93,7 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 	s.expectGetError(c, restClient, path, name)
 
 	client := newInfoClient(path, restClient, &FakeLogger{})
-	_, err := client.Info(context.TODO(), name)
+	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -253,7 +253,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newInfoClient(infoPath, restClient, &FakeLogger{})
-	response, err := client.Info(context.TODO(), "wordpress")
+	response, err := client.Info(context.Background(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)
 }
