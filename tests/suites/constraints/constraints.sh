@@ -8,7 +8,7 @@ run_constraints_aws() {
 
 	echo "Deploy 5 machines with different constraints"
   juju add-machine --constraints "root-disk=16G"
-  juju add-machine --constraints "cores=1"
+  juju add-machine --constraints "cores=4"
   juju add-machine --constraints "cpu-power=30"
   juju add-machine --constraints "root-disk=16G cpu-power=30"
   juju add-machine --constraints "instance-type=i3.xlarge"
@@ -23,9 +23,9 @@ run_constraints_aws() {
   machine0_hardware=$(juju machines --format json | jq -r '.["machines"]["0"]["hardware"]')
   check_contains "${machine0_hardware}" "root-disk=16384M"
 
-	echo "Ensure machine 1 has 1 core"
+	echo "Ensure machine 1 has 4 cores"
   machine1_hardware=$(juju machines --format json | jq -r '.["machines"]["1"]["hardware"]')
-  check_contains "${machine1_hardware}" "cores=1"
+  check_contains "${machine1_hardware}" "cores=4"
 
 	echo "Ensure machine 2 limit cpu-power by 30"
   machine2_constraints=$(juju machines --format json | jq -r '.["machines"]["2"]["constraints"]')
