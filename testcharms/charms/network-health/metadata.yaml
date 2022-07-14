@@ -1,6 +1,6 @@
 name: network-health
 summary: Subordinate charm used for Juju networking tests
-maintainer: Michael Skalka <Michael.Skalka@canonical.com>
+maintainer: Juju Crew <juju-crew@canonical.com>
 description: |
   Subordinate charm used for Juju networking tests
 tags:
