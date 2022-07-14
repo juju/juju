@@ -9,9 +9,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	os "os"
+	"os"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -54,7 +54,7 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	client := newDownloadClient(httpClient, fileSystem, noopLogger{})
 	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -84,7 +84,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	client := newDownloadClient(httpClient, fileSystem, noopLogger{})
 	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
@@ -115,7 +115,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	client := newDownloadClient(httpClient, fileSystem, noopLogger{})
 	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
