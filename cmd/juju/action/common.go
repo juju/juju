@@ -199,7 +199,11 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, forceColor bo
 			ctx.Infof("Check task status with 'juju show-task %s'", actionId)
 		} else {
 			ctx.Infof("Scheduled operation %s with %v tasks", opID, nTasks)
-			_ = output.FormatYamlWithColor(ctx.Stdout, info)
+			if forceColor {
+				_ = output.FormatYamlWithColor(ctx.Stdout, info)
+			} else {
+				_ = cmd.FormatYaml(ctx.Stdout, info)
+			}
 			ctx.Infof("Check operation status with 'juju show-operation %s'", opID)
 			ctx.Infof("Check task status with 'juju show-task <id>'")
 		}
