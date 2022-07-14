@@ -3,16 +3,13 @@
 package charmhub
 
 import (
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
 )
 
-type ErrorsSuite struct {
-	testing.IsolationSuite
-}
+type ErrorsSuite struct{}
 
 var _ = gc.Suite(&ErrorsSuite{})
 
@@ -26,4 +23,10 @@ func (ErrorsSuite) TestHandleBasicAPIErrorsNotFound(c *gc.C) {
 	list := transport.APIErrors{{Code: transport.ErrorCodeNotFound, Message: "foo"}}
 	err := handleBasicAPIErrors(list, noopLogger{})
 	c.Assert(err, gc.ErrorMatches, `charm or bundle not found`)
+}
+
+func (ErrorsSuite) TestHandleBasicAPIErrorsOther(c *gc.C) {
+	list := transport.APIErrors{{Code: "other", Message: "foo"}}
+	err := handleBasicAPIErrors(list, noopLogger{})
+	c.Assert(err, gc.ErrorMatches, `foo`)
 }
