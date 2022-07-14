@@ -17,7 +17,9 @@ import (
 )
 
 var (
-	EnsureMongoServer = mongo.EnsureServer
+	// EnsureMongoServerInstalled is patched for testing.
+	EnsureMongoServerInstalled = mongo.EnsureServerInstalled
+	EnsureMongoServerStarted   = mongo.EnsureServerStarted
 )
 
 // AgentDone processes the error returned by an exiting agent.
@@ -44,11 +46,11 @@ func AgentDone(logger loggo.Logger, err error) error {
 	return err
 }
 
-// NewEnsureServerParams creates an EnsureServerParams from an agent
+// NewEnsureMongoParams creates a mongo.EnsureServerParams from an agent
 // configuration.
-var NewEnsureServerParams = newEnsureServerParams
+var NewEnsureMongoParams = newEnsureMongoParams
 
-func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
 	// If oplog size is specified in the agent configuration, use that.
 	// Otherwise leave the default zero value to indicate to EnsureServer
 	// that it should calculate the size.

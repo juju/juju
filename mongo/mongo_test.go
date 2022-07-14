@@ -100,12 +100,6 @@ func (s *MongoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *MongoSuite) expectNoLegacyMongo() {
-	s.PatchValue(mongo.FindLegacyMongo, func(search mongo.SearchTools) (string, mongo.Version, error) {
-		return "", mongo.Version{}, errors.NotFoundf("a version of mongo")
-	})
-}
-
 func (s *MongoSuite) expectMongoSnapInstalled() {
 	mExp := s.mongoSnapService.EXPECT()
 	mExp.Installed().Return(true, nil)
@@ -118,7 +112,6 @@ func (s *MongoSuite) expectMongoSnapInstalled() {
 
 func (s *MongoSuite) expectInstallMongoSnap() {
 	mExp := s.mongoSnapService.EXPECT()
-	mExp.Installed().Return(false, nil)
 	mExp.Name().Return("not-juju-db")
 	mExp.Install().Return(nil)
 	mExp.ConfigOverride().Return(nil)
@@ -173,9 +166,8 @@ tlsMode = requireTLS`, dataDir, dataDir, dataDir)
 	c.Assert(string(contents), jc.DeepEquals, part1+part2)
 }
 
-func (s *MongoSuite) TestEnsureServer(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectNoLegacyMongo()
 	s.expectInstallMongoSnap()
 
 	dataDir := s.assertEnsureServerIPv6(c, true)
@@ -187,23 +179,27 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	// make sure that we log the version of mongodb as we get ready to
 	// start it
 	tlog := c.GetTestLog()
-	any := `(.|\n)*`
-	start := "^" + any
-	tail := any + "$"
+	anyExp := `(.|\n)*`
+	start := "^" + anyExp
+	tail := anyExp + "$"
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version:\sdb version v\d\.\d\.\d`+tail)
 }
 
-func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerStarted(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectNoLegacyMongo()
 	s.expectMongoSnapInstalled()
 
-	_ = s.assertEnsureServerIPv6(c, true)
+	dataDir := c.MkDir()
+	s.mongodConfigPath = filepath.Join(dataDir, "juju-db.config")
+
+	testing.PatchExecutableAsEchoArgs(c, s, "snap")
+
+	err := mongo.EnsureServerStartedForTest(dataDir, "stable")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MongoSuite) TestEnsureServerNoIPv6(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalledNoIPv6(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectNoLegacyMongo()
 	dataDir := s.assertEnsureServerIPv6(c, false)
 
 	s.assertTLSKeyFile(c, dataDir)
@@ -211,9 +207,8 @@ func (s *MongoSuite) TestEnsureServerNoIPv6(c *gc.C) {
 	s.assertMongoConfigFile(c, dataDir, false)
 }
 
-func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectNoLegacyMongo()
 	dataDir := c.MkDir()
 	dataFilePath := filepath.Join(dataDir, "mongoKernelTweaks")
 	dataFile, err := os.Create(dataFilePath)
@@ -238,9 +233,8 @@ func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
 	c.Assert(string(contents), gc.Equals, "new value")
 }
 
-func (s *MongoSuite) TestEnsureServerError(c *gc.C) {
+func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectNoLegacyMongo()
 	dataDir := c.MkDir()
 	configDir := c.MkDir()
 
@@ -250,7 +244,7 @@ func (s *MongoSuite) TestEnsureServerError(c *gc.C) {
 	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, series string) error {
 		return failure
 	})
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, configDir))
+	err := mongo.EnsureServerInstalled(makeEnsureServerParams(dataDir, configDir))
 	c.Assert(errors.Cause(err), gc.Equals, failure)
 }
 
@@ -265,7 +259,7 @@ func (s *MongoSuite) assertEnsureServerIPv6(c *gc.C, ipv6 bool) string {
 		return ipv6
 	})
 	testParams := makeEnsureServerParams(dataDir, configDir)
-	err := mongo.EnsureServer(testParams)
+	err := mongo.EnsureServerInstalled(testParams)
 	c.Assert(err, jc.ErrorIsNil)
 	return dataDir
 }
@@ -277,7 +271,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
 	configDir := c.MkDir()
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, configDir))
+	err := mongo.EnsureServerInstalled(makeEnsureServerParams(dataDir, configDir))
 	c.Check(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
