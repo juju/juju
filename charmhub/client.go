@@ -42,6 +42,11 @@ const (
 	RefreshTimeout = 10 * time.Second
 )
 
+const (
+	serverVersion = "v2"
+	serverEntity  = "charms"
+)
+
 // Logger is the interface to use for logging requests and errors.
 type Logger interface {
 	IsTraceEnabled() bool
@@ -73,7 +78,7 @@ type Config struct {
 // basePath returns the base configuration path for speaking to the server API.
 func basePath(configURL string) (charmhubpath.Path, error) {
 	baseURL := strings.TrimRight(configURL, "/")
-	rawURL := fmt.Sprintf("%s/%s", baseURL, path.Join("v2", "charms"))
+	rawURL := fmt.Sprintf("%s/%s", baseURL, path.Join(serverVersion, serverEntity))
 	url, err := url.Parse(rawURL)
 	if err != nil {
 		return charmhubpath.Path{}, errors.Trace(err)
