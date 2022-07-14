@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 )
 
 // rebootWaiterShim wraps the functions required by RebootWaiter
@@ -36,9 +35,9 @@ func (r rebootWaiterShim) ListServices() ([]string, error) {
 	return service.ListServices()
 }
 
-// NewService returns a new juju service object.
-func (r rebootWaiterShim) NewService(name string, conf common.Conf, series string) (Service, error) {
-	return service.NewService(name, conf, series)
+// NewServiceReference returns a new juju service object.
+func (r rebootWaiterShim) NewServiceReference(name string) (Service, error) {
+	return service.NewServiceReference(name)
 }
 
 // NewContainerManager return an object implementing Manager.

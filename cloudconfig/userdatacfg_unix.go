@@ -21,7 +21,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -30,8 +29,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/upstart"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig")
@@ -159,14 +156,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	switch w.os {
-	case os.Ubuntu:
-		if (w.icfg.AgentVersion() != version.Binary{}) {
-			initSystem, err := service.VersionInitSystem(w.icfg.Series)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			w.addCleanShutdownJob(initSystem)
-		}
 	case os.CentOS:
 		w.conf.AddScripts(
 			// Mask and stop firewalld, if enabled, so it cannot start. See
@@ -178,7 +167,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 
 			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
 		)
-		w.addCleanShutdownJob(service.InitSystemSystemd)
 	case os.OpenSUSE:
 		w.conf.AddScripts(
 			// Mask and stop firewalld, if enabled, so it cannot start. See
@@ -192,7 +180,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 			`(grep ubuntu /etc/group) || groupadd ubuntu`,
 			`usermod -g ubuntu -G ubuntu,users ubuntu`,
 		)
-		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
 
@@ -225,14 +212,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 	noncefile := path.Join(w.icfg.DataDir, NonceFile)
 	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
 	return nil
-}
-
-func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
-	switch initSystem {
-	case service.InitSystemUpstart:
-		p, contents := upstart.CleanShutdownJobPath, upstart.CleanShutdownJob
-		w.conf.AddRunTextFile(p, contents, 0644)
-	}
 }
 
 func (w *unixConfigure) setDataDirPermissions() string {

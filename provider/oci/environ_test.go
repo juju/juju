@@ -241,15 +241,15 @@ func (s *environSuite) setupListImagesExpectations() {
 			CompartmentId:          &s.testCompartment,
 			Id:                     makeStringPointer("fakeUbuntu1"),
 			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("14.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.11-0"),
+			OperatingSystemVersion: makeStringPointer("22.04"),
+			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     makeStringPointer("fakeUbuntu2"),
 			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("14.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.12-0"),
+			OperatingSystemVersion: makeStringPointer("22.04"),
+			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
@@ -918,7 +918,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.IsNil)
@@ -945,7 +945,7 @@ func (s *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 			BootstrapConstraints:     constraints.MustParse("allocate-public-ip=false"),
 		})
@@ -974,8 +974,8 @@ func (s *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("windows"),
-			BootstrapSeries:          "precise",
+			AvailableTools:           makeToolsList("centos"),
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")

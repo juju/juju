@@ -291,14 +291,9 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		if svc == nil || err != nil {
 			return
 		}
-		err = svc.Stop()
+		err = svc.Restart()
 		if err != nil {
-			err = errors.Annotate(err, "cannot stop mongo service")
-			return
-		}
-		err = svc.Start()
-		if err != nil {
-			err = errors.Annotate(err, "cannot start mongo service")
+			err = errors.Annotate(err, "cannot restart mongo service")
 			return
 		}
 	}(svc)
@@ -463,7 +458,7 @@ type MongoSnapService interface {
 	ConfigOverride() error
 	Name() string
 	Start() error
-	Stop() error
+	Restart() error
 	Install() error
 }
 

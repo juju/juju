@@ -18,11 +18,6 @@ package feature
 // stack trace in the log output, but normal deployments never will.
 const LogErrorStack = "log-error-stack"
 
-// LegacyUpstart is used to indicate that the version-based init system
-// discovery code (service.VersionInitSystem) should return upstart
-// instead of systemd for vivid and newer.
-const LegacyUpstart = "legacy-upstart"
-
 // DeveloperMode allows access to developer specific commands and behaviour.
 const DeveloperMode = "developer-mode"
 
@@ -39,9 +34,6 @@ const Generations = "generations"
 
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
-
-// ActionsV2 enables the next generation actions UX.
-const ActionsV2 = "actions-v2"
 
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
