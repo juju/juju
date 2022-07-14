@@ -36,7 +36,7 @@ run_simplestream_metadata() {
 		--agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
-	juju deploy ./tests/suites/bootstrap/charms/ubuntu
+	juju deploy ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 }
 
