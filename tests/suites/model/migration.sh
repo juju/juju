@@ -11,7 +11,7 @@ run_model_migration() {
 	bootstrap_alt_controller "alt-model-migration"
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	juju deploy ./tests/suites/model/charms/ubuntu
+	juju deploy ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
