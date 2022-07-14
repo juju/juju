@@ -461,7 +461,6 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 			})
 		}
 
-		resolvedOrigins[resIdx].ID = refreshResult.ID
 		metaRes[resIdx].ResolvedOrigin = resolvedOrigins[resIdx]
 		metaRes[resIdx].Meta = chMeta
 		metaRes[resIdx].Config = chConfig
