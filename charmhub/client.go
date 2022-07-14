@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
+
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"

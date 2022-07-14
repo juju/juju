@@ -27,18 +27,18 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// Action represents the type of refresh is performed.
-type Action string
+// action represents the type of refresh is performed.
+type action string
 
 const (
-	// InstallAction defines a install action.
-	InstallAction Action = "install"
+	// installAction defines a install action.
+	installAction action = "install"
 
-	// DownloadAction defines a download action.
-	DownloadAction Action = "download"
+	// downloadAction defines a download action.
+	downloadAction action = "download"
 
-	// RefreshAction defines a refresh action.
-	RefreshAction Action = "refresh"
+	// refreshAction defines a refresh action.
+	refreshAction action = "refresh"
 )
 
 var (
@@ -248,7 +248,7 @@ func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 		return nil, logAndReturnError(err)
 	}
 	return executeOneByRevision{
-		action:      InstallAction,
+		action:      installAction,
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
@@ -304,7 +304,7 @@ func InstallOneFromChannel(name string, channel string, base RefreshBase) (Refre
 		return nil, logAndReturnError(err)
 	}
 	return executeOne{
-		action:      InstallAction,
+		action:      installAction,
 		instanceKey: uuid.String(),
 		Name:        name,
 		Channel:     &channel,
@@ -324,7 +324,7 @@ func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 		return nil, logAndReturnError(err)
 	}
 	return executeOneByRevision{
-		action:      DownloadAction,
+		action:      downloadAction,
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
@@ -343,7 +343,7 @@ func DownloadOneFromRevisionByName(name string, revision int) (RefreshConfig, er
 		return nil, logAndReturnError(err)
 	}
 	return executeOneByRevision{
-		action:      DownloadAction,
+		action:      downloadAction,
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
@@ -365,7 +365,7 @@ func DownloadOneFromChannel(id string, channel string, base RefreshBase) (Refres
 		return nil, errors.Trace(err)
 	}
 	return executeOne{
-		action:      DownloadAction,
+		action:      downloadAction,
 		instanceKey: uuid.String(),
 		ID:          id,
 		Channel:     &channel,
@@ -388,7 +388,7 @@ func DownloadOneFromChannelByName(name string, channel string, base RefreshBase)
 		return nil, logAndReturnError(err)
 	}
 	return executeOne{
-		action:      DownloadAction,
+		action:      downloadAction,
 		instanceKey: uuid.String(),
 		Name:        name,
 		Channel:     &channel,
