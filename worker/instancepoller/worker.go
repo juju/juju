@@ -358,19 +358,30 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 
 	ctx := stdcontext.Background()
 	infoList, err := u.config.Environ.Instances(u.callContextFunc(ctx), instList)
-	if err != nil && !isPartialOrNoInstancesError(err) {
-		return errors.Trace(err)
+	if err != nil {
+		switch errors.Cause(err) {
+		case environs.ErrPartialInstances:
+		case environs.ErrNoInstances:
+			// If there were no instances recognised by the provider, we do not
+			// retrieve the network configuration, and will therefore have
+			// nothing to update.
+			// This can happen when machines do have instance IDs, but the
+			// instances themselves are shut down, such as we have seen for
+			// dying models.
+			return nil
+		default:
+			return errors.Trace(err)
+		}
 	}
 
 	netList, err := u.config.Environ.NetworkInterfaces(u.callContextFunc(ctx), instList)
 	if err != nil && !isPartialOrNoInstancesError(err) {
-		// NOTE(achilleasa): 2022-24-01: all existing providers (with
-		// the exception of "manual" which we don't care about in this
-		// context) implement the NetworkInterfaces method.
+		// NOTE(achilleasa): 2022-24-01: all existing providers (with the
+		// exception of "manual" which we don't care about in this context)
+		// implement the NetworkInterfaces method.
 		//
-		// This error is meant as a hint to folks working on new
-		// providers in the future to ensure that they implement this
-		// method.
+		// This error is meant as a hint to folks working on new providers
+		// in the future to ensure that they implement this method.
 		if errors.IsNotSupported(errors.Cause(err)) {
 			return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
 		}
@@ -379,9 +390,6 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 	}
 
 	for idx, info := range infoList {
-		// No details found for this instance. This most probably means
-		// that the unit has been killed and we haven't been notified
-		// yet. Log the error and keep going.
 		if info == nil {
 			u.config.Logger.Warningf("unable to retrieve instance information for instance: %q", instList[idx])
 			continue
@@ -393,6 +401,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		}
 
 		entry := u.instanceIDToGroupEntry[instList[idx]]
+
 		providerStatus, providerAddrCount, err := u.processProviderInfo(entry, info, ifList)
 		if err != nil {
 			return errors.Trace(err)
@@ -416,7 +425,7 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 
 	instID, err := entry.m.InstanceId()
 	if err != nil {
-		return errors.Annotate(err, "cannot get machine's instance ID")
+		return errors.Annotatef(err, "retrieving instance ID for machine %q", entry.m.Id())
 	}
 
 	entry.instanceID = instID
@@ -428,13 +437,17 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 // addresses based on the information collected from the provider. It returns
 // the *instance* status and the number of provider addresses currently
 // known for the machine.
-func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerIfaceList network.InterfaceInfos) (status.Status, int, error) {
+func (u *updaterWorker) processProviderInfo(
+	entry *pollGroupEntry, info instances.Instance, providerInterfaces network.InterfaceInfos,
+) (status.Status, int, error) {
 	curStatus, err := entry.m.InstanceStatus()
 	if err != nil {
 		// This should never occur since the machine is provisioned. If
 		// it does occur, report an unknown status to move the machine to
 		// the short poll group.
-		u.config.Logger.Warningf("cannot get current instance status for machine %v (instance ID %q): %v", entry.m.Id(), entry.instanceID, err)
+		u.config.Logger.Warningf("cannot get current instance status for machine %v (instance ID %q): %v",
+			entry.m.Id(), entry.instanceID, err)
+
 		return status.Unknown, -1, nil
 	}
 
@@ -446,7 +459,9 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 	}
 
 	if providerStatus != curInstStatus {
-		u.config.Logger.Infof("machine %q (instance ID %q) instance status changed from %q to %q", entry.m.Id(), entry.instanceID, curInstStatus, providerStatus)
+		u.config.Logger.Infof("machine %q (instance ID %q) instance status changed from %q to %q",
+			entry.m.Id(), entry.instanceID, curInstStatus, providerStatus)
+
 		if err = entry.m.SetInstanceStatus(providerStatus.Status, providerStatus.Message, nil); err != nil {
 			u.config.Logger.Errorf("cannot set instance status on %q: %v", entry.m, err)
 			return status.Unknown, -1, errors.Trace(err)
@@ -468,7 +483,7 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 
 	// Check whether the provider addresses for this machine need to be
 	// updated.
-	addrCount, err := u.syncProviderAddresses(entry, info, providerIfaceList)
+	addrCount, err := u.syncProviderAddresses(entry, providerInterfaces)
 	if err != nil {
 		return status.Unknown, -1, err
 	}
@@ -480,18 +495,27 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 // using either the provider sourced interface list.
 //
 // The call returns the count of provider addresses for the machine.
-func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo instances.Instance, providerIfaceList network.InterfaceInfos) (int, error) {
+func (u *updaterWorker) syncProviderAddresses(
+	entry *pollGroupEntry, providerIfaceList network.InterfaceInfos,
+) (int, error) {
 	addrs, modified, err := entry.m.SetProviderNetworkConfig(providerIfaceList)
 	if err != nil {
 		return -1, errors.Trace(err)
 	} else if modified {
-		u.config.Logger.Infof("machine %q (instance ID %q) has new addresses: %v", entry.m.Id(), entry.instanceID, addrs)
+		u.config.Logger.Infof("machine %q (instance ID %q) has new addresses: %v",
+			entry.m.Id(), entry.instanceID, addrs)
 	}
 
 	return len(addrs), nil
 }
 
-func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *pollGroupEntry, curProviderStatus, curMachineStatus status.Status, providerAddrCount int) {
+func (u *updaterWorker) maybeSwitchPollGroup(
+	curGroup pollGroupType,
+	entry *pollGroupEntry,
+	curProviderStatus,
+	curMachineStatus status.Status,
+	providerAddrCount int,
+) {
 	if curProviderStatus == status.Allocating || curProviderStatus == status.Pending {
 		// Keep the machine in the short poll group until it settles.
 		entry.bumpShortPollInterval(u.config.Clock)

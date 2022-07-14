@@ -110,16 +110,18 @@ func (s *pollGroupEntrySuite) TestShortPollIntervalLogic(c *gc.C) {
 	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll)
 	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(ShortPoll))
 
-	// Ensure that bumpping the short poll duration caps when we reach the
+	// Ensure that bumping the short poll duration caps when we reach the
 	// LongPoll interval.
 	for i := 0; entry.shortPollInterval < LongPoll && i < 100; i++ {
 		entry.bumpShortPollInterval(clock)
 	}
-	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf("short poll interval did not reach short poll cap interval after 100 interval bumps"))
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf(
+		"short poll interval did not reach short poll cap interval after 100 interval bumps"))
 
 	// Check that once we reach the short poll cap interval we stay capped at it.
 	entry.bumpShortPollInterval(clock)
-	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf("short poll should have been capped at the short poll cap interval"))
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf(
+		"short poll should have been capped at the short poll cap interval"))
 	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(ShortPollCap))
 }
 
@@ -417,6 +419,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	machineTag0 := names.NewMachineTag("0")
 	machine0 := mocks.NewMockMachine(ctrl)
 	machine0.EXPECT().InstanceId().Return(instance.Id(""), apiservererrors.ServerError(errors.NotProvisionedf("not there")))
+	machine0.EXPECT().Id().Return("0")
 	updWorker.appendToShortPollGroup(machineTag0, machine0)
 
 	machineTag1 := names.NewMachineTag("1")
@@ -502,9 +505,6 @@ func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
 	machine.EXPECT().InstanceId().Return(instID, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		nil, environs.ErrNoInstances,
-	)
-	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instID}).Return(
-		nil, nil,
 	)
 
 	// Advance the clock to trigger processing of both the short AND long
