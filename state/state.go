@@ -1968,7 +1968,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
 	switch len(names) {
-	// Implcitly assume this is a peer relationship, as they have only one endpoint
+	// Implicitly assume this is a peer relation, as they have only one endpoint
 	case 1:
 		eps, err := st.endpoints(names[0], isPeer)
 		if err != nil {
@@ -1977,7 +1977,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		for _, ep := range eps {
 			candidates = append(candidates, []Endpoint{ep})
 		}
-	// All other relationships are between two endpoints
+	// All other relations are between two endpoints
 	case 2:
 		eps1, err := st.endpoints(names[0], notPeer)
 		if err != nil {
