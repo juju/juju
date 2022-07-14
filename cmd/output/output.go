@@ -142,6 +142,26 @@ func StatusColor(status status.Status) *ansiterm.Context {
 	return statusColors[status]
 }
 
+// PrintWriter decorates the ansiterm.Writer object.
+type PrintWriter struct {
+	*ansiterm.Writer
+}
+
+// Print writes each value.
+func (w *PrintWriter) Print(ctx *ansiterm.Context, values ...interface{}) {
+	for _, v := range values {
+		ctx.Fprintf(w, "%v", v)
+	}
+}
+
+// Println writes each value.
+func (w *PrintWriter) Println(ctx *ansiterm.Context, values ...interface{}) {
+	for _, v := range values {
+		ctx.Fprintf(w, "%v", v)
+	}
+	fmt.Fprintln(w)
+}
+
 // CurrentHighlight is the color used to show the current
 // controller, user or model in tabular
 var CurrentHighlight = ansiterm.Foreground(ansiterm.Green)
