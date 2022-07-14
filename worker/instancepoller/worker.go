@@ -25,11 +25,6 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_watcher.go github.com/juju/juju/core/watcher StringsWatcher
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_instances.go github.com/juju/juju/environs/instances Instance
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_cred_api.go github.com/juju/juju/worker/common CredentialAPI
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_instancepoller.go github.com/juju/juju/worker/instancepoller Environ,Machine
-
 // ShortPoll and LongPoll hold the polling intervals for the instance
 // updater. When a machine has no address or is not started, it will be
 // polled at ShortPoll intervals until it does, exponentially backing off
