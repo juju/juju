@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
-	corelogger "github.com/juju/juju/core/logger"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/version"
 )
@@ -168,7 +166,7 @@ func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []tra
 		return nil, errors.Trace(err)
 	}
 	if restResp.StatusCode == http.StatusNotFound {
-		return nil, logAndReturnError(errors.NotFoundf("refresh"))
+		return nil, errors.NotFoundf("refresh")
 	}
 	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
 		return nil, errors.Trace(err)
@@ -202,7 +200,7 @@ func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []tra
 // RefreshOne creates a request config for requesting only one charm.
 func RefreshOne(key, id string, revision int, channel string, base RefreshBase) (RefreshConfig, error) {
 	if id == "" {
-		return nil, logAndReturnError(errors.NotValidf("empty id"))
+		return nil, errors.NotValidf("empty id")
 	}
 	if key == "" {
 		// This is for compatibility reasons.  With older clients, the
@@ -210,12 +208,12 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 		// the client.  Since a key is required, ensure we have one.
 		uuid, err := utils.NewUUID()
 		if err != nil {
-			return nil, logAndReturnError(err)
+			return nil, errors.Trace(err)
 		}
 		key = uuid.String()
 	}
 	if err := validateBase(base); err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	return refreshOne{
 		instanceKey: key,
@@ -241,11 +239,11 @@ func CreateInstanceKey(app names.ApplicationTag, model names.ModelTag) string {
 // the channel for requesting only one charm.
 func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 	if name == "" {
-		return nil, logAndReturnError(errors.NotValidf("empty name"))
+		return nil, errors.NotValidf("empty name")
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	return executeOneByRevision{
 		action:      installAction,
@@ -294,14 +292,14 @@ func AddConfigMetrics(config RefreshConfig, metrics map[charmmetrics.MetricKey]s
 // revision for requesting only one charm.
 func InstallOneFromChannel(name string, channel string, base RefreshBase) (RefreshConfig, error) {
 	if name == "" {
-		return nil, logAndReturnError(errors.NotValidf("empty name"))
+		return nil, errors.NotValidf("empty name")
 	}
 	if err := validateBase(base); err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	return executeOne{
 		action:      installAction,
@@ -317,11 +315,11 @@ func InstallOneFromChannel(name string, channel string, base RefreshBase) (Refre
 // the channel for requesting only one charm.
 func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 	if id == "" {
-		return nil, logAndReturnError(errors.NotValidf("empty id"))
+		return nil, errors.NotValidf("empty id")
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	return executeOneByRevision{
 		action:      downloadAction,
@@ -336,11 +334,11 @@ func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 // the channel for requesting only one charm.
 func DownloadOneFromRevisionByName(name string, revision int) (RefreshConfig, error) {
 	if name == "" {
-		return nil, logAndReturnError(errors.NotValidf("empty name"))
+		return nil, errors.NotValidf("empty name")
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	return executeOneByRevision{
 		action:      downloadAction,
@@ -355,10 +353,10 @@ func DownloadOneFromRevisionByName(name string, revision int) (RefreshConfig, er
 // revision for requesting only one charm.
 func DownloadOneFromChannel(id string, channel string, base RefreshBase) (RefreshConfig, error) {
 	if id == "" {
-		return nil, logAndReturnError(errors.NotValidf("empty id"))
+		return nil, errors.NotValidf("empty id")
 	}
 	if err := validateBase(base); err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
@@ -378,14 +376,14 @@ func DownloadOneFromChannel(id string, channel string, base RefreshBase) (Refres
 // revision for requesting only one charm.
 func DownloadOneFromChannelByName(name string, channel string, base RefreshBase) (RefreshConfig, error) {
 	if name == "" {
-		return nil, logAndReturnError(errors.NotValidf("empty name"))
+		return nil, errors.NotValidf("empty name")
 	}
 	if err := validateBase(base); err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, logAndReturnError(err)
+		return nil, errors.Trace(err)
 	}
 	return executeOne{
 		action:      downloadAction,
@@ -401,7 +399,7 @@ func DownloadOneFromChannelByName(name string, channel string, base RefreshBase)
 // partial base queries.
 func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 	if base.Architecture == "" {
-		return transport.Base{}, logAndReturnError(errors.NotValidf("refresh arch"))
+		return transport.Base{}, errors.NotValidf("refresh arch")
 	}
 
 	name := base.Name
@@ -454,10 +452,7 @@ func validateBase(rp RefreshBase) error {
 		msg = append(msg, fmt.Sprintf("Channel %q", rp.Channel))
 	}
 	if len(msg) > 0 {
-		err := errors.Trace(errors.NotValidf(strings.Join(msg, ", ")))
-		// Log the error here, trace on this side gets lost when the error
-		// goes thru to the client.
-		return logAndReturnError(err)
+		return errors.Trace(errors.NotValidf(strings.Join(msg, ", ")))
 	}
 	return nil
 }
@@ -474,13 +469,4 @@ func ExtractConfigInstanceKey(cfg RefreshConfig) string {
 		return key.InstanceKey()
 	}
 	return ""
-}
-
-// TODO(benhoyt): this global logger should not exist; just get rid of logAndReturnError?
-var logger = loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
-
-func logAndReturnError(err error) error {
-	err = errors.Trace(err)
-	logger.Errorf(err.Error())
-	return err
 }
