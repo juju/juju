@@ -875,7 +875,7 @@ func (a *MachineAgent) Restart() error {
 // in use. Why can't upgradesteps depend on the main state connection?
 func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
-	if err := a.ensureMongoServer(agentConfig); err != nil {
+	if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	info, ok := agentConfig.MongoInfo()
@@ -1239,12 +1239,12 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if a.isCaasAgent {
 		return nil
 	}
-	// EnsureMongoServer installs/upgrades the init config as necessary.
-	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+	// EnsureMongoServerInstalled installs/upgrades the init config as necessary.
+	ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
 	if err != nil {
 		return err
 	}
-	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")

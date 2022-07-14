@@ -42,13 +42,14 @@ type patchingSuite interface {
 }
 
 // InstallFakeEnsureMongo creates a new FakeEnsureMongo, patching
-// out replicaset.CurrentConfig and cmdutil.EnsureMongoServer.
+// out replicaset.CurrentConfig and cmdutil.EnsureMongoServerInstalled/Started.
 func InstallFakeEnsureMongo(suite patchingSuite, dataDir string) *FakeEnsureMongo {
 	f := &FakeEnsureMongo{}
 	suite.PatchValue(&mongo.CurrentReplicasetConfig, f.CurrentConfig)
-	suite.PatchValue(&cmdutil.EnsureMongoServer, f.EnsureMongo)
-	ensureParams := cmdutil.NewEnsureServerParams
-	suite.PatchValue(&cmdutil.NewEnsureServerParams, func(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+	suite.PatchValue(&cmdutil.EnsureMongoServerInstalled, f.EnsureMongo)
+	suite.PatchValue(&cmdutil.EnsureMongoServerStarted, f.EnsureMongoStarted)
+	ensureParams := cmdutil.NewEnsureMongoParams
+	suite.PatchValue(&cmdutil.NewEnsureMongoParams, func(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
 		params, err := ensureParams(agentConfig)
 		if err == nil {
 			params.DataDir = dataDir
@@ -90,6 +91,10 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,
 	}
+	return f.Err
+}
+
+func (f *FakeEnsureMongo) EnsureMongoStarted(snapChannel string) error {
 	return f.Err
 }
 
