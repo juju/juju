@@ -277,6 +277,16 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	}
 
 	for i, arg := range args.Applications {
+		// If either the charm origin ID or Hash is set before a charm is
+		// downloaded, charm download will fail for charms with a forced series.
+		// The logic (refreshConfig) in sending the correct request to charmhub
+		// will break.
+		if arg.CharmOrigin != nil &&
+			((arg.CharmOrigin.ID != "" && arg.CharmOrigin.Hash == "") ||
+				(arg.CharmOrigin.ID == "" && arg.CharmOrigin.Hash != "")) {
+			err := errors.BadRequestf("programming error, Deploy, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
 		err := deployApplication(
 			api.backend,
 			api.model,

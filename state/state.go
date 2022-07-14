@@ -1147,6 +1147,16 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Errorf("charm is nil")
 	}
 
+	// If either the charm origin ID or Hash is set before a charm is
+	// downloaded, charm download will fail for charms with a forced series.
+	// The logic (refreshConfig) in sending the correct request to charmhub
+	// will break.
+	if args.CharmOrigin != nil &&
+		((args.CharmOrigin.ID != "" && args.CharmOrigin.Hash == "") ||
+			(args.CharmOrigin.ID == "" && args.CharmOrigin.Hash != "")) {
+		return nil, errors.BadRequestf("programming error, AddApplication, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+	}
+
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

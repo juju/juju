@@ -15,7 +15,6 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -1676,6 +1676,14 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 
 		if cfg.CharmOrigin != nil {
+			origin := cfg.CharmOrigin
+			// If either the charm origin ID or Hash is set before a charm is
+			// downloaded, charm download will fail for charms with a forced series.
+			// The logic (refreshConfig) in sending the correct request to charmhub
+			// will break.
+			if (origin.ID != "" && origin.Hash == "") || (origin.ID == "" && origin.Hash != "") {
+				return nil, errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+			}
 			// Update in the application facade also calls
 			// SetCharm, though it has no current user in the
 			// application api client. Just in case: do not
@@ -1685,7 +1693,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
-					{"charm-origin", cfg.CharmOrigin},
+					{"charm-origin", origin},
 				}}},
 			})
 		}
