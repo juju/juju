@@ -1745,6 +1745,71 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	return nil
 }
 
+// SetDownloadedIDAndHash updates the applications charm origin with ID and
+// hash values. This should ONLY be done from the async downloader.
+// The hash cannot be updated if the charm origin has no ID, nor was one
+// provided as an argument. The ID cannot be changed.
+func (a *Application) SetDownloadedIDAndHash(ID, hash string) error {
+	if ID == "" && hash == "" {
+		return errors.BadRequestf("ID, %q, and hash, %q, must have values", ID, hash)
+	}
+	if a.doc.CharmOrigin == nil {
+		return errors.Errorf("this application has no charm origin")
+	}
+	if ID != "" && a.doc.CharmOrigin.ID != ID {
+		return errors.BadRequestf("application ID cannot be changed %q, %q", a.doc.CharmOrigin.ID, ID)
+	}
+	if ID != "" && hash == "" {
+		return errors.BadRequestf("programming error, SetDownloadedIDAndHash, cannot have an ID without a hash after downloading. See CharmHubRepository GetDownloadURL.")
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if a.Life() != Alive {
+			return nil, errors.New("application is not alive")
+		}
+		ops := []txn.Op{{
+			C:      applicationsC,
+			Id:     a.doc.DocID,
+			Assert: isAliveDoc,
+		}}
+		if ID != "" {
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     a.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"charm-origin.ID", ID},
+				}}},
+			})
+		}
+		if hash != "" {
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     a.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"charm-origin.hash", hash},
+				}}},
+			})
+		}
+		return ops, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return err
+	}
+	if ID != "" {
+		a.doc.CharmOrigin.ID = ID
+	}
+	if hash != "" {
+		a.doc.CharmOrigin.Hash = hash
+	}
+	return nil
+}
+
 func checkSeriesForSetCharm(curSeries string, charm *Charm, forceSeries bool) error {
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL

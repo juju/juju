@@ -133,10 +133,11 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	}
 
 	logger.Infof("downloading charm %q", pendingCharmURL)
-	if _, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, macaroons, force); err != nil {
+	downloadedOrigin, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, macaroons, force)
+	if err != nil {
 		return errors.Annotatef(err, "cannot download and store charm %q", pendingCharmURL)
 	}
-	return nil
+	return app.SetDownloadedIDAndHash(downloadedOrigin.ID, downloadedOrigin.Hash)
 }
 
 func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
