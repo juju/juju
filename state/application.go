@@ -15,6 +15,7 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
 	"github.com/juju/mgo/v2/txn"
 	"github.com/juju/names/v4"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
