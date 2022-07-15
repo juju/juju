@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package snap is a minimal service.Service implementation, derived from the on service/upstart package.
+// Package snap manages installing and running snaps.
 package snap
 
 import (
@@ -87,23 +87,6 @@ func SetSnapConfig(snap string, key string, value string) error {
 	return nil
 }
 
-// ListCommand returns a command that will be interpreted by a shell
-// to produce a list of currently-installed services that are managed by snap.
-func ListCommand() string {
-	// filters the output from `snap list` to only be a newline-delimited list of snaps
-	return Command + " services | tail -n +2 | cut -d ' ' -f1 | sort -u"
-}
-
-// ListServices returns a list of services that are being managed by snap.
-func ListServices() ([]string, error) {
-	fullCommand := strings.Fields(ListCommand())
-	services, err := utils.RunCommand(fullCommand[0], fullCommand[1:]...)
-	if err != nil {
-		return []string{}, errors.Trace(err)
-	}
-	return strings.Split(services, "\n"), nil
-}
-
 // Installable represents an installable snap.
 type Installable interface {
 	// Name returns the name of the application
@@ -180,19 +163,6 @@ func NewService(mainSnap, serviceName string, conf common.Conf, snapPath, config
 	}, nil
 }
 
-// NewServiceFromName returns a service that manages all of a snap's
-// services as if they were a single service. NewServiceFromName uses
-// the name parameter to fetch and install a snap with a matching name, then uses
-// default policies for the installation. To install a snap with --classic confinement,
-// or via --edge, --candidate or --beta, then create the Service via another method.
-func NewServiceFromName(name string, conf common.Conf) (Service, error) {
-	var prerequisites []Installable
-	var backgroundServices []BackgroundService
-
-	return NewService(name, name, conf, Command, systemd.EtcSystemdDir, "", "", backgroundServices, prerequisites)
-
-}
-
 // Validate validates that snap.Service has been correctly configured.
 // Validate returns nil when successful and an error when successful.
 func (s Service) Validate() error {
@@ -213,20 +183,11 @@ func (s Service) Validate() error {
 // e.g. <snap> for all services provided by <snap> and `<snap>.<app>` for a specific service
 // under the snap's control.For example, the `juju-db` snap provides a `daemon` service.
 // Its name is `juju-db.daemon`.
-//
-// Name is part of the service.Service interface
 func (s Service) Name() string {
 	if s.name != "" {
 		return s.name
 	}
 	return s.app.Name()
-}
-
-// Conf returns the service's configuration.
-//
-// Conf is part of the service.Service interface.
-func (s Service) Conf() common.Conf {
-	return s.conf
 }
 
 // Running returns (true, nil) when snap indicates that service is currently active.
@@ -239,15 +200,11 @@ func (s Service) Running() (bool, error) {
 }
 
 // Exists is not implemented for snaps.
-//
-// Exists is part of the service.Service interface.
 func (s Service) Exists() (bool, error) {
 	return false, errors.NotImplementedf("snap service Exists")
 }
 
 // Install installs the snap and its background services.
-//
-// Install is part of the service.Service interface.
 func (s Service) Install() error {
 	for _, app := range s.app.Prerequisites() {
 		logger.Infof("command: %v", app)
@@ -266,35 +223,12 @@ func (s Service) Install() error {
 }
 
 // Installed returns true if the service has been successfully installed.
-//
-// Installed is part of the service.Service interface.
 func (s Service) Installed() (bool, error) {
 	installed, _, _, err := s.status()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	return installed, nil
-}
-
-// InstallCommands returns a slice of shell commands that is
-// executed independently, in serial, by a shell. When the
-// final command returns with a 0 exit code, the installation
-// will be deemed to have been successful.
-//
-// InstallCommands is part of the service.Service interface
-func (s Service) InstallCommands() ([]string, error) {
-	deps := s.app.Prerequisites()
-	commands := make([]string, 0, 1+len(deps))
-
-	for _, dep := range deps {
-		command := fmt.Sprintf("%v %s", s.executable, strings.Join(dep.Install(), " "))
-		commands = append(commands, command)
-		logger.Infof("preparing command: %v", command)
-	}
-
-	command := fmt.Sprintf("%v %s", s.executable, strings.Join(s.app.Install(), " "))
-	logger.Infof("preparing command: %v", command)
-	return append(commands, command), nil
 }
 
 // ConfigOverride writes a systemd override to enable the
@@ -361,8 +295,6 @@ func (s *Service) status() (isInstalled, enabledAtStartup, isCurrentlyActive boo
 
 // Start starts the service, returning nil when successful.
 // If the service is already running, Start does not restart it.
-//
-// Start is part of the service.ServiceActions interface
 func (s Service) Start() error {
 	running, err := s.Running()
 	if err != nil {
@@ -392,8 +324,6 @@ func (s Service) Start() error {
 
 // Stop stops a running service. Returns nil when the underlying
 // call to `snap stop <service-name>` exits with error code 0.
-//
-// Stop is part of the service.ServiceActions interface.
 func (s Service) Stop() error {
 	running, err := s.Running()
 	if err != nil {
@@ -405,20 +335,6 @@ func (s Service) Stop() error {
 
 	args := []string{"stop", s.Name()}
 	return s.execThenExpect(args, "Stopped.")
-}
-
-// Remove uninstalls a service, . Returns nil when the underlying
-// call to `snap remove <service-name>` exits with error code 0.
-//
-// Remove is part of the service.ServiceActions interface.
-func (s Service) Remove() error {
-	err := s.Stop()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	args := []string{"remove", s.Name()}
-	return s.execThenExpect(args, s.Name()+" removed")
 }
 
 // Restart restarts the service, or starts if it's not currently

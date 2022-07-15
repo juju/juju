@@ -596,18 +596,6 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *initSystemSuite) TestRemoveOld(c *gc.C) {
-	ctrl := s.patch(c)
-	defer ctrl.Finish()
-
-	svc := s.newService(c)
-
-	s.fops.EXPECT().RemoveAll(path.Join(systemd.LibSystemdDir, svc.Name())).Return(nil)
-
-	err := svc.RemoveOldService()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()

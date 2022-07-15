@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -83,7 +82,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.PatchValue(&upstart.InitDir, c.MkDir())
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 }
 

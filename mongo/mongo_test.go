@@ -115,8 +115,7 @@ func (s *MongoSuite) expectInstallMongoSnap() {
 	mExp.Name().Return("not-juju-db")
 	mExp.Install().Return(nil)
 	mExp.ConfigOverride().Return(nil)
-	mExp.Stop().Return(nil)
-	mExp.Start().Return(nil)
+	mExp.Restart().Return(nil)
 
 	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {
 		return s.mongoSnapService, nil

@@ -5,8 +5,9 @@ package dependency
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/packaging"
 	"github.com/juju/utils/v3/arch"
+
+	"github.com/juju/juju/packaging"
 )
 
 // KVM returns a dependency instance for installing KVM support.
@@ -32,16 +33,13 @@ func (dep kvmDependency) PackageList(series string) ([]packaging.Package, error)
 	}
 
 	pkgList = append(pkgList,
-		// `qemu-kvm` must be installed before `libvirt-bin` on trusty. It appears
-		// that upstart doesn't reload libvirtd if installed after, and we see
-		// errors related to `qemu-kvm` not being installed.
 		"qemu-kvm",
 		"qemu-utils",
 		"genisoimage",
 	)
 
 	switch series {
-	case "precise", "trusty", "xenial", "bionic", "eoan":
+	case "bionic":
 		pkgList = append(pkgList, "libvirt-bin")
 	default:
 		// On focal+ virsh is provided by libvirt-clients; also we need

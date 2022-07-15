@@ -276,7 +276,7 @@ func minimalModelConfig(c *gc.C) *config.Config {
 var cloudinitTests = []cloudinitTest{
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal", 0).setEnableOSUpdateAndUpgrade(false, false),
+		cfg:          makeBootstrapConfig("jammy", 0).setEnableOSUpdateAndUpgrade(false, false),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -287,7 +287,7 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal", 0).setEnableOSUpdateAndUpgrade(true, false),
+		cfg:          makeBootstrapConfig("jammy", 0).setEnableOSUpdateAndUpgrade(true, false),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -298,7 +298,7 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal", 0).setEnableOSUpdateAndUpgrade(false, true),
+		cfg:          makeBootstrapConfig("jammy", 0).setEnableOSUpdateAndUpgrade(false, true),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -309,7 +309,7 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal", 0).setEnableOSUpdateAndUpgrade(true, true),
+		cfg:          makeBootstrapConfig("jammy", 0).setEnableOSUpdateAndUpgrade(true, true),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -318,17 +318,14 @@ var cloudinitTests = []cloudinitTest{
 		upgradedToVersion: "1.2.3",
 	},
 
-	// precise controller
+	// jammy controller
 	{
-		cfg:               makeBootstrapConfig("precise", 0),
+		cfg:               makeBootstrapConfig("jammy", 0),
+		inexactMatch:      true,
 		setEnvConfig:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
-install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
-echo '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 set -xe
-install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
-echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
@@ -352,27 +349,19 @@ install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
-install -D -m 755 /dev/null '/sbin/remove-juju-services'
-echo '.*' > '/sbin/remove-juju-services'
-ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
-echo 'Starting Juju machine agent \(service jujud-machine-0\)'.*
-cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:adm /var/log/juju/machine-0\.log\\n  chmod 0640 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
-start jujud-machine-0
+/sbin/remove-juju-services
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
-	// precise controller with build in version
+	// jammy controller with build in version
 	{
-		cfg:               makeBootstrapConfig("precise", 123),
+		cfg:               makeBootstrapConfig("jammy", 123),
+		inexactMatch:      true,
 		setEnvConfig:      true,
 		upgradedToVersion: "1.2.3.123",
 		expectScripts: `
-install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
-echo '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 set -xe
-install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
-echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
@@ -396,44 +385,17 @@ install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
-install -D -m 755 /dev/null '/sbin/remove-juju-services'
-echo '.*' > '/sbin/remove-juju-services'
-ln -s 1\.2\.3\.123-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
-echo 'Starting Juju machine agent \(service jujud-machine-0\)'.*
-cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:adm /var/log/juju/machine-0\.log\\n  chmod 0640 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
-start jujud-machine-0
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 `,
 	},
 
-	// raring controller - we just test the raring-specific parts of the output.
+	// focal non controller.
 	{
-		cfg:               makeBootstrapConfig("raring", 0),
-		setEnvConfig:      true,
+		cfg:               makeNormalConfig("focal", 0),
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
-bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
-echo '.*' > '/var/lib/juju/bootstrap-params'
-/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
-ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-0'
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
-`,
-	},
-
-	// quantal non controller.
-	{
-		cfg:               makeNormalConfig("quantal", 0),
-		upgradedToVersion: "1.2.3",
-		expectScripts: `
 set -xe
-install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
-echo '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
@@ -453,30 +415,11 @@ echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.i
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
-install -D -m 755 /dev/null '/sbin/remove-juju-services'
-echo '.*' > '/sbin/remove-juju-services'
-ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-99'
-echo 'Starting Juju machine agent \(service jujud-machine-99\)'.*
-cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:adm /var/log/juju/machine-99\.log\\n  chmod 0640 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
-start jujud-machine-99
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
-	// non controller with systemd (vivid)
-	{
-		cfg:               makeNormalConfig("vivid", 0),
-		inexactMatch:      true,
-		upgradedToVersion: "1.2.3",
-		expectScripts: `
-set -xe
-install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
-echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
-.*
-`,
-	},
-
-	// CentOS non controller with systemd
+	// CentOS non controller
 	{
 		cfg:               makeNormalConfig("centos7", 0),
 		inexactMatch:      true,
@@ -487,7 +430,7 @@ systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
 sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 `,
 	},
-	// OpenSUSE non controller with systemd
+	// OpenSUSE non controller
 	{
 		cfg:               makeNormalConfig("opensuseleap", 0),
 		inexactMatch:      true,
@@ -501,7 +444,7 @@ sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 
 	// check that it works ok with compound machine ids.
 	{
-		cfg: makeNormalConfig("quantal", 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeNormalConfig("jammy", 0).mutate(func(cfg *testInstanceConfig) {
 			cfg.MachineContainerType = "lxd"
 		}).setMachineID("2/lxd/1"),
 		inexactMatch:      true,
@@ -511,14 +454,12 @@ mkdir -p '/var/lib/juju/agents/machine-2-lxd-1'
 cat > '/var/lib/juju/agents/machine-2-lxd-1/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-2-lxd-1/agent\.conf'
 ln -s 1\.2\.3-ubuntu-amd64 '/var/lib/juju/tools/machine-2-lxd-1'
-cat > /etc/init/jujud-machine-2-lxd-1\.conf << 'EOF'\\ndescription "juju agent for machine-2-lxd-1"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxd-1\.log\\n  chown syslog:adm /var/log/juju/machine-2-lxd-1\.log\\n  chmod 0640 /var/log/juju/machine-2-lxd-1\.log\\n\\n  exec '/var/lib/juju/tools/machine-2-lxd-1/jujud' machine --data-dir '/var/lib/juju' --machine-id 2/lxd/1 --debug >> /var/log/juju/machine-2-lxd-1\.log 2>&1\\nend script\\nEOF\\n
-start jujud-machine-2-lxd-1
 `,
 	},
 
 	// hostname verification disabled.
 	{
-		cfg: makeNormalConfig("quantal", 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeNormalConfig("jammy", 0).mutate(func(cfg *testInstanceConfig) {
 			cfg.DisableSSLHostnameVerification = true
 		}),
 		inexactMatch:      true,
@@ -585,22 +526,6 @@ echo '.*custom-image-metadata:.*us-east1.*.*' > '/var/lib/juju/bootstrap-params'
 		expectScripts: `
 install -D -m 644 /dev/null '.*publicsimplestreamskey'
 echo 'publickey' > '.*publicsimplestreamskey'
-`,
-	},
-
-	// check that for older 2.8 agents the series tools is symlinked.
-	{
-		cfg: makeTestConfig("bionic", false, version.MustParse("2.8.0"), 0).mutate(func(cfg *testInstanceConfig) {
-		}).setMachineID("1"),
-		inexactMatch:      true,
-		upgradedToVersion: "2.8.0",
-		expectScripts: `
-sha256sum \$bin/tools.tar.gz > \$bin/juju2.8.0-ubuntu-amd64.sha256
-grep '1234' \$bin/juju2.8.0-ubuntu-amd64.sha256 .*
-tar zxf \$bin/tools.tar.gz -C \$bin
-ln -s \$bin /var/lib/juju/tools/2.8.0-bionic-amd64
-echo -n '{"version":"2.8.0-ubuntu-amd64".*
-mkdir -p '/var/lib/juju/agents/machine-1'
 `,
 	},
 }
@@ -867,7 +792,7 @@ test-key:
 func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalModelConfig(c)
-	instConfig := makeBootstrapConfig("quantal", 0).maybeSetModelConfig(envConfig)
+	instConfig := makeBootstrapConfig("jammy", 0).maybeSetModelConfig(envConfig)
 	rendered := instConfig.render()
 	cloudcfg, err := cloudinit.New(rendered.Series)
 	c.Assert(err, jc.ErrorIsNil)
@@ -906,7 +831,7 @@ func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
@@ -1148,7 +1073,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			ControllerTag:    testing.ControllerTag,
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
-			Series:           "quantal",
+			Series:           "jammy",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			APIInfo: &api.Info{
 				Addrs:    []string{"host:9999"},
@@ -1156,18 +1081,18 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 				ModelTag: testing.ModelTag,
 				Password: "password",
 			},
-			DataDir:                 jujuDataDir("quantal"),
-			LogDir:                  jujuLogDir("quantal"),
-			MetricsSpoolDir:         metricsSpoolDir("quantal"),
+			DataDir:                 jujuDataDir("jammy"),
+			LogDir:                  jujuLogDir("jammy"),
+			MetricsSpoolDir:         metricsSpoolDir("jammy"),
 			Jobs:                    normalMachineJobs,
-			CloudInitOutputLog:      cloudInitOutputLog("quantal"),
+			CloudInitOutputLog:      cloudInitOutputLog("jammy"),
 			MachineNonce:            "FAKE_NONCE",
 			MachineAgentServiceName: "jujud-machine-99",
 		}
 	}
 
 	// check that the base configuration does not give an error
-	ci, err := cloudinit.New("quantal")
+	ci, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that missing tools causes an error.
@@ -1201,7 +1126,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "jammy", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.SetTools(tools.List{
 		&tools.Tools{
@@ -1217,7 +1142,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalModelConfig(c)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1235,7 +1160,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1255,7 +1180,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1351,7 +1276,7 @@ func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
 
 func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
 	instanceCfg := s.createInstanceConfig(c, cfg)
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1431,29 +1356,8 @@ func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
 	}
 }
 
-func (*cloudinitSuite) TestSetUbuntuUserPrecise(c *gc.C) {
-	ci, err := cloudinit.New("precise")
-	c.Assert(err, jc.ErrorIsNil)
-	cloudconfig.SetUbuntuUser(ci, "akey")
-	data, err := ci.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-	expected := map[string]interface{}{"ssh_authorized_keys": []string{
-		"akey",
-	}}
-	c.Assert(string(data), jc.YAMLEquals, expected)
-}
-
-func (*cloudinitSuite) TestSetUbuntuUserPreciseNoKeys(c *gc.C) {
-	ci, err := cloudinit.New("precise")
-	c.Assert(err, jc.ErrorIsNil)
-	cloudconfig.SetUbuntuUser(ci, "")
-	data, err := ci.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.YAMLEquals, map[string]interface{}{})
-}
-
-func (*cloudinitSuite) TestSetUbuntuUserQuantal(c *gc.C) {
-	ci, err := cloudinit.New("quantal")
+func (*cloudinitSuite) TestSetUbuntuUserJammy(c *gc.C) {
+	ci, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	cloudconfig.SetUbuntuUser(ci, "akey")
 	data, err := ci.RenderYAML()
@@ -1475,7 +1379,7 @@ func (*cloudinitSuite) TestSetUbuntuUserCentOS(c *gc.C) {
 }
 
 func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
-	instConfig := makeBootstrapConfig("quantal", 0).maybeSetModelConfig(
+	instConfig := makeBootstrapConfig("jammy", 0).maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()
 	instConfig.Bootstrap.InitialSSHHostKeys = instancecfg.SSHHostKeys{{

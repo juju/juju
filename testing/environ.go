@@ -34,7 +34,7 @@ func init() {
 var (
 	// FakeSupportedJujuSeries is used to provide a series of canned results
 	// of series to test bootstrap code against.
-	FakeSupportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", "focal", "jammy", jujuversion.DefaultSupportedLTS())
+	FakeSupportedJujuSeries = set.NewStrings("focal", "jammy", jujuversion.DefaultSupportedLTS())
 )
 
 // FakeVersionNumber is a valid version number that can be used in testing.
