@@ -137,7 +137,7 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	if err != nil {
 		return errors.Annotatef(err, "cannot download and store charm %q", pendingCharmURL)
 	}
-	return app.SetDownloadedIDAndHash(downloadedOrigin.ID, downloadedOrigin.Hash)
+	return errors.Trace(app.SetDownloadedIDAndHash(downloadedOrigin.ID, downloadedOrigin.Hash))
 }
 
 func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
