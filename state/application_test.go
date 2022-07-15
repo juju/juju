@@ -1590,6 +1590,55 @@ requires:
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ApplicationSuite) TestSetDownloadedIDAndHash(c *gc.C) {
+	s.setupSetDownloadedIDAndHash(c, &state.CharmOrigin{
+		Source: "charm-hub",
+	})
+	err := s.mysql.SetDownloadedIDAndHash("testing-ID", "testing-hash")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmOrigin().ID, gc.Equals, "testing-ID")
+	c.Assert(s.mysql.CharmOrigin().Hash, gc.Equals, "testing-hash")
+}
+
+func (s *ApplicationSuite) TestSetDownloadedIDAndHashFailEmptyStrings(c *gc.C) {
+	err := s.mysql.SetDownloadedIDAndHash("", "")
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+}
+
+func (s *ApplicationSuite) TestSetDownloadedIDAndHashFailChangeID(c *gc.C) {
+	s.setupSetDownloadedIDAndHash(c, &state.CharmOrigin{
+		Source: "charm-hub",
+		ID:     "testing-ID",
+		Hash:   "testing-hash",
+	})
+	err := s.mysql.SetDownloadedIDAndHash("change-ID", "testing-hash")
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+}
+
+func (s *ApplicationSuite) TestSetDownloadedIDAndHashReplaceHash(c *gc.C) {
+	s.setupSetDownloadedIDAndHash(c, &state.CharmOrigin{
+		Source: "charm-hub",
+		ID:     "testing-ID",
+		Hash:   "testing-hash",
+	})
+	err := s.mysql.SetDownloadedIDAndHash("", "new-testing-hash")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmOrigin().Hash, gc.Equals, "new-testing-hash")
+}
+
+func (s *ApplicationSuite) setupSetDownloadedIDAndHash(c *gc.C, origin *state.CharmOrigin) {
+	chInfoOne := s.dummyCharm(c, "ch:testing-3")
+	chOne, err := s.State.AddCharm(chInfoOne)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.SetCharm(state.SetCharmConfig{
+		Charm:       chOne,
+		CharmOrigin: origin,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 var applicationUpdateCharmConfigTests = []struct {
 	about   string
 	initial charm.Settings
