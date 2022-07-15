@@ -132,7 +132,7 @@ func (Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 	constraints := &imagemetadata.ImageConstraint{
 		simplestreams.LookupParams{
 			Arches:   []string{"ppc64el"},
-			Releases: []string{"trusty"},
+			Releases: []string{"ubuntu"},
 		}}
 	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
@@ -221,19 +221,19 @@ func (Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	})
 }
 
-func (Suite) TestOneArm64TrustyImg(c *gc.C) {
+func (Suite) TestOneArm64JammyImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(ss, "arm64", "trusty", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := One(ss, "arm64", "jammy", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "arm64",
-		Release: "trusty",
-		Version: "14.04",
+		Release: "jammy",
+		Version: "22.04",
 		FType:   "disk1.img",
 		SHA256:  "7da1bec20dfd78c7175155190c6fcdc16a6064be2a8bdabf13369f041c06aaf2",
-		Path:    "server/releases/trusty/release-20161020/ubuntu-14.04-server-cloudimg-arm64-disk1.img",
+		Path:    "server/releases/jammy/release-20161020/ubuntu-22.04-server-cloudimg-arm64-disk1.img",
 		Size:    356123136,
 	})
 }
@@ -260,14 +260,14 @@ func (Suite) TestOneErrors(c *gc.C) {
 	table := []struct {
 		description, arch, series, stream, ftype, errorMatch string
 	}{
-		{"empty arch", "", "xenial", "", "disk1.img", `invalid parameters supplied arch=""`},
-		{"invalid arch", "<F7>", "xenial", "", "disk1.img", `invalid parameters supplied arch="<F7>"`},
+		{"empty arch", "", "focal", "", "disk1.img", `invalid parameters supplied arch=""`},
+		{"invalid arch", "<F7>", "focal", "", "disk1.img", `invalid parameters supplied arch="<F7>"`},
 		{"empty series", "arm64", "", "released", "disk1.img", `invalid parameters supplied series=""`},
 		{"invalid series", "amd64", "rusty", "", "disk1.img", `invalid parameters supplied series="rusty"`},
-		{"empty ftype", "ppc64el", "xenial", "", "", `invalid parameters supplied ftype=""`},
-		{"invalid file type", "amd64", "trusty", "", "tragedy", `invalid parameters supplied ftype="tragedy"`},
+		{"empty ftype", "ppc64el", "focal", "", "", `invalid parameters supplied ftype=""`},
+		{"invalid file type", "amd64", "jammy", "", "tragedy", `invalid parameters supplied ftype="tragedy"`},
 		{"all wrong except stream", "a", "t", "", "y", `invalid parameters supplied arch="a" series="t" ftype="y"`},
-		{"stream not found", "amd64", "xenial", "hourly", "disk1.img", `no results for "amd64", "xenial", "hourly", "disk1.img"`},
+		{"stream not found", "amd64", "jammy", "hourly", "disk1.img", `no results for "amd64", "jammy", "hourly", "disk1.img"`},
 	}
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()

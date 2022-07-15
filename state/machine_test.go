@@ -2596,7 +2596,7 @@ func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
-	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	m, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tests = []struct {
@@ -2636,7 +2636,7 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
-	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	m, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
@@ -2695,16 +2695,16 @@ func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Ma
 
 func (s *MachineSuite) TestUpdateMachineSeries(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries("trusty")
+	err := mach.UpdateMachineSeries("jammy")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
+	s.assertMachineAndUnitSeriesChanged(c, mach, "jammy")
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesToStart(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries("precise")
+	err := mach.UpdateMachineSeries("jammy")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
+	s.assertMachineAndUnitSeriesChanged(c, mach, "jammy")
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
@@ -2716,23 +2716,23 @@ func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
 				ops := []txn.Op{{
 					C:      state.MachinesC,
 					Id:     state.DocID(s.State, mach.Id()),
-					Update: bson.D{{"$set", bson.D{{"series", "trusty"}}}},
+					Update: bson.D{{"$set", bson.D{{"series", "jammy"}}}},
 				}}
 				state.RunTransaction(c, s.State, ops)
 			},
 			After: func() {
 				err := mach.Refresh()
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(mach.Series(), gc.Equals, "trusty")
+				c.Assert(mach.Series(), gc.Equals, "jammy")
 			},
 		},
 	).Check()
 
-	err := mach.UpdateMachineSeries("trusty")
+	err := mach.UpdateMachineSeries("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	err = mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mach.Series(), gc.Equals, "trusty")
+	c.Assert(mach.Series(), gc.Equals, "jammy")
 }
 
 func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
@@ -2754,9 +2754,9 @@ func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
 		},
 	).Check()
 
-	err = mach.UpdateMachineSeries("trusty")
+	err = mach.UpdateMachineSeries("jammy")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
+	s.assertMachineAndUnitSeriesChanged(c, mach, "jammy")
 	c.Assert(len(mach.Principals()), gc.Equals, 2)
 }
 

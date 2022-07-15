@@ -5,9 +5,9 @@ description: |
     potentially contains multiple lines.
 subordinate: true
 series:
-    - precise
-    - trusty
-    - yakkety
+  - jammy
+  - focal
+  - bionic
 provides:
     multi-client:
        interface: logging

@@ -1857,7 +1857,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			m, err := st.AddMachine("trusty", JobHostUnits)
+			m, err := st.AddMachine("jammy", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1908,7 +1908,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Since:   &now,
 						},
 						Life:                     life.Alive,
-						Series:                   "trusty",
+						Series:                   "jammy",
 						Jobs:                     []coremodel.MachineJob{JobHostUnits.ToParams()},
 						Addresses:                []network.ProviderAddress{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},

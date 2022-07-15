@@ -173,7 +173,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 		Revision: mysqlCurl.Revision,
 		URL:      mysqlCurl.String(),
 		Meta: &charm.Meta{
-			Series: []string{"zesty", "xenial", "trusty"},
+			Series: []string{"jammy"},
 		},
 	}
 
@@ -184,7 +184,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 
-	c.Assert(err, gc.ErrorMatches, "series \"focal\" not supported by charm, supported series are: zesty,xenial,trusty")
+	c.Assert(err, gc.ErrorMatches, "series \"focal\" not supported by charm, supported series are: jammy")
 }
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce(c *gc.C) {
@@ -196,14 +196,14 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"xenial", "bionic"},
+			charmMetaSeries: []string{"jammy"},
 			curl:            mysqlCurl,
 			force:           true,
 			machine:         "0",
 			machineSeries:   "focal",
 		},
 		{
-			charmMetaSeries: []string{"zesty", "xenial", "trusty"},
+			charmMetaSeries: []string{"focal", "jammy"},
 			curl:            wordpressCurl,
 			force:           true,
 			machine:         "1",

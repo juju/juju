@@ -30,19 +30,19 @@ func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
-		charm: cs:trusty/ubuntu
-		series: trusty
+		charm: ch:ubuntu
+		series: jammy
 		num_units: 1
 		options:
 			key: value
-			series: xenial
+			series: focal
 		relations:
 			- []`
 	changes := []*params.BundleChange{
 		{
 			Id:       "addCharm-0",
 			Method:   "addCharm",
-			Args:     []interface{}{"cs:trusty/ubuntu", "trusty", ""},
+			Args:     []interface{}{"ch:ubuntu", "jammy", ""},
 			Requires: []string{},
 		},
 		{
@@ -50,11 +50,11 @@ func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
 			Method: "deploy",
 			Args: []interface{}{
 				"$addCharm-0",
-				"trusty",
+				"jammy",
 				"ubuntu",
 				map[string]interface{}{
 					"key":    "value",
-					"series": "xenial",
+					"series": "focal",
 				},
 				"",
 				map[string]string{},
@@ -95,12 +95,12 @@ func (s *bundleMockSuite) TestGetChangesReturnsErrors(c *gc.C) {
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
-		charm: cs:trusty/ubuntu
-		series: trusty
+		charm: ch:ubuntu
+		series: jammy
 		num_units: 1
 		options:
 			key: value
-			series: xenial`
+			series: focal`
 	client := newClient(
 		func(objType string,
 			version int,
@@ -133,19 +133,19 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
-		charm: cs:trusty/ubuntu
-		series: trusty
+		charm: ch:ubuntu
+		series: jammy
 		num_units: 1
 		options:
 			key: value
-			series: xenial`
+			series: focal`
 	changes := []*params.BundleChangesMapArgs{
 		{
 			Id:     "addCharm-0",
 			Method: "addCharm",
 			Args: map[string]interface{}{
-				"charm":  "cs:trusty/ubuntu",
-				"series": "trusty",
+				"charm":  "ch:ubuntu",
+				"series": "jammy",
 			},
 			Requires: []string{},
 		},
@@ -154,11 +154,11 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 			Method: "deploy",
 			Args: map[string]interface{}{
 				"charm":     "$addCharm-0",
-				"series":    "trusty",
+				"series":    "jammy",
 				"num_units": "1",
 				"options": map[string]interface{}{
 					"key":    "value",
-					"series": "xenial",
+					"series": "focal",
 				},
 			},
 			Requires: []string{"$addCharm-0"},
@@ -194,12 +194,12 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
-		charm: cs:trusty/ubuntu
-		series: trusty
+		charm: ch:ubuntu
+		series: jammy
 		num_units: 1
 		options:
 			key: value
-			series: xenial
+			series: focal
 		relations:
 			- []`
 	client := newClient(
@@ -233,14 +233,14 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 	bundle := `applications:
 	ubuntu:
-		charm: cs:trusty/ubuntu
-		series: trusty
+		charm: ch:ubuntu
+		series: jammy
 		num_units: 1
 		to:
 			- \"0\"
 		options:
 			key: value
-			series: xenial
+			series: focal
 		relations:
 			- []`
 	client := newClient(

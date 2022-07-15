@@ -497,13 +497,13 @@ echo '.*model-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
 
 	// custom image metadata (at bootstrap).
 	{
-		cfg: makeBootstrapConfig("trusty", 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeBootstrapConfig("jammy", 0).mutate(func(cfg *testInstanceConfig) {
 			cfg.Bootstrap.CustomImageMetadata = []*imagemetadata.ImageMetadata{{
 				Id:         "image-id",
 				Storage:    "ebs",
 				VirtType:   "pv",
 				Arch:       "amd64",
-				Version:    "14.04",
+				Version:    "22.04",
 				RegionName: "us-east1",
 			}}
 		}),
@@ -517,7 +517,7 @@ echo '.*custom-image-metadata:.*us-east1.*.*' > '/var/lib/juju/bootstrap-params'
 
 	// custom image metadata signing key.
 	{
-		cfg: makeBootstrapConfig("trusty", 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeBootstrapConfig("jammy", 0).mutate(func(cfg *testInstanceConfig) {
 			cfg.PublicImageSigningKey = "publickey"
 		}),
 		setEnvConfig:      true,

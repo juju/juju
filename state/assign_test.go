@@ -248,7 +248,7 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignMachineDifferentSeries(c *gc.C) {
-	machine, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

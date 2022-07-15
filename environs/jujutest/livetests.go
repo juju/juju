@@ -918,12 +918,12 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
 
-// Check that we get a consistent error when asking for an instance without
-// a valid machine config.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
+	// Check that we get a consistent error when asking for an instance without
+	// a valid machine config.
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "trusty", apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "jammy", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
@@ -942,7 +942,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	err = jujutesting.SetImageMetadata(
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
-		[]string{"trusty"},
+		[]string{"jammy"},
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)

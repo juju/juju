@@ -54,10 +54,10 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	err = runExpose(c, "some-application-name")
@@ -77,10 +77,10 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
-	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	// Block operation

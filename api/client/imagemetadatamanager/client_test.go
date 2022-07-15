@@ -30,7 +30,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	region := "region"
 
 	// This is used by filters to search function
-	testSeries := "trusty"
+	testSeries := "jammy"
 	version, err := series.SeriesVersion(testSeries)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -61,31 +61,31 @@ var commonInstanceStoreDisks = []types.BlockDeviceMapping{{
 
 func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	var rootDiskTests = []RootDiskTest{{
-		"trusty",
+		"jammy",
 		"nil constraint ubuntu",
 		nil,
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"too small constraint ubuntu",
 		pInt(4000),
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"big constraint ubuntu",
 		pInt(20 * 1024),
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(20)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"round up constraint ubuntu",
 		pInt(20*1024 + 1),
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(21)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"nil constraint ubuntu with root encryption",
 		nil,
 		&storage.VolumeParams{
@@ -95,7 +95,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		},
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), Encrypted: aws.Bool(true), VolumeType: types.VolumeTypeGp2}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"nil constraint ubuntu with root custom key encryption",
 		nil,
 		&storage.VolumeParams{
@@ -106,7 +106,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		},
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), Encrypted: aws.Bool(true), KmsKeyId: aws.String("1234"), VolumeType: types.VolumeTypeGp2}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"nil constraint ubuntu with root volume type",
 		nil,
 		&storage.VolumeParams{
@@ -116,7 +116,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		},
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeStandard}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"nil constraint ubuntu with throughput",
 		nil,
 		&storage.VolumeParams{
@@ -127,7 +127,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		},
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8), VolumeType: types.VolumeTypeGp3, Throughput: aws.Int32(10)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
-		"trusty",
+		"jammy",
 		"nil constraint ubuntu with throughput",
 		nil,
 		&storage.VolumeParams{
