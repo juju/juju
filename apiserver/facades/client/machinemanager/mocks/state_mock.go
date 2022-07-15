@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	state "github.com/juju/juju/state"
-	txn "github.com/juju/mgo/v2/txn"
+	txn "github.com/juju/mgo/v3/txn"
 	names "github.com/juju/names/v4"
 )
 

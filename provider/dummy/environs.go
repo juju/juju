@@ -35,6 +35,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/retry"
@@ -145,16 +146,16 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 // mongoInfo returns a mongo.MongoInfo which allows clients to connect to the
 // shared dummy state, if it exists.
 func mongoInfo() mongo.MongoInfo {
-	if gitjujutesting.MgoServer.Addr() == "" {
+	if mgotesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
-	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
+	mongoPort := strconv.Itoa(mgotesting.MgoServer.Port())
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:      addrs,
 			CACert:     testing.CACert,
-			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
+			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
 		},
 	}
 }
@@ -353,7 +354,7 @@ func Reset(c *gc.C) {
 	}
 	if mongoAlive() {
 		err := retry.Call(retry.CallArgs{
-			Func: gitjujutesting.MgoServer.Reset,
+			Func: mgotesting.MgoServer.Reset,
 			// Only interested in retrying the intermittent
 			// 'unexpected message'.
 			IsFatalError: func(err error) bool {
@@ -439,7 +440,7 @@ func (s *environState) destroyLocked() {
 
 	if mongoAlive() {
 		logger.Debugf("resetting MgoServer")
-		_ = gitjujutesting.MgoServer.Reset()
+		_ = mgotesting.MgoServer.Reset()
 	}
 }
 
@@ -448,7 +449,7 @@ func (s *environState) destroyLocked() {
 // If it has been deliberately destroyed, we will
 // expect some errors when closing things down.
 func mongoAlive() bool {
-	return gitjujutesting.MgoServer.Addr() != ""
+	return mgotesting.MgoServer.Addr() != ""
 }
 
 // GetStateInAPIServer returns the state connection used by the API server

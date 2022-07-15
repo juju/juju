@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/juju/juju/mongo"

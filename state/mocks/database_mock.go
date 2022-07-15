@@ -10,9 +10,9 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	mongo "github.com/juju/juju/mongo"
 	state "github.com/juju/juju/state"
-	mgo "github.com/juju/mgo/v2"
-	txn "github.com/juju/mgo/v2/txn"
-	txn0 "github.com/juju/txn/v2"
+	mgo "github.com/juju/mgo/v3"
+	txn "github.com/juju/mgo/v3/txn"
+	txn0 "github.com/juju/txn/v3"
 )
 
 // MockDatabase is a mock of Database interface.

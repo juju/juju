@@ -6,7 +6,7 @@ package mongo
 import (
 	"fmt"
 
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 )
 
 // AdminUser is the name of the user that is initially created in mongo.

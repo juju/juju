@@ -18,9 +18,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
@@ -772,7 +772,7 @@ type GetStater interface {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
-	testServer := jujutesting.MgoServer.Addr()
+	testServer := mgotesting.MgoServer.Addr()
 	serverAlive := testServer != ""
 
 	// Close any api connections we know about first.

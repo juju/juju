@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

@@ -11,7 +11,7 @@ import (
 	modelupgrader "github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
-	replicaset "github.com/juju/replicaset/v2"
+	replicaset "github.com/juju/replicaset/v3"
 	version "github.com/juju/version/v2"
 )
 

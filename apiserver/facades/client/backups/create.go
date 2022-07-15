@@ -5,7 +5,7 @@ package backups
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/backups"

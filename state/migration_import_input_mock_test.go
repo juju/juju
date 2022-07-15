@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v3 "github.com/juju/description/v3"
-	txn "github.com/juju/mgo/v2/txn"
+	txn "github.com/juju/mgo/v3/txn"
 )
 
 // MockRemoteEntitiesInput is a mock of RemoteEntitiesInput interface.

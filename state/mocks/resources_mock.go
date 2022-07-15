@@ -13,7 +13,7 @@ import (
 	resource "github.com/juju/charm/v9/resource"
 	resources "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
-	txn "github.com/juju/mgo/v2/txn"
+	txn "github.com/juju/mgo/v3/txn"
 )
 
 // MockResources is a mock of Resources interface.

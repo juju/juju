@@ -9,9 +9,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -226,7 +227,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
 			CAPrivateKey: coretesting.CAKey,
-			StatePort:    jujutesting.MgoServer.Port(),
+			StatePort:    mgotesting.MgoServer.Port(),
 			APIPort:      apiPort,
 		})
 	c.Assert(err, jc.ErrorIsNil)
