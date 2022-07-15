@@ -477,8 +477,10 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddress
 		if err != nil {
 			return err
 		}
-		err = cmdutil.EnsureMongoServerInstalled(ensureServerParams)
-		if err != nil {
+		if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
+			return err
+		}
+		if err := cmdutil.EnsureMongoServerStarted(ensureServerParams.JujuDBSnapChannel); err != nil {
 			return err
 		}
 	}
