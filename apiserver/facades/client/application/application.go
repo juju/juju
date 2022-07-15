@@ -286,6 +286,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 				(arg.CharmOrigin.ID == "" && arg.CharmOrigin.Hash != "")) {
 			err := errors.BadRequestf("programming error, Deploy, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
 			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 		err := deployApplication(
 			api.backend,
