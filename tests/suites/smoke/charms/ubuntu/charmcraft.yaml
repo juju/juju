@@ -8,9 +8,3 @@ bases:
     run-on:
     - name: "ubuntu"
       channel: "20.04"
-  - build-on:
-    - name: "ubuntu"
-      channel: "22.04"
-    run-on:
-    - name: "ubuntu"
-      channel: "22.04"
