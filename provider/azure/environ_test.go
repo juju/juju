@@ -232,6 +232,9 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Properties: &armresources.DeploymentPropertiesExtended{
 			ProvisioningState: to.Ptr(armresources.ProvisioningStateSucceeded),
 		},
+		Tags: map[string]*string{
+			"juju-model-uuid": to.Ptr(testing.ModelTag.Id()),
+		},
 	}
 
 	s.deployment = nil
