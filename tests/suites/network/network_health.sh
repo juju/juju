@@ -19,8 +19,8 @@ run_network_health() {
 	juju expose network-health-focal
 	juju expose network-health-jammy
 
-	wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 3)"
-	wait_for "ubuntu-jammy" "$(idle_condition "ubuntu-jammy" 4)"
+	wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 2)"
+	wait_for "ubuntu-jammy" "$(idle_condition "ubuntu-jammy" 3)"
 	wait_for "network-health-focal" "$(idle_subordinate_condition "network-health-focal" "ubuntu-focal")"
 	wait_for "network-health-jammy" "$(idle_subordinate_condition "network-health-jammy" "ubuntu-jammy")"
 
