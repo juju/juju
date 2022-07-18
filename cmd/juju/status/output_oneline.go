@@ -38,21 +38,46 @@ func FormatOneline(writer io.Writer, value interface{}) error {
 // FormatOnelineWithColor appends ansi color codes to a brief list of units and their subordinates.
 // Subordinates will be indented 2 spaces and listed under their
 // superiors. This format works with version 2 of the CLI.
-func FormatOnelineWithColor(writer io.Writer, value interface{}) error {
+func FormatOnelineWithColor(writer io.Writer, forceColor bool, value interface{}) error {
 	return formatOnelineWithColor(writer, value, func(out io.Writer, format, uName string, u unitStatus, level int) {
-		status := fmt.Sprintf(
-			"%s:%s, %s:%s",
-			colorVal(output.EmphasisHighlight.DefaultBold, "agent"),
-			colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.JujuStatusInfo.Current),
-			colorVal(output.EmphasisHighlight.DefaultBold, "workload"),
-			colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.WorkloadStatusInfo.Current),
-		)
+		w := output.Writer(writer)
+		if forceColor {
+			w.SetColorCapable(forceColor)
+		}
 
-		fmt.Fprintf(out, format,
-			uName,
-			colorVal(output.InfoHighlight, u.PublicAddress),
-			status,
-		)
+		agentColored := colorVal(output.EmphasisHighlight.DefaultBold, "agent")
+		statusInfoColored := colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.JujuStatusInfo.Current)
+		workloadColored := colorVal(output.EmphasisHighlight.DefaultBold, "workload")
+		workloadStatusInfoColored := colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.WorkloadStatusInfo.Current)
+		publicAddressColored := colorVal(output.InfoHighlight, u.PublicAddress)
+
+		fPrintf := func(o io.Writer, format string, uName, pAddress, status interface{}) {
+			fmt.Fprintf(o, format, uName, pAddress, status)
+		}
+
+		if forceColor {
+			statusColored := fmt.Sprintf(
+				"%s:%s, %s:%s", agentColored, statusInfoColored, workloadColored, workloadStatusInfoColored)
+
+			fPrintf(out, format, uName, publicAddressColored, statusColored)
+		} else {
+			status := fmt.Sprintf(
+				"%s:%s, %s:%s",
+				"agent",
+				u.JujuStatusInfo.Current,
+				"workload",
+				u.WorkloadStatusInfo.Current,
+			)
+
+			fPrintf(out, format, uName, u.PublicAddress, status)
+		}
+
+		//
+		//fmt.Fprintf(out, format,
+		//	uName,
+		//	colorVal(output.InfoHighlight, u.PublicAddress),
+		//	status,
+		//)
 	})
 }
 
