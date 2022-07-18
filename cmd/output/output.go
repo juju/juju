@@ -139,7 +139,10 @@ func (w *Wrapper) PrintStatus(status status.Status) {
 
 // StatusColor returns the status's standard color
 func StatusColor(status status.Status) *ansiterm.Context {
-	return statusColors[status]
+	if val, ok := statusColors[status]; ok {
+		return val
+	}
+	return CurrentHighlight
 }
 
 // PrintWriter decorates the ansiterm.Writer object.
