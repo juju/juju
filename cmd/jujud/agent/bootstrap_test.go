@@ -713,7 +713,7 @@ func createImageMetadata() []*imagemetadata.ImageMetadata {
 		Storage:    "rootStore",
 		VirtType:   "virtType",
 		Arch:       "amd64",
-		Version:    "14.04",
+		Version:    "22.04",
 		Endpoint:   "endpoint",
 		RegionName: "region",
 	}}
@@ -751,8 +751,8 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
 			Arch:            "amd64",
-			Version:         "14.04",
-			Series:          "trusty",
+			Version:         "22.04",
+			Series:          "jammy",
 			RootStorageType: "rootStore",
 			VirtType:        "virtType",
 			Source:          "custom",

@@ -30,22 +30,22 @@ func (s *charmPathSuite) cloneCharmDir(path, name string) string {
 }
 
 func (s *charmPathSuite) TestNoPath(c *gc.C) {
-	_, _, err := corecharm.NewCharmAtPath("", "trusty")
+	_, _, err := corecharm.NewCharmAtPath("", "jammy")
 	c.Assert(err, gc.ErrorMatches, "empty charm path")
 }
 
 func (s *charmPathSuite) TestInvalidPath(c *gc.C) {
-	_, _, err := corecharm.NewCharmAtPath("/foo", "trusty")
+	_, _, err := corecharm.NewCharmAtPath("/foo", "jammy")
 	c.Assert(err, gc.Equals, os.ErrNotExist)
 }
 
 func (s *charmPathSuite) TestRepoURL(c *gc.C) {
-	_, _, err := corecharm.NewCharmAtPath("cs:foo", "trusty")
+	_, _, err := corecharm.NewCharmAtPath("cs:foo", "jammy")
 	c.Assert(err, gc.Equals, os.ErrNotExist)
 }
 
 func (s *charmPathSuite) TestInvalidRelativePath(c *gc.C) {
-	_, _, err := corecharm.NewCharmAtPath("./foo", "trusty")
+	_, _, err := corecharm.NewCharmAtPath("./foo", "jammy")
 	c.Assert(err, gc.Equals, os.ErrNotExist)
 }
 
@@ -55,23 +55,23 @@ func (s *charmPathSuite) TestRelativePath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = os.Chdir(cwd) }()
 	c.Assert(os.Chdir(s.repoPath), jc.ErrorIsNil)
-	_, _, err = corecharm.NewCharmAtPath("mysql", "trusty")
+	_, _, err = corecharm.NewCharmAtPath("mysql", "jammy")
 	c.Assert(corecharm.IsInvalidPathError(err), jc.IsTrue)
 }
 
 func (s *charmPathSuite) TestNoCharmAtPath(c *gc.C) {
-	_, _, err := corecharm.NewCharmAtPath(c.MkDir(), "trusty")
+	_, _, err := corecharm.NewCharmAtPath(c.MkDir(), "jammy")
 	c.Assert(err, gc.ErrorMatches, "charm not found.*")
 }
 
 func (s *charmPathSuite) TestCharm(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "mysql")
 	s.cloneCharmDir(s.repoPath, "mysql")
-	ch, url, err := corecharm.NewCharmAtPath(charmDir, "quantal")
+	ch, url, err := corecharm.NewCharmAtPath(charmDir, "focal")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "mysql")
 	c.Assert(ch.Revision(), gc.Equals, 1)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:quantal/mysql-1"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/mysql-1"))
 }
 
 func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
@@ -105,17 +105,17 @@ func (s *charmPathSuite) TestMultiSeriesDefault(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "new-charm-with-multi-series")
 	c.Assert(ch.Revision(), gc.Equals, 7)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:precise/multi-series-charmpath-7"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:jammy/multi-series-charmpath-7"))
 }
 
 func (s *charmPathSuite) TestMultiSeries(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "multi-series-charmpath")
 	s.cloneCharmDir(s.repoPath, "multi-series-charmpath")
-	ch, url, err := corecharm.NewCharmAtPath(charmDir, "trusty")
+	ch, url, err := corecharm.NewCharmAtPath(charmDir, "focal")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "new-charm-with-multi-series")
 	c.Assert(ch.Revision(), gc.Equals, 7)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:trusty/multi-series-charmpath-7"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/multi-series-charmpath-7"))
 }
 
 func (s *charmPathSuite) TestUnsupportedSeries(c *gc.C) {

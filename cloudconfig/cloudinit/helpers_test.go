@@ -63,7 +63,7 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	upd, upg := true, true
 
-	err := addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	err := addPackageCommandsCommon(f, proxyCfg, upd, upg, "jammy")
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.snapProxySettings, gc.Equals, sps)
@@ -74,7 +74,7 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	f = &fakeCfg{}
 	upd, upg = false, false
-	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "jammy")
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.snapProxySettings, gc.Equals, sps)

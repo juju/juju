@@ -5,10 +5,11 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/status"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -156,13 +157,13 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
-	exp.Series().Return("trusty")
-	exp.UpdateMachineSeries("xenial").Return(nil)
+	exp.Series().Return("jammy")
+	exp.UpdateMachineSeries("focal").Return(nil)
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "xenial"}},
+		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "focal"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
@@ -176,12 +177,12 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
-	exp.Series().Return("trusty")
+	exp.Series().Return("jammy")
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
 	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "trusty"}},
+		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "jammy"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)

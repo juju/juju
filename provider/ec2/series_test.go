@@ -366,7 +366,7 @@ const testImageMetadataProduct = `
              "virt": "hvm",
              "region": "test",
              "id": "ami-00000033"
-			}
+           }
          },
          "pubname": "ubuntu-trusty-14.04-amd64-server-20121218",
          "label": "release"

@@ -320,7 +320,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddMachineInsideMachine(
 					state.MachineTemplate{
-						Series: "trusty",
+						Series: "jammy",
 						Jobs:   []state.MachineJob{state.JobHostUnits},
 					},
 					m.Id(),
@@ -341,7 +341,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddMachineInsideMachine(
 					state.MachineTemplate{
-						Series: "trusty",
+						Series: "jammy",
 						Jobs:   []state.MachineJob{state.JobHostUnits},
 					},
 					m.Id(),
@@ -560,7 +560,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "statuses",
 			getWatcher: func(st *state.State) interface{} {
-				m, err := st.AddMachine("trusty", state.JobHostUnits)
+				m, err := st.AddMachine("jammy", state.JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				// Ensure that all the creation events have flowed through the system.
@@ -2052,7 +2052,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
-	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	m, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
@@ -2105,7 +2105,7 @@ func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C
 		Name: "wordpress", Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty, xenial, yakkety"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "jammy, focal, bionic"`)
 }
 
 func (s *StateSuite) TestAllApplications(c *gc.C) {

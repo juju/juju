@@ -58,7 +58,7 @@ var (
 	// Ensure that we add the default supported series so that tests that
 	// use the default supported lts internally will always work in the
 	// future.
-	supportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", jujuversion.DefaultSupportedLTS())
+	supportedJujuSeries = set.NewStrings("bionic", "focal", "jammy", jujuversion.DefaultSupportedLTS())
 )
 
 type bootstrapSuite struct {
@@ -227,12 +227,12 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -360,7 +360,7 @@ func intPtr(i uint64) *uint64 {
 }
 
 func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "precise", nil })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "jammy", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	metadataDir, metadata := createImageMetadata(c)
@@ -384,7 +384,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapImage:           "img-id",
-			BootstrapSeries:          "precise",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 			BootstrapConstraints:     bootstrapCons,
 			MetadataDir:              metadataDir,
@@ -395,7 +395,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
 		Id:         "img-id",
 		Arch:       "amd64",
-		Version:    "12.04",
+		Version:    "22.04",
 		RegionName: "nether",
 		Endpoint:   "hearnoretheir",
 		Stream:     "released",
@@ -423,7 +423,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupport
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapImage:           "img-id",
-			BootstrapSeries:          "precise",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 			BootstrapConstraints:     bootstrapCons,
 			MetadataDir:              data.metadataDir,
@@ -443,7 +443,7 @@ type testImageMetadata struct {
 // setupImageMetadata returns architecture for which metadata was setup
 func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
 	testArch := arch.S390X
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "precise", nil })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "jammy", nil })
 	s.PatchValue(&arch.HostArch, func() string { return testArch })
 
 	metadataDir, metadata := createImageMetadataForArch(c, testArch)
@@ -460,7 +460,7 @@ func (s *bootstrapSuite) assertBootstrapImageMetadata(c *gc.C, env *bootstrapEnv
 	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
 		Id:         "img-id",
 		Arch:       testData.architecture,
-		Version:    "12.04",
+		Version:    "22.04",
 		RegionName: "nether",
 		Endpoint:   "hearnoretheir",
 		Stream:     "released",
@@ -506,7 +506,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupported
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
 			BootstrapImage:           "img-id",
-			BootstrapSeries:          "precise",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 			BootstrapConstraints:     bootstrapCons,
 			MetadataDir:              data.metadataDir,
@@ -606,18 +606,18 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
-	// Client host is a Windows system, wanting to bootstrap a trusty
+	// Client host is a Windows system, wanting to bootstrap a jammy
 	// controller with local tools. This can't work.
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
@@ -634,10 +634,10 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 		})
-	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "trusty" using a machine running "Windows"`)
+	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "jammy" using a machine running "Windows"`)
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
@@ -659,13 +659,13 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			BootstrapSeries:          "trusty",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -740,7 +740,7 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
 			ControllerConfig:         coretesting.FakeControllerConfig(),
-			BootstrapSeries:          "quantal",
+			BootstrapSeries:          "jammy",
 			SupportedBootstrapSeries: supportedJujuSeries,
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				c.Fatal("should not call BuildAgentTarball if there are packaged tools")

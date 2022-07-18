@@ -56,10 +56,10 @@ func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Bundle  Version  Architectures  Supports              Publisher          Summary
-wordpress  -       1.0.3    all            bionic                Wordress Charmers  WordPress is a full featured web blogging
-                                                                                    tool, this charm deploys it.
-osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
+Name       Bundle  Version  Architectures  Supports            Publisher          Summary
+wordpress  -       1.0.3    all            bionic              Wordress Charmers  WordPress is a full featured web blogging
+                                                                                  tool, this charm deploys it.
+osm        Y       3.2.3    all            bionic,focal,jammy  charmed-osm        Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -102,9 +102,9 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Bundle  Version  Architectures  Supports              Publisher          Summary
-wordpress  -                                                     Wordress Charmers  
-osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
+Name       Bundle  Version  Architectures  Supports            Publisher          Summary
+wordpress  -                                                   Wordress Charmers  
+osm        Y       3.2.3    all            bionic,focal,jammy  charmed-osm        Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -149,7 +149,7 @@ func getCharmFindResponse() []FindResponse {
 		Summary:   "Single instance OSM bundle.",
 		Version:   "3.2.3",
 		Arches:    []string{"all"},
-		Series:    []string{"bionic", "xenial", "trusty"},
+		Series:    []string{"bionic", "focal", "jammy"},
 		StoreURL:  "https://someurl.com/osm",
 	}}
 }

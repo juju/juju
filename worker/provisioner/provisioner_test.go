@@ -180,7 +180,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
-			Series:          "trusty",
+			Series:          "jammy",
 			Arch:            "amd64",
 			VirtType:        "",
 			RootStorageType: "",

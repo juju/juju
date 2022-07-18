@@ -36,7 +36,7 @@ func (s *imagemanagerSuite) TestListImages(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.ImageFilterParams{
 			Images: []params.ImageSpec{{
 				Kind:   "lxc",
-				Series: "trusty",
+				Series: "jammy",
 				Arch:   "amd64",
 			}},
 		})
@@ -44,7 +44,7 @@ func (s *imagemanagerSuite) TestListImages(c *gc.C) {
 		*(result.(*params.ListImageResult)) = params.ListImageResult{
 			Result: []params.ImageMetadata{{
 				Kind:    "lxc",
-				Series:  "trusty",
+				Series:  "jammy",
 				Arch:    "amd64",
 				Created: dummyTime,
 				URL:     "http://path",
@@ -55,14 +55,14 @@ func (s *imagemanagerSuite) TestListImages(c *gc.C) {
 	})
 
 	im := imagemanager.NewClient(apiCaller)
-	imageMetadata, err := im.ListImages("lxc", "trusty", "amd64")
+	imageMetadata, err := im.ListImages("lxc", "jammy", "amd64")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Check(imageMetadata, gc.HasLen, 1)
 	metadata := imageMetadata[0]
 	c.Assert(metadata, gc.Equals, params.ImageMetadata{
 		Kind:    "lxc",
-		Series:  "trusty",
+		Series:  "jammy",
 		Arch:    "amd64",
 		Created: dummyTime,
 		URL:     "http://path",
@@ -79,7 +79,7 @@ func (s *imagemanagerSuite) TestDeleteImage(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.ImageFilterParams{
 			Images: []params.ImageSpec{{
 				Kind:   "lxc",
-				Series: "trusty",
+				Series: "jammy",
 				Arch:   "amd64",
 			}},
 		})
@@ -94,7 +94,7 @@ func (s *imagemanagerSuite) TestDeleteImage(c *gc.C) {
 	})
 
 	im := imagemanager.NewClient(apiCaller)
-	err := im.DeleteImage("lxc", "trusty", "amd64")
+	err := im.DeleteImage("lxc", "jammy", "amd64")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -105,7 +105,7 @@ func (s *imagemanagerSuite) TestDeleteImageCallError(c *gc.C) {
 	})
 
 	im := imagemanager.NewClient(apiCaller)
-	err := im.DeleteImage("lxc", "trusty", "amd64")
+	err := im.DeleteImage("lxc", "jammy", "amd64")
 	c.Check(err, gc.ErrorMatches, "an error")
 }
 
@@ -120,6 +120,6 @@ func (s *imagemanagerSuite) TestDeleteImageError(c *gc.C) {
 	})
 
 	im := imagemanager.NewClient(apiCaller)
-	err := im.DeleteImage("lxc", "trusty", "amd64")
+	err := im.DeleteImage("lxc", "jammy", "amd64")
 	c.Check(err, gc.ErrorMatches, "the devil made me do it")
 }
