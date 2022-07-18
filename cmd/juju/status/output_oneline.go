@@ -6,11 +6,12 @@ package status
 import (
 	"bytes"
 	"fmt"
+	"io"
+
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/naturalsort"
-	"io"
 )
 
 // FormatOneline writes a brief list of units and their subordinates.
