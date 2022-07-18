@@ -66,9 +66,8 @@ func formatOneline(writer io.Writer, forceColor bool, value interface{}, printf 
 			printf(writer, format, uName, u, level)
 		}
 		if len(u.OpenedPorts) > 0 {
-			fmt.Fprint(pw, " (")
+			fmt.Fprintf(pw, " ")
 			printPorts(pw, u.OpenedPorts)
-			fmt.Fprint(pw, ") ")
 		}
 	}
 	for _, svcName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
