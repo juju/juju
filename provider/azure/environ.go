@@ -1805,6 +1805,12 @@ func (env *azureEnviron) allQueuedInstances(
 			if controllerOnly && !isControllerDeployment(deployment) {
 				continue
 			}
+			if len(deployment.Tags) == 0 {
+				continue
+			}
+			if toValue(deployment.Tags[tags.JujuModel]) != env.Config().UUID() {
+				continue
+			}
 			provisioningState := armresources.ProvisioningStateCreating
 			switch deployProvisioningState {
 			case armresources.ProvisioningStateFailed,
@@ -1890,6 +1896,12 @@ func (env *azureEnviron) allProvisionedInstances(
 				}
 			}
 			if !isControllerInstance(vm, controllerUUID) {
+				continue
+			}
+			if len(vm.Tags) == 0 {
+				continue
+			}
+			if toValue(vm.Tags[tags.JujuModel]) != env.Config().UUID() {
 				continue
 			}
 			inst := &azureInstance{
