@@ -10,10 +10,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 )
 

@@ -12,13 +12,13 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	ociIdentity "github.com/oracle/oci-go-sdk/v47/identity"
 	"gopkg.in/ini.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"

@@ -11,13 +11,13 @@ import (
 
 	"github.com/juju/charm/v9"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"

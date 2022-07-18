@@ -10,10 +10,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"

@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 )
 

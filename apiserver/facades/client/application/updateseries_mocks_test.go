@@ -19,7 +19,7 @@ import (
 	tools "github.com/juju/juju/tools"
 	v4 "github.com/juju/names/v4"
 	schema "github.com/juju/schema"
-	environschema_v1 "gopkg.in/juju/environschema.v1"
+	environschema_v1 "github.com/juju/environschema"
 )
 
 // MockApplication is a mock of Application interface.

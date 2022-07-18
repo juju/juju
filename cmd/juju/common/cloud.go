@@ -7,9 +7,9 @@ import (
 	"bytes"
 
 	"github.com/juju/cmd/v3"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/environschema.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"

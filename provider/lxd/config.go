@@ -6,7 +6,7 @@ package lxd
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
+	"github.com/juju/environschema"
 
 	"github.com/juju/juju/environs/config"
 )

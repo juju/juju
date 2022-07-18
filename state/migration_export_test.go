@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/description/v3"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/constraints"

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"

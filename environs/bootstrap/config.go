@@ -13,10 +13,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/caas"
 	coreconfig "github.com/juju/juju/core/config"

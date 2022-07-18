@@ -4,8 +4,8 @@
 package provider
 
 import (
+	"github.com/juju/environschema"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 	core "k8s.io/api/core/v1"
 )
 

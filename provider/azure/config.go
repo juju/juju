@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 )

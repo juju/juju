@@ -12,13 +12,13 @@ import (
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/environschema"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	corearch "github.com/juju/juju/core/arch"

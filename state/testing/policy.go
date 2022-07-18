@@ -4,9 +4,9 @@
 package testing
 
 import (
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"

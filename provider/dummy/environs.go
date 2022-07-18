@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
@@ -46,7 +47,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

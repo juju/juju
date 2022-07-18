@@ -23,7 +23,7 @@ import (
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
-	environschema "gopkg.in/juju/environschema.v1"
+	environschema "github.com/juju/environschema"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface.

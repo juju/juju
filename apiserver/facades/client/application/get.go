@@ -5,8 +5,8 @@ package application
 
 import (
 	"github.com/juju/charm/v9"
+	"github.com/juju/environschema"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"

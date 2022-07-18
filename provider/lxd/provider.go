@@ -15,7 +15,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
+	"github.com/juju/environschema"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"

@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/environschema.v1"
 
 	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"

@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/controller"

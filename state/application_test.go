@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2/bson"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"

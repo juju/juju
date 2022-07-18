@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/charmhub"

@@ -6,9 +6,9 @@ package lxd_test
 import (
 	stdcontext "context"
 
+	"github.com/juju/environschema"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"

@@ -6,10 +6,10 @@ package gce
 import (
 	stdcontext "context"
 
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"

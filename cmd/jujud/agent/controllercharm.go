@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

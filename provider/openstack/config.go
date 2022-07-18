@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3"
-	"gopkg.in/juju/environschema.v1"
+	"github.com/juju/environschema"
 
 	"github.com/juju/juju/environs/config"
 )

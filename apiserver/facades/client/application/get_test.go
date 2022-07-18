@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/environschema"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/apiserver/common"

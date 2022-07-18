@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	environschema "github.com/juju/environschema"
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
@@ -16,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	environschema "gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/environs/config"

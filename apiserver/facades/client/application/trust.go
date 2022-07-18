@@ -4,9 +4,9 @@
 package application
 
 import (
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
 )
 
 // TrustConfigOptionName is the option name used to set trust level in application configuration.

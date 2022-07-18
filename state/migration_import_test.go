@@ -11,6 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
 	"github.com/juju/description/v3"
+	"github.com/juju/environschema"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
 	corearch "github.com/juju/juju/core/arch"

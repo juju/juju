@@ -47,24 +47,25 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
-	github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4
-	github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d
+	github.com/juju/blobstore/v2 v2.0.0
+	github.com/juju/charm/v9 v9.0.0
 	github.com/juju/charmrepo/v7 v7.0.0
 	github.com/juju/clock v1.0.0
 	github.com/juju/cmd/v3 v3.0.0
 	github.com/juju/collections v1.0.0
 	github.com/juju/description/v3 v3.0.1
+	github.com/juju/environschema v1.0.2
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
-	github.com/juju/gomaasapi/v2 v2.0.0-20220215192228-f1f389204471
+	github.com/juju/gomaasapi/v2 v2.0.0
 	github.com/juju/http/v2 v2.0.0
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
-	github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
+	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v4 v4.0.0
