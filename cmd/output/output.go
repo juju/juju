@@ -139,7 +139,30 @@ func (w *Wrapper) PrintStatus(status status.Status) {
 
 // StatusColor returns the status's standard color
 func StatusColor(status status.Status) *ansiterm.Context {
-	return statusColors[status]
+	if val, ok := statusColors[status]; ok {
+		return val
+	}
+	return CurrentHighlight
+}
+
+// PrintWriter decorates the ansiterm.Writer object.
+type PrintWriter struct {
+	*ansiterm.Writer
+}
+
+// Print writes each value.
+func (w *PrintWriter) Print(ctx *ansiterm.Context, values ...interface{}) {
+	for _, v := range values {
+		ctx.Fprintf(w, "%v", v)
+	}
+}
+
+// Println writes each value.
+func (w *PrintWriter) Println(ctx *ansiterm.Context, values ...interface{}) {
+	for _, v := range values {
+		ctx.Fprintf(w, "%v", v)
+	}
+	fmt.Fprintln(w)
 }
 
 // CurrentHighlight is the color used to show the current

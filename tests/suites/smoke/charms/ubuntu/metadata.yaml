@@ -1,13 +1,13 @@
+# Copyright 2022 jtirado
+# See LICENSE file for licensing details.
+
+# For a complete list of supported options, see:
+# https://juju.is/docs/sdk/metadata-reference
 name: ubuntu
-summary: A pristine Ubuntu Server
-maintainer: Charmers <juju@lists.ubuntu.com>
+display-name: |
+  Ubuntu
 description: |
-  This simply deploys Ubuntu Server.
-categories:
-     - misc
-requires:
-  sink:
-    interface: dummy-token
-series:
-  - jammy
-  - focal
+  Ubuntu charm for juju testing
+summary: |
+  A basic charm to test juju
+

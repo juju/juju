@@ -5,15 +5,18 @@ SHORT_TIMEOUT=5
 # juju status output. The output is JSON, so everything that the API server
 # knows about should be valid.
 # The query argument is a jq query.
+# The default timeout is 10 minutes (120 attempts @ 5 seconds each).
+# You can change this by providing the max_attempts argument.
 #
 # ```
-# wait_for <model name> <query>
+# wait_for <model name> <query> [<max_attempts>]
 # ```
 wait_for() {
-	local name query
+	local name query max_attempts
 
 	name=${1}
 	query=${2}
+	max_attempts=${3:-120} # default timeout: 120x5s = 10m
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
@@ -21,6 +24,12 @@ wait_for() {
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
 		juju status --relations 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
+
+		if [[ "${attempt}" -ge ${max_attempts} ]]; then
+			echo "[-] $(red 'timed out waiting for')" "$(red "${name}")"
+			exit 1
+		fi
+
 		attempt=$((attempt + 1))
 	done
 

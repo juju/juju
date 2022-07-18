@@ -601,6 +601,15 @@ func (ctx *facadeContext) Raft() facade.RaftContext {
 	}
 }
 
+func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
+	switch purpose {
+	case facade.CharmhubHTTPClient:
+		return ctx.r.shared.charmhubHTTPClient
+	default:
+		return nil
+	}
+}
+
 // adminRoot dispatches API calls to those available to an anonymous connection
 // which has not logged in, which here is the admin facade.
 type adminRoot struct {

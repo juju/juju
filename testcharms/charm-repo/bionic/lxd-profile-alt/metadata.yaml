@@ -13,6 +13,6 @@ tags:
   - application_development
 subordinate: false
 series:
-  - bionic
-  - xenial
-  - quantal
+  - jammy
+  - focal
+

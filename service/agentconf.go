@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -138,45 +137,19 @@ func (s *systemdServiceManager) writeSystemdAgent(agentName, dataDir, systemdMul
 		return false, errors.Annotate(err, "creating new service")
 	}
 
-	uSvc, ok := svc.(UpgradableService)
-	if !ok {
-		return false, errors.New("service not of type UpgradableService")
-	}
-
-	if err = uSvc.RemoveOldService(); err != nil {
-		return false, errors.Annotate(err, "deleting legacy service directory")
-	}
-
-	dbusMethodFound := true
-	if err = uSvc.WriteService(); err != nil {
+	if err = svc.WriteService(); err != nil {
 		// Note that this error is already logged by the systemd package.
-
-		// This is not ideal, but it is possible on an Upstart-based OS
-		// (such as Trusty) for run/systemd/system to exist, which is used
-		// for detection of systemd as the running init system.
-		// If this happens, then D-Bus will error with the message below.
-		// We need to detect this condition and fall through to linking the
-		// service files manually.
-		if !strings.Contains(strings.ToLower(err.Error()), "no such method") {
-			return false, errors.Trace(err)
-		} else {
-			dbusMethodFound = false
-			logger.Infof("attempting to manually link service file for %s", agentName)
-		}
+		return false, errors.Trace(err)
 	} else {
 		logger.Infof("successfully wrote service for %s:", agentName)
 	}
 
-	// If systemd is the running init system on this host, *and* if the
-	// call to DBusAPI.LinkUnitFiles in WriteService above returned no
-	// error, it will have resulted in updated sym-links for the file.
-	// We are done.
-	if s.isRunning() && dbusMethodFound {
+	if s.isRunning() {
 		logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
 		return true, nil
 	}
 
-	// Otherwise we need to manually ensure the service unit links.
+	// If not running we need to manually ensure the service unit links.
 	svcFileName := svcName + ".service"
 	if err = os.Symlink(path.Join(systemd.EtcSystemdDir, svcFileName),
 		path.Join(systemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {

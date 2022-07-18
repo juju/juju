@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.reboot")
@@ -81,17 +80,13 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 }
 
 func (r *Reboot) stopDeployedUnits() error {
-	osVersion, err := r.reboot.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	services, err := r.reboot.ListServices()
 	if err != nil {
 		return err
 	}
 	for _, svcName := range services {
 		if strings.HasPrefix(svcName, `jujud-unit-`) {
-			svc, err := r.reboot.NewService(svcName, common.Conf{}, osVersion)
+			svc, err := r.reboot.NewServiceReference(svcName)
 			if err != nil {
 				return err
 			}

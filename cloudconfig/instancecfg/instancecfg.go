@@ -457,12 +457,12 @@ func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service
 	conf := service.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName
-	svc, err := newService(name, conf, cfg.Series)
+	svc, err := newService(name, conf)
 	return svc, errors.Trace(err)
 }
 
-var newService = func(name string, conf common.Conf, series string) (service.Service, error) {
-	return service.NewService(name, conf, series)
+var newService = func(name string, conf common.Conf) (service.Service, error) {
+	return service.NewService(name, conf)
 }
 
 func (cfg *InstanceConfig) AgentConfig(

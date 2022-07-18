@@ -1833,8 +1833,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv13 provides the Application API facade for version 13.",
-        "Version": 13,
+        "Description": "APIv14 provides the Application API facade for version 14.",
+        "Version": 14,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2047,6 +2047,18 @@
                         }
                     },
                     "description": "GetConstraints returns the constraints for a given application."
+                },
+                "Leader": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    },
+                    "description": "Leader returns the unit name of the leader for the given application."
                 },
                 "MergeBindings": {
                     "type": "object",
@@ -3839,6 +3851,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
                 },
                 "Subnet": {
                     "type": "object",
@@ -38103,18 +38130,6 @@
                     },
                     "description": "AllAddresses reports all addresses that might have SSH listening for each\nentity in args. The result is sorted with public addresses first.\nMachines and units are supported as entity types."
                 },
-                "Leader": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entity"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "Leader returns the unit name of the leader for the given application."
-                },
                 "PrivateAddress": {
                     "type": "object",
                     "properties": {
@@ -38314,21 +38329,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
                     ]
                 }
             }

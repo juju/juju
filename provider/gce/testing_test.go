@@ -163,7 +163,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	var instType = "n1-standard-1"
 	cons := constraints.Value{InstanceType: &instType}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "", nil)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "jammy", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(tools)
@@ -262,7 +262,7 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
 	diskSpec := google.DiskSpec{
-		Series:     "trusty",
+		Series:     "jammy",
 		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,

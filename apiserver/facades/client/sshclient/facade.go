@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -197,23 +196,4 @@ func (facade *Facade) Proxy() (params.SSHProxyResult, error) {
 		return params.SSHProxyResult{}, err
 	}
 	return params.SSHProxyResult{UseProxy: config.ProxySSH()}, nil
-}
-
-// Leader returns the unit name of the leader for the given application.
-func (facade *Facade) Leader(entity params.Entity) (params.StringResult, error) {
-	result := params.StringResult{}
-	application, err := names.ParseApplicationTag(entity.Tag)
-	if err != nil {
-		return result, err
-	}
-	leaders, err := facade.leadershipReader.Leaders()
-	if err != nil {
-		return result, errors.Annotate(err, "could not fetch leaders")
-	}
-	var ok bool
-	result.Result, ok = leaders[application.Name]
-	if !ok || result.Result == "" {
-		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
-	}
-	return result, nil
 }

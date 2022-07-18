@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 )
 
 var hostSeries = series.HostSeries
@@ -312,12 +311,7 @@ func isRunningLocally() (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	svc, err := service.NewService(svcName, common.Conf{}, hostSeries)
+	svc, err := service.NewServiceReference(svcName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

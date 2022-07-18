@@ -55,6 +55,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		MetricsCollector:    apiserver.NewMetricsCollector(),
 		RaftOpQueue:         queue.NewOpQueue(testclock),
 		SysLogger:           noopSysLogger{},
+		CharmhubHTTPClient:  &http.Client{},
 	}
 }
 

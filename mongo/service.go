@@ -22,8 +22,7 @@ import (
 const (
 	// ServiceName is the name of the service that Juju's mongod instance
 	// will be named.
-	ServiceName    = "juju-db"
-	serviceTimeout = 300 // 5 minutes
+	ServiceName = "juju-db"
 
 	// SharedSecretFile is the name of the Mongo shared secret file
 	// located within the Juju data directory.

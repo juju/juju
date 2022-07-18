@@ -144,7 +144,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	f1 := factory.NewFactory(st1, s.StatePool)
-	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
+	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Series: "jammy"})
 
 	// Ensure that the first machine in each model have overlapping ids
 	// (otherwise tests may not fail when they should)
@@ -312,7 +312,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 				// Attempt to remove the trusty machine in the second
 				// model with the collection that's filtering for the
 				// first model - nothing should get removed.
-				err := machines0.Writeable().Remove(bson.D{{"series", "trusty"}})
+				err := machines0.Writeable().Remove(bson.D{{"series", "jammy"}})
 				c.Assert(err, gc.ErrorMatches, "not found")
 				return s.machines.Count()
 			},

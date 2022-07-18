@@ -256,5 +256,5 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	return c.processOperationResults(ctx, &runResults)
+	return c.operationResults(ctx, &runResults)
 }

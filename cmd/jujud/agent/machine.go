@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -57,6 +58,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
@@ -595,6 +597,11 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
+		// Create a single HTTP client so we can reuse HTTP connections, for
+		// example across the various Charmhub API requests required for deploy.
+		charmhubLogger := loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
+		charmhubHTTPClient := charmhub.DefaultHTTPTransport(charmhubLogger)
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
 			AgentName:               agentName,
@@ -639,6 +646,7 @@ func (a *MachineAgent) makeEngineCreator(
 			LeaseFSM:                raftlease.NewFSM(),
 			RaftOpQueue:             queue.NewOpQueue(clock.WallClock),
 			DependencyEngineMetrics: metrics,
+			CharmhubHTTPClient:      charmhubHTTPClient,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -867,7 +875,7 @@ func (a *MachineAgent) Restart() error {
 // in use. Why can't upgradesteps depend on the main state connection?
 func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
-	if err := a.ensureMongoServer(agentConfig); err != nil {
+	if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	info, ok := agentConfig.MongoInfo()
@@ -1231,12 +1239,12 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if a.isCaasAgent {
 		return nil
 	}
-	// EnsureMongoServer installs/upgrades the init config as necessary.
-	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+	// EnsureMongoServerInstalled installs/upgrades the init config as necessary.
+	ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
 	if err != nil {
 		return err
 	}
-	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")

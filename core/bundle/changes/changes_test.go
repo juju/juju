@@ -702,7 +702,8 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:precise/mediawiki-10
+                charm: cs:mediawiki-10
+                series: focal
                 num_units: 1
                 expose: true
                 options:
@@ -713,11 +714,12 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
                 resources:
                     data: 3
             mysql:
-                charm: cs:precise/mysql-28
+                charm: cs:mysql-28
+                series: focal
                 num_units: 1
                 resources:
                   data: "./resources/data.tar"
-        series: trusty
+        series: jammy
         relations:
             - - mediawiki:db
               - mysql:db
@@ -726,13 +728,13 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/mediawiki-10",
-			Series: "precise",
+			Charm:  "cs:mediawiki-10",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/mediawiki-10", "precise", ""},
+		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/mediawiki-10",
-			"series": "precise",
+			"charm":  "cs:mediawiki-10",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -740,13 +742,13 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
-			Series:      "precise",
+			Series:      "focal",
 			Options:     map[string]interface{}{"debug": false},
 			Resources:   map[string]int{"data": 3},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"precise",
+			"focal",
 			"mediawiki",
 			map[string]interface{}{"debug": false},
 			"",
@@ -765,7 +767,7 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 			"resources": map[string]interface{}{
 				"data": float64(3),
 			},
-			"series": "precise",
+			"series": "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -805,13 +807,13 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/mysql-28",
-			Series: "precise",
+			Charm:  "cs:mysql-28",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/mysql-28", "precise", ""},
+		GUIArgs: []interface{}{"cs:mysql-28", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/mysql-28",
-			"series": "precise",
+			"charm":  "cs:mysql-28",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-5",
@@ -819,12 +821,12 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:          "$addCharm-4",
 			Application:    "mysql",
-			Series:         "precise",
+			Series:         "focal",
 			LocalResources: map[string]string{"data": "./resources/data.tar"},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-4",
-			"precise",
+			"focal",
 			"mysql",
 			map[string]interface{}{},
 			"",
@@ -840,7 +842,7 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 			"local-resources": map[string]interface{}{
 				"data": "./resources/data.tar",
 			},
-			"series": "precise",
+			"series": "focal",
 		},
 		Requires: []string{"addCharm-4"},
 	}, {
@@ -887,7 +889,8 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:precise/mediawiki-10
+                charm: cs:mediawiki-10
+                series: focal
                 num_units: 1
                 expose: true
                 options:
@@ -898,11 +901,12 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
                 resources:
                     data: 3
             mysql:
-                charm: cs:precise/mysql-28
+                charm: cs:mysql-28
+                series: focal
                 num_units: 1
                 resources:
                   data: "./resources/data.tar"
-        series: trusty
+        series: jammy
         relations:
             - - mediawiki:db
               - mysql:db
@@ -911,13 +915,13 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/mediawiki-10",
-			Series: "precise",
+			Charm:  "cs:mediawiki-10",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/mediawiki-10", "precise", ""},
+		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/mediawiki-10",
-			"series": "precise",
+			"charm":  "cs:mediawiki-10",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -925,13 +929,13 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
-			Series:      "precise",
+			Series:      "focal",
 			Options:     map[string]interface{}{"debug": false},
 			Resources:   map[string]int{"data": 3},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"precise",
+			"focal",
 			"mediawiki",
 			map[string]interface{}{"debug": false},
 			"",
@@ -951,7 +955,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 			"resources": map[string]interface{}{
 				"data": float64(3),
 			},
-			"series": "precise",
+			"series": "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -991,13 +995,13 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 		Id:     "addCharm-4",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/mysql-28",
-			Series: "precise",
+			Charm:  "cs:mysql-28",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/mysql-28", "precise", ""},
+		GUIArgs: []interface{}{"cs:mysql-28", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/mysql-28",
-			"series": "precise",
+			"charm":  "cs:mysql-28",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-5",
@@ -1005,12 +1009,12 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:          "$addCharm-4",
 			Application:    "mysql",
-			Series:         "precise",
+			Series:         "focal",
 			LocalResources: map[string]string{"data": "./resources/data.tar"},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-4",
-			"precise",
+			"focal",
 			"mysql",
 			map[string]interface{}{},
 			"",
@@ -1027,7 +1031,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 			"local-resources": map[string]interface{}{
 				"data": "./resources/data.tar",
 			},
-			"series": "precise",
+			"series": "focal",
 		},
 		Requires: []string{"addCharm-4"},
 	}, {
@@ -1237,22 +1241,24 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:precise/mediawiki-10
+                charm: cs:mediawiki-10
+                series: focal
                 num_units: 1
             otherwiki:
-                charm: cs:precise/mediawiki-10
+                charm: cs:mediawiki-10
+                series: focal
         `
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/mediawiki-10",
-			Series: "precise",
+			Charm:  "cs:mediawiki-10",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/mediawiki-10", "precise", ""},
+		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/mediawiki-10",
-			"series": "precise",
+			"charm":  "cs:mediawiki-10",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1260,11 +1266,11 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
-			Series:      "precise",
+			Series:      "focal",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"precise",
+			"focal",
 			"mediawiki",
 			map[string]interface{}{},
 			"",
@@ -1277,7 +1283,7 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
-			"series":      "precise",
+			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1286,11 +1292,11 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "otherwiki",
-			Series:      "precise",
+			Series:      "focal",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"precise",
+			"focal",
 			"otherwiki",
 			map[string]interface{}{},
 			"",
@@ -1303,7 +1309,7 @@ func (s *changesSuite) TestSameCharmReused(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "otherwiki",
 			"charm":       "$addCharm-0",
-			"series":      "precise",
+			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1326,7 +1332,8 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 2
                 bindings:
                     "": foo
@@ -1336,7 +1343,8 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
                     - lxc:2
                 constraints: spaces=baz cpu-cores=4 cpu-power=42
             haproxy:
-                charm: cs:trusty/haproxy-47
+                charm: cs:haproxy-47
+                series: jammy
                 num_units: 2
                 expose: yes
                 to:
@@ -1347,20 +1355,20 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
                     number: 42.47
         machines:
             1:
-                series: trusty
+                series: jammy
             2:
         `
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1368,13 +1376,13 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:            "$addCharm-0",
 			Application:      "django",
-			Series:           "trusty",
+			Series:           "jammy",
 			Constraints:      "spaces=baz cpu-cores=4 cpu-power=42",
 			EndpointBindings: map[string]string{"": "foo", "http": "bar"},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"spaces=baz cpu-cores=4 cpu-power=42",
@@ -1392,20 +1400,20 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 				"":     "foo",
 				"http": "bar",
 			},
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/haproxy-47",
-			Series: "trusty",
+			Charm:  "cs:haproxy-47",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/haproxy-47", "trusty", ""},
+		GUIArgs: []interface{}{"cs:haproxy-47", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/haproxy-47",
-			"series": "trusty",
+			"charm":  "cs:haproxy-47",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -1413,12 +1421,12 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-2",
 			Application: "haproxy",
-			Series:      "trusty",
+			Series:      "jammy",
 			Options:     map[string]interface{}{"bad": "wolf", "number": 42.47},
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-2",
-			"trusty",
+			"jammy",
 			"haproxy",
 			map[string]interface{}{"bad": "wolf", "number": 42.47},
 			"",
@@ -1435,7 +1443,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 				"bad":    "wolf",
 				"number": 42.47,
 			},
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -1453,13 +1461,13 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 		Id:     "addMachines-5",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
-			bundlechanges.AddMachineOptions{Series: "trusty"},
+			bundlechanges.AddMachineOptions{Series: "jammy"},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "addMachines-6",
@@ -1488,14 +1496,14 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "lxc",
-			Series:        "trusty",
+			Series:        "jammy",
 			ParentId:      "$addMachines-6",
 			Constraints:   "spaces=bar,baz,foo cpu-cores=4 cpu-power=42",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "lxc",
-				Series:        "trusty",
+				Series:        "jammy",
 				ParentId:      "$addMachines-6",
 				Constraints:   "spaces=bar,baz,foo cpu-cores=4 cpu-power=42",
 			},
@@ -1504,7 +1512,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 			"constraints":    "spaces=bar,baz,foo cpu-cores=4 cpu-power=42",
 			"container-type": "lxc",
 			"parent-id":      "$addMachines-6",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-5", "addMachines-6"},
 	}, {
@@ -1512,35 +1520,35 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "lxc",
-			Series:        "trusty",
+			Series:        "jammy",
 			ParentId:      "$addUnit-7",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "lxc",
-				Series:        "trusty",
+				Series:        "jammy",
 				ParentId:      "$addUnit-7",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-7",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-11", "addMachines-5", "addMachines-6", "addUnit-7"},
 	}, {
 		Id:     "addMachines-13",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series: "trusty",
+				Series: "jammy",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addMachines-11", "addMachines-12", "addMachines-5", "addMachines-6"},
 	}, {
@@ -1591,7 +1599,8 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 2
                 to:
                     - 1
@@ -1606,13 +1615,13 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1620,11 +1629,11 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"",
@@ -1637,7 +1646,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1692,15 +1701,15 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *gc.C) {
 		Id:     "addMachines-6",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series: "trusty",
+				Series: "jammy",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addMachines-2"},
 	}, {
@@ -1725,9 +1734,11 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 	content := `
         applications:
             mediawiki:
-                charm: cs:precise/mediawiki-10
+                charm: cs:mediawiki-10
+                series: focal
             mysql:
-                charm: cs:precise/mysql-28
+                charm: cs:mysql-28
+                series: focal
                 constraints: mem=42G
         relations:
             - - mediawiki:db
@@ -1737,13 +1748,13 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/mediawiki-10",
-			Series: "precise",
+			Charm:  "cs:mediawiki-10",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/mediawiki-10", "precise", ""},
+		GUIArgs: []interface{}{"cs:mediawiki-10", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/mediawiki-10",
-			"series": "precise",
+			"charm":  "cs:mediawiki-10",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1751,11 +1762,11 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
-			Series:      "precise",
+			Series:      "focal",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"precise",
+			"focal",
 			"mediawiki",
 			map[string]interface{}{},
 			"",
@@ -1768,20 +1779,20 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
-			"series":      "precise",
+			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/mysql-28",
-			Series: "precise",
+			Charm:  "cs:mysql-28",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/mysql-28", "precise", ""},
+		GUIArgs: []interface{}{"cs:mysql-28", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/mysql-28",
-			"series": "precise",
+			"charm":  "cs:mysql-28",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -1789,12 +1800,12 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-2",
 			Application: "mysql",
-			Series:      "precise",
+			Series:      "focal",
 			Constraints: "mem=42G",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-2",
-			"precise",
+			"focal",
 			"mysql",
 			map[string]interface{}{},
 			"mem=42G",
@@ -1808,7 +1819,7 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *gc.C) {
 			"application": "mysql",
 			"charm":       "$addCharm-2",
 			"constraints": "mem=42G",
-			"series":      "precise",
+			"series":      "focal",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -1836,7 +1847,8 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
                 charm: wordpress
                 num_units: 3
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 2
                 to: [wordpress]
         `
@@ -1844,13 +1856,13 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -1858,11 +1870,11 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"",
@@ -1875,7 +1887,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -1983,7 +1995,8 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
                 charm: wordpress
                 num_units: 3
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 2
                 to: [wordpress]
         `
@@ -1991,13 +2004,13 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2005,11 +2018,11 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"",
@@ -2023,7 +2036,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -2129,11 +2142,13 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 	content := `
         applications:
             memcached:
-                charm: cs:trusty/mem-47
+                charm: cs:mem-47
+                series: jammy
                 num_units: 3
                 to: [1, new]
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 5
                 to:
                     - memcached/0
@@ -2148,19 +2163,19 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
                     - 1
         machines:
             1:
-                series: trusty
+                series: jammy
         `
 	expected := []record{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2168,11 +2183,11 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"",
@@ -2185,20 +2200,20 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/mem-47",
-			Series: "trusty",
+			Charm:  "cs:mem-47",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/mem-47", "trusty", ""},
+		GUIArgs: []interface{}{"cs:mem-47", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/mem-47",
-			"series": "trusty",
+			"charm":  "cs:mem-47",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-3",
@@ -2206,11 +2221,11 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-2",
 			Application: "memcached",
-			Series:      "trusty",
+			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-2",
-			"trusty",
+			"jammy",
 			"memcached",
 			map[string]interface{}{},
 			"",
@@ -2223,7 +2238,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "memcached",
 			"charm":       "$addCharm-2",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -2268,16 +2283,16 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Id:     "addMachines-6",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series:      "trusty",
+				Series:      "jammy",
 				Constraints: "",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "addUnit-12",
@@ -2296,30 +2311,30 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Id:     "addMachines-17",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series: "trusty",
+				Series: "jammy",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addMachines-6"},
 	}, {
 		Id:     "addMachines-18",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series: "trusty",
+				Series: "jammy",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-6"},
 	}, {
@@ -2407,20 +2422,20 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "lxc",
-			Series:        "trusty",
+			Series:        "jammy",
 			ParentId:      "$addUnit-13",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "lxc",
-				Series:        "trusty",
+				Series:        "jammy",
 				ParentId:      "$addUnit-13",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-13",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-6", "addUnit-13"},
 	}, {
@@ -2428,20 +2443,20 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "lxc",
-			Series:        "trusty",
+			Series:        "jammy",
 			ParentId:      "$addUnit-14",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "lxc",
-				Series:        "trusty",
+				Series:        "jammy",
 				ParentId:      "$addUnit-14",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-14",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-20", "addMachines-6", "addUnit-14"},
 	}, {
@@ -2449,20 +2464,20 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "kvm",
-			Series:        "trusty",
+			Series:        "jammy",
 			ParentId:      "$addUnit-15",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "kvm",
-				Series:        "trusty",
+				Series:        "jammy",
 				ParentId:      "$addUnit-15",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "kvm",
 			"parent-id":      "$addUnit-15",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-20", "addMachines-21", "addMachines-6", "addUnit-15"},
 	}, {
@@ -2470,20 +2485,20 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "kvm",
-			Series:        "trusty",
+			Series:        "jammy",
 			ParentId:      "$addUnit-16",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "kvm",
-				Series:        "trusty",
+				Series:        "jammy",
 				ParentId:      "$addUnit-16",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "kvm",
 			"parent-id":      "$addUnit-16",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-19", "addMachines-20", "addMachines-21", "addMachines-22", "addMachines-6", "addUnit-16"},
 	}, {
@@ -2547,7 +2562,8 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 5
                 to:
                     - new
@@ -2564,13 +2580,13 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2578,11 +2594,11 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"",
@@ -2595,7 +2611,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -2631,15 +2647,15 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Id:     "addMachines-9",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series: "trusty",
+				Series: "jammy",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addMachines-2", "addMachines-3"},
 	}, {
@@ -2647,20 +2663,20 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "kvm",
-			Series:        "trusty",
+			Series:        "jammy",
 			ParentId:      "$addMachines-3",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "kvm",
-				Series:        "trusty",
+				Series:        "jammy",
 				ParentId:      "$addMachines-3",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "kvm",
 			"parent-id":      "$addMachines-3",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-2", "addMachines-3", "addMachines-9"},
 	}, {
@@ -2668,17 +2684,17 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "lxc",
-			Series:        "trusty",
+			Series:        "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "lxc",
-				Series:        "trusty",
+				Series:        "jammy",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "lxc",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-10", "addMachines-2", "addMachines-3", "addMachines-9"},
 	}, {
@@ -2686,17 +2702,17 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "lxc",
-			Series:        "trusty",
+			Series:        "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "lxc",
-				Series:        "trusty",
+				Series:        "jammy",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "lxc",
-			"series":         "trusty",
+			"series":         "jammy",
 		},
 		Requires: []string{"addMachines-10", "addMachines-11", "addMachines-2", "addMachines-3", "addMachines-9"},
 	}, {
@@ -2773,7 +2789,8 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 1
                 to:
                     - new
@@ -2783,13 +2800,13 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2797,12 +2814,12 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 			Constraints: "cpu-cores=4",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"cpu-cores=4",
@@ -2816,7 +2833,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"constraints": "cpu-cores=4",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -2824,17 +2841,17 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *gc.C) {
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
 			Constraints: "cpu-cores=4",
-			Series:      "trusty",
+			Series:      "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series:      "trusty",
+				Series:      "jammy",
 				Constraints: "cpu-cores=4",
 			},
 		},
 		Args: map[string]interface{}{
 			"constraints": "cpu-cores=4",
-			"series":      "trusty",
+			"series":      "jammy",
 		},
 	}, {
 		Id:     "addUnit-2",
@@ -2858,7 +2875,8 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 2
                 storage:
                     osd-devices: 3,30G
@@ -2868,13 +2886,13 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2882,7 +2900,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 			Storage: map[string]string{
 				"osd-devices": "3,30G",
 				"tmpfs":       "tmpfs,1G",
@@ -2890,7 +2908,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"",
@@ -2906,7 +2924,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *gc.C) {
 		Args: map[string]interface{}{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"series":      "trusty",
+			"series":      "jammy",
 			"storage": map[string]interface{}{
 				"osd-devices": "3,30G",
 				"tmpfs":       "tmpfs,1G",
@@ -2944,7 +2962,8 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 	content := `
         applications:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:django-42
+                series: jammy
                 num_units: 2
                 devices:
                     description: a nvidia gpu device
@@ -2956,13 +2975,13 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:trusty/django-42",
-			Series: "trusty",
+			Charm:  "cs:django-42",
+			Series: "jammy",
 		},
-		GUIArgs: []interface{}{"cs:trusty/django-42", "trusty", ""},
+		GUIArgs: []interface{}{"cs:django-42", "jammy", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:trusty/django-42",
-			"series": "trusty",
+			"charm":  "cs:django-42",
+			"series": "jammy",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -2970,7 +2989,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "django",
-			Series:      "trusty",
+			Series:      "jammy",
 			Devices: map[string]string{
 				"description": "a nvidia gpu device",
 				"type":        "nvidia.com/gpu",
@@ -2980,7 +2999,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"trusty",
+			"jammy",
 			"django",
 			map[string]interface{}{},
 			"",
@@ -3005,7 +3024,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *gc.C) {
 				"description": "a nvidia gpu device",
 				"type":        "nvidia.com/gpu",
 			},
-			"series": "trusty",
+			"series": "jammy",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -3164,10 +3183,11 @@ applications:
 }
 func (s *changesSuite) TestApplicationWithNonDefaultSeriesAndPlacements(c *gc.C) {
 	content := `
-series: trusty
+series: jammy
 applications:
     gui3:
-        charm: cs:precise/juju-gui
+        charm: cs:juju-gui
+        series: focal
         num_units: 2
         to:
             - new
@@ -3179,13 +3199,13 @@ machines:
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Params: bundlechanges.AddCharmParams{
-			Charm:  "cs:precise/juju-gui",
-			Series: "precise",
+			Charm:  "cs:juju-gui",
+			Series: "focal",
 		},
-		GUIArgs: []interface{}{"cs:precise/juju-gui", "precise", ""},
+		GUIArgs: []interface{}{"cs:juju-gui", "focal", ""},
 		Args: map[string]interface{}{
-			"charm":  "cs:precise/juju-gui",
-			"series": "precise",
+			"charm":  "cs:juju-gui",
+			"series": "focal",
 		},
 	}, {
 		Id:     "deploy-1",
@@ -3193,11 +3213,11 @@ machines:
 		Params: bundlechanges.AddApplicationParams{
 			Charm:       "$addCharm-0",
 			Application: "gui3",
-			Series:      "precise",
+			Series:      "focal",
 		},
 		GUIArgs: []interface{}{
 			"$addCharm-0",
-			"precise",
+			"focal",
 			"gui3",
 			map[string]interface{}{},
 			"",
@@ -3210,37 +3230,37 @@ machines:
 		Args: map[string]interface{}{
 			"application": "gui3",
 			"charm":       "$addCharm-0",
-			"series":      "precise",
+			"series":      "focal",
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
 		Id:     "addMachines-2",
 		Method: "addMachines",
 		Params: bundlechanges.AddMachineParams{
-			Series: "trusty",
+			Series: "jammy",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series: "trusty",
+				Series: "jammy",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "trusty",
+			"series": "jammy",
 		},
 	}, {
 		Id:       "addMachines-5",
 		Method:   "addMachines",
 		Requires: []string{"addMachines-2"},
 		Params: bundlechanges.AddMachineParams{
-			Series: "precise",
+			Series: "focal",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
-				Series: "precise",
+				Series: "focal",
 			},
 		},
 		Args: map[string]interface{}{
-			"series": "precise",
+			"series": "focal",
 		},
 	}, {
 		Id:       "addMachines-6",
@@ -3249,19 +3269,19 @@ machines:
 		Params: bundlechanges.AddMachineParams{
 			ContainerType: "lxc",
 			ParentId:      "$addMachines-2",
-			Series:        "precise",
+			Series:        "focal",
 		},
 		GUIArgs: []interface{}{
 			bundlechanges.AddMachineOptions{
 				ContainerType: "lxc",
 				ParentId:      "$addMachines-2",
-				Series:        "precise",
+				Series:        "focal",
 			},
 		},
 		Args: map[string]interface{}{
 			"container-type": "lxc",
 			"parent-id":      "$addMachines-2",
-			"series":         "precise",
+			"series":         "focal",
 		},
 	}, {
 		Id:       "addUnit-3",
@@ -3535,20 +3555,20 @@ name: multi-series
 summary: That's a dummy charm with multi-series.
 description: A dummy charm.
 series:
-    - precise
-    - trusty
+    - jammy
+    - focal
     - bionic
 `[1:]
 	err = ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertLocalBundleChanges(c, charmDir, bundleContent, "precise")
-	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "precise")
+	s.assertLocalBundleChanges(c, charmDir, bundleContent, "jammy")
+	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "jammy")
 }
 
 func (s *changesSuite) TestLocalCharmWithSeriesFromBundle(c *gc.C) {
 	charmDir := c.MkDir()
 	bundleContent := fmt.Sprintf(`
-        series: bionic
+        series: focal
         applications:
             django:
                 charm: %s
@@ -3558,14 +3578,14 @@ name: multi-series
 summary: That's a dummy charm with multi-series.
 description: A dummy charm.
 series:
-    - precise
-    - trusty
+    - jammy
+    - focal
     - bionic
 `[1:]
 	err := ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertLocalBundleChanges(c, charmDir, bundleContent, "bionic")
-	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "bionic")
+	s.assertLocalBundleChanges(c, charmDir, bundleContent, "focal")
+	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "focal")
 }
 
 func (s *changesSuite) TestSimpleBundleEmptyModel(c *gc.C) {
@@ -4904,7 +4924,8 @@ func (s *changesSuite) TestMostAppOptions(c *gc.C) {
 	bundleContent := `
                 applications:
                     mediawiki:
-                        charm: cs:precise/mediawiki-10
+                        charm: cs:mediawiki-10
+                        series: focal
                         num_units: 1
                         expose: true
                         options:
@@ -4915,22 +4936,23 @@ func (s *changesSuite) TestMostAppOptions(c *gc.C) {
                         resources:
                             data: 3
                     mysql:
-                        charm: cs:precise/mysql-28
+                        charm: cs:mysql-28
+                        series: focal
                         num_units: 1
                         resources:
                           data: "./resources/data.tar"
-                series: trusty
+                series: jammy
                 relations:
                     - - mediawiki:db
                       - mysql:db
             `
 	expectedChanges := []string{
-		"upload charm mediawiki from charm-store for series precise",
-		"deploy application mediawiki from charm-store on precise",
+		"upload charm mediawiki from charm-store for series focal",
+		"deploy application mediawiki from charm-store on focal",
 		"expose all endpoints of mediawiki and allow access from CIDRs 0.0.0.0/0 and ::/0",
 		"set annotations for mediawiki",
-		"upload charm mysql from charm-store for series precise",
-		"deploy application mysql from charm-store on precise",
+		"upload charm mysql from charm-store for series focal",
+		"deploy application mysql from charm-store on focal",
 		"add relation mediawiki:db - mysql:db",
 		"add unit mediawiki/0 to new machine 0",
 		"add unit mysql/0 to new machine 1",
@@ -5049,12 +5071,14 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 	bundleContent := `
                 applications:
                     mediawiki:
-                        charm: cs:precise/mediawiki-10
+                        charm: cs:mediawiki-10
+                        series: focal
                         num_units: 2
                     mysql:
-                        charm: cs:precise/mysql-28
+                        charm: cs:mysql-28
+                        series: focal
                         num_units: 1
-                series: trusty
+                series: jammy
                 relations:
                     - - mediawiki:db
                       - mysql:db
@@ -5062,22 +5086,22 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"mediawiki": {
-				Charm:    "cs:precise/mediawiki-10",
+				Charm:    "cs:mediawiki-10",
 				Revision: 10,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{"mediawiki/0", "1"},
 				},
-				Series: "precise",
+				Series: "focal",
 			},
 			"mysql": {
-				Charm:    "cs:precise/mysql-28",
+				Charm:    "cs:mysql-28",
 				Revision: 28,
 				Channel:  "stable",
 				Units: []bundlechanges.Unit{
 					{"mysql/0", "0"},
 				},
-				Series: "precise",
+				Series: "focal",
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5097,10 +5121,10 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 		"add unit mediawiki/1 to new machine 2",
 	}
 	s.checkBundleExistingModelWithRevisionParser(c, bundleContent, existingModel, expectedChanges, func(charm, _, channel, _ string, rev int) (string, int, error) {
-		if charm == "cs:precise/mediawiki-10" {
+		if charm == "cs:mediawiki-10" {
 			return "stable", 10, nil
 		}
-		if charm == "cs:precise/mysql-28" {
+		if charm == "cs:mysql-28" {
 			return "stable", 28, nil
 		}
 		return "stable", -1, nil

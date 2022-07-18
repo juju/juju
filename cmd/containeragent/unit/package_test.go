@@ -163,7 +163,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"service/common",
 		"service/snap",
 		"service/systemd",
-		"service/upstart",
 		"state/errors",
 		"storage",
 		"storage/provider",

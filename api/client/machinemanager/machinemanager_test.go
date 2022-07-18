@@ -44,11 +44,11 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.AddMachines{
 			MachineParams: []params.AddMachineParams{
 				{
-					Series: "trusty",
+					Series: "jammy",
 					Disks:  []storage.Constraints{{Pool: "loop", Size: 1}},
 				},
 				{
-					Series: "precise",
+					Series: "focal",
 				},
 			},
 		})
@@ -61,10 +61,10 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 	})
 
 	machines := []params.AddMachineParams{{
-		Series: "trusty",
+		Series: "jammy",
 		Disks:  []storage.Constraints{{Pool: "loop", Size: 1}},
 	}, {
-		Series: "precise",
+		Series: "focal",
 	}}
 	result, err := st.AddMachines(machines)
 	c.Check(err, jc.ErrorIsNil)
@@ -92,7 +92,7 @@ func (s *MachinemanagerSuite) TestAddMachinesServerError(c *gc.C) {
 		return nil
 	})
 	machines := []params.AddMachineParams{{
-		Series: "trusty",
+		Series: "jammy",
 	}}
 	results, err := st.AddMachines(machines)
 	c.Check(err, jc.ErrorIsNil)
@@ -112,7 +112,7 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *gc.C) {
 			return nil
 		})
 		machines := []params.AddMachineParams{{
-			Series: "trusty",
+			Series: "jammy",
 		}}
 		_, err := st.AddMachines(machines)
 		c.Check(err, gc.ErrorMatches, fmt.Sprintf("expected 1 result, got %d", n))

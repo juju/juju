@@ -75,7 +75,7 @@ func (c *showTaskCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, defaultFormatter, map[string]cmd.Formatter{
 		"yaml":  cmd.FormatYaml,
 		"json":  cmd.FormatJson,
-		"plain": printPlainOutput,
+		"plain": printOutput,
 	})
 
 	f.DurationVar(&c.wait, "wait", defaultTaskWait, "Maximum wait time for a task to complete")

@@ -24,12 +24,12 @@ var logger = loggo.GetLogger("juju.apiserver.charmdownloader")
 // any entries that have not been yet downloaded to the blobstore and for
 // triggering their download.
 type CharmDownloaderAPI struct {
-	authChecker      AuthChecker
-	resourcesBackend ResourcesBackend
-	stateBackend     StateBackend
-	modelBackend     ModelBackend
-	clock            clock.Clock
-	httpClient       http.HTTPClient
+	authChecker        AuthChecker
+	resourcesBackend   ResourcesBackend
+	stateBackend       StateBackend
+	modelBackend       ModelBackend
+	clock              clock.Clock
+	charmhubHTTPClient http.HTTPClient
 
 	newStorage    func(modelUUID string) services.Storage
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error)
@@ -51,14 +51,14 @@ func newAPI(
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error),
 ) *CharmDownloaderAPI {
 	return &CharmDownloaderAPI{
-		authChecker:      authChecker,
-		resourcesBackend: resourcesBackend,
-		stateBackend:     stateBackend,
-		modelBackend:     modelBackend,
-		clock:            clk,
-		httpClient:       httpClient,
-		newStorage:       newStorage,
-		newDownloader:    newDownloader,
+		authChecker:        authChecker,
+		resourcesBackend:   resourcesBackend,
+		stateBackend:       stateBackend,
+		modelBackend:       modelBackend,
+		clock:              clk,
+		charmhubHTTPClient: httpClient,
+		newStorage:         newStorage,
+		newDownloader:      newDownloader,
 	}
 }
 
@@ -148,11 +148,11 @@ func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
 	}
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:         logger,
-		Transport:      a.httpClient,
-		StorageFactory: a.newStorage,
-		StateBackend:   a.stateBackend,
-		ModelBackend:   a.modelBackend,
+		Logger:            logger,
+		CharmhubTransport: a.charmhubHTTPClient,
+		StorageFactory:    a.newStorage,
+		StateBackend:      a.stateBackend,
+		ModelBackend:      a.modelBackend,
 	})
 
 	if err != nil {

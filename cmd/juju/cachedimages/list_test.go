@@ -65,19 +65,19 @@ func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {
 }
 
 func (*listImagesCommandSuite) TestListImagesFormatJson(c *gc.C) {
-	context, err := runListCommand(c, "--format", "json", "--kind", "lxd", "--series", "trusty", "--arch", "amd64")
+	context, err := runListCommand(c, "--format", "json", "--kind", "lxd", "--series", "jammy", "--arch", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "Cached images:\n["+
-		`{"kind":"lxd","series":"trusty","arch":"amd64","source-url":"http://image","created":"Thu, 01 Jan 2015 00:00:00 UTC"}`+
+		`{"kind":"lxd","series":"jammy","arch":"amd64","source-url":"http://image","created":"Thu, 01 Jan 2015 00:00:00 UTC"}`+
 		"]\n")
 }
 
 func (*listImagesCommandSuite) TestListImagesFormatYaml(c *gc.C) {
-	context, err := runListCommand(c, "--format", "yaml", "--kind", "lxd", "--series", "trusty", "--arch", "amd64")
+	context, err := runListCommand(c, "--format", "yaml", "--kind", "lxd", "--series", "jammy", "--arch", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "Cached images:\n"+
 		"- kind: lxd\n"+
-		"  series: trusty\n"+
+		"  series: jammy\n"+
 		"  arch: amd64\n"+
 		"  source-url: http://image\n"+
 		"  created: Thu, 01 Jan 2015 00:00:00 UTC\n")

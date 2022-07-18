@@ -212,12 +212,44 @@ type EnsureServerParams struct {
 	JujuDBSnapChannel string
 }
 
-// EnsureServer ensures that the MongoDB server is installed,
+// EnsureServerStarted ensures that the MongoDB server is installed,
 // configured, and ready to run.
-//
-// This method will remove old versions of the mongo init service as necessary
-// before installing the new version.
-func EnsureServer(args EnsureServerParams) error {
+func EnsureServerStarted(snapChannel string) error {
+	return ensureServerStarted(dataPathForJujuDbSnap, snapChannel)
+}
+
+func ensureServerStarted(dataDir, snapChannel string) error {
+	svc, err := mongoSnapService(dataDir, systemd.EtcSystemdDir, snapChannel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	installed, err := svc.Installed()
+	if err != nil {
+		// If not installed, returns error "exit status 1"
+		// When run on the cli and not installed:
+		//    error: snap "juju-db" not found
+		// However juju doesn't get a typed error in return.
+		// Log it and continue.
+		logger.Debugf("installed returned %s", err)
+	}
+	if !installed {
+		return errors.NotFoundf("mongo service %q", svc.Name())
+	}
+	running, err := svc.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !running {
+		if err = svc.Start(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// EnsureServerInstalled ensures that the MongoDB server is installed,
+// configured, and ready to run.
+func EnsureServerInstalled(args EnsureServerParams) error {
 	return ensureServer(args, mongoKernelTweaks)
 }
 
@@ -227,16 +259,6 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	hostSeries, err := series.HostSeries()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// We may have upgraded from 2.9 using an earlier, non snap,
-	// version of mongo so we need to keep using that.
-	err = maybeUseLegacyMongo(args, &OSSearchTools{})
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Annotate(err, "checking legacy mongo")
-	}
-	if err == nil {
-		return nil
 	}
 
 	mongoDep := dependency.Mongo(args.JujuDBSnapChannel)
@@ -262,17 +284,6 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		return errors.Trace(err)
 	}
 
-	// Check to see if the mongo snap is already installed.
-	err = checkInstalled(svc)
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			// An AlreadyExists error is returned if mongo is installed, running
-			// and configured as expected.  Return nil here, nothing else to do.
-			return nil
-		}
-		return errors.Trace(err)
-	}
-
 	// Ensure the snap service is refreshed since operations
 	// like upgrading the snap require a manual restart before
 	// connectivity can be re-established.
@@ -280,20 +291,14 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		if svc == nil || err != nil {
 			return
 		}
-		err = svc.Stop()
+		err = svc.Restart()
 		if err != nil {
-			err = errors.Annotate(err, "cannot stop mongo service")
-			return
-		}
-		err = svc.Start()
-		if err != nil {
-			err = errors.Annotate(err, "cannot start mongo service")
+			err = errors.Annotate(err, "cannot restart mongo service")
 			return
 		}
 	}(svc)
 
-	err = installMongod(mongoDep, hostSeries, svc)
-	if err != nil {
+	if err := installMongod(mongoDep, hostSeries, svc); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -326,35 +331,6 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 
 	// Update the systemd service configuration.
 	return svc.ConfigOverride()
-}
-
-func checkInstalled(svc MongoSnapService) error {
-	installed, err := svc.Installed()
-	if err != nil {
-		// If not installed, returns error "exit status 1"
-		// When run on the cli and not installed:
-		//    error: snap "juju-db" not found
-		// However juju doesn't get a typed error in return.
-		// Log it and continue.
-		logger.Debugf("installed returned %s", err)
-	}
-	if !installed {
-		return nil
-	}
-	// Do not attempt to svc.Ensure().  It is not implemented
-	// for snap.  Nor is the config between juju-db > 4.4.x
-	// compatible with juju-db 4.0.x, e.g. tlsCertificateKeyFile
-	// etc.
-	running, err := svc.Running()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !running {
-		if err = svc.Start(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return errors.AlreadyExistsf("mongo exists and is running")
 }
 
 func setupDataDirectory(args EnsureServerParams) error {
@@ -461,7 +437,7 @@ var installMongo = packaging.InstallDependency
 func installMongod(mongoDep packaging.Dependency, hostSeries string, snapSvc MongoSnapService) error {
 	// Do either a local snap install or a real install from the store.
 	if snapSvc.Name() == ServiceName {
-		// Package.
+		// Store snap.
 		return installMongo(mongoDep, hostSeries)
 	} else {
 		// Local snap.
@@ -474,12 +450,16 @@ func dbDir(dataDir string) string {
 	return filepath.Join(dataDir, "db")
 }
 
+// MongoSnapService represents a mongo snap.
 type MongoSnapService interface {
-	MongoService
+	Exists() (bool, error)
+	Installed() (bool, error)
+	Running() (bool, error)
 	ConfigOverride() error
 	Name() string
 	Start() error
-	Stop() error
+	Restart() error
+	Install() error
 }
 
 var newSnapService = func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (MongoSnapService, error) {
