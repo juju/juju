@@ -40,10 +40,6 @@ func FormatOneline(writer io.Writer, value interface{}) error {
 // superiors. This format works with version 2 of the CLI.
 func FormatOnelineWithColor(writer io.Writer, forceColor bool, value interface{}) error {
 	return formatOnelineWithColor(writer, value, func(out io.Writer, format, uName string, u unitStatus, level int) {
-		w := output.Writer(writer)
-		if forceColor {
-			w.SetColorCapable(forceColor)
-		}
 
 		agentColored := colorVal(output.EmphasisHighlight.DefaultBold, "agent")
 		statusInfoColored := colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.JujuStatusInfo.Current)
@@ -71,13 +67,6 @@ func FormatOnelineWithColor(writer io.Writer, forceColor bool, value interface{}
 
 			fPrintf(out, format, uName, u.PublicAddress, status)
 		}
-
-		//
-		//fmt.Fprintf(out, format,
-		//	uName,
-		//	colorVal(output.InfoHighlight, u.PublicAddress),
-		//	status,
-		//)
 	})
 }
 
