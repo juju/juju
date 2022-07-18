@@ -98,9 +98,14 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 	app.EXPECT().Charm().Return(pendingCharm, false, nil)
 	app.EXPECT().CharmOrigin().Return(&resolvedOrigin)
 
+	downloadedOrigin := resolvedOrigin
+	downloadedOrigin.ID = "test-charm-id"
+	downloadedOrigin.Hash = "test-charm-hash"
+	app.EXPECT().SetDownloadedIDAndHash(downloadedOrigin.ID, downloadedOrigin.Hash).Return(nil)
+
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(resolvedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(downloadedOrigin, nil)
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{
