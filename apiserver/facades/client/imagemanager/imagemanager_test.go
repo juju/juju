@@ -82,16 +82,16 @@ func (s *imageManagerSuite) addImage(c *gc.C, content string) {
 	addedMetadata := &imagestorage.Metadata{
 		ModelUUID: s.State.ModelUUID(),
 		Kind:      "lxc",
-		Series:    "trusty",
+		Series:    "jammy",
 		Arch:      "amd64",
 		Size:      int64(len(content)),
 		SHA256:    "hash(" + content + ")",
-		SourceURL: "http://lxc-trusty-amd64",
+		SourceURL: "http://lxc-jammy-amd64",
 	}
 	stor := s.State.ImageStorage()
 	err := stor.AddImage(r, addedMetadata)
 	c.Assert(err, gc.IsNil)
-	_, rdr, err := stor.Image("lxc", "trusty", "amd64")
+	_, rdr, err := stor.Image("lxc", "jammy", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	rdr.Close()
 }
@@ -105,7 +105,7 @@ func (s *imageManagerSuite) TestListAllImages(c *gc.C) {
 	dummyTime := time.Now()
 	result.Result[0].Created = dummyTime
 	c.Assert(result.Result[0], gc.Equals, params.ImageMetadata{
-		Kind: "lxc", Arch: "amd64", Series: "trusty", URL: "http://lxc-trusty-amd64", Created: dummyTime,
+		Kind: "lxc", Arch: "amd64", Series: "jammy", URL: "http://lxc-jammy-amd64", Created: dummyTime,
 	})
 }
 
@@ -115,7 +115,7 @@ func (s *imageManagerSuite) TestListImagesWithSingleFilter(c *gc.C) {
 		Images: []params.ImageSpec{
 			{
 				Kind:   "lxc",
-				Series: "trusty",
+				Series: "jammy",
 				Arch:   "amd64",
 			},
 		},
@@ -126,7 +126,7 @@ func (s *imageManagerSuite) TestListImagesWithSingleFilter(c *gc.C) {
 	dummyTime := time.Now()
 	result.Result[0].Created = dummyTime
 	c.Assert(result.Result[0], gc.Equals, params.ImageMetadata{
-		Kind: "lxc", Arch: "amd64", Series: "trusty", URL: "http://lxc-trusty-amd64", Created: dummyTime,
+		Kind: "lxc", Arch: "amd64", Series: "jammy", URL: "http://lxc-jammy-amd64", Created: dummyTime,
 	})
 }
 
@@ -136,11 +136,11 @@ func (s *imageManagerSuite) TestListImagesWithMultipleFiltersFails(c *gc.C) {
 		Images: []params.ImageSpec{
 			{
 				Kind:   "lxc",
-				Series: "trusty",
+				Series: "jammy",
 				Arch:   "amd64",
 			}, {
 				Kind:   "lxc",
-				Series: "precise",
+				Series: "focal",
 				Arch:   "amd64",
 			},
 		},
@@ -155,11 +155,11 @@ func (s *imageManagerSuite) TestDeleteImages(c *gc.C) {
 		Images: []params.ImageSpec{
 			{
 				Kind:   "lxc",
-				Series: "trusty",
+				Series: "jammy",
 				Arch:   "amd64",
 			}, {
 				Kind:   "lxc",
-				Series: "precise",
+				Series: "focal",
 				Arch:   "amd64",
 			},
 		},
@@ -169,12 +169,12 @@ func (s *imageManagerSuite) TestDeleteImages(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
-			{Error: apiservertesting.NotFoundError("image lxc/precise/amd64")},
+			{Error: apiservertesting.NotFoundError("image lxc/focal/amd64")},
 		},
 	})
 	stor := s.State.ImageStorage()
-	_, _, err = stor.Image("lxc", "trusty", "amd64")
-	c.Assert(err, gc.ErrorMatches, ".*-lxc-trusty-amd64 image metadata not found")
+	_, _, err = stor.Image("lxc", "jammy", "amd64")
+	c.Assert(err, gc.ErrorMatches, ".*-lxc-jammy-amd64 image metadata not found")
 }
 
 func (s *imageManagerSuite) TestBlockDeleteImages(c *gc.C) {
@@ -182,7 +182,7 @@ func (s *imageManagerSuite) TestBlockDeleteImages(c *gc.C) {
 	args := params.ImageFilterParams{
 		Images: []params.ImageSpec{{
 			Kind:   "lxc",
-			Series: "trusty",
+			Series: "jammy",
 			Arch:   "amd64",
 		}},
 	}
@@ -193,7 +193,7 @@ func (s *imageManagerSuite) TestBlockDeleteImages(c *gc.C) {
 	s.AssertBlocked(c, err, "TestBlockDeleteImages")
 	// Check the image still exists.
 	stor := s.State.ImageStorage()
-	_, rdr, err := stor.Image("lxc", "trusty", "amd64")
+	_, rdr, err := stor.Image("lxc", "jammy", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	rdr.Close()
 }

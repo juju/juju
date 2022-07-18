@@ -51,7 +51,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 		Source:          "custom",
 		Stream:          "stream",
 		Region:          "region",
-		Series:          "trusty",
+		Series:          "jammy",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType",
@@ -66,7 +66,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// m.Version would be deduced from m.Series
-	m.Version = "14.04"
+	m.Version = "22.04"
 	c.Assert(added, jc.DeepEquals, []params.CloudImageMetadata{m})
 
 	// make sure it's in db too

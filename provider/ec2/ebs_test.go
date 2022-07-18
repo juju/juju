@@ -1192,7 +1192,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", false, nil)
+	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{}, "jammy", false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mapping, gc.DeepEquals, []types.BlockDeviceMapping{{
 		Ebs:        &types.EbsBlockDevice{VolumeSize: aws.Int32(8)},
@@ -1213,7 +1213,7 @@ func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappingsController(c *gc.C) {
-	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", true, nil)
+	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{}, "jammy", true, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mapping, gc.DeepEquals, []types.BlockDeviceMapping{{
 		Ebs:        &types.EbsBlockDevice{VolumeSize: aws.Int32(32)},

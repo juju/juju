@@ -4,10 +4,8 @@ description: |
     This is a longer description which
     potentially contains multiple lines.
 series:
-    - precise
-    - trusty
-    - xenial
-    - yakkety
+    - focal
+    - jammy
     - bionic
 provides:
     multi-directory:

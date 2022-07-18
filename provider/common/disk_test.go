@@ -18,7 +18,7 @@ func (s *DiskSuite) TestMinRootDiskSizeGiB(c *gc.C) {
 		series       string
 		expectedSize uint64
 	}{
-		{"trusty", 8},
+		{"jammy", 8},
 		{"centos7", 8},
 		{"centos8", 8},
 		{"opensuseleap", 8},

@@ -262,7 +262,7 @@ summary: a test charm
 description: a test
 subordinate: true
 series:
-    - bionic
+    - xenial
 requires:
     multi-directory:
        interface: logging

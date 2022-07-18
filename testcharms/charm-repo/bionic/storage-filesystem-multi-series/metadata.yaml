@@ -8,4 +8,4 @@ storage:
         multiple:
           range: 1+
 series:
-  - xenial
+  - jammy

@@ -9,5 +9,5 @@ storage:
         multiple:
                 range: 0+
 series:
-  - trusty
-  - utopic
+  - jammy
+  - focal

@@ -2683,7 +2683,7 @@ func (t *localServerSuite) TestBootstrapMultiple(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := testing.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "trusty", apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "jammy", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.Prepare(c)
@@ -2703,7 +2703,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	err = testing.SetImageMetadata(
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
-		[]string{"trusty"},
+		[]string{"jammy"},
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)

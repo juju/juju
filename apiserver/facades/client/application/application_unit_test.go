@@ -1857,7 +1857,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) 
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{{
 				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-				Series: "trusty",
+				Series: "jammy",
 			}},
 		},
 	)

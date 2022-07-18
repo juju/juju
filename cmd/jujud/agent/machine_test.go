@@ -1124,11 +1124,11 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
-	parent, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	parent, err := s.State.AddMachine("focal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.AddMachineInsideMachine(
 		state.MachineTemplate{
-			Series: "trusty",
+			Series: "jammy",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		},
 		parent.Id(),

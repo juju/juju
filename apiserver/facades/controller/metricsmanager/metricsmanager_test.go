@@ -225,8 +225,8 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
 	err := s.State.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Create two additional ubuntu machines, in addition to the one created in setup.
-	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
-	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "xenial"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "jammy"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "focal"})
 	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "centos7"})
 	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "redox"})
 	err = s.metricsmanager.AddJujuMachineMetrics()

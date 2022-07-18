@@ -1668,14 +1668,14 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 
 func (s *ApplicationSuite) setupCharmForTestUpdateApplicationSeries(c *gc.C, name string) *state.Application {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, name)
-	app := state.AddTestingApplicationForSeries(c, s.State, "precise", name, ch)
+	app := state.AddTestingApplicationForSeries(c, s.State, "focal", name, ch)
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
 		Source:   "charm-store",
 		Revision: &rev,
 		Platform: &state.Platform{
-			Series: "precise",
+			Series: "focal",
 		},
 	}
 	cfg := state.SetCharmConfig{
@@ -1691,16 +1691,16 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationSeries(c *gc.C, nam
 
 func (s *ApplicationSuite) TestUpdateApplicationSeries(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
-	err := app.UpdateApplicationSeries("trusty", false)
+	err := app.UpdateApplicationSeries("jammy", false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "trusty")
+	assertApplicationSeriesUpdate(c, app, "jammy")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesToStart(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
-	err := app.UpdateApplicationSeries("precise", false)
+	err := app.UpdateApplicationSeries("focal", false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "precise")
+	assertApplicationSeriesUpdate(c, app, "focal")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *gc.C) {
@@ -1717,20 +1717,20 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *g
 				ops := []txn.Op{{
 					C:  state.ApplicationsC,
 					Id: state.DocID(s.State, "multi-series"),
-					Update: bson.D{{"$set", bson.D{{"series", "trusty"},
-						{"charm-origin.platform.series", "trusty"}}}},
+					Update: bson.D{{"$set", bson.D{{"series", "jammy"},
+						{"charm-origin.platform.series", "jammy"}}}},
 				}}
 				state.RunTransaction(c, s.State, ops)
 			},
 			After: func() {
-				assertApplicationSeriesUpdate(c, app, "trusty")
+				assertApplicationSeriesUpdate(c, app, "jammy")
 			},
 		},
 	).Check()
 
-	err := app.UpdateApplicationSeries("trusty", false)
+	err := app.UpdateApplicationSeries("jammy", false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "trusty")
+	assertApplicationSeriesUpdate(c, app, "jammy")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(c *gc.C) {
@@ -1748,10 +1748,10 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	).Check()
 
 	// Trusty is listed in only version 1 of the charm.
-	err := app.UpdateApplicationSeries("trusty", false)
+	err := app.UpdateApplicationSeries("jammy", false)
 	c.Assert(err, gc.ErrorMatches,
-		"updating application series: series \"trusty\" not supported by charm \"cs:multi-series-2\", "+
-			"supported series are: precise, xenial")
+		"updating application series: series \"jammy\" not supported by charm \"cs:multi-series-2\", "+
+			"supported series are: focal, bionic")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {
@@ -1768,10 +1768,10 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 		},
 	).Check()
 
-	// Xenial is listed in both revisions of the charm.
-	err := app.UpdateApplicationSeries("xenial", false)
+	// bionic is listed in both revisions of the charm.
+	err := app.UpdateApplicationSeries("bionic", false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "xenial")
+	assertApplicationSeriesUpdate(c, app, "bionic")
 }
 
 func (s *ApplicationSuite) setupMultiSeriesUnitSubordinate(c *gc.C, app *state.Application, name string) *state.Application {
@@ -1815,10 +1815,10 @@ func assertApplicationSeriesUpdate(c *gc.C, a *state.Application, series string)
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinate(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationSeries(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
-	err := app.UpdateApplicationSeries("trusty", false)
+	err := app.UpdateApplicationSeries("jammy", false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "trusty")
-	assertApplicationSeriesUpdate(c, subApp, "trusty")
+	assertApplicationSeriesUpdate(c, app, "jammy")
+	assertApplicationSeriesUpdate(c, subApp, "jammy")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.C) {
@@ -1826,8 +1826,8 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationSeries("xenial", false)
 	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
-	assertApplicationSeriesUpdate(c, app, "precise")
-	assertApplicationSeriesUpdate(c, subApp, "precise")
+	assertApplicationSeriesUpdate(c, app, "focal")
+	assertApplicationSeriesUpdate(c, subApp, "focal")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateForce(c *gc.C) {
@@ -1854,16 +1854,16 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesUnitCountChange(c *gc.C) {
 		},
 	).Check()
 
-	err = app.UpdateApplicationSeries("trusty", false)
+	err = app.UpdateApplicationSeries("jammy", false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "trusty")
+	assertApplicationSeriesUpdate(c, app, "jammy")
 
 	units, err = app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(units), gc.Equals, 1)
 	subApp, err := s.State.Application("multi-series-subordinate")
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, subApp, "trusty")
+	assertApplicationSeriesUpdate(c, subApp, "jammy")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinate(c *gc.C) {
@@ -1882,14 +1882,14 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinate(c *gc.C)
 		},
 	).Check()
 
-	err = app.UpdateApplicationSeries("trusty", false)
+	err = app.UpdateApplicationSeries("jammy", false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, app, "trusty")
-	assertApplicationSeriesUpdate(c, subApp, "trusty")
+	assertApplicationSeriesUpdate(c, app, "jammy")
+	assertApplicationSeriesUpdate(c, subApp, "jammy")
 
 	subApp2, err := s.State.Application("multi-series-subordinate2")
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, subApp2, "trusty")
+	assertApplicationSeriesUpdate(c, subApp2, "jammy")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompatible(c *gc.C) {
@@ -1908,14 +1908,14 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 		},
 	).Check()
 
-	err = app.UpdateApplicationSeries("yakkety", false)
+	err = app.UpdateApplicationSeries("bionic", false)
 	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
-	assertApplicationSeriesUpdate(c, app, "precise")
-	assertApplicationSeriesUpdate(c, subApp, "precise")
+	assertApplicationSeriesUpdate(c, app, "focal")
+	assertApplicationSeriesUpdate(c, subApp, "focal")
 
 	subApp2, err := s.State.Application("multi-series-subordinate2")
 	c.Assert(err, jc.ErrorIsNil)
-	assertApplicationSeriesUpdate(c, subApp2, "precise")
+	assertApplicationSeriesUpdate(c, subApp2, "focal")
 }
 
 func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {

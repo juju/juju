@@ -485,21 +485,21 @@ func (s *applicationSuite) TestApplicationDeployWithExtantMachineContainerLocked
 func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
 	c *gc.C, placement instance.Placement, addContainer bool,
 ) {
-	m, err := s.BackingState.AddMachine("precise", state.JobHostUnits)
+	m, err := s.BackingState.AddMachine("focal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if addContainer {
 		template := state.MachineTemplate{
-			Series: "xenial",
+			Series: "jammy",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		}
 		_, err := s.State.AddMachineInsideMachine(template, m.Id(), "lxd")
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.Assert(m.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
+	c.Assert(m.CreateUpgradeSeriesLock(nil, "jammy"), jc.ErrorIsNil)
 
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-42", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:focal/dummy-42", "dummy")
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",

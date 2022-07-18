@@ -2438,7 +2438,7 @@ func (suite *maasEnvironSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 func (suite *maasEnvironSuite) TestConstraintsValidator(c *gc.C) {
 	controller := newFakeController()
-	controller.bootResources = []gomaasapi.BootResource{&fakeBootResource{name: "trusty", architecture: "amd64"}}
+	controller.bootResources = []gomaasapi.BootResource{&fakeBootResource{name: "jammy", architecture: "amd64"}}
 	env := suite.makeEnviron(c, controller)
 	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2450,7 +2450,7 @@ func (suite *maasEnvironSuite) TestConstraintsValidator(c *gc.C) {
 
 func (suite *maasEnvironSuite) TestConstraintsValidatorInvalidCredential(c *gc.C) {
 	controller := &fakeController{
-		bootResources:      []gomaasapi.BootResource{&fakeBootResource{name: "trusty", architecture: "amd64"}},
+		bootResources:      []gomaasapi.BootResource{&fakeBootResource{name: "jammy", architecture: "amd64"}},
 		bootResourcesError: gomaasapi.NewPermissionError("fail auth here"),
 	}
 	env := suite.makeEnviron(c, controller)
@@ -2474,15 +2474,15 @@ func (suite *maasEnvironSuite) TestDomainsInvalidCredential(c *gc.C) {
 func (suite *maasEnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	controller := newFakeController()
 	controller.bootResources = []gomaasapi.BootResource{
-		&fakeBootResource{name: "trusty", architecture: "amd64"},
-		&fakeBootResource{name: "precise", architecture: "armhf"},
+		&fakeBootResource{name: "jammy", architecture: "amd64"},
+		&fakeBootResource{name: "focal", architecture: "arm64"},
 	}
 	env := suite.makeEnviron(c, controller)
 	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 arm64\\]")
 }
 
 func (suite *maasEnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
