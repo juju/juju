@@ -572,8 +572,8 @@ github.com/juju/terms-client/v2 v2.0.0/go.mod h1:ezOEZrFZZ0c9Kc0xeHH7SCmniWPkjux
 github.com/juju/testing v0.0.0-20180402130637-44801989f0f7/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20190723135506-ce30eb24acd2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20210302031854-2c7ee8570c07/go.mod h1:7lxZW0B50+xdGFkvhAb8bwAGt6IU87JB1H9w4t8MNVM=
-github.com/juju/testing v1.0.0 h1:RKGcTXqM0/LBBGVRXSn5j1qSYqpb25tTBiR16WCC8Xo=
-github.com/juju/testing v1.0.0/go.mod h1:rUquetT0ALL48LHZhyRGvjjBH8xZaZ8dFClulKK5wK4=
+github.com/juju/testing v1.0.1 h1:Zlg3HKP+wBRpkxCmh+Bsxp3WOmfelcZXuX6Adb7Dvec=
+github.com/juju/testing v1.0.1/go.mod h1:h3Vd2rzB57KrdsBEy6R7bmSKPzP76BnNavt7i8PerwQ=
 github.com/juju/txn/v2 v2.0.0 h1:MbHrIrQ17dfJzQj+cfE5ZLJoPxpusJ3ztwIZ0v25+XQ=
 github.com/juju/txn/v2 v2.0.0/go.mod h1:Sh0uxANJLqw/GccwAhz4qIn+eWFVbAlQSBynFR4luY8=
 github.com/juju/usso v1.0.1 h1:zyQhSUJnhFZdPqVAmPeqXYlnYXv+i0Cp1Ii+aziMXGs=
