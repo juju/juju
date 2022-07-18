@@ -120,7 +120,7 @@ func (w *Wrapper) PrintColorNoTab(ctx *ansiterm.Context, value interface{}) {
 	}
 }
 
-// PrintHeaders writes out many tab separated values in the color context specificed.
+// PrintHeaders writes out many tab separated values in the color context specified.
 func (w *Wrapper) PrintHeaders(ctx *ansiterm.Context, values ...interface{}) {
 	for i, v := range values {
 		if i != len(values)-1 {
@@ -150,10 +150,14 @@ type PrintWriter struct {
 	*ansiterm.Writer
 }
 
-// Print writes each value.
-func (w *PrintWriter) Print(ctx *ansiterm.Context, values ...interface{}) {
+// Printf writes each value.
+func (w *PrintWriter) Printf(ctx *ansiterm.Context, format string, values ...interface{}) {
 	for _, v := range values {
-		ctx.Fprintf(w, "%v", v)
+		if ctx != nil {
+			ctx.Fprintf(w, format, v) //if ctx != nil {"%v" =format
+		} else {
+			fmt.Fprintf(w, format, v)
+		}
 	}
 }
 
@@ -163,6 +167,21 @@ func (w *PrintWriter) Println(ctx *ansiterm.Context, values ...interface{}) {
 		ctx.Fprintf(w, "%v", v)
 	}
 	fmt.Fprintln(w)
+}
+
+// Print empty tab after values
+func (w *PrintWriter) Print(values ...interface{}) {
+	w.Printf(CurrentHighlight, "%v", values...)
+}
+
+// PrintNoTab prints values without a tab delimiter
+func (w *PrintWriter) PrintNoTab(values ...interface{}) {
+	w.Printf(CurrentHighlight, "%v", values...)
+}
+
+// PrintColorNoTab writes the value out in the color context specified.
+func (w *PrintWriter) PrintColorNoTab(ctx *ansiterm.Context, value interface{}) {
+	w.Printf(ctx, "%v", value)
 }
 
 // CurrentHighlight is the color used to show the current
