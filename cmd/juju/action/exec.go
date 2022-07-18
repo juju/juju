@@ -5,6 +5,7 @@ package action
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/naturalsort"
 	"github.com/juju/utils/v3"
 
 	actionapi "github.com/juju/juju/api/client/action"
@@ -134,7 +136,17 @@ func (c *execCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *execCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.runCommandBase.SetFlags(f)
+	// Set runCommandBase flags EXCEPT the formatting flags.
+	// We need a custom plain formatter here.
+	c.runCommandBase.setNonFormatFlags(f)
+
+	// Set formatting flags
+	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
+		"yaml":  c.formatYaml,
+		"json":  c.formatJson,
+		"plain": c.printExecOutput,
+	})
+
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
 	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
 	f.BoolVar(&c.parallel, "parallel", true, "Run the commands in parallel without first acquiring a lock")
@@ -257,4 +269,56 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return c.operationResults(ctx, &runResults)
+}
+
+// printExecOutput is the default "plain" formatter for the exec command.
+func (c *execCommand) printExecOutput(w io.Writer, value interface{}) error {
+	info, ok := value.(map[string]interface{})
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", info, value)
+	}
+
+	// unit/machine name -> stdout+stderr
+	outputs := make(map[string]string)
+	// Store all unit/machine names. We need to sort them before printing to
+	// ensure a consistent iteration order.
+	names := make([]string, 0, len(info))
+
+	for name := range info {
+		names = append(names, name)
+		resultMetadata, ok := info[name].(map[string]interface{})
+		if !ok {
+			return errors.Errorf("expected value of type %T, got %T", resultMetadata, info[name])
+		}
+		resultData, ok := resultMetadata["results"].(map[string]interface{})
+		if ok {
+			if stdout, ok := resultData["stdout"]; ok {
+				outputs[name] += forceNewline(stdout.(string))
+			}
+			if stderr, ok := resultData["stderr"]; ok {
+				outputs[name] += forceNewline(stderr.(string))
+			}
+		}
+	}
+
+	// Iteration order for maps is not guaranteed -> need to sort the keys first
+	naturalsort.Sort(names)
+	for _, name := range names {
+		if len(outputs) > 1 {
+			fmt.Fprintf(w, "%s:\n", name)
+		}
+		fmt.Fprintf(w, "%s", outputs[name])
+		if len(outputs) > 1 {
+			fmt.Fprintln(w)
+		}
+	}
+	return nil
+}
+
+// forceNewline ensures that the string (if not empty) ends in a newline.
+func forceNewline(s string) string {
+	if len(s) > 0 && s[len(s)-1] != '\n' {
+		s += "\n"
+	}
+	return s
 }
