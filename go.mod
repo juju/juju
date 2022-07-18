@@ -46,6 +46,7 @@ require (
 	github.com/hashicorp/raft v1.3.2-0.20210825230038-1a621031eb2b
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
+<<<<<<< HEAD
 	github.com/juju/ansiterm v0.0.0-20210929141451-8b71cc96ebdc
 	github.com/juju/blobstore/v2 v2.0.0-20220204135513-4876189e56a4
 	github.com/juju/charm/v9 v9.0.0-20220131034618-d197db1afa3d
@@ -87,8 +88,50 @@ require (
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0
 	github.com/juju/version/v2 v2.0.0-20220204124744-fc9915e3d935
+=======
+	github.com/juju/ansiterm v1.0.0
+	github.com/juju/blobstore/v2 v2.0.0
+	github.com/juju/charm/v8 v8.0.1
+	github.com/juju/charmrepo/v6 v6.0.1
+	github.com/juju/clock v1.0.0
+	github.com/juju/cmd/v3 v3.0.0
+	github.com/juju/collections v1.0.0
+	github.com/juju/description/v3 v3.0.1
+	github.com/juju/errors v1.0.0
+	github.com/juju/featureflag v1.0.0
+	github.com/juju/gnuflag v1.0.0
+	github.com/juju/gojsonschema v1.0.0
+	github.com/juju/gomaasapi/v2 v2.0.0
+	github.com/juju/http/v2 v2.0.0
+	github.com/juju/idmclient/v2 v2.0.0
+	github.com/juju/jsonschema v1.0.0
+	github.com/juju/jsonschema-gen v1.0.0
+	github.com/juju/loggo v1.0.0
+	github.com/juju/lumberjack/v2 v2.0.2
+	github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090
+	github.com/juju/mutex/v2 v2.0.0
+	github.com/juju/names/v4 v4.0.0
+	github.com/juju/naturalsort v1.0.0
+	github.com/juju/os/v2 v2.2.3
+	github.com/juju/packaging/v2 v2.0.0
+	github.com/juju/persistent-cookiejar v1.0.0
+	github.com/juju/proxy v1.0.0
+	github.com/juju/pubsub/v2 v2.0.0
+	github.com/juju/ratelimit v1.0.2
+	github.com/juju/replicaset/v2 v2.0.1
+	github.com/juju/retry v1.0.0
+	github.com/juju/rfc/v2 v2.0.0
+	github.com/juju/romulus v1.0.0
+	github.com/juju/rpcreflect v1.0.0
+	github.com/juju/schema v1.0.1
+	github.com/juju/terms-client/v2 v2.0.0
+	github.com/juju/testing v1.0.0
+	github.com/juju/txn/v2 v2.0.0
+	github.com/juju/utils/v3 v3.0.0
+	github.com/juju/version/v2 v2.0.0
+>>>>>>> upstream/2.9
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.0.0-20220204100750-e23db69a42d2
+	github.com/juju/worker/v3 v3.0.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/lxc/lxd v0.0.0-20220526200742-11ace6e6c1b3
@@ -231,7 +274,13 @@ require (
 // go: google.golang.org/grpc/naming@v0.0.0-00010101000000-000000000000: invalid version: unknown revision 000000000000
 replace google.golang.org/grpc/naming => google.golang.org/grpc v1.29.1
 
+<<<<<<< HEAD
 replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07
+=======
+replace github.com/altoros/gosigma => github.com/juju/gosigma v1.0.0
+
+replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
+>>>>>>> upstream/2.9
 
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 

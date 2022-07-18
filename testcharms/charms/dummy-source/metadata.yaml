@@ -1,5 +1,5 @@
 name: dummy-source
-maintainer: Aaron Bentley <aaron.bentley@canonical.com>
+maintainer: Juju Crew <juju-crew@canonical.com>
 summary: Dummy charm that provides data
 description: |
   This dummy charm is used to verify that a relationship is created correctly
@@ -12,4 +12,5 @@ series:
   - xenial
   - bionic
   - focal
+  - jammy
 

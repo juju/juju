@@ -28,8 +28,13 @@ deploy_stack() {
 
 	juju switch "${name}"
 
+<<<<<<< HEAD
 	juju deploy "juju-qa-dummy-source"
 	juju deploy "juju-qa-dummy-sink"
+=======
+	juju deploy juju-qa-dummy-source
+	juju deploy juju-qa-dummy-sink
+>>>>>>> upstream/2.9
 
 	juju add-relation dummy-source dummy-sink
 	juju expose dummy-sink
