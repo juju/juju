@@ -449,12 +449,8 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 
 	_, ok := w.applications[appName]
 	if !ok {
-		curl, err := unit.CharmURL()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-
-		if curl == nil {
+		curlStr := unit.CharmURL()
+		if curlStr == nil {
 			// this happens for new units to existing machines.
 			app, err := unit.Application()
 			if errors.IsNotFound(err) {
@@ -463,22 +459,22 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 			} else if err != nil {
 				return false, errors.Annotatef(err, "failed to get application %s for machine-%s", appName, w.machine.Id())
 			}
-			cURL := app.CharmURL()
-			curl, err = charm.ParseURL(*cURL)
-			if err != nil {
-				return false, errors.Annotatef(err, "application charm url")
-			}
+			curlStr = app.CharmURL()
 		}
 
+		curl, err := charm.ParseURL(*curlStr)
+		if err != nil {
+			return false, errors.Annotatef(err, "application charm url")
+		}
 		ch, err := w.backend.Charm(curl)
 		if errors.IsNotFound(err) {
-			logger.Debugf("charm %s removed for %s on machine-%s", curl, unitName, w.machine.Id())
+			logger.Debugf("charm %s removed for %s on machine-%s", *curlStr, unitName, w.machine.Id())
 			return false, nil
 		} else if err != nil {
-			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", curl, appName, w.machine.Id())
+			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", *curlStr, appName, w.machine.Id())
 		}
 		info := appInfo{
-			charmURL: curl.String(),
+			charmURL: *curlStr,
 			units:    set.NewStrings(unitName),
 		}
 

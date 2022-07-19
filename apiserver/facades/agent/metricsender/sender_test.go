@@ -56,7 +56,8 @@ var _ metricsender.MetricSender = (*metricsender.HTTPSender)(nil)
 // is in use metrics get sent
 func (s *SenderSuite) TestHTTPSender(c *gc.C) {
 	metricCount := 3
-	expectedCharmURL, _ := s.unit.CharmURL()
+	expectedCharmURL := s.unit.CharmURL()
+	c.Assert(expectedCharmURL, gc.NotNil)
 
 	receiverChan := make(chan wireformat.MetricBatch, metricCount)
 	cleanup := s.startServer(c, testHandler(c, receiverChan, nil, 0))
@@ -74,7 +75,7 @@ func (s *SenderSuite) TestHTTPSender(c *gc.C) {
 	c.Assert(receiverChan, gc.HasLen, metricCount)
 	close(receiverChan)
 	for batch := range receiverChan {
-		c.Assert(batch.CharmUrl, gc.Equals, expectedCharmURL.String())
+		c.Assert(batch.CharmUrl, gc.Equals, *expectedCharmURL)
 	}
 
 	for _, metric := range metrics {

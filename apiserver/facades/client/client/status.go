@@ -1531,9 +1531,9 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	if unit.IsPrincipal() {
 		result.Machine, _ = unit.AssignedMachineId()
 	}
-	curl, _ := unit.CharmURL()
-	if applicationCharm != "" && curl != nil && curl.String() != applicationCharm {
-		result.Charm = curl.String()
+	unitCharm := unit.CharmURL()
+	if applicationCharm != "" && unitCharm != nil && *unitCharm != applicationCharm {
+		result.Charm = *unitCharm
 	}
 	workloadVersion, err := context.status.UnitWorkloadVersion(unit.Name())
 	if err == nil {

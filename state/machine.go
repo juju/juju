@@ -2126,12 +2126,11 @@ func (m *Machine) UpdateMachineSeries(series string) error {
 			Update: bson.D{{"$set", bson.D{{"series", series}}}},
 		}}
 		for _, unit := range units {
-			curl, _ := unit.CharmURL()
 			ops = append(ops, txn.Op{
 				C:  unitsC,
 				Id: unit.doc.DocID,
 				Assert: bson.D{{"life", Alive},
-					{"charmurl", curl},
+					{"charmurl", unit.CharmURL()},
 					{"subordinates", unit.SubordinateNames()}},
 				Update: bson.D{{"$set", bson.D{{"series", series}}}},
 			})

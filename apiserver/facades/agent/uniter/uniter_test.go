@@ -875,9 +875,9 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	// Set wordpressUnit's charm URL first.
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	curl, err := s.wordpressUnit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, s.wpCharm.URL())
+	curl := s.wordpressUnit.CharmURL()
+	c.Assert(curl, gc.NotNil)
+	c.Assert(*curl, gc.Equals, s.wpCharm.URL().String())
 
 	// Make sure wordpress application's charm is what we expect.
 	curlStr, force := s.wordpress.CharmURL()
@@ -913,8 +913,8 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
-	_, ok := s.wordpressUnit.CharmURL()
-	c.Assert(ok, jc.IsFalse)
+	charmURL := s.wordpressUnit.CharmURL()
+	c.Assert(charmURL, gc.IsNil)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
 		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/application-42"},
@@ -935,10 +935,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	charmURL, err := s.wordpressUnit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	charmURL = s.wordpressUnit.CharmURL()
 	c.Assert(charmURL, gc.NotNil)
-	c.Assert(charmURL.String(), gc.Equals, s.wpCharm.String())
+	c.Assert(*charmURL, gc.Equals, s.wpCharm.String())
 }
 
 func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {

@@ -6,7 +6,6 @@ package migration
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v2"
@@ -86,7 +85,7 @@ type PrecheckUnit interface {
 	Name() string
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
-	CharmURL() (*charm.URL, error)
+	CharmURL() *string
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	ShouldBeAssigned() bool
@@ -421,8 +420,8 @@ func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []Precheck
 			}
 		}
 
-		unitCharmURL, _ := unit.CharmURL()
-		if *appCharmURL != unitCharmURL.String() {
+		unitCharmURL := unit.CharmURL()
+		if unitCharmURL == nil || *appCharmURL != *unitCharmURL {
 			return errors.Errorf("unit %s is upgrading", unit.Name())
 		}
 	}
