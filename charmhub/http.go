@@ -63,7 +63,7 @@ type HTTPClient interface {
 // DefaultHTTPClient creates a new HTTPClient with the default configuration.
 func DefaultHTTPClient(logger Logger) HTTPClient {
 	recorder := loggingRequestRecorder{
-		logger: logger.ChildWithLabels("transport.request-recorder", corelogger.CHARMHUB, corelogger.METRICS),
+		logger: logger.ChildWithLabels("transport.request-recorder", corelogger.METRICS),
 	}
 	return requestHTTPClient(recorder, defaultRetryPolicy())(logger)
 }
