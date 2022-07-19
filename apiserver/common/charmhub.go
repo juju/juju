@@ -33,13 +33,11 @@ func CharmhubClient(mg ModelGetter, httpClient charmhub.HTTPClient, logger loggo
 	}
 	url, _ := modelConfig.CharmHubURL()
 
-	cfg := charmhub.Config{
+	client, err := charmhub.NewClient(charmhub.Config{
 		URL:        url,
 		HTTPClient: httpClient,
 		Logger:     logger,
-	}
-
-	client, err := charmhub.NewClient(cfg)
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

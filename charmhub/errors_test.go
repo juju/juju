@@ -15,18 +15,18 @@ var _ = gc.Suite(&ErrorsSuite{})
 
 func (ErrorsSuite) TestHandleBasicAPIErrors(c *gc.C) {
 	var list transport.APIErrors
-	err := handleBasicAPIErrors(list, noopLogger{})
+	err := handleBasicAPIErrors(list, &FakeLogger{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ErrorsSuite) TestHandleBasicAPIErrorsNotFound(c *gc.C) {
 	list := transport.APIErrors{{Code: transport.ErrorCodeNotFound, Message: "foo"}}
-	err := handleBasicAPIErrors(list, noopLogger{})
+	err := handleBasicAPIErrors(list, &FakeLogger{})
 	c.Assert(err, gc.ErrorMatches, `charm or bundle not found`)
 }
 
 func (ErrorsSuite) TestHandleBasicAPIErrorsOther(c *gc.C) {
 	list := transport.APIErrors{{Code: "other", Message: "foo"}}
-	err := handleBasicAPIErrors(list, noopLogger{})
+	err := handleBasicAPIErrors(list, &FakeLogger{})
 	c.Assert(err, gc.ErrorMatches, `foo`)
 }

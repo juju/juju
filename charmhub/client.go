@@ -26,10 +26,12 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 const (
@@ -53,11 +55,16 @@ type Logger interface {
 
 	Errorf(string, ...interface{})
 	Tracef(string, ...interface{})
+
+	ChildWithLabels(string, ...string) loggo.Logger
 }
 
 // Config holds configuration for creating a new charm hub client.
 // The zero value is a valid default configuration.
 type Config struct {
+	// Logger to use during the API requests. This field is required.
+	Logger Logger
+
 	// URL holds the base endpoint URL of the Charmhub API,
 	// with no trailing slash, not including the version.
 	// If empty string, use the default Charmhub API server.
@@ -66,9 +73,6 @@ type Config struct {
 	// HTTPClient represents the HTTP client to use for all API
 	// requests. If nil, use the default HTTP client.
 	HTTPClient HTTPClient
-
-	// Logger to use during the API requests. If nil, don't log anything.
-	Logger Logger
 
 	// FileSystem represents the file system operations for downloading.
 	// If nil, use the real OS file system.
@@ -99,14 +103,15 @@ type Client struct {
 
 // NewClient creates a new Charmhub client from the supplied configuration.
 func NewClient(config Config) (*Client, error) {
+	logger := config.Logger
+	if logger == nil {
+		return nil, errors.NotValidf("nil logger")
+	}
+	logger = logger.ChildWithLabels("client", corelogger.CHARMHUB)
+
 	url := config.URL
 	if url == "" {
 		url = DefaultServerURL
-	}
-
-	logger := config.Logger
-	if logger == nil {
-		logger = noopLogger{}
 	}
 
 	httpClient := config.HTTPClient
@@ -222,10 +227,3 @@ func (c *Client) DownloadResource(ctx context.Context, resourceURL *url.URL) (r 
 func (c *Client) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
 	return c.resourcesClient.ListResourceRevisions(ctx, charm, resource)
 }
-
-type noopLogger struct{}
-
-func (noopLogger) IsTraceEnabled() bool { return false }
-
-func (noopLogger) Errorf(string, ...interface{}) {}
-func (noopLogger) Tracef(string, ...interface{}) {}

@@ -20,6 +20,7 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/version"
 )
 
@@ -61,9 +62,10 @@ type HTTPClient interface {
 
 // DefaultHTTPClient creates a new HTTPClient with the default configuration.
 func DefaultHTTPClient(logger Logger) HTTPClient {
-	return requestHTTPClient(loggingRequestRecorder{
-		logger: logger,
-	}, defaultRetryPolicy())(logger)
+	recorder := loggingRequestRecorder{
+		logger: logger.ChildWithLabels("transport.request-recorder", corelogger.CHARMHUB, corelogger.METRICS),
+	}
+	return requestHTTPClient(recorder, defaultRetryPolicy())(logger)
 }
 
 // defaultRetryPolicy returns a retry policy with sane defaults for most
@@ -94,14 +96,14 @@ func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err err
 	}
 }
 
-// requestHTTPClient creates a new HTTPClient that records the
-// requests.
+// requestHTTPClient returns a function that creates a new HTTPClient that
+// records the requests.
 func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger Logger) HTTPClient {
 	return func(logger Logger) HTTPClient {
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
-			jujuhttp.WithLogger(logger),
+			jujuhttp.WithLogger(logger.ChildWithLabels("transport", corelogger.CHARMHUB, corelogger.HTTP)),
 		)
 	}
 }

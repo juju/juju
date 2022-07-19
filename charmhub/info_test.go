@@ -37,7 +37,7 @@ func (s *InfoSuite) TestInfoCharm(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectCharmGet(c, restClient, path, name)
 
-	client := newInfoClient(path, restClient, noopLogger{})
+	client := newInfoClient(path, restClient, &FakeLogger{})
 	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
@@ -56,7 +56,7 @@ func (s *InfoSuite) TestInfoBundle(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectBundleGet(c, restClient, path, name)
 
-	client := newInfoClient(path, restClient, noopLogger{})
+	client := newInfoClient(path, restClient, &FakeLogger{})
 	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
@@ -75,7 +75,7 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(restClient)
 
-	client := newInfoClient(path, restClient, noopLogger{})
+	client := newInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -92,7 +92,7 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetError(c, restClient, path, name)
 
-	client := newInfoClient(path, restClient, noopLogger{})
+	client := newInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -249,10 +249,10 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := newAPIRequester(DefaultHTTPClient(noopLogger{}), noopLogger{})
+	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
 	restClient := newHTTPRESTClient(apiRequester)
 
-	client := newInfoClient(infoPath, restClient, noopLogger{})
+	client := newInfoClient(infoPath, restClient, &FakeLogger{})
 	response, err := client.Info(context.Background(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)

@@ -38,7 +38,7 @@ func (s *ResourcesSuite) TestListResourceRevisions(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name, resource)
 
-	client := newResourcesClient(path, restClient, noopLogger{})
+	client := newResourcesClient(path, restClient, &FakeLogger{})
 	response, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.HasLen, 3)
@@ -57,7 +57,7 @@ func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(restClient)
 
-	client := newResourcesClient(path, restClient, noopLogger{})
+	client := newResourcesClient(path, restClient, &FakeLogger{})
 	_, err := client.ListResourceRevisions(context.Background(), name, resource)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -98,10 +98,10 @@ func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
 	resourcesPath, err := basePath.Join("resources")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := newAPIRequester(DefaultHTTPClient(noopLogger{}), noopLogger{})
+	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
 	restClient := newHTTPRESTClient(apiRequester)
 
-	client := newResourcesClient(resourcesPath, restClient, noopLogger{})
+	client := newResourcesClient(resourcesPath, restClient, &FakeLogger{})
 	response, err := client.ListResourceRevisions(context.Background(), "wordpress", "image")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, resourcesResponse.Revisions)
