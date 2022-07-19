@@ -5,10 +5,10 @@ run_local_deploy() {
 
 	ensure "test-local-deploy" "${file}"
 
-	juju deploy ./tests/suites/smoke/charms/ubuntu
+	juju deploy ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	juju refresh ubuntu --path=./tests/suites/smoke/charms/ubuntu
+	juju refresh ubuntu
 
 	# Wait for the refresh to happen and then wait again.
 	sleep 10
