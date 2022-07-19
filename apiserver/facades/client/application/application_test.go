@@ -441,6 +441,30 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	c.Assert(units, gc.HasLen, 1)
 }
 
+func (s *applicationSuite) TestApplicationDeployFailCharmOriginIDOnly(c *gc.C) {
+	origin := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	origin.ID = "testingID"
+	s.testApplicationDeployFail(c, origin)
+}
+
+func (s *applicationSuite) TestApplicationDeployFailCharmOriginHashOnly(c *gc.C) {
+	origin := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	origin.Hash = "testing-hash"
+	s.testApplicationDeployFail(c, origin)
+}
+
+func (s *applicationSuite) testApplicationDeployFail(c *gc.C, origin *params.CharmOrigin) {
+	args := params.ApplicationDeploy{
+		CharmOrigin: origin,
+	}
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.Code, gc.Equals, "bad request")
+}
+
 func (s *applicationSuite) constraintsWithDefaultArch(c *gc.C) constraints.Value {
 	a := arch.DefaultArchitecture
 	return constraints.Value{

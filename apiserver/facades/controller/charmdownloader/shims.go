@@ -52,6 +52,9 @@ type appShim struct {
 
 func (a appShim) CharmPendingToBeDownloaded() bool       { return a.app.CharmPendingToBeDownloaded() }
 func (a appShim) SetStatus(info status.StatusInfo) error { return a.app.SetStatus(info) }
+func (a appShim) SetDownloadedIDAndHash(id, hash string) error {
+	return a.app.SetDownloadedIDAndHash(id, hash)
+}
 
 func (a appShim) CharmOrigin() *corecharm.Origin {
 	if origin := a.app.CharmOrigin(); origin != nil {

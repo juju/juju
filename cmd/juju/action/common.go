@@ -15,9 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mattn/go-isatty"
-	"gopkg.in/yaml.v2"
-
 	"github.com/juju/ansiterm"
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
@@ -25,13 +22,16 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
+	"github.com/mattn/go-isatty"
+	"gopkg.in/yaml.v2"
+
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
@@ -71,13 +71,18 @@ type runCommandBase struct {
 
 // SetFlags offers an option for YAML output.
 func (c *runCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
 		"yaml":  c.formatYaml,
 		"json":  c.formatJson,
 		"plain": c.printRunOutput,
 	})
+	c.setNonFormatFlags(f)
+}
 
+// SetNonFormatFlags sets all flags except the format one. This is needed by
+// e.g. exec to define its own formatting flags.
+func (c *runCommandBase) setNonFormatFlags(f *gnuflag.FlagSet) {
+	c.ActionCommandBase.SetFlags(f)
 	f.BoolVar(&c.background, "background", false, "Run the task in the background")
 	f.DurationVar(&c.wait, "wait", 0, "Maximum wait time for a task to complete")
 	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in output")

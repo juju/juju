@@ -1634,7 +1634,16 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress, err := s.State.AddApplication(
-		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
+		state.AddApplicationArgs{
+			Name:              "wordpress",
+			Charm:             ch,
+			CharmConfig:       insettings,
+			ApplicationConfig: inconfig,
+			CharmOrigin: &state.CharmOrigin{
+				ID:   "charmID",
+				Hash: "testing-hash",
+			},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	c.Assert(state.GetApplicationHasResources(wordpress), jc.IsFalse)
@@ -1682,6 +1691,24 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	ch, _, err = mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddApplicationFailCharmOriginIDOnly(c *gc.C) {
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "testme",
+		Charm:       &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{ID: "testing"},
+	})
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+}
+
+func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "testme",
+		Charm:       &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{Hash: "testing"},
+	})
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {

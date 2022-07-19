@@ -71,6 +71,7 @@ type Platform struct {
 // charm was installed from (charm-hub, charm-store, local) and any additional
 // information we can utilise when making modelling decisions for upgrading or
 // changing.
+// Note: InstanceKey should never be added here. See core charm origin definition.
 type CharmOrigin struct {
 	Source   string    `bson:"source"`
 	Type     string    `bson:"type,omitempty"`
