@@ -6,6 +6,7 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -116,6 +117,11 @@ func (s *Application) CharmURL() (string, bool, error) {
 // SetStatus sets the status of the application if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Application) SetStatus(unitName string, appStatus status.Status, info string, data map[string]interface{}) error {
+	fmt.Println("we are here")
+	fmt.Println("we are here")
+	fmt.Println("we are here")
+	fmt.Println("we are here")
+	spew.Dump(appStatus)
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
