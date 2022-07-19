@@ -46,7 +46,7 @@ test_charmrevisionupdater() {
 
 		cd .. || exit
 
-		run "run_charmstore_charmrevisionupdater"
 		run "run_charmhub_charmrevisionupdater"
+		run "run_charmstore_charmrevisionupdater"
 	)
 }
