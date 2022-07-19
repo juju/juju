@@ -88,7 +88,7 @@ func offerForUbuntuSeries(series string) (string, string, error) {
 		return "", "", errors.Trace(err)
 	}
 
-	oldSeries := set.NewStrings("trusty", "xenial", "bionic", "cosmic", "disco")
+	oldSeries := set.NewStrings("bionic")
 	if oldSeries.Contains(series) {
 		return ubuntuOffering, seriesVersion, nil
 	}
@@ -114,7 +114,7 @@ func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string,
 		skuName := *img.Name
 		logger.Debugf("Found Azure SKU Name: %v", skuName)
 		if !strings.HasPrefix(skuName, seriesVersion) {
-			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
+			logger.Debugf("ignoring SKU %q (does not match series %q with version %q)", skuName, series, seriesVersion)
 			continue
 		}
 		version, tag, err := parseUbuntuSKU(skuName)
@@ -152,7 +152,7 @@ type ubuntuVersion struct {
 }
 
 // parseUbuntuSKU splits an UbuntuServer SKU into its
-// version ("14.04.3") and tag ("LTS") parts.
+// version ("22_04.3") and tag ("LTS") parts.
 func parseUbuntuSKU(sku string) (ubuntuVersion, string, error) {
 	var version ubuntuVersion
 	var tag string

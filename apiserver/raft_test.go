@@ -105,7 +105,7 @@ func (s *raftMediatorSuite) TestApplyLeaseDeadlineExceededError(c *gc.C) {
 	}
 	err := mediator.ApplyLease(context.Background(), cmd)
 	c.Assert(err, gc.ErrorMatches, `enqueueing deadline exceeded`)
-	c.Assert(apiservererrors.IsDeadlineExceededError(err), jc.IsTrue)
+	c.Assert(errors.Is(err, apiservererrors.DeadlineExceededError), jc.IsTrue)
 
 	s.matcheOne(c, results, cmd)
 }
@@ -131,7 +131,7 @@ func (s *raftMediatorSuite) TestApplyLeaseContextDoneError(c *gc.C) {
 
 	err := mediator.ApplyLease(ctx, cmd)
 	c.Assert(err, gc.ErrorMatches, `enqueueing canceled`)
-	c.Assert(apiservererrors.IsDeadlineExceededError(err), jc.IsTrue)
+	c.Assert(errors.Is(err, apiservererrors.DeadlineExceededError), jc.IsTrue)
 }
 
 func (s *raftMediatorSuite) consume(c *gc.C, q *queue.OpQueue, n int, err error) chan queue.OutOperation {

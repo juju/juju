@@ -135,10 +135,12 @@ func populateStoreControllerCharm(st *state.State, charmRisk, series, arch strin
 		return nil, nil, err
 	}
 
+	charmhubTransport := charmhub.DefaultHTTPTransport(logger)
+
 	stateBackend := &stateShim{st}
 	charmRepo, err := newCharmRepo(services.CharmRepoFactoryConfig{
 		Logger:            logger,
-		CharmhubTransport: charmhub.DefaultHTTPTransport(logger),
+		CharmhubTransport: charmhubTransport,
 		StateBackend:      stateBackend,
 		ModelBackend:      model,
 	})
@@ -180,11 +182,11 @@ func populateStoreControllerCharm(st *state.State, charmRisk, series, arch strin
 		return statestorage.NewStorage(model.UUID(), st.MongoSession())
 	}
 	charmDownloader, err := newCharmDownloader(services.CharmDownloaderConfig{
-		Logger:         logger,
-		Transport:      charmhub.DefaultHTTPTransport(logger),
-		StorageFactory: storageFactory,
-		StateBackend:   stateBackend,
-		ModelBackend:   model,
+		Logger:            logger,
+		CharmhubTransport: charmhubTransport,
+		StorageFactory:    storageFactory,
+		StateBackend:      stateBackend,
+		ModelBackend:      model,
 	})
 	if err != nil {
 		return nil, nil, err

@@ -6,15 +6,15 @@
 package sshclient
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 )
@@ -69,21 +69,14 @@ func (facade *Facade) PrivateAddress(args params.Entities) (params.SSHAddressRes
 	return facade.getAddressPerEntity(args, getter)
 }
 
-// AllAddresses reports all addresses that might have SSH listening for each given
-// entity in args. Machines and units are supported as entity types.
-// TODO(wpk): 2017-05-17 This is a temporary solution, we should not fetch environ here
-// but get the addresses from state. We will be changing it since we want to have space-aware
-// SSH settings.
+// AllAddresses reports all addresses that might have SSH listening for each
+// entity in args. The result is sorted with public addresses first.
+// Machines and units are supported as entity types.
 func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesResults, error) {
 	if err := facade.checkIsModelAdmin(); err != nil {
 		return params.SSHAddressesResults{}, errors.Trace(err)
 	}
-	env, err := environs.GetEnviron(facade.backend, environs.New)
-	if err != nil {
-		return params.SSHAddressesResults{}, errors.Annotate(err, "opening environment")
-	}
 
-	environ, supportsNetworking := environs.SupportsNetworking(env)
 	getter := func(m SSHMachine) ([]network.SpaceAddress, error) {
 		devicesAddresses, err := m.AllDeviceSpaceAddresses()
 		if err != nil {
@@ -94,7 +87,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 
 		// Make the list unique
 		addressMap := make(map[string]bool)
-		var uniqueAddresses []network.SpaceAddress
+		var uniqueAddresses network.SpaceAddresses
 		for _, address := range devicesAddresses {
 			if !addressMap[address.Value] {
 				addressMap[address.Value] = true
@@ -102,11 +95,8 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 			}
 		}
 
-		if supportsNetworking {
-			return environ.SSHAddresses(facade.callContext, uniqueAddresses)
-		} else {
-			return uniqueAddresses, nil
-		}
+		sort.Sort(uniqueAddresses)
+		return uniqueAddresses, nil
 	}
 
 	return facade.getAllEntityAddresses(args, getter)
@@ -206,23 +196,4 @@ func (facade *Facade) Proxy() (params.SSHProxyResult, error) {
 		return params.SSHProxyResult{}, err
 	}
 	return params.SSHProxyResult{UseProxy: config.ProxySSH()}, nil
-}
-
-// Leader returns the unit name of the leader for the given application.
-func (facade *Facade) Leader(entity params.Entity) (params.StringResult, error) {
-	result := params.StringResult{}
-	application, err := names.ParseApplicationTag(entity.Tag)
-	if err != nil {
-		return result, err
-	}
-	leaders, err := facade.leadershipReader.Leaders()
-	if err != nil {
-		return result, errors.Annotate(err, "could not fetch leaders")
-	}
-	var ok bool
-	result.Result, ok = leaders[application.Name]
-	if !ok || result.Result == "" {
-		result.Error = apiservererrors.ServerError(errors.NotFoundf("leader for %s", entity.Tag))
-	}
-	return result, nil
 }

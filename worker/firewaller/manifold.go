@@ -43,7 +43,7 @@ type ManifoldConfig struct {
 	Logger        Logger
 
 	NewControllerConnection      apicaller.NewExternalControllerConnectionFunc
-	NewRemoteRelationsFacade     func(base.APICaller) (*remoterelations.Client, error)
+	NewRemoteRelationsFacade     func(base.APICaller) *remoterelations.Client
 	NewFirewallerFacade          func(base.APICaller) (FirewallerAPI, error)
 	NewFirewallerWorker          func(Config) (worker.Worker, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
@@ -133,10 +133,6 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	remoteRelationsAPI, err := cfg.NewRemoteRelationsFacade(apiConn)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	credentialAPI, err := cfg.NewCredentialValidatorFacade(apiConn)
 	if err != nil {
@@ -155,7 +151,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 
 	w, err := cfg.NewFirewallerWorker(Config{
 		ModelUUID:               agent.CurrentConfig().Model().Id(),
-		RemoteRelationsApi:      remoteRelationsAPI,
+		RemoteRelationsApi:      cfg.NewRemoteRelationsFacade(apiConn),
 		FirewallerAPI:           firewallerAPI,
 		EnvironFirewaller:       fwEnv,
 		EnvironInstances:        environ,

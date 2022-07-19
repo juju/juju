@@ -266,9 +266,9 @@ func (rbr RetryingBundleReader) Read(bi BundleInfo, abort <-chan struct{}) (Bund
 	if fetchErr != nil {
 		// If the charm is still not available something went wrong.
 		// Report a NotFound error instead
-		if errors.IsNotYetAvailable(fetchErr) {
+		if errors.Is(fetchErr, errors.NotYetAvailable) {
 			rbr.Logger.Errorf("exceeded max retry attempts while waiting for blob data for %q to become available", bi.String())
-			fetchErr = errors.NotFoundf("blob data for %q", bi.String())
+			fetchErr = fmt.Errorf("blob data for %q %w", bi.String(), errors.NotFound)
 		}
 		return nil, errors.Trace(fetchErr)
 	}

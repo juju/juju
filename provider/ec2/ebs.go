@@ -271,6 +271,11 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	return ebsConfig, nil
 }
 
+func (e *ebsProvider) ValidateForK8s(map[string]any) error {
+	// no validation required
+	return nil
+}
+
 // ValidateConfig is defined on the Provider interface.
 func (e *ebsProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newEbsConfig(cfg.Attrs())
@@ -387,7 +392,7 @@ func (v *ebsVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params 
 			// InstanceId reference from one VolumeParams to prevent
 			// the creation of another volume.
 			// Except if it is a credential error...
-			if common.IsCredentialNotValid(err) {
+			if errors.Is(err, common.ErrorCredentialNotValid) {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -774,7 +779,7 @@ func (v *ebsVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachP
 		// InstanceId reference from one VolumeParams to prevent
 		// the creation of another volume.
 		// Except if it is a credential error...
-		if common.IsCredentialNotValid(err) {
+		if errors.Is(err, common.ErrorCredentialNotValid) {
 			return nil, errors.Trace(err)
 		}
 	}

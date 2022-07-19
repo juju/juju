@@ -472,13 +472,15 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddress
 	}
 
 	if !isCAAS {
-		logger.Debugf("calling ensureMongoServer")
-		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
+		logger.Debugf("calling EnsureMongoServerInstalled")
+		ensureServerParams, err := cmdutil.NewEnsureMongoParams(agentConfig)
 		if err != nil {
 			return err
 		}
-		err = cmdutil.EnsureMongoServer(ensureServerParams)
-		if err != nil {
+		if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
+			return err
+		}
+		if err := cmdutil.EnsureMongoServerStarted(ensureServerParams.JujuDBSnapChannel); err != nil {
 			return err
 		}
 	}

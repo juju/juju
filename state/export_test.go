@@ -187,6 +187,10 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
+func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *Charm {
+	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
+}
+
 func getCharmRepo(series string) *charmrepotesting.Repo {
 	// ALl testing charms for state are under `quantal` except `kubernetes`.
 	if series == "kubernetes" {
@@ -1138,4 +1142,8 @@ var (
 
 func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
 	st.scheduleForceCleanup(kind, name, maxWait)
+}
+
+func GetCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
+	return getCollectionCappedInfo(coll)
 }

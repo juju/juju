@@ -155,7 +155,8 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
                     devices:
                         bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
-                    charm: cs:trusty/haproxy-42
+                    charm: cs:haproxy-42
+                    series: jammy
             relations:
                 - - django:web
                   - haproxy:web
@@ -164,30 +165,9 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
-	}, {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-2",
-			"trusty",
-			"haproxy",
-			map[string]interface{}{},
-			"",
-			map[string]string{},
-			map[string]string{},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
-		},
-		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -205,6 +185,27 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 			"",
 		},
 		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:haproxy-42", "jammy", ""},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"jammy",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-2"},
 	}, {
 		Id:       "addRelation-4",
 		Method:   "addRelation",
@@ -227,7 +228,7 @@ func (s *bundleSuite) TestGetChangesWithOverlaysV6(c *gc.C) {
                     devices:
                         bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
-                    charm: cs:trusty/haproxy-42
+                    charm: ch:haproxy-42
             relations:
                 - - django:web
                   - haproxy:web
@@ -291,29 +292,9 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args:   []interface{}{"cs:haproxy-42", "", ""},
-	}, {Id: "addCharm-0",
+		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: []interface{}{
-			"$addCharm-2",
-			"",
-			"haproxy",
-			map[string]interface{}{},
-			"",
-			map[string]string{},
-			map[string]string{},
-			map[string]string{},
-			map[string]int{},
-			0,
-			"",
-		},
-		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -331,6 +312,27 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 			"",
 		},
 		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:haproxy-42", "", ""},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-2"},
 	}, {
 		Id:       "addRelation-4",
 		Method:   "addRelation",
@@ -479,7 +481,8 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
                     devices:
                         bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
-                    charm: cs:trusty/haproxy-42
+                    charm: cs:haproxy-42
+                    series: jammy
             relations:
                 - - django:web
                   - haproxy:web
@@ -488,27 +491,11 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 	r, err := s.facade.GetChangesMapArgs(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args: map[string]interface{}{
-			"charm":  "cs:trusty/haproxy-42",
-			"series": "trusty",
-		},
-	}, {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
 			"charm": "django",
 		},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: map[string]interface{}{
-			"application": "haproxy",
-			"charm":       "$addCharm-2",
-			"series":      "trusty",
-		},
-		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -526,6 +513,22 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 			},
 		},
 		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm":  "cs:haproxy-42",
+			"series": "jammy",
+		},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "haproxy",
+			"charm":       "$addCharm-2",
+			"series":      "jammy",
+		},
+		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "addRelation-4",
 		Method: "addRelation",
@@ -595,25 +598,11 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 	r, err := s.facade.GetChangesMapArgs(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
-		Id:     "addCharm-2",
-		Method: "addCharm",
-		Args: map[string]interface{}{
-			"charm": "cs:haproxy-42",
-		},
-	}, {
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
 			"charm": "django",
 		},
-	}, {
-		Id:     "deploy-3",
-		Method: "deploy",
-		Args: map[string]interface{}{
-			"application": "haproxy",
-			"charm":       "$addCharm-2",
-		},
-		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -632,6 +621,20 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 			},
 		},
 		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm": "cs:haproxy-42",
+		},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "haproxy",
+			"charm":       "$addCharm-2",
+		},
+		Requires: []string{"addCharm-2"},
 	}, {
 		Id:     "addRelation-4",
 		Method: "addRelation",
@@ -703,9 +706,9 @@ func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string, ch
 	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	result := description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("ubuntu"),
-		Series:               "trusty",
+		Series:               "focal",
 		Type:                 modelType,
-		CharmURL:             "cs:trusty/ubuntu",
+		CharmURL:             "ch:ubuntu",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		CharmConfig:          charmConfig,
@@ -772,10 +775,10 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: trusty
+series: focal
 applications:
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     num_units: 1
     to:
@@ -823,10 +826,10 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: trusty
+series: focal
 applications:
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     resources:
       foo-file: 42
@@ -879,10 +882,10 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: trusty
+series: focal
 applications:
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     num_units: 1
     to:
@@ -926,10 +929,10 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: trusty
+series: focal
 applications:
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     num_units: 1
     to:
@@ -990,10 +993,10 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: trusty
+series: focal
 applications:
   foo:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     options:
       key: value
@@ -1001,7 +1004,7 @@ applications:
       another: alpha
       juju-info: vlan2
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     num_units: 1
     to:
@@ -1138,10 +1141,10 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: trusty
+series: focal
 applications:
   foo:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     options:
       key: value
@@ -1149,7 +1152,7 @@ applications:
       another: alpha
       juju-info: vlan2
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     num_units: 1
     to:
@@ -1267,13 +1270,13 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: trusty
+series: focal
 saas:
   awesome:
     url: test:admin/default.awesome
 applications:
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
     num_units: 1
     to:
@@ -1290,7 +1293,7 @@ applications:
 }
 
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) string {
-	series := "xenial"
+	series := "focal"
 	if model.Type() == "caas" {
 		series = "kubernetes"
 	}
@@ -1386,7 +1389,7 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: xenial
+series: focal
 applications:
   mysql:
     charm: cs:mysql
@@ -1417,7 +1420,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	model.SetStatus(description.StatusArgs{Value: "available"})
 	model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mariadb"),
-		Series:   "xenial",
+		Series:   "focal",
 		CharmURL: "ch:mariadb",
 		CharmConfig: map[string]interface{}{
 			"mem": 200,
@@ -1429,7 +1432,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: xenial
+series: focal
 applications:
   mariadb:
     charm: mariadb
@@ -1505,7 +1508,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: xenial
+series: focal
 applications:
   mysql:
     charm: cs:mysql
@@ -1546,9 +1549,9 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	s.st.Spaces["2"] = "some-space"
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
-		Series:               "zesty",
+		Series:               "bionic",
 		Subordinate:          true,
-		CharmURL:             "cs:zesty/magic",
+		CharmURL:             "cs:magic",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		ForceCharm:           true,
@@ -1577,10 +1580,10 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: zesty
+series: bionic
 applications:
   magic:
-    charm: cs:zesty/magic
+    charm: cs:magic
     channel: stable
     expose: true
     options:
@@ -1611,9 +1614,9 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 
 	_ = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
-		Series:               "zesty",
+		Series:               "bionic",
 		Subordinate:          true,
-		CharmURL:             "cs:zesty/magic",
+		CharmURL:             "cs:magic",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		ForceCharm:           true,
@@ -1636,14 +1639,14 @@ func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
 	expectedResult := params.StringResult{Result: `
 applications:
   magic:
-    charm: cs:zesty/magic
+    charm: cs:magic
     channel: stable
-    series: zesty
+    series: bionic
     expose: true
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
-    series: trusty
+    series: focal
     options:
       key: value
 `[1:]}
@@ -1658,17 +1661,17 @@ func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 	expectedResult := params.StringResult{Result: `
 applications:
   magic:
-    charm: cs:zesty/magic
+    charm: cs:magic
     channel: stable
-    series: zesty
+    series: bionic
     expose: true
     bindings:
       another: vlan2
       rel-name: alpha
   ubuntu:
-    charm: cs:trusty/ubuntu
+    charm: ubuntu
     channel: stable
-    series: trusty
+    series: focal
     options:
       key: value
     bindings:
@@ -1724,7 +1727,7 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 		Id:           names.NewMachineTag(id),
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
-		Series:       "xenial",
+		Series:       "focal",
 		Jobs:         []string{"host-units"},
 	})
 	args := description.ConstraintsArgs{
@@ -1756,7 +1759,7 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: xenial
+series: focal
 applications:
   mediawiki:
     charm: cs:mediawiki
@@ -1791,7 +1794,7 @@ func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, 
 		Id:           names.NewMachineTag(id),
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
-		Series:       "xenial",
+		Series:       "focal",
 		Jobs:         []string{"host-units"},
 	})
 	m.SetAnnotations(map[string]string{
@@ -1812,7 +1815,7 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: xenial
+series: focal
 applications:
   mysql:
     charm: cs:mysql
@@ -1854,13 +1857,13 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	application0 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("wordpress"),
 		CharmURL: "cs:wordpress",
-		Series:   "xenial",
+		Series:   "focal",
 	})
 	application0.SetStatus(minimalStatusArgs())
 
 	m0 := s.st.model.AddMachine(description.MachineArgs{
 		Id:     names.NewMachineTag("0"),
-		Series: "xenial",
+		Series: "focal",
 	})
 	args := description.ConstraintsArgs{
 		Architecture: "amd64",
@@ -1877,13 +1880,13 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	application1 := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mysql"),
 		CharmURL: "cs:mysql",
-		Series:   "xenial",
+		Series:   "focal",
 	})
 	application1.SetStatus(minimalStatusArgs())
 
 	m1 := s.st.model.AddMachine(description.MachineArgs{
 		Id:     names.NewMachineTag("1"),
-		Series: "xenial",
+		Series: "focal",
 	})
 	args = description.ConstraintsArgs{
 		Architecture: "amd64",
@@ -1901,7 +1904,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: xenial
+series: focal
 applications:
   mysql:
     charm: cs:mysql
@@ -1929,14 +1932,14 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Config: map[string]interface{}{
 			"name":           "awesome",
 			"uuid":           "some-uuid",
-			"default-series": "xenial",
+			"default-series": "bionic",
 		},
 		CloudRegion: "some-region"})
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
-		Series:   "xenial",
-		CharmURL: "cs:xenial/magic",
+		Series:   "bionic",
+		CharmURL: "cs:magic",
 	})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("magic/0"),
@@ -1944,13 +1947,13 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 	})
 	s.st.model.AddMachine(description.MachineArgs{
 		Id:     names.NewMachineTag("0"),
-		Series: "xenial",
+		Series: "bionic",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mojo"),
-		Series:   "trusty",
-		CharmURL: "cs:mojo",
+		Series:   "jammy",
+		CharmURL: "ch:mojo",
 	})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("mojo/0"),
@@ -1958,30 +1961,30 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 	})
 	s.st.model.AddMachine(description.MachineArgs{
 		Id:     names.NewMachineTag("1"),
-		Series: "trusty",
+		Series: "jammy",
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: xenial
+series: bionic
 applications:
   magic:
-    charm: cs:xenial/magic
+    charm: cs:magic
     num_units: 1
     to:
     - "0"
   mojo:
-    charm: cs:mojo
-    series: trusty
+    charm: mojo
+    series: jammy
     num_units: 1
     to:
     - "1"
 machines:
   "0": {}
   "1":
-    series: trusty
+    series: jammy
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -1999,8 +2002,8 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
-		Series:   "xenial",
-		CharmURL: "cs:xenial/magic",
+		Series:   "focal",
+		CharmURL: "ch:magic",
 	})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("magic/0"),
@@ -2008,13 +2011,13 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	})
 	s.st.model.AddMachine(description.MachineArgs{
 		Id:     names.NewMachineTag("0"),
-		Series: "xenial",
+		Series: "focal",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("mojo"),
-		Series:   "trusty",
-		CharmURL: "cs:mojo",
+		Series:   "jammy",
+		CharmURL: "ch:mojo",
 	})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("mojo/0"),
@@ -2022,7 +2025,7 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	})
 	s.st.model.AddMachine(description.MachineArgs{
 		Id:     names.NewMachineTag("1"),
-		Series: "trusty",
+		Series: "jammy",
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
@@ -2031,22 +2034,22 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	expectedResult := params.StringResult{Result: `
 applications:
   magic:
-    charm: cs:xenial/magic
-    series: xenial
+    charm: magic
+    series: focal
     num_units: 1
     to:
     - "0"
   mojo:
-    charm: cs:mojo
-    series: trusty
+    charm: mojo
+    series: jammy
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: xenial
+    series: focal
   "1":
-    series: trusty
+    series: jammy
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -2087,7 +2090,7 @@ func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: xenial
+series: focal
 applications:
   mysql:
     charm: mysql
@@ -2123,7 +2126,7 @@ func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: xenial
+series: focal
 applications:
   mysql:
     charm: local:mysql
@@ -2157,7 +2160,7 @@ func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: xenial
+series: focal
 applications:
   mysql:
     charm: local:mysql

@@ -125,6 +125,20 @@ type DeployArgs struct {
 	Force bool
 }
 
+// Leader returns the unit name for the leader of the provided application.
+func (c *Client) Leader(app string) (string, error) {
+	var result params.StringResult
+	p := params.Entity{Tag: names.NewApplicationTag(app).String()}
+
+	if err := c.facade.FacadeCall("Leader", p, &result); err != nil {
+		return "", errors.Trace(err)
+	}
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
+}
+
 // Deploy obtains the charm, either locally or from the charm store, and deploys
 // it. Placement directives, if provided, specify the machine on which the charm
 // is deployed.

@@ -264,7 +264,7 @@ func restrictAPIRoot(
 		}
 		apiRoot = restrictedRoot
 		// If the client version is different to the server version,
-		// add extra checks to ensure older clients cannot be used.
+		// add extra checks to ensure older incompatible clients cannot be used.
 		if clientVersion.Major != jujuversion.Current.Major {
 			apiRoot = restrictRoot(apiRoot, checkClientVersion(auth.userLogin, clientVersion, jujuversion.Current))
 		}
@@ -598,6 +598,15 @@ func (ctx *facadeContext) Raft() facade.RaftContext {
 		queue:  ctx.r.shared.raftOpQueue,
 		logger: ctx.r.shared.logger,
 		clock:  ctx.r.clock,
+	}
+}
+
+func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
+	switch purpose {
+	case facade.CharmhubHTTPClient:
+		return ctx.r.shared.charmhubHTTPClient
+	default:
+		return nil
 	}
 }
 

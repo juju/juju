@@ -64,12 +64,13 @@ type remoteApplicationWorker struct {
 // relation holds attributes relevant to a particular
 // relation between a local app and a remote offer.
 type relation struct {
-	relationId int
-	localDead  bool
-	suspended  bool
-	localRuw   *relationUnitsWorker
-	remoteRuw  *relationUnitsWorker
-	remoteRrw  *remoteRelationsWorker
+	relationId     int
+	localDead      bool
+	suspended      bool
+	localUnitCount int
+	localRuw       *relationUnitsWorker
+	remoteRuw      *relationUnitsWorker
+	remoteRrw      *remoteRelationsWorker
 
 	applicationToken   string // token for app in local model
 	relationToken      string // token for relation in local model
@@ -137,7 +138,7 @@ func isNotFound(err error) bool {
 }
 
 func (w *remoteApplicationWorker) loop() (err error) {
-	// Watch for changes to any remote relations to this application.
+	// Watch for changes to any local relations to the remote application.
 	relationsWatcher, err := w.localModelFacade.WatchRemoteApplicationRelations(w.applicationName)
 	if err != nil && isNotFound(err) {
 		return nil
@@ -161,7 +162,11 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 			return errors.Trace(err)
 		}
-		defer func() { _ = w.remoteModelFacade.Close() }()
+		defer func() {
+			if err := w.remoteModelFacade.Close(); err != nil {
+				w.logger.Errorf("error closing remote-relations facade: %s", err)
+			}
+		}()
 
 		arg := params.OfferArg{
 			OfferUUID: w.offerUUID,
@@ -193,7 +198,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case change, ok := <-relationsWatcher.Changes():
-			w.logger.Debugf("relations changed: %#v, %v", change, ok)
+			w.logger.Debugf("relations changed: %#v, %v", &change, ok)
 			if !ok {
 				// We are dying.
 				return w.catacomb.ErrDying()
@@ -218,7 +223,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 				}
 			}
 		case change := <-w.localRelationUnitChanges:
-			w.logger.Debugf("local relation units changed -> publishing: %#v", change)
+			w.logger.Debugf("local relation units changed -> publishing: %#v", &change)
 			// TODO(babbageclunk): add macaroons to event here instead
 			// of in the relation units worker.
 			if err := w.remoteModelFacade.PublishRelationChange(change.RemoteRelationChangeEvent); err != nil {
@@ -227,19 +232,28 @@ func (w *remoteApplicationWorker) loop() (err error) {
 					w.logger.Debugf("relation %v changed but remote side already removed", change.Tag.Id())
 					continue
 				}
-				return errors.Annotatef(err, "publishing relation change %+v to remote model %v", change, w.remoteModelUUID)
+				return errors.Annotatef(err, "publishing relation change %#v to remote model %v", &change, w.remoteModelUUID)
 			}
-			if err := w.localRelationChanged(change.Tag.Id(), change.UnitCount); err != nil {
+
+			// TODO(juju4) - remove
+			// UnitCount has had omitempty removed, but we need to account for older controllers.
+			zero := 0
+			unitCount := change.UnitCount
+			if unitCount == nil {
+				unitCount = &zero
+			}
+
+			if err := w.localRelationChanged(change.Tag.Id(), unitCount); err != nil {
 				return errors.Annotatef(err, "processing local relation change for %v", change.Tag.Id())
 			}
 		case change := <-w.remoteRelationUnitChanges:
-			w.logger.Debugf("remote relation units changed -> consuming: %#v", change)
+			w.logger.Debugf("remote relation units changed -> consuming: %#v", &change)
 			if err := w.localModelFacade.ConsumeRemoteRelationChange(change.RemoteRelationChangeEvent); err != nil {
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf("relation %v changed but local side already removed", change.Tag.Id())
 					continue
 				}
-				return errors.Annotatef(err, "consuming relation change %+v from remote model %v", change, w.remoteModelUUID)
+				return errors.Annotatef(err, "consuming relation change %#v from remote model %v", &change, w.remoteModelUUID)
 			}
 		case changes := <-offerStatusChanges:
 			w.logger.Debugf("offer status changed: %#v", changes)
@@ -324,7 +338,7 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 				w.logger.Debugf("relation %v dying but remote side already removed", key)
 				return nil
 			}
-			return errors.Annotatef(err, "publishing relation dying %+v to remote model %v", change, w.remoteModelUUID)
+			return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
 		}
 	}
 	return nil
@@ -384,31 +398,49 @@ func (w *remoteApplicationWorker) processLocalRelationRemoved(key string, relati
 		relations[key] = relation
 	}
 
-	w.logger.Debugf("remote relation %v removed from remote model", key)
+	w.logger.Debugf("remote relation %v removed from local model", key)
 	return nil
 }
 
 // localRelationChanged processes changes to the relation
 // as recorded in the local model; the primary function
 // is to shut down workers when the relation is dead.
-func (w *remoteApplicationWorker) localRelationChanged(key string, unitCount *int) error {
-	w.logger.Debugf("local relation %v changed", key)
+func (w *remoteApplicationWorker) localRelationChanged(key string, unitCountPtr *int) error {
+	unitCountMsg := " (removed)"
+	if unitCountPtr != nil {
+		unitCountMsg = fmt.Sprintf(", still has %d unit(s) in scope", *unitCountPtr)
+	}
+	w.logger.Debugf("local relation %v changed%s", key, unitCountMsg)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	relation, ok := w.relations[key]
 	if !ok {
+		w.logger.Debugf("local relation %v already gone", key)
 		return nil
 	}
-	if !relation.localDead && unitCount != nil {
+	w.logger.Debugf("relation %v in mem unit count is %d", key, relation.localUnitCount)
+	if unitCountPtr != nil {
+		relation.localUnitCount = *unitCountPtr
+	}
+	if !relation.localDead {
+		w.logger.Debugf("local relation %v not dead yet", key)
 		return nil
 	}
-	if unitCount != nil && *unitCount > 1 {
-		w.logger.Debugf("relation dead but still has %d units in scope", *unitCount)
+	if relation.localUnitCount > 0 {
+		w.logger.Debugf("relation dead but still has %d units in scope", relation.localUnitCount)
+		return nil
+	}
+	return w.terminateLocalRelation(key)
+}
+
+func (w *remoteApplicationWorker) terminateLocalRelation(key string) error {
+	relation, ok := w.relations[key]
+	if !ok {
 		return nil
 	}
 	delete(w.relations, key)
-	w.logger.Debugf("local relation %v is dead", key)
+	w.logger.Debugf("local relation %v is terminated", key)
 
 	// For the unit watchers, check to see if these are nil before stopping.
 	// They will be nil if the relation was suspended and then we kill it for real.
@@ -425,7 +457,7 @@ func (w *remoteApplicationWorker) localRelationChanged(key string, unitCount *in
 		relation.remoteRuw = nil
 	}
 
-	w.logger.Debugf("remote relation %v removed from local model", key)
+	w.logger.Debugf("local relation %v removed from local model", key)
 	return nil
 }
 
@@ -462,9 +494,19 @@ func (w *remoteApplicationWorker) relationChanged(key string, localRelation para
 		if localRelationInfo.Suspended {
 			return w.processRelationSuspended(key, localRelationInfo.Life, w.relations)
 		}
-		if !wasSuspended && localRelationInfo.Life == life.Alive {
-			// Nothing to do, we have previously started the watcher.
-			return nil
+		if localRelationInfo.Life == life.Alive {
+			if r.localDead {
+				// A previous relation with the same name was removed but
+				// not cleaned up properly so do it now before starting up
+				// workers again.
+				w.logger.Debugf("still have zombie local relation %v", key)
+				if err := w.terminateLocalRelation(key); err != nil {
+					return errors.Annotatef(err, "terminating zombie local relation %v", key)
+				}
+			} else if !wasSuspended {
+				// Nothing to do, we have previously started the watcher.
+				return nil
+			}
 		}
 	}
 
@@ -586,6 +628,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 		r = &relation{
 			relationId:         remoteRelation.Id,
 			suspended:          remoteRelation.Suspended,
+			localUnitCount:     remoteRelation.UnitCount,
 			remoteRrw:          remoteRelationsWorker,
 			macaroon:           mac,
 			localEndpoint:      remoteRelation.Endpoint,

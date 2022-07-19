@@ -16,10 +16,11 @@ import (
 	"gopkg.in/macaroon.v2"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.params")
+const (
+	UpgradeInProgressError = errors.ConstError(CodeUpgradeInProgress)
+)
 
-// UpgradeInProgressError signifies an upgrade is in progress.
-var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
+var logger = loggo.GetLogger("juju.apiserver.params")
 
 // MigrationInProgressError signifies a migration is in progress.
 var MigrationInProgressError = errors.New(CodeMigrationInProgress)
@@ -40,12 +41,6 @@ func (e *IncompatibleClientError) AsMap() map[string]interface{} {
 	return map[string]interface{}{
 		"server-version": e.ServerVersion,
 	}
-}
-
-// IsIncompatibleClientError returns true if this err is a IncompatibleClientError.
-func IsIncompatibleClientError(err error) bool {
-	_, ok := errors.Cause(err).(*IncompatibleClientError)
-	return ok
 }
 
 // Error is the type of error returned by any call to the state API.

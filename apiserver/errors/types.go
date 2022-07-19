@@ -13,47 +13,34 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/rpc/params"
-	stateerrors "github.com/juju/juju/state/errors"
+)
+
+const (
+	// DeadlineExceededError is for when a raft operation is enqueued, but the
+	// deadline is exceeded.
+	DeadlineExceededError = errors.ConstError("deadline exceeded")
+
+	// IncompatibleSeriesError indicates the series selected is not supported by the
+	// charm.
+	IncompatibleSeriesError = errors.ConstError("incompatible series for charm")
+
+	NoAddressSetError = errors.ConstError("no address set")
+
+	// UnknownModelError is for when an operation failed to find a model by
+	// a given model uuid.
+	UnknownModelError = errors.ConstError("unknown model")
 )
 
 func NotSupportedError(tag names.Tag, operation string) error {
 	return errors.Errorf("entity %q does not support %s", tag, operation)
 }
 
-type noAddressSetError struct {
-	unitTag     names.UnitTag
-	addressName string
-}
-
-func (e *noAddressSetError) Error() string {
-	return fmt.Sprintf("%q has no %s address set", e.unitTag, e.addressName)
-}
-
-func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
-	return &noAddressSetError{unitTag: unitTag, addressName: addressName}
-}
-
-func isNoAddressSetError(err error) bool {
-	_, ok := err.(*noAddressSetError)
-	return ok
-}
-
-type unknownModelError struct {
-	uuid string
-}
-
-func (e *unknownModelError) Error() string {
-	return fmt.Sprintf("unknown model: %q", e.uuid)
-}
-
-func UnknownModelError(uuid string) error {
-	return &unknownModelError{uuid: uuid}
-}
-
-func isUnknownModelError(err error) bool {
-	_, ok := err.(*unknownModelError)
-	return ok
+func NewNoAddressSetError(unitTag names.UnitTag, addressName string) error {
+	return fmt.Errorf("%q has no %s address set%w",
+		unitTag,
+		addressName,
+		errors.Hide(NoAddressSetError),
+	)
 }
 
 // DischargeRequiredError is the error returned when a macaroon requires
@@ -69,22 +56,6 @@ func (e *DischargeRequiredError) Error() string {
 	return e.Cause.Error()
 }
 
-// IsDischargeRequiredError reports whether the cause
-// of the error is a *DischargeRequiredError.
-func IsDischargeRequiredError(err error) bool {
-	_, ok := errors.Cause(err).(*DischargeRequiredError)
-	return ok
-}
-
-// IsUpgradeInProgressError returns true if this error is caused
-// by an upgrade in progress.
-func IsUpgradeInProgressError(err error) bool {
-	if stateerrors.IsUpgradeInProgressError(err) {
-		return true
-	}
-	return errors.Cause(err) == params.UpgradeInProgressError
-}
-
 // UpgradeSeriesValidationError is the error returns when a upgrade-series
 // can not be run because of a validation error.
 type UpgradeSeriesValidationError struct {
@@ -97,48 +68,13 @@ func (e *UpgradeSeriesValidationError) Error() string {
 	return e.Cause.Error()
 }
 
-// IsUpgradeSeriesValidationError returns true if this error is caused by a
-// upgrade-series validation error.
-func IsUpgradeSeriesValidationError(err error) bool {
-	_, ok := errors.Cause(err).(*UpgradeSeriesValidationError)
-	return ok
-}
-
-// errIncompatibleSeries is a standard error to indicate that the series
-// requested is not compatible with the charm of the application.
-type errIncompatibleSeries struct {
-	seriesList []string
-	series     string
-	charmName  string
-}
-
 func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
-	return &errIncompatibleSeries{
-		seriesList: seriesList,
-		series:     series,
-		charmName:  charmName,
-	}
-}
-
-func (e *errIncompatibleSeries) Error() string {
-	return fmt.Sprintf("series %q not supported by charm %q, supported series are: %s",
-		e.series, e.charmName, strings.Join(e.seriesList, ", "))
-}
-
-// IsIncompatibleSeriesError returns if the given error or its cause is
-// errIncompatibleSeries.
-func IsIncompatibleSeriesError(err interface{}) bool {
-	if err == nil {
-		return false
-	}
-	// In case of a wrapped error, check the cause first.
-	value := err
-	cause := errors.Cause(err.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*errIncompatibleSeries)
-	return ok
+	return fmt.Errorf("series %q not supported by charm %q, supported series are: %s%w",
+		series,
+		charmName,
+		strings.Join(seriesList, ", "),
+		errors.Hide(IncompatibleSeriesError),
+	)
 }
 
 // RedirectError is the error returned when a model (previously accessible by
@@ -166,12 +102,6 @@ func (e *RedirectError) Error() string {
 	return "redirection to alternative server required"
 }
 
-// IsRedirectError returns true if err is caused by a RedirectError.
-func IsRedirectError(err error) bool {
-	_, ok := errors.Cause(err).(*RedirectError)
-	return ok
-}
-
 // NotLeaderError creates a typed error for when a raft operation is applied,
 // but the raft state shows that it's not the leader. The error will help
 // redirect the consumer of the error to workout where they can try and find
@@ -191,6 +121,12 @@ func (e *NotLeaderError) Error() string {
 func (e *NotLeaderError) ServerAddress() string {
 	return e.serverAddress
 }
+
+// Is returns true if the target is the NotLeaderError.
+//func (e *NotLeaderError) Is(target error) bool {
+//	_, ok := target.(*NotLeaderError)
+//	return ok
+//}
 
 // ServerID returns the server ID from the raft state. This should align with
 // the controller machine ID of Juju.
@@ -214,34 +150,4 @@ func NewNotLeaderError(serverAddress, serverID string) error {
 		serverAddress: serverAddress,
 		serverID:      serverID,
 	}
-}
-
-// IsNotLeaderError returns true if the error is the NotLeaderError.
-func IsNotLeaderError(err error) bool {
-	_, ok := errors.Cause(err).(*NotLeaderError)
-	return ok
-}
-
-// DeadlineExceededError creates a typed error for when a raft operation is
-// enqueued, but the deadline is exceeded.
-type DeadlineExceededError struct {
-	message string
-}
-
-func (e *DeadlineExceededError) Error() string {
-	return e.message
-}
-
-// NewDeadlineExceededError creates a new DeadlineExceededError with the
-// underlying message.
-func NewDeadlineExceededError(message string) error {
-	return &DeadlineExceededError{
-		message: message,
-	}
-}
-
-// IsDeadlineExceededError returns true if the error is the DeadlineExceededError.
-func IsDeadlineExceededError(err error) bool {
-	_, ok := errors.Cause(err).(*DeadlineExceededError)
-	return ok
 }

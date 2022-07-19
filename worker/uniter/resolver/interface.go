@@ -4,7 +4,6 @@
 package resolver
 
 import (
-	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
@@ -62,9 +61,9 @@ type LocalState struct {
 	// or any part of it, is changed in some way.
 	CharmModifiedVersion int
 
-	// CharmURL reports the currently installed charm URL. This is set
-	// by the committing of deploy (install/upgrade) ops.
-	CharmURL *charm.URL
+	// CharmURL reports the currently installed charm URL as a string.
+	// This is set by the committing of deploy (install/upgrade) ops.
+	CharmURL string
 
 	// Conflicted indicates that the uniter is in a conflicted state,
 	// and needs either resolution or a forced upgrade to continue.

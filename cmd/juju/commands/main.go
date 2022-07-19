@@ -85,7 +85,7 @@ Starter commands:
     deploy              Deploys a new application.
     status              Displays the current status of Juju, applications, and units.
     add-unit            Adds extra units of a deployed application.
-    relate              Adds a relation between two applications.
+    integrate           Adds an integration between two applications.
     expose              Makes an application publicly available over the network.
     models              Lists models a user can access on a controller.
     controllers         Lists all controllers.

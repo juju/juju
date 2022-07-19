@@ -6,7 +6,6 @@ package operation
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/errors"
 )
 
@@ -21,7 +20,7 @@ var (
 )
 
 type deployConflictError struct {
-	charmURL *corecharm.URL
+	charmURL string
 }
 
 func (err *deployConflictError) Error() string {
@@ -30,7 +29,7 @@ func (err *deployConflictError) Error() string {
 
 // NewDeployConflictError returns an error indicating that the charm with
 // the supplied URL failed to deploy.
-func NewDeployConflictError(charmURL *corecharm.URL) error {
+func NewDeployConflictError(charmURL string) error {
 	return &deployConflictError{charmURL}
 }
 

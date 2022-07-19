@@ -50,10 +50,11 @@ type Origin struct {
 	Channel  *charm.Channel
 	Platform Platform
 
-	// InstanceKey is a unique string associated with the application. To
-	// assist with keeping KPI data in charmhub, it must be the same for every
-	// charmhub Refresh action related to an application. Create with the
-	// charmhub.CreateInstanceKey method. LP: 1944582
+	// InstanceKey is an optional unique string associated with the application.
+	// To assist with keeping KPI data in charmhub, it must be the same for every
+	// charmhub Refresh action for the Refresh api endpoint related to an
+	// application. For all other actions, a random uuid will used when the request
+	// is sent. Create with the charmhub.CreateInstanceKey method. LP: 1944582
 	InstanceKey string
 }
 

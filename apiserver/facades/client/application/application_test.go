@@ -44,7 +44,7 @@ type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv13
+	applicationAPI *application.APIv14
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
@@ -66,7 +66,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.lastKnownRev = make(map[string]int)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv13 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv14 {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -92,7 +92,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv13 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv13{api}
+	return &application.APIv14{api}
 }
 
 func (s *applicationSuite) TestCharmConfig(c *gc.C) {
@@ -441,6 +441,30 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	c.Assert(units, gc.HasLen, 1)
 }
 
+func (s *applicationSuite) TestApplicationDeployFailCharmOriginIDOnly(c *gc.C) {
+	origin := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	origin.ID = "testingID"
+	s.testApplicationDeployFail(c, origin)
+}
+
+func (s *applicationSuite) TestApplicationDeployFailCharmOriginHashOnly(c *gc.C) {
+	origin := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	origin.Hash = "testing-hash"
+	s.testApplicationDeployFail(c, origin)
+}
+
+func (s *applicationSuite) testApplicationDeployFail(c *gc.C, origin *params.CharmOrigin) {
+	args := params.ApplicationDeploy{
+		CharmOrigin: origin,
+	}
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.Code, gc.Equals, "bad request")
+}
+
 func (s *applicationSuite) constraintsWithDefaultArch(c *gc.C) constraints.Value {
 	a := arch.DefaultArchitecture
 	return constraints.Value{
@@ -485,21 +509,21 @@ func (s *applicationSuite) TestApplicationDeployWithExtantMachineContainerLocked
 func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
 	c *gc.C, placement instance.Placement, addContainer bool,
 ) {
-	m, err := s.BackingState.AddMachine("precise", state.JobHostUnits)
+	m, err := s.BackingState.AddMachine("focal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if addContainer {
 		template := state.MachineTemplate{
-			Series: "xenial",
+			Series: "jammy",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		}
 		_, err := s.State.AddMachineInsideMachine(template, m.Id(), "lxd")
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.Assert(m.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
+	c.Assert(m.CreateUpgradeSeriesLock(nil, "jammy"), jc.ErrorIsNil)
 
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-42", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:focal/dummy-42", "dummy")
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",

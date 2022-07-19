@@ -3,13 +3,13 @@
 # of the juju version. If JUJU_VERSION is defined in CI this value will be used
 # otherwise we interrogate the juju binary on path.
 juju_version() {
-  # Match only major, minor, and patch or tag + build number
-  if [ -n "${JUJU_VERSION:-}" ]; then
-    version=${JUJU_VERSION}
-  else
-    version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
-  fi
-  echo "${version}"
+	# Match only major, minor, and patch or tag + build number
+	if [ -n "${JUJU_VERSION:-}" ]; then
+		version=${JUJU_VERSION}
+	else
+		version=$(juju version | grep -oE '^[[:digit:]]+\.[[:digit:]]+(\.[[:digit:]]+|-\w+){1}(\.[[:digit:]]+)?')
+	fi
+	echo "${version}"
 }
 
 jujud_version() {
@@ -184,8 +184,6 @@ add_model() {
 add_images_for_vsphere() {
 	juju metadata add-image juju-ci-root/templates/jammy-test-template --series jammy
 	juju metadata add-image juju-ci-root/templates/focal-test-template --series focal
-	juju metadata add-image juju-ci-root/templates/bionic-test-template --series bionic
-	juju metadata add-image juju-ci-root/templates/xenial-test-template --series xenial
 }
 
 # setup_vsphere_simplestreams generates image metadata for use during vSphere bootstrap.  There is
@@ -237,19 +235,9 @@ juju_bootstrap() {
 		esac
 	fi
 
-	# TODO(walllyworld) - remove when we fix the nested lxd and snap/focal issue
-	# Snap doesn't work in nested focal LXD containers.
-	# So we force the model default series to be bionic.
-	model_default_series=
-	case "${BOOTSTRAP_PROVIDER:-}" in
-	"localhost" | "lxd" | "lxd-remote")
-		model_default_series="--model-default default-series=bionic"
-		;;
-	esac
-
 	pre_bootstrap
 
-	command="juju bootstrap ${series} ${model_default_series} ${cloud_region} ${name} --add-model ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${series} ${cloud_region} ${name} --add-model ${model} ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"

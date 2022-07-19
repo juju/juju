@@ -62,6 +62,29 @@ func (s *changesSortSuite) TestInvalidDataForSort(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
+func (s *changesSortSuite) TestSortRelationStable(c *gc.C) {
+	// When the order of two changes is irrelevant, toposortFlatten should
+	// preserve the original order.
+	// This ensures e.g. that when a bundle is deployed and re-exported, we
+	// get the apps/relations in the same order.
+	results, err := csThree().sorted()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var i6, i7, i8 int
+	for i, ch := range results {
+		switch ch.Id() {
+		case "addRelation-6":
+			i6 = i
+		case "addRelation-7":
+			i7 = i
+		case "addRelation-8":
+			i8 = i
+		}
+	}
+	c.Check(i6, jc.LessThan, i7)
+	c.Check(i7, jc.LessThan, i8)
+}
+
 func csOne() *changeset {
 	// TestSiblingContainers
 	// applications:
@@ -194,6 +217,57 @@ func csTwo() *changeset {
 	// addMachines-15: addMachines-14, addUnit-9, addMachines-10, addMachines-11, addMachines-12, addMachines-13
 	m15 := newAddMachineChange(AddMachineParams{}, m14.Id(), u9.Id(), m10.Id(), m11.Id(), m12.Id(), m13.Id())
 	cs.add(m15)
+
+	return cs
+}
+
+func csThree() *changeset {
+	// This one includes relations.
+	// applications:
+	//   snk1:
+	//     charm: ./acceptancetests/repository/charms/dummy-sink
+	//   snk2:
+	//     charm: ./acceptancetests/repository/charms/dummy-sink
+	//   snk3:
+	//     charm: ./acceptancetests/repository/charms/dummy-sink
+	//   src:
+	//     charm: ./acceptancetests/repository/charms/dummy-source
+	// relations:
+	// - - src:sink
+	//   - snk1:source
+	// - - src:sink
+	//   - snk2:source
+	// - - src:sink
+	//   - snk3:source
+
+	cs := &changeset{}
+	// addCharm-0 (dummy-sink)
+	c0 := newAddCharmChange(AddCharmParams{})
+	cs.add(c0)
+	// deploy-1 $addCharm-0 (snk1)
+	d1 := newAddApplicationChange(AddApplicationParams{}, c0.Id())
+	cs.add(d1)
+	// deploy-2 $addCharm-0 (snk2)
+	d2 := newAddApplicationChange(AddApplicationParams{}, c0.Id())
+	cs.add(d2)
+	// deploy-3 $addCharm-0 (snk3)
+	d3 := newAddApplicationChange(AddApplicationParams{}, c0.Id())
+	cs.add(d3)
+	// addCharm-4 (dummy-source)
+	c4 := newAddCharmChange(AddCharmParams{})
+	cs.add(c4)
+	// deploy-5 $addCharm-4 (src)
+	d5 := newAddApplicationChange(AddApplicationParams{}, c4.Id())
+	cs.add(d5)
+	// addRelation-6 (src--snk1)
+	r6 := newAddRelationChange(AddRelationParams{}, d1.Id(), d5.Id())
+	cs.add(r6)
+	// addRelation-7 (src--snk2)
+	r7 := newAddRelationChange(AddRelationParams{}, d2.Id(), d5.Id())
+	cs.add(r7)
+	// addRelation-8 (src--snk3)
+	r8 := newAddRelationChange(AddRelationParams{}, d3.Id(), d5.Id())
+	cs.add(r8)
 
 	return cs
 }

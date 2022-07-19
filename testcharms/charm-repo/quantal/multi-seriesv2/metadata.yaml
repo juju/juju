@@ -4,8 +4,8 @@ description: |
     This is a longer description which
     potentially contains multiple lines.
 series:
-    - precise
-    - xenial
+    - focal
+    - bionic
 provides:
     multi-directory:
            interface: logging

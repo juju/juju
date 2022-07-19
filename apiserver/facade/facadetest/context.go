@@ -28,13 +28,14 @@ type Context struct {
 	RequestRecorder_     facade.RequestRecorder
 	Cancel_              <-chan struct{}
 
-	LeadershipClaimer_ leadership.Claimer
-	LeadershipRevoker_ leadership.Revoker
-	LeadershipChecker_ leadership.Checker
-	LeadershipPinner_  leadership.Pinner
-	LeadershipReader_  leadership.Reader
-	SingularClaimer_   lease.Claimer
-	Raft_              facade.RaftContext
+	LeadershipClaimer_  leadership.Claimer
+	LeadershipRevoker_  leadership.Revoker
+	LeadershipChecker_  leadership.Checker
+	LeadershipPinner_   leadership.Pinner
+	LeadershipReader_   leadership.Reader
+	SingularClaimer_    lease.Claimer
+	Raft_               facade.RaftContext
+	CharmhubHTTPClient_ facade.HTTPClient
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
@@ -143,4 +144,13 @@ func (context Context) SingularClaimer() (lease.Claimer, error) {
 
 func (context Context) Raft() facade.RaftContext {
 	return context.Raft_
+}
+
+func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
+	switch purpose {
+	case facade.CharmhubHTTPClient:
+		return context.CharmhubHTTPClient_
+	default:
+		return nil
+	}
 }

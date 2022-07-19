@@ -4,17 +4,18 @@
 package action
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/juju/juju/rpc/params"
-
+	"github.com/juju/ansiterm"
 	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
@@ -23,11 +24,14 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/mattn/go-isatty"
 	"gopkg.in/yaml.v2"
 
 	actionapi "github.com/juju/juju/api/client/action"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
@@ -55,10 +59,11 @@ type runCommandBase struct {
 	out        cmd.Output
 	utc        bool
 
-	clock       clock.Clock
-	wait        time.Duration
-	defaultWait time.Duration
-
+	clock             clock.Clock
+	color             bool
+	noColor           bool
+	wait              time.Duration
+	defaultWait       time.Duration
 	logMessageHandler func(*cmd.Context, string)
 
 	hideProgress bool // whether to hide progress info by default
@@ -66,15 +71,22 @@ type runCommandBase struct {
 
 // SetFlags offers an option for YAML output.
 func (c *runCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
-		"yaml":  cmd.FormatYaml,
-		"json":  cmd.FormatJson,
-		"plain": printPlainOutput,
+		"yaml":  c.formatYaml,
+		"json":  c.formatJson,
+		"plain": c.printRunOutput,
 	})
+	c.setNonFormatFlags(f)
+}
 
+// SetNonFormatFlags sets all flags except the format one. This is needed by
+// e.g. exec to define its own formatting flags.
+func (c *runCommandBase) setNonFormatFlags(f *gnuflag.FlagSet) {
+	c.ActionCommandBase.SetFlags(f)
 	f.BoolVar(&c.background, "background", false, "Run the task in the background")
 	f.DurationVar(&c.wait, "wait", 0, "Maximum wait time for a task to complete")
+	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in output")
+	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in output")
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
@@ -88,6 +100,7 @@ func (c *runCommandBase) Init(_ []string) error {
 			c.wait = 60 * time.Second
 		}
 	}
+
 	return nil
 }
 
@@ -99,7 +112,28 @@ func (c *runCommandBase) ensureAPI() (err error) {
 	return errors.Trace(err)
 }
 
-func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
+func (c *runCommandBase) operationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		return c.processOperationResults(ctx, false, results)
+	}
+
+	if c.color {
+		return c.processOperationResults(ctx, true, results)
+	}
+
+	if isTerminal(ctx.Stdout) && !c.noColor {
+		return c.processOperationResults(ctx, true, results)
+	}
+
+	if !isTerminal(ctx.Stdout) && c.color {
+		return c.processOperationResults(ctx, true, results)
+	}
+
+	return c.processOperationResults(ctx, false, results)
+}
+
+func (c *runCommandBase) processOperationResults(ctx *cmd.Context, forceColor bool, results *actionapi.EnqueuedActions) error {
 	var runningTasks []enqueuedAction
 	var enqueueErrs []string
 	for _, a := range results.Actions {
@@ -114,12 +148,18 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 	}
 	operationID := results.OperationID
 	numTasks := len(runningTasks)
+	opIDColored := colorVal(output.InfoHighlight, operationID)
+	numTasksColored := colorVal(output.EmphasisHighlight.Magenta, numTasks)
 	if !c.background && numTasks > 0 {
 		var plural string
 		if numTasks > 1 {
 			plural = "s"
 		}
-		c.progressf(ctx, "Running operation %s with %d task%s", operationID, numTasks, plural)
+		if forceColor {
+			c.progressf(ctx, "Running operation %s with %s task%s", opIDColored, numTasksColored, plural)
+		} else {
+			c.progressf(ctx, "Running operation %s with %d task%s", operationID, numTasks, plural)
+		}
 	}
 
 	var actionID string
@@ -128,7 +168,11 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		actionID = result.task
 
 		if !c.background {
-			c.progressf(ctx, "  - task %s on %s", actionID, result.receiver)
+			if forceColor {
+				c.progressf(ctx, "  - task %s on %s", colorVal(output.InfoHighlight, actionID), colorVal(output.EmphasisHighlight.DefaultBold, result.receiver))
+			} else {
+				c.progressf(ctx, "  - task %s on %s", actionID, result.receiver)
+			}
 		}
 		info[result.receiverId()] = map[string]string{
 			"id": result.task,
@@ -138,23 +182,43 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		c.progressf(ctx, "")
 	}
 	if numTasks == 0 {
-		ctx.Infof("Operation %s failed to schedule any tasks:\n%s", operationID, strings.Join(enqueueErrs, "\n"))
+		if forceColor {
+			ctx.Infof("Operation %s failed to schedule any tasks:\n%s", opIDColored, colorVal(output.ErrorHighlight, strings.Join(enqueueErrs, "\n")))
+		} else {
+			ctx.Infof("Operation %s failed to schedule any tasks:\n%s", operationID, strings.Join(enqueueErrs, "\n"))
+		}
 		return nil
 	}
 	if len(enqueueErrs) > 0 {
-		ctx.Infof("Some actions could not be scheduled:\n%s\n", strings.Join(enqueueErrs, "\n"))
+		if forceColor {
+			ctx.Infof("Some actions could not be scheduled:\n%s\n", colorVal(output.ErrorHighlight, strings.Join(enqueueErrs, "\n")))
+		} else {
+			ctx.Infof("Some actions could not be scheduled:\n%s\n", strings.Join(enqueueErrs, "\n"))
+		}
 		ctx.Infof("")
 	}
-	if c.background {
+	printInfo := func(opID, actionId, nTasks interface{}) {
 		if numTasks == 1 {
-			ctx.Infof("Scheduled operation %s with task %s", operationID, actionID)
-			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
-			ctx.Infof("Check task status with 'juju show-task %s'", actionID)
+			ctx.Infof("Scheduled operation %s with task %s", opID, actionId)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", opID)
+			ctx.Infof("Check task status with 'juju show-task %s'", actionId)
 		} else {
-			ctx.Infof("Scheduled operation %s with %d tasks", operationID, numTasks)
-			_ = cmd.FormatYaml(ctx.Stdout, info)
-			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
+			ctx.Infof("Scheduled operation %s with %v tasks", opID, nTasks)
+			if forceColor {
+				_ = output.FormatYamlWithColor(ctx.Stdout, info)
+			} else {
+				_ = cmd.FormatYaml(ctx.Stdout, info)
+			}
+			ctx.Infof("Check operation status with 'juju show-operation %s'", opID)
 			ctx.Infof("Check task status with 'juju show-task <id>'")
+		}
+	}
+	actionIdColored := colorVal(output.InfoHighlight, actionID)
+	if c.background {
+		if forceColor {
+			printInfo(opIDColored, actionIdColored, numTasksColored)
+		} else {
+			printInfo(operationID, actionID, numTasks)
 		}
 		return nil
 	}
@@ -168,7 +232,11 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *acti
 		}
 		list := make([]string, 0, len(failed))
 		for k, v := range failed {
-			list = append(list, fmt.Sprintf(" - id %q with return code %d", k, v))
+			if forceColor {
+				list = append(list, fmt.Sprintf(" - id %q with return code %v", k, colorVal(output.EmphasisHighlight.Magenta, v)))
+			} else {
+				list = append(list, fmt.Sprintf(" - id %q with return code %d", k, v))
+			}
 		}
 		sort.Strings(list)
 
@@ -216,8 +284,25 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 
 	failed := make(map[string]int)
 	resultReceivers := set.NewStrings()
+	var forceColor, noColor bool
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") || c.noColor {
+		noColor = true
+	}
+
+	if isTerminal(ctx.Stdout) && !noColor || isTerminal(ctx.Stdout) && c.color {
+		forceColor = true
+	}
+
+	if !isTerminal(ctx.Stdout) && c.color {
+		forceColor = true
+	}
+
 	for i, result := range runningTasks {
-		c.progressf(ctx, "Waiting for task %v...\n", result.task)
+		if forceColor {
+			c.progressf(ctx, "Waiting for task %v...\n", colorVal(output.InfoHighlight, result.task))
+		} else {
+			c.progressf(ctx, "Waiting for task %v...\n", result.task)
+		}
 		// tick every two seconds, to delay the loop timer.
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		tick := c.clock.NewTimer(resultPollTime)
@@ -289,6 +374,59 @@ func (c *runCommandBase) progressf(ctx *cmd.Context, format string, params ...in
 	} else {
 		ctx.Infof(format, params...)
 	}
+}
+
+func (c *runCommandBase) printRunOutput(writer io.Writer, value interface{}) error {
+	if c.noColor {
+		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
+			defer os.Unsetenv("NO_COLOR")
+			os.Setenv("NO_COLOR", "")
+		}
+	}
+
+	return printPlainOutput(writer, c.color, value)
+}
+
+func (c *runCommandBase) formatYaml(writer io.Writer, value interface{}) error {
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		return cmd.FormatYaml(writer, value)
+	}
+
+	if c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !c.noColor {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return output.FormatYamlWithColor(writer, value)
+	}
+
+	return cmd.FormatYaml(writer, value)
+}
+
+func (c *runCommandBase) formatJson(writer io.Writer, value interface{}) error {
+
+	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
+		return cmd.FormatJson(writer, value)
+	}
+
+	if c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if isTerminal(writer) && !c.noColor {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	if !isTerminal(writer) && c.color {
+		return output.FormatJsonWithColor(writer, value)
+	}
+
+	return cmd.FormatJson(writer, value)
 }
 
 // GetActionResult tries to repeatedly fetch a task until it is
@@ -363,6 +501,28 @@ func fetchResult(api APIClient, requestedId string) (actionapi.ActionResult, err
 	return result, nil
 }
 
+//colorVal appends ansi color codes to the given value
+func colorVal(ctx *ansiterm.Context, val interface{}) string {
+	buff := &bytes.Buffer{}
+	coloredWriter := ansiterm.NewWriter(buff)
+	coloredWriter.SetColorCapable(true)
+
+	ctx.Fprint(coloredWriter, val)
+	str := buff.String()
+	buff.Reset()
+	return str
+}
+
+// isTerminal checks if the file descriptor is a terminal.
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+
+	return isatty.IsTerminal(f.Fd())
+}
+
 type enqueuedAction struct {
 	task     string
 	receiver string
@@ -389,10 +549,20 @@ func (a *enqueuedAction) GoString() string {
 // results map for plain output.
 var filteredOutputKeys = set.NewStrings("return-code", "stdout", "stderr", "stdout-encoding", "stderr-encoding")
 
-func printPlainOutput(writer io.Writer, value interface{}) error {
+// invoked by showtask.go
+func printOutput(writer io.Writer, value interface{}) error {
+	return printPlainOutput(writer, false, value)
+}
+
+func printPlainOutput(writer io.Writer, forceColor bool, value interface{}) error {
 	info, ok := value.(map[string]interface{})
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", info, value)
+	}
+
+	w := output.PrintWriter{Writer: output.Writer(writer)}
+	if forceColor {
+		w.SetColorCapable(forceColor)
 	}
 
 	// actionOutput contains the action-set data of each action result.
@@ -458,7 +628,7 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 		return cmd.FormatYaml(writer, actionInfo)
 	}
 	for _, msg := range actionOutput {
-		fmt.Fprintln(writer, msg)
+		w.Println(output.GoodHighlight, msg)
 	}
 	if stdout != "" {
 		fmt.Fprintln(writer, strings.Trim(stdout, "\n"))

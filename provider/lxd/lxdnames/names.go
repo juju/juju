@@ -25,3 +25,8 @@ const DefaultRemoteRegion = "default"
 
 // ProviderType defines the provider/cloud type for lxd.
 const ProviderType = "lxd"
+
+// IsDefaultCloud returns true if the cloud name is the default lxd cloud.
+func IsDefaultCloud(cloudName string) bool {
+	return cloudName == DefaultCloud || cloudName == DefaultCloudAltName
+}

@@ -72,7 +72,7 @@ type proxyWorker struct {
 	snapStoreAssertions string
 	snapStoreProxyURL   string
 
-	// The whole point of the first value is to make sure that the the files
+	// The whole point of the first value is to make sure that the files
 	// are written out the first time through, even if they are the same as
 	// "last" time, as the initial value for last time is the zeroed struct.
 	// There is the possibility that the files exist on disk with old

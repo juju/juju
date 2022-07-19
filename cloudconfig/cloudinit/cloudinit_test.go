@@ -554,7 +554,7 @@ func (S) TestSetOutput(c *gc.C) {
 	},
 	}
 
-	cfg, err := cloudinit.New("trusty")
+	cfg, err := cloudinit.New("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout, stderr := cfg.Output(cloudinit.OutAll)
 	c.Assert(stdout, gc.Equals, "")

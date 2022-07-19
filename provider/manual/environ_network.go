@@ -52,12 +52,6 @@ func (*manualEnviron) AreSpacesRoutable(_ context.ProviderCallContext, _, _ *env
 	return false, nil
 }
 
-// SSHAddresses implements environs.NetworkingEnviron.
-func (*manualEnviron) SSHAddresses(
-	_ context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron.
 func (e *manualEnviron) NetworkInterfaces(
 	context.ProviderCallContext, []instance.Id,

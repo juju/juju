@@ -4,7 +4,6 @@
 package operation
 
 import (
-	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -41,11 +40,11 @@ type factory struct {
 }
 
 // newDeploy is the common code for creating arbitrary deploy operations.
-func (f *factory) newDeploy(kind Kind, charmURL *corecharm.URL, revert, resolved bool) (Operation, error) {
+func (f *factory) newDeploy(kind Kind, charmURL string, revert, resolved bool) (Operation, error) {
 	if f.config.Deployer == nil {
 		return nil, errors.New("deployer required")
 	}
-	if charmURL == nil {
+	if charmURL == "" {
 		return nil, errors.New("charm url required")
 	} else if kind != Install && kind != Upgrade {
 		return nil, errors.Errorf("unknown deploy kind: %s", kind)
@@ -63,12 +62,12 @@ func (f *factory) newDeploy(kind Kind, charmURL *corecharm.URL, revert, resolved
 }
 
 // NewInstall is part of the Factory interface.
-func (f *factory) NewInstall(charmURL *corecharm.URL) (Operation, error) {
+func (f *factory) NewInstall(charmURL string) (Operation, error) {
 	return f.newDeploy(Install, charmURL, false, false)
 }
 
 // NewUpgrade is part of the Factory interface.
-func (f *factory) NewUpgrade(charmURL *corecharm.URL) (Operation, error) {
+func (f *factory) NewUpgrade(charmURL string) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, false, false)
 }
 
@@ -90,12 +89,12 @@ func (f *factory) NewNoOpFinishUpgradeSeries() (Operation, error) {
 }
 
 // NewRevertUpgrade is part of the Factory interface.
-func (f *factory) NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error) {
+func (f *factory) NewRevertUpgrade(charmURL string) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, true, false)
 }
 
 // NewResolvedUpgrade is part of the Factory interface.
-func (f *factory) NewResolvedUpgrade(charmURL *corecharm.URL) (Operation, error) {
+func (f *factory) NewResolvedUpgrade(charmURL string) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, false, true)
 }
 

@@ -320,7 +320,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddMachineInsideMachine(
 					state.MachineTemplate{
-						Series: "trusty",
+						Series: "jammy",
 						Jobs:   []state.MachineJob{state.JobHostUnits},
 					},
 					m.Id(),
@@ -341,7 +341,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddMachineInsideMachine(
 					state.MachineTemplate{
-						Series: "trusty",
+						Series: "jammy",
 						Jobs:   []state.MachineJob{state.JobHostUnits},
 					},
 					m.Id(),
@@ -560,7 +560,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "statuses",
 			getWatcher: func(st *state.State) interface{} {
-				m, err := st.AddMachine("trusty", state.JobHostUnits)
+				m, err := st.AddMachine("jammy", state.JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				// Ensure that all the creation events have flowed through the system.
@@ -1463,23 +1463,27 @@ func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
 	}
 
 	var windowsSeries = []string{
-		"win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-		"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81", "win10",
+		"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
+		"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 	}
+	expectedWinResult := map[string]int{}
 	for _, winSeries := range windowsSeries {
 		add_machine(winSeries)
+		expectedWinResult[winSeries] = 1
 	}
 	add_machine("quantal")
-
 	s.AssertMachineCount(c, len(windowsSeries)+1)
 
-	count, err := s.State.MachineCountForSeries(windowsSeries...)
+	result, err := s.State.MachineCountForSeries(windowsSeries...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, len(windowsSeries))
+	c.Assert(result, gc.DeepEquals, expectedWinResult)
 
-	count, err = s.State.MachineCountForSeries("quantal")
+	result, err = s.State.MachineCountForSeries(
+		"quantal", // count 1
+		"xenial",  // count 0
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(count, gc.Equals, 1)
+	c.Assert(result, gc.DeepEquals, map[string]int{"quantal": 1})
 }
 
 func (s *StateSuite) TestAllRelations(c *gc.C) {
@@ -1630,7 +1634,16 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress, err := s.State.AddApplication(
-		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
+		state.AddApplicationArgs{
+			Name:              "wordpress",
+			Charm:             ch,
+			CharmConfig:       insettings,
+			ApplicationConfig: inconfig,
+			CharmOrigin: &state.CharmOrigin{
+				ID:   "charmID",
+				Hash: "testing-hash",
+			},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	c.Assert(state.GetApplicationHasResources(wordpress), jc.IsFalse)
@@ -1678,6 +1691,24 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	ch, _, err = mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddApplicationFailCharmOriginIDOnly(c *gc.C) {
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "testme",
+		Charm:       &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{ID: "testing"},
+	})
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+}
+
+func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "testme",
+		Charm:       &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{Hash: "testing"},
+	})
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
@@ -2048,7 +2079,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
-	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	m, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
@@ -2101,7 +2132,7 @@ func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C
 		Name: "wordpress", Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty, xenial, yakkety"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "jammy, focal, bionic"`)
 }
 
 func (s *StateSuite) TestAllApplications(c *gc.C) {
@@ -2757,7 +2788,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	// Make the container Dying: cannot because of nested container.
 	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, `machine .* is hosting container\(s\) ".*"`)
+	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers? ".*"`)
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3957,12 +3988,6 @@ func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
-	c.Assert(stateerrors.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
-	c.Assert(stateerrors.IsUpgradeInProgressError(stateerrors.ErrUpgradeInProgress), jc.IsTrue)
-	c.Assert(stateerrors.IsUpgradeInProgressError(errors.Trace(stateerrors.ErrUpgradeInProgress)), jc.IsTrue)
-}
-
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
 	modelConfig, err := s.Model.ModelConfig()
@@ -4220,7 +4245,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
-	c.Assert(err, jc.Satisfies, stateerrors.IsUpgradeInProgressError)
+	c.Assert(errors.Is(err, stateerrors.ErrUpgradeInProgress), jc.IsTrue)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {

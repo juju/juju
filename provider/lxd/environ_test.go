@@ -84,7 +84,7 @@ func (s *environSuite) TestConfig(c *gc.C) {
 func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	s.Common.BootstrapResult = &environs.BootstrapResult{
 		Arch:   "amd64",
-		Series: "trusty",
+		Series: "jammy",
 		CloudBootstrapFinalizer: func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 			return nil
 		},
@@ -99,7 +99,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
-	c.Check(result.Series, gc.Equals, "trusty")
+	c.Check(result.Series, gc.Equals, "jammy")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 

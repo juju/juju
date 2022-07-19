@@ -9,7 +9,5 @@ requires:
   sink:
     interface: dummy-token
 series:
+  - jammy
   - focal
-  - bionic
-  - xenial
-  - trusty

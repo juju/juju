@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -171,7 +172,9 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
 	} else {
-		filter.Arch = "amd64"
+		// This deviates slightly from standard behaviour when bootstrapping for
+		// convenience so that by default instances start with a compatible arch
+		filter.Arch = arch.HostArch()
 	}
 	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())

@@ -170,7 +170,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.processOperationResults(ctx, results)
+	return c.operationResults(ctx, results)
 }
 
 func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedActions, error) {

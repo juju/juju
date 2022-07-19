@@ -6,11 +6,13 @@ package raftlease
 import (
 	"context"
 
+	"github.com/juju/errors"
+	"gopkg.in/yaml.v3"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/rpc/params"
-	"gopkg.in/yaml.v3"
 )
 
 // RaftLeaseV1 informs users of the API, what is contained in Facade version 1.
@@ -81,7 +83,7 @@ func (a *APIv1) ApplyLease(ctx context.Context, args params.LeaseOperations) (pa
 		// any more leases. In this instance we do want to bail out
 		// early, but mark all subsequent errors as the same as this
 		// error.
-		if apiservererrors.IsNotLeaderError(err) {
+		if errors.HasType[*apiservererrors.NotLeaderError](err) {
 			// Fill up any remaining operations with the same error.
 			errResult := params.ErrorResult{
 				Error: apiservererrors.ServerError(err),
@@ -128,7 +130,7 @@ func (a *Facade) ApplyLease(ctx context.Context, args params.LeaseOperationsV2) 
 		// any more leases. In this instance we do want to bail out
 		// early, but mark all subsequent errors as the same as this
 		// error.
-		if apiservererrors.IsNotLeaderError(err) {
+		if errors.HasType[*apiservererrors.NotLeaderError](err) {
 			// Fill up any remaining operations with the same error.
 			errResult := params.ErrorResult{
 				Error: apiservererrors.ServerError(err),

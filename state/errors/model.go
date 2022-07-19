@@ -10,70 +10,41 @@ import (
 	"github.com/juju/errors"
 )
 
-type hasHostedModelsError struct{ i int }
+const (
+	// HasHostedModelsError defines if an attempt was made to destroy the
+	// controller model while it contained non-empty hosted models, without
+	// specifying that they should also be destroyed.
+	HasHostedModelsError = errors.ConstError("has hosted models")
+
+	// ModelNotEmptyError reports whether or not the given error was caused
+	// due to an operation requiring a model to be empty, where the model is
+	// non-empty.
+	ModelNotEmptyError = errors.ConstError("model not empty")
+
+	// PersistentStorageError indicates  whether or not the given error was
+	// caused by an attempt to destroy a model while it contained persistent
+	// storage, without specifying how the storage should be removed
+	// (destroyed or released).
+	PersistentStorageError = errors.ConstError("model contains persistent storage")
+)
 
 func NewHasHostedModelsError(i int) error {
-	return &hasHostedModelsError{i: i}
-}
-
-func (e hasHostedModelsError) Error() string {
-	s := ""
-	if e.i != 1 {
-		s = "s"
+	sep := ""
+	if i != 1 {
+		sep = "s"
 	}
-	return fmt.Sprintf("hosting %d other model"+s, e.i)
+	return errors.WithType(
+		fmt.Errorf("hosting %d other model%s", i, sep),
+		HasHostedModelsError)
 }
 
-// IsHasHostedModelsError reports whether or not the given error
-// was caused by an attempt to destroy the controller model while
-// it contained non-empty hosted models, without specifying that
-// they should also be destroyed.
-func IsHasHostedModelsError(err error) bool {
-	_, ok := errors.Cause(err).(*hasHostedModelsError)
-	return ok
-}
-
-type hasPersistentStorageError struct{}
-
-func NewHasPersistentStorageError() error {
-	return &hasPersistentStorageError{}
-}
-
-func (hasPersistentStorageError) Error() string {
-	return "model contains persistent storage"
-}
-
-// IsHasPersistentStorageError reports whether or not the given
-// error was caused by an attempt to destroy a model while it
-// contained persistent storage, without specifying how the
-// storage should be removed (destroyed or released).
-func IsHasPersistentStorageError(err error) bool {
-	_, ok := errors.Cause(err).(*hasPersistentStorageError)
-	return ok
-}
-
-type modelNotEmptyError struct {
-	machines     int
-	applications int
-	volumes      int
-	filesystems  int
-}
-
+// NewModelNotEmptyError constructs a ModelNotEmpty with the error message
+// tailored to match the number of machines, applications, volumes and
+// filesystem's left. The returned error satisfies ModelNotEmptyError.
 func NewModelNotEmptyError(machines, applications, volumes, filesystems int) error {
 	if machines+applications+volumes+filesystems == 0 {
 		return nil
 	}
-	return &modelNotEmptyError{
-		machines:     machines,
-		applications: applications,
-		volumes:      volumes,
-		filesystems:  filesystems,
-	}
-}
-
-// Error is part of the error interface.
-func (e modelNotEmptyError) Error() string {
-	msg := "model not empty, found "
 	plural := func(n int, thing string) string {
 		s := fmt.Sprintf("%d %s", n, thing)
 		if n != 1 {
@@ -82,25 +53,17 @@ func (e modelNotEmptyError) Error() string {
 		return s
 	}
 	var contains []string
-	if n := e.machines; n > 0 {
+	if n := machines; n > 0 {
 		contains = append(contains, plural(n, "machine"))
 	}
-	if n := e.applications; n > 0 {
+	if n := applications; n > 0 {
 		contains = append(contains, plural(n, "application"))
 	}
-	if n := e.volumes; n > 0 {
+	if n := volumes; n > 0 {
 		contains = append(contains, plural(n, "volume"))
 	}
-	if n := e.filesystems; n > 0 {
+	if n := filesystems; n > 0 {
 		contains = append(contains, plural(n, "filesystem"))
 	}
-	return msg + strings.Join(contains, ", ")
-}
-
-// IsModelNotEmptyError reports whether or not the given error was caused
-// due to an operation requiring a model to be empty, where the model is
-// non-empty.
-func IsModelNotEmptyError(err error) bool {
-	_, ok := errors.Cause(err).(*modelNotEmptyError)
-	return ok
+	return fmt.Errorf("%w, found %s", ModelNotEmptyError, strings.Join(contains, ", "))
 }

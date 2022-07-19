@@ -561,10 +561,10 @@ func (e *environ) StartInstance(
 		// If there is a problem with authentication/authorisation,
 		// we want a correctly typed error.
 		annotatedErr := errors.Annotate(maybeConvertCredentialError(received, ctx), annotation)
-		if common.IsCredentialNotValid(annotatedErr) {
+		if errors.Is(annotatedErr, common.ErrorCredentialNotValid) {
 			return annotatedErr
 		}
-		return common.ZoneIndependentError(annotatedErr)
+		return environs.ZoneIndependentError(annotatedErr)
 	}
 
 	wrapError := func(received error) error {
@@ -611,13 +611,13 @@ func (e *environ) StartInstance(
 	}
 
 	if err := e.finishInstanceConfig(&args, spec); err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	_ = callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
-		return nil, common.ZoneIndependentError(errors.Annotate(err, "constructing user data"))
+		return nil, environs.ZoneIndependentError(fmt.Errorf("constructing user data: %w", err))
 	}
 
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
@@ -667,7 +667,7 @@ func (e *environ) StartInstance(
 
 	subnetZones, err := getValidSubnetZoneMap(args)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	hasVPCID := isVPCIDSet(e.ecfg().vpcID())
@@ -1489,7 +1489,7 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 	retryStrategy := shortRetryStrategy
 	retryStrategy.Stop = abortRetries
 	retryStrategy.IsFatalError = func(err error) bool {
-		return common.IsCredentialNotValid(err)
+		return errors.Is(err, common.ErrorCredentialNotValid)
 	}
 	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
 		logger.Errorf("failed to get instance %q interfaces: %v (retrying)", instId, lastError)
@@ -2345,7 +2345,7 @@ var deleteSecurityGroupInsistently = func(client SecurityGroupCleaner, ctx conte
 			return errors.Trace(maybeConvertCredentialError(err, ctx))
 		},
 		IsFatalError: func(err error) bool {
-			return common.IsCredentialNotValid(err)
+			return errors.Is(err, common.ErrorCredentialNotValid)
 		},
 		NotifyFunc: func(err error, attempt int) {
 			logger.Debugf("deleting security group %q, attempt %d (%v)", aws.ToString(g.GroupName), attempt, err)
@@ -2693,7 +2693,7 @@ func isSubnetConstrainedError(err error) bool {
 // its code, otherwise it returns the empty string.
 func ec2ErrCode(err error) string {
 	var apiErr smithy.APIError
-	if stderrors.As(errors.Cause(err), &apiErr) {
+	if stderrors.As(err, &apiErr) {
 		return apiErr.ErrorCode()
 	}
 	return ""
@@ -2729,11 +2729,6 @@ func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 // AreSpacesRoutable implements NetworkingEnviron.
 func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
-}
-
-// SSHAddresses implements environs.SSHAddresses.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
 }
 
 // SuperSubnets implements NetworkingEnviron.SuperSubnets

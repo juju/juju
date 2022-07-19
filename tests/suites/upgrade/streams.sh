@@ -53,19 +53,6 @@ exec_simplestream_metadata() {
 		--prevent-fallback \
 		-d "./tests/suites/upgrade/streams/"
 
-	# 2.8 or older needs series based agent metadata.
-	if [ "${stable_version}" == "2.8" ]; then
-		local focal_version bionic_version
-		focal_version=$(series_version "${version}" "focal")
-		bionic_version=$(series_version "${version}" "bionic")
-		add_upgrade_tools "${focal_version}"
-		add_upgrade_tools "${bionic_version}"
-
-		/snap/bin/juju metadata generate-agents \
-			--clean \
-			-d "./tests/suites/upgrade/streams/"
-	fi
-
 	add_clean_func "kill_server"
 	start_server "./tests/suites/upgrade/streams/tools"
 

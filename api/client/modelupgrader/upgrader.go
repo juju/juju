@@ -8,6 +8,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -47,5 +48,6 @@ func (c *Client) UpgradeModel(
 		IgnoreAgentVersions: ignoreAgentVersions,
 		DryRun:              druRun,
 	}
-	return c.facade.FacadeCall("UpgradeModel", args, nil)
+	err := c.facade.FacadeCall("UpgradeModel", args, nil)
+	return apiservererrors.RestoreError(err)
 }

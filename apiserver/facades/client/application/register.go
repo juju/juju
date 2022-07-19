@@ -7,20 +7,21 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Application", 13, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV13(ctx)
-	}, reflect.TypeOf((*APIv13)(nil))) // Adds CharmOrigin to Deploy
+	registry.MustRegister("Application", 14, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV14(ctx)
+	}, reflect.TypeOf((*APIv14)(nil)))
 }
 
-func newFacadeV13(ctx facade.Context) (*APIv13, error) {
+func newFacadeV14(ctx facade.Context) (*APIv14, error) {
 	api, err := newFacadeBase(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv13{api}, nil
+	return &APIv14{api}, nil
 }

@@ -1109,7 +1109,3 @@ func (e *Environ) AllocateContainerAddresses(
 func (e *Environ) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("ReleaseContainerAddresses")
 }
-
-func (e *Environ) SSHAddresses(ctx envcontext.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
-}

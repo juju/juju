@@ -4,6 +4,8 @@
 package migration_test
 
 import (
+	"strings"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -74,8 +76,8 @@ func (*SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
-	machineCountForSeries := 10
-	backend.machineCountForSeries = &machineCountForSeries
+	backend.machineCountForSeriesWin = map[string]int{"win10": 1, "win7": 2}
+	backend.machineCountForSeriesUbuntu = map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}
 	agentVersion := version.MustParse("2.9.31")
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
@@ -86,16 +88,16 @@ cannot migrate to controller ("3.0.0") due to issues:
 "foo/model-1":
 - current model ("2.9.31") has to be upgraded to "2.9.32" at least
 - unexpected upgrade series lock found
-- windows is not supported but the model hosts 10 windows machine(s)
-- xenial is not supported but the model hosts 10 xenial machine(s)`[1:])
+- the model hosts deprecated windows machine(s): win10(1) win7(2)
+- the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`[1:])
 }
 
 func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
-	machineCountForSeries := 10
-	backend.machineCountForSeries = &machineCountForSeries
+	backend.machineCountForSeriesWin = map[string]int{"win10": 1, "win7": 2}
+	backend.machineCountForSeriesUbuntu = map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}
 	agentVersion := version.MustParse("2.9.31")
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
@@ -794,8 +796,9 @@ type fakeBackend struct {
 	hasUpgradeSeriesLocks    *bool
 	hasUpgradeSeriesLocksErr error
 
-	machineCountForSeries    *int
-	machineCountForSeriesErr error
+	machineCountForSeriesWin    map[string]int
+	machineCountForSeriesUbuntu map[string]int
+	machineCountForSeriesErr    error
 
 	mongoCurrentStatus    *replicaset.Status
 	mongoCurrentStatusErr error
@@ -855,11 +858,17 @@ func (b *fakeBackend) HasUpgradeSeriesLocks() (bool, error) {
 	return *b.hasUpgradeSeriesLocks, b.hasUpgradeSeriesLocksErr
 }
 
-func (b *fakeBackend) MachineCountForSeries(series ...string) (int, error) {
-	if b.machineCountForSeries == nil {
-		return 0, nil
+func (b *fakeBackend) MachineCountForSeries(series ...string) (map[string]int, error) {
+	if strings.HasPrefix(series[0], "win") {
+		if b.machineCountForSeriesWin == nil {
+			return nil, nil
+		}
+		return b.machineCountForSeriesWin, b.machineCountForSeriesErr
 	}
-	return *b.machineCountForSeries, b.machineCountForSeriesErr
+	if b.machineCountForSeriesUbuntu == nil {
+		return nil, nil
+	}
+	return b.machineCountForSeriesUbuntu, b.machineCountForSeriesErr
 }
 
 func (b *fakeBackend) MongoCurrentStatus() (*replicaset.Status, error) {

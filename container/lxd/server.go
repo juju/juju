@@ -326,9 +326,7 @@ func IsLXDNotFound(err error) bool {
 		return false
 	}
 
-	// TODO (stickupkid): This is a hack until we can correctly upstream the
-	// lxd project.
-	if statusErr, ok := errors.Cause(err).(lxdStatusError); ok && statusErr.Status() == http.StatusNotFound {
+	if _, match := api.StatusErrorMatch(err, http.StatusNotFound); match {
 		return true
 	}
 
@@ -342,17 +340,9 @@ func IsLXDAlreadyExists(err error) bool {
 		return false
 	}
 
-	// TODO (stickupkid): This is a hack until we can correctly upstream the
-	// lxd project.
-	if statusErr, ok := errors.Cause(err).(lxdStatusError); ok && statusErr.Status() == http.StatusConflict {
+	if _, match := api.StatusErrorMatch(err, http.StatusConflict); match {
 		return true
 	}
 
 	return strings.Contains(strings.ToLower(err.Error()), "already exists")
-}
-
-// lxdStatusError allows us to check if an error conforms to the lxd status
-// error type.
-type lxdStatusError interface {
-	Status() int
 }

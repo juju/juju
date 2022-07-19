@@ -775,11 +775,11 @@ func (s *RefreshSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
 
 	container, err := s.State.AddMachineInsideNewMachine(
 		state.MachineTemplate{
-			Series: "bionic",
+			Series: "jammy",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		},
 		state.MachineTemplate{ // parent
-			Series: "bionic",
+			Series: "jammy",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		},
 		instance.LXD,

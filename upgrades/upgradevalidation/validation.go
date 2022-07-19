@@ -5,8 +5,10 @@ package upgradevalidation
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
@@ -146,29 +148,55 @@ func getCheckUpgradeSeriesLockForModel(force bool) Validator {
 }
 
 var windowsSeries = []string{
-	"win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-	"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81", "win10",
+	"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 }
 
 func checkNoWinMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	count, err := st.MachineCountForSeries(windowsSeries...)
+	result, err := st.MachineCountForSeries(windowsSeries...)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot count machines for series %v", windowsSeries)
+		return nil, errors.Annotate(err, "cannot count windows machines")
 	}
-	if count > 0 {
-		return NewBlocker("windows is not supported but the model hosts %d windows machine(s)", count), nil
+	if len(result) > 0 {
+		return NewBlocker(
+			"the model hosts deprecated windows machine(s): %s",
+			stringifyMachineCounts(result),
+		), nil
 	}
 	return nil, nil
 }
 
-func checkNoXenialMachinesForModel(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-	xenial := series.Xenial.String()
-	count, err := st.MachineCountForSeries(xenial)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot count machines for series %v", xenial)
+func stringifyMachineCounts(result map[string]int) string {
+	var keys []string
+	for k := range result {
+		keys = append(keys, k)
 	}
-	if count > 0 {
-		return NewBlocker("%s is not supported but the model hosts %d %s machine(s)", xenial, count, xenial), nil
+	sort.Strings(keys)
+	var output []string
+	for _, k := range keys {
+		output = append(output, fmt.Sprintf("%s(%d)", k, result[k]))
+	}
+	return strings.Join(output, " ")
+}
+
+func checkForDeprecatedUbuntuSeriesForModel(
+	modelUUID string, pool StatePool, st State, model Model,
+) (*Blocker, error) {
+	supported := false
+	deprecatedSeries := set.NewStrings()
+	for s := range series.UbuntuVersions(&supported, nil) {
+		deprecatedSeries.Add(s)
+	}
+	result, err := st.MachineCountForSeries(
+		deprecatedSeries.SortedValues()..., // sort for tests.
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot count deprecated ubuntu machines")
+	}
+	if len(result) > 0 {
+		return NewBlocker("the model hosts deprecated ubuntu machine(s): %s",
+			stringifyMachineCounts(result),
+		), nil
 	}
 	return nil, nil
 }

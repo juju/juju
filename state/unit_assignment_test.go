@@ -291,6 +291,6 @@ func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*sta
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.Assert(machine.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
+	c.Assert(machine.CreateUpgradeSeriesLock(nil, "jammy"), jc.ErrorIsNil)
 	return machine, child
 }

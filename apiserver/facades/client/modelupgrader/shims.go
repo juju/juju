@@ -26,7 +26,7 @@ type State interface {
 	HasUpgradeSeriesLocks() (bool, error)
 	Release() bool
 	AllModelUUIDs() ([]string, error)
-	MachineCountForSeries(series ...string) (int, error)
+	MachineCountForSeries(series ...string) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
 	AbortCurrentUpgrade() error
@@ -78,10 +78,10 @@ func (s stateShim) Model() (Model, error) {
 	}, nil
 }
 
-func (s stateShim) MachineCountForSeries(series ...string) (int, error) {
+func (s stateShim) MachineCountForSeries(series ...string) (map[string]int, error) {
 	count, err := s.PooledState.MachineCountForSeries(series...)
 	if err != nil {
-		return 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	return count, nil
 }

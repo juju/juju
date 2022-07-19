@@ -48,13 +48,13 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 
 func (s *imageutilsSuite) TestSeriesImageLegacy(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
-		`[{"name": "14.04.3"}, {"name": "14.04.1-LTS"}, {"name": "12.04.5"}]`,
+		`[{"name": "18.04.3"}, {"name": "18.04.1-LTS"}, {"name": "16.04.5"}]`,
 	))
-	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
+	image, err := imageutils.SeriesImage(s.callCtx, "bionic", "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:UbuntuServer:14.04.3:latest",
+		Id:       "Canonical:UbuntuServer:18.04.3:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
@@ -76,13 +76,13 @@ func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
 
 func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
-		`[{"name": "14.04.invalid"}, {"name": "14.04.5-LTS"}]`,
+		`[{"name": "22_04_invalid"}, {"name": "22_04_5-LTS"}]`,
 	))
-	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
+	image, err := imageutils.SeriesImage(s.callCtx, "jammy", "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:UbuntuServer:14.04.5-LTS:latest",
+		Id:       "Canonical:0001-com-ubuntu-server-jammy:22_04_5-LTS:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
@@ -101,22 +101,22 @@ func (s *imageutilsSuite) TestSeriesImageGenericLinux(c *gc.C) {
 
 func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
 	s.mockSender.AppendAndRepeatResponse(mocks.NewResponseWithContent(
-		`[{"name": "14.04.2"}, {"name": "14.04.3-DAILY"}, {"name": "14.04.1-LTS"}]`), 2)
-	s.assertImageId(c, "trusty", "daily", "Canonical:UbuntuServer:14.04.3-DAILY:latest")
-	s.assertImageId(c, "trusty", "released", "Canonical:UbuntuServer:14.04.2:latest")
+		`[{"name": "22_04_2"}, {"name": "22_04_3-DAILY"}, {"name": "22_04_1-LTS"}]`), 2)
+	s.assertImageId(c, "jammy", "daily", "Canonical:0001-com-ubuntu-server-jammy:22_04_3-DAILY:latest")
+	s.assertImageId(c, "jammy", "released", "Canonical:0001-com-ubuntu-server-jammy:22_04_2:latest")
 }
 
 func (s *imageutilsSuite) TestSeriesImageNotFound(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[]`))
-	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs for released stream not found")
+	image, err := imageutils.SeriesImage(s.callCtx, "jammy", "released", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, "selecting SKU for jammy: Ubuntu SKUs for released stream not found")
 	c.Assert(image, gc.IsNil)
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[{"name": "14.04-beta1"}]`))
-	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for trusty: Ubuntu SKUs for whatever stream not found")
+	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
+	_, err := imageutils.SeriesImage(s.callCtx, "jammy", "whatever", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, "selecting SKU for jammy: Ubuntu SKUs for whatever stream not found")
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
@@ -127,7 +127,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 		return nil
 	}
 
-	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
+	_, err := imageutils.SeriesImage(s.callCtx, "jammy", "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 401")
 	c.Assert(called, jc.IsTrue)
 }
@@ -140,7 +140,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) 
 		return nil
 	}
 
-	_, err := imageutils.SeriesImage(s.callCtx, "trusty", "whatever", "westus", s.client)
+	_, err := imageutils.SeriesImage(s.callCtx, "jammy", "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 308")
 	c.Assert(called, jc.IsFalse)
 }

@@ -6,11 +6,11 @@ run_charmhub_download() {
 
 	ensure "test-${name}" "${file}"
 
-	output=$(juju download mysql --series xenial --filepath="${TEST_DIR}/mysql.charm" 2>&1 || true)
-	check_contains "${output}" 'Fetching charm "mysql"'
+	output=$(juju download postgresql --series focal --filepath="${TEST_DIR}/postgresql.charm" 2>&1 || true)
+	check_contains "${output}" 'Fetching charm "postgresql"'
 
-	juju deploy "${TEST_DIR}/mysql.charm" mysql
-	juju wait-for application --timeout=15m mysql
+	juju deploy "${TEST_DIR}/postgresql.charm" postgresql
+	juju wait-for application --timeout=15m postgresql
 }
 
 run_charmstore_download() {

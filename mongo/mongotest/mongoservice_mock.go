@@ -105,18 +105,18 @@ func (mr *MockMongoSnapServiceMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockMongoSnapService)(nil).Name))
 }
 
-// Remove mocks base method.
-func (m *MockMongoSnapService) Remove() error {
+// Restart mocks base method.
+func (m *MockMongoSnapService) Restart() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove")
+	ret := m.ctrl.Call(m, "Restart")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Remove indicates an expected call of Remove.
-func (mr *MockMongoSnapServiceMockRecorder) Remove() *gomock.Call {
+// Restart indicates an expected call of Restart.
+func (mr *MockMongoSnapServiceMockRecorder) Restart() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockMongoSnapService)(nil).Remove))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restart", reflect.TypeOf((*MockMongoSnapService)(nil).Restart))
 }
 
 // Running mocks base method.
@@ -146,18 +146,4 @@ func (m *MockMongoSnapService) Start() error {
 func (mr *MockMongoSnapServiceMockRecorder) Start() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockMongoSnapService)(nil).Start))
-}
-
-// Stop mocks base method.
-func (m *MockMongoSnapService) Stop() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stop")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Stop indicates an expected call of Stop.
-func (mr *MockMongoSnapServiceMockRecorder) Stop() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockMongoSnapService)(nil).Stop))
 }

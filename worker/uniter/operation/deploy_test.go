@@ -4,7 +4,6 @@
 package operation_test
 
 import (
-	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -22,7 +21,7 @@ type DeploySuite struct {
 
 var _ = gc.Suite(&DeploySuite{})
 
-type newDeploy func(operation.Factory, *corecharm.URL) (operation.Operation, error)
+type newDeploy func(operation.Factory, string) (operation.Operation, error)
 
 func (s *DeploySuite) testPrepareAlreadyDone(
 	c *gc.C, newDeploy newDeploy, kind operation.Kind,
@@ -37,12 +36,12 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 		Callbacks: callbacks,
 		Logger:    loggo.GetLogger("test"),
 	})
-	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	op, err := newDeploy(factory, "cs:quantal/hive-23")
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{
 		Kind:     kind,
 		Step:     operation.Done,
-		CharmURL: curl("cs:quantal/hive-23"),
+		CharmURL: "cs:quantal/hive-23",
 	})
 	c.Check(newState, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, operation.ErrSkipExecute)
@@ -89,13 +88,13 @@ func (s *DeploySuite) testPrepareArchiveInfoError(c *gc.C, newDeploy newDeploy) 
 		Callbacks: callbacks,
 		Logger:    loggo.GetLogger("test"),
 	})
-	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	op, err := newDeploy(factory, "cs:quantal/hive-23")
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Check(newState, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "pew")
-	c.Check(callbacks.MockGetArchiveInfo.gotCharmURL, gc.DeepEquals, curl("cs:quantal/hive-23"))
+	c.Check(callbacks.MockGetArchiveInfo.gotCharmURL, gc.Equals, "cs:quantal/hive-23")
 }
 
 func (s *DeploySuite) TestPrepareArchiveInfoError_Install(c *gc.C) {
@@ -130,7 +129,7 @@ func (s *DeploySuite) testPrepareStageError(c *gc.C, newDeploy newDeploy) {
 		Abort:     abort,
 		Logger:    loggo.GetLogger("test"),
 	})
-	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	op, err := newDeploy(factory, "cs:quantal/hive-23")
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
@@ -172,13 +171,13 @@ func (s *DeploySuite) testPrepareSetCharmError(c *gc.C, newDeploy newDeploy) {
 		Logger:    loggo.GetLogger("test"),
 	})
 
-	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	op, err := newDeploy(factory, "cs:quantal/hive-23")
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Check(newState, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "blargh")
-	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.DeepEquals, curl("cs:quantal/hive-23"))
+	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.Equals, "cs:quantal/hive-23")
 }
 
 func (s *DeploySuite) TestPrepareSetCharmError_Install(c *gc.C) {
@@ -209,13 +208,13 @@ func (s *DeploySuite) testPrepareSuccess(c *gc.C, newDeploy newDeploy, before, a
 		Callbacks: callbacks,
 		Logger:    loggo.GetLogger("test"),
 	})
-	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
+	op, err := newDeploy(factory, "cs:quantal/nyancat-4")
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(before)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newState, gc.DeepEquals, &after)
-	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.DeepEquals, curl("cs:quantal/nyancat-4"))
+	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.Equals, "cs:quantal/nyancat-4")
 }
 
 func (s *DeploySuite) TestPrepareSuccess_Install_BlankSlate(c *gc.C) {
@@ -225,7 +224,7 @@ func (s *DeploySuite) TestPrepareSuccess_Install_BlankSlate(c *gc.C) {
 		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Pending,
-			CharmURL: curl("cs:quantal/nyancat-4"),
+			CharmURL: "cs:quantal/nyancat-4",
 		},
 	)
 }
@@ -236,12 +235,12 @@ func (s *DeploySuite) TestPrepareSuccess_Install_Queued(c *gc.C) {
 		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Queued,
-			CharmURL: curl("cs:quantal/nyancat-4"),
+			CharmURL: "cs:quantal/nyancat-4",
 		},
 		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Pending,
-			CharmURL: curl("cs:quantal/nyancat-4"),
+			CharmURL: "cs:quantal/nyancat-4",
 		},
 	)
 }
@@ -263,7 +262,7 @@ func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreservePendingHook(c *gc.C) {
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Pending,
-				CharmURL: curl("cs:quantal/nyancat-4"),
+				CharmURL: "cs:quantal/nyancat-4",
 				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			},
 		)
@@ -282,13 +281,13 @@ func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveOriginalPendingHook(c *
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Pending,
-				CharmURL: curl("cs:quantal/random-23"),
+				CharmURL: "cs:quantal/random-23",
 				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			},
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Pending,
-				CharmURL: curl("cs:quantal/nyancat-4"),
+				CharmURL: "cs:quantal/nyancat-4",
 				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			},
 		)
@@ -308,7 +307,7 @@ func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Pending,
-				CharmURL: curl("cs:quantal/nyancat-4"),
+				CharmURL: "cs:quantal/nyancat-4",
 				Started:  true,
 			},
 		)
@@ -344,7 +343,7 @@ func (s *DeploySuite) testExecuteError(c *gc.C, newDeploy newDeploy) {
 		Callbacks: callbacks,
 		Logger:    loggo.GetLogger("test"),
 	})
-	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
+	op, err := newDeploy(factory, "cs:quantal/nyancat-4")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +380,7 @@ func (s *DeploySuite) testExecuteSuccess(
 		Callbacks: callbacks,
 		Logger:    loggo.GetLogger("test"),
 	})
-	op, err := newDeploy(factory, curl("cs:quantal/lol-1"))
+	op, err := newDeploy(factory, "cs:quantal/lol-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	midState, err := op.Prepare(before)
@@ -401,7 +400,7 @@ func (s *DeploySuite) TestExecuteSuccess_Install_BlankSlate(c *gc.C) {
 		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Done,
-			CharmURL: curl("cs:quantal/lol-1"),
+			CharmURL: "cs:quantal/lol-1",
 		},
 	)
 }
@@ -412,12 +411,12 @@ func (s *DeploySuite) TestExecuteSuccess_Install_Queued(c *gc.C) {
 		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Queued,
-			CharmURL: curl("cs:quantal/lol-1"),
+			CharmURL: "cs:quantal/lol-1",
 		},
 		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Done,
-			CharmURL: curl("cs:quantal/lol-1"),
+			CharmURL: "cs:quantal/lol-1",
 		},
 	)
 }
@@ -439,7 +438,7 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreservePendingHook(c *gc.C) {
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Done,
-				CharmURL: curl("cs:quantal/lol-1"),
+				CharmURL: "cs:quantal/lol-1",
 				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			},
 		)
@@ -458,13 +457,13 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveOriginalPendingHook(c *
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Pending,
-				CharmURL: curl("cs:quantal/wild-9"),
+				CharmURL: "cs:quantal/wild-9",
 				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			},
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Done,
-				CharmURL: curl("cs:quantal/lol-1"),
+				CharmURL: "cs:quantal/lol-1",
 				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			},
 		)
@@ -484,7 +483,7 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 			operation.State{
 				Kind:     operation.Upgrade,
 				Step:     operation.Done,
-				CharmURL: curl("cs:quantal/lol-1"),
+				CharmURL: "cs:quantal/lol-1",
 				Started:  true,
 			},
 		)
@@ -502,12 +501,12 @@ func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
 		Callbacks: callbacks,
 		Logger:    loggo.GetLogger("test"),
 	})
-	op, err := factory.NewInstall(curl("cs:quantal/x-0"))
+	op, err := factory.NewInstall("cs:quantal/x-0")
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
 		Kind:     operation.Install,
 		Step:     operation.Done,
-		CharmURL: nil, // doesn't actually matter here
+		CharmURL: "", // doesn't actually matter here
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newState, gc.DeepEquals, &operation.State{
@@ -529,12 +528,12 @@ func (s *DeploySuite) testCommitQueueUpgradeHook(c *gc.C, newDeploy newDeploy) {
 		Logger:    loggo.GetLogger("test"),
 	})
 
-	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
+	op, err := newDeploy(factory, "cs:quantal/x-0")
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
 		Kind:     operation.Upgrade,
 		Step:     operation.Done,
-		CharmURL: nil, // doesn't actually matter here
+		CharmURL: "", // doesn't actually matter here
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newState, gc.DeepEquals, &operation.State{
@@ -568,12 +567,12 @@ func (s *DeploySuite) testCommitInterruptedHook(c *gc.C, newDeploy newDeploy) {
 		Logger:    loggo.GetLogger("test"),
 	})
 
-	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
+	op, err := newDeploy(factory, "cs:quantal/x-0")
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
 		Kind:     operation.Upgrade,
 		Step:     operation.Done,
-		CharmURL: nil, // doesn't actually matter here
+		CharmURL: "", // doesn't actually matter here
 		Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -605,7 +604,7 @@ func (s *DeploySuite) testDoesNotNeedGlobalMachineLock(c *gc.C, newDeploy newDep
 		Deployer: deployer,
 		Logger:   loggo.GetLogger("test"),
 	})
-	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
+	op, err := newDeploy(factory, "cs:quantal/x-0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
 }

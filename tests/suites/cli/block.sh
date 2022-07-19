@@ -23,7 +23,7 @@ run_block_remove_object() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu
+	juju deploy ubuntu --series focal
 	juju deploy ntp
 	juju add-relation ntp ubuntu
 
@@ -56,7 +56,7 @@ run_block_all() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu
+	juju deploy ubuntu --series focal
 	juju expose ubuntu
 
 	juju disable-command all

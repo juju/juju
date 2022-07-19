@@ -129,13 +129,13 @@ func (p environProvider) metadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
-const badKeys = `
+const badKeysFormat = `
 The provided credentials could not be validated and 
 may not be authorized to carry out the request.
 Ensure that your account is authorized to use the Amazon EC2 service and 
 that you are using the correct access keys. 
 These keys are obtained via the "Security Credentials"
-page in the AWS console.
+page in the AWS console: %w
 `
 
 // verifyCredentials issues a cheap, non-modifying/idempotent request to EC2 to
@@ -148,13 +148,17 @@ var verifyCredentials = func(e Client, ctx context.ProviderCallContext) error {
 }
 
 // maybeConvertCredentialError examines the error received from the provider.
-// Authentication related errors are wrapped in common.CredentialNotValid.
+// Authentication related errors conform to common.ErrorCredentialNotValid.
 // Authorisation related errors are annotated with an additional
 // user-friendly explanation.
 // All other errors are returned un-wrapped and not annotated.
 var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContext) error {
 	if err == nil {
 		return nil
+	}
+
+	if errors.Is(err, common.ErrorCredentialNotValid) {
+		return err
 	}
 
 	convert := func(converted error) error {
@@ -169,19 +173,28 @@ var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContex
 	// EC2 error codes are from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.
 	switch ec2ErrCode(err) {
 	case "AuthFailure":
-		return convert(common.CredentialNotValidf(err, badKeys))
+		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
 	case "InvalidClientTokenId":
-		return convert(common.CredentialNotValidf(err, badKeys))
+		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
 	case "MissingAuthenticationToken":
-		return convert(common.CredentialNotValidf(err, badKeys))
+		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
 	case "Blocked":
-		return convert(common.CredentialNotValidf(err, "\nYour Amazon account is currently blocked."))
+		return convert(
+			fmt.Errorf("\nYour Amazon account is currently blocked.: %w",
+				common.CredentialNotValidError(err)),
+		)
 	case "CustomerKeyHasBeenRevoked":
-		return convert(common.CredentialNotValidf(err, "\nYour Amazon keys have been revoked."))
+		return convert(
+			fmt.Errorf("\nYour Amazon keys have been revoked.: %w",
+				common.CredentialNotValidError(err)),
+		)
 	case "PendingVerification":
-		return convert(common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon."))
+		return convert(
+			fmt.Errorf("\nYour account is pending verification by Amazon.: %w",
+				common.CredentialNotValidError(err)),
+		)
 	case "SignatureDoesNotMatch":
-		return convert(common.CredentialNotValidf(err, badKeys))
+		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
 	default:
 		// This error is unrelated to access keys, account or credentials...
 		return err

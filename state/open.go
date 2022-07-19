@@ -4,13 +4,14 @@
 package state
 
 import (
+	"fmt"
 	"runtime/pprof"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v2"
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/controller"
@@ -129,20 +130,27 @@ func newState(
 		}
 	}()
 
-	mongodb := session.DB(jujuDB)
-	sstxn := txn.SupportsServerSideTransactions(mongodb)
-	if sstxn {
-		logger.Infof("using server-side transactions")
-	} else {
-		logger.Warningf("server-side transactions are not supported.\n" +
-			" Falling back to client-side transactions.")
+	info, err := session.BuildInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	if len(info.VersionArray) < 1 || info.VersionArray[0] < 4 {
+		parts := make([]string, len(info.VersionArray))
+		for i, v := range info.VersionArray {
+			parts[i] = fmt.Sprintf("%d", v)
+		}
+		mongoVers := "this mongo version"
+		if len(parts) > 0 {
+			mongoVers = fmt.Sprintf("mongo version %v", strings.Join(parts, "."))
+		}
+		return nil, errors.Errorf("%v does not support server side transactions", mongoVers)
+	}
+	mongodb := session.DB(jujuDB)
 	db := &database{
 		raw:                    mongodb,
 		schema:                 allCollections(),
 		modelUUID:              modelTag.Id(),
 		runTransactionObserver: runTransactionObserver,
-		serverSideTransactions: sstxn,
 		clock:                  clock,
 	}
 

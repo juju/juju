@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/shell"
@@ -22,7 +23,7 @@ var (
 )
 
 type agentSuite struct {
-	service.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&agentSuite{})

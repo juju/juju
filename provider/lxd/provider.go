@@ -124,7 +124,6 @@ func NewProvider() environs.CloudEnvironProvider {
 	credentials := environProviderCredentials{
 		certReadWriter:  certificateReadWriter{},
 		certGenerator:   certificateGenerator{},
-		lookup:          netLookup{},
 		serverFactory:   factory,
 		lxcConfigReader: configReader,
 	}
@@ -306,13 +305,13 @@ func (p *environProvider) FinalizeCloud(
 	resolveEndpoint := func(name string, ep *string) error {
 		// If the name doesn't equal "localhost" then we shouldn't resolve
 		// the end point, instead we should just accept what we already have.
-		if name != lxdnames.DefaultCloud || *ep != "" {
+		if !lxdnames.IsDefaultCloud(name) || *ep != "" {
 			return nil
 		}
 		if endpoint == "" {
 			// The cloud endpoint is empty, which means
 			// that we should connect to the local LXD.
-			hostAddress, err := p.getLocalHostAddress(ctx)
+			hostAddress, err := getLocalHostAddress(ctx, p.serverFactory)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -334,7 +333,7 @@ func (p *environProvider) FinalizeCloud(
 	}
 	// If the provider type is not named localhost and there is no region, set the
 	// region to be a default region
-	if in.Name != lxdnames.DefaultCloud && len(in.Regions) == 0 {
+	if !lxdnames.IsDefaultCloud(in.Name) && len(in.Regions) == 0 {
 		in.Regions = append(in.Regions, cloud.Region{
 			Name:     lxdnames.DefaultRemoteRegion,
 			Endpoint: in.Endpoint,
@@ -343,14 +342,14 @@ func (p *environProvider) FinalizeCloud(
 	return in, nil
 }
 
-func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	svr, err := p.serverFactory.LocalServer()
+func getLocalHostAddress(ctx environs.FinalizeCloudContext, serverFactory ServerFactory) (string, error) {
+	svr, err := serverFactory.LocalServer()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	bridgeName := svr.LocalBridgeName()
-	hostAddress, err := p.serverFactory.LocalServerAddress()
+	hostAddress, err := serverFactory.LocalServerAddress()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

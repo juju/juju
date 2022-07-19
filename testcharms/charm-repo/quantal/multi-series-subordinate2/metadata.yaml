@@ -5,8 +5,8 @@ description: |
     potentially contains multiple lines.
 subordinate: true
 series:
-    - precise
-    - trusty
+    - jammy
+    - focal
 provides:
     multi-client:
        interface: logging

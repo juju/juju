@@ -187,53 +187,44 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
-	// TERM is different for trusty.
-	for _, testSeries := range []string{"trusty", "focal"} {
-		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
-		ubuntuVars := []string{
-			"APT_LISTCHANGES_FRONTEND=none",
-			"DEBIAN_FRONTEND=noninteractive",
-			"LANG=C.UTF-8",
-			"PATH=path-to-tools:foo:bar",
-		}
-
-		if testSeries == "trusty" {
-			ubuntuVars = append(ubuntuVars, "TERM=screen-256color")
-		} else {
-			ubuntuVars = append(ubuntuVars, "TERM=tmux-256color")
-		}
-
-		environmenter := context.NewRemoteEnvironmenter(
-			func() []string { return []string{} },
-			func(k string) string {
-				switch k {
-				case "PATH":
-					return "foo:bar"
-				}
-				return ""
-			},
-			func(k string) (string, bool) {
-				switch k {
-				case "PATH":
-					return "foo:bar", true
-				}
-				return "", false
-			},
-		)
-
-		ctx, contextVars := s.getContext(false)
-		paths, pathsVars := s.getPaths()
-		actualVars, err := ctx.HookVars(paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
-
-		relationVars := s.setDepartingRelation(ctx)
-		secretVars := s.setSecret(ctx)
-		storageVars := s.setStorage(ctx)
-		actualVars, err = ctx.HookVars(paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars)
+	ubuntuVars := []string{
+		"APT_LISTCHANGES_FRONTEND=none",
+		"DEBIAN_FRONTEND=noninteractive",
+		"LANG=C.UTF-8",
+		"TERM=tmux-256color",
+		"PATH=path-to-tools:foo:bar",
 	}
+
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return []string{} },
+		func(k string) string {
+			switch k {
+			case "PATH":
+				return "foo:bar"
+			}
+			return ""
+		},
+		func(k string) (string, bool) {
+			switch k {
+			case "PATH":
+				return "foo:bar", true
+			}
+			return "", false
+		},
+	)
+
+	ctx, contextVars := s.getContext(false)
+	paths, pathsVars := s.getPaths()
+	actualVars, err := ctx.HookVars(paths, false, environmenter)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
+
+	relationVars := s.setDepartingRelation(ctx)
+	secretVars := s.setSecret(ctx)
+	storageVars := s.setStorage(ctx)
+	actualVars, err = ctx.HookVars(paths, false, environmenter)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars)
 }
 
 func (s *EnvSuite) TestEnvCentos(c *gc.C) {

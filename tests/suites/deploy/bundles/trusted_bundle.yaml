@@ -1,5 +1,7 @@
 applications:
     trust-checker:
-        charm: cs:~juju-qa/bionic/trust-checker-0
+        charm: juju-qa-trust-checker
+        channel: beta
+        series: bionic
         num_units: 1
         trust: true

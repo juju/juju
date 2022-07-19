@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -73,23 +72,6 @@ func (*snapSuite) TestSnapCommandIsAValidCommand(c *gc.C) {
 	c.Check(err, gc.NotNil)
 }
 
-func (*snapSuite) TestSnapListCommandreValidShellCommand(c *gc.C) {
-	listCommand := ListCommand()
-	listCommandParts := strings.Fields(listCommand)
-
-	// check that we refer to valid commands
-	executable := listCommandParts[0]
-	_, err := exec.LookPath(executable)
-
-	for i, token := range listCommandParts {
-		// we've found a pipe, next token should be executable
-		if token == "|" {
-			_, err = exec.LookPath(listCommandParts[i+1])
-		}
-	}
-	c.Check(err, gc.NotNil)
-}
-
 func (*snapSuite) TestConfigOverride(c *gc.C) {
 	conf := common.Conf{
 		Limit: map[string]string{
@@ -124,46 +106,6 @@ type serviceSuite struct {
 }
 
 var _ = gc.Suite(&serviceSuite{})
-
-func (*serviceSuite) TestInstallCommands(c *gc.C) {
-	conf := common.Conf{}
-	prerequisites := []Installable{NewNamedApp("core")}
-	backgroundServices := []BackgroundService{
-		{
-			Name:            "daemon",
-			EnableAtStartup: true,
-		},
-	}
-	service, err := NewService("juju-db", "juju-db", conf, Command, "/path/to/config", "9.9/stable", "", backgroundServices, prerequisites)
-	c.Assert(err, jc.ErrorIsNil)
-
-	commands, err := service.InstallCommands()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(commands, gc.DeepEquals, []string{
-		"snap install core",
-		"snap install --channel=9.9/stable juju-db",
-	})
-}
-
-func (*serviceSuite) TestInstallCommandsWithConfinementPolicy(c *gc.C) {
-	conf := common.Conf{}
-	prerequisites := []Installable{NewNamedApp("core")}
-	backgroundServices := []BackgroundService{
-		{
-			Name:            "daemon",
-			EnableAtStartup: true,
-		},
-	}
-	service, err := NewService("juju-db", "juju-db", conf, Command, "/path/to/config", "9.9/stable", "classic", backgroundServices, prerequisites)
-	c.Assert(err, jc.ErrorIsNil)
-
-	commands, err := service.InstallCommands()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(commands, gc.DeepEquals, []string{
-		"snap install core",
-		"snap install --channel=9.9/stable --classic juju-db",
-	})
-}
 
 func (*serviceSuite) TestInstall(c *gc.C) {
 	ctrl := gomock.NewController(c)
