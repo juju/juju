@@ -873,3 +873,66 @@ use 'juju show-task' to inspect the failure
 		c.Check(cmdtesting.Stderr(context), gc.Equals, "")
 	}
 }
+
+func (s *ExecSuite) TestMultipleUnitsPlainOutput(c *gc.C) {
+	fakeClient := &fakeAPIClient{}
+	restore := s.patchAPIClient(fakeClient)
+	defer restore()
+
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
+			Receiver: "unit-foo-7",
+		},
+		Output: map[string]interface{}{
+			"stdout": "result7",
+		},
+	}, {
+		Action: &actionapi.Action{
+			ID:       validActionId2,
+			Receiver: "unit-foo-34",
+		},
+		Output: map[string]interface{}{
+			"stderr": "result34\n",
+		},
+	}, {
+		Action: &actionapi.Action{
+			ID:       validActionId3,
+			Receiver: "unit-foo-112",
+		},
+		Output: map[string]interface{}{
+			"stdout": "result112",
+		},
+	}}
+
+	// Various outputs depending on what units are specified
+	outputs := map[string]string{
+		"--unit=foo/34": `
+result34
+
+`[1:],
+		"--unit=foo/7,foo/112,foo/34": `
+foo/7:
+result7
+
+foo/34:
+result34
+
+foo/112:
+result112
+
+
+`[1:],
+	}
+
+	for unitFlag, stdout := range outputs {
+		runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
+		context, err := cmdtesting.RunCommand(c, runCmd,
+			"--format=plain", unitFlag, "hostname", "--utc")
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(cmdtesting.Stdout(context), gc.Equals, stdout)
+		c.Check(cmdtesting.Stderr(context), gc.Equals, "")
+	}
+
+}
