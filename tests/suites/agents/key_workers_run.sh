@@ -1,3 +1,21 @@
+run_charmstore_charmrevisionupdater() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	model_name="test-cs-charmrevisionupdater"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	# Deploy an old revision of mysql
+	juju deploy cs:postgresql-230
+
+	# Wait for revision update worker to update the available revision.
+	wait_for "cs:postgresql-" '.applications["postgresql"] | ."can-upgrade-to"'
+
+	destroy_model "${model_name}"
+}
+
 run_charmhub_charmrevisionupdater() {
 	# Echo out to ensure nice output to the test suite.
 	echo
@@ -28,6 +46,7 @@ test_charmrevisionupdater() {
 
 		cd .. || exit
 
+		run "run_charmstore_charmrevisionupdater"
 		run "run_charmhub_charmrevisionupdater"
 	)
 }
