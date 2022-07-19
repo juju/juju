@@ -21,19 +21,17 @@ import (
 
 	"github.com/juju/juju/charmhub/path"
 	corelogger "github.com/juju/juju/core/logger"
-)
-
-// MIME represents a MIME type for identifying requests and response bodies.
-type MIME = string
-
-const (
-	// JSON represents the MIME type for JSON request and response types.
-	JSON MIME = "application/json"
+	"github.com/juju/juju/version"
 )
 
 const (
-	// DefaultRetryAttempts defines the number of attempts that a default http
-	// transport will retry before giving up.
+	jsonContentType = "application/json"
+
+	userAgentKey   = "User-Agent"
+	userAgentValue = version.UserAgentVersion
+
+	// defaultRetryAttempts defines the number of attempts that a default
+	// HTTPClient will retry before giving up.
 	// Retries are only performed on certain status codes, nothing in the 200 to
 	// 400 range and a select few from the 500 range (deemed retryable):
 	//
@@ -43,39 +41,40 @@ const (
 	// - http.StatusTooManyRequests
 	//
 	// See: juju/http package.
-	DefaultRetryAttempts = 3
+	defaultRetryAttempts = 3
 
-	// DefaultRetryDelay holds the amount of time after a try, a new attempt
+	// defaultRetryDelay holds the amount of time after a try, a new attempt
 	// will wait before another attempt.
-	DefaultRetryDelay = time.Second * 10
+	defaultRetryDelay = time.Second * 10
 
-	// DefaultRetryMaxDelay holds the amount of time before a giving up on a
+	// defaultRetryMaxDelay holds the amount of time before a giving up on a
 	// request. This values includes any server response from the header
 	// Retry-After.
-	DefaultRetryMaxDelay = time.Minute * 10
+	defaultRetryMaxDelay = time.Minute * 10
 )
 
-// Transport defines a type for making the actual request.
-type Transport interface {
-	// Do performs the *http.Request and returns a *http.Response or an error
-	// if it fails to construct the transport.
+// HTTPClient defines a type for making the actual request. It may be an
+// *http.Client.
+type HTTPClient interface {
+	// Do performs the *http.Request and returns an *http.Response or an error.
 	Do(*http.Request) (*http.Response, error)
 }
 
-// DefaultHTTPTransport creates a new HTTPTransport.
-func DefaultHTTPTransport(logger Logger) Transport {
-	return RequestHTTPTransport(loggingRequestRecorder{
-		logger: logger.ChildWithLabels("request-recorder", corelogger.METRICS),
-	}, DefaultRetryPolicy())(logger)
+// DefaultHTTPClient creates a new HTTPClient with the default configuration.
+func DefaultHTTPClient(logger Logger) HTTPClient {
+	recorder := loggingRequestRecorder{
+		logger: logger.ChildWithLabels("transport.request-recorder", corelogger.METRICS),
+	}
+	return requestHTTPClient(recorder, defaultRetryPolicy())(logger)
 }
 
-// DefaultRetryPolicy returns a retry policy with sane defaults for most
+// defaultRetryPolicy returns a retry policy with sane defaults for most
 // requests.
-func DefaultRetryPolicy() jujuhttp.RetryPolicy {
+func defaultRetryPolicy() jujuhttp.RetryPolicy {
 	return jujuhttp.RetryPolicy{
-		Attempts: DefaultRetryAttempts,
-		Delay:    DefaultRetryDelay,
-		MaxDelay: DefaultRetryMaxDelay,
+		Attempts: defaultRetryAttempts,
+		Delay:    defaultRetryDelay,
+		MaxDelay: defaultRetryMaxDelay,
 	}
 }
 
@@ -97,10 +96,10 @@ func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err err
 	}
 }
 
-// RequestHTTPTransport creates a new HTTPTransport that records the
-// requests.
-func RequestHTTPTransport(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger Logger) Transport {
-	return func(logger Logger) Transport {
+// requestHTTPClient returns a function that creates a new HTTPClient that
+// records the requests.
+func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger Logger) HTTPClient {
+	return func(logger Logger) HTTPClient {
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
@@ -109,25 +108,24 @@ func RequestHTTPTransport(recorder jujuhttp.RequestRecorder, policy jujuhttp.Ret
 	}
 }
 
-// APIRequester creates a wrapper around the transport to allow for better
+// apiRequester creates a wrapper around the HTTPClient to allow for better
 // error handling.
-type APIRequester struct {
-	transport Transport
-	logger    Logger
+type apiRequester struct {
+	httpClient HTTPClient
+	logger     Logger
 }
 
-// NewAPIRequester creates a new http.Client for making requests to a server.
-func NewAPIRequester(transport Transport, logger Logger) *APIRequester {
-	return &APIRequester{
-		transport: transport,
-		logger:    logger,
+// newAPIRequester creates a new http.Client for making requests to a server.
+func newAPIRequester(httpClient HTTPClient, logger Logger) *apiRequester {
+	return &apiRequester{
+		httpClient: httpClient,
+		logger:     logger,
 	}
 }
 
-// Do performs the *http.Request and returns a *http.Response or an error
-// if it fails to construct the transport.
-func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
-	resp, err := t.transport.Do(req)
+// Do performs the *http.Request and returns a *http.Response or an error.
+func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
+	resp, err := t.httpClient.Do(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -151,7 +149,7 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	// we've checked that we don't get a 5xx error. Given that we send Accept
 	// header of application/json, I would only ever expect to see that.
 	// Everything will be incorrectly formatted.
-	if contentType := resp.Header.Get("Content-Type"); contentType != JSON {
+	if contentType := resp.Header.Get("Content-Type"); contentType != jsonContentType {
 		defer func() {
 			_, _ = io.Copy(ioutil.Discard, resp.Body)
 			_ = resp.Body.Close()
@@ -166,25 +164,24 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// APIRequestLogger creates a wrapper around the transport to allow for better
+// apiRequestLogger creates a wrapper around the HTTP client to allow for better
 // logging.
-type APIRequestLogger struct {
-	transport Transport
-	logger    Logger
+type apiRequestLogger struct {
+	httpClient HTTPClient
+	logger     Logger
 }
 
-// NewAPIRequesterLogger creates a new Transport that allows logging of requests
+// newAPIRequesterLogger creates a new HTTPClient that allows logging of requests
 // for every request.
-func NewAPIRequesterLogger(transport Transport, logger Logger) *APIRequestLogger {
-	return &APIRequestLogger{
-		transport: transport,
-		logger:    logger,
+func newAPIRequesterLogger(httpClient HTTPClient, logger Logger) *apiRequestLogger {
+	return &apiRequestLogger{
+		httpClient: httpClient,
+		logger:     logger,
 	}
 }
 
-// Do performs the *http.Request and returns a *http.Response or an error
-// if it fails to construct the transport.
-func (t *APIRequestLogger) Do(req *http.Request) (*http.Response, error) {
+// Do performs the request and logs the request and response if tracing is enabled.
+func (t *apiRequestLogger) Do(req *http.Request) (*http.Response, error) {
 	if t.logger.IsTraceEnabled() {
 		if data, err := httputil.DumpRequest(req, true); err == nil {
 			t.logger.Tracef("%s request %s", req.Method, data)
@@ -193,7 +190,7 @@ func (t *APIRequestLogger) Do(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	resp, err := t.transport.Do(req)
+	resp, err := t.httpClient.Do(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -209,31 +206,29 @@ func (t *APIRequestLogger) Do(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-// RESTResponse abstracts away the underlying response from the implementation.
-type RESTResponse struct {
+// restResponse abstracts away the underlying response from the implementation.
+type restResponse struct {
 	StatusCode int
 }
 
 // RESTClient defines a type for making requests to a server.
 type RESTClient interface {
 	// Get performs GET requests to a given Path.
-	Get(context.Context, path.Path, interface{}) (RESTResponse, error)
+	Get(context.Context, path.Path, interface{}) (restResponse, error)
 	// Post performs POST requests to a given Path.
-	Post(context.Context, path.Path, http.Header, interface{}, interface{}) (RESTResponse, error)
+	Post(context.Context, path.Path, http.Header, interface{}, interface{}) (restResponse, error)
 }
 
-// HTTPRESTClient represents a RESTClient that expects to interact with a
-// HTTP transport.
-type HTTPRESTClient struct {
-	transport Transport
-	headers   http.Header
+// httpRESTClient represents a RESTClient that expects to interact with an
+// HTTPClient.
+type httpRESTClient struct {
+	httpClient HTTPClient
 }
 
-// NewHTTPRESTClient creates a new HTTPRESTClient
-func NewHTTPRESTClient(transport Transport, headers http.Header) *HTTPRESTClient {
-	return &HTTPRESTClient{
-		transport: transport,
-		headers:   headers,
+// newHTTPRESTClient creates a new httpRESTClient
+func newHTTPRESTClient(httpClient HTTPClient) *httpRESTClient {
+	return &httpRESTClient{
+		httpClient: httpClient,
 	}
 }
 
@@ -242,31 +237,30 @@ func NewHTTPRESTClient(transport Transport, headers http.Header) *HTTPRESTClient
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interface{}) (RESTResponse, error) {
+func (c *httpRESTClient) Get(ctx context.Context, path path.Path, result interface{}) (restResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", path.String(), nil)
 	if err != nil {
-		return RESTResponse{}, errors.Annotate(err, "can not make new request")
+		return restResponse{}, errors.Annotate(err, "can not make new request")
 	}
 
 	// Compose the request headers.
-	headers := make(http.Header)
-	headers.Set("Accept", JSON)
-	headers.Set("Content-Type", JSON)
+	req.Header = make(http.Header)
+	req.Header.Set("Accept", jsonContentType)
+	req.Header.Set("Content-Type", jsonContentType)
+	req.Header.Set(userAgentKey, userAgentValue)
 
-	req.Header = c.composeHeaders(headers)
-
-	resp, err := c.transport.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return RESTResponse{}, errors.Trace(err)
+		return restResponse{}, errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
-		return RESTResponse{}, errors.Annotate(err, "charm hub client get")
+		return restResponse{}, errors.Annotate(err, "charm hub client get")
 	}
 
-	return RESTResponse{
+	return restResponse{
 		StatusCode: resp.StatusCode,
 	}, nil
 }
@@ -276,22 +270,22 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, headers http.Header, body, result interface{}) (RESTResponse, error) {
+func (c *httpRESTClient) Post(ctx context.Context, path path.Path, headers http.Header, body, result interface{}) (restResponse, error) {
 	buffer := new(bytes.Buffer)
 	if err := json.NewEncoder(buffer).Encode(body); err != nil {
-		return RESTResponse{}, errors.Trace(err)
+		return restResponse{}, errors.Trace(err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", path.String(), buffer)
 	if err != nil {
-		return RESTResponse{}, errors.Annotate(err, "can not make new request")
+		return restResponse{}, errors.Annotate(err, "can not make new request")
 	}
 
 	// Compose the request headers.
 	req.Header = make(http.Header)
-	req.Header.Set("Accept", JSON)
-	req.Header.Set("Content-Type", JSON)
-	req.Header = c.composeHeaders(req.Header)
+	req.Header.Set("Accept", jsonContentType)
+	req.Header.Set("Content-Type", jsonContentType)
+	req.Header.Set(userAgentKey, userAgentValue)
 
 	// Add any headers specific to this request (in sorted order).
 	keys := make([]string, 0, len(headers))
@@ -305,35 +299,17 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, headers http.
 		}
 	}
 
-	resp, err := c.transport.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return RESTResponse{}, errors.Trace(err)
+		return restResponse{}, errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
-		return RESTResponse{}, errors.Annotate(err, "charm hub client post")
+		return restResponse{}, errors.Annotate(err, "charm hub client post")
 	}
-	return RESTResponse{
+	return restResponse{
 		StatusCode: resp.StatusCode,
 	}, nil
-}
-
-// composeHeaders creates a new set of headers from scratch.
-func (c *HTTPRESTClient) composeHeaders(headers http.Header) http.Header {
-	result := make(http.Header)
-	// Consume the new headers.
-	for k, vs := range headers {
-		for _, v := range vs {
-			result.Add(k, v)
-		}
-	}
-	// Add the client's headers as well.
-	for k, vs := range c.headers {
-		for _, v := range vs {
-			result.Add(k, v)
-		}
-	}
-	return result
 }

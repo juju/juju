@@ -19,10 +19,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"path"
-	"sort"
 	"strings"
 	"time"
 
@@ -34,155 +32,57 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/version"
 )
 
-// ServerURL holds the default location of the global charm hub.
-// An alternate location can be configured by changing the URL
-// field in the Params struct.
 const (
-	CharmHubServerURL     = "https://api.charmhub.io"
-	CharmHubServerVersion = "v2"
-	CharmHubServerEntity  = "charms"
+	// DefaultServerURL is the default location of the global Charmhub API.
+	// An alternate location can be configured by changing the URL
+	// field in the Config struct.
+	DefaultServerURL = "https://api.charmhub.io"
 
-	MetadataHeader = "X-Juju-Metadata"
-
+	// RefreshTimeout is the timout callers should use for Refresh calls.
 	RefreshTimeout = 10 * time.Second
 )
 
-var (
-	userAgentKey   = "User-Agent"
-	userAgentValue = version.UserAgentVersion
+const (
+	serverVersion = "v2"
+	serverEntity  = "charms"
 )
 
-// Logger is a in place interface to represent a logger for consuming.
+// Logger is the interface to use for logging requests and errors.
 type Logger interface {
 	IsTraceEnabled() bool
 
 	Errorf(string, ...interface{})
-	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 
 	ChildWithLabels(string, ...string) loggo.Logger
 }
 
 // Config holds configuration for creating a new charm hub client.
+// The zero value is a valid default configuration.
 type Config struct {
-	// URL holds the base endpoint URL of the charmHub,
+	// Logger to use during the API requests. This field is required.
+	Logger Logger
+
+	// URL holds the base endpoint URL of the Charmhub API,
 	// with no trailing slash, not including the version.
-	// For example https://api.charmhub.io/v2/charms/
+	// If empty string, use the default Charmhub API server.
 	URL string
 
-	// Version holds the version attribute of the charmHub we're requesting.
-	Version string
+	// HTTPClient represents the HTTP client to use for all API
+	// requests. If nil, use the default HTTP client.
+	HTTPClient HTTPClient
 
-	// Entity holds the entity to target when querying the API (charm or snaps).
-	Entity string
-
-	// Headers allow the defining of a set of default headers when sending the
-	// requests. These headers augment the headers required for sending requests
-	// and allow overriding existing headers.
-	Headers http.Header
-
-	// Transport represents the default http transport to use for all API
-	// requests.
-	Transport Transport
-
-	// Logger to use during the API requests.
-	Logger Logger
+	// FileSystem represents the file system operations for downloading.
+	// If nil, use the real OS file system.
+	FileSystem FileSystem
 }
 
-// Option to be passed into charmhub construction to customize the client.
-type Option func(*options)
-
-type options struct {
-	url             *string
-	metadataHeaders map[string]string
-	transportFunc   func(Logger) Transport
-}
-
-// WithURL sets the url on the option.
-func WithURL(u string) Option {
-	return func(options *options) {
-		options.url = &u
-	}
-}
-
-// WithMetadataHeaders sets the headers on the option.
-func WithMetadataHeaders(h map[string]string) Option {
-	return func(options *options) {
-		options.metadataHeaders = h
-	}
-}
-
-// WithHTTPTransport sets the default http transport to use on the option.
-func WithHTTPTransport(transportFn func(Logger) Transport) Option {
-	return func(options *options) {
-		options.transportFunc = transportFn
-	}
-}
-
-// Create a options instance with default values.
-func newOptions() *options {
-	u := CharmHubServerURL
-	return &options{
-		url: &u,
-		transportFunc: func(logger Logger) Transport {
-			return DefaultHTTPTransport(logger)
-		},
-	}
-}
-
-// CharmHubConfig defines a charmHub client configuration for targeting the
-// charmhub API.
-func CharmHubConfig(logger Logger, options ...Option) (Config, error) {
-	opts := newOptions()
-	for _, option := range options {
-		option(opts)
-	}
-
-	if logger == nil {
-		return Config{}, errors.NotValidf("nil logger")
-	}
-
-	// By default we want to specify a default user-agent here. In the future
-	// we should ensure this probably contains model UUID and cloud.
-	headers := make(http.Header)
-	headers.Set(userAgentKey, userAgentValue)
-
-	// Additionally apply any metadata headers to the headers so we can send
-	// every time we make a request.
-	m := opts.metadataHeaders
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		headers.Add(MetadataHeader, k+"="+m[k])
-	}
-
-	chLogger := logger.ChildWithLabels("client", corelogger.CHARMHUB)
-	return Config{
-		URL:       *opts.url,
-		Version:   CharmHubServerVersion,
-		Entity:    CharmHubServerEntity,
-		Headers:   headers,
-		Transport: opts.transportFunc(chLogger.ChildWithLabels("transport", corelogger.HTTP)),
-		Logger:    chLogger,
-	}, nil
-}
-
-// CharmHubConfigFromURL defines a charmHub client configuration with a given
-// URL for targeting the API.
-func CharmHubConfigFromURL(url string, logger Logger, options ...Option) (Config, error) {
-	return CharmHubConfig(logger, append(options, WithURL(url))...)
-}
-
-// BasePath returns the base configuration path for speaking to the server API.
-func (c Config) BasePath() (charmhubpath.Path, error) {
-	baseURL := strings.TrimRight(c.URL, "/")
-	rawURL := fmt.Sprintf("%s/%s", baseURL, path.Join(c.Version, c.Entity))
+// basePath returns the base configuration path for speaking to the server API.
+func basePath(configURL string) (charmhubpath.Path, error) {
+	baseURL := strings.TrimRight(configURL, "/")
+	rawURL := fmt.Sprintf("%s/%s", baseURL, path.Join(serverVersion, serverEntity))
 	url, err := url.Parse(rawURL)
 	if err != nil {
 		return charmhubpath.Path{}, errors.Trace(err)
@@ -193,24 +93,38 @@ func (c Config) BasePath() (charmhubpath.Path, error) {
 // Client represents the client side of a charm store.
 type Client struct {
 	url             string
-	infoClient      *InfoClient
-	findClient      *FindClient
-	downloadClient  *DownloadClient
-	refreshClient   *RefreshClient
-	resourcesClient *ResourcesClient
+	infoClient      *infoClient
+	findClient      *findClient
+	downloadClient  *downloadClient
+	refreshClient   *refreshClient
+	resourcesClient *resourcesClient
 	logger          Logger
 }
 
-// NewClient creates a new charmHub client from the supplied configuration.
+// NewClient creates a new Charmhub client from the supplied configuration.
 func NewClient(config Config) (*Client, error) {
-	fileSystem := DefaultFileSystem()
-	return NewClientWithFileSystem(config, fileSystem)
-}
+	logger := config.Logger
+	if logger == nil {
+		return nil, errors.NotValidf("nil logger")
+	}
+	logger = logger.ChildWithLabels("client", corelogger.CHARMHUB)
 
-// NewClientWithFileSystem creates a new charmHub client from the supplied
-// configuration and a file system.
-func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, error) {
-	base, err := config.BasePath()
+	url := config.URL
+	if url == "" {
+		url = DefaultServerURL
+	}
+
+	httpClient := config.HTTPClient
+	if httpClient == nil {
+		httpClient = DefaultHTTPClient(logger)
+	}
+
+	fs := config.FileSystem
+	if fs == nil {
+		fs = fileSystem{}
+	}
+
+	base, err := basePath(url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -235,23 +149,23 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 		return nil, errors.Annotate(err, "constructing resources path")
 	}
 
-	config.Logger.Tracef("NewClient to %q", config.URL)
+	logger.Tracef("NewClient to %q", url)
 
-	apiRequester := NewAPIRequester(config.Transport, config.Logger)
-	apiRequestLogger := NewAPIRequesterLogger(apiRequester, config.Logger)
-	restClient := NewHTTPRESTClient(apiRequestLogger, config.Headers)
+	apiRequester := newAPIRequester(httpClient, logger)
+	apiRequestLogger := newAPIRequesterLogger(apiRequester, logger)
+	restClient := newHTTPRESTClient(apiRequestLogger)
 
 	return &Client{
 		url:           base.String(),
-		infoClient:    NewInfoClient(infoPath, restClient, config.Logger),
-		findClient:    NewFindClient(findPath, restClient, config.Logger),
-		refreshClient: NewRefreshClient(refreshPath, restClient, config.Logger),
+		infoClient:    newInfoClient(infoPath, restClient, logger),
+		findClient:    newFindClient(findPath, restClient, logger),
+		refreshClient: newRefreshClient(refreshPath, restClient, logger),
 		// download client doesn't require a path here, as the download could
 		// be from any server in theory. That information is found from the
 		// refresh response.
-		downloadClient:  NewDownloadClient(config.Transport, fileSystem, config.Logger),
-		resourcesClient: NewResourcesClient(resourcesPath, restClient, config.Logger),
-		logger:          config.Logger,
+		downloadClient:  newDownloadClient(httpClient, fs, logger),
+		resourcesClient: newResourcesClient(resourcesPath, restClient, logger),
+		logger:          logger,
 	}, nil
 }
 

@@ -34,16 +34,16 @@ func newInfoOptions() *infoOptions {
 	return &infoOptions{}
 }
 
-// InfoClient defines a client for info requests.
-type InfoClient struct {
+// infoClient defines a client for info requests.
+type infoClient struct {
 	path   path.Path
 	client RESTClient
 	logger Logger
 }
 
-// NewInfoClient creates a InfoClient for requesting
-func NewInfoClient(path path.Path, client RESTClient, logger Logger) *InfoClient {
-	return &InfoClient{
+// newInfoClient creates a infoClient for requesting
+func newInfoClient(path path.Path, client RESTClient, logger Logger) *infoClient {
+	return &infoClient{
 		path:   path,
 		client: client,
 		logger: logger,
@@ -52,7 +52,7 @@ func NewInfoClient(path path.Path, client RESTClient, logger Logger) *InfoClient
 
 // Info requests the information of a given charm. If that charm doesn't exist
 // an error stating that fact will be returned.
-func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
+func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
 	opts := newInfoOptions()
 	for _, option := range options {
 		option(opts)

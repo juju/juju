@@ -5,16 +5,16 @@ package charmhub
 import (
 	"context"
 	"encoding/json"
-	http "net/http"
+	"net/http"
 	"net/http/httptest"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	path "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 )
 
@@ -36,8 +36,8 @@ func (s *FindSuite) TestFind(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name)
 
-	client := NewFindClient(path, restClient, &FakeLogger{})
-	responses, err := client.Find(context.TODO(), name)
+	client := newFindClient(path, restClient, &FakeLogger{})
+	responses, err := client.Find(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
 	c.Assert(responses[0].Name, gc.Equals, name)
@@ -60,8 +60,8 @@ func (s *FindSuite) TestFindWithOptions(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, expect, name)
 
-	client := NewFindClient(path, restClient, &FakeLogger{})
-	responses, err := client.Find(context.TODO(), name, WithFindChannel("1.0/stable"), WithFindType("bundle"))
+	client := newFindClient(path, restClient, &FakeLogger{})
+	responses, err := client.Find(context.Background(), name, WithFindChannel("1.0/stable"), WithFindType("bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
 	c.Assert(responses[0].Name, gc.Equals, name)
@@ -79,8 +79,8 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(restClient)
 
-	client := NewFindClient(path, restClient, &FakeLogger{})
-	_, err := client.Find(context.TODO(), name)
+	client := newFindClient(path, restClient, &FakeLogger{})
+	_, err := client.Find(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -94,11 +94,11 @@ func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 		responses.Results = []transport.FindResponse{{
 			Name: name,
 		}}
-	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
+	}).Return(restResponse{StatusCode: http.StatusOK}, nil)
 }
 
 func (s *FindSuite) expectGetFailure(client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(restResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
@@ -166,20 +166,17 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	config := Config{
-		URL: server.URL,
-	}
-	basePath, err := config.BasePath()
+	basePath, err := basePath(server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(&FakeLogger{}), &FakeLogger{})
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
+	restClient := newHTTPRESTClient(apiRequester)
 
-	client := NewFindClient(findPath, restClient, &FakeLogger{})
-	responses, err := client.Find(context.TODO(), "wordpress")
+	client := newFindClient(findPath, restClient, &FakeLogger{})
+	responses, err := client.Find(context.Background(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responses, gc.DeepEquals, findResponses.Results)
 }
@@ -203,19 +200,16 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	config := Config{
-		URL: server.URL,
-	}
-	basePath, err := config.BasePath()
+	basePath, err := basePath(server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(&FakeLogger{}), &FakeLogger{})
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
+	restClient := newHTTPRESTClient(apiRequester)
 
-	client := NewFindClient(findPath, restClient, &FakeLogger{})
-	_, err = client.Find(context.TODO(), "wordpress")
+	client := newFindClient(findPath, restClient, &FakeLogger{})
+	_, err = client.Find(context.Background(), "wordpress")
 	c.Assert(err, gc.ErrorMatches, "not found error code")
 }

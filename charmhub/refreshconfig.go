@@ -68,7 +68,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, error) {
 			// is the installed date of the charm on the system.
 		}},
 		Actions: []transport.RefreshRequestAction{{
-			Action:      string(RefreshAction),
+			Action:      string(refreshAction),
 			InstanceKey: c.instanceKey,
 			ID:          &c.ID,
 		}},
@@ -94,7 +94,7 @@ type executeOne struct {
 	Base     RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
-	action            Action
+	action            action
 	instanceKey       string
 	resourceRevisions []transport.RefreshResourceRevision
 	fields            []string
@@ -176,7 +176,7 @@ type executeOneByRevision struct {
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
-	action      Action
+	action      action
 	fields      []string
 }
 

@@ -5,17 +5,17 @@ package charmhub
 
 import (
 	"io"
-	http "net/http"
+	"net/http"
 	"net/url"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	path "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/path"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/charmhub Transport,RESTClient,FileSystem,Logger
+//go:generate go run github.com/golang/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/charmhub HTTPClient,RESTClient,FileSystem,Logger
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

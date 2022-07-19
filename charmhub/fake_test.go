@@ -14,8 +14,6 @@ func (l *FakeLogger) IsTraceEnabled() bool {
 
 func (l *FakeLogger) Errorf(format string, args ...interface{}) {}
 
-func (l *FakeLogger) Debugf(format string, args ...interface{}) {}
-
 func (l *FakeLogger) Tracef(format string, args ...interface{}) {}
 
 func (l *FakeLogger) ChildWithLabels(string, ...string) loggo.Logger {

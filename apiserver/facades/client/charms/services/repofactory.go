@@ -21,8 +21,8 @@ type CharmRepoFactoryConfig struct {
 	// The logger to use.
 	Logger loggo.Logger
 
-	// A transport that is injected when making charmhub API calls.
-	CharmhubTransport charmhub.Transport
+	// An HTTP client that is injected when making Charmhub API calls.
+	CharmhubHTTPClient charmhub.HTTPClient
 
 	StateBackend StateBackend
 	ModelBackend ModelBackend
@@ -32,10 +32,10 @@ type CharmRepoFactoryConfig struct {
 // repositories allowing them to be reused by subsequent GetCharmRepository
 // calls.
 type CharmRepoFactory struct {
-	logger            loggo.Logger
-	charmhubTransport charmhub.Transport
-	stateBackend      StateBackend
-	modelBackend      ModelBackend
+	logger             loggo.Logger
+	charmhubHTTPClient charmhub.HTTPClient
+	stateBackend       StateBackend
+	modelBackend       ModelBackend
 
 	mu            sync.Mutex
 	memoizedRepos map[corecharm.Source]corecharm.Repository
@@ -44,11 +44,11 @@ type CharmRepoFactory struct {
 // NewCharmRepoFactory returns a new factory instance with the provided configuration.
 func NewCharmRepoFactory(cfg CharmRepoFactoryConfig) *CharmRepoFactory {
 	return &CharmRepoFactory{
-		logger:            cfg.Logger,
-		charmhubTransport: cfg.CharmhubTransport,
-		stateBackend:      cfg.StateBackend,
-		modelBackend:      cfg.ModelBackend,
-		memoizedRepos:     make(map[corecharm.Source]corecharm.Repository),
+		logger:             cfg.Logger,
+		charmhubHTTPClient: cfg.CharmhubHTTPClient,
+		stateBackend:       cfg.StateBackend,
+		modelBackend:       cfg.ModelBackend,
+		memoizedRepos:      make(map[corecharm.Source]corecharm.Repository),
 	}
 }
 
@@ -80,25 +80,12 @@ func (f *CharmRepoFactory) GetCharmRepository(src corecharm.Source) (corecharm.R
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		options := []charmhub.Option{
-			charmhub.WithHTTPTransport(func(charmhub.Logger) charmhub.Transport {
-				return f.charmhubTransport
-			}),
-		}
-
-		var chCfg charmhub.Config
-		chURL, ok := cfg.CharmHubURL()
-		if ok {
-			chCfg, err = charmhub.CharmHubConfigFromURL(chURL, f.logger.Child("charmhubrepo"), options...)
-		} else {
-			chCfg, err = charmhub.CharmHubConfig(f.logger.Child("charmhubrepo"), options...)
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		chClient, err := charmhub.NewClient(chCfg)
+		chURL, _ := cfg.CharmHubURL()
+		chClient, err := charmhub.NewClient(charmhub.Config{
+			URL:        chURL,
+			HTTPClient: f.charmhubHTTPClient,
+			Logger:     f.logger.Child("charmhubrepo"),
+		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

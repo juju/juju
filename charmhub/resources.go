@@ -14,16 +14,16 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
-// ResourcesClient defines a client for resources requests.
-type ResourcesClient struct {
+// resourcesClient defines a client for resources requests.
+type resourcesClient struct {
 	path   path.Path
 	client RESTClient
 	logger Logger
 }
 
-// NewResourcesClient creates a ResourcesClient for requesting
-func NewResourcesClient(path path.Path, client RESTClient, logger Logger) *ResourcesClient {
-	return &ResourcesClient{
+// newResourcesClient creates a resourcesClient for requesting
+func newResourcesClient(path path.Path, client RESTClient, logger Logger) *resourcesClient {
+	return &resourcesClient{
 		path:   path,
 		client: client,
 		logger: logger,
@@ -32,7 +32,7 @@ func NewResourcesClient(path path.Path, client RESTClient, logger Logger) *Resou
 
 // ListResourceRevisions returns a slice of resource revisions for the provided
 // resource of the given charm.
-func (c *ResourcesClient) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
+func (c *resourcesClient) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
 	c.logger.Tracef("ListResourceRevisions(%s, %s)", charm, resource)
 	var resp transport.ResourcesResponse
 	path, err := c.path.Join(charm, resource, "revisions")

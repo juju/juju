@@ -15,13 +15,9 @@ import (
 // The following program attempts to locate series-less charms on charmhub.
 // These charms will not have a series or a map of containers.
 func main() {
-	logger := loggo.GetLogger("series")
-	config, err := charmhub.CharmHubConfig(logger)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client, err := charmhub.NewClient(config)
+	client, err := charmhub.NewClient(charmhub.Config{
+		Logger: loggo.GetLogger("series"),
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

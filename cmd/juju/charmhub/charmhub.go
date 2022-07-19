@@ -24,8 +24,8 @@ var logger = loggo.GetLogger("juju.cmd.juju.charmhub")
 func newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
 		arches: arch.AllArches(),
-		CharmHubClientFunc: func(config charmhub.Config, fs charmhub.FileSystem) (CharmHubClient, error) {
-			return charmhub.NewClientWithFileSystem(config, fs)
+		CharmHubClientFunc: func(config charmhub.Config) (CharmHubClient, error) {
+			return charmhub.NewClient(config)
 		},
 	}
 }
@@ -39,11 +39,11 @@ type charmHubCommand struct {
 	series      string
 	charmHubURL string
 
-	CharmHubClientFunc func(charmhub.Config, charmhub.FileSystem) (CharmHubClient, error)
+	CharmHubClientFunc func(charmhub.Config) (CharmHubClient, error)
 }
 
 func (c *charmHubCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.charmHubURL, "charmhub-url", charmhub.CharmHubServerURL, "specify the Charmhub URL for querying the store")
+	f.StringVar(&c.charmHubURL, "charmhub-url", charmhub.DefaultServerURL, "specify the Charmhub URL for querying the store")
 }
 
 // Init initializes the info command, including validating the provided
@@ -63,7 +63,7 @@ func (c *charmHubCommand) Init(args []string) error {
 		c.charmHubURL = urlFromEnv
 	}
 	if c.charmHubURL == "" {
-		c.charmHubURL = charmhub.CharmHubServerURL
+		c.charmHubURL = charmhub.DefaultServerURL
 	}
 	_, err := url.ParseRequestURI(c.charmHubURL)
 	if err != nil {
