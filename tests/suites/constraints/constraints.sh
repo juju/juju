@@ -37,7 +37,7 @@ run_constraints_aws() {
 
   juju add-machine --constraints "root-disk=16G"
   juju add-machine --constraints "cores=4 root-disk=16G"
-  juju add-machine --constraints "instance-type=t2.nano"\
+  juju add-machine --constraints "instance-type=t2.nano"
 
   wait_for_machine_agent_status "0" "started"
   wait_for_machine_agent_status "1" "started"
