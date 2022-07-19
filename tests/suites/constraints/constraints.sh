@@ -6,40 +6,30 @@ run_constraints_aws() {
 
   ensure "constraints-aws" "${file}"
 
-	echo "Deploy 5 machines with different constraints"
+	echo "Deploy 3 machines with different constraints"
   juju add-machine --constraints "root-disk=16G"
-  juju add-machine --constraints "cores=4"
-  juju add-machine --constraints "cpu-power=30"
-  juju add-machine --constraints "root-disk=16G cpu-power=30"
-  juju add-machine --constraints "instance-type=i3.xlarge"
+  juju add-machine --constraints "cores=4 root-disk=16G"
+  juju add-machine --constraints "instance-type=t2.nano"
 
   wait_for_machine_agent_status "0" "started"
   wait_for_machine_agent_status "1" "started"
   wait_for_machine_agent_status "2" "started"
-  wait_for_machine_agent_status "3" "started"
-  wait_for_machine_agent_status "4" "started"
 
 	echo "Ensure machine 0 has 16G root disk"
   machine0_hardware=$(juju machines --format json | jq -r '.["machines"]["0"]["hardware"]')
-  check_contains "${machine0_hardware}" "root-disk=16384M"
+  machine0_rootdisk=$(echo $machine0_hardware | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
+  check_ge "${machine0_rootdisk}" "root-disk=16384M"
 
-	echo "Ensure machine 1 has 4 cores"
+	echo "Ensure machine 1 has 4 cores and 16G root disk"
   machine1_hardware=$(juju machines --format json | jq -r '.["machines"]["1"]["hardware"]')
-  check_contains "${machine1_hardware}" "cores=4"
+  machine1_cores=$(echo $machine1_hardware | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
+  machine1_rootdisk=$(echo $machine1_hardware | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
+  check_ge "${machine1_cores}" "cores=4"
+  check_ge "${machine1_rootdisk}" "root-disk=16384M"
 
-	echo "Ensure machine 2 limit cpu-power by 30"
-  machine2_constraints=$(juju machines --format json | jq -r '.["machines"]["2"]["constraints"]')
-  check_contains "${machine2_constraints}" "cpu-power=30"
-
-	echo "Ensure machine 3 has 16G root disk and limit of cpu power by 30"
-  machine3_hardware=$(juju machines --format json | jq -r '.["machines"]["3"]["hardware"]')
-  machine3_constraints=$(juju machines --format json | jq -r '.["machines"]["3"]["constraints"]')
-  check_contains "${machine3_hardware}" "root-disk=16384M"
-  check_contains "${machine3_constraints}" "cpu-power=30"
-
-	echo "Ensure machine 4 has i3.xlarge instance type"
-  machine4_constraints=$(juju machines --format json | jq -r '.["machines"]["4"]["constraints"]')
-  check_contains "${machine4_constraints}" "instance-type=i3.xlarge"
+	echo "Ensure machine 2 has t2.nano instance type"
+  machine2_constraints=$(juju machines --format json | jq -r '.["machines"]["2 "]["constraints"]')
+  check_contains "${machine2_constraints}" "instance-type=t2.nano"
 
   destroy_model "constraints-aws"
 }
