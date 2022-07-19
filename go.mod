@@ -231,8 +231,6 @@ require (
 // go: google.golang.org/grpc/naming@v0.0.0-00010101000000-000000000000: invalid version: unknown revision 000000000000
 replace google.golang.org/grpc/naming => google.golang.org/grpc v1.29.1
 
-replace github.com/altoros/gosigma => github.com/juju/gosigma v1.0.0
-
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
