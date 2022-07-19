@@ -28,7 +28,7 @@ run_constraints_aws() {
   check_ge "${machine1_rootdisk}" "root-disk=16384M"
 
 	echo "Ensure machine 2 has t2.nano instance type"
-  machine2_constraints=$(juju machines --format json | jq -r '.["machines"]["2 "]["constraints"]')
+  machine2_constraints=$(juju machines --format json | jq -r '.["machines"]["2"]["constraints"]')
   check_contains "${machine2_constraints}" "instance-type=t2.nano"
 
   destroy_model "constraints-aws"
