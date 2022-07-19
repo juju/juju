@@ -1,5 +1,5 @@
 name: appdata-source
-maintainer: Christian Muirhead <christian.muirhead@canonical.com>
+maintainer: Juju Crew <juju-crew@canonical.com>
 summary: Dummy charm that provides application data
 description: |
   This dummy charm is used to verify that application-level relationship data is sent correctly
@@ -9,10 +9,8 @@ requires:
 categories:
   - misc
 series:
-  - trusty
   - xenial
-  - artful
   - bionic
-  - eoan
   - focal
+  - jammy
 
