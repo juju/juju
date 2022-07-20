@@ -5,9 +5,11 @@
 package mocks
 
 import (
+	io "io"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	tools "github.com/juju/juju/tools"
 	version "github.com/juju/version/v2"
 )
 
@@ -77,15 +79,37 @@ func (mr *MockModelUpgraderAPIMockRecorder) Close() *gomock.Call {
 }
 
 // UpgradeModel mocks base method.
-func (m *MockModelUpgraderAPI) UpgradeModel(arg0 string, arg1 version.Number, arg2 string, arg3, arg4 bool) error {
+func (m *MockModelUpgraderAPI) UpgradeModel(arg0 string, arg1, arg2 version.Number, arg3 bool, arg4 string, arg5, arg6 bool) (version.Number, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpgradeModel", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "UpgradeModel", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret0, _ := ret[0].(version.Number)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // UpgradeModel indicates an expected call of UpgradeModel.
-func (mr *MockModelUpgraderAPIMockRecorder) UpgradeModel(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockModelUpgraderAPIMockRecorder) UpgradeModel(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeModel", reflect.TypeOf((*MockModelUpgraderAPI)(nil).UpgradeModel), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeModel", reflect.TypeOf((*MockModelUpgraderAPI)(nil).UpgradeModel), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}
+
+// UploadTools mocks base method.
+func (m *MockModelUpgraderAPI) UploadTools(arg0 io.ReadSeeker, arg1 version.Binary, arg2 ...string) (tools.List, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "UploadTools", varargs...)
+	ret0, _ := ret[0].(tools.List)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UploadTools indicates an expected call of UploadTools.
+func (mr *MockModelUpgraderAPIMockRecorder) UploadTools(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadTools", reflect.TypeOf((*MockModelUpgraderAPI)(nil).UploadTools), varargs...)
 }
