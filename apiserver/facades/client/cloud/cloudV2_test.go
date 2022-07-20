@@ -254,7 +254,8 @@ func (s *cloudSuiteV2) TestRemoveCloudInV2(c *gc.C) {
 	result, err := s.apiv2.RemoveClouds(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{}, {Error: &params.Error{Code: "unauthorized access", Message: "permission denied"}}}})
+		Results: []params.ErrorResult{{},
+			{Error: &params.Error{Code: "unauthorized access", Message: "permission denied"}}}})
 	s.backend.CheckCallNames(c, "ControllerTag", "GetCloudAccess", "RemoveCloud", "GetCloudAccess")
 	s.backend.CheckCall(c, 2, "RemoveCloud", "foo")
 }
@@ -298,7 +299,8 @@ func (s *cloudSuiteV2) TestUpdateCredentials(c *gc.C) {
 		},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "UpdateCloudCredential", "CredentialModels", "UpdateCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "UpdateCloudCredential", "CredentialModels",
+		"UpdateCloudCredential")
 	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
@@ -344,17 +346,20 @@ func (s *cloudSuiteV2) TestUpdateCredentialsWithBrokenModels(c *gc.C) {
 			"deadbeef-2f18-4fd2-967d-db9663db7bea": "testModel2",
 		}, nil
 	}
-	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential, migrating bool) (params.ErrorResults, error) {
-		if uuid := backend.(*mockModelBackend).uuid; uuid == coretesting.ModelTag.Id() {
-			return params.ErrorResults{[]params.ErrorResult{
-				{&params.Error{Message: "not valid for model"}},
-				{&params.Error{Message: "cannot find machine failure"}},
-			}}, nil
-		} else if uuid != "deadbeef-2f18-4fd2-967d-db9663db7bea" {
-			panic("bad uuid: " + uuid)
-		}
-		return params.ErrorResults{[]params.ErrorResult{}}, nil
-	})
+	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc,
+		func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext,
+			credentialTag names.CloudCredentialTag, credential *cloud.Credential, migrating bool) (params.ErrorResults,
+			error) {
+			if uuid := backend.(*mockModelBackend).uuid; uuid == coretesting.ModelTag.Id() {
+				return params.ErrorResults{[]params.ErrorResult{
+					{&params.Error{Message: "not valid for model"}},
+					{&params.Error{Message: "cannot find machine failure"}},
+				}}, nil
+			} else if uuid != "deadbeef-2f18-4fd2-967d-db9663db7bea" {
+				panic("bad uuid: " + uuid)
+			}
+			return params.ErrorResults{[]params.ErrorResult{}}, nil
+		})
 	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	results, err := s.apiv2.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "cloudcred-meep_bruce_three",
@@ -473,7 +478,8 @@ func (st *mockBackendV2) AllCloudCredentials(user names.UserTag) ([]state.Creden
 	return st.credentials, st.NextErr()
 }
 
-func (st *mockBackendV2) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error) {
+func (st *mockBackendV2) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess,
+	error) {
 	st.MethodCall(st, "CredentialModelsAndOwnerAccess", tag)
 	err := st.NextErr()
 	if err != nil {
@@ -579,4 +585,32 @@ func (st *mockBackendV2) GetCloudAccess(cloud string, user names.UserTag) (permi
 		return permission.NoAccess, errors.NotFoundf("cloud your-cloud")
 	}
 	return permission.AdminAccess, nil
+}
+
+type mockStatePool struct {
+	getF func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error)
+}
+
+func (m *mockStatePool) GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend,
+	context.ProviderCallContext, error) {
+	return m.getF(modelUUID)
+}
+
+func (m *mockStatePool) SystemState() (*state.State, error) {
+	return nil, nil
+}
+
+type mockModel struct {
+	uuid               string
+	cloud              string
+	cloudRegion        string
+	cloudValue         cloud.Cloud
+	cloudCredentialTag names.CloudCredentialTag
+	cfg                *config.Config
+}
+
+type mockModelBackend struct {
+	credentialcommon.PersistentBackend
+	uuid  string
+	model *mockModel
 }
