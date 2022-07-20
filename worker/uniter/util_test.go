@@ -810,13 +810,14 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
-			url, err := ctx.unit.CharmURL()
-			if err != nil {
-				c.Fatalf("cannot refresh unit: %v", err)
-			}
-			if url == nil {
+			urlStr := ctx.unit.CharmURL()
+			if urlStr == nil {
 				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
 				continue
+			}
+			url, err := corecharm.ParseURL(*urlStr)
+			if err != nil {
+				c.Fatalf("cannot refresh unit: %v", err)
 			}
 			if *url != *curl(s.charm) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), url.String())
@@ -1045,7 +1046,9 @@ func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	url, err := ctx.unit.CharmURL()
+	urlStr := ctx.unit.CharmURL()
+	c.Assert(urlStr, gc.NotNil)
+	url, err := corecharm.ParseURL(*urlStr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }

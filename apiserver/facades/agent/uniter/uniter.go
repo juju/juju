@@ -540,19 +540,14 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 			var unitOrApplication state.Entity
 			unitOrApplication, err = u.st.FindEntity(tag)
 			if err == nil {
-				// TODO (hmlanigan) 2022-06-08
-				// cURL can be a string pointer once unit.CharmURL()
-				// returns a string pointer as well.
-				var cURL *charm.URL
+				var cURL *string
 				var force bool
 
 				switch entity := unitOrApplication.(type) {
 				case *state.Application:
-					var cURLStr *string
-					cURLStr, force = entity.CharmURL()
-					cURL, err = charm.ParseURL(*cURLStr)
+					cURL, force = entity.CharmURL()
 				case *state.Unit:
-					cURL, err = entity.CharmURL()
+					cURL = entity.CharmURL()
 					// The force value is not actually used on the uniter's unit api.
 					if cURL != nil {
 						force = true
@@ -560,7 +555,7 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 				}
 
 				if cURL != nil {
-					result.Results[i].Result = cURL.String()
+					result.Results[i].Result = *cURL
 					result.Results[i].Ok = force
 				}
 			}

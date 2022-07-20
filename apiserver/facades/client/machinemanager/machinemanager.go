@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -341,7 +342,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
-func (mm *MachineManagerAPI) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
+func (mm *MachineManagerAPI) RetryProvisioning(p params.RetryProvisioningArgs) (params.ErrorResults, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -349,37 +350,33 @@ func (mm *MachineManagerAPI) RetryProvisioning(p params.Entities) (params.ErrorR
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(p.Entities)),
+	result := params.ErrorResults{}
+	machines, err := mm.st.AllMachines()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
 	}
-	for i, e := range p.Entities {
-		tag, err := names.ParseMachineTag(e.Tag)
+	wanted := set.NewStrings()
+	for _, tagStr := range p.Machines {
+		tag, err := names.ParseMachineTag(tagStr)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results = append(result.Results, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 			continue
 		}
-		if err := mm.updateInstanceStatus(tag, map[string]interface{}{"transient": true}); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+		wanted.Add(tag.Id())
+	}
+	for _, m := range machines {
+		if !p.All && !wanted.Contains(m.Id()) {
+			continue
+		}
+		if err := mm.maybeUpdateInstanceStatus(p.All, m, map[string]interface{}{"transient": true}); err != nil {
+			result.Results = append(result.Results, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 		}
 	}
 	return result, nil
 }
 
-type instanceStatus interface {
-	InstanceStatus() (status.StatusInfo, error)
-	SetInstanceStatus(sInfo status.StatusInfo) error
-}
-
-func (mm *MachineManagerAPI) updateInstanceStatus(tag names.Tag, data map[string]interface{}) error {
-	entity0, err := mm.st.FindEntity(tag)
-	if err != nil {
-		return err
-	}
-	statusGetterSetter, ok := entity0.(instanceStatus)
-	if !ok {
-		return apiservererrors.NotSupportedError(tag, "getting status")
-	}
-	existingStatusInfo, err := statusGetterSetter.InstanceStatus()
+func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data map[string]interface{}) error {
+	existingStatusInfo, err := m.InstanceStatus()
 	if err != nil {
 		return err
 	}
@@ -392,7 +389,12 @@ func (mm *MachineManagerAPI) updateInstanceStatus(tag names.Tag, data map[string
 		}
 	}
 	if len(newData) > 0 && existingStatusInfo.Status != status.Error && existingStatusInfo.Status != status.ProvisioningError {
-		return fmt.Errorf("%s is not in an error state (%v)", names.ReadableString(tag), existingStatusInfo.Status)
+		// If a specifc machine has been asked for and it's not in error, that's a problem.
+		if !all {
+			return fmt.Errorf("machine %s is not in an error state (%v)", m.Id(), existingStatusInfo.Status)
+		}
+		// Otherwise just skip it.
+		return nil
 	}
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
@@ -402,7 +404,7 @@ func (mm *MachineManagerAPI) updateInstanceStatus(tag names.Tag, data map[string
 		Data:    newData,
 		Since:   &now,
 	}
-	return statusGetterSetter.SetInstanceStatus(sInfo)
+	return m.SetInstanceStatus(sInfo)
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
