@@ -39,6 +39,7 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 		&backend{st, stateenvirons.EnvironConfigGetter{Model: m}, m.ModelTag()},
 		leadershipReader,
 		ctx.Auth(),
+		st.ControllerTag(),
 		context.CallContext(st))
 }
 

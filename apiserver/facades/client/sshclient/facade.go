@@ -22,9 +22,10 @@ import (
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
-	backend     Backend
-	authorizer  facade.Authorizer
-	callContext context.ProviderCallContext
+	backend       Backend
+	authorizer    facade.Authorizer
+	callContext   context.ProviderCallContext
+	controllerTag names.ControllerTag
 
 	leadershipReader leadership.Reader
 }
@@ -33,20 +34,26 @@ type FacadeV2 struct {
 	*Facade
 }
 
-func internalFacade(backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {
+func internalFacade(backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, controllerTag names.ControllerTag, callCtx context.ProviderCallContext) (*Facade, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	return &Facade{backend: backend, authorizer: auth, callContext: callCtx, leadershipReader: leadershipReader}, nil
+	return &Facade{backend: backend, authorizer: auth, callContext: callCtx, controllerTag: controllerTag, leadershipReader: leadershipReader}, nil
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
+	isSuperUser, err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.controllerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	isModelAdmin, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !isModelAdmin {
+
+	if !isModelAdmin && !isSuperUser {
 		return apiservererrors.ErrPerm
 	}
 	return nil
