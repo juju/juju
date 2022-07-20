@@ -192,7 +192,7 @@ func (d deployUploader) validateResources() error {
 }
 
 // charmStoreResources returns which resources revisions will need to be retrieved
-// either as they where explicitly requested by the user for that rev or they
+// either as they were explicitly requested by the user for that rev or they
 // weren't provided by the user.
 func (d deployUploader) charmStoreResources(uploads map[string]string, revisions map[string]int) []charmresource.Resource {
 	var resources []charmresource.Resource
