@@ -9,7 +9,7 @@ test_constraints_common() {
 
   		cd .. || exit
 
-  		case "${BOOTSTRAP_PROVIDER:-}" in
+      case "${BOOTSTRAP_PROVIDER:-}" in
       "lxd" | "lxd-remote" | "localhost")
         run "run_constraints_lxd"
         ;;
