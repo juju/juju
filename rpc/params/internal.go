@@ -782,6 +782,12 @@ type AgentVersionResult struct {
 	Version version.Number `json:"version"`
 }
 
+// RetryProvisioningArgs holds args for retrying machine provisioning.
+type RetryProvisioningArgs struct {
+	Machines []string `json:"machines,omitempty"`
+	All      bool     `json:"all"`
+}
+
 // ProvisioningInfoBase holds machine provisioning info common
 // across different versions of the provisioner API facade.
 type ProvisioningInfoBase struct {

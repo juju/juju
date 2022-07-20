@@ -28646,7 +28646,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/RetryProvisioningArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -29237,6 +29237,24 @@
                     "additionalProperties": false,
                     "required": [
                         "script"
+                    ]
+                },
+                "RetryProvisioningArgs": {
+                    "type": "object",
+                    "properties": {
+                        "all": {
+                            "type": "boolean"
+                        },
+                        "machines": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "all"
                     ]
                 },
                 "StringsResult": {
