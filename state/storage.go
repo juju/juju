@@ -638,7 +638,7 @@ func validateRemoveOwnerStorageInstanceOps(si *storageInstance) ([]txn.Op, error
 			Id: app.Name(),
 			Assert: bson.D{
 				{"life", Alive},
-				{"charmurl", ch.URL},
+				{"charmurl", ch.String()},
 			},
 		})
 	case names.UnitTagKind:

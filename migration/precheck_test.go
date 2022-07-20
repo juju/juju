@@ -6,7 +6,6 @@ package migration_test
 import (
 	"strings"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v2"
@@ -1071,12 +1070,12 @@ func (u *fakeUnit) ShouldBeAssigned() bool {
 	return true
 }
 
-func (u *fakeUnit) CharmURL() (*charm.URL, error) {
+func (u *fakeUnit) CharmURL() *string {
 	url := u.charmURL
 	if url == "" {
 		url = "cs:foo-1"
 	}
-	return charm.MustParseURL(url), nil
+	return &url
 }
 
 func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {

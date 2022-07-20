@@ -551,13 +551,13 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	}}
 	for i, t := range tests {
 		c.Logf("test %d: %s", i, t.about)
-		chURL, err := t.unit.CharmURL()
-		c.Assert(err, jc.ErrorIsNil)
+		chURL := t.unit.CharmURL()
+		c.Assert(chURL, gc.NotNil)
 		_, err = s.State.AddMetrics(
 			state.BatchParam{
 				UUID:     utils.MustNewUUID().String(),
 				Created:  now,
-				CharmURL: chURL.String(),
+				CharmURL: *chURL,
 				Metrics:  t.metrics,
 				Unit:     t.unit.UnitTag(),
 			},
