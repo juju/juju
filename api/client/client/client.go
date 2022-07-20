@@ -116,7 +116,10 @@ func (c *Client) Resolved(unit string, retry bool) error {
 // RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
 // TODO(juju3) - remove
-func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
+func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]params.ErrorResult, error) {
+	if all {
+		return nil, errors.New(`retry provisioning "all" not supported by this version of Juju`)
+	}
 	p := params.Entities{}
 	p.Entities = make([]params.Entity, len(machines))
 	for i, machine := range machines {
