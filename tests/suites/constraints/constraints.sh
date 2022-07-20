@@ -1,6 +1,6 @@
 test_constraints_common() {
   if [ "$(skip 'test_constraints_common')" ]; then
-  		echo "==> TEST SKIPPED: constraints common tests"
+  		echo "==> TEST SKIPPED: constraints"
   		return
   fi
 
@@ -9,15 +9,15 @@ test_constraints_common() {
 
   		cd .. || exit
 
-      case "${BOOTSTRAP_PROVIDER:-}" in
+  		case "${BOOTSTRAP_PROVIDER:-}" in
       "lxd" | "lxd-remote" | "localhost")
         run "run_constraints_lxd"
         ;;
-      "aws" | "ec2")
-        run "run_constraints_aws"
+      "microk8s")
+        echo "==> TEST SKIPPED: constraints - there are no test for k8s cloud"
         ;;
       *)
-        echo "==> TEST SKIPPED: constraints - tests for LXD and AWS only"
+        run "run_constraints_vm"
         ;;
       esac
   )
