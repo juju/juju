@@ -8,7 +8,7 @@ run_deploy_local_charm_revision() {
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
 
 	cd "${TMP}" || exit 1
-	git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
+	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
 	cd "${TMP}/ntp" || exit 1
 	SHA_OF_NTP=\"$(git describe --dirty --always)\"
 
@@ -38,11 +38,11 @@ run_deploy_local_charm_revision_no_vcs() {
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
 
 	cd "${TMP}" || exit 1
-	git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
+	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
 	cd "${TMP}/ntp" || exit 1
 	rm -rf .git
 	# make sure that no version file exists.
-	rm version
+	rm -f version
 
 	OUTPUT=$(juju deploy --debug . 2>&1)
 
@@ -61,7 +61,7 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
 
 	cd "${TMP}" || exit 1
-	git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
+	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
 	cd "${TMP}/ntp" || exit 1
 	rm -rf .git
 	touch version
@@ -101,7 +101,7 @@ run_deploy_local_charm_revision_relative_path() {
 	create_local_git_folder
 	SHA_OF_TMP=\"$(git describe --dirty --always)\"
 	# create ${TMP}/ntp git folder
-	git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
+	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
 
 	# state: ${TMP} is wrong git ${TMP}/ntp is correct git
 	juju deploy ./ntp 2>&1
@@ -138,7 +138,7 @@ run_deploy_local_charm_revision_invalid_git() {
 	TMP=$(mktemp -d -t ci-XXXXXXXXXX)
 
 	cd "${TMP_CHARM_GIT}" || exit 1
-	git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
+	git clone --depth=1 --quiet https://git.launchpad.net/ntp-charm ntp
 
 	cd "${TMP_CHARM_GIT}/ntp" || exit 1
 	WANTED_CHARM_SHA=\"$(git describe --dirty --always)\"
