@@ -14,7 +14,6 @@ test_constraints_common() {
         run "run_constraints_lxd"
         ;;
       "aws" | "ec2")
-        export BOOTSTRAP_PROVIDER="manual"
         run "run_constraints_aws"
         ;;
       *)
