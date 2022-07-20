@@ -3,33 +3,47 @@ run_model_migration() {
 	# Echo out to ensure nice output to the test suite.
 	echo
 
-	# The following ensures that a bootstrap juju exists.
-	file="${TEST_DIR}/test-model-migration.log"
-	ensure "model-migration" "${file}"
-
 	# Ensure we have another controller available.
 	bootstrap_alt_controller "alt-model-migration"
+	juju switch "alt-model-migration"
+	juju add-model "model-migration"
 
-	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju deploy ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	juju migrate "model-migration" "alt-model-migration"
-	juju switch "alt-model-migration"
+	# Capture logs to ensure they are migrated
+	old_logs="$(juju debug-log --no-tail -l DEBUG)"
+
+	juju migrate "model-migration" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 
 	# Wait for the new model migration to appear in the alt controller.
 	wait_for_model "model-migration"
 
 	# Once the model has appeared, switch to it.
-	juju switch "alt-model-migration:model-migration"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-migration"
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+
+	# Add a unit to ubuntu to ensure the model is functional
+	juju add-unit ubuntu
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
 
 	# Clean up.
 	destroy_controller "alt-model-migration"
 
-	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	# Add a unit to ubuntu to ensure the model is functional
+	juju add-unit ubuntu
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 2)"
+
+	# Assert old logs have been transfered over
+	new_logs="$(juju debug-log --no-tail --replay -l DEBUG)"
+	if [[ "${new_logs}" != *"${old_logs}"* ]]; then
+		echo "$(red 'logs failed to migrate')"
+		exit 1
+	fi
+
 	destroy_model "model-migration"
 }
 
