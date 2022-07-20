@@ -3,6 +3,10 @@ run_simplestream_metadata_last_stable() {
 
 	jujud_version=$(jujud_version)
 	previous_version=$(last_stable_version "${jujud_version}")
+	if [[ $previous_version == '--' ]]; then
+		echo "SKIPPING: no stable release for version ${jujud_version}"
+		exit 0
+	fi
 
 	exec_simplestream_metadata "stable" "juju" "${jujud_version}" "${previous_version}"
 }
@@ -15,9 +19,11 @@ run_simplestream_metadata_prior_stable() {
 	major=$(echo "${previous_version}" | cut -d '.' -f 1)
 	minor=$(echo "${previous_version}" | cut -d '.' -f 2)
 
-	action=$(snap info juju | grep -q "installed" || echo "install")
-	if [ "${action}" == "" ]; then
+	if snap info juju | grep -q "installed"
+	then
 		action="refresh"
+	else
+		action="install"
 	fi
 	for i in {1..3}; do
 		opts=""
@@ -25,7 +31,7 @@ run_simplestream_metadata_prior_stable() {
 			opts=" --amend"
 		fi
 		# shellcheck disable=SC2015
-		sudo snap "${action}" --classic juju --channel "${major}.${minor}/stable" "${opts}" 2>&1 && break || sleep 10
+		sudo snap "${action}" juju --classic --channel "${major}.${minor}/stable" "${opts}" 2>&1 && break || sleep 10
 	done
 
 	exec_simplestream_metadata "prior" "/snap/bin/juju" "${jujud_version}" "${previous_version}"
@@ -179,7 +185,12 @@ prior_stable_version() {
 
 	major=$(echo "${version}" | cut -d '.' -f 1)
 	minor=$(echo "${version}" | cut -d '.' -f 2)
-	minor=$((minor - 1))
+	if [[ minor -eq 0 ]]; then
+		major=$((major - 1))
+		minor=$(snap info juju | grep -E "^\s+${major}\.[0-9]+/stable" | awk '{print $2}' | awk -F. '{print $2}' | sort -n | tail -1)
+	else
+		minor=$((minor - 1))
+	fi
 
 	echo "$(snap info juju | grep -E "^\s+${major}\.${minor}/stable" | awk '{print $2}')"
 }
