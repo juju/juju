@@ -14,19 +14,26 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	modelmocks "github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
+	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/image"
+	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
-type modelManagerUpgradeSuite struct {
+type modelUpgradeSuite struct {
 	jujutesting.IsolationSuite
 
 	adminUser   names.UserTag
@@ -36,12 +43,13 @@ type modelManagerUpgradeSuite struct {
 	statePool        *mocks.MockStatePool
 	toolsFinder      *mocks.MockToolsFinder
 	bootstrapEnviron *mocks.MockBootstrapEnviron
-	blockChecker     *modelmocks.MockBlockCheckerInterface
+	blockChecker     *mocks.MockBlockCheckerInterface
+	registryProvider *registrymocks.MockRegistry
 }
 
-var _ = gc.Suite(&modelManagerUpgradeSuite{})
+var _ = gc.Suite(&modelUpgradeSuite{})
 
-func (s *modelManagerUpgradeSuite) SetUpTest(c *gc.C) {
+func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	adminUser := "admin"
@@ -54,12 +62,13 @@ func (s *modelManagerUpgradeSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *modelManagerUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *modelupgrader.ModelUpgraderAPI) {
+func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *modelupgrader.ModelUpgraderAPI) {
 	ctrl := gomock.NewController(c)
 	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
 	s.bootstrapEnviron = mocks.NewMockBootstrapEnviron(ctrl)
-	s.blockChecker = modelmocks.NewMockBlockCheckerInterface(ctrl)
+	s.blockChecker = mocks.NewMockBlockCheckerInterface(ctrl)
+	s.registryProvider = registrymocks.NewMockRegistry(ctrl)
 
 	api, err := modelupgrader.NewModelUpgraderAPI(
 		coretesting.ControllerTag,
@@ -69,51 +78,54 @@ func (s *modelManagerUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Control
 			return s.bootstrapEnviron, nil
 		},
 		s.blockChecker, s.authoriser, s.callContext,
+		func(docker.ImageRepoDetails) (registry.Registry, error) {
+			return s.registryProvider, nil
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl, api
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	err := api.UpgradeModel(params.UpgradeModel{ModelTag: "!!!"})
+	_, err := api.UpgradeModel(params.UpgradeModelParams{ModelTag: "!!!"})
 	c.Assert(err, gc.ErrorMatches, `"!!!" is not a valid tag`)
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("user"),
 	}
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	err := api.UpgradeModel(
-		params.UpgradeModel{
-			ModelTag:  coretesting.ModelTag.String(),
-			ToVersion: version.MustParse("3.0.0"),
+	_, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      coretesting.ModelTag.String(),
+			TargetVersion: version.MustParse("3.0.0"),
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
 	s.blockChecker.EXPECT().ChangeAllowed().Return(errors.Errorf("the operation has been blocked"))
 
-	err := api.UpgradeModel(
-		params.UpgradeModel{
-			ModelTag:  coretesting.ModelTag.String(),
-			ToVersion: version.MustParse("3.0.0"),
+	_, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      coretesting.ModelTag.String(),
+			TargetVersion: version.MustParse("3.0.0"),
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, `the operation has been blocked`)
 }
 
-func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, dryRun bool) {
+func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -138,6 +150,20 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 	var agentStream string
 	assertions := []*gomock.Call{
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+
+		// Decide/validate target version.
+		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
+			params.FindToolsResult{
+				List: []*coretools.Tools{
+					{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+				},
+			}, nil,
+		),
+		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
+		ctrlModel.EXPECT().Name().Return("controller"),
+		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
+
 		// 1. Check controller model.
 		// - check agent version;
 		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
@@ -229,32 +255,36 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *
 	}
 	if !dryRun {
 		assertions = append(assertions,
-			s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil),
-			ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.0.0"), &agentStream, false).Return(nil),
+			// s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil),
+			ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
 		)
 	}
 	gomock.InOrder(assertions...)
 
-	err = api.UpgradeModel(
-		params.UpgradeModel{
-			ModelTag:    ctrlModelTag.String(),
-			ToVersion:   version.MustParse("3.0.0"),
-			AgentStream: agentStream,
-			DryRun:      dryRun,
+	result, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      ctrlModelTag.String(),
+			TargetVersion: version.MustParse("3.9.99"),
+			ClientVersion: version.MustParse("2.9.99"),
+			AgentStream:   agentStream,
+			DryRun:        dryRun,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version.MustParse("3.9.99"),
+	})
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3(c *gc.C) {
 	s.assertUpgradeModelForControllerModelJuju3(c, false)
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.C) {
 	s.assertUpgradeModelForControllerModelJuju3(c, true)
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -279,6 +309,20 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 
 	gomock.InOrder(
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+
+		// Decide/validate target version.
+		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
+			params.FindToolsResult{
+				List: []*coretools.Tools{
+					{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+				},
+			}, nil,
+		),
+		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
+		ctrlModel.EXPECT().Name().Return("controller"),
+		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
+
 		// 1. Check controller model.
 		// - check agent version;
 		ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
@@ -378,14 +422,15 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed
 		model1.EXPECT().Name().Return("model-1"),
 	)
 
-	err = api.UpgradeModel(
-		params.UpgradeModel{
-			ModelTag:  ctrlModelTag.String(),
-			ToVersion: version.MustParse("3.0.0"),
+	_, err = api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      ctrlModelTag.String(),
+			TargetVersion: version.MustParse("3.9.99"),
+			ClientVersion: version.MustParse("2.9.99"),
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `
-cannot upgrade to "3.0.0" due to issues with these models:
+cannot upgrade to "3.9.99" due to issues with these models:
 "admin/controller":
 - current model ("2.9.1") has to be upgraded to "2.9.2" at least
 - unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
@@ -399,7 +444,7 @@ cannot upgrade to "3.0.0" due to issues with these models:
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)`[1:])
 }
 
-func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
+func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -412,11 +457,25 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool)
 	st := mocks.NewMockState(ctrl)
 	st.EXPECT().Release().AnyTimes()
 
+	s.statePool.EXPECT().Get(modelUUID).AnyTimes().Return(st, nil)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
 	var agentStream string
 	assertions := []*gomock.Call{
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
-		s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
-		st.EXPECT().Model().Return(model, nil),
+
+		// Decide/validate target version.
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
+			params.FindToolsResult{
+				List: []*coretools.Tools{
+					{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+				},
+			}, nil,
+		),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+		model.EXPECT().Name().Return("model-1"),
+
 		model.EXPECT().IsControllerModel().Return(false),
 
 		// - check no upgrade series in process.
@@ -452,32 +511,36 @@ func (s *modelManagerUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool)
 	}
 	if !dryRun {
 		assertions = append(assertions,
-			s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
-			st.EXPECT().SetModelAgentVersion(version.MustParse("3.0.0"), &agentStream, false).Return(nil),
+			// s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
+			st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
 		)
 	}
 	gomock.InOrder(assertions...)
 
-	err := api.UpgradeModel(
-		params.UpgradeModel{
-			ModelTag:    coretesting.ModelTag.String(),
-			ToVersion:   version.MustParse("3.0.0"),
-			AgentStream: agentStream,
-			DryRun:      dryRun,
+	result, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      coretesting.ModelTag.String(),
+			TargetVersion: version.MustParse("3.9.99"),
+			ClientVersion: version.MustParse("2.9.99"),
+			AgentStream:   agentStream,
+			DryRun:        dryRun,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
+		ChosenVersion: version.MustParse("3.9.99"),
+	})
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3(c *gc.C) {
 	s.assertUpgradeModelJuju3(c, false)
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
 	s.assertUpgradeModelJuju3(c, true)
 }
 
-func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -490,10 +553,24 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	st := mocks.NewMockState(ctrl)
 	st.EXPECT().Release()
 
+	s.statePool.EXPECT().Get(modelUUID).AnyTimes().Return(st, nil)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
 	gomock.InOrder(
 		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
-		s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
-		st.EXPECT().Model().Return(model, nil),
+
+		// Decide/validate target version.
+		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
+			params.FindToolsResult{
+				List: []*coretools.Tools{
+					{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+				},
+			}, nil,
+		),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+		model.EXPECT().Name().Return("model-1"),
+
 		model.EXPECT().IsControllerModel().Return(false),
 
 		// - check no upgrade series in process.
@@ -534,22 +611,23 @@ func (s *modelManagerUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
-	err := api.UpgradeModel(
-		params.UpgradeModel{
-			ModelTag:  coretesting.ModelTag.String(),
-			ToVersion: version.MustParse("3.0.0"),
+	_, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      coretesting.ModelTag.String(),
+			TargetVersion: version.MustParse("3.9.99"),
+			ClientVersion: version.MustParse("2.9.99"),
 		},
 	)
 	c.Logf(err.Error())
 	c.Assert(err.Error(), gc.Equals, `
-cannot upgrade to "3.0.0" due to issues with these models:
+cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)`[1:])
 }
 
-func (s *modelManagerUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
+func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -564,4 +642,503 @@ func (s *modelManagerUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	)
 	err := api.AbortModelUpgrade(params.ModelParam{ModelTag: coretesting.ModelTag.String()})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*coretools.Tools{
+			{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
+		},
+	}
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
+			Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+	)
+
+	result, err := api.FindTools(
+		st, model, 2, 0, version.MustParse("2.9.9"), "", "", "",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, coretools.Versions{
+		&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
+	})
+}
+
+func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*coretools.Tools{
+			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		},
+	}
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2}).
+			Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+
+		st.EXPECT().ControllerConfig().Return(controller.Config{
+			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
+			controller.CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
+		}, nil),
+		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
+			image.NewImageInfo(version.MustParse("2.9.8")),    // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.9")),    // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.10.1")), // skip: current is stable build.
+			image.NewImageInfo(version.MustParse("2.9.10")),
+			image.NewImageInfo(version.MustParse("2.9.11")),
+			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
+		}, nil),
+		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
+		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		s.registryProvider.EXPECT().Close().Return(nil),
+	)
+
+	result, err := api.FindTools(
+		st, model, 2, 0, version.MustParse("2.9.9"), "", "", "",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, coretools.Versions{
+		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+	})
+}
+
+func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*coretools.Tools{
+			{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.9.12-ubuntu-amd64")},
+		},
+	}
+	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
+			Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+
+		st.EXPECT().ControllerConfig().Return(controller.Config{
+			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
+			controller.CAASImageRepo: `
+{
+    "serveraddress": "quay.io",
+    "auth": "xxxxx==",
+    "repository": "test-account"
+}
+`[1:],
+		}, nil),
+		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
+			image.NewImageInfo(version.MustParse("2.9.8")), // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.9")), // skip: older than current version.
+			image.NewImageInfo(version.MustParse("2.9.10.1")),
+			image.NewImageInfo(version.MustParse("2.9.10")),
+			image.NewImageInfo(version.MustParse("2.9.11")),
+			image.NewImageInfo(version.MustParse("2.9.12")),
+			image.NewImageInfo(version.MustParse("2.9.13")), // skip: it's not released in simplestream yet.
+		}, nil),
+		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
+		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
+		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.12").Return("", errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
+		s.registryProvider.EXPECT().Close().Return(nil),
+	)
+
+	result, err := api.FindTools(
+		st, model, 2, 0, version.MustParse("2.9.9.1"), "", "", envtools.DevelStream,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, coretools.Versions{
+		&coretools.Tools{Version: version.MustParseBinary("2.9.10.1-ubuntu-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+	})
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionIncompatibleClient(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("1.9.99"), version.Zero, version.MustParse("3.9.99"), false, "", st, model,
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade a 3.9.99 model with a 1.9.99 client`)
+	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionFindToolUseClientMajor(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+			MajorVersion: 3, // client major.
+			MinorVersion: -1,
+		}).Return(params.FindToolsResult{}, errors.New(`fail to exit early`)),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+	)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("3.9.98"), version.Zero, version.MustParse("3.9.99"), false, "", st, model,
+	)
+	c.Assert(err, gc.ErrorMatches, `fail to exit early`)
+	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+			MajorVersion: 4, // target major.
+			MinorVersion: -1,
+		}).Return(params.FindToolsResult{}, errors.New(`fail to exit early`)),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+	)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("3.9.98"), version.MustParse("4.9.99"), version.MustParse("3.9.99"), false, "", st, model,
+	)
+	c.Assert(err, gc.ErrorMatches, `fail to exit early`)
+	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionFindToolUseClientPriorMajor(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+			MajorVersion: 2, // client major -1 .
+			MinorVersion: -1,
+		}).Return(params.FindToolsResult{}, errors.New(`fail to exit early`)),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+	)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("3.9.98"), version.Zero, version.MustParse("2.9.99"), false, "", st, model,
+	)
+	c.Assert(err, gc.ErrorMatches, `fail to exit early`)
+	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*coretools.Tools{
+			{Version: version.MustParseBinary("3.9.98-ubuntu-amd64")},
+		},
+	}
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+			MajorVersion: 3, MinorVersion: -1,
+		}).Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+	)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("3.9.98"), version.MustParse("3.9.98"), version.MustParse("2.9.99"), false, "", st, model,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("3.9.98"))
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionNextStable(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*coretools.Tools{
+			{Version: version.MustParseBinary("2.9.100-ubuntu-amd64")},
+			{Version: version.MustParseBinary("2.10.99-ubuntu-amd64")},
+		},
+	}
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+			MajorVersion: 2, MinorVersion: -1,
+		}).Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+	)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("2.9.99"), version.Zero, version.MustParse("2.9.99"), false, "", st, model,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("2.10.99"))
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionNewestCurrent(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+
+	simpleStreams := params.FindToolsResult{
+		List: []*coretools.Tools{
+			{Version: version.MustParseBinary("2.9.100-ubuntu-amd64")},
+		},
+	}
+
+	gomock.InOrder(
+		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+			MajorVersion: 2, MinorVersion: -1,
+		}).Return(simpleStreams, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+	)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("2.9.99"), version.Zero, version.MustParse("2.9.99"), false, "", st, model,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("2.9.100"))
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionCanImplicitUpload(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+	model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS)
+
+	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+		MajorVersion: 2, MinorVersion: -1,
+	}).Return(params.FindToolsResult{}, nil)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("2.9.100"), version.Zero, version.MustParse("2.9.99.1"), true, "", st, model,
+	)
+	c.Assert(err, gc.ErrorMatches, `available agent tool, upload required`)
+	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(canImplicitUpload, jc.IsTrue)
+}
+
+func (s *modelUpgradeSuite) TestDecideVersionNoAvailableToolFoundAndUploadIsNotAllowed(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	st.EXPECT().Model().AnyTimes().Return(model, nil)
+	model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS)
+
+	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+		MajorVersion: 2, MinorVersion: -1,
+	}).Return(params.FindToolsResult{}, nil)
+
+	targetVersion, canImplicitUpload, err := api.DecideVersion(
+		version.MustParse("2.9.100"), version.Zero, version.MustParse("2.9.99"), true, "", st, model,
+	)
+	c.Assert(err, gc.ErrorMatches, `no more recent supported versions available`)
+	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestIsClientPublished(c *gc.C) {
+	published := modelupgrader.IsClientPublished(
+		version.MustParse("1.9.99"),
+		coretools.Versions{
+			&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
+		},
+	)
+	c.Assert(published, jc.IsFalse)
+
+	published = modelupgrader.IsClientPublished(
+		version.MustParse("2.9.6"),
+		coretools.Versions{
+			&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
+		},
+	)
+	c.Assert(published, jc.IsTrue)
+}
+
+func (s *modelUpgradeSuite) TestCheckClientCompatibility(c *gc.C) {
+	filterOnPrior, err := modelupgrader.CheckClientCompatibility(
+		version.MustParse("3.0.0"),
+		version.Zero,
+		version.MustParse("3.9.99"),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filterOnPrior, jc.IsFalse)
+
+	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
+		version.MustParse("3.0.0"),
+		version.Zero,
+		version.MustParse("2.9.99"),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filterOnPrior, jc.IsTrue)
+
+	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
+		version.MustParse("3.0.0"),
+		version.MustParse("2.9.99"),
+		version.MustParse("2.9.99"),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filterOnPrior, jc.IsTrue)
+
+	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
+		version.MustParse("2.9.99"),
+		version.MustParse("2.9.99"),
+		version.MustParse("3.0.0"),
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade a 3.0.0 model with a 2.9.99 client`)
+	c.Assert(filterOnPrior, jc.IsFalse)
+
+	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
+		version.MustParse("4.0.0"),
+		version.MustParse("2.9.99"),
+		version.MustParse("2.9.99"),
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade a 2.9.99 model with a 4.0.0 client`)
+	c.Assert(filterOnPrior, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestCheckCanImplicitUploadCAASModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().Type().Return(state.ModelTypeCAAS)
+
+	canImplicitUpload := modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.0.0"),
+		version.MustParse("3.9.99"),
+		false, false,
+	)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+}
+
+func (s *modelUpgradeSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	model := mocks.NewMockModel(ctrl)
+	model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS)
+
+	// Not newer client.
+	canImplicitUpload := modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.0.0"),
+		version.MustParse("3.0.0"),
+		false, false,
+	)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+
+	// Not newer client.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("2.9.99"),
+		version.MustParse("3.0.0"),
+		false, false,
+	)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+
+	// not offical client.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.9.99"),
+		version.MustParse("3.0.0"),
+		false, false,
+	)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+
+	// offical client but the client is a published version.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.9.99"),
+		version.MustParse("3.0.0"),
+		true, true,
+	)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+
+	// offical client and the client is not a published version,
+	// but both client and agent version with build number == 0.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.9.99"),
+		version.MustParse("3.0.0"),
+		true, false,
+	)
+	c.Assert(canImplicitUpload, jc.IsFalse)
+
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.9.99.1"),
+		version.MustParse("3.0.0"),
+		true, false,
+	)
+	c.Assert(canImplicitUpload, jc.IsTrue)
+
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.9.99"),
+		version.MustParse("3.0.0.1"),
+		true, false,
+	)
+	c.Assert(canImplicitUpload, jc.IsTrue)
 }
