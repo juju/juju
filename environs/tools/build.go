@@ -285,9 +285,9 @@ func buildJujus(dir string) error {
 	return nil
 }
 
-func packageLocalTools(toolsDir string, buildAgent, skipCopyVersionFile bool) error {
+func packageLocalTools(toolsDir string, buildAgent bool) error {
 	if !buildAgent {
-		if err := copyExistingJujus(toolsDir, skipCopyVersionFile); err != nil {
+		if err := copyExistingJujus(toolsDir, true); err != nil {
 			return errors.New("no prepackaged agent available and no jujud binary can be found")
 		}
 		return nil
@@ -301,13 +301,17 @@ func packageLocalTools(toolsDir string, buildAgent, skipCopyVersionFile bool) er
 
 // BundleToolsFunc is a function which can bundle all the current juju tools
 // in gzipped tar format to the given writer.
-type BundleToolsFunc func(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, bool, string, error)
+type BundleToolsFunc func(
+	build bool, w io.Writer,
+	getForceVersion func(localBinaryVersion version.Number) version.Number,
+) (version.Binary, version.Number, bool, string, error)
 
 // Override for testing.
 var BundleTools BundleToolsFunc = func(
-	build bool, w io.Writer, forceVersion *version.Number,
-) (version.Binary, bool, string, error) {
-	return bundleTools(build, w, forceVersion, JujudVersion)
+	build bool, w io.Writer,
+	getForceVersion func(localBinaryVersion version.Number) version.Number,
+) (version.Binary, version.Number, bool, string, error) {
+	return bundleTools(build, w, getForceVersion, JujudVersion)
 }
 
 // bundleTools bundles all the current juju tools in gzipped tar
@@ -315,51 +319,51 @@ var BundleTools BundleToolsFunc = func(
 // file isn't an official build, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
 func bundleTools(
-	build bool, w io.Writer, forceVersion *version.Number, jujudVersion func(dir string) (version.Binary, bool, error),
-) (_ version.Binary, official bool, sha256hash string, _ error) {
+	build bool, w io.Writer,
+	getForceVersion func(localBinaryVersion version.Number) version.Number,
+	jujudVersion func(dir string) (version.Binary, bool, error),
+) (_ version.Binary, _ version.Number, official bool, sha256hash string, _ error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
-		return version.Binary{}, false, "", err
+		return version.Binary{}, version.Number{}, false, "", err
 	}
 	defer os.RemoveAll(dir)
 
 	existingJujuLocation, err := ExistingJujuLocation()
 	if err != nil {
-		return version.Binary{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
+		return version.Binary{}, version.Number{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
 	}
 	_, official, err = jujudVersion(existingJujuLocation)
 	if err != nil {
-		return version.Binary{}, official, "", errors.Trace(err)
+		return version.Binary{}, version.Number{}, official, "", errors.Trace(err)
 	}
 	if official && build {
-		return version.Binary{}, official, "", errors.Errorf("cannot build agent for official build")
+		return version.Binary{}, version.Number{}, official, "", errors.Errorf("cannot build agent for official build")
 	}
 
-	writeForceVersion := forceVersion != nil
-	if err := packageLocalTools(dir, build, writeForceVersion); err != nil {
-		return version.Binary{}, false, "", err
+	if err := packageLocalTools(dir, build); err != nil {
+		return version.Binary{}, version.Number{}, false, "", err
 	}
 
 	// We need to get the version again because the juju binaries at dir might be built from source code.
 	tvers, official, err := jujudVersion(dir)
 	if err != nil {
-		return version.Binary{}, false, "", errors.Trace(err)
+		return version.Binary{}, version.Number{}, false, "", errors.Trace(err)
 	}
 	if official {
 		logger.Debugf("using official version %s", tvers)
 	}
-	if writeForceVersion {
-		logger.Debugf("forcing version to %s", forceVersion)
-		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
-			return version.Binary{}, false, "", err
-		}
+	forceVersion := getForceVersion(tvers.Number)
+	logger.Debugf("forcing version to %s", forceVersion)
+	if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
+		return version.Binary{}, version.Number{}, false, "", err
 	}
 
 	sha256hash, err = archiveAndSHA256(w, dir)
 	if err != nil {
-		return version.Binary{}, false, "", err
+		return version.Binary{}, version.Number{}, false, "", err
 	}
-	return tvers, official, sha256hash, err
+	return tvers, forceVersion, official, sha256hash, err
 }
 
 // Override for testing.

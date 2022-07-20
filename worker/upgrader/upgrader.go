@@ -113,10 +113,7 @@ func AllowedTargetVersion(
 	targetVersion version.Number,
 ) bool {
 	// Don't allow downgrading from higher major versions.
-	if curVersion.Major > targetVersion.Major {
-		return false
-	}
-	return true
+	return curVersion.Major <= targetVersion.Major
 }
 
 func (u *Upgrader) maybeCopyAgentBinary(dataDir, hostSeries string) (err error) {

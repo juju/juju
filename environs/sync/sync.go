@@ -226,7 +226,9 @@ var Upload UploadFunc = upload
 // them. If forceVersion is not nil, the uploaded tools bundle will report
 // the given version number.
 func upload(ss envtools.SimplestreamsFetcher, store storage.Storage, stream string, forceVersion *version.Number) (*coretools.Tools, error) {
-	builtTools, err := BuildAgentTarball(true, forceVersion, stream)
+	builtTools, err := BuildAgentTarball(true, stream,
+		func(localBinaryVersion version.Number) version.Number { return *forceVersion },
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -266,14 +268,19 @@ type BuiltAgent struct {
 }
 
 // BuildAgentTarballFunc is a function which can build an agent tarball.
-type BuildAgentTarballFunc func(build bool, forceVersion *version.Number, stream string) (*BuiltAgent, error)
+type BuildAgentTarballFunc func(
+	build bool, stream string, getForceVersion func(localBinaryVersion version.Number) version.Number,
+) (*BuiltAgent, error)
 
 // Override for testing.
 var BuildAgentTarball BuildAgentTarballFunc = buildAgentTarball
 
 // BuildAgentTarball bundles an agent tarball and places it in a temp directory in
 // the expected agent path.
-func buildAgentTarball(build bool, forceVersion *version.Number, stream string) (_ *BuiltAgent, err error) {
+func buildAgentTarball(
+	build bool, stream string,
+	getForceVersion func(localBinaryVersion version.Number) version.Number,
+) (_ *BuiltAgent, err error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -287,7 +294,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	toolsVersion, official, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
+	toolsVersion, forceVersion, official, sha256Hash, err := envtools.BundleTools(build, f, getForceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -304,14 +311,12 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 		return nil, errors.Errorf("cannot stat newly made agent binary archive: %v", err)
 	}
 	size := fileInfo.Size()
-	reportedVersion := toolsVersion
-	if !official && forceVersion != nil {
-		reportedVersion.Number = *forceVersion
-	}
 	if official {
 		logger.Infof("using official agent binary %v (%dkB)", toolsVersion, (size+512)/1024)
 	} else {
-		logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
+		logger.Infof("using agent binary %v aliased to %v (%dkB)",
+			toolsVersion, forceVersion, (size+512)/1024,
+		)
 	}
 	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
