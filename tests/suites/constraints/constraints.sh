@@ -6,6 +6,7 @@ run_constraints_lxd() {
 
   ensure "constraints-lxd" "${file}"
 
+  echo "Deploy 2 machines with different constraints"
   juju add-machine --constraints "cores=2"
   juju add-machine --constraints "cores=2 mem=2G"
 
@@ -35,6 +36,7 @@ run_constraints_aws() {
 
   ensure "constraints-aws" "${file}"
 
+  echo "Deploy 3 machines with different constraints"
   juju add-machine --constraints "root-disk=16G"
   juju add-machine --constraints "cores=4 root-disk=16G"
   juju add-machine --constraints "instance-type=t2.nano"
@@ -45,15 +47,15 @@ run_constraints_aws() {
 
   echo "Ensure machine 0 has 16G root disk"
   machine0_hardware=$(juju machines --format json | jq -r '.["machines"]["0"]["hardware"]')
-  machine0_cores=$(echo "$machine0_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
-  check_ge "${machine0_cores}" "root-disk=16384M"
+  machine0_rootdisk=$(echo "$machine0_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
+  check_ge "${machine0_rootdisk}" "root-disk=16384M"
 
   echo "Ensure machine 1 has 4 cores and 16G root disk"
   machine1_hardware=$(juju machines --format json | jq -r '.["machines"]["1"]["hardware"]')
   machine1_cores=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
-  machine1_mem=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
+  machine1_rootdisk=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
   check_ge "${machine1_cores}" "cores=4"
-  check_ge "${machine1_mem}" "root-disk=16384M"
+  check_ge "${machine1_rootdisk}" "root-disk=16384M"
 
 	echo "Ensure machine 2 has t2.nano instance type"
   machine2_constraints=$(juju machines --format json | jq -r '.["machines"]["2"]["constraints"]')
