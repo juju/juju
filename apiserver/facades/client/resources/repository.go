@@ -22,7 +22,7 @@ type NewCharmRepository interface {
 }
 
 // NOTE: There maybe a better way to do this.  Juju's charmhub package is equivalent
-// to charmstore.client.  Juju's charmstore package is what the charmHubClient is doing
+// to charmstore.client. Juju's charmstore package is what the charmHubClient is doing
 // here, making calls to the charmhub and returning data in a format that the facade
 // would like to see.
 
@@ -140,48 +140,21 @@ func newCharmHubClient(client CharmHub, logger Logger) *charmHubClient {
 }
 
 func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin, name string, revision int) (charmresource.Resource, error) {
-	if origin.ID == "" {
-		return charmresource.Resource{}, errors.Errorf("empty charm ID")
-	}
+	var configs []charmhub.RefreshConfig
+	var err error
 
-	// Get all the resource for everything and just find out which one matches.
-	// The order is expected to be kept so when the response is looped through
-	// we get channel, then revision.
-	var (
-		configs []charmhub.RefreshConfig
-		refBase = charmhub.RefreshBase{
-			Architecture: origin.Platform.Architecture,
-			Name:         origin.Platform.OS,
-			Channel:      origin.Platform.Series,
-		}
-	)
-
-	if sChan := origin.Channel.String(); sChan != "" {
-		cfg, err := charmhub.DownloadOneFromChannel(origin.ID, sChan, refBase)
-		if err != nil {
-			return charmresource.Resource{}, errors.Trace(err)
-		}
-		configs = append(configs, cfg)
+	// Due to async charm downloading we may not always have a charm ID to
+	// use for getting resource info, however it is preferred. A charm name
+	// is second best due to anticipation of charms being renamed in the
+	// future. The charm url may not change, but the ID will reference the
+	// new name.
+	if origin.ID != "" {
+		configs, err = configsByID(curl, origin, name, revision)
+	} else {
+		configs, err = configsByName(curl, origin, name, revision)
 	}
-	if rev := origin.Revision; rev != nil {
-		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev)
-		if err != nil {
-			return charmresource.Resource{}, errors.Trace(err)
-		}
-		if newCfg, ok := charmhub.AddResource(cfg, name, revision); ok {
-			cfg = newCfg
-		}
-		configs = append(configs, cfg)
-	}
-	if rev := curl.Revision; rev >= 0 {
-		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, rev)
-		if err != nil {
-			return charmresource.Resource{}, errors.Trace(err)
-		}
-		if newCfg, ok := charmhub.AddResource(cfg, name, revision); ok {
-			cfg = newCfg
-		}
-		configs = append(configs, cfg)
+	if err != nil {
+		return charmresource.Resource{}, err
 	}
 
 	refreshResp, err := ch.client.Refresh(context.TODO(), charmhub.RefreshMany(configs...))
@@ -205,6 +178,89 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 		}
 	}
 	return charmresource.Resource{}, errors.NotFoundf("charm resource %q at revision %d", name, revision)
+}
+
+func configsByID(curl *charm.URL, origin corecharm.Origin, name string, revision int) ([]charmhub.RefreshConfig, error) {
+	var (
+		configs []charmhub.RefreshConfig
+		refBase = charmhub.RefreshBase{
+			Architecture: origin.Platform.Architecture,
+			Name:         origin.Platform.OS,
+			Channel:      origin.Platform.Series,
+		}
+	)
+	// Get all the resources for everything and just find out which one matches.
+	// The order is expected to be kept so when the response is looped through
+	// we get channel, then revision.
+	if sChan := origin.Channel.String(); sChan != "" {
+		cfg, err := charmhub.DownloadOneFromChannel(origin.ID, sChan, refBase)
+		if err != nil {
+			return configs, errors.Trace(err)
+		}
+		configs = append(configs, cfg)
+	}
+	if rev := origin.Revision; rev != nil {
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev)
+		if err != nil {
+			return configs, errors.Trace(err)
+		}
+		if newCfg, ok := charmhub.AddResource(cfg, name, revision); ok {
+			cfg = newCfg
+		}
+		configs = append(configs, cfg)
+	}
+	if rev := curl.Revision; rev >= 0 {
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, rev)
+		if err != nil {
+			return configs, errors.Trace(err)
+		}
+		if newCfg, ok := charmhub.AddResource(cfg, name, revision); ok {
+			cfg = newCfg
+		}
+		configs = append(configs, cfg)
+	}
+	return configs, nil
+}
+
+func configsByName(curl *charm.URL, origin corecharm.Origin, name string, revision int) ([]charmhub.RefreshConfig, error) {
+	charmName := curl.Name
+	var configs []charmhub.RefreshConfig
+	// Get all the resource for everything and just find out which one matches.
+	// The order is expected to be kept so when the response is looped through
+	// we get channel, then revision.
+	if sChan := origin.Channel.String(); sChan != "" {
+		refBase := charmhub.RefreshBase{
+			Architecture: origin.Platform.Architecture,
+			Name:         origin.Platform.OS,
+			Channel:      origin.Platform.Series,
+		}
+		cfg, err := charmhub.DownloadOneFromChannelByName(charmName, sChan, refBase)
+		if err != nil {
+			return configs, errors.Trace(err)
+		}
+		configs = append(configs, cfg)
+	}
+	if rev := origin.Revision; rev != nil {
+		cfg, err := charmhub.DownloadOneFromRevisionByName(charmName, *rev)
+		if err != nil {
+			return configs, errors.Trace(err)
+		}
+		if newCfg, ok := charmhub.AddResource(cfg, name, revision); ok {
+			cfg = newCfg
+		}
+		configs = append(configs, cfg)
+	}
+	if rev := curl.Revision; rev >= 0 {
+		cfg, err := charmhub.DownloadOneFromRevisionByName(charmName, rev)
+		if err != nil {
+			return configs, errors.Trace(err)
+		}
+		if newCfg, ok := charmhub.AddResource(cfg, name, revision); ok {
+			cfg = newCfg
+		}
+		configs = append(configs, cfg)
+	}
+	return configs, nil
 }
 
 // ResolveResources, looks at the provided, charmhub and backend (already
