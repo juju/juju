@@ -47,7 +47,7 @@ type LXDProfileMachineV2 interface {
 type LXDProfileUnitV2 interface {
 	ApplicationName() string
 	AssignedMachineId() (string, error)
-	CharmURL() (*charm.URL, error)
+	CharmURL() *string
 	Name() string
 	Tag() names.Tag
 }

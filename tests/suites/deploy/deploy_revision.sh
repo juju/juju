@@ -11,7 +11,8 @@ run_deploy_revision() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
 
 	# check resource revision per channel specified.
-	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "1"'
+	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "1"')
+	check_contains "${got}" "true"
 
 	destroy_model "${model_name}"
 }
@@ -29,7 +30,8 @@ run_deploy_revision_resource() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
 
 	# check resource revision as specified in command.
-	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "4"'
+	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "4"')
+	check_contains "${got}" "true"
 
 	destroy_model "${model_name}"
 }

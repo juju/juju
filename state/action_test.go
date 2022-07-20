@@ -164,7 +164,10 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 		if t.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			curl, _ := t.whichUnit.CharmURL()
+			curlStr := t.whichUnit.CharmURL()
+			c.Assert(curlStr, gc.NotNil)
+			curl, err := charm.ParseURL(*curlStr)
+			c.Assert(err, jc.ErrorIsNil)
 			ch, _ := s.State.Charm(curl)
 			schema := ch.Actions()
 			c.Logf("Schema for unit %q:\n%#v", t.whichUnit.Name(), schema)

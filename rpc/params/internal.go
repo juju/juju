@@ -768,6 +768,12 @@ type AgentVersionResult struct {
 	Version version.Number `json:"version"`
 }
 
+// RetryProvisioningArgs holds args for retrying machine provisioning.
+type RetryProvisioningArgs struct {
+	Machines []string `json:"machines,omitempty"`
+	All      bool     `json:"all"`
+}
+
 // ProvisioningNetworkTopology holds a network topology that is based on
 // positive machine space constraints.
 // This is used for creating NICs on instances where the provider is not space

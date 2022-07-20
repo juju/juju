@@ -70,7 +70,8 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.vms = []*armcompute.VirtualMachine{{
 		Name: to.Ptr("machine-0"),
 		Tags: map[string]*string{
-			"juju-controller-uuid": to.Ptr("foo"),
+			"juju-controller-uuid": to.Ptr(testing.ControllerTag.Id()),
+			"juju-model-uuid":      to.Ptr(testing.ModelTag.Id()),
 			"juju-is-controller":   to.Ptr("true"),
 		},
 		Properties: &armcompute.VirtualMachineProperties{
@@ -99,6 +100,9 @@ func makeDeployment(name string, provisioningState armresources.ProvisioningStat
 		Properties: &armresources.DeploymentPropertiesExtended{
 			ProvisioningState: to.Ptr(provisioningState),
 			Dependencies:      dependencies,
+		},
+		Tags: map[string]*string{
+			"juju-model-uuid": to.Ptr(testing.ModelTag.Id()),
 		},
 	}
 }
@@ -647,7 +651,7 @@ func (s *instanceSuite) TestAllRunningInstances(c *gc.C) {
 func (s *instanceSuite) TestControllerInstancesSomePending(c *gc.C) {
 	*((s.deployments[1].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()
-	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
+	ids, err := s.env.ControllerInstances(s.callCtx, testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 2)
 	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
@@ -656,7 +660,7 @@ func (s *instanceSuite) TestControllerInstancesSomePending(c *gc.C) {
 
 func (s *instanceSuite) TestControllerInstances(c *gc.C) {
 	s.sender = s.getInstancesSender()
-	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
+	ids, err := s.env.ControllerInstances(s.callCtx, testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))

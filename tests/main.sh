@@ -44,6 +44,7 @@ TEST_NAMES="agents \
             caasadmission \
             charmhub \
             cli \
+            constraints \
             controller \
             ck \
             deploy \

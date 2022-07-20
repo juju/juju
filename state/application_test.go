@@ -2024,8 +2024,8 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// refcount.
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := u.CharmURL()
-	c.Assert(ok, jc.IsFalse)
+	charmURL := u.CharmURL()
+	c.Assert(charmURL, gc.IsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
 
@@ -2033,7 +2033,9 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// used by app as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	curl, err := u.CharmURL()
+	charmURL = u.CharmURL()
+	c.Assert(charmURL, gc.NotNil)
+	curl, err := charm.ParseURL(*charmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
 	assertSettingsRef(c, s.State, appName, oldCh, 2)

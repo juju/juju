@@ -94,6 +94,21 @@ func (mr *MockBackendMockRecorder) AddOneMachine(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOneMachine", reflect.TypeOf((*MockBackend)(nil).AddOneMachine), arg0)
 }
 
+// AllMachines mocks base method.
+func (m *MockBackend) AllMachines() ([]machinemanager.Machine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachines")
+	ret0, _ := ret[0].([]machinemanager.Machine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachines indicates an expected call of AllMachines.
+func (mr *MockBackendMockRecorder) AllMachines() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockBackend)(nil).AllMachines))
+}
+
 // AllSpaceInfos mocks base method.
 func (m *MockBackend) AllSpaceInfos() (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
@@ -122,21 +137,6 @@ func (m *MockBackend) Application(arg0 string) (machinemanager.Application, erro
 func (mr *MockBackendMockRecorder) Application(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockBackend)(nil).Application), arg0)
-}
-
-// FindEntity mocks base method.
-func (m *MockBackend) FindEntity(arg0 names.Tag) (state.Entity, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindEntity", arg0)
-	ret0, _ := ret[0].(state.Entity)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindEntity indicates an expected call of FindEntity.
-func (mr *MockBackendMockRecorder) FindEntity(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEntity", reflect.TypeOf((*MockBackend)(nil).FindEntity), arg0)
 }
 
 // GetBlockForType mocks base method.
@@ -657,6 +657,21 @@ func (mr *MockMachineMockRecorder) Id() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockMachine)(nil).Id))
 }
 
+// InstanceStatus mocks base method.
+func (m *MockMachine) InstanceStatus() (status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InstanceStatus")
+	ret0, _ := ret[0].(status.StatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InstanceStatus indicates an expected call of InstanceStatus.
+func (mr *MockMachineMockRecorder) InstanceStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceStatus", reflect.TypeOf((*MockMachine)(nil).InstanceStatus))
+}
+
 // IsLockedForSeriesUpgrade mocks base method.
 func (m *MockMachine) IsLockedForSeriesUpgrade() (bool, error) {
 	m.ctrl.T.Helper()
@@ -726,6 +741,20 @@ func (m *MockMachine) Series() string {
 func (mr *MockMachineMockRecorder) Series() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockMachine)(nil).Series))
+}
+
+// SetInstanceStatus mocks base method.
+func (m *MockMachine) SetInstanceStatus(arg0 status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetInstanceStatus indicates an expected call of SetInstanceStatus.
+func (mr *MockMachineMockRecorder) SetInstanceStatus(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockMachine)(nil).SetInstanceStatus), arg0)
 }
 
 // SetKeepInstance mocks base method.

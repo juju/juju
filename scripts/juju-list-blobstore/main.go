@@ -627,14 +627,12 @@ func (checker *ModelChecker) readApplicationsAndUnits() {
 		units, err := app.AllUnits()
 		checkErr(err, "AllUnits")
 		for _, unit := range units {
-			unitCharmURL, err := unit.CharmURL()
-			checkErr(err, "unit CharmURL")
+			unitCharmURL := unit.CharmURL()
 			if unitCharmURL == nil {
 				continue
 			}
-			unitString := unitCharmURL.String()
-			if unitString != *charmURL {
-				checker.unitReferencedCharms.Add(unitString, unit.Name())
+			if *unitCharmURL != *charmURL {
+				checker.unitReferencedCharms.Add(*unitCharmURL, unit.Name())
 			}
 			tools, err := unit.AgentTools()
 			checkErr(err, "unit AgentTools")
