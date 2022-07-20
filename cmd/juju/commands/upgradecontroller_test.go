@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -43,42 +44,52 @@ func (s *UpgradeControllerBaseSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
-var upgradeIAASControllerPassthroughTests = []upgradeTest{{
-	about:          "unwanted extra argument",
-	currentVersion: "1.0.0-ubuntu-amd64",
-	args:           []string{"foo"},
-	expectInitErr:  "unrecognized args:.*",
-}, {
-	about:          "invalid --agent-version value",
-	currentVersion: "1.0.0-ubuntu-amd64",
-	args:           []string{"--agent-version", "invalid-version"},
-	expectInitErr:  "invalid version .*",
-}, {
-	about:          "latest supported stable release",
-	available:      []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
-	currentVersion: "2.0.0-ubuntu-amd64",
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.1.3",
-}, {
-	about:          "latest supported stable, when client is dev, explicit upload",
-	available:      []string{"2.1-dev1-ubuntu-amd64", "2.1.0-ubuntu-amd64", "2.3-dev0-ubuntu-amd64", "3.0.1-ubuntu-amd64"},
-	currentVersion: "2.1-dev0-ubuntu-amd64",
-	agentVersion:   "2.0.0",
-	args:           []string{"--build-agent"},
-	expectVersion:  "2.1-dev0.1",
-}, {
-	about:          "upload with explicit version",
-	currentVersion: "2.2.0-ubuntu-amd64",
-	agentVersion:   "2.0.0",
-	args:           []string{"--build-agent", "--agent-version", "2.7.3"},
-	expectVersion:  "2.7.3.1",
-	expectUploaded: []string{"2.7.3.1-ubuntu-amd64"},
-}}
+var upgradeIAASControllerPassthroughTests = []upgradeTest{
+	{
+		about:          "unwanted extra argument",
+		currentVersion: "1.0.0-ubuntu-amd64",
+		args:           []string{"foo"},
+		expectInitErr:  "unrecognized args:.*",
+	}, {
+		about:          "invalid --agent-version value",
+		currentVersion: "1.0.0-ubuntu-amd64",
+		args:           []string{"--agent-version", "invalid-version"},
+		expectInitErr:  "invalid version .*",
+	}, {
+		about:          "latest supported stable release",
+		available:      []string{"2.1.0-ubuntu-amd64", "2.1.2-ubuntu-i386", "2.1.3-ubuntu-amd64", "2.1-dev1-ubuntu-amd64"},
+		currentVersion: "2.0.0-ubuntu-amd64",
+		agentVersion:   "2.0.0",
+		expectVersion:  "2.1.3",
+	}, {
+		about:          "latest supported stable, when client is dev, explicit upload",
+		available:      []string{"2.1-dev1-ubuntu-amd64", "2.1.0-ubuntu-amd64", "2.3-dev0-ubuntu-amd64", "3.0.1-ubuntu-amd64"},
+		currentVersion: "2.1-dev0-ubuntu-amd64",
+		agentVersion:   "2.0.0",
+		args:           []string{"--build-agent"},
+		expectVersion:  "2.1-dev0.1",
+	}, {
+		about:          "upload with explicit version",
+		currentVersion: "2.2.0-ubuntu-amd64",
+		agentVersion:   "2.0.0",
+		args:           []string{"--build-agent", "--agent-version", "2.7.3"},
+		expectVersion:  "2.7.3.1",
+		expectUploaded: []string{"2.7.3.1-ubuntu-amd64"},
+	},
+}
 
-func (s *UpgradeControllerBaseSuite) upgradeControllerCommand(*gc.C, *upgradeTest) (*gomock.Controller, cmd.Command) {
-	cmd := &upgradeControllerCommand{}
+func (s *UpgradeControllerBaseSuite) upgradeControllerCommand(c *gc.C, _ *upgradeTest) (*gomock.Controller, cmd.Command) {
+	ctrl := gomock.NewController(c)
+	s.modelUpgrader = mocks.NewMockModelUpgraderAPI(ctrl)
+	s.modelUpgrader.EXPECT().BestAPIVersion().AnyTimes().Return(0)
+	s.modelUpgrader.EXPECT().Close().AnyTimes()
+	cmd := &upgradeControllerCommand{
+		baseUpgradeCommand: baseUpgradeCommand{
+			modelUpgraderAPI: s.modelUpgrader,
+		},
+	}
 	cmd.SetClientStore(s.ControllerStore)
-	return nil, modelcmd.WrapController(cmd)
+	return ctrl, modelcmd.WrapController(cmd)
 }
 
 func (s *UpgradeControllerBaseSuite) TestUpgradeWithRealUpload(c *gc.C) {
@@ -92,7 +103,7 @@ func (s *UpgradeControllerBaseSuite) TestUpgradeWithRealUpload(c *gc.C) {
 	s.checkToolsUploaded(c, vers, vers.Number)
 }
 
-func (s *UpgradeControllerBaseSuite) TestUpgradeCorrectController(c *gc.C) {
+func (s *UpgradeControllerBaseSuite) TestUpgradeCorrectControllerLegacy(c *gc.C) {
 	badControllerName := "not-the-right-controller"
 	badControllerSelected := errors.New("bad controller selected")
 	upgradeCommand := func(c *gc.C, test *upgradeTest) (*gomock.Controller, cmd.Command) {
@@ -130,11 +141,11 @@ func (s *UpgradeControllerBaseSuite) TestUpgradeCorrectController(c *gc.C) {
 		},
 	}
 
-	s.assertUpgradeTests(c, tests, upgradeCommand)
+	s.assertUpgradeTestsLegacy(c, tests, upgradeCommand)
 }
 
-func (s *UpgradeControllerBaseSuite) TestUpgradeDryRun(c *gc.C) {
-	s.assertUpgradeDryRun(c, "upgrade-controller", s.upgradeControllerCommand)
+func (s *UpgradeControllerBaseSuite) TestUpgradeDryRunLegacy(c *gc.C) {
+	s.assertUpgradeDryRunLegacy(c, "upgrade-controller", s.upgradeControllerCommand)
 }
 
 func (s *UpgradeControllerBaseSuite) TestUpgradeWrongPermissions(c *gc.C) {
@@ -185,6 +196,8 @@ type UpgradeIAASControllerSuite struct {
 	UpgradeControllerBaseSuite
 }
 
+var _ = gc.Suite(&UpgradeIAASControllerSuite{})
+
 func (s *UpgradeIAASControllerSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS == "darwin" {
 		c.Skip("Mongo failures on macOS")
@@ -205,11 +218,9 @@ func (s *UpgradeIAASControllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UpgradeIAASControllerSuite) TestUpgrade(c *gc.C) {
-	s.assertUpgradeTests(c, upgradeIAASControllerPassthroughTests, s.upgradeControllerCommand)
+func (s *UpgradeIAASControllerSuite) TestUpgradeLegacy(c *gc.C) {
+	s.assertUpgradeTestsLegacy(c, upgradeIAASControllerPassthroughTests, s.upgradeControllerCommand)
 }
-
-var _ = gc.Suite(&UpgradeIAASControllerSuite{})
 
 type UpgradeCAASControllerSuite struct {
 	UpgradeBaseSuite
@@ -279,6 +290,6 @@ func (s *UpgradeCAASControllerSuite) upgradeModelCommand(*gc.C, *upgradeTest) (*
 	return nil, newUpgradeJujuCommandForTest(s.ControllerStore, nil, nil, nil, nil, nil)
 }
 
-func (s *UpgradeCAASControllerSuite) TestUpgrade(c *gc.C) {
-	s.UpgradeBaseSuite.assertUpgradeTests(c, upgradeCAASControllerTests, s.upgradeModelCommand)
+func (s *UpgradeCAASControllerSuite) TestUpgradeLegacy(c *gc.C) {
+	s.UpgradeBaseSuite.assertUpgradeTestsLegacy(c, upgradeCAASControllerTests, s.upgradeModelCommand)
 }

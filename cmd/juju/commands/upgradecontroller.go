@@ -98,11 +98,10 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 
 func (c *upgradeControllerCommand) upgradeController(ctx *cmd.Context, controllerModel string) error {
 	jcmd := &upgradeJujuCommand{
-		baseUpgradeCommand: baseUpgradeCommand{
-			upgradeMessage: "upgrade to this version by running\n    juju upgrade-controller",
-		},
-		jujuClientAPI: c.jujuClientAPI,
+		baseUpgradeCommand: c.baseUpgradeCommand,
+		jujuClientAPI:      c.jujuClientAPI,
 	}
+	jcmd.upgradeMessage = "upgrade to this version by running\n    juju upgrade-controller"
 	jcmd.SetClientStore(c.ClientStore())
 	wrapped := modelcmd.Wrap(jcmd)
 	args := append(c.rawArgs, "-m", controllerModel)
