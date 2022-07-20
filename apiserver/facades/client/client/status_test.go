@@ -459,7 +459,7 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	})
 }
 
-func (s *statusUnitTestSuite) TestUnitUpgradingFrom(c *gc.C) {
+func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-3"})
 	meteredCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-5"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
@@ -486,6 +486,58 @@ func (s *statusUnitTestSuite) TestUnitUpgradingFrom(c *gc.C) {
 	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(unitStatus.Charm, gc.Equals, "cs:quantal/metered-3")
+}
+
+func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
+	principalCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "cs:quantal/mysql"})
+	subordCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "cs:quantal/logging-1"})
+	subordCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "cs:quantal/logging-2"})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: principalCharm,
+		Name:  "principal",
+	})
+	pu := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	subordApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: subordCharm,
+		Name:  "subord",
+	})
+
+	subEndpoint, err := subordApp.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	principalEndpoint, err := app.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(subEndpoint, principalEndpoint)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(pu)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	subordUnit, err := s.State.Unit("subord/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = subordUnit.SetCharmURL(subordCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := apiclient.NewClient(s.APIState)
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	unitStatus, ok := status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(unitStatus.Charm, gc.Equals, "")
+
+	err = subordApp.SetCharm(state.SetCharmConfig{
+		Charm: subordCharmNew,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err = client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	unitStatus, ok = status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(unitStatus.Charm, gc.Equals, "cs:quantal/logging-1")
 }
 
 func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
