@@ -1550,7 +1550,18 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				result.Subordinates[name] = context.processUnit(subUnit, applicationCharm, true)
+				subUnitAppCharm := ""
+				subUnitApp, err := subUnit.Application()
+				if err != nil {
+					logger.Debugf("error fetching subordinate application for %q", subUnit.ApplicationName())
+				}
+				subUnitAppCh, _, err := subUnitApp.Charm()
+				if err == nil {
+					subUnitAppCharm = subUnitAppCh.String()
+				} else {
+					logger.Debugf("error fetching subordinate application charm for %q", subUnit.ApplicationName())
+				}
+				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
 			}
 		}
 	}
