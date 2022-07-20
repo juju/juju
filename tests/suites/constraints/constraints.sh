@@ -15,15 +15,12 @@ run_constraints_lxd() {
 
   echo "Ensure machine 0 has 2 cores"
   machine0_hardware=$(juju machines --format json | jq -r '.["machines"]["0"]["hardware"]')
-  machine0_cores=$(echo "$machine0_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
-  check_ge "${machine0_cores}" "cores=2"
+  check_contains "${machine0_hardware}" "cores=2"
 
   echo "Ensure machine 1 has 2 cores and 2G memory"
   machine1_hardware=$(juju machines --format json | jq -r '.["machines"]["1"]["hardware"]')
-  machine1_cores=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
-  machine1_mem=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /mem/){print $i}}}')
-  check_ge "${machine1_cores}" "cores=2"
-  check_ge "${machine1_mem}" "mem=2048M"
+  check_contains "${machine1_hardware}" "cores=2"
+  check_contains "${machine1_hardware}" "mem=2048M"
 
   destroy_model "constraints-lxd"
 }
