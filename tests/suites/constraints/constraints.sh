@@ -13,12 +13,12 @@ run_constraints_lxd() {
   wait_for_machine_agent_status "0" "started"
   wait_for_machine_agent_status "1" "started"
 
-	echo "Ensure machine 0 has 2 cores"
+  echo "Ensure machine 0 has 2 cores"
   machine0_hardware=$(juju machines --format json | jq -r '.["machines"]["0"]["hardware"]')
   machine0_cores=$(echo "$machine0_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
   check_ge "${machine0_cores}" "cores=2"
 
-	echo "Ensure machine 1 has 2 cores and 2G memory"
+  echo "Ensure machine 1 has 2 cores and 2G memory"
   machine1_hardware=$(juju machines --format json | jq -r '.["machines"]["1"]["hardware"]')
   machine1_cores=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
   machine1_mem=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /mem/){print $i}}}')
