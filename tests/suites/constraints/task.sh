@@ -13,7 +13,7 @@ test_constraints() {
 
 	bootstrap "test-constraints" "${file}"
 
-  test_constraints_common
+	test_constraints_common
 
 	destroy_controller "test-constraints"
 }

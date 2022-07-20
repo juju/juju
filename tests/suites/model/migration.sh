@@ -39,7 +39,7 @@ run_model_migration() {
 
 	# Assert old logs have been transfered over
 	new_logs="$(juju debug-log --no-tail --replay -l DEBUG)"
-	if [[ "${new_logs}" != *"${old_logs}"* ]]; then
+	if [[ ${new_logs} != *"${old_logs}"* ]]; then
 		echo "$(red 'logs failed to migrate')"
 		exit 1
 	fi

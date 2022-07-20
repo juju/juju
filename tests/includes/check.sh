@@ -94,7 +94,7 @@ check_ge() {
 	value=${1}
 	shift
 
-	if [[ ${input} > ${value} ]]  || [ "${input}" == "${value}" ]; then
+	if [[ ${input} > ${value} ]] || [ "${input}" == "${value}" ]; then
 		printf "Success: \"%s\" >= \"%s\"\n" "${input}" "${value}" >&2
 	else
 		printf "Expected \"%s\" >= \"%s\"\n" "${input}" "${value}" >&2
