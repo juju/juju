@@ -7,12 +7,12 @@ run_charmstore_charmrevisionupdater() {
 
 	ensure "${model_name}" "${file}"
 
-	# Deploy an old revision of mysql
-	juju deploy cs:mysql-55
+	# Deploy an old revision of postgresql
+	juju deploy cs:postgresql-238
 
 	# Wait for revision update worker to update the available revision.
-	# eg can-upgrade-to: cs:mysql-58
-	wait_for "cs:mysql-" '.applications["mysql"] | ."can-upgrade-to"'
+	# eg can-upgrade-to: cs:postgresql-239
+	wait_for "cs:postgresql-" '.applications["postgresql"] | ."can-upgrade-to"'
 
 	destroy_model "${model_name}"
 }
