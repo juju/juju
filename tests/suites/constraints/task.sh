@@ -13,7 +13,15 @@ test_constraints() {
 
 	bootstrap "test-constraints" "${file}"
 
-	test_constraints_aws
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+  "aws")
+    test_constraints_aws
+    ;;
+  "lxd")
+    test_constraints_lxd
+    ;;
+  esac
 
 	destroy_controller "test-constraints"
 }
