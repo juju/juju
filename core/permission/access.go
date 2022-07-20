@@ -53,7 +53,7 @@ func (a Access) Validate() error {
 // model access level.
 func ValidateModelAccess(access Access) error {
 	switch access {
-	case ReadAccess, WriteAccess, AdminAccess:
+	case ReadAccess, WriteAccess, SuperuserAccess, AdminAccess:
 		return nil
 	}
 	return errors.NotValidf("%q model access", access)
