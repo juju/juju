@@ -34583,7 +34583,7 @@
     {
         "Name": "ModelUpgrader",
         "Description": "ModelUpgraderAPI implements the model upgrader interface and is\nthe concrete implementation of the api end point.",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -34606,13 +34606,41 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpgradeModel"
+                            "$ref": "#/definitions/UpgradeModelParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UpgradeModelResult"
                         }
                     },
                     "description": "UpgradeModel upgrades a model."
                 }
             },
             "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
                 "ModelParam": {
                     "type": "object",
                     "properties": {
@@ -34653,11 +34681,14 @@
                         "Build"
                     ]
                 },
-                "UpgradeModel": {
+                "UpgradeModelParams": {
                     "type": "object",
                     "properties": {
                         "agent-stream": {
                             "type": "string"
+                        },
+                        "client-version": {
+                            "$ref": "#/definitions/Number"
                         },
                         "dry-run": {
                             "type": "boolean"
@@ -34668,14 +34699,37 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "to-version": {
+                        "official-client": {
+                            "type": "boolean"
+                        },
+                        "targer-version": {
                             "$ref": "#/definitions/Number"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
-                        "to-version"
+                        "targer-version",
+                        "client-version"
+                    ]
+                },
+                "UpgradeModelResult": {
+                    "type": "object",
+                    "properties": {
+                        "can-implicit-upload": {
+                            "type": "boolean"
+                        },
+                        "chosen-version": {
+                            "$ref": "#/definitions/Number"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "chosen-version",
+                        "can-implicit-upload"
                     ]
                 }
             }

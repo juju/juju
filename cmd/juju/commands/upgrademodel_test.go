@@ -388,10 +388,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuLegacy(c *gc.C) {
 	}), s.upgradeJujuCommandGoMock)
 }
 
-// func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
-// 	s.assertUpgradeTests(c, upgradeJujuTests, s.upgradeJujuCommandGoMock)
-// }
-
 func (s *UpgradeBaseSuite) TestFormatVersions(c *gc.C) {
 	toolIt := func(name string) *coretools.Tools {
 		return &coretools.Tools{
@@ -503,84 +499,6 @@ func (s *UpgradeBaseSuite) assertUpgradeTestsLegacy(c *gc.C, tests []upgradeTest
 		runTestCase(i, test)
 	}
 }
-
-// func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgradeJujuCommand upgradeCommandFunc) {
-// 	runTestCase := func(i int, test upgradeTest) {
-// 		c.Logf("\ntest %d: %s", i, test.about)
-// 		s.Reset(c)
-// 		tools.DefaultBaseURL = ""
-
-// 		// Set up apparent CLI version and initialize the command.
-// 		current := version.MustParseBinary(test.currentVersion)
-// 		s.PatchValue(&jujuversion.Current, current.Number)
-// 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-// 		s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
-// 		s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, test.upgradeMap)
-// 		ctrl, com := upgradeJujuCommand(c, &test)
-// 		goMocked := ctrl != nil
-// 		if goMocked {
-// 			defer ctrl.Finish()
-// 			s.modelUpgrader.EXPECT().BestAPIVersion().Return(1).AnyTimes()
-// 			if test.agentVersion != test.expectVersion && test.expectErr == "" && test.expectInitErr == "" {
-// 				s.modelUpgrader.EXPECT().UpgradeModel(
-// 					s.Model.ModelTag().Id(),
-// 					version.MustParse(test.currentVersion),
-// 					version.MustParse(test.expectVersion),
-// 					false, // TODO: official?
-// 					"",
-// 					false, false,
-// 				).Return(version.MustParse(test.expectVersion),
-// 					false, // TODO: CanImplicitUpload ????
-// 					nil,
-// 				)
-// 			}
-// 		}
-
-// 		if err := cmdtesting.InitCommand(com, test.args); err != nil {
-// 			if test.expectInitErr != "" {
-// 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
-// 			} else {
-// 				c.Check(err, jc.ErrorIsNil)
-// 			}
-// 			return
-// 		}
-
-// 		// Set up state and environ, and run the command.
-// 		testDir := c.MkDir()
-// 		updateAttrs := map[string]interface{}{
-// 			"agent-version":      test.agentVersion,
-// 			"agent-metadata-url": path.Join(testDir, "tools"),
-// 		}
-// 		err := s.Model.UpdateModelConfig(updateAttrs, nil)
-// 		c.Assert(err, jc.ErrorIsNil)
-// 		versions := make([]version.Binary, len(test.available))
-// 		for i, v := range test.available {
-// 			versions[i] = version.MustParseBinary(v)
-// 		}
-// 		if len(versions) > 0 {
-// 			stor, err := filestorage.NewFileStorageWriter(testDir)
-// 			c.Assert(err, jc.ErrorIsNil)
-// 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
-// 		}
-
-// 		err = com.Run(cmdtesting.Context(c))
-// 		if test.expectErr != "" {
-// 			c.Check(err, gc.ErrorMatches, test.expectErr)
-// 			return
-// 		} else if !c.Check(err, jc.ErrorIsNil) {
-// 			return
-// 		}
-
-// 		for _, uploaded := range test.expectUploaded {
-// 			vers := version.MustParseBinary(uploaded)
-// 			s.checkToolsUploaded(c, vers, version.MustParse(test.expectVersion))
-// 		}
-// 	}
-
-// 	for i, test := range tests {
-// 		runTestCase(i, test)
-// 	}
-// }
 
 func (s *UpgradeBaseSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
 	storage, err := s.State.ToolsStorage()
