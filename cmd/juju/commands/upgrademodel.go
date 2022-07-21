@@ -415,10 +415,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer modelUpgrader.Close()
 
-	logger.Criticalf("modelUpgrader.BestAPIVersion() => %d", modelUpgrader.BestAPIVersion())
 	if modelUpgrader.BestAPIVersion() == 0 {
 		// TODO(juju3) - remove
-		return c.upgradeModelLegacy(ctx, modelUpgrader, implicitAgentUploadAllowed, c.timeout)
+		return c.upgradeModelLegacy(ctx, implicitAgentUploadAllowed, c.timeout)
 	}
 	return c.upgradeModel(ctx, modelUpgrader, c.timeout)
 }
@@ -429,18 +428,10 @@ func uploadTools(
 	builtTools, err := sync.BuildAgentTarball(
 		buildAgent, "upgrade",
 		func(builtVersion version.Number) version.Number {
-			logger.Criticalf(
-				"uploadTools BuildAgentTarball 1 builtVersion %q",
-				builtVersion,
-			)
 			agentVersion.Build++
 			if agentVersion.Build > builtVersion.Build {
 				builtVersion.Build = agentVersion.Build
 			}
-			logger.Criticalf(
-				"uploadTools BuildAgentTarball 2 builtVersion %q",
-				builtVersion,
-			)
 			targetVersion = builtVersion
 			return builtVersion
 		},
@@ -456,15 +447,7 @@ func uploadTools(
 	}
 
 	uploadToolsVersion := builtTools.Version
-	logger.Criticalf(
-		"uploadTools BuildAgentTarball 1 uploadToolsVersion %q",
-		uploadToolsVersion,
-	)
 	uploadToolsVersion.Number = targetVersion
-	logger.Criticalf(
-		"uploadTools BuildAgentTarball 2 uploadToolsVersion %q",
-		uploadToolsVersion,
-	)
 
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
 	logger.Infof("uploading agent binary %v (%dkB) to Juju controller", targetVersion, (builtTools.Size+512)/1024)
@@ -478,11 +461,6 @@ func uploadTools(
 	if err != nil {
 		return targetVersion, errors.Trace(err)
 	}
-	// agents := make(coretools.Versions, len(uploaded))
-	// for i, t := range uploaded {
-	// 	agents[i] = t
-	// }
-	// context.packagedAgents = agents
 	return targetVersion, nil
 }
 
@@ -575,7 +553,6 @@ func (c *upgradeJujuCommand) upgradeModel(
 		if targetVersion, err = uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
-		logger.Criticalf("with --build-agent targetVersion %q, agentVersion %q", targetVersion, agentVersion)
 		builtMsg := " (built from source)"
 		fmt.Fprintf(ctx.Stdout,
 			"no prepackaged agent binaries available, using local agent binary %v%s\n",
@@ -590,7 +567,7 @@ func (c *upgradeJujuCommand) upgradeModel(
 		if err == nil {
 			// All good!
 			// Upgraded to a next version or latest stable version.
-			logger.Criticalf("All good!!! Upgraded to a next version or latest stable version.")
+			logger.Debugf("upgraded to a next version or latest stable version")
 			return nil
 		}
 		if err == errUpToDate {
@@ -603,13 +580,11 @@ func (c *upgradeJujuCommand) upgradeModel(
 		if !canImplicitUpload {
 			// expecting to upload a local binary but we are not allowed to upload, so pretend there
 			// is no more recent version available.
-			logger.Criticalf("expecting to upload the local binary first but are not allowed to do so, err %#v", err)
+			logger.Debugf("expecting to upload the local binary first but we are not allowed to do that, err %v", err)
 			return errUpToDate
 		}
 
 		// found a best target version but a local binary is required to be uploaded.
-		logger.Criticalf("local binary %q need to be uploaded first, err %#v", jujuversion.Current, err)
-
 		if targetVersion, err = uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
@@ -678,7 +653,6 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 			)
 		}
 		if errors.Is(err, errors.AlreadyExists) {
-			logger.Criticalf("modelUpgrader.UpgradeModel err %#v", err)
 			err = errUpToDate
 		}
 		return chosenVersion, canImplicitUpload, block.ProcessBlockedError(err, block.BlockChange)
@@ -693,7 +667,7 @@ you must first 'juju model-config -m controller agent-stream=%s'.
 `
 
 func (c *upgradeJujuCommand) upgradeModelLegacy(
-	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, implicitUploadAllowed bool, fetchTimeout time.Duration,
+	ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration,
 ) (err error) {
 	defer func() {
 		if err != nil {
@@ -774,10 +748,8 @@ func (c *upgradeJujuCommand) upgradeModelLegacy(
 	if err != nil {
 		return err
 	}
-	logger.Criticalf("legacy warnCompat %v", warnCompat)
 
 	upgradeCtx, versionsErr := c.initVersions(client, cfg, agentVersion, warnCompat, fetchTimeout)
-	logger.Criticalf("legacy upgradeCtx %v, versionsErr %v", upgradeCtx, versionsErr)
 	if versionsErr != nil {
 		return versionsErr
 	}

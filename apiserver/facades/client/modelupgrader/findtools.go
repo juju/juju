@@ -54,13 +54,11 @@ func (m *ModelUpgraderAPI) decideVersion(
 	clientVersion, targetVersion, agentVersion version.Number, officialClient bool,
 	agentStream string, st State, model Model,
 ) (_ version.Number, _ bool, err error) {
-	logger.Criticalf(
-		"decideVersion => clientVersion %q, targetVersion %q, agentVersion  %q, officialClient %v, agentStream %q",
+	logger.Debugf(
+		"deciding target version for model upgrade, %q, %q, %q, %v, %q",
 		clientVersion, targetVersion, agentVersion, officialClient, agentStream,
 	)
-	defer func() {
-		logger.Criticalf("decideVersion err %#v", err)
-	}()
+
 	filterOnPrior, err := checkClientCompatibility(clientVersion, targetVersion, agentVersion)
 	if err != nil {
 		return version.Zero, false, errors.Trace(err)
@@ -89,7 +87,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 			return version.Zero, false, errors.Wrap(err, errors.New("no matching agent versions available"))
 		}
 		targetVersion, packagedAgents = packagedAgents.Newest()
-		logger.Criticalf("found targetVersion %q, packagedAgents %#v", targetVersion, packagedAgents)
+		logger.Debugf("target version %q is the best version, packagedAgents %s", targetVersion, packagedAgents)
 		return targetVersion, false, nil
 	}
 
@@ -109,31 +107,26 @@ func (m *ModelUpgraderAPI) decideVersion(
 
 	newestNextStable, found := streamVersions.NewestCompatible(nextVersion)
 	if found {
-		// logger.Debugf("found a more recent stable version %s", newestNextStable)
-		logger.Criticalf("found a more recent stable version %s", newestNextStable)
+		logger.Debugf("found a more recent stable version %s", newestNextStable)
 		targetVersion = newestNextStable
 		return targetVersion, false, nil
 	}
 	newestCurrent, found := streamVersions.NewestCompatible(agentVersion)
 	if found {
-		if newestCurrent.Compare(agentVersion) == 0 {
-			return version.Zero, false, errUpToDate(agentVersion) // TODO !!!!
-		}
 		if newestCurrent.Compare(agentVersion) > 0 {
 			targetVersion = newestCurrent
-			// logger.Debugf("found more recent current version %s", newestCurrent)
-			logger.Criticalf("found more recent current version %s", newestCurrent)
+			logger.Debugf("found more recent current version %s", newestCurrent)
 			return targetVersion, false, nil
 		}
 	}
+
 	canImplicitUpload := checkCanImplicitUpload(
 		model, clientVersion, agentVersion, officialClient,
 		isClientPublished(clientVersion, streamVersions),
 	)
-	logger.Criticalf("checkCanImplicitUpload canImplicitUpload %v", canImplicitUpload)
 
-	logger.Criticalf("fetched stream versions %s, canImplicitUpload %v", streamVersions, canImplicitUpload)
 	if canImplicitUpload {
+		// CLI should upload the local build and retry.
 		return version.Zero, true, errors.NewNotFound(nil, "available agent tool, upload required")
 	}
 	// no available tool found, and we are not allowed to upload.
@@ -144,34 +137,30 @@ func checkCanImplicitUpload(
 	model Model, clientVersion, agentVersion version.Number,
 	isOfficialClient, isClientPublished bool,
 ) bool {
-	logger.Criticalf(
-		"checkCanImplicitUpload clientVersion %q, agentVersion %q, isOfficialClient %v, isClientPublished %v",
-		clientVersion, agentVersion, isOfficialClient, isClientPublished,
-	)
 	if model.Type() != state.ModelTypeIAAS {
-		return false
-	}
-	newerClient := clientVersion.Compare(agentVersion) > 0
-	if !newerClient {
-		return false
-	}
-	if !isOfficialClient {
-		// For non official (under $GOPATH) client, always use --build-agent explicitly.
+		logger.Tracef("the model is not IAAS model")
 		return false
 	}
 	if isClientPublished {
+		logger.Tracef("the client is a published client")
 		// For official (under /snap/juju/bin) client, upload only if the client is not a published version.
 		return false
 	}
-	if agentVersion.Build == 0 && clientVersion.Build == 0 {
+	if !isOfficialClient {
+		logger.Tracef("the client is not an official client")
+		// For non official (under $GOPATH) client, always use --build-agent explicitly.
 		return false
 	}
-	return true
-}
+	newerClient := clientVersion.Compare(agentVersion) > 0
+	if newerClient {
+		logger.Tracef("the client version is not newer than agent version")
+		return true
+	}
 
-func errUpToDate(agentVersion version.Number) error {
-	// TODO !!!!
-	return errors.AlreadyExistsf("errUpToDate %q", agentVersion)
+	if agentVersion.Build > 0 || clientVersion.Build > 0 {
+		return true
+	}
+	return false
 }
 
 func (m *ModelUpgraderAPI) findTools(
@@ -244,21 +233,18 @@ func (m *ModelUpgraderAPI) toolVersionsForCAAS(
 	}
 	for _, tag := range tags {
 		number := tag.AgentVersion()
-		logger.Criticalf("%q.Compare(%q) %v", number, agentVersion, number.Compare(agentVersion))
 		if number.Compare(agentVersion) <= 0 {
 			continue
 		}
 		if agentVersion.Build == 0 && number.Build > 0 {
 			continue
 		}
-		logger.Criticalf("number.Major %v, majorVersion %v", number.Major, majorVersion)
 		if majorVersion != -1 && number.Major != majorVersion {
 			continue
 		}
 		if !controllerCfg.Features().Contains(feature.DeveloperMode) && streamsVersions.Size() > 0 {
 			numberCopy := number
 			numberCopy.Build = 0
-			logger.Criticalf("streamsVersions.Contains(%q) %v", numberCopy, streamsVersions.Contains(numberCopy.String()))
 			if !streamsVersions.Contains(numberCopy.String()) {
 				continue
 			}
@@ -276,7 +262,6 @@ func (m *ModelUpgraderAPI) toolVersionsForCAAS(
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get architecture for %s:%s", imageName, number.String())
 		}
-		logger.Criticalf("arch %q, archFilter %q", arch, archFilter)
 		if archFilter != "" && arch != archFilter {
 			continue
 		}
@@ -287,7 +272,6 @@ func (m *ModelUpgraderAPI) toolVersionsForCAAS(
 				Arch:    arch,
 			},
 		}
-		logger.Criticalf("tools %q", tools)
 		result = append(result, &tools)
 	}
 	return result, nil

@@ -998,7 +998,9 @@ func (s *modelUpgradeSuite) TestDecideVersionNoAvailableToolFoundAndUploadIsNotA
 	}).Return(params.FindToolsResult{}, nil)
 
 	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("2.9.100"), version.Zero, version.MustParse("2.9.99"), true, "", st, model,
+		version.MustParse("2.9.100"), version.Zero, version.MustParse("2.9.99"),
+		false, // non official client is not allowed to upload.
+		"", st, model,
 	)
 	c.Assert(err, gc.ErrorMatches, `no more recent supported versions available`)
 	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
@@ -1085,31 +1087,18 @@ func (s *modelUpgradeSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	defer ctrl.Finish()
 
 	model := mocks.NewMockModel(ctrl)
-	model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS)
+	gomock.InOrder(
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS),
+	)
 
-	// Not newer client.
+	// Not IAAS model.
 	canImplicitUpload := modelupgrader.CheckCanImplicitUpload(model,
 		version.MustParse("3.0.0"),
 		version.MustParse("3.0.0"),
 		false, false,
 	)
-	c.Assert(canImplicitUpload, jc.IsFalse)
-
-	// Not newer client.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("2.9.99"),
-		version.MustParse("3.0.0"),
-		false, false,
-	)
-	c.Assert(canImplicitUpload, jc.IsFalse)
-
-	// not offical client.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.9.99"),
-		version.MustParse("3.0.0"),
-		false, false,
-	)
-	c.Assert(canImplicitUpload, jc.IsFalse)
+	c.Check(canImplicitUpload, jc.IsFalse)
 
 	// offical client but the client is a published version.
 	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
@@ -1117,28 +1106,48 @@ func (s *modelUpgradeSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 		version.MustParse("3.0.0"),
 		true, true,
 	)
-	c.Assert(canImplicitUpload, jc.IsFalse)
+	c.Check(canImplicitUpload, jc.IsFalse)
+
+	// not offical client.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.9.99"),
+		version.MustParse("3.0.0"),
+		false, false,
+	)
+	c.Check(canImplicitUpload, jc.IsFalse)
+
+	// newer client.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.0.0"),
+		version.MustParse("2.9.99"),
+		true, false,
+	)
+	c.Check(canImplicitUpload, jc.IsTrue)
+
+	// offical client and the client is not a published version,
+	// client version with build number.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.0.0.1"),
+		version.MustParse("3.0.0"),
+		true, false,
+	)
+	c.Check(canImplicitUpload, jc.IsTrue)
+
+	// offical client and the client is not a published version,
+	// agent version with build number.
+	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
+		version.MustParse("3.0.0"),
+		version.MustParse("3.0.0.1"),
+		true, false,
+	)
+	c.Check(canImplicitUpload, jc.IsTrue)
 
 	// offical client and the client is not a published version,
 	// but both client and agent version with build number == 0.
 	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.9.99"),
+		version.MustParse("3.0.0"),
 		version.MustParse("3.0.0"),
 		true, false,
 	)
-	c.Assert(canImplicitUpload, jc.IsFalse)
-
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.9.99.1"),
-		version.MustParse("3.0.0"),
-		true, false,
-	)
-	c.Assert(canImplicitUpload, jc.IsTrue)
-
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.9.99"),
-		version.MustParse("3.0.0.1"),
-		true, false,
-	)
-	c.Assert(canImplicitUpload, jc.IsTrue)
+	c.Check(canImplicitUpload, jc.IsFalse)
 }
