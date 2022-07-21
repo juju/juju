@@ -5,14 +5,13 @@ run_local_deploy() {
 
 	ensure "test-local-deploy" "${file}"
 
-	juju deploy ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy juju-qa-refresher
+	wait_for "refresher" "$(idle_condition "refresher")"
 
-	juju refresh ubuntu
+	juju refresh refresher
 
 	# Wait for the refresh to happen and then wait again.
-	sleep 10
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "upgrade hook ran" "$(workloadstatus "refresher" 0)"
 
 	destroy_model "test-local-deploy"
 }
