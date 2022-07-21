@@ -51,7 +51,6 @@ func (facade *Facade) checkIsModelAdmin() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if !isModelAdmin && !isSuperUser {
 		return apiservererrors.ErrPerm
 	}
