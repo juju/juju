@@ -24,8 +24,8 @@ class RefresherCharm(CharmBase):
 
     def _on_upgrade_charm(self, event):
         logger.info("Running upgrade hook")
-        self.app.status = ActiveStatus("upgrade hook ran")
-        self.unit.status = ActiveStatus("upgrade hook ran")
+        self.app.status = ActiveStatus("upgrade hook ran v2")
+        self.unit.status = ActiveStatus("upgrade hook ran v2")
 
 if __name__ == "__main__":
     main(RefresherCharm)
