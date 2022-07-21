@@ -208,6 +208,10 @@ func (backend *mockBackend) ModelTag() names.ModelTag {
 	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
+func (backend *mockBackend) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+}
+
 func (backend *mockBackend) ModelConfig() (*config.Config, error) {
 	backend.stub.AddCall("ModelConfig")
 	attrs := testing.FakeConfig()
