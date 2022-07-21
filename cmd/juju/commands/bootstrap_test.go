@@ -255,7 +255,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 			uploadVers := version.MustParseBinary(test.upload)
 			bootstrapVersion.Number = uploadVers.Number
 		}
-		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &bootstrapVersion.Number)))
+		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
@@ -1390,7 +1390,7 @@ my-dummy-cloud
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	patchedVersion := version.MustParse(vers)
 	patchedVersion.Build = 1
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &patchedVersion))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, patchedVersion))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 

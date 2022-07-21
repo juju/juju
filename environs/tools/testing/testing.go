@@ -35,18 +35,14 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.BundleToolsFunc {
+func GetMockBundleTools(c *gc.C, expectedForceVersion version.Number) tools.BundleToolsFunc {
 	return func(
 		build bool, w io.Writer,
 		getForceVersion func(localBinaryVersion version.Number) version.Number,
 	) (version.Binary, version.Number, bool, string, error) {
 		vers := coretesting.CurrentVersion(c)
 		forceVersion := getForceVersion(vers.Number)
-		if expectedForceVersion != nil {
-			c.Assert(forceVersion, jc.DeepEquals, *expectedForceVersion)
-		} else {
-			c.Assert(forceVersion, gc.IsNil)
-		}
+		c.Assert(forceVersion, jc.DeepEquals, expectedForceVersion)
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
 		return vers, forceVersion, false, sha256Hash, nil
 	}

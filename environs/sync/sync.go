@@ -213,29 +213,6 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 	return u.UploadTools(toolsDir, stream, tools, buf.Bytes())
 }
 
-// UploadFunc is the type of Upload, which may be
-// reassigned to control the behaviour of tools
-// uploading.
-type UploadFunc func(envtools.SimplestreamsFetcher, storage.Storage, string, *version.Number) (*coretools.Tools, error)
-
-// Upload is exported for testing.
-var Upload UploadFunc = upload
-
-// upload builds whatever version of github.com/juju/juju is in $GOPATH,
-// uploads it to the given storage, and returns a Tools instance describing
-// them. If forceVersion is not nil, the uploaded tools bundle will report
-// the given version number.
-func upload(ss envtools.SimplestreamsFetcher, store storage.Storage, stream string, forceVersion *version.Number) (*coretools.Tools, error) {
-	builtTools, err := BuildAgentTarball(true, stream,
-		func(localBinaryVersion version.Number) version.Number { return *forceVersion },
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(builtTools.Dir)
-	return syncBuiltTools(ss, store, stream, builtTools)
-}
-
 // generateAgentMetadata copies the built tools tarball into a tarball for the specified
 // stream and series and generates corresponding metadata.
 func generateAgentMetadata(ss envtools.SimplestreamsFetcher, toolsInfo *BuiltAgent, stream string) error {

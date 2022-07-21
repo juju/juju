@@ -25,7 +25,7 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelupgrader_mock.go github.com/juju/juju/cmd/juju/commands ModelUpgraderAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/synctool_mock.go github.com/juju/juju/cmd/juju/commands SyncToolAPI
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelconfig_mock.go github.com/juju/juju/cmd/juju/commands ModelConfigAPI
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/jujuclient_mock.go github.com/juju/juju/jujuclient ClientStore
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/jujuclient_mock.go github.com/juju/juju/jujuclient ClientStore,CookieJar
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
