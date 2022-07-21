@@ -415,7 +415,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer modelUpgrader.Close()
 
-	if modelUpgrader.BestAPIVersion() == 0 {
+	if modelUpgrader.BestAPIVersion() < 2 {
 		// TODO(juju3) - remove
 		return c.upgradeModelLegacy(ctx, implicitAgentUploadAllowed, c.timeout)
 	}
@@ -479,7 +479,6 @@ func (c *upgradeJujuCommand) upgradeModel(
 	targetVersion := c.Version
 	defer func() {
 		if err == nil {
-			// ctx.Verbosef("available agent binaries:\n%s", formatVersions(upgradeCtx.packagedAgents))
 			fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", targetVersion)
 			if c.DryRun {
 				if c.BuildAgent {

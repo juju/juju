@@ -75,10 +75,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 	if err != nil {
 		return version.Zero, false, errors.Trace(err)
 	}
-	// TODO: refactor upgradeCtx.maybeChoosePackagedAgent
-	// if targetVersion == version.Zero &&  streamVersions.newestNextStable found or streamVersions.newestCurrent found {
-	// 	return newestNextStable or newestCurrent, nil
-	// }
+
 	if targetVersion != version.Zero {
 		// If not completely specified already, pick a single tools version.
 		filter := coretools.Filter{Number: targetVersion}

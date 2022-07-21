@@ -11,7 +11,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
-	// "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -43,7 +42,6 @@ type Model interface {
 	Name() string
 	MigrationMode() state.MigrationMode
 	Type() state.ModelType
-	// Config() (*config.Config, error)
 }
 
 type statePoolShim struct {
