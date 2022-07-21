@@ -1865,21 +1865,27 @@ func (s *upgradeNewSuite) upgradeJujuCommand(c *gc.C, isCAAS bool) (*gomock.Cont
 	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
 	s.store = mocks.NewMockClientStore(ctrl)
 
-	s.modelUpgrader.EXPECT().BestAPIVersion().AnyTimes().Return(1)
+	s.modelUpgrader.EXPECT().BestAPIVersion().AnyTimes().Return(2)
 	s.modelConfigAPI.EXPECT().Close().AnyTimes()
 	s.modelManager.EXPECT().Close().AnyTimes()
 	s.modelUpgrader.EXPECT().Close().AnyTimes()
 	s.controllerAPI.EXPECT().Close().AnyTimes()
 
 	s.store.EXPECT().CurrentController().AnyTimes().Return("c-1", nil)
-	s.store.EXPECT().ControllerByName("c-1").AnyTimes().Return(&jujuclient.ControllerDetails{}, nil)
+	s.store.EXPECT().ControllerByName("c-1").AnyTimes().Return(&jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}, nil)
 	s.store.EXPECT().CurrentModel("c-1").AnyTimes().Return("m-1", nil)
 	s.store.EXPECT().AccountDetails("c-1").AnyTimes().Return(&jujuclient.AccountDetails{User: "foo"}, nil)
+	cookieJar := mocks.NewMockCookieJar(ctrl)
+	cookieJar.EXPECT().Save().AnyTimes().Return(nil)
+	s.store.EXPECT().CookieJar("c-1").AnyTimes().Return(cookieJar, nil)
 
 	modelType := model.IAAS
 	if isCAAS {
 		modelType = model.CAAS
 	}
+
 	s.store.EXPECT().ModelByName("c-1", "foo/m-1").AnyTimes().Return(&jujuclient.ModelDetails{
 		ModelUUID: coretesting.ModelTag.Id(),
 		ModelType: modelType,
@@ -2090,14 +2096,14 @@ func (s *upgradeNewSuite) TestUpgradeModelWithBuildAgent(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 best version:
-    2.9.35.1
-`[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-no prepackaged agent binaries available, using local agent binary 2.9.35.1 (built from source)
-started upgrade to 2.9.35.1
-`[1:])
+    %s
+`, builtVersion.Number)[1:])
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, fmt.Sprintf(`
+no prepackaged agent binaries available, using local agent binary %s (built from source)
+started upgrade to %s
+`, builtVersion.Number, builtVersion.Number)[1:])
 }
 
 func (s *upgradeNewSuite) TestUpgradeModelUpToDate(c *gc.C) {
@@ -2215,12 +2221,12 @@ func (s *upgradeNewSuite) TestUpgradeModelUploadLocalOfficial(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 best version:
-    2.9.35.1
-`[1:])
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-no prepackaged agent binaries available, using local agent binary 2.9.35.1
-started upgrade to 2.9.35.1
-`[1:])
+    %s
+`, builtVersion.Number)[1:])
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, fmt.Sprintf(`
+no prepackaged agent binaries available, using local agent binary %s
+started upgrade to %s
+`, builtVersion.Number, builtVersion.Number)[1:])
 }
