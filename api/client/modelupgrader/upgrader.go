@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	// "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
@@ -90,16 +89,6 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 		return errors.Annotate(err, "cannot create upload request")
 	}
 	req.Header.Set("Content-Type", contentType)
-
-	// apiConn, ok := c.st.(api.Connection)
-	// if !ok {
-	// 	return errors.New("unable to obtain api.Connection")
-	// }
-	// // The returned httpClient sets the base url to /model/<uuid> if it can.
-	// httpClient, err := apiConn.HTTPClient()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
 
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
 	httpClient, err := c.st.HTTPClient()
