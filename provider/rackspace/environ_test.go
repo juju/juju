@@ -330,11 +330,6 @@ func (e *fakeConfigurator) DropAllPorts(exceptPorts []int, addr string) error {
 	return nil
 }
 
-func (e *fakeConfigurator) ConfigureExternalIpAddress(apiPort int) error {
-	e.Push("ConfigureExternalIpAddress", apiPort)
-	return nil
-}
-
 func (e *fakeConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules firewall.IngressRules) error {
 	e.Push("ChangeIngressRules", ipAddress, insert, rules)
 	return nil
