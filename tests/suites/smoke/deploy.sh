@@ -5,13 +5,13 @@ run_local_deploy() {
 
 	ensure "test-local-deploy" "${file}"
 
-	juju deploy juju-qa-refresher
+	juju deploy --revision=1 --channel=stable juju-qa-refresher
 	wait_for "refresher" "$(idle_condition "refresher")"
 
 	juju refresh refresher
 
 	# Wait for the refresh to happen and then wait again.
-	wait_for "upgrade hook ran" "$(workloadstatus "refresher" 0)"
+	wait_for "upgrade hook ran v2" "$(workloadstatus "refresher" 0)"
 
 	destroy_model "test-local-deploy"
 }
