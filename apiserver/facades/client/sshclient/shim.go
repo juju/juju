@@ -75,7 +75,7 @@ func (b *backend) ModelTag() names.ModelTag {
 
 // ControllerTag returns the controller tag of the backend.
 func (b *backend) ControllerTag() names.ControllerTag {
-	return b.ControllerTag()
+	return b.controllerTag
 }
 
 // GetMachineForEntity takes a machine or unit tag (as a string) and
