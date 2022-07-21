@@ -51,13 +51,13 @@ check_default_routes() {
 check_accessibility() {
 	echo "[+] checking neighbour connectivity and external access"
 
-	for net_health_unit in "network-health-bionic/0" "network-health-focal/0" "network-health-jammy/0" ; do
+	for net_health_unit in "network-health-bionic/0" "network-health-focal/0" "network-health-jammy/0"; do
 		ip="$(juju show-unit $net_health_unit --format json | jq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
 
 		curl_cmd="curl -s http://${ip}:8039"
 
 		# Check that each of the principles can access the subordinate.
-		for principle_unit in "ubuntu-bionic/0" "ubuntu-focal/0" "ubuntu-jammy/0" ; do
+		for principle_unit in "ubuntu-bionic/0" "ubuntu-focal/0" "ubuntu-jammy/0"; do
 			echo "checking network health unit ${net_health_unit} reachability from ${principle_unit} using ${ip}:8039"
 			check_contains "$(juju exec --unit $principle_unit "$curl_cmd")" "pass"
 		done
