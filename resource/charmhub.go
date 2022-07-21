@@ -7,11 +7,9 @@ import (
 	"context"
 	"net/url"
 
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
-
-	"github.com/juju/charm/v9"
-	charmresource "github.com/juju/charm/v9/resource"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
@@ -73,30 +71,26 @@ func (ch *CharmHubClient) GetResource(req ResourceRequest) (ResourceData, error)
 	ch.logger.Tracef("GetResource(%s)", pretty.Sprint(req))
 	var data ResourceData
 
+	// GetResource is called after a charm is installed, therefore the
+	// origin must have an ID. Error if not.
 	origin := req.CharmID.Origin
-
-	stChannel := origin.Channel
-	if stChannel == nil {
-		return data, errors.Errorf("missing channel for %q", req.CharmID.URL.Name)
+	if origin.Revision == nil {
+		return data, errors.BadRequestf("empty charm origin revision")
 	}
-	channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
+
+	// The charm revision isn't really required here, just handy for
+	// getting the correct resource revision. Using a channel would
+	// limit resource revisions found. The resource revision is set
+	// during deploy when a resolving resources for add pending resources.
+	// This also closes a timing window where a charm and resource
+	// is updated in the channel in between deploy and resource use.
+	cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *origin.Revision)
 	if err != nil {
 		return data, errors.Trace(err)
 	}
-
-	if req.CharmID.URL == nil {
-		return data, errors.Errorf("missing charm url for resource %q", req.Name)
+	if newCfg, ok := charmhub.AddResource(cfg, req.Name, req.Revision); ok {
+		cfg = newCfg
 	}
-
-	cfg, err := charmhub.DownloadOneFromChannel(origin.ID, channel.String(), charmhub.RefreshBase{
-		Architecture: origin.Platform.Architecture,
-		Name:         origin.Platform.OS,
-		Channel:      origin.Platform.Series,
-	})
-	if err != nil {
-		return data, errors.Trace(err)
-	}
-
 	refreshResp, err := ch.client.Refresh(context.TODO(), cfg)
 	if err != nil {
 		return data, errors.Trace(err)
