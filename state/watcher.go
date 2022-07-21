@@ -411,7 +411,7 @@ func (st *State) WatchApplicationCharms() StringsWatcher {
 
 // WatchUnits notifies when units change.
 func (st *State) WatchUnits() StringsWatcher {
-	return newLifecycleWatcher(st, unitsC, nil, isLocalID(st), nil)
+	return newCollectionWatcher(st, colWCfg{col: unitsC})
 }
 
 // WatchMachines notifies when machines change.

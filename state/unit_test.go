@@ -2445,6 +2445,34 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *UnitSuite) TestWatchUnits(c *gc.C) {
+	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	w := s.State.WatchUnits()
+	defer testing.AssertStop(c, w)
+
+	// Initial event for unit created in test setup.
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("wordpress/0")
+
+	u, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(u.Name())
+	err = u.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(u.Name())
+
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(u.Name())
+
+	// Stop, check closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
 func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
