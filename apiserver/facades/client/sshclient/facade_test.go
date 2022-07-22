@@ -80,8 +80,8 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
 	}
 	results, err := s.facade.PublicAddress(args)
-
-	c.Assert(err, gc.NotNil)
+	// Check this was an error permission
+	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 	c.Assert(results, gc.DeepEquals, params.SSHAddressResults{})
 }
 
