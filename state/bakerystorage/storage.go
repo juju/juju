@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 )
@@ -30,7 +29,7 @@ func MongoIndexes() []mgo.Index {
 type storage struct {
 	config      Config
 	expireAfter time.Duration
-	rootKeys    *mgorootkeystore.RootKeys
+	rootKeys    *RootKeys
 }
 
 type storageDoc struct {
