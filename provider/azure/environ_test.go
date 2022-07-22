@@ -59,10 +59,10 @@ import (
 )
 
 var (
-	xenialImageReference = armcompute.ImageReference{
+	jammyImageReference = armcompute.ImageReference{
 		Publisher: to.Ptr("Canonical"),
-		Offer:     to.Ptr("UbuntuServer"),
-		SKU:       to.Ptr("18.04-LTS"),
+		Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
+		SKU:       to.Ptr("22_04-LTS"),
 		Version:   to.Ptr("latest"),
 	}
 	centos7ImageReference = armcompute.ImageReference{
@@ -204,6 +204,8 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		{Name: to.Ptr("15.10")},
 		{Name: to.Ptr("16.04-LTS")},
 		{Name: to.Ptr("18.04-LTS")},
+		{Name: to.Ptr("20_04-LTS")},
+		{Name: to.Ptr("22_04-LTS")},
 	}
 
 	s.commonDeployment = &armresources.DeploymentExtended{
@@ -357,7 +359,7 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 	} else {
 		senders = append(senders, s.resourceSKUsSender())
 		if s.ubuntuServerSKUs != nil {
-			senders = append(senders, makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
+			senders = append(senders, makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs))
 		}
 	}
 
@@ -438,7 +440,7 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 func (s *environSuite) startInstanceSendersNoSizes() azuretesting.Senders {
 	senders := azuretesting.Senders{}
 	if s.ubuntuServerSKUs != nil {
-		senders = append(senders, makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
+		senders = append(senders, makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs))
 	}
 	senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
 	return senders
@@ -607,7 +609,7 @@ func (s *environSuite) assertStartInstance(
 ) {
 	env := s.openEnviron(c)
 
-	args := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	args := makeStartInstanceParams(c, s.controllerUUID, "jammy")
 	if withConflictRetry {
 		s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 		args.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
@@ -688,7 +690,7 @@ func (s *environSuite) assertStartInstance(
 		CpuCores: &cpuCores,
 	})
 	startParams := assertStartInstanceRequestsParams{
-		imageReference:    &xenialImageReference,
+		imageReference:    &jammyImageReference,
 		diskSizeGB:        expectedDiskSize,
 		osProfile:         &s.linuxOsProfile,
 		instanceType:      "Standard_A1",
@@ -713,7 +715,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
@@ -721,7 +723,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 		KeyData: to.Ptr("public"),
 	}}
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference: &xenialImageReference,
+		imageReference: &jammyImageReference,
 		diskSizeGB:     32,
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
@@ -746,7 +748,7 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	s.requests = nil
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -799,7 +801,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -823,7 +825,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "jammy"))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -843,14 +845,14 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		availabilitySetName: "mysql",
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
@@ -862,7 +864,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false, hasSpaceConstraints: true})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
 	params.SubnetsToZones = []map[corenetwork.Id][]string{
 		{"/path/to/subnet1": nil},
@@ -872,7 +874,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
@@ -886,7 +888,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
 	params.Placement = "foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -897,7 +899,7 @@ func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
 	params.Placement = "subnet=foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -924,13 +926,13 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 		subnets:   subnets,
 	})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
 	params.Placement = "subnet=subnet2"
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:  &xenialImageReference,
+		imageReference:  &jammyImageReference,
 		diskSizeGB:      32,
 		osProfile:       &s.linuxOsProfile,
 		instanceType:    "Standard_A1",
@@ -960,7 +962,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 		subnets:   subnets,
 	})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	params := makeStartInstanceParams(c, s.controllerUUID, "jammy")
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
 	params.SubnetsToZones = []map[corenetwork.Id][]string{
 		{"/path/to/subnet1": nil},
@@ -971,7 +973,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:  &xenialImageReference,
+		imageReference:  &jammyImageReference,
 		diskSizeGB:      32,
 		osProfile:       &s.linuxOsProfile,
 		instanceType:    "Standard_A1",
@@ -1452,20 +1454,20 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "bionic",
+			BootstrapSeries:          "jammy",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "bionic")
+	c.Assert(result.Series, gc.Equals, "jammy")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1486,20 +1488,20 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "bionic",
+			BootstrapSeries:          "jammy",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G allocate-public-ip=false"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "bionic")
+	c.Assert(result.Series, gc.Equals, "jammy")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1520,21 +1522,21 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "bionic",
+			BootstrapSeries:          "jammy",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "bionic")
+	c.Assert(result.Series, gc.Equals, "jammy")
 
 	// 2 extra requests for network setup.
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests+2)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1558,7 +1560,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "bionic",
+			BootstrapSeries:          "jammy",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
@@ -1585,7 +1587,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
-			BootstrapSeries:  "bionic",
+			BootstrapSeries:  "jammy",
 			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1610,7 +1612,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
@@ -1634,7 +1636,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
-			BootstrapSeries:  "bionic",
+			BootstrapSeries:  "jammy",
 			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1659,7 +1661,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
@@ -1685,21 +1687,21 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         config,
 			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "bionic",
+			BootstrapSeries:          "jammy",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "bionic")
+	c.Assert(result.Series, gc.Equals, "jammy")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		autocert:            true,
 		availabilitySetName: "juju-controller",
-		imageReference:      &xenialImageReference,
+		imageReference:      &jammyImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",

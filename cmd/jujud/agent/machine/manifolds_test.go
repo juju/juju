@@ -69,6 +69,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"central-hub",
 			"certificate-updater",
 			"certificate-watcher",
+			"charmhub-http-client",
 			"clock",
 			"controller-port",
 			"db-accessor",
@@ -147,6 +148,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"audit-config-updater",
 			"central-hub",
 			"certificate-watcher",
+			"charmhub-http-client",
 			"clock",
 			"controller-port",
 			"db-accessor",
@@ -230,6 +232,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"certificate-updater",
 		"certificate-watcher",
 		"central-hub",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"db-accessor",
@@ -471,6 +474,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"audit-config-updater",
 		"central-hub",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",
@@ -527,6 +531,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"state-config-watcher",
 	},
+
+	"charmhub-http-client": {},
 
 	"clock": {},
 
@@ -610,6 +616,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"audit-config-updater",
 		"central-hub",
 		"certificate-watcher",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",
@@ -1139,6 +1146,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"audit-config-updater",
 		"central-hub",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",
@@ -1172,6 +1180,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
+	"charmhub-http-client": {},
+
 	"clock": {},
 
 	"controller-port": {
@@ -1202,6 +1212,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"audit-config-updater",
 		"central-hub",
 		"certificate-watcher",
+		"charmhub-http-client",
 		"clock",
 		"controller-port",
 		"http-server-args",

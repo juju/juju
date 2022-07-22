@@ -188,7 +188,8 @@ func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) 
 		Charm:  ch,
 		Series: "quantal",
 		CharmOrigin: &state.CharmOrigin{
-			ID: "mycharmhubid",
+			ID:   "mycharmhubid",
+			Hash: "mycharmhash",
 			Platform: &state.Platform{
 				Architecture: "amd64",
 				OS:           "ubuntu",

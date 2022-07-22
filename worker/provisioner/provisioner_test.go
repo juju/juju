@@ -180,7 +180,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
-			Series:          "trusty",
+			Series:          "jammy",
 			Arch:            "amd64",
 			VirtType:        "",
 			RootStorageType: "",
@@ -760,10 +760,10 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	retryableError := providercommon.ZoneIndependentError(
+	retryableError := environs.ZoneIndependentError(
 		errors.New("container failed to start and was destroyed"),
 	)
-	destroyError := providercommon.ZoneIndependentError(
+	destroyError := environs.ZoneIndependentError(
 		errors.New("container failed to start and failed to destroy: manual cleanup of containers needed"),
 	)
 	// send the error message three times, because the provisioner will retry twice as patched above.
@@ -1827,7 +1827,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 		startInstanceFailureInfo: map[string]mockBrokerFailures{
 			"2": {whenSucceed: 3, err: errors.New("zing")},
 			"3": {whenSucceed: 1, err: errors.New("zing")},
-			"5": {whenSucceed: 1, err: providercommon.ZoneIndependentError(errors.New("arf"))},
+			"5": {whenSucceed: 1, err: environs.ZoneIndependentError(errors.New("arf"))},
 		},
 		derivedAZ: map[string][]string{
 			"1": {"fail-zone"},

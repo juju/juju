@@ -47,6 +47,7 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	RaftTransportName      string
 	SyslogName             string
+	CharmhubHTTPClientName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -102,6 +103,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.SyslogName == "" {
 		return errors.NotValidf("empty SyslogName")
 	}
+	if config.CharmhubHTTPClientName == "" {
+		return errors.NotValidf("nil CharmhubHTTPClientName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -138,6 +142,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 			config.RaftTransportName,
 			config.SyslogName,
+			config.CharmhubHTTPClientName,
 		},
 		Start: config.start,
 	}
@@ -211,6 +216,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var charmhubHTTPClient HTTPClient
+	if err := context.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -248,6 +258,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		EmbeddedCommand:                   execEmbeddedCommand,
 		RaftOpQueue:                       config.RaftOpQueue,
 		SysLogger:                         sysLogger,
+		CharmhubHTTPClient:                charmhubHTTPClient,
 	})
 	if err != nil {
 		_ = stTracker.Done()

@@ -15,7 +15,5 @@ requires:
     interface: juju-info
     scope: container
 series:
+  - jammy
   - focal
-  - bionic
-  - xenial
-  - quantal

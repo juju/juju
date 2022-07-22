@@ -22,6 +22,81 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+type LogCollectionSuite struct {
+	ConnSuite
+}
+
+var _ = gc.Suite(&LogCollectionSuite{})
+
+func (s *LogCollectionSuite) TestCreateCollection(c *gc.C) {
+	session := s.State.MongoSession()
+	modelUUID := "00000000-0000-0000-0000-000000000001"
+
+	coll := session.DB("logs").C("logs." + modelUUID)
+
+	// Loop to test idempotency.
+	for i := 0; i < 2; i++ {
+		err := state.InitDbLogsForModel(s.Session, modelUUID, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		capped, size, err := state.GetCollectionCappedInfo(coll)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(capped, jc.IsTrue)
+		c.Assert(size, gc.Equals, 1)
+	}
+}
+
+func (s *LogCollectionSuite) TestUpgradeCollection(c *gc.C) {
+	session := s.State.MongoSession()
+	modelUUID := "00000000-0000-0000-0000-000000000002"
+
+	coll := session.DB("logs").C("logs." + modelUUID)
+	// Create a non-capped collection.
+	err := coll.Create(&mgo.CollectionInfo{})
+	c.Assert(err, jc.ErrorIsNil)
+	capped, size, err := state.GetCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsFalse)
+	c.Assert(size, gc.Equals, 0)
+
+	// Ensure collection is "upgraded" to a capped collection.
+	err = state.InitDbLogsForModel(s.Session, modelUUID, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	capped, size, err = state.GetCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(size, gc.Equals, 1)
+}
+
+func (s *LogCollectionSuite) TestResizeCollection(c *gc.C) {
+	session := s.State.MongoSession()
+	modelUUID := "00000000-0000-0000-0000-000000000003"
+
+	coll := session.DB("logs").C("logs." + modelUUID)
+	// Create a small collection.
+	err := state.InitDbLogsForModel(s.Session, modelUUID, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	capped, size, err := state.GetCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(size, gc.Equals, 2)
+
+	// Make it bigger.
+	err = state.InitDbLogsForModel(s.Session, modelUUID, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	capped, size, err = state.GetCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(size, gc.Equals, 3)
+
+	// Make it even smaller.
+	err = state.InitDbLogsForModel(s.Session, modelUUID, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	capped, size, err = state.GetCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(size, gc.Equals, 1)
+}
+
 type LogsSuite struct {
 	ConnSuite
 	logsColl *mgo.Collection

@@ -78,18 +78,18 @@ func (s *ListSuite) TestListDefault(c *gc.C) {
 	// Default format is tabular
 	s.assertValidList(c, `
 Source  Series  Arch   Region  Image ID  Stream    Virt Type  Storage Type
-custom  vivid   amd64  asia    im-21     released  kvm        ebs
-custom  vivid   amd64  europe  im-21     released  kvm        ebs
-custom  vivid   amd64  us      im-21     released  kvm        ebs
-custom  trusty  amd64  europe  im-21     released  kvm        ebs
-custom  trusty  i386   asia    im-21     released  kvm        ebs
-custom  trusty  i386   europe  im-21     released  kvm        ebs
-public  vivid   amd64  europe  im-21     released  kvm        ebs
-public  trusty  i386   europe  im-21     released  kvm        ebs
-public  trusty  i386   europe  im-42     devel     kvm        ebs
-public  trusty  i386   europe  im-42     devel                ebs
-public  trusty  i386   europe  im-42     devel     kvm        
-public  trusty  i386   europe  im-42     devel                
+custom  jammy   amd64  europe  im-21     released  kvm        ebs
+custom  jammy   i386   asia    im-21     released  kvm        ebs
+custom  jammy   i386   europe  im-21     released  kvm        ebs
+custom  focal   amd64  asia    im-21     released  kvm        ebs
+custom  focal   amd64  europe  im-21     released  kvm        ebs
+custom  focal   amd64  us      im-21     released  kvm        ebs
+public  jammy   i386   europe  im-42     devel                ebs
+public  jammy   i386   europe  im-21     released  kvm        ebs
+public  jammy   i386   europe  im-42     devel     kvm        ebs
+public  jammy   i386   europe  im-42     devel     kvm        
+public  jammy   i386   europe  im-42     devel                
+public  focal   amd64  europe  im-21     released  kvm        ebs
 
 `[1:], "")
 }
@@ -97,25 +97,7 @@ public  trusty  i386   europe  im-42     devel
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	s.assertValidList(c, `
 custom:
-  trusty:
-    amd64:
-      europe:
-      - image-id: im-21
-        stream: released
-        virt-type: kvm
-        storage-type: ebs
-    i386:
-      asia:
-      - image-id: im-21
-        stream: released
-        virt-type: kvm
-        storage-type: ebs
-      europe:
-      - image-id: im-21
-        stream: released
-        virt-type: kvm
-        storage-type: ebs
-  vivid:
+  focal:
     amd64:
       asia:
       - image-id: im-21
@@ -132,8 +114,33 @@ custom:
         stream: released
         virt-type: kvm
         storage-type: ebs
+  jammy:
+    amd64:
+      europe:
+      - image-id: im-21
+        stream: released
+        virt-type: kvm
+        storage-type: ebs
+    i386:
+      asia:
+      - image-id: im-21
+        stream: released
+        virt-type: kvm
+        storage-type: ebs
+      europe:
+      - image-id: im-21
+        stream: released
+        virt-type: kvm
+        storage-type: ebs
 public:
-  trusty:
+  focal:
+    amd64:
+      europe:
+      - image-id: im-21
+        stream: released
+        virt-type: kvm
+        storage-type: ebs
+  jammy:
     i386:
       europe:
       - image-id: im-21
@@ -152,13 +159,6 @@ public:
         virt-type: kvm
       - image-id: im-42
         stream: devel
-  vivid:
-    amd64:
-      europe:
-      - image-id: im-21
-        stream: released
-        virt-type: kvm
-        storage-type: ebs
 `[1:], "", "--format", "yaml")
 }
 
@@ -280,7 +280,7 @@ func (s mockListAPI) List(stream, region string, ser, arch []string, virtType, r
 var testData = []params.CloudImageMetadata{
 	{
 		Source:          "custom",
-		Series:          "vivid",
+		Series:          "focal",
 		Arch:            "amd64",
 		Region:          "asia",
 		ImageId:         "im-21",
@@ -290,7 +290,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Series:          "vivid",
+		Series:          "focal",
 		Arch:            "amd64",
 		Region:          "us",
 		ImageId:         "im-21",
@@ -300,7 +300,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Series:          "vivid",
+		Series:          "focal",
 		Arch:            "amd64",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -310,7 +310,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Series:          "vivid",
+		Series:          "focal",
 		Arch:            "amd64",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -320,7 +320,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Series:          "trusty",
+		Series:          "jammy",
 		Arch:            "amd64",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -330,7 +330,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Series:          "trusty",
+		Series:          "jammy",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -340,7 +340,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "custom",
-		Series:          "trusty",
+		Series:          "jammy",
 		Arch:            "i386",
 		Region:          "asia",
 		ImageId:         "im-21",
@@ -350,7 +350,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Series:          "trusty",
+		Series:          "jammy",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -360,7 +360,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Series:          "trusty",
+		Series:          "jammy",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-42",
@@ -370,7 +370,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:          "public",
-		Series:          "trusty",
+		Series:          "jammy",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-42",
@@ -379,7 +379,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:   "public",
-		Series:   "trusty",
+		Series:   "jammy",
 		Arch:     "i386",
 		Region:   "europe",
 		ImageId:  "im-42",
@@ -388,7 +388,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	{
 		Source:  "public",
-		Series:  "trusty",
+		Series:  "jammy",
 		Arch:    "i386",
 		Region:  "europe",
 		ImageId: "im-42",

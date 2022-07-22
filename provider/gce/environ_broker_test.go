@@ -56,21 +56,21 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.spec = &instances.InstanceSpec{
 		InstanceType: s.InstanceType,
 		Image: instances.Image{
-			Id:       "ubuntu-1404-trusty-v20141212",
+			Id:       "ubuntu-2204-jammy-v20141212",
 			Arch:     amd64,
 			VirtType: "kvm",
 		},
 	}
 	s.ic = &instances.InstanceConstraint{
 		Region:      "home",
-		Series:      "trusty",
+		Series:      "jammy",
 		Arch:        amd64,
 		Constraints: s.StartInstArgs.Constraints,
 	}
 	s.imageMetadata = []*imagemetadata.ImageMetadata{{
-		Id:         "ubuntu-1404-trusty-v20141212",
+		Id:         "ubuntu-2204-jammy-v20141212",
 		Arch:       "amd64",
-		Version:    "14.04",
+		Version:    "22.04",
 		RegionName: "us-central1",
 		Endpoint:   "https://www.googleapis.com",
 		Stream:     "<stream>",
@@ -107,7 +107,7 @@ func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c
 
 	_, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, "blargh")
-	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 }
 
 func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
@@ -189,7 +189,7 @@ func (s *environBrokerSuite) TestNewRawInstanceZoneInvalidCredentialError(c *gc.
 	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
-	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
 }
 
 func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
@@ -197,7 +197,7 @@ func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
 
 	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
 	c.Assert(err, gc.ErrorMatches, "blargh")
-	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
@@ -220,8 +220,8 @@ var getDisksTests = []struct {
 	basePath string
 	error    error
 }{
-	{"trusty", gce.UbuntuImageBasePath, nil},
-	{"bionic", "/tmp/", nil}, // --config base-image-path=/tmp/
+	{"jammy", gce.UbuntuImageBasePath, nil},
+	{"focal", "/tmp/", nil}, // --config base-image-path=/tmp/
 	{"arch", "", errors.New("os Arch is not supported on the gce provider")},
 }
 
@@ -250,7 +250,7 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 		}
 	}
 
-	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "trusty", "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
+	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "jammy", "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	spec := diskSpecs[0]

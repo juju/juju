@@ -118,15 +118,11 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestUserData(c *gc.C) {
-	s.testUserData(c, "quantal", false)
+	s.testUserData(c, "jammy", false)
 }
 
 func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
-	s.testUserData(c, "quantal", true)
-}
-
-func (s *CloudInitSuite) TestControllerUserDataPrecise(c *gc.C) {
-	s.testUserData(c, "precise", true)
+	s.testUserData(c, "jammy", true)
 }
 
 func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
@@ -137,7 +133,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
-			Version: version.Binary{version.MustParse("1.2.3"), "quantal", "amd64"},
+			Version: version.Binary{version.MustParse("1.2.3"), "jammy", "amd64"},
 		},
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
@@ -222,20 +218,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 				"mkdir /tmp/preruncmd2",
 				"script1", "script2",
 				"set -xe",
-				"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
-				"echo '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
 				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 				"echo '5432' > '/var/lib/juju/nonce.txt'",
 			},
-		}
-		// OSType with old cloudinit versions don't support adding
-		// users so need the old way to set SSH authorized keys.
-		if series == "precise" {
-			expected["ssh_authorized_keys"] = []interface{}{
-				"wheredidileavemykeys",
-			}
-		} else {
-			expected["users"] = []interface{}{
+			"users": []interface{}{
 				map[interface{}]interface{}{
 					"name":        "ubuntu",
 					"lock_passwd": true,
@@ -247,7 +233,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 					"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
 					"ssh-authorized-keys": []interface{}{"wheredidileavemykeys"},
 				},
-			}
+			},
 		}
 		c.Check(config, jc.DeepEquals, expected)
 	} else {

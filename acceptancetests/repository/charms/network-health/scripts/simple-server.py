@@ -1,21 +1,19 @@
 #!/usr/bin/python3
 import argparse
-import http.server
+from http.server import BaseHTTPRequestHandler
 import socketserver
 import os
 
-SERVE_FILE_PATH = 'SIMPLE_HTTP_SERVER_INDEX_FILE'
-
-
-class SimpleRequestHandler(http.server.SimpleHTTPRequestHandler):
-    """Simple request handler that always returns file supplied by env var."""
-    def translate_path(self, path):
-        return os.environ[SERVE_FILE_PATH]
+class SimpleRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type','text/plain')
+        self.end_headers()
+        self.wfile.write(bytes("pass", "utf8"))
 
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Simple http server.")
-    parser.add_argument('--file-path', help='Path to file to serve.')
     parser.add_argument(
         '--port', default=8000, type=int, help='Port to serve on.')
 
@@ -26,7 +24,6 @@ def main(argv=None):
     args = parse_args(argv)
     server_details = ("", args.port)
     Handler = SimpleRequestHandler
-    os.environ[SERVE_FILE_PATH] = args.file_path
     httpd = socketserver.TCPServer(server_details, Handler)
     try:
         httpd.serve_forever()

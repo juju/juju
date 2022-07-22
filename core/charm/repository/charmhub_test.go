@@ -417,7 +417,8 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 	c.Assert(got[0].Meta.Name, gc.Equals, "wordpress")
 	c.Assert(got[0].Config.Options["blog-title"], gc.Not(gc.IsNil))
 	c.Assert(got[0].Manifest.Bases, gc.HasLen, 1)
-	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "charmCHARMcharmCHARMcharmCHARM01", gc.Commentf("expected origin to be resolved"))
+	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "", gc.Commentf("ID is only added after charm download"))
+	c.Assert(got[0].ResolvedOrigin.Hash, gc.Equals, "", gc.Commentf("Hash is only added after charm download"))
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *gc.C) {

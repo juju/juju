@@ -138,33 +138,28 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 
 // SetUbuntuUser creates an "ubuntu" use for unix systems so the juju client
 // can access the machine using ssh with the configuration we expect.
-// On precise, the default cloudinit version is too old to support the users
-// option, so instead rely on the default user being created and adding keys.
 // It may make sense in the future to add a "juju" user instead across
 // all distributions.
 func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 	targetSeries := conf.GetSeries()
-	if targetSeries == "precise" {
-		conf.SetSSHAuthorizedKeys(authorizedKeys)
-	} else {
-		var groups []string
-		targetOS, _ := series.GetOSFromSeries(targetSeries)
-		switch targetOS {
-		case os.Ubuntu:
-			groups = UbuntuGroups
-		case os.CentOS:
-			groups = CentOSGroups
-		case os.OpenSUSE:
-			groups = OpenSUSEGroups
-		}
-		conf.AddUser(&cloudinit.User{
-			Name:              "ubuntu",
-			Groups:            groups,
-			Shell:             "/bin/bash",
-			Sudo:              []string{"ALL=(ALL) NOPASSWD:ALL"},
-			SSHAuthorizedKeys: authorizedKeys,
-		})
+	var groups []string
+	targetOS, _ := series.GetOSFromSeries(targetSeries)
+	switch targetOS {
+	case os.Ubuntu:
+		groups = UbuntuGroups
+	case os.CentOS:
+		groups = CentOSGroups
+	case os.OpenSUSE:
+		groups = OpenSUSEGroups
 	}
+	conf.AddUser(&cloudinit.User{
+		Name:              "ubuntu",
+		Groups:            groups,
+		Shell:             "/bin/bash",
+		Sudo:              []string{"ALL=(ALL) NOPASSWD:ALL"},
+		SSHAuthorizedKeys: authorizedKeys,
+	})
+
 }
 
 // TODO(ericsnow) toolsSymlinkCommand should just be replaced with a

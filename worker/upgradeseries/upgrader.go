@@ -10,12 +10,9 @@ import (
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
-
-var systemdMultiUserDir = systemd.EtcSystemdMultiUserDir
 
 // Upgrader describes methods required to perform file-system manipulation in
 // preparation for upgrading the host Ubuntu version.
@@ -35,10 +32,8 @@ type upgrader struct {
 	// fromSeries is the actual current series,
 	// determined directly from the machine.
 	fromSeries string
-	fromInit   string
 
 	toSeries string
-	toInit   string
 
 	machineAgent string
 	unitAgents   []string
@@ -55,23 +50,11 @@ func NewUpgrader(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	fromInit, err := service.VersionInitSystem(fromSeries)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	toInit, err := service.VersionInitSystem(toSeries)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &upgrader{
 		logger:            logger,
 		jujuCurrentSeries: currentSeries,
 		fromSeries:        fromSeries,
-		fromInit:          fromInit,
 		toSeries:          toSeries,
-		toInit:            toInit,
 		manager:           manager,
 	}, nil
 }
@@ -79,11 +62,7 @@ func NewUpgrader(
 // PerformUpgrade writes Juju binaries and service files that allow the machine
 // and unit agents to run on the target version of Ubuntu.
 func (u *upgrader) PerformUpgrade() error {
-	if err := u.populateAgents(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return errors.Trace(u.ensureSystemdFiles())
+	return u.populateAgents()
 }
 
 // populateAgents discovers and sets the names of the machine and unit agents.
@@ -99,17 +78,4 @@ func (u *upgrader) populateAgents() (err error) {
 		u.logger.Warningf("skipping agents not of type machine or unit: %s", strings.Join(unknown, ", "))
 	}
 	return nil
-}
-
-// ensureSystemdFiles determines whether re-writing service files to target
-// systemd is required. If it is, the necessary changes are invoked via the
-// service manager.
-func (u *upgrader) ensureSystemdFiles() error {
-	if u.fromInit == service.InitSystemSystemd || u.toInit != service.InitSystemSystemd {
-		return nil
-	}
-
-	return errors.Annotatef(
-		u.manager.WriteSystemdAgent(u.machineAgent, paths.NixDataDir, systemdMultiUserDir),
-		"writing machine agent")
 }

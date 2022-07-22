@@ -6,6 +6,7 @@ package uniter
 import (
 	"fmt"
 
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 
@@ -160,10 +161,16 @@ func (s *uniterResolver) NextOp(
 			return opFactory.NewRunHook(*localState.Hook)
 
 		case operation.Done:
-			curl := localState.CharmURL
-			if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
-				s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
-				return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+			// Only check for the wrench if trace logging is enabled. Otherwise,
+			// we'd have to parse the charm url every time just to check to see
+			// if a wrench existed.
+			if localState.CharmURL != "" && logger.IsTraceEnabled() {
+				// If it's set, the charm url will parse.
+				curl := corecharm.MustParseURL(localState.CharmURL)
+				if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
+					s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+					return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+				}
 			}
 
 			logger.Infof("committing %q hook", localState.Hook.Kind)
@@ -289,10 +296,10 @@ func (s *uniterResolver) nextOpHookError(
 
 func (s *uniterResolver) charmModified(local resolver.LocalState, remote remotestate.Snapshot) bool {
 	// CAAS models may not yet have read the charm url from state.
-	if remote.CharmURL == nil {
+	if remote.CharmURL == "" {
 		return false
 	}
-	if *local.CharmURL != *remote.CharmURL {
+	if local.CharmURL != remote.CharmURL {
 		s.config.Logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
 		return true
 	}

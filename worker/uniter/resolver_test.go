@@ -6,7 +6,6 @@ package uniter_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -35,7 +34,7 @@ import (
 
 type baseResolverSuite struct {
 	stub           testing.Stub
-	charmURL       *charm.URL
+	charmURL       string
 	remoteState    remotestate.Snapshot
 	opFactory      operation.Factory
 	resolver       resolver.Resolver
@@ -128,7 +127,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 	}
 
 	s.stub = testing.Stub{}
-	s.charmURL = charm.MustParseURL("cs:precise/mysql-2")
+	s.charmURL = "cs:precise/mysql-2"
 	s.remoteState = remotestate.Snapshot{
 		CharmURL: s.charmURL,
 	}

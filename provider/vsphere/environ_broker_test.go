@@ -69,7 +69,7 @@ func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	var cons constraints.Value
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		coretesting.FakeControllerConfig(), cons, cons, "trusty", "", nil,
+		coretesting.FakeControllerConfig(), cons, cons, "jammy", "", nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -338,7 +338,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
-	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
@@ -356,7 +356,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c 
 
 	var (
 		arch      = "amd64"
-		rootDisk  = common.MinRootDiskSizeGiB("trusty") * 1024
+		rootDisk  = common.MinRootDiskSizeGiB("jammy") * 1024
 		datastore = "datastore0"
 	)
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
@@ -410,7 +410,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmal
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("jammy")*uint64(1024))
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
@@ -433,7 +433,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c 
 	s.client.SetErrors(nil, nil, nil, nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
-	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "Close")
 	getDatastoreCall := s.client.Calls()[4]
@@ -621,7 +621,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) 
 
 	var (
 		arch           = "amd64"
-		rootDisk       = common.MinRootDiskSizeGiB("trusty") * 1024
+		rootDisk       = common.MinRootDiskSizeGiB("jammy") * 1024
 		rootDiskSource = ""
 	)
 
@@ -639,7 +639,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 		"0",
 		"nonce",
 		"",
-		"trusty",
+		"jammy",
 		&api.Info{
 			Tag:      names.NewMachineTag("0"),
 			ModelTag: coretesting.ModelTag,

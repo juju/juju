@@ -141,7 +141,8 @@ func (h *BasicAuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	authInfo, err := h.Authenticator.Authenticate(req)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-		if apiservererrors.IsDischargeRequiredError(err) {
+		var dischargeError *apiservererrors.DischargeRequiredError
+		if errors.As(err, &dischargeError) {
 			sendErr := sendError(w, err)
 			if sendErr != nil {
 				logger.Errorf("%v", sendErr)

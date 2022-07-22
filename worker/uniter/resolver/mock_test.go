@@ -4,7 +4,6 @@
 package resolver_test
 
 import (
-	"github.com/juju/charm/v9"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/worker/fortress"
@@ -33,17 +32,17 @@ type mockOpFactory struct {
 	op mockOp
 }
 
-func (f *mockOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (f *mockOpFactory) NewUpgrade(charmURL string) (operation.Operation, error) {
 	f.MethodCall(f, "NewUpgrade", charmURL)
 	return f.op, f.NextErr()
 }
 
-func (f *mockOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (f *mockOpFactory) NewRevertUpgrade(charmURL string) (operation.Operation, error) {
 	f.MethodCall(f, "NewRevertUpgrade", charmURL)
 	return f.op, f.NextErr()
 }
 
-func (f *mockOpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (f *mockOpFactory) NewResolvedUpgrade(charmURL string) (operation.Operation, error) {
 	f.MethodCall(f, "NewResolvedUpgrade", charmURL)
 	return f.op, f.NextErr()
 }

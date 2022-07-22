@@ -61,7 +61,7 @@ type Application interface {
 	// increments whenever the charm or a resource for the charm changes.
 	CharmModifiedVersion() (int, error)
 	// CharmURL returns the url for the charm for this application.
-	CharmURL() (*charm.URL, bool, error)
+	CharmURL() (string, bool, error)
 	// Life returns whether the application is alive.
 	Life() life.Value
 	// Refresh syncs this value with the api server.

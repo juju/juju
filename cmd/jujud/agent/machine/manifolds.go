@@ -280,6 +280,13 @@ type ManifoldsConfig struct {
 	// DependencyEngineMetrics creates a set of metrics for a model, so it's
 	// possible to know the lifecycle of the workers in the dependency engine.
 	DependencyEngineMetrics modelworkermanager.ModelMetrics
+
+	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
+	CharmhubHTTPClient HTTPClient
+}
+
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -713,7 +720,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// Synthetic dependency - if raft-transport bounces we
 			// need to bounce api-server too, otherwise http-server
 			// can't shutdown properly.
-			RaftTransportName: raftTransportName,
+			RaftTransportName:      raftTransportName,
+			CharmhubHTTPClientName: charmhubHTTPClientName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -723,6 +731,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
 			RaftOpQueue:                       config.RaftOpQueue,
 		})),
+
+		charmhubHTTPClientName: dependency.Manifold{
+			Start: func(_ dependency.Context) (worker.Worker, error) {
+				return engine.NewValueWorker(config.CharmhubHTTPClient)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,
@@ -1201,4 +1216,6 @@ const (
 	validCredentialFlagName = "valid-credential-flag"
 
 	brokerTrackerName = "broker-tracker"
+
+	charmhubHTTPClientName = "charmhub-http-client"
 )

@@ -4,7 +4,6 @@
 package resolver
 
 import (
-	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 
@@ -58,7 +57,7 @@ func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, e
 	return op, nil
 }
 
-func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (s *resolverOpFactory) NewUpgrade(charmURL string) (operation.Operation, error) {
 	op, err := s.Factory.NewUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -85,7 +84,7 @@ func (s *resolverOpFactory) NewSkipRemoteInit(retry bool) (operation.Operation, 
 	return op, nil
 }
 
-func (s *resolverOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (s *resolverOpFactory) NewRevertUpgrade(charmURL string) (operation.Operation, error) {
 	op, err := s.Factory.NewRevertUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -93,7 +92,7 @@ func (s *resolverOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Ope
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *resolverOpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (s *resolverOpFactory) NewResolvedUpgrade(charmURL string) (operation.Operation, error) {
 	op, err := s.Factory.NewResolvedUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -127,7 +126,7 @@ func trimCompletedActions(pendingActions []string, completedActions map[string]s
 	return newCompletedActions
 }
 
-func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
+func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL string) operation.Operation {
 	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	return onCommitWrapper{op, func(*operation.State) {
 		s.LocalState.CharmURL = charmURL

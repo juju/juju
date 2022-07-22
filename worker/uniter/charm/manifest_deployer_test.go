@@ -277,7 +277,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 	}()
 
 	_, err := s.rbr.Read(s.bundleInfo, nil)
-	c.Assert(err, gc.ErrorMatches, ".*attempt count exceeded.*")
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 }
 
 func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -842,7 +843,11 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	}
 	required := false
 	if w.canApplyCharmProfile {
-		ch, err := w.st.Charm(url)
+		curl, err := charm.ParseURL(url)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ch, err := w.st.Charm(curl)
 		if err != nil {
 			return errors.Trace(err)
 		}

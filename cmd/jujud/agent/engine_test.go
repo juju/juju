@@ -98,6 +98,7 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"broker-tracker",
+		"charmhub-http-client",
 		"clock",
 		"instance-mutater",
 		"migration-fortress",

@@ -117,13 +117,13 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 	state := mocks.NewMockState(ctrl)
 	gomock.InOrder(
 		state.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81", "win10",
-		).Return(0, nil),
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
+		).Return(nil, nil),
 		state.EXPECT().MachineCountForSeries(
-			"win2008r2", "win2012", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-			"win2016", "win2016", "win2016hv", "win2019", "win2019", "win7", "win8", "win81", "win10",
-		).Return(1, nil),
+			"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
+			"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
+		).Return(map[string]int{"win10": 1, "win7": 2}, nil),
 	)
 
 	blocker, err := upgradevalidation.CheckNoWinMachinesForModel("", nil, state, nil)
@@ -132,26 +132,41 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 
 	blocker, err = upgradevalidation.CheckNoWinMachinesForModel("", nil, state, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `windows is not supported but the model hosts 1 windows machine(s)`)
+	c.Assert(blocker.Error(), gc.Equals, `the model hosts deprecated windows machine(s): win10(1) win7(2)`)
 }
 
-func (s *upgradeValidationSuite) TestcheckNoXenialMachinesForModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	state := mocks.NewMockState(ctrl)
 	gomock.InOrder(
-		state.EXPECT().MachineCountForSeries("xenial").Return(0, nil),
-		state.EXPECT().MachineCountForSeries("xenial").Return(1, nil),
+		state.EXPECT().MachineCountForSeries(
+			"artful",
+			"bionic",
+			"cosmic",
+			"disco",
+			"eoan",
+			"groovy",
+			"hirsute",
+			"impish",
+			"precise",
+			"quantal",
+			"raring",
+			"saucy",
+			"trusty",
+			"utopic",
+			"vivid",
+			"wily",
+			"xenial",
+			"yakkety",
+			"zesty",
+		).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil),
 	)
 
-	blocker, err := upgradevalidation.CheckNoXenialMachinesForModel("", nil, state, nil)
+	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel("", nil, state, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
-
-	blocker, err = upgradevalidation.CheckNoXenialMachinesForModel("", nil, state, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `xenial is not supported but the model hosts 1 xenial machine(s)`)
+	c.Assert(blocker.Error(), gc.Equals, `the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`)
 }
 
 func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {
@@ -219,7 +234,7 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForModel(c *gc.C) {
 		version.MustParse("4.1.1"),
 		upgradevalidation.UpgradeToAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `"4.1.1" is not a supported version`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade, "4.1.1" is not a supported version`)
 	c.Assert(blocker, gc.IsNil)
 }
 

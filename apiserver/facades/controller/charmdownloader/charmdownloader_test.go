@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -78,7 +77,6 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	now := s.clk.Now()
 	charmURL := charm.MustParseURL("cs:focal/dummy-1")
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-hub",
@@ -99,27 +97,15 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 	app.EXPECT().CharmPendingToBeDownloaded().Return(true)
 	app.EXPECT().Charm().Return(pendingCharm, false, nil)
 	app.EXPECT().CharmOrigin().Return(&resolvedOrigin)
-	gomock.InOrder(
-		app.EXPECT().SetStatus(status.StatusInfo{
-			Status:  status.Maintenance,
-			Message: "downloading charm",
-			Data: map[string]interface{}{
-				"origin":    resolvedOrigin,
-				"charm-url": charmURL,
-				"force":     false,
-			},
-			Since: &now,
-		}),
-		app.EXPECT().SetStatus(status.StatusInfo{
-			Status:  status.Unknown,
-			Message: "",
-			Since:   &now,
-		}),
-	)
+
+	downloadedOrigin := resolvedOrigin
+	downloadedOrigin.ID = "test-charm-id"
+	downloadedOrigin.Hash = "test-charm-hash"
+	app.EXPECT().SetDownloadedIDAndHash(downloadedOrigin.ID, downloadedOrigin.Hash).Return(nil)
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(resolvedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, macaroons, false).Return(downloadedOrigin, nil)
 
 	got, err := s.api.DownloadApplicationCharms(params.Entities{
 		Entities: []params.Entity{
@@ -136,7 +122,6 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	now := s.clk.Now()
 	charmURL := charm.MustParseURL("cs:focal/dummy-1")
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-hub",
@@ -157,23 +142,6 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 	app.EXPECT().CharmPendingToBeDownloaded().Return(true)
 	app.EXPECT().Charm().Return(pendingCharm, false, nil)
 	app.EXPECT().CharmOrigin().Return(&resolvedOrigin)
-	gomock.InOrder(
-		app.EXPECT().SetStatus(status.StatusInfo{
-			Status:  status.Maintenance,
-			Message: "downloading charm",
-			Data: map[string]interface{}{
-				"origin":    resolvedOrigin,
-				"charm-url": charmURL,
-				"force":     false,
-			},
-			Since: &now,
-		}),
-		app.EXPECT().SetStatus(status.StatusInfo{
-			Status:  status.Blocked,
-			Message: "unable to download charm",
-			Since:   &now,
-		}),
-	)
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)

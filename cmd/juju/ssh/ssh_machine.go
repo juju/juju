@@ -21,6 +21,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/ssh"
 
+	"github.com/juju/juju/api/client/application"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	"github.com/juju/juju/core/network"
@@ -33,20 +34,19 @@ var logger = loggo.GetLogger("juju.cmd.juju.ssh")
 // sshMachine implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand.
 type sshMachine struct {
+	leaderResolver
 	modelName string
 
 	proxy           bool
 	noHostKeyChecks bool
 	target          string
 	args            []string
-	apiClient       sshAPIClient
+	sshClient       sshAPIClient
 	statusClient    statusClient
 	apiAddr         string
 	knownHostsPath  string
 	hostChecker     jujussh.ReachableChecker
 	retryStrategy   retry.CallArgs
-
-	leaderAPIGetter leaderAPIGetterFunc
 }
 
 type statusClient interface {
@@ -58,7 +58,6 @@ type sshAPIClient interface {
 	PrivateAddress(target string) (string, error)
 	AllAddresses(target string) ([]string, error)
 	PublicKeys(target string) ([]string, error)
-	Leader(string) (string, error)
 	Proxy() (bool, error)
 	Close() error
 }
@@ -130,6 +129,10 @@ func (c *sshMachine) setHostChecker(checker jujussh.ReachableChecker) {
 	c.hostChecker = checker
 }
 
+func (c *sshMachine) setLeaderAPI(leaderAPI LeaderAPI) {
+	c.leaderAPI = leaderAPI
+}
+
 func (c *sshMachine) setRetryStrategy(retryStrategy retry.CallArgs) {
 	c.retryStrategy = retryStrategy
 }
@@ -138,7 +141,7 @@ func (c *sshMachine) setRetryStrategy(retryStrategy retry.CallArgs) {
 // if SSH proxying is required. It must be called at the top of the
 // command's Run method.
 //
-// The apiClient, apiAddr and proxy fields are initialized after this call.
+// The sshClient, apiAddr and proxy fields are initialized after this call.
 func (c *sshMachine) initRun(mc ModelCommand) (err error) {
 	if c.modelName, err = mc.ModelIdentifier(); err != nil {
 		return errors.Trace(err)
@@ -163,9 +166,13 @@ func (c *sshMachine) cleanupRun() {
 		_ = os.Remove(c.knownHostsPath)
 		c.knownHostsPath = ""
 	}
-	if c.apiClient != nil {
-		_ = c.apiClient.Close()
-		c.apiClient = nil
+	if c.sshClient != nil {
+		_ = c.sshClient.Close()
+		c.sshClient = nil
+	}
+	if c.leaderAPI != nil {
+		_ = c.leaderAPI.Close()
+		c.leaderAPI = nil
 	}
 }
 
@@ -287,7 +294,7 @@ func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, erro
 	for _, target := range targets {
 		if target.isAgent() {
 			agentCount++
-			keys, err := c.apiClient.PublicKeys(target.entity)
+			keys, err := c.sshClient.PublicKeys(target.entity)
 			if err != nil {
 				return "", errors.Annotatef(err, "retrieving SSH host keys for %q", target.entity)
 			}
@@ -326,7 +333,7 @@ func (c *sshMachine) proxySSH() (bool, error) {
 		// proxying.
 		return true, nil
 	}
-	proxy, err := c.apiClient.Proxy()
+	proxy, err := c.sshClient.Proxy()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -389,25 +396,21 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 }
 
 func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
-	if c.leaderAPIGetter == nil {
-		c.leaderAPIGetter = func() (LeaderAPI, error) {
-			return c.apiClient, nil
-		}
-	}
-
-	if c.apiClient != nil {
+	if c.sshClient != nil && c.leaderAPI != nil {
 		return nil
 	}
-	return errors.Trace(c.initAPIClient(mc))
-}
-
-// initAPIClient initialises the API connection.
-func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 	conn, err := mc.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.apiClient = sshclient.NewFacade(conn)
+	if c.leaderAPI == nil {
+		c.leaderAPI = application.NewClient(conn)
+	}
+	if c.sshClient != nil {
+		return nil
+	}
+
+	c.sshClient = sshclient.NewFacade(conn)
 	c.apiAddr = conn.Addr()
 	c.statusClient = apiclient.NewClient(conn)
 	return nil
@@ -416,7 +419,7 @@ func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 func (c *sshMachine) resolveTarget(target string) (*resolvedTarget, error) {
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, target)
+	resolvedTargetName, err := c.maybeResolveLeaderUnit(target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -497,21 +500,21 @@ func (c *sshMachine) resolveWithRetry(target resolvedTarget, getAddress addressG
 }
 
 // legacyAddressGetter returns the preferred public or private address of the
-// given entity (private when c.proxy is true), using the apiClient. Only used
+// given entity (private when c.proxy is true), using the sshClient. Only used
 // when the SSHClient API facade v2 is not available or when proxy-ssh is set.
 func (c *sshMachine) legacyAddressGetter(entity string) (string, error) {
 	if c.proxy {
-		return c.apiClient.PrivateAddress(entity)
+		return c.sshClient.PrivateAddress(entity)
 	}
 
-	return c.apiClient.PublicAddress(entity)
+	return c.sshClient.PublicAddress(entity)
 }
 
 // reachableAddressGetter dials all addresses of the given entity, returning the
 // first one that succeeds. Only used with SSHClient API facade v2 or later is
 // available. It does not try to dial if only one address is available.
 func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
-	addresses, err := c.apiClient.AllAddresses(entity)
+	addresses, err := c.sshClient.AllAddresses(entity)
 	if err != nil {
 		return "", errors.Trace(err)
 	} else if len(addresses) == 0 {
@@ -522,7 +525,7 @@ func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
 	}
 	var publicKeys []string
 	if !c.noHostKeyChecks {
-		publicKeys, err = c.apiClient.PublicKeys(entity)
+		publicKeys, err = c.sshClient.PublicKeys(entity)
 		if err != nil {
 			return "", errors.Annotatef(err, "retrieving SSH host keys for %q", entity)
 		}

@@ -10,17 +10,13 @@ run_hook_dispatching_script() {
 	# log level is WARNING.
 	juju model-config logging-config="<root>=INFO"
 
-	juju deploy cs:~juju-qa/bionic/ubuntu-plus-0
+	# TODO - upgrade the charm to support focal
+	juju deploy juju-qa-ubuntu-plus --channel=beta
 	wait_for "ubuntu-plus" "$(idle_condition "ubuntu-plus")"
 
 	juju debug-log --include unit-ubuntu-plus-0 | grep -q "via hook dispatching script: dispatch" || true
 
-	# run an action and retrieve the id for use in show-task.
-	# awk, change the separator to " and get the 2nd value.
-	# e.g Action queued with id: "2"
-	# yields: 2
-	action_id=$(juju run ubuntu-plus/0 no-dispatch filename=test-dispatch | awk 'BEGIN{FS="\""} {print $2}')
-	juju show-task "${action_id}" | grep -q completed || true
+	juju run ubuntu-plus/0 no-dispatch filename=test-dispatch
 
 	# wait for update-status
 	wait_for "Hello from update-status" "$(workload_status ubuntu-plus 0).message"

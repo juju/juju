@@ -119,6 +119,21 @@ func (mr *MockApplicationAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockApplicationAPI)(nil).Close))
 }
 
+// Leader mocks base method.
+func (m *MockApplicationAPI) Leader(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Leader", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Leader indicates an expected call of Leader.
+func (mr *MockApplicationAPIMockRecorder) Leader(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Leader", reflect.TypeOf((*MockApplicationAPI)(nil).Leader), arg0)
+}
+
 // UnitsInfo mocks base method.
 func (m *MockApplicationAPI) UnitsInfo(arg0 []names.UnitTag) ([]application.UnitInfo, error) {
 	m.ctrl.T.Helper()

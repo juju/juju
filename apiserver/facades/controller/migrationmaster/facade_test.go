@@ -397,7 +397,6 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 			},
 		},
 	}})
-
 }
 
 func (s *Suite) TestReap(c *gc.C) {

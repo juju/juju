@@ -1676,6 +1676,14 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 
 		if cfg.CharmOrigin != nil {
+			origin := cfg.CharmOrigin
+			// If either the charm origin ID or Hash is set before a charm is
+			// downloaded, charm download will fail for charms with a forced series.
+			// The logic (refreshConfig) in sending the correct request to charmhub
+			// will break.
+			if (origin.ID != "" && origin.Hash == "") || (origin.ID == "" && origin.Hash != "") {
+				return nil, errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+			}
 			// Update in the application facade also calls
 			// SetCharm, though it has no current user in the
 			// application api client. Just in case: do not
@@ -1685,7 +1693,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
-					{"charm-origin", cfg.CharmOrigin},
+					{"charm-origin", origin},
 				}}},
 			})
 		}
@@ -1733,6 +1741,71 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
 	if cfg.Series != "" {
 		a.doc.Series = cfg.Series
+	}
+	return nil
+}
+
+// SetDownloadedIDAndHash updates the applications charm origin with ID and
+// hash values. This should ONLY be done from the async downloader.
+// The hash cannot be updated if the charm origin has no ID, nor was one
+// provided as an argument. The ID cannot be changed.
+func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
+	if id == "" && hash == "" {
+		return errors.BadRequestf("ID, %q, and hash, %q, must have values", id, hash)
+	}
+	if a.doc.CharmOrigin == nil {
+		return errors.Errorf("this application has no charm origin")
+	}
+	if id != "" && a.doc.CharmOrigin.ID != "" && a.doc.CharmOrigin.ID != id {
+		return errors.BadRequestf("application ID cannot be changed %q, %q", a.doc.CharmOrigin.ID, id)
+	}
+	if id != "" && hash == "" {
+		return errors.BadRequestf("programming error, SetDownloadedIDAndHash, cannot have an ID without a hash after downloading. See CharmHubRepository GetDownloadURL.")
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if a.Life() != Alive {
+			return nil, errors.New("application is not alive")
+		}
+		ops := []txn.Op{{
+			C:      applicationsC,
+			Id:     a.doc.DocID,
+			Assert: isAliveDoc,
+		}}
+		if id != "" {
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     a.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"charm-origin.id", id},
+				}}},
+			})
+		}
+		if hash != "" {
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     a.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"charm-origin.hash", hash},
+				}}},
+			})
+		}
+		return ops, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return err
+	}
+	if id != "" {
+		a.doc.CharmOrigin.ID = id
+	}
+	if hash != "" {
+		a.doc.CharmOrigin.Hash = hash
 	}
 	return nil
 }

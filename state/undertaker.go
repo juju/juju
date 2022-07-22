@@ -5,15 +5,18 @@ package state
 
 import (
 	"github.com/juju/errors"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
-var ErrModelNotDying = errors.New("model is not dying")
+const (
+	ErrModelNotDying = errors.ConstError("model is not dying")
+)
 
 // ProcessDyingModel checks if the model is Dying and empty, and if so,
 // transitions the model to Dead.
 //
 // If the model is non-empty because it is the controller model and still
-// contains hosted models, an error satisfying IsHasHostedModelsError will
+// contains hosted models, an error satisfying HasHostedModelsError will
 // be returned. If the model is otherwise non-empty, an error satisfying
 // IsNonEmptyModelError will be returned.
 func (st *State) ProcessDyingModel() (err error) {
@@ -36,7 +39,7 @@ func (st *State) ProcessDyingModel() (err error) {
 			return errors.Trace(err)
 		}
 		if n := len(modelUUIDs) - 1; n > 0 {
-			return errors.Trace(newHasHostedModelsError(n))
+			return errors.Trace(stateerrors.NewHasHostedModelsError(n))
 		}
 	}
 

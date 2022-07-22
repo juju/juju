@@ -201,6 +201,9 @@ type ServerConfig struct {
 	// RaftOpQueue is used by the API to apply operations to the raft
 	// instance.
 	RaftOpQueue Queue
+
+	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
+	CharmhubHTTPClient facade.HTTPClient
 }
 
 // Validate validates the API server configuration.
@@ -301,6 +304,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		controllerConfig:    controllerConfig,
 		raftOpQueue:         cfg.RaftOpQueue,
 		logger:              loggo.GetLogger("juju.apiserver"),
+		charmhubHTTPClient:  cfg.CharmhubHTTPClient,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1055,7 +1059,7 @@ func (srv *Server) serveConn(
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
 	if errors.IsNotFound(err) {
-		err = errors.Wrap(err, apiservererrors.UnknownModelError(resolvedModelUUID))
+		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
 	}
 
 	if err != nil {

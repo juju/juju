@@ -716,14 +716,47 @@ func (st *State) AllMachines() ([]*Machine, error) {
 }
 
 // MachineCountForSeries counts the machines for the provided series in the model.
-func (st *State) MachineCountForSeries(series ...string) (int, error) {
+func (st *State) MachineCountForSeries(series ...string) (map[string]int, error) {
 	machinesCollection, closer := st.db().GetCollection(machinesC)
 	defer closer()
-	count, err := machinesCollection.Find(bson.M{"series": bson.M{"$in": series}}).Count()
+	pipe := machinesCollection.Pipe([]bson.M{
+		{
+			"$match": bson.M{
+				"series":     bson.M{"$in": series},
+				"model-uuid": st.ModelUUID(),
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "$series", "count": bson.M{"$sum": 1},
+			},
+		},
+		{
+			"$sort": bson.M{"_id": 1},
+		},
+		{
+			"$group": bson.M{
+				"_id": nil,
+				"counts": bson.M{
+					"$push": bson.M{"k": "$_id", "v": "$count"},
+				},
+			},
+		},
+		{
+			"$replaceRoot": bson.M{
+				"newRoot": bson.M{"$arrayToObject": "$counts"},
+			},
+		},
+	})
+	var result []map[string]int
+	err := pipe.All(&result)
 	if err != nil {
-		return 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return count, nil
+	if len(result) > 0 {
+		return result[0], nil
+	}
+	return nil, nil
 }
 
 type machineDocSlice []machineDoc
@@ -1112,6 +1145,16 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
+	}
+
+	// If either the charm origin ID or Hash is set before a charm is
+	// downloaded, charm download will fail for charms with a forced series.
+	// The logic (refreshConfig) in sending the correct request to charmhub
+	// will break.
+	if args.CharmOrigin != nil &&
+		((args.CharmOrigin.ID != "" && args.CharmOrigin.Hash == "") ||
+			(args.CharmOrigin.ID == "" && args.CharmOrigin.Hash != "")) {
+		return nil, errors.BadRequestf("programming error, AddApplication, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
 	}
 
 	model, err := st.Model()

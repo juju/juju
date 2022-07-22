@@ -10,7 +10,6 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -20,14 +19,9 @@ const (
 	PolicyTargetGroupKey  = "policy-target-group"
 	UseDefaultSecgroupKey = "use-default-secgroup"
 	UseOpenstackGBPKey    = "use-openstack-gbp"
-	UseFloatingIPKey      = "use-floating-ip"
 )
 
 var configSchema = environschema.Fields{
-	UseFloatingIPKey: {
-		Description: "Whether a floating IP address is required to give the nodes a public IP address. Some installations assign public IP addresses by default without requiring a floating IP address.",
-		Type:        environschema.Tbool,
-	},
 	UseDefaultSecgroupKey: {
 		Description: `Whether new machine instances should have the "default" Openstack security group assigned in addition to juju defined security groups.`,
 		Type:        environschema.Tbool,
@@ -51,7 +45,6 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	UseFloatingIPKey:      schema.Omit,
 	UseDefaultSecgroupKey: false,
 	NetworkKey:            "",
 	ExternalNetworkKey:    "",
@@ -70,11 +63,6 @@ var configFields = func() schema.Fields {
 type environConfig struct {
 	*config.Config
 	attrs map[string]interface{}
-}
-
-func (c *environConfig) useFloatingIP() bool {
-	v, ok := c.attrs[UseFloatingIPKey].(bool)
-	return ok && v
 }
 
 func (c *environConfig) useDefaultSecurityGroup() bool {
@@ -170,14 +158,6 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 				"when an model is bootstrapped, or individually when a charm is deployed.\n"+
 				"See 'juju help bootstrap' or 'juju help deploy'.",
 			"default-instance-type", defaultInstanceType)
-		logger.Warningf(msg)
-	}
-
-	if _, ok := cfgAttrs[UseFloatingIPKey]; ok {
-		msg := fmt.Sprintf(
-			"Config attribute %q is deprecated.\n"+
-				"You can instead use the constraint %q.\n",
-			UseFloatingIPKey, constraints.AllocatePublicIP)
 		logger.Warningf(msg)
 	}
 

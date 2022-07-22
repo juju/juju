@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
@@ -80,12 +81,12 @@ func (v *vmTemplateSuite) SetUpTest(c *gc.C) {
 func (v *vmTemplateSuite) addMockLocalTemplateToClient() {
 	args := vsphereclient.ImportOVAParameters{
 		OVASHA256:    ovatest.FakeOVASHA256(),
-		Series:       "trusty",
+		Series:       "jammy",
 		Arch:         "amd64",
 		TemplateName: "juju-template-" + ovatest.FakeOVASHA256(),
 		DestinationFolder: object.NewFolder(nil, types.ManagedObjectReference{
 			Type:  "Folder",
-			Value: "custom-templates/trusty",
+			Value: "custom-templates/jammy",
 		}),
 	}
 	v.client.virtualMachineTemplates = []mockTemplateVM{
@@ -110,14 +111,14 @@ func (v *vmTemplateSuite) addMockDownloadedTemplateToClientNoArch() {
 func (v *vmTemplateSuite) mockDownloadedTemplateToClient(arch string) {
 	args := vsphereclient.ImportOVAParameters{
 		OVASHA256:    ovatest.FakeOVASHA256(),
-		Series:       "trusty",
+		Series:       "jammy",
 		Arch:         arch,
 		TemplateName: "juju-template-" + ovatest.FakeOVASHA256(),
 		DestinationFolder: object.NewFolder(nil, types.ManagedObjectReference{
 			Type: "Folder",
 			// The mocked client does a strings.HasPrefix() on this path when listing templates.
 			// We do a greedy search when looking for already imported templates.
-			Value: "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates/trusty/*",
+			Value: "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates/jammy/*",
 		}),
 	}
 	v.client.virtualMachineTemplates = []mockTemplateVM{
@@ -139,7 +140,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedButImageExist
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -155,7 +156,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 	)
 
 	_, _, err := tplMgr.EnsureTemplate(context.Background(), "xenial", "amd64")
-	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
 	c.Assert(err.Error(), gc.Matches, "no matching images found for given constraints.*")
 	v.client.CheckCallNames(c, "ListVMTemplates", "EnsureVMFolder")
 }
@@ -163,7 +164,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *gc.C) {
 	imgMeta := []*imagemetadata.ImageMetadata{
 		{
-			Id:         "custom-templates/trusty",
+			Id:         "custom-templates/jammy",
 			RegionName: "/datacenter1",
 			Endpoint:   "host1",
 			Arch:       "amd64",
@@ -176,7 +177,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *gc.C) {
 		v.datastore, v.statusUpdateParams, "",
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, jc.DeepEquals, v.client.virtualMachineTemplates[0].vm)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -201,8 +202,8 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *gc.C) {
 		v.datastore, v.statusUpdateParams, "",
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
-	// trusty exists in the image-download simplestreams
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
+	// jammy exists in the image-download simplestreams
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -219,7 +220,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -235,7 +236,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImageNoArch(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "trusty", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "")

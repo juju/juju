@@ -49,10 +49,10 @@ func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
 }
 
 func (s *vpcSuite) TestValidateBootstrapVPCCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("AWS failed!"))
+	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTODOContext(c))
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
-	c.Check(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 }
 
 func (*vpcSuite) checkErrorMatchesCannotVerifyVPC(c *gc.C, err error) {
@@ -81,11 +81,11 @@ func (s *vpcSuite) TestValidateModelVPCNotUsableError(c *gc.C) {
 }
 
 func (s *vpcSuite) TestValidateModelVPCCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("foo"))
+	s.stubAPI.SetErrors(fmt.Errorf("foo: %w", common.ErrorCredentialNotValid))
 	err := validateModelVPC(s.stubAPI, s.cloudCallCtx, "model", "foo")
 	expectedError := `Juju could not verify whether the given vpc-id(.|\n)*`
 	c.Check(err, gc.ErrorMatches, expectedError)
-	c.Check(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 }
 
 func (s *vpcSuite) TestValidateModelVPCIDNotSetOrNone(c *gc.C) {
@@ -239,10 +239,10 @@ func (s *vpcSuite) TestGetVPCByIDUnexpectedAWSError(c *gc.C) {
 }
 
 func (s *vpcSuite) TestGetVPCByIDCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("AWS failed!"))
+	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 
 	vpc, err := getVPCByID(s.stubAPI, s.cloudCallCtx, "bar")
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 	c.Check(vpc, gc.IsNil)
 }
 
@@ -315,10 +315,10 @@ func (s *vpcSuite) TestGetVPCSubnetUnexpectedAWSError(c *gc.C) {
 }
 
 func (s *vpcSuite) TestGetVPCSubnetCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("AWS failed!"))
+	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 
 	subnets, err := getVPCSubnets(s.stubAPI, s.cloudCallCtx, anyVPCID)
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 	c.Check(subnets, gc.IsNil)
 }
 
@@ -385,11 +385,11 @@ func (s *vpcSuite) TestGetVPCInternetGatewayUnexpectedAWSError(c *gc.C) {
 }
 
 func (s *vpcSuite) TestGetVPCInternetGatewayCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("AWS failed!"))
+	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	gateway, err := getVPCInternetGateway(s.stubAPI, s.cloudCallCtx, &anyVPC)
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 	c.Check(gateway, gc.IsNil)
 }
 
@@ -449,11 +449,11 @@ func (s *vpcSuite) TestGetVPCRouteTablesUnexpectedAWSError(c *gc.C) {
 }
 
 func (s *vpcSuite) TestGetVPCRouteTablesCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("AWS failed!"))
+	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	tables, err := getVPCRouteTables(s.stubAPI, s.cloudCallCtx, &anyVPC)
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 	c.Check(tables, gc.IsNil)
 }
 
@@ -580,9 +580,9 @@ func (s *vpcSuite) TestFindDefaultVPCIDUnexpectedAWSError(c *gc.C) {
 }
 
 func (s *vpcSuite) TestFindDefaultVPCIDCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("AWS failed!"))
+	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 	_, err := findDefaultVPCID(s.stubAPI, s.cloudCallCtx)
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 }
 
 func (s *vpcSuite) TestFindDefaultVPCIDNoAttributeOrNoValue(c *gc.C) {
@@ -657,14 +657,14 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneWithSubnetsError(c *gc.
 }
 
 func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneWithSubnetsCredentialError(c *gc.C) {
-	s.stubAPI.SetErrors(common.NewCredentialNotValid("too cloudy"))
+	s.stubAPI.SetErrors(fmt.Errorf("%w: too cloudy", common.ErrorCredentialNotValid))
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	vpcID := aws.ToString(anyVPC.VpcId)
 	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, s.cloudCallCtx, vpcID, anyZone, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot get VPC "vpc-anything" subnets: unexpected AWS .*: too cloudy`)
 	c.Check(subnetIDs, gc.IsNil)
-	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
 }
 
 func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneNoSubnetsAtAll(c *gc.C) {

@@ -19,7 +19,6 @@ import (
 	apicharms "github.com/juju/juju/api/client/charms"
 	apicloud "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/sshclient"
 	commoncharm "github.com/juju/juju/api/common/charms"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -33,6 +32,7 @@ import (
 // sshContainer implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand for CAAS model.
 type sshContainer struct {
+	leaderResolver
 	// remote indicates if it should target to the operator or workload pod.
 	remote    bool
 	target    string
@@ -47,7 +47,6 @@ type sshContainer struct {
 	charmsAPI          CharmsAPI
 	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
-	leaderAPIGetter    leaderAPIGetterFunc
 }
 
 // CloudCredentialAPI defines cloud credential related APIs.
@@ -59,6 +58,7 @@ type CloudCredentialAPI interface {
 
 // ApplicationAPI defines application related APIs.
 type ApplicationAPI interface {
+	Leader(string) (string, error)
 	Close() error
 	UnitsInfo(units []names.UnitTag) ([]application.UnitInfo, error)
 }
@@ -81,6 +81,10 @@ func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *sshContainer) setHostChecker(_ jujussh.ReachableChecker) {}
+
+func (c *sshContainer) setLeaderAPI(leaderAPI LeaderAPI) {
+	c.leaderAPI = leaderAPI
+}
 
 // getTarget returns the target.
 func (c *sshContainer) getTarget() string {
@@ -133,17 +137,15 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		}
 	}
 
+	defer func() {
+		c.leaderAPI = c.applicationAPI
+	}()
 	if c.applicationAPI == nil {
 		root, err := mc.NewAPIRoot()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		c.applicationAPI = application.NewClient(root)
-		if c.leaderAPIGetter == nil {
-			c.leaderAPIGetter = func() (LeaderAPI, error) {
-				return sshclient.NewFacade(root), nil
-			}
-		}
 	}
 
 	if c.charmsAPI == nil {
@@ -196,7 +198,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	}
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
-	resolvedTargetName, err := maybeResolveLeaderUnit(c.leaderAPIGetter, target)
+	resolvedTargetName, err := c.maybeResolveLeaderUnit(target)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

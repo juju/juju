@@ -22,10 +22,8 @@ var (
 	DefaultOplogSize = defaultOplogSize
 	FsAvailSpace     = fsAvailSpace
 
-	MaybeUseLegacyMongo = maybeUseLegacyMongo
-	FindLegacyMongo     = &findLegacyMongo
-	NewService          = &newService
-	NewSnapService      = &newSnapService
+	EnsureServerStartedForTest = ensureServerStarted
+	NewSnapService             = &newSnapService
 )
 
 func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) error {

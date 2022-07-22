@@ -367,6 +367,7 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 			Life:                  "alive",
 			Suspended:             true,
 			Key:                   "db2:db django:db",
+			UnitCount:             666,
 			RemoteApplicationName: "db2",
 			RemoteEndpointName:    "data",
 			ApplicationName:       "django",

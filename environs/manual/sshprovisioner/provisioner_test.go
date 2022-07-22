@@ -108,7 +108,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	}
 
 	// Attempting to provision a machine twice should fail. We effect
-	// this by checking for existing juju upstart configurations.
+	// this by checking for existing juju systemd configurations.
 	defer fakeSSH{
 		Provisioned:        true,
 		InitUbuntuUser:     true,

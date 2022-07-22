@@ -79,13 +79,13 @@ import (
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", testing.KubernetesSeriesName)
+var defaultSupportedJujuSeries = set.NewStrings("bionic", "focal", "jammy", testing.KubernetesSeriesName)
 
 var defaultLocalOrigin = commoncharm.Origin{
 	Source:       commoncharm.OriginLocal,
 	Architecture: arch.DefaultArchitecture,
 	OS:           "ubuntu",
-	Series:       "bionic",
+	Series:       "jammy",
 }
 
 type DeploySuiteBase struct {
@@ -316,13 +316,13 @@ func (s *DeploySuite) TestNoCharmOrBundle(c *gc.C) {
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:bionic/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withAliasedCharmDeployable(s.fakeAPI, curl, "some-application-name", "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withAliasedCharmDeployable(s.fakeAPI, curl, "some-application-name", "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockDeploy")
-	err := s.runDeployForState(c, charmDir.Path, "some-application-name", "--series", "bionic")
+	err := s.runDeployForState(c, charmDir.Path, "some-application-name", "--series", "jammy")
 	s.AssertBlocked(c, err, ".*TestBlockDeploy.*")
 }
 
@@ -347,11 +347,11 @@ func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withAliasedCharmDeployable(s.fakeAPI, curl, "some-application-name", "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
 }
@@ -373,11 +373,11 @@ func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:focal/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "--series", "precise", "--force")
+	err := s.runDeployForState(c, charmDir.Path, "--series", "focal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "dummy", curl, 1, 0)
 }
@@ -405,14 +405,14 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 }
 
 func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
-	// multi-series/metadata.yaml provides "precise" as its default series
-	// and yet, here, the model defaults to the series "trusty". This test
+	// multi-series/metadata.yaml provides "focal" as its default series
+	// and yet, here, the model defaults to the series "jammy". This test
 	// asserts that the model's default takes precedence.
-	updateAttrs := map[string]interface{}{"default-series": "trusty"}
+	updateAttrs := map[string]interface{}{"default-series": "jammy"}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
@@ -423,11 +423,11 @@ func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
 }
@@ -435,14 +435,14 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--series", "quantal")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty,xenial,yakkety,bionic`)
+	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: focal,jammy,bionic`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
 	curl := charm.MustParseURL("local:quantal/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -453,7 +453,7 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("quantal").ClonedDir(c.MkDir(), "lxd-profile-fail")
 	curl := charm.MustParseURL("local:quantal/lxd-profile-fail-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, true, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, true, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,23 +483,23 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	charmURL := charm.MustParseURL("local:trusty/multi-series-1")
+	charmURL := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, charmURL, charmDir, false)
-	withAliasedCharmDeployable(s.fakeAPI, charmURL, "some-application-name", "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withAliasedCharmDeployable(s.fakeAPI, charmURL, "some-application-name", "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "some-application-name", "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "some-application-name", "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "logging")
-	curl := charm.MustParseURL("local:trusty/logging-1")
+	curl := charm.MustParseURL("local:jammy/logging-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "logging", curl, 0, 0)
 }
@@ -514,12 +514,12 @@ func (s *DeploySuite) combinedSettings(ch charm.Charm, inSettings charm.Settings
 
 func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withAliasedCharmDeployable(s.fakeAPI, curl, "dummy-application", "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withAliasedCharmDeployable(s.fakeAPI, curl, "dummy-application", "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	path := setupConfigFile(c, c.MkDir())
-	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", path, "--series", "bionic")
+	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", path, "--series", "focal")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -535,9 +535,9 @@ func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
 
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	// Putting a config file in home is okay as $HOME is set to a tempdir
 	setupConfigFile(c, utils.Home())
@@ -547,9 +547,9 @@ func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 
 func (s *DeploySuite) TestConfigValues(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:bionic/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withAliasedCharmDeployable(s.fakeAPI, curl, "dummy-name", "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withAliasedCharmDeployable(s.fakeAPI, curl, "dummy-name", "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	confPath := filepath.Join(c.MkDir(), "include.txt")
 	c.Assert(ioutil.WriteFile(confPath, []byte("lorem\nipsum"), os.ModePerm), jc.ErrorIsNil)
@@ -572,9 +572,9 @@ func (s *DeploySuite) TestConfigValues(c *gc.C) {
 
 func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:bionic/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	path := setupConfigFile(c, c.MkDir())
 	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", path, "--config", "outlook=good", "--config", "skill-level=8000", "--series", "bionic")
@@ -594,19 +594,19 @@ func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
 
 func (s *DeploySuite) TestSingleConfigMoreThanOneFile(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:bionic/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", "one", "--config", "another", "--series", "bionic")
+	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", "one", "--config", "another", "--series", "jammy")
 	c.Assert(err, gc.ErrorMatches, "only a single config YAML file can be specified, got 2")
 }
 
 func (s *DeploySuite) TestConfigError(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	charmURL := charm.MustParseURL("local:bionic/multi-series-1")
+	charmURL := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, charmURL, charmDir, false)
-	withAliasedCharmDeployable(s.fakeAPI, charmURL, "some-application-name", "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withAliasedCharmDeployable(s.fakeAPI, charmURL, "some-application-name", "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	path := setupConfigFile(c, c.MkDir())
 	err := s.runDeployForState(c, charmDir.Path, "other-application", "--config", path)
@@ -617,13 +617,13 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	charmURL := charm.MustParseURL("local:bionic/multi-series-1")
+	charmURL := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, charmURL, charmDir, false)
-	withCharmDeployable(s.fakeAPI, charmURL, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, charmURL, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "--constraints", "mem=2G cores=2", "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "--constraints", "mem=2G cores=2", "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	app, _ := s.AssertApplication(c, "multi-series", curl, 1, 0)
 	cons, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -632,9 +632,9 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 
 func (s *DeploySuite) TestResources(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL("local:bionic/dummy-1")
+	curl := charm.MustParseURL("local:jammy/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	foopath := "/test/path/foo"
 	barpath := "/test/path/var"
@@ -643,7 +643,7 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	res2 := fmt.Sprintf("bar=%s", barpath)
 
 	d := DeployCommand{}
-	args := []string{charmDir.Path, "--resource", res1, "--resource", res2, "--series", "quantal"}
+	args := []string{charmDir.Path, "--resource", res1, "--resource", res2, "--series", "jammy"}
 
 	err := cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -655,9 +655,9 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 
 func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "lxd-profile")
-	curl := charm.MustParseURL("local:bionic/lxd-profile-0")
+	curl := charm.MustParseURL("local:jammy/lxd-profile-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -666,25 +666,20 @@ func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
 
 func (s *DeploySuite) TestLXDProfileLocalCharmFails(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "lxd-profile-fail")
-	curl := charm.MustParseURL("local:bionic/lxd-profile-fail-0")
+	curl := charm.MustParseURL("local:jammy/lxd-profile-fail-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 
-// TODO(ericsnow) Add tests for charmstore-based resources once the
-// endpoints are implemented.
-
-// TODO(wallyworld) - add another test that deploy with storage fails for older environments
-// (need deploy client to be refactored to use API stub)
 func (s *DeploySuite) TestStorage(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "storage-block")
-	curl := charm.MustParseURL("local:trusty/storage-block-1")
+	curl := charm.MustParseURL("local:jammy/storage-block-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployableWithStorage(
-		s.fakeAPI, curl, "storage-block", "trusty",
+		s.fakeAPI, curl, "storage-block", "jammy",
 		charmDir.Meta(),
 		charmDir.Metrics(),
 		false, false, 1, nil, nil,
@@ -697,7 +692,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 		},
 	)
 
-	err := s.runDeployForState(c, charmDir.Path, "--storage", "data=machinescoped,1G", "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "--storage", "data=machinescoped,1G", "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	app, _ := s.AssertApplication(c, "storage-block", curl, 1, 0)
 
@@ -760,11 +755,11 @@ func (s *DeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
 	ubURL := charm.MustParseURL("cs:~jameinel/ubuntu-lite-7")
-	withCharmRepoResolvable(s.fakeAPI, ubURL, "bionic")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
 	withCharmDeployable(
-		s.fakeAPI, ubURL, "bionic",
-		&charm.Meta{Name: "ubuntu-lite", Series: []string{"bionic"}},
+		s.fakeAPI, ubURL, "jammy",
+		&charm.Meta{Name: "ubuntu-lite", Series: []string{"jammy"}},
 		nil, false, false, 0, nil, nil,
 	)
 
@@ -785,7 +780,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
 	inURL := charm.MustParseURL("cs:~containers/aws-integrator")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "bionic")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "")
 
 	// The aws-integrator charm requires trust and since the operator passes
@@ -796,20 +791,20 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	// it's easier to just invoke it to set up all other calls and then
 	// explicitly Deploy here.
 	withCharmDeployable(
-		s.fakeAPI, inURL, "bionic",
-		&charm.Meta{Name: "aws-integrator", Series: []string{"bionic"}},
+		s.fakeAPI, inURL, "jammy",
+		&charm.Meta{Name: "aws-integrator", Series: []string{"jammy"}},
 		nil, false, false, 0, nil, nil,
 	)
 
 	origin := commoncharm.Origin{
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
-		Series:       "bionic",
+		Series:       "jammy",
 	}
 
 	deployURL := *inURL
 	deployURL.Revision = 1
-	deployURL.Series = "bionic"
+	deployURL.Series = "jammy"
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    &deployURL,
@@ -817,7 +812,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		},
 		CharmOrigin:     origin,
 		ApplicationName: inURL.Name,
-		Series:          "bionic",
+		Series:          "jammy",
 		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
 	}).Returns(error(nil))
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
@@ -827,7 +822,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		},
 		CharmOrigin:     origin,
 		ApplicationName: inURL.Name,
-		Series:          "bionic",
+		Series:          "jammy",
 	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
@@ -840,11 +835,11 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
 	ubURL := charm.MustParseURL("cs:~jameinel/ubuntu-lite-7")
-	withCharmRepoResolvable(s.fakeAPI, ubURL, "bionic")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
 	withCharmDeployable(
-		s.fakeAPI, ubURL, "bionic",
-		&charm.Meta{Name: "ubuntu-lite", Series: []string{"bionic"}},
+		s.fakeAPI, ubURL, "jammy",
+		&charm.Meta{Name: "ubuntu-lite", Series: []string{"jammy"}},
 		nil, false, false, 0, nil, nil,
 	)
 
@@ -863,12 +858,12 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
 	inURL := charm.MustParseURL("cs:apache2-26")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "bionic")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "")
 
 	withCharmDeployable(
-		s.fakeAPI, inURL, "bionic",
-		&charm.Meta{Name: "apache2", Series: []string{"bionic"}},
+		s.fakeAPI, inURL, "jammy",
+		&charm.Meta{Name: "apache2", Series: []string{"jammy"}},
 		nil, false, false, 0, nil, nil,
 	)
 
@@ -931,12 +926,12 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
 	inURL := charm.MustParseURL("cs:wordpress")
-	withCharmRepoResolvable(s.fakeAPI, inURL, "bionic")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "")
 
 	withCharmDeployable(
-		s.fakeAPI, inURL, "bionic",
-		&charm.Meta{Name: "wordpress", Series: []string{"bionic"}},
+		s.fakeAPI, inURL, "jammy",
+		&charm.Meta{Name: "wordpress", Series: []string{"jammy"}},
 		nil, false, false, 0, nil, nil,
 	)
 
@@ -1206,9 +1201,9 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 
 func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:focal/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1219,14 +1214,14 @@ func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 	// Add a machine that will be ignored due to placement directive.
 	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.runDeployForState(c, charmDir.Path, "-n", "1", "--to", "valid", "--series", "bionic")
+	err = s.runDeployForState(c, charmDir.Path, "-n", "1", "--to", "valid", "--series", "focal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc, err := s.State.Application("dummy")
@@ -1247,9 +1242,9 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "logging")
-	curl := charm.MustParseURL("local:bionic/logging")
+	curl := charm.MustParseURL("local:jammy/logging")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path, "--constraints", "mem=1G", "--series", "bionic")
 	c.Assert(err, gc.ErrorMatches, "cannot use --constraints with subordinate application")
@@ -1257,22 +1252,22 @@ func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 
 func (s *DeploySuite) TestNumUnits(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "-n", "13", "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "-n", "13", "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "multi-series", curl, 13, 0)
 }
 
 func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "logging")
-	curl := charm.MustParseURL("local:bionic/logging")
+	curl := charm.MustParseURL("local:jammy/logging")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, "--num-units", "3", charmDir.Path, "--series", "bionic")
+	err := s.runDeployForState(c, "--num-units", "3", charmDir.Path, "--series", "jammy")
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
 	_, err = s.State.Application("dummy")
 	c.Assert(err, gc.ErrorMatches, `application "dummy" not found`)
@@ -1298,9 +1293,9 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL("local:bionic/dummy-1")
+	curl := charm.MustParseURL("local:jammy/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1311,9 +1306,9 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL("local:bionic/dummy-1")
+	curl := charm.MustParseURL("local:jammy/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	template := state.MachineTemplate{
 		Series: version.DefaultSupportedLTS(),
@@ -1331,7 +1326,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL("local:bionic/dummy-1")
+	curl := charm.MustParseURL("local:jammy/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	ltsseries := version.DefaultSupportedLTS()
 	withCharmDeployable(s.fakeAPI, curl, ltsseries, charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
@@ -1357,11 +1352,11 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, "--to", "42", charmDir.Path, "portlandia", "--series", "bionic")
+	err := s.runDeployForState(c, "--to", "42", charmDir.Path, "portlandia", "--series", "focal")
 	c.Assert(err, gc.ErrorMatches, `cannot deploy "portlandia" to machine 42: machine 42 not found`)
 	_, err = s.State.Application("portlandia")
 	c.Assert(err, gc.ErrorMatches, `application "portlandia" not found`)
@@ -1371,11 +1366,11 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "logging")
-	curl := charm.MustParseURL("local:bionic/logging-1")
+	curl := charm.MustParseURL("local:jammy/logging-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err = s.runDeployForState(c, "--to", machine.Id(), charmDir.Path, "--series", "bionic")
+	err = s.runDeployForState(c, "--to", machine.Id(), charmDir.Path, "--series", "jammy")
 
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
 	_, err = s.State.Application("dummy")
@@ -1396,11 +1391,11 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 
 func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "terms1")
-	curl := charm.MustParseURL("local:trusty/terms1-1")
+	curl := charm.MustParseURL("local:jammy/terms1-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "--series", "trusty")
+	err := s.runDeployForState(c, charmDir.Path, "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "terms1", curl, 1, 0)
 }
@@ -1429,7 +1424,7 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 
 func (s *DeploySuite) TestDeployLocalWithSeriesMismatchReturnsError(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "terms1")
-	curl := charm.MustParseURL("local:trusty/terms1-1")
+	curl := charm.MustParseURL("local:jammy/terms1-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "quantal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
@@ -1516,26 +1511,26 @@ func setupConfigFile(c *gc.C, dir string) string {
 
 func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	termsRequiredError := &common.TermsRequiredError{Terms: []string{"term/1", "term/2"}}
-	curl := charm.MustParseURL("cs:bionic/terms1")
+	curl := charm.MustParseURL("cs:jammy/terms1")
 	withCharmRepoResolvable(s.fakeAPI, curl, "")
 	deployURL := *curl
 	deployURL.Revision = 1
 	origin := commoncharm.Origin{
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
-		Series:       "bionic",
+		Series:       "jammy",
 	}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
 	s.fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{
 			URL:  deployURL.String(),
-			Meta: &charm.Meta{Name: "dummy", Series: []string{"bionic"}},
+			Meta: &charm.Meta{Name: "dummy", Series: []string{"jammy"}},
 		},
 		error(nil),
 	)
 	deploy := s.deployCommand()
 
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/terms1")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:jammy/terms1")
 	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -1593,16 +1588,14 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	meteredCharmURL := charm.MustParseURL("cs:bionic/metered-1")
+	meteredCharmURL := charm.MustParseURL("cs:jammy/metered-1")
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
 
 	s.fakeAPI.planURL = server.URL
 	withCharmRepoResolvable(s.fakeAPI, meteredCharmURL, "")
 
-	series := "bionic"
-
 	fallbackCons := constraints.MustParse("arch=amd64")
-	platform, _ := apputils.DeducePlatform(constraints.Value{}, "bionic", fallbackCons)
+	platform, _ := apputils.DeducePlatform(constraints.Value{}, "jammy", fallbackCons)
 	origin, _ := apputils.DeduceOrigin(meteredCharmURL, charm.Channel{}, platform)
 	s.fakeAPI.Call("AddCharm", meteredCharmURL, origin, false).Returns(origin, error(nil))
 	s.fakeAPI.Call("CharmInfo", meteredCharmURL.String()).Returns(
@@ -1620,7 +1613,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 		},
 		CharmOrigin:     origin,
 		ApplicationName: "metered",
-		Series:          series,
+		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 	s.fakeAPI.Call("IsMetered", meteredCharmURL.String()).Returns(true, error(nil))
@@ -1633,7 +1626,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
 	deploy := s.deployCommand()
 	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:jammy/metered-1", "--plan", "someplan")
 
 	c.Check(err, gc.ErrorMatches, "IsMetered")
 }
@@ -1645,9 +1638,9 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	defer server.Close()
 
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
-	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
+	meteredURL := charm.MustParseURL("cs:metered-1")
 	s.fakeAPI.planURL = server.URL
-	withCharmDeployable(s.fakeAPI, meteredURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, meteredURL, "jammy", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	withCharmRepoResolvable(s.fakeAPI, meteredURL, "")
 
 	// `"hello registration"\n` (quotes and newline from json
@@ -1669,13 +1662,13 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: meteredURL.Name,
-		Series:          "bionic",
+		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 
 	deploy := s.deployCommand()
 	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -1683,7 +1676,7 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{deployer.MetricRegistrationPost{
 			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:bionic/metered-1",
+			CharmURL:        "cs:jammy/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
 			IncreaseBudget:  0,
@@ -1699,9 +1692,9 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
 
-	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
+	meteredURL := charm.MustParseURL("cs:metered-1")
 	s.fakeAPI.planURL = server.URL
-	withCharmDeployable(s.fakeAPI, meteredURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, meteredURL, "jammy", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	withCharmRepoResolvable(s.fakeAPI, meteredURL, "")
 
 	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
@@ -1720,22 +1713,22 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: meteredURL.Name,
-		Series:          "bionic",
+		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 
 	deploy := s.deployCommand()
 	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
-		"DefaultPlan", []interface{}{"cs:bionic/metered-1"},
+		"DefaultPlan", []interface{}{"cs:jammy/metered-1"},
 	}, {
 		"Authorize", []interface{}{deployer.MetricRegistrationPost{
 			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "cs:bionic/metered-1",
+			CharmURL:        "cs:jammy/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "thisplan",
 			IncreaseBudget:  0,
@@ -1745,9 +1738,9 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 
 func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("dummy")
-	charmURL := charm.MustParseURL("cs:bionic/dummy-1")
+	charmURL := charm.MustParseURL("cs:dummy-1")
 	withCharmRepoResolvable(s.fakeAPI, charmURL, "")
-	withCharmDeployable(s.fakeAPI, charmURL, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, charmURL, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
@@ -1767,7 +1760,7 @@ func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C
 	}).Returns(error(nil))
 
 	deploy := s.deployCommand()
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/dummy-1")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:dummy-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, call := range s.fakeAPI.Calls() {
@@ -1799,10 +1792,10 @@ pings:
 		c.Fatal("cannot write to metrics.yaml")
 	}
 
-	curl := charm.MustParseURL("local:bionic/metered")
+	curl := charm.MustParseURL("local:jammy/metered")
 
 	withCharmRepoResolvable(s.fakeAPI, curl, "")
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
@@ -1816,7 +1809,7 @@ pings:
 		},
 		CharmOrigin:     defaultLocalOrigin,
 		ApplicationName: curl.Name,
-		Series:          "bionic",
+		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 
@@ -1849,7 +1842,7 @@ pings:
 		c.Fatal("cannot write to metrics.yaml")
 	}
 
-	curl := charm.MustParseURL("local:bionic/metered")
+	curl := charm.MustParseURL("local:jammy/metered")
 
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
@@ -1858,7 +1851,7 @@ pings:
 
 	s.fakeAPI.planURL = server.URL
 	withCharmRepoResolvable(s.fakeAPI, curl, "")
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
@@ -1878,7 +1871,7 @@ pings:
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{deployer.MetricRegistrationPost{
 			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			CharmURL:        "local:bionic/metered",
+			CharmURL:        "local:jammy/metered",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
 			IncreaseBudget:  0,
@@ -2191,26 +2184,26 @@ type applicationInfo struct {
 }
 
 func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {
-	curl := charm.MustParseURL("cs:bionic/wordpress-extra-bindings-1")
+	curl := charm.MustParseURL("cs:jammy/wordpress-extra-bindings-1")
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("wordpress-extra-bindings")
 	withCharmRepoResolvable(s.fakeAPI, curl, "")
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "jammy", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
 			URL: curl,
 			Origin: commoncharm.Origin{
 				Source:       commoncharm.OriginCharmStore,
 				Architecture: arch.DefaultArchitecture,
-				Series:       "bionic",
+				Series:       "jammy",
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
 			Source:       commoncharm.OriginCharmStore,
 			Architecture: arch.DefaultArchitecture,
-			Series:       "bionic",
+			Series:       "jammy",
 		},
 		ApplicationName: curl.Name,
-		Series:          "bionic",
+		Series:          "jammy",
 		NumUnits:        1,
 		EndpointBindings: map[string]string{
 			"db":        "db",
@@ -2229,7 +2222,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 		},
 	}, error(nil))
 	deploy := s.deployCommand()
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:jammy/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2329,7 +2322,7 @@ func (s *DeployUnitTestSuite) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 
 func (s *DeployUnitTestSuite) TestDeployApplicationConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	cfg := basicDeployerConfig("local:trusty/dummy-0")
+	cfg := basicDeployerConfig("local:jammy/dummy-0")
 	opt := bytes.NewBufferString("foo: bar")
 	err := cfg.ConfigOptions.SetAttrsFromReader(opt)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2339,12 +2332,12 @@ func (s *DeployUnitTestSuite) TestDeployApplicationConfig(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "dummy")
 	fakeAPI := s.fakeAPI()
 
-	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	dummyURL := charm.MustParseURL("local:jammy/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir, false)
 	withCharmDeployable(
 		fakeAPI,
 		dummyURL,
-		"trusty",
+		"jammy",
 		charmDir.Meta(),
 		charmDir.Metrics(),
 		false,
@@ -2367,34 +2360,34 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.
 	charmDir := s.makeCharmDir(c, "multi-series")
 	defer s.setupMocks(c).Finish()
 	cfg := basicDeployerConfig(charmDir.Path)
-	cfg.Series = "trusty"
+	cfg.Series = "jammy"
 	s.expectDeployer(c, cfg)
 
 	fakeAPI := s.fakeAPI()
 
-	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
+	multiSeriesURL := charm.MustParseURL("local:jammy/multi-series-1")
 
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir, false)
-	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "trusty")
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "jammy")
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
 	charmDir := s.makeCharmDir(c, "multi-series")
-	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
+	multiSeriesURL := charm.MustParseURL("local:jammy/multi-series-1")
 
 	defer s.setupMocks(c).Finish()
 	cfg := basicDeployerConfig(charmDir.Path)
-	cfg.Series = "trusty"
+	cfg.Series = "jammy"
 	s.expectDeployer(c, cfg)
 
 	fakeAPI := s.fakeAPI()
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir, false)
-	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "jammy", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 
-	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "trusty")
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "jammy")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We never attempt to set metric credentials
@@ -2407,13 +2400,13 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 
 func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	cfg := basicDeployerConfig("local:trusty/dummy-0")
+	cfg := basicDeployerConfig("local:jammy/dummy-0")
 	s.expectDeployer(c, cfg)
 	charmDir := s.makeCharmDir(c, "dummy")
 	fakeAPI := s.fakeAPI()
-	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	dummyURL := charm.MustParseURL("local:jammy/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir, false)
-	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(fakeAPI, dummyURL, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	_, err := s.runDeploy(c, fakeAPI, dummyURL.String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2424,16 +2417,16 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "dummy")
 
 	defer s.setupMocks(c).Finish()
-	cfg := basicDeployerConfig("local:trusty/dummy-0")
+	cfg := basicDeployerConfig("local:jammy/dummy-0")
 	cfg.AttachStorage = []string{"foo/0", "bar/1", "baz/2"}
 	s.expectDeployer(c, cfg)
 
 	fakeAPI := s.fakeAPI()
 
-	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	dummyURL := charm.MustParseURL("local:jammy/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir, false)
 	withCharmDeployable(
-		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
+		fakeAPI, dummyURL, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
 	)
 
 	deployCmd := newWrappedDeployCommandForTest(fakeAPI)
@@ -2450,7 +2443,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "dummy")
 
 	defer s.setupMocks(c).Finish()
-	cfg := basicDeployerConfig("local:trusty/dummy-0")
+	cfg := basicDeployerConfig("local:jammy/dummy-0")
 	cfg.AttachStorage = []string{"foo/0"}
 	cfg.PlacementSpec = "lxd"
 	cfg.Placement = []*instance.Placement{
@@ -2459,10 +2452,10 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageContainer(c *gc.C) {
 	s.expectDeployer(c, cfg)
 
 	fakeAPI := s.fakeAPI()
-	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	dummyURL := charm.MustParseURL("local:jammy/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir, false)
 	withCharmDeployable(
-		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
+		fakeAPI, dummyURL, "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
 	)
 
 	deployCmd := newWrappedDeployCommandForTest(fakeAPI)
@@ -3048,7 +3041,7 @@ func withCharmDeployableWithDevicesAndStorage(
 ) {
 	deployURL := *url
 	if deployURL.Series == "" {
-		deployURL.Series = "bionic"
+		deployURL.Series = "jammy"
 		if deployURL.Revision < 0 {
 			deployURL.Revision = 1
 		}
@@ -3102,7 +3095,7 @@ func withCharmRepoResolvable(
 		resultURL.Revision = 1
 	}
 	if resultURL.Series == "" {
-		resultURL.Series = "bionic"
+		resultURL.Series = "jammy"
 	}
 	resolveURLs := []*charm.URL{url}
 	if url.Revision < 0 || url.Series == "" {
@@ -3111,7 +3104,7 @@ func withCharmRepoResolvable(
 			inURL.Revision = 1
 		}
 		if inURL.Series == "" {
-			inURL.Series = "bionic"
+			inURL.Series = "jammy"
 		}
 		resolveURLs = append(resolveURLs, &inURL)
 	}
@@ -3125,7 +3118,7 @@ func withCharmRepoResolvable(
 			fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 				&resultURL,
 				origin,
-				[]string{"bionic"}, // Supported series
+				[]string{"jammy"}, // Supported series
 				error(nil),
 			)
 		}

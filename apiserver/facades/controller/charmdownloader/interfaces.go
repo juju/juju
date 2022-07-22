@@ -36,6 +36,7 @@ type Application interface {
 	SetStatus(status.StatusInfo) error
 	CharmOrigin() *corecharm.Origin
 	Charm() (Charm, bool, error)
+	SetDownloadedIDAndHash(id, hash string) error
 }
 
 // Charm provides an API for querying charm details.

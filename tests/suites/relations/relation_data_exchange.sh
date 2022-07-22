@@ -10,7 +10,8 @@ run_relation_data_exchange() {
 	juju deploy cs:wordpress -n 2
 	wait_for "wordpress" "$(idle_condition "wordpress" 0 0)"
 	wait_for "wordpress" "$(idle_condition "wordpress" 0 1)"
-	juju deploy mysql
+	# mysql charm does not have stable channel, so we use edge channel
+	juju deploy mysql --channel=edge
 	wait_for "mysql" "$(idle_condition "mysql")"
 
 	# Establish relation

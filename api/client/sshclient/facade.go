@@ -100,19 +100,6 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 	return out.Results[0].PublicKeys, nil
 }
 
-// Leader returns the unit name for the leader of the provided application.
-func (facade *Facade) Leader(app string) (string, error) {
-	var result params.StringResult
-	p := params.Entity{Tag: names.NewApplicationTag(app).String()}
-	if err := facade.caller.FacadeCall("Leader", p, &result); err != nil {
-		return "", err
-	}
-	if result.Error != nil {
-		return "", result.Error
-	}
-	return result.Result, nil
-}
-
 // Proxy returns whether SSH connections should be proxied through the
 // controller hosts for the associated model.
 func (facade *Facade) Proxy() (bool, error) {

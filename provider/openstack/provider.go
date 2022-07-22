@@ -1081,29 +1081,29 @@ func (e *Environ) startInstance(
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	cloudCfg, err := e.configurator.GetCloudConfig(args)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	networks, err := e.networksForInstance(args, cloudCfg)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, OpenstackRenderer{})
 	if err != nil {
-		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot make user data"))
+		return nil, environs.ZoneIndependentError(errors.Annotate(err, "cannot make user data"))
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
@@ -1140,7 +1140,7 @@ func (e *Environ) startInstance(
 			}
 			net, err := neutronClient.GetNetworkV2(n.NetworkId)
 			if err != nil {
-				return nil, common.ZoneIndependentError(err)
+				return nil, environs.ZoneIndependentError(err)
 			}
 			if net.PortSecurityEnabled != nil &&
 				*net.PortSecurityEnabled == false {
@@ -1162,7 +1162,7 @@ func (e *Environ) startInstance(
 		}
 		groupNames, err := e.firewaller.SetUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 		if err != nil {
-			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot set up groups"))
+			return nil, environs.ZoneIndependentError(errors.Annotate(err, "cannot set up groups"))
 		}
 		novaGroupNames = make([]nova.SecurityGroupName, len(groupNames))
 		for i, name := range groupNames {
@@ -1265,7 +1265,7 @@ func (e *Environ) startInstance(
 	}
 	err = e.configureRootDisk(ctx, args, spec, &opts)
 	if err != nil {
-		return nil, common.ZoneIndependentError(err)
+		return nil, environs.ZoneIndependentError(err)
 	}
 	e.configurator.ModifyRunServerOptions(&opts)
 
@@ -1281,14 +1281,14 @@ func (e *Environ) startInstance(
 		// let the provisioner know it is a good idea to try another
 		// AZ if available.
 		if !isNoValidHostsError(err) {
-			err = common.ZoneIndependentError(err)
+			err = environs.ZoneIndependentError(err)
 		}
 		return nil, err
 	}
 
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot get started instance"))
+		return nil, environs.ZoneIndependentError(errors.Annotate(err, "cannot get started instance"))
 	}
 
 	inst := &openstackInstance{
@@ -1299,7 +1299,7 @@ func (e *Environ) startInstance(
 		runOpts:      &opts,
 	}
 	logger.Infof("started instance %q", inst.Id())
-	withPublicIP := e.ecfg().useFloatingIP()
+	var withPublicIP bool
 	// Any machine constraint for allocating a public IP address
 	// overrides the (deprecated) model config.
 	if args.Constraints.HasAllocatePublicIP() {
@@ -1307,7 +1307,7 @@ func (e *Environ) startInstance(
 	}
 	if withPublicIP {
 		// If we don't lock here, AllocatePublicIP() can return the same
-		// public IP for 2 different instances.  Only one will successfully
+		// public IP for 2 different instances. Only one will successfully
 		// be assigned the public IP, the other will not have one.
 		e.publicIPMutex.Lock()
 		defer e.publicIPMutex.Unlock()
@@ -1318,7 +1318,7 @@ func (e *Environ) startInstance(
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
+			return nil, environs.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", *publicIP)
@@ -1329,7 +1329,7 @@ func (e *Environ) startInstance(
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, common.ZoneIndependentError(errors.Annotatef(err,
+			return nil, environs.ZoneIndependentError(errors.Annotatef(err,
 				"cannot assign public address %s to instance %q",
 				*publicIP, inst.Id(),
 			))
@@ -1366,10 +1366,10 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 
 	volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
 	if err != nil {
-		return common.ZoneIndependentError(err)
+		return environs.ZoneIndependentError(err)
 	}
 	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
-		return common.ZoneIndependentError(err)
+		return environs.ZoneIndependentError(err)
 	}
 
 	zones, err := e.AvailabilityZones(ctx)
@@ -2339,11 +2339,6 @@ func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, int
 // AreSpacesRoutable is specified on environs.NetworkingEnviron.
 func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
-}
-
-// SSHAddresses is specified on environs.SSHAddresses.
-func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
-	return addresses, nil
 }
 
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress

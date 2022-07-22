@@ -502,7 +502,7 @@ func mustSpecifyBackingImageFormat() (bool, error) {
 	}
 
 	switch series {
-	case "precise", "trusty", "xenial", "bionic", "eoan":
+	case "bionic":
 		return false, nil
 	default: // focal+
 		return true, nil

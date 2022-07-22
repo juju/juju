@@ -1920,8 +1920,8 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
+		Series:          "jammy",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -1931,8 +1931,8 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 	attrsCustom := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-custom",
-		Version:         "14.04",
-		Series:          "trusty",
+		Version:         "22.04",
+		Series:          "jammy",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test",
@@ -1967,7 +1967,7 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 	image := images[0]
 	c.Check(image.Stream, gc.Equals, "stream")
 	c.Check(image.Region, gc.Equals, "region-custom")
-	c.Check(image.Version, gc.Equals, "14.04")
+	c.Check(image.Version, gc.Equals, "22.04")
 	c.Check(image.Arch, gc.Equals, "arch")
 	c.Check(image.VirtType, gc.Equals, "virtType-test")
 	c.Check(image.RootStorageType, gc.Equals, "rootStorageType-test")

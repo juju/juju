@@ -602,7 +602,72 @@ func (m *Machine) PasswordValid(password string) bool {
 // a HasAssignedUnitsError.  If the machine has containers, Destroy
 // will return HasContainersError.
 func (m *Machine) Destroy() error {
+	if m.IsManager() && len(m.doc.Principals) > 0 {
+		return errors.Trace(m.destroyControllerWithPrincipals())
+	}
 	return errors.Trace(m.advanceLifecycle(Dying, false, false, 0))
+}
+
+// destroyControllerWithPrincipals is called if the controller has
+// principal units and they are juju- system charms, then gracefully
+// remove them before destroying the machine.
+func (m *Machine) destroyControllerWithPrincipals() error {
+	units, err := m.Units()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	unitsMap := make(map[string]*Unit)
+	for _, unit := range units {
+		unitsMap[unit.String()] = unit
+	}
+	var evacuablePrincipals []string
+	for _, principalUnit := range m.doc.Principals {
+		unit, ok := unitsMap[principalUnit]
+		if !ok {
+			continue
+		}
+		curl, err := unit.CharmURL()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if curl != nil && strings.HasPrefix(curl.Name, "juju-") {
+			evacuablePrincipals = append(evacuablePrincipals, principalUnit)
+		}
+	}
+	if len(m.doc.Principals) != len(evacuablePrincipals) {
+		return stateerrors.NewHasAssignedUnitsError(m.doc.Id, m.doc.Principals)
+	}
+	ops := []txn.Op{
+		{
+			C:  machinesC,
+			Id: m.doc.DocID,
+			Assert: bson.D{
+				{"life", Alive},
+				advanceLifecycleUnitAsserts(evacuablePrincipals),
+			},
+			// To prevent race conditions, we remove the ability for new
+			// units to be deployed to the machine.
+			Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
+		},
+		newCleanupOp(cleanupEvacuateMachine, m.doc.Id),
+	}
+	if err := m.st.db().RunTransaction(ops); err != nil {
+		return errors.Annotatef(err, "failed to run transaction: %s", pretty.Sprint(ops))
+	}
+	for i, v := range m.doc.Jobs {
+		if v == JobHostUnits {
+			m.doc.Jobs = append(m.doc.Jobs[:i], m.doc.Jobs[i+1:]...)
+			break
+		}
+	}
+	err = m.SetStatus(status.StatusInfo{
+		Status:  status.Stopped,
+		Message: fmt.Sprintf("waiting on dying units %s", strings.Join(evacuablePrincipals, ", ")),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // DestroyWithContainers sets the machine lifecycle to Dying if it is Alive.
@@ -843,10 +908,11 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			}
 
 			if canDie && !dyingAllowContainers {
-				if err := m.advanceLifecycleIfNoContainers(); err != nil && !IsHasContainersError(err) {
-					return nil, err
-				} else if IsHasContainersError(err) {
+				err := m.advanceLifecycleIfNoContainers()
+				if errors.Is(err, stateerrors.HasContainersError) {
 					canDie = false
+				} else if err != nil {
+					return nil, err
 				}
 				ops = append(ops, m.noContainersOp())
 			}
@@ -862,7 +928,7 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		}
 
 		if len(m.doc.Principals) > 0 {
-			return nil, newHasAssignedUnitsError(m.doc.Id, m.doc.Principals)
+			return nil, stateerrors.NewHasAssignedUnitsError(m.doc.Id, m.doc.Principals)
 		}
 		asserts = append(asserts, noUnitAsserts())
 
@@ -1002,7 +1068,7 @@ func (m *Machine) advanceLifecycleIfNoContainers() error {
 	}
 
 	if len(containers) > 0 {
-		return newHasContainersError(m.doc.Id, containers)
+		return stateerrors.NewHasContainersError(m.doc.Id, containers)
 	}
 	return nil
 }
@@ -1033,7 +1099,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 		}
 	}
 	if len(attachments) > 0 {
-		return nil, newHasAttachmentsError(m.doc.Id, attachments.SortedValues())
+		return nil, stateerrors.NewHasAttachmentsError(m.doc.Id, attachments.SortedValues())
 	}
 	if m.doc.Life == Dying {
 		return nil, nil

@@ -748,7 +748,7 @@ func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id str
 			if errors.Is(err, ErrDeviceProvisioningFailed) {
 				return true
 			}
-			return common.IsCredentialNotValid(err)
+			return errors.Is(err, common.ErrorCredentialNotValid)
 		},
 		Attempts: 180,
 		Delay:    5 * time.Second,

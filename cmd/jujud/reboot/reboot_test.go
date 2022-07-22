@@ -34,7 +34,6 @@ var _ = gc.Suite(&NewRebootSuite{})
 func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectManagerIsInitialized(false, false)
-	s.expectHostSeries("focal")
 	s.expectListServices()
 	s.expectStopDeployedUnits()
 	s.expectScheduleAction()
@@ -48,7 +47,6 @@ func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *gc.C) {
 	s.expectManagerIsInitialized(true, false)
 	s.expectManagerIsInitialized(true, false)
 	s.expectListContainers()
-	s.expectHostSeries("focal")
 	s.expectListServices()
 	s.expectStopDeployedUnits()
 	s.expectScheduleAction()
@@ -82,10 +80,6 @@ func (s *NewRebootSuite) expectManagerIsInitialized(lxd, kvm bool) {
 	s.containerManager.EXPECT().IsInitialized().Return(kvm)
 }
 
-func (s *NewRebootSuite) expectHostSeries(name string) {
-	s.rebootWaiter.EXPECT().HostSeries().Return(name, nil)
-}
-
 func (s *NewRebootSuite) expectListServices() {
 	fakeServices := []string{
 		"jujud-machine-1",
@@ -97,8 +91,8 @@ func (s *NewRebootSuite) expectListServices() {
 }
 
 func (s *NewRebootSuite) expectStopDeployedUnits() {
-	s.rebootWaiter.EXPECT().NewService("jujud-unit-drupal-1", gomock.Any(), gomock.Any()).Return(s.service, nil)
-	s.rebootWaiter.EXPECT().NewService("jujud-unit-mysql-1", gomock.Any(), gomock.Any()).Return(s.service, nil)
+	s.rebootWaiter.EXPECT().NewServiceReference("jujud-unit-drupal-1").Return(s.service, nil)
+	s.rebootWaiter.EXPECT().NewServiceReference("jujud-unit-mysql-1").Return(s.service, nil)
 	s.service.EXPECT().Stop().Times(2)
 }
 
