@@ -54,12 +54,14 @@ run_deploy_cmr_bundle() {
 	destroy_model "other"
 }
 
-run_deploy_exported_bundle() {
+# run_deploy_exported_charmstore_bundle_with_fixed_revisions is to test which checks
+# how juju deploys charmstore bundles with fixed revisions
+run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
 	echo
 
-	file="${TEST_DIR}/test-export-bundles-deploy.log"
+	file="${TEST_DIR}/test-export-bundles-deploy-with-fixed-revisions.log"
 
-	ensure "test-export-bundles-deploy" "${file}"
+	ensure "test-export-bundles-deploy-with-fixed-revisions" "${file}"
 
 	bundle=./tests/suites/deploy/bundles/telegraf_bundle.yaml
 	juju deploy ${bundle}
@@ -69,7 +71,47 @@ run_deploy_exported_bundle() {
 	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
 	diff -u ${bundle} "${TEST_DIR}/exported-bundle.yaml"
 
-	destroy_model "test-export-bundles-deploy"
+	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
+}
+
+# run_deploy_exported_charmhub_bundle_with_float_revisions is to test which checks
+# how juju deploys charmhub bundles with undefined versions in bundle yaml
+run_deploy_exported_charmhub_bundle_with_float_revisions() {
+	echo
+
+	file="${TEST_DIR}/test-export-bundles-deploy-with-float-revisions.log"
+
+	ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
+
+	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
+	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
+	juju deploy ${bundle}
+
+	if ! which "yq" >/dev/null 2>&1; then
+	  sudo snap install yq --classic --channel latest/stable
+  fi
+
+  echo "Get current stable revisions for charms in telegraf_bundle_without_revisions.yaml"
+  influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
+  telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
+  ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channel-map"."latest/stable".revision')
+
+  echo "Make a copy of reference yaml and insert revisions in it"
+  cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+  yq -i "
+    .applications.influxdb.revision = ${influxdb_rev} |
+    .applications.telegraf.revision = ${telegraf_rev} |
+    .applications.ubuntu.revision = ${ubuntu_rev}
+  " "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+
+	# no need to wait for the bundle to finish deploying to
+	# check the export.
+	echo "Compare export-bundle with telegraf_bundle_with_revisions"
+	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
+	# we need to use -w flag because file after yq and juju export-bundle yaml generator have different space policies
+	diff -u -w "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
+
+	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
 
 run_deploy_trusted_bundle() {
@@ -177,6 +219,7 @@ run_deploy_lxd_profile_bundle() {
 	destroy_model "${model_name}"
 }
 
+
 test_deploy_bundles() {
 	if [ "$(skip 'test_deploy_bundles')" ]; then
 		echo "==> TEST SKIPPED: deploy bundles"
@@ -190,7 +233,8 @@ test_deploy_bundles() {
 
 		run "run_deploy_bundle"
 		run "run_deploy_bundle_overlay"
-		run "run_deploy_exported_bundle"
+		run "run_deploy_exported_charmstore_bundle_with_fixed_revisions"
+		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_charmhub_bundle"
 
