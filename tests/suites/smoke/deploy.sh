@@ -1,3 +1,8 @@
+# run_local_deploy is responsible for deploying revision 1 of the refresher
+# charm to first check that deployment is successful. The second part of this
+# test refreshes the charm to revision 2 and verifies that the upgrade hook of
+# the charm has been run by checking the status message of the unit for the
+# string that the charm outputs during it's upgrade hook.
 run_local_deploy() {
 	echo
 
