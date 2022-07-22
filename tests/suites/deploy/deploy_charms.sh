@@ -108,10 +108,15 @@ run_deploy_lxd_to_machine() {
 
 	ensure "${model_name}" "${file}"
 
-	juju add-machine -n 1 --series=bionic
+	juju add-machine -n 2 --series=bionic
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
 	juju deploy "${charm}" --to 0 --series=bionic
+
+	# Test the case where we wait for the machine to start
+	# before deploying the unit.
+	wait_for_machine_agent_status "1" "started"
+	juju add-unit lxd-profile-alt --to 1
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
