@@ -326,7 +326,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 
 	// There is a timing window where deploy has been called and the charm
 	// is not yet downloaded. Check here to verify the origin has an ID,
-	// otherwise refresh result may be in accurate. We could do use the
+	// otherwise refresh result may be in accurate. We could use the
 	// retry package, but the issue is only seen in automated test due to
 	// speed. Can always use retry if it becomes an issue.
 	if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
