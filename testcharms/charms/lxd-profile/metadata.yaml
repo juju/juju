@@ -1,6 +1,6 @@
 name: lxd-profile
 summary: start a juju machine with a lxd profile
-maintainer: Juju QA
+maintainer: Juju Crew <juju-crew@canonical.com>
 description: |
   Run an Ubuntu system, with the given lxd-profile
 provides:
@@ -13,6 +13,8 @@ tags:
   - application_development
 subordinate: false
 series:
-  - bionic
   - xenial
-  - quantal
+  - bionic
+  - focal
+  - jammy
+
