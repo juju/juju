@@ -35,8 +35,8 @@ run_deploy_cmr_bundle() {
 
 	ensure "test-cmr-bundles-deploy" "${file}"
 
-	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge
+	# mysql charm does not have stable channel, so we use candidate channel
+	juju deploy mysql --channel=candidate
 	wait_for "mysql" ".applications | keys[0]"
 
 	juju offer mysql:db
