@@ -77,18 +77,17 @@ run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
 # run_deploy_exported_charmhub_bundle_with_float_revisions is to test which checks
 # how juju deploys charmhub bundles with undefined versions in bundle yaml
 run_deploy_exported_charmhub_bundle_with_float_revisions() {
-	echo
+  echo
 
-	file="${TEST_DIR}/test-export-bundles-deploy-with-float-revisions.log"
+  file="${TEST_DIR}/test-export-bundles-deploy-with-float-revisions.log"
 
-	ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
+  ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
+  bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
+  bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
+  juju deploy ${bundle}
 
-	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
-	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
-	juju deploy ${bundle}
-
-	if ! which "yq" >/dev/null 2>&1; then
-	  sudo snap install yq --classic --channel latest/stable
+  if ! which "yq" >/dev/null 2>&1; then
+    sudo snap install yq --classic --channel latest/stable
   fi
 
   echo "Get current stable revisions for charms in telegraf_bundle_without_revisions.yaml"
