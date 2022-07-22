@@ -324,6 +324,15 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// There is a timing window where deploy has been called and the charm
+	// is not yet downloaded. Check here to verify the origin has an ID,
+	// otherwise refresh result may be in accurate. We could do use the
+	// retry package, but the issue is only seen in automated test due to
+	// speed. Can always use retry if it becomes an issue.
+	if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
+		return errors.Errorf("%q deploy incomplete, please try refresh again in a little bit.", c.ApplicationName)
+	}
+
 	// Set a default URL schema for charm URLs that don't provide one.
 	var defaultCharmSchema = charm.CharmHub
 
