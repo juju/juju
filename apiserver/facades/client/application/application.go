@@ -2224,16 +2224,9 @@ func (api *APIBase) DestroyRelation(args params.DestroyRelation) (err error) {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	var (
-		rel Relation
-		eps []state.Endpoint
-	)
+	var rel Relation
 	if len(args.Endpoints) > 0 {
-		eps, err = api.backend.InferEndpoints(args.Endpoints...)
-		if err != nil {
-			return err
-		}
-		rel, err = api.backend.EndpointsRelation(eps...)
+		rel, err = api.backend.InferActiveRelation(args.Endpoints...)
 	} else {
 		rel, err = api.backend.Relation(args.RelationId)
 	}

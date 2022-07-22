@@ -780,7 +780,7 @@ func (s *RemoteApplication) Refresh() error {
 
 // Relations returns a Relation for every relation the application is in.
 func (s *RemoteApplication) Relations() (relations []*Relation, err error) {
-	return applicationRelations(s.st, s.doc.Name)
+	return matchingRelations(s.st, s.doc.Name)
 }
 
 // AddRemoteApplicationParams contains the parameters for adding a remote application

@@ -675,19 +675,19 @@ func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
-	s.backend.CheckCallNames(c, "InferEndpoints", "EndpointsRelation")
-	s.backend.CheckCall(c, 0, "InferEndpoints", []string{"a", "b"})
+	s.backend.CheckCallNames(c, "InferActiveRelation")
+	s.backend.CheckCall(c, 0, "InferActiveRelation", []string{"a", "b"})
 	s.relation.CheckCallNames(c, "DestroyWithForce")
 }
 
 func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
-	s.backend.SetErrors(nil, errors.New("no relations found"))
+	s.backend.SetErrors(errors.New("no relations found"))
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *ApplicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
-	s.backend.SetErrors(nil, errors.NotFoundf(`relation "a:b c:d"`))
+	s.backend.SetErrors(errors.NotFoundf(`relation "a:b c:d"`))
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a:b", "c:d"}})
 	c.Assert(err, gc.ErrorMatches, `relation "a:b c:d" not found`)
 }

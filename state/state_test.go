@@ -1488,6 +1488,78 @@ func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, map[string]int{"quantal": 1})
 }
 
+func (s *StateSuite) TestInferActiveRelations(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	_, err = wp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ms := s.AddTestingApplication(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	_, err = ms.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("wp", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relation, err := s.State.InferActiveRelation("wp", "ms")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relation, gc.Matches, "wp:db ms:prod")
+
+	relation, err = s.State.InferActiveRelation("wp:db", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relation, gc.Matches, "wp:db ms:prod")
+
+	_, err = s.State.InferActiveRelation("wp", "ms:dev")
+	c.Assert(err, gc.ErrorMatches, `relation matching "wp ms:dev" not found`)
+}
+
+func (s *StateSuite) TestInferActiveRelationsNoRelations(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	_, err = wp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ms := s.AddTestingApplication(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	_, err = ms.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.InferActiveRelation("wp", "ms")
+	c.Assert(err, gc.ErrorMatches, `relation matching "wp ms" not found`)
+
+	_, err = s.State.InferActiveRelation("wp:db", "ms:prod")
+	c.Assert(err, gc.ErrorMatches, `relation matching "wp:db ms:prod" not found`)
+}
+
+func (s *StateSuite) TestInferActiveRelationsAmbiguous(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress-nolimit"))
+	_, err = wp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ms := s.AddTestingApplication(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	_, err = ms.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps1, err := s.State.InferEndpoints("wp", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps1...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps2, err := s.State.InferEndpoints("wp", "ms:dev")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps2...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.InferActiveRelation("wp", "ms")
+	c.Assert(err, gc.ErrorMatches, `ambiguous relation: "wp ms" could refer to "wp:db ms:prod"; "wp:db ms:dev"`)
+
+	relation, err := s.State.InferActiveRelation("wp", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relation, gc.Matches, "wp:db ms:prod")
+}
+
 func (s *StateSuite) TestAllRelations(c *gc.C) {
 	const numRelations = 32
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -2221,7 +2293,7 @@ var inferEndpointsTests = []struct {
 			{"ms", "wp"},
 			{"ms", "wp:db"},
 		},
-		err: `ambiguous relation: ".*" could refer to "wp:db ms:dev"; "wp:db ms:prod"`,
+		err: `ambiguous relation: ".*" could refer to "wp:db ms:dev"; "wp:db ms:prod"; "wp:db ms:test"`,
 	}, {
 		summary: "unambiguous provider/requirer relation",
 		inputs: [][]string{
