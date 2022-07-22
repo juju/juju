@@ -64,40 +64,40 @@ run_deploy_local_lxd_profile_charm() {
 
 	ensure "test-deploy-local-lxd-profile" "${file}"
 
-	juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
-	juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
-	juju add-relation lxd-profile-subordinate lxd-profile
+  juju deploy ./testcharms/charms/lxd-profile
+  juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
+  juju add-relation lxd-profile-subordinate lxd-profile
 
-	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
-	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
+  wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
+  wait_for "lxd-profile-subordinate" ".applications | keys[1]"
 
-	lxd_profile_name="juju-test-deploy-local-lxd-profile-lxd-profile"
-	lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-lxd-profile-subordinate"
+  lxd_profile_name="juju-test-deploy-local-lxd-profile-lxd-profile"
+  lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-lxd-profile-subordinate"
 
-	# subordinates take longer to show, so use wait_for
-	machine_0="$(machine_path 0)"
-	wait_for "${lxd_profile_sub_name}" "${machine_0}"
+  # subordinates take longer to show, so use wait_for
+  machine_0="$(machine_path 0)"
+  wait_for "${lxd_profile_sub_name}" "${machine_0}"
 
-	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_name}"
-	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_sub_name}"
+  juju status --format=json | jq "${machine_0}" | check "${lxd_profile_name}"
+  juju status --format=json | jq "${machine_0}" | check "${lxd_profile_sub_name}"
 
-	juju add-unit "lxd-profile"
+  juju add-unit "lxd-profile"
 
-	machine_1="$(machine_path 1)"
-	wait_for "${lxd_profile_sub_name}" "${machine_1}"
+  machine_1="$(machine_path 1)"
+  wait_for "${lxd_profile_sub_name}" "${machine_1}"
 
-	juju status --format=json | jq "${machine_1}" | check "${lxd_profile_name}"
-	juju status --format=json | jq "${machine_1}" | check "${lxd_profile_sub_name}"
+  juju status --format=json | jq "${machine_1}" | check "${lxd_profile_name}"
+  juju status --format=json | jq "${machine_1}" | check "${lxd_profile_sub_name}"
 
-	juju add-unit "lxd-profile" --to lxd
+  juju add-unit "lxd-profile" --to lxd
 
-	machine_2="$(machine_container_path 2 2/lxd/0)"
-	wait_for "${lxd_profile_sub_name}" "${machine_2}"
+  machine_2="$(machine_container_path 2 2/lxd/0)"
+  wait_for "${lxd_profile_sub_name}" "${machine_2}"
 
-	juju status --format=json | jq "${machine_2}" | check "${lxd_profile_name}"
-	juju status --format=json | jq "${machine_2}" | check "${lxd_profile_sub_name}"
+  juju status --format=json | jq "${machine_2}" | check "${lxd_profile_name}"
+  juju status --format=json | jq "${machine_2}" | check "${lxd_profile_sub_name}"
 
-	destroy_model "test-deploy-local-lxd-profile"
+  destroy_model "test-deploy-local-lxd-profile"
 }
 
 run_deploy_lxd_to_machine() {
