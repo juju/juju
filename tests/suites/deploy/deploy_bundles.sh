@@ -104,11 +104,12 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
   " "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 
 	# The model should be updated immediately, so we can export the bundle before 
-	# everything is done deploying
-	echo "Compare export-bundle with telegraf_bundle_with_revisions"
-	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-	# we need to use -w flag because file after yq and juju export-bundle yaml generator have different space policies
-	diff -u -w "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
+  	# everything is done deploying
+  	echo "Compare export-bundle with telegraf_bundle_with_revisions"
+  	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
+  	# to have the same output format with telegraf_bundle_with_revisions.yaml
+  	yq -i . "${TEST_DIR}/exported-bundle.yaml"
+  	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
