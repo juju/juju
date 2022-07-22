@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
-	jujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
@@ -226,8 +226,8 @@ func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *gc.C) {
 	c.Assert(mongo.NewMongoTimestamp(time.Time{}), gc.Equals, bson.MongoTimestamp(0))
 }
 
-func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
-	inst := &jujutesting.MgoInstance{
+func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*mgotesting.MgoInstance, *mgo.Session) {
+	inst := &mgotesting.MgoInstance{
 		Params: []string{
 			"--replSet", "juju",
 		},
@@ -248,15 +248,15 @@ func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance
 	return inst, s.dialMongo(c, inst)
 }
 
-func (s *oplogSuite) startMongo(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
-	var inst jujutesting.MgoInstance
+func (s *oplogSuite) startMongo(c *gc.C) (*mgotesting.MgoInstance, *mgo.Session) {
+	var inst mgotesting.MgoInstance
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })
 	return &inst, s.dialMongo(c, &inst)
 }
 
-func (s *oplogSuite) dialMongo(c *gc.C, inst *jujutesting.MgoInstance) *mgo.Session {
+func (s *oplogSuite) dialMongo(c *gc.C, inst *mgotesting.MgoInstance) *mgo.Session {
 	session, err := inst.Dial()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { session.Close() })

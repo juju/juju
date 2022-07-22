@@ -6,6 +6,7 @@ package controllerport_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -44,9 +45,9 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
-	err := testing.MgoServer.Start(nil)
+	err := mgotesting.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.IsolationSuite.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })
+	s.IsolationSuite.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/mgo/v2"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,7 +24,7 @@ import (
 // This suite is not about a feature tests per se, but tests the integration
 // of the mongo-based bakery storage with the macaroon bakery service.
 type BakeryStorageSuite struct {
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 	gitjujutesting.LoggingSuite
 
 	store  bakerystorage.ExpirableStorage

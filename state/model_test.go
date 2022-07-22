@@ -12,8 +12,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2/bson"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -1743,7 +1743,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 }
 
 type ModelCloudValidationSuite struct {
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 }
 
 var _ = gc.Suite(&ModelCloudValidationSuite{})

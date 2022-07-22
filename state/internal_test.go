@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/names/v4"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -31,7 +31,7 @@ var _ = gc.Suite(&internalStateSuite{})
 // package (i.e. internal tests) that need it. It is similar to
 // state.testing.StateSuite but is duplicated to avoid cyclic imports.
 type internalStateSuite struct {
-	jujutesting.MgoSuite
+	mgotesting.MgoSuite
 	testing.BaseSuite
 	controller *Controller
 	pool       *StatePool

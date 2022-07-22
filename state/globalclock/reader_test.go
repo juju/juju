@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,7 +16,7 @@ import (
 )
 
 type ReaderSuite struct {
-	testing.MgoSuite
+	mgotesting.MgoSuite
 	config globalclock.ReaderConfig
 }
 

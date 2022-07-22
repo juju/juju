@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v2"
 	gitjujutesting "github.com/juju/testing"
@@ -230,7 +231,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
 			CAPrivateKey: coretesting.CAKey,
-			StatePort:    gitjujutesting.MgoServer.Port(),
+			StatePort:    mgotesting.MgoServer.Port(),
 			APIPort:      apiPort,
 		})
 	c.Assert(err, jc.ErrorIsNil)

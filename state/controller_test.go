@@ -7,7 +7,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -93,7 +93,7 @@ func (s *ControllerSuite) TestControllerConfig(c *gc.C) {
 
 func (s *ControllerSuite) TestPing(c *gc.C) {
 	c.Assert(s.Controller.Ping(), gc.IsNil)
-	gitjujutesting.MgoServer.Restart()
+	mgotesting.MgoServer.Restart()
 	c.Assert(s.Controller.Ping(), gc.NotNil)
 }
 

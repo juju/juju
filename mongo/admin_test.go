@@ -6,7 +6,7 @@ package mongo_test
 import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -31,7 +31,7 @@ func (s *adminSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
-	inst := &gitjujutesting.MgoInstance{}
+	inst := &mgotesting.MgoInstance{}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })

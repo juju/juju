@@ -5,7 +5,7 @@ package apiserver_test
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -28,10 +28,10 @@ var _ = gc.Suite(&WorkerStateSuite{})
 func (s *WorkerStateSuite) SetUpSuite(c *gc.C) {
 	s.workerFixture.SetUpSuite(c)
 
-	testing.MgoServer.EnableReplicaSet = true
-	err := testing.MgoServer.Start(nil)
+	mgotesting.MgoServer.EnableReplicaSet = true
+	err := mgotesting.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.workerFixture.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })
+	s.workerFixture.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
 }

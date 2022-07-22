@@ -18,6 +18,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	jujutesting "github.com/juju/testing"
@@ -99,7 +100,7 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	jujutesting.MgoSuite
+	mgotesting.MgoSuite
 	testing.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 
@@ -772,7 +773,7 @@ type GetStater interface {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
-	testServer := jujutesting.MgoServer.Addr()
+	testServer := mgotesting.MgoServer.Addr()
 	serverAlive := testServer != ""
 
 	// Close any api connections we know about first.

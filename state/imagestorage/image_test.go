@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn/v2"
 	jujutxn "github.com/juju/txn/v2"
@@ -28,11 +28,11 @@ import (
 var _ = gc.Suite(&ImageSuite{})
 
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	mgotesting.MgoTestPackage(t)
 }
 
 type ImageSuite struct {
-	gitjujutesting.IsolatedMgoSuite
+	mgotesting.IsolatedMgoSuite
 	storage            imagestorage.Storage
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
