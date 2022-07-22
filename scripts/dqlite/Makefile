@@ -1,7 +1,9 @@
 SHELL = bash
 .ONESHELL:
 
-DQLITE_BUILD_IMAGE=ubuntu:18.04
+PROJECT_DIR ?= $(GOPATH)/src/github.com/juju/juju
+
+DQLITE_BUILD_IMAGE=ubuntu:20.04
 DQLITE_BUILD_CONTAINER=lib-build-server
 
 DQLITE_ARCHIVE_DEPS_PATH=${PROJECT_DIR}/scripts/dqlite
@@ -21,7 +23,7 @@ ${DQLITE_ARCHIVE_PATH}:
 	@lxc delete -f ${DQLITE_BUILD_CONTAINER} &>/dev/null || true
 
 	@echo "DQLITE: Creating build box using ${DQLITE_BUILD_IMAGE}"
-	@lxc launch ubuntu:18.04 ${DQLITE_BUILD_CONTAINER}
+	@lxc launch ubuntu:20.04 ${DQLITE_BUILD_CONTAINER}
 
 	@echo "DQLITE: Waiting for ${DQLITE_BUILD_CONTAINER} to become ready..."
 	@lxc exec ${DQLITE_BUILD_CONTAINER} -- bash -c 'while [ "$$(systemctl is-system-running 2>/dev/null)" != "running" ] && [ "$$(systemctl is-system-running 2>/dev/null)" != "degraded" ]; do :; done'
@@ -46,9 +48,9 @@ ${DQLITE_ARCHIVE_PATH}:
 		# on the hosts libc.
 		#
 		# TODO: investigate zig-gcc as an alternative.
-		wget https://musl.libc.org/releases/musl-1.2.2.tar.gz
-		tar xf musl-1.2.2.tar.gz
-		cd musl-1.2.2
+		wget https://musl.libc.org/releases/musl-1.2.3.tar.gz
+		tar xf musl-1.2.3.tar.gz
+		cd musl-1.2.3
 		./configure
 		make install
 	
@@ -184,15 +186,15 @@ ${DQLITE_ARCHIVE_PATH}:
 dqlite-deps-push: ${DQLITE_ARCHIVE_PATH}
 	@echo "DQLITE: Pushing ${DQLITE_S3_ARCHIVE_PATH} to s3"
 	aws s3 cp --acl public-read $< ${DQLITE_S3_ARCHIVE_PATH}
-	@echo "DQLITE: Pushing latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 to s3"
+	@echo "DQLITE: Pushing latest-dqlite-deps-$(shell uname -m).tar.bz2 to s3"
 	aws s3 cp --acl public-read ${DQLITE_S3_ARCHIVE_PATH} ${DQLITE_S3_BUCKET}/latest-dqlite-deps-$(shell uname -m).tar.bz2
 
 dqlite-deps-pull:
 	@echo "DQLITE: Cleaning up deps path"
 	@mkdir -p ${DQLITE_EXTRACTED_DEPS_PATH}
 	@rm -rf ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
-	@echo "DQLITE: Pulling latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 from s3"
-	aws s3 cp s3://dqlite-static-libs/latest-juju-dqlite-static-lib-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
+	@echo "DQLITE: Pulling latest-dqlite-deps-$(shell uname -m).tar.bz2 from s3"
+	aws s3 cp s3://dqlite-static-libs/latest-dqlite-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
 
 dqlite-deps-check:
 	@if [ ! -d ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} ]; then \
@@ -215,8 +217,8 @@ musl-check:
 
 musl-install:
 	mkdir -p /tmp/musl
-	wget -q https://musl.libc.org/releases/musl-1.2.2.tar.gz -O - | tar -xzf - -C /tmp/musl
-	cd /tmp/musl/musl-1.2.2
+	wget -q https://musl.libc.org/releases/musl-1.2.3.tar.gz -O - | tar -xzf - -C /tmp/musl
+	cd /tmp/musl/musl-1.2.3
 	./configure
 	make install
 
