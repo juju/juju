@@ -67,7 +67,7 @@ run_deploy_exported_bundle() {
 	# no need to wait for the bundle to finish deploying to
 	# check the export.
 	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-	diff ${bundle} "${TEST_DIR}/exported-bundle.yaml"
+	diff -u ${bundle} "${TEST_DIR}/exported-bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy"
 }
