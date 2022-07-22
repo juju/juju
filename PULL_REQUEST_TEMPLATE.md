@@ -2,7 +2,7 @@
 
 ## Checklist
 
-*Strikethrough if not applicable, e.g., `~Go unit tests, with comments saying what you're testing~`.*
+*If an item is not applicable, use `~strikethrough~`.*
 
 - [ ] Code style: imports ordered, good names, simple structure, etc
 - [ ] Comments saying why design decisions were made
