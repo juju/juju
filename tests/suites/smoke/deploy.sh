@@ -6,7 +6,7 @@ run_local_deploy() {
 	ensure "test-local-deploy" "${file}"
 
 	juju deploy ./tests/suites/smoke/charms/ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")" 60 # 60x5s = 5m
+	wait_for "ubuntu" "$(idle_condition "ubuntu")" 300
 
 	juju refresh ubuntu --path=./tests/suites/smoke/charms/ubuntu
 

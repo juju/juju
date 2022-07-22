@@ -1,4 +1,5 @@
-# Check that Charmed Kubernetes successfully deploys.
+# Ensure that Charmed Kubernetes deploys successfully, and that we can
+# create storage on the cluster using kubectl after it's deployed.
 run_deploy_ck() {
 	echo
 
@@ -16,7 +17,7 @@ run_deploy_ck() {
 		sudo snap install kubectl --classic --channel latest/stable
 	fi
 
-	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current' 360
+	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current' 1800
 	wait_for "active" '.applications["kubernetes-worker"] | ."application-status".current'
 
 	kube_home="${HOME}/.kube"
@@ -30,7 +31,8 @@ run_deploy_ck() {
 	kubectl get sc -o yaml
 }
 
-# Check that a CAAS workload (mariadb+mediawiki) successfully deploys.
+# Ensure that a CAAS workload (mariadb+mediawiki) deploys successfully,
+# and that we can relate the two applications once it has.
 run_deploy_caas_workload() {
 	echo
 
