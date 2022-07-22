@@ -42,11 +42,16 @@ func internalFacade(backend Backend, leadershipReader leadership.Reader, auth fa
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
+	isSuperUser, err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	isModelAdmin, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !isModelAdmin {
+	if !isModelAdmin && !isSuperUser {
 		return apiservererrors.ErrPerm
 	}
 	return nil
