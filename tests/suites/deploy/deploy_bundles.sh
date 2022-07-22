@@ -90,7 +90,7 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
     sudo snap install yq --classic --channel latest/stable
   fi
 
-  echo "Get current stable revisions for charms in telegraf_bundle_without_revisions.yaml"
+  echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
   influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
   telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
   ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channel-map"."latest/stable".revision')
