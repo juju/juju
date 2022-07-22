@@ -62,7 +62,7 @@ run_deploy_revision_fail() {
 
 	got=$(juju deploy juju-qa-test --revision 9 2>&1 || true)
 	# bad request should be caught by client
-	check_contains "${got}" 'ERROR invalid channel for "ch:juju-qa-test": channel cannot be empty'
+	check_contains "${got}" 'revision requires a channel for future upgrades'
 
 	destroy_model "${model_name}"
 }
@@ -79,10 +79,24 @@ run_deploy_revision_upgrade() {
 	juju deploy juju-qa-test --revision 9 --channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
 
-	# Ensure that refresh gets the revision from the channel
-	# listed at deploy.
-	# revision 15 is in channel latest/edge
-	juju refresh juju-qa-test
+	attempt=0
+	while true; do
+		# Ensure that refresh gets the revision from the channel
+		# listed at deploy.
+		# revision 15 is in channel latest/edge
+		OUT=$(juju refresh juju-qa-test 2>&1 || true)
+		if echo "${OUT}" | grep -E -q "Added"; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for charm download to complete 50sec")
+			exit 5
+		fi
+		sleep 5
+	done
+
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 15)"
 
 	destroy_model "${model_name}"
