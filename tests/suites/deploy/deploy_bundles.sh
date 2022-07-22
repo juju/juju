@@ -54,8 +54,8 @@ run_deploy_cmr_bundle() {
 	destroy_model "other"
 }
 
-# run_deploy_exported_charmstore_bundle_with_fixed_revisions is to test which checks
-# how juju deploys charmstore bundles with fixed revisions
+# run_deploy_exported_charmstore_bundle_with_fixed_revisions tests how juju deploys
+# a charmstore bundle that specifies revisions for its charms
 run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
 	echo
 
