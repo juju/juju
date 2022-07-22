@@ -15,7 +15,7 @@ run_deploy_ck() {
 		sudo snap install kubectl --classic --channel latest/stable
 	fi
 
-	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current'
+	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current' 360
 	wait_for "active" '.applications["kubernetes-worker"] | ."application-status".current'
 
 	kube_home="${HOME}/.kube"
