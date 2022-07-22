@@ -186,8 +186,6 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 
 func (s *lxdProfileWatcherSuite) assertAddSubordinate() {
 	// Add a new subordinate unit with a profile of a new application.
-	s.state.EXPECT().Unit("principal/0").Return(s.principal, nil)
-	s.principal.EXPECT().AssignedMachineId().Return("0", nil)
 
 	s.state.EXPECT().Unit("foo/0").Return(s.unit, nil)
 	s.unit.EXPECT().Life().Return(state.Alive)
@@ -219,8 +217,6 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 	another.EXPECT().AssignedMachineId().Return("0", nil)
 	s.state.EXPECT().Unit("foo/1").Return(another, nil)
 
-	s.state.EXPECT().Unit("principal/0").Return(s.principal, nil)
-	s.principal.EXPECT().AssignedMachineId().Return("0", nil)
 	s.unitChanges <- []string{"foo/1"}
 	s.wc0.AssertOneChange()
 
@@ -228,8 +224,6 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 	another.EXPECT().Life().Return(state.Alive)
 	another.EXPECT().PrincipalName().Return("principal/0", true)
 	another.EXPECT().AssignedMachineId().Return("0", nil)
-	s.state.EXPECT().Unit("principal/0").Return(s.principal, nil)
-	s.principal.EXPECT().AssignedMachineId().Return("0", nil)
 	s.state.EXPECT().Unit("foo/1").Return(another, nil)
 	s.unitChanges <- []string{"foo/1"}
 	s.wc0.AssertNoChange()
