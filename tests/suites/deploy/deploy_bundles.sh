@@ -74,8 +74,8 @@ run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
 	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
 }
 
-# run_deploy_exported_charmhub_bundle_with_float_revisions is to test which checks
-# how juju deploys charmhub bundles with undefined versions in bundle yaml
+# run_deploy_exported_charmhub_bundle_with_float_revisions checks how juju
+# deploys a charmhub bundle when the revisions are not pinned
 run_deploy_exported_charmhub_bundle_with_float_revisions() {
   echo
 
