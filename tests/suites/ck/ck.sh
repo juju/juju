@@ -1,3 +1,4 @@
+# Check that Charmed Kubernetes successfully deploys.
 run_deploy_ck() {
 	echo
 
@@ -29,6 +30,7 @@ run_deploy_ck() {
 	kubectl get sc -o yaml
 }
 
+# Check that a CAAS workload (mariadb+mediawiki) successfully deploys.
 run_deploy_caas_workload() {
 	echo
 
