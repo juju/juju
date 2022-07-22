@@ -709,12 +709,33 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, resolvedOrigin, _, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
+	url, resolvedOrigin, supportedSeries, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
-	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
+	switch {
+	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
+	case resolvedOrigin.Series == "":
+		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		selector := seriesSelector{
+			charmURLSeries:      url.Series,
+			seriesFlag:          change.Params.Series,
+			supportedSeries:     supportedSeries,
+			supportedJujuSeries: workloadSeries,
+			conf:                modelCfg,
+			fromBundle:          true,
+		}
+
+		// Get the series to use.
+		resolvedOrigin.Series, err = selector.charmSeries()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Tracef("Using series %s from %v to deploy %v", resolvedOrigin.Series, supportedSeries, url)
 	}
 
 	var macaroon *macaroon.Macaroon
