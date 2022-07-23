@@ -616,6 +616,14 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	})
 }
 
+func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *gc.C) {
+	s.resolvedChannel = csclientparams.BetaChannel
+	s.charmAPIClient.charmOrigin.Source = "charm-hub"
+	_, err := s.runRefresh(c, "foo", "--channel=beta")
+	c.Assert(err, gc.ErrorMatches, "\"foo\" deploy incomplete, please try refresh again in a little bit.")
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin")
+}
+
 func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	_, err := s.runRefresh(c, "foo", "--switch=cs:~other/trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
