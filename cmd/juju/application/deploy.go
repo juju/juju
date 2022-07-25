@@ -899,6 +899,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		defaultCharmSchema = charm.CharmStore
 	}
 
+	if c.Series == "" {
+		defaultSeries, err := c.getDefaultSeries(c.NewModelConfigAPI(c.apiRoot))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.Series = defaultSeries
+	}
+
 	factory, cfg := c.getDeployerFactory(defaultCharmSchema)
 	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdapter)
 	if err != nil {
@@ -943,7 +951,9 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 	return controllerCfg.MeteringURL(), nil
 }
 
-func (c *DeployCommand) getDeployerFactory(defaultCharmSchema charm.Schema) (deployer.DeployerFactory, deployer.DeployerConfig) {
+func (c *DeployCommand) getDeployerFactory(
+	defaultCharmSchema charm.Schema,
+) (deployer.DeployerFactory, deployer.DeployerConfig) {
 	dep := deployer.DeployerDependencies{
 		Model:                c,
 		FileSystem:           c.ModelCommandBase.Filesystem(),
@@ -988,13 +998,28 @@ func (c *DeployCommand) getCharmHubURL(modelConfigClient ModelConfigGetter) (str
 		return "", errors.Trace(err)
 	}
 
-	config, err := config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	charmHubURL, _ := config.CharmHubURL()
+	charmHubURL, _ := cfg.CharmHubURL()
 	return charmHubURL, nil
+}
+
+func (c *DeployCommand) getDefaultSeries(modelConfigClient ModelConfigGetter) (string, error) {
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	defaultSeries, _ := cfg.DefaultSeries()
+	return defaultSeries, nil
 }
 
 type defaultCharmReader struct{}
