@@ -90,6 +90,7 @@ def local_charm_path(charm, juju_ver, series=None, repository=None,
     else:
         charm_dir = {
             'ubuntu': 'charms',
+            'ubuntu-xenial': 'xenial',
             'win': 'charms-win',
             'centos': 'charms-centos'}
         abs_path = charm
@@ -97,7 +98,7 @@ def local_charm_path(charm, juju_ver, series=None, repository=None,
             abs_path = os.path.join(repository, charm)
         elif os.environ.get('JUJU_REPOSITORY'):
             repository = os.path.join(
-                os.environ['JUJU_REPOSITORY'], charm_dir[platform])
+                os.environ['JUJU_REPOSITORY'], charm_dir[platform] if series != 'xenial' else charm_dir['ubuntu-xenial'])
             abs_path = os.path.join(repository, charm)
         return abs_path
 
