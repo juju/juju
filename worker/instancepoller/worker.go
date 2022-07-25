@@ -356,6 +356,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 	if err != nil {
 		switch errors.Cause(err) {
 		case environs.ErrPartialInstances:
+			// Proceed and process the ones we've found.
 		case environs.ErrNoInstances:
 			// If there were no instances recognised by the provider, we do not
 			// retrieve the network configuration, and will therefore have
