@@ -109,7 +109,7 @@ const (
 	Failed Status = "failed"
 
 	// Lost is set when:
-	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
+	// The juju agent has not communicated with the juju server for an unexpectedly long time;
 	// the unit agent ought to be signalling activity, but none has been detected.
 	Lost Status = "lost"
 )
@@ -242,8 +242,8 @@ const (
 
 // KnownModificationStatus returns true if the status has a known value for
 // a modification of an instance.
-func (status Status) KnownModificationStatus() bool {
-	switch status {
+func (s Status) KnownModificationStatus() bool {
+	switch s {
 	case
 		Idle,
 		Applied,
@@ -254,8 +254,8 @@ func (status Status) KnownModificationStatus() bool {
 	return false
 }
 
-func (status Status) KnownInstanceStatus() bool {
-	switch status {
+func (s Status) KnownInstanceStatus() bool {
+	switch s {
 	case
 		Pending,
 		ProvisioningError,
@@ -271,8 +271,8 @@ func (status Status) KnownInstanceStatus() bool {
 // KnownAgentStatus returns true if status has a known value for an agent.
 // It includes every status that has ever been valid for a unit or machine agent.
 // This is used by the apiserver client facade to filter out unknown values.
-func (status Status) KnownAgentStatus() bool {
-	switch status {
+func (s Status) KnownAgentStatus() bool {
+	switch s {
 	case
 		Allocating,
 		Error,
@@ -288,11 +288,11 @@ func (status Status) KnownAgentStatus() bool {
 // KnownWorkloadStatus returns true if status has a known value for a workload.
 // It includes every status that has ever been valid for a unit agent.
 // This is used by the apiserver client facade to filter out unknown values.
-func (status Status) KnownWorkloadStatus() bool {
-	if ValidWorkloadStatus(status) {
+func (s Status) KnownWorkloadStatus() bool {
+	if ValidWorkloadStatus(s) {
 		return true
 	}
-	switch status {
+	switch s {
 	case Error: // include error so that we can filter on what the spec says is valid
 		return true
 	default:
@@ -320,8 +320,8 @@ func ValidWorkloadStatus(status Status) bool {
 // WorkloadMatches returns true if the candidate matches status,
 // taking into account that the candidate may be a legacy
 // status value which has been deprecated.
-func (status Status) WorkloadMatches(candidate Status) bool {
-	return status == candidate
+func (s Status) WorkloadMatches(candidate Status) bool {
+	return s == candidate
 }
 
 // ValidModelStatus returns true if status has a valid value (that is to say,
@@ -343,8 +343,8 @@ func ValidModelStatus(status Status) bool {
 // Matches returns true if the candidate matches status,
 // taking into account that the candidate may be a legacy
 // status value which has been deprecated.
-func (status Status) Matches(candidate Status) bool {
-	return status == candidate
+func (s Status) Matches(candidate Status) bool {
+	return s == candidate
 }
 
 // DeriveStatus is used to determine the application
@@ -356,8 +356,8 @@ func DeriveStatus(statuses []StatusInfo) StatusInfo {
 		Status: Unknown,
 	}
 	for _, unitStatus := range statuses {
-		currentSeverity := statusServerities[result.Status]
-		unitSeverity := statusServerities[unitStatus.Status]
+		currentSeverity := statusSeverities[result.Status]
+		unitSeverity := statusSeverities[unitStatus.Status]
 		if unitSeverity > currentSeverity {
 			result.Status = unitStatus.Status
 			result.Message = unitStatus.Message
@@ -370,7 +370,7 @@ func DeriveStatus(statuses []StatusInfo) StatusInfo {
 
 // statusSeverities holds status values with a severity measure.
 // Status values with higher severity are used in preference to others.
-var statusServerities = map[Status]int{
+var statusSeverities = map[Status]int{
 	Error:       100,
 	Blocked:     90,
 	Waiting:     80,
