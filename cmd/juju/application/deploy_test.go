@@ -404,21 +404,17 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 	s.AssertApplication(c, "dummy", curl, 1, 0)
 }
 
-func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
-	// multi-series/metadata.yaml provides "precise" as its default series
-	// and yet, here, the model defaults to the series "trusty". This test
-	// asserts that the model's default takes precedence.
-	updateAttrs := map[string]interface{}{"default-series": "trusty"}
+func (s *DeploySuite) TestDeployFromPathDefaultSeriesUnsupportedError(c *gc.C) {
+	updateAttrs := map[string]interface{}{"default-series": "focal"}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	curl := charm.MustParseURL("local:bionic/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err = s.runDeployForState(c, charmDir.Path)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "multi-series", curl, 1, 0)
+	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm, .*`)
 }
 
 func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
@@ -3109,7 +3105,7 @@ func withCharmRepoResolvable(
 ) {
 	// We have to handle all possible variations on the supplied URL.
 	// The real store can be queried with a base URL like "cs:foo" and
-	// resolve that to the real URL, it it may be queried with the fully
+	// resolve that to the real URL, it may be queried with the fully
 	// qualified URL, or one without series set etc.
 	resultURL := *url
 	if resultURL.Revision < 0 {
