@@ -421,45 +421,6 @@ func (logger *DbLogger) Close() error {
 	return nil
 }
 
-// LogTailer allows for retrieval of Juju's logs from MongoDB. It
-// first returns any matching already recorded logs and then waits for
-// additional matching logs as they appear.
-type LogTailer interface {
-	// Logs returns the channel through which the LogTailer returns
-	// Juju logs. It will be closed when the tailer stops.
-	Logs() <-chan *corelogger.LogRecord
-
-	// Dying returns a channel which will be closed as the LogTailer
-	// stops.
-	Dying() <-chan struct{}
-
-	// Stop is used to request that the LogTailer stops. It blocks
-	// unil the LogTailer has stopped.
-	Stop() error
-
-	// Err returns the error that caused the LogTailer to stopped. If
-	// it hasn't stopped or stopped without error nil will be
-	// returned.
-	Err() error
-}
-
-// LogTailerParams specifies the filtering a LogTailer should apply to
-// logs in order to decide which to return.
-type LogTailerParams struct {
-	StartID       int64
-	StartTime     time.Time
-	MinLevel      loggo.Level
-	InitialLines  int
-	NoTail        bool
-	IncludeEntity []string
-	ExcludeEntity []string
-	IncludeModule []string
-	ExcludeModule []string
-	IncludeLabel  []string
-	ExcludeLabel  []string
-	Oplog         *mgo.Collection // For testing only
-}
-
 // oplogOverlap is used to decide on the initial oplog timestamp to
 // use when the LogTailer transitions from querying the logs
 // collection to tailing the oplog. Oplog records with a timestamp >=
@@ -492,12 +453,20 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) {
+func NewLogTailer(
+	st LogTailerState, params corelogger.LogTailerParams, opLog *mgo.Collection,
+) (corelogger.LogTailer, error) {
 	session := st.MongoSession().Copy()
+
+	if opLog == nil {
+		opLog = mongo.GetOplog(session)
+	}
+
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
 		session:         session,
 		logsColl:        session.DB(logsDB).C(logCollectionName(st.ModelUUID())).With(session),
+		opLog:           opLog,
 		params:          params,
 		logCh:           make(chan *corelogger.LogRecord),
 		recentIds:       newRecentIdTracker(maxRecentLogIds),
@@ -517,7 +486,8 @@ type logTailer struct {
 	modelUUID       string
 	session         *mgo.Session
 	logsColl        *mgo.Collection
-	params          LogTailerParams
+	opLog           *mgo.Collection
+	params          corelogger.LogTailerParams
 	logCh           chan *corelogger.LogRecord
 	lastID          int64
 	lastTime        time.Time
@@ -687,13 +657,8 @@ func (t *logTailer) tailOplog() error {
 		bson.DocElem{"ns", logsDB + "." + logCollectionName(t.modelUUID)},
 	)
 
-	oplog := t.params.Oplog
-	if oplog == nil {
-		oplog = mongo.GetOplog(t.session)
-	}
-
 	minOplogTs := t.lastTime.Add(-oplogOverlap)
-	oplogTailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, oplogSel), minOplogTs)
+	oplogTailer := mongo.NewOplogTailer(mongo.NewOplogSession(t.opLog, oplogSel), minOplogTs)
 	defer func() { _ = oplogTailer.Stop() }()
 
 	logger.Infof("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
@@ -753,7 +718,7 @@ func (t *logTailer) tailOplog() error {
 	}
 }
 
-func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params corelogger.LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
