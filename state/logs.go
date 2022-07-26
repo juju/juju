@@ -435,7 +435,6 @@ type LogTailerParams struct {
 	ExcludeModule []string
 	IncludeLabel  []string
 	ExcludeLabel  []string
-	Oplog         *mgo.Collection // For testing only
 }
 
 // oplogOverlap is used to decide on the initial oplog timestamp to
@@ -470,12 +469,18 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params LogTailerParams) (corelogger.LogTailer, error) {
+func NewLogTailer(st LogTailerState, params LogTailerParams, opLog *mgo.Collection) (corelogger.LogTailer, error) {
 	session := st.MongoSession().Copy()
+
+	if opLog == nil {
+		opLog = mongo.GetOplog(session)
+	}
+
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
 		session:         session,
 		logsColl:        session.DB(logsDB).C(logCollectionName(st.ModelUUID())).With(session),
+		opLog:           opLog,
 		params:          params,
 		logCh:           make(chan *corelogger.LogRecord),
 		recentIds:       newRecentIdTracker(maxRecentLogIds),
@@ -495,6 +500,7 @@ type logTailer struct {
 	modelUUID       string
 	session         *mgo.Session
 	logsColl        *mgo.Collection
+	opLog           *mgo.Collection
 	params          LogTailerParams
 	logCh           chan *corelogger.LogRecord
 	lastID          int64
@@ -665,13 +671,8 @@ func (t *logTailer) tailOplog() error {
 		bson.DocElem{"ns", logsDB + "." + logCollectionName(t.modelUUID)},
 	)
 
-	oplog := t.params.Oplog
-	if oplog == nil {
-		oplog = mongo.GetOplog(t.session)
-	}
-
 	minOplogTs := t.lastTime.Add(-oplogOverlap)
-	oplogTailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, oplogSel), minOplogTs)
+	oplogTailer := mongo.NewOplogTailer(mongo.NewOplogSession(t.opLog, oplogSel), minOplogTs)
 	defer func() { _ = oplogTailer.Stop() }()
 
 	logger.Infof("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",

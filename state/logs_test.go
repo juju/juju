@@ -302,9 +302,7 @@ func (s *LogTailerSuite) TestLogDeletionDuringTailing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("test")
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{
-		Oplog: s.oplogColl,
-	})
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{}, s.oplogColl)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -335,10 +333,7 @@ func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 5 logs that should be returned.
 	want := logTemplate{Message: "want"}
 	s.writeLogsT(c, s.otherUUID, threshT, threshT.Add(5*time.Second), 5, want)
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{
-		StartTime: threshT,
-		Oplog:     s.oplogColl,
-	})
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{StartTime: threshT}, s.oplogColl)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	s.assertTailer(c, tailer, 5, want)
@@ -361,9 +356,7 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, logTemplate{Message: strconv.Itoa(i)})
 	}
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{
-		Oplog: s.oplogColl,
-	})
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{}, s.oplogColl)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	for i := 0; i < 5; i++ {
@@ -463,9 +456,7 @@ func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 	s.writeLogs(c, s.otherUUID, 3, logTemplate{Message: "dont want"})
 	s.writeLogs(c, s.otherUUID, 5, expected)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{
-		InitialLines: 5,
-	})
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{InitialLines: 5}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -484,7 +475,7 @@ func (s *LogTailerSuite) TestRecordsAddedOutOfTimeOrder(c *gc.C) {
 	migrated := logTemplate{Message: "transferred by migration"}
 	s.writeLogsT(c, s.otherUUID, t1, t1, 1, migrated)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{})
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -497,9 +488,7 @@ func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 	expected := logTemplate{Message: "want"}
 	s.writeLogs(c, s.otherUUID, 2, expected)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{
-		InitialLines: 5,
-	})
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{InitialLines: 5}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -517,9 +506,7 @@ func (s *LogTailerSuite) TestNoTail(c *gc.C) {
 	err := s.writeLogToOplog(s.otherUUID, doc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{
-		NoTail: true,
-	})
+	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{NoTail: true}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Not strictly necessary, just in case NoTail doesn't work in the test.
 	defer tailer.Stop()
@@ -784,8 +771,7 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 	// Check the tailer does the right thing when reading from the
 	// logs collection.
 	writeLogs()
-	params.Oplog = s.oplogColl
-	tailer, err := state.NewLogTailer(st, params)
+	tailer, err := state.NewLogTailer(st, params, s.oplogColl)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	assertTailer(tailer)
