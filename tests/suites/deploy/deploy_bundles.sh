@@ -107,7 +107,7 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
   # everything is done deploying
   echo "Compare export-bundle with telegraf_bundle_with_revisions"
   juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-  # to have the same output format with telegraf_bundle_with_revisions.yaml
+  # reformat the yaml to have the same format as telegraf_bundle_with_revisions.yaml
   yq -i . "${TEST_DIR}/exported-bundle.yaml"
   diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
 
