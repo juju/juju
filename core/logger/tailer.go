@@ -1,5 +1,11 @@
 package logger
 
+import (
+	"time"
+
+	"github.com/juju/loggo"
+)
+
 // LogTailer allows for retrieval of Juju's logs.
 // It first returns any matching already recorded logs and
 // then waits for additional matching logs as they appear.
@@ -18,4 +24,20 @@ type LogTailer interface {
 	// Err returns the error that caused the LogTailer to stopped.
 	// If it hasn't stopped or stopped without error nil will be returned.
 	Err() error
+}
+
+// LogTailerParams specifies the filtering a LogTailer should
+// apply to log records in order to decide which to return.
+type LogTailerParams struct {
+	StartID       int64
+	StartTime     time.Time
+	MinLevel      loggo.Level
+	InitialLines  int
+	NoTail        bool
+	IncludeEntity []string
+	ExcludeEntity []string
+	IncludeModule []string
+	ExcludeModule []string
+	IncludeLabel  []string
+	ExcludeLabel  []string
 }

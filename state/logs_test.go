@@ -302,7 +302,7 @@ func (s *LogTailerSuite) TestLogDeletionDuringTailing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("test")
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{}, s.oplogColl)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{}, s.oplogColl)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -333,7 +333,7 @@ func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 5 logs that should be returned.
 	want := logTemplate{Message: "want"}
 	s.writeLogsT(c, s.otherUUID, threshT, threshT.Add(5*time.Second), 5, want)
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{StartTime: threshT}, s.oplogColl)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{StartTime: threshT}, s.oplogColl)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	s.assertTailer(c, tailer, 5, want)
@@ -356,7 +356,7 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, logTemplate{Message: strconv.Itoa(i)})
 	}
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{}, s.oplogColl)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{}, s.oplogColl)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	for i := 0; i < 5; i++ {
@@ -388,7 +388,7 @@ func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 		s.assertTailer(c, tailer, 1, good)
 	}
 
-	s.checkLogTailerFiltering(c, s.otherState, state.LogTailerParams{}, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, corelogger.LogTailerParams{}, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
@@ -430,7 +430,7 @@ func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
 			}
 		}
 	}
-	s.checkLogTailerFiltering(c, s.State, state.LogTailerParams{}, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.State, corelogger.LogTailerParams{}, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
@@ -441,7 +441,7 @@ func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, info)
 		s.writeLogs(c, s.otherUUID, 1, error)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		MinLevel: loggo.INFO,
 	}
 	assert := func(tailer corelogger.LogTailer) {
@@ -456,7 +456,7 @@ func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 	s.writeLogs(c, s.otherUUID, 3, logTemplate{Message: "dont want"})
 	s.writeLogs(c, s.otherUUID, 5, expected)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{InitialLines: 5}, nil)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{InitialLines: 5}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -475,7 +475,7 @@ func (s *LogTailerSuite) TestRecordsAddedOutOfTimeOrder(c *gc.C) {
 	migrated := logTemplate{Message: "transferred by migration"}
 	s.writeLogsT(c, s.otherUUID, t1, t1, 1, migrated)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{}, nil)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -488,7 +488,7 @@ func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 	expected := logTemplate{Message: "want"}
 	s.writeLogs(c, s.otherUUID, 2, expected)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{InitialLines: 5}, nil)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{InitialLines: 5}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
@@ -506,7 +506,7 @@ func (s *LogTailerSuite) TestNoTail(c *gc.C) {
 	err := s.writeLogToOplog(s.otherUUID, doc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tailer, err := state.NewLogTailer(s.otherState, state.LogTailerParams{NoTail: true}, nil)
+	tailer, err := state.NewLogTailer(s.otherState, corelogger.LogTailerParams{NoTail: true}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Not strictly necessary, just in case NoTail doesn't work in the test.
 	defer tailer.Stop()
@@ -541,7 +541,7 @@ func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, foo1)
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		IncludeEntity: []string{
 			"unit-foo-0",
 			"unit-foo-1",
@@ -564,7 +564,7 @@ func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, foo1)
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		IncludeEntity: []string{
 			"unit-foo*",
 		},
@@ -586,7 +586,7 @@ func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, foo1)
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		ExcludeEntity: []string{
 			"machine-0",
 			"unit-foo-0",
@@ -608,7 +608,7 @@ func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, foo1)
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		ExcludeEntity: []string{
 			"machine*",
 			"unit-*-0",
@@ -633,7 +633,7 @@ func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, mod0)
 		s.writeLogs(c, s.otherUUID, 1, mod2)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		IncludeModule: []string{"juju.thing", "elsewhere"},
 	}
 	assert := func(tailer corelogger.LogTailer) {
@@ -657,7 +657,7 @@ func (s *LogTailerSuite) TestExcludeModule(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, mod0)
 		s.writeLogs(c, s.otherUUID, 1, mod2)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		ExcludeModule: []string{"juju.thing", "elsewhere"},
 	}
 	assert := func(tailer corelogger.LogTailer) {
@@ -679,7 +679,7 @@ func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, baz)
 		s.writeLogs(c, s.otherUUID, 1, qux)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		IncludeModule: []string{"foo", "bar", "qux"},
 		ExcludeModule: []string{"foo", "bar"},
 	}
@@ -704,7 +704,7 @@ func (s *LogTailerSuite) TestIncludeLabels(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, mod0)
 		s.writeLogs(c, s.otherUUID, 1, mod2)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		IncludeLabel: []string{"juju_thing", "elsewhere"},
 	}
 	assert := func(tailer corelogger.LogTailer) {
@@ -727,7 +727,7 @@ func (s *LogTailerSuite) TestExcludeLabels(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, mod0)
 		s.writeLogs(c, s.otherUUID, 1, mod2)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		ExcludeLabel: []string{"juju_thing", "juju_thing_hai", "elsewhere"},
 	}
 	assert := func(tailer corelogger.LogTailer) {
@@ -749,7 +749,7 @@ func (s *LogTailerSuite) TestIncludeExcludeLabels(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, baz)
 		s.writeLogs(c, s.otherUUID, 1, qux)
 	}
-	params := state.LogTailerParams{
+	params := corelogger.LogTailerParams{
 		IncludeLabel: []string{"foo", "bar", "qux"},
 		ExcludeLabel: []string{"foo", "bar"},
 	}
@@ -764,7 +764,7 @@ func (s *LogTailerSuite) TestIncludeExcludeLabels(c *gc.C) {
 func (s *LogTailerSuite) checkLogTailerFiltering(
 	c *gc.C,
 	st *state.State,
-	params state.LogTailerParams,
+	params corelogger.LogTailerParams,
 	writeLogs func(),
 	assertTailer func(corelogger.LogTailer),
 ) {

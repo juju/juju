@@ -421,22 +421,6 @@ func (logger *DbLogger) Close() error {
 	return nil
 }
 
-// LogTailerParams specifies the filtering a LogTailer should apply to
-// logs in order to decide which to return.
-type LogTailerParams struct {
-	StartID       int64
-	StartTime     time.Time
-	MinLevel      loggo.Level
-	InitialLines  int
-	NoTail        bool
-	IncludeEntity []string
-	ExcludeEntity []string
-	IncludeModule []string
-	ExcludeModule []string
-	IncludeLabel  []string
-	ExcludeLabel  []string
-}
-
 // oplogOverlap is used to decide on the initial oplog timestamp to
 // use when the LogTailer transitions from querying the logs
 // collection to tailing the oplog. Oplog records with a timestamp >=
@@ -469,7 +453,9 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params LogTailerParams, opLog *mgo.Collection) (corelogger.LogTailer, error) {
+func NewLogTailer(
+	st LogTailerState, params corelogger.LogTailerParams, opLog *mgo.Collection,
+) (corelogger.LogTailer, error) {
 	session := st.MongoSession().Copy()
 
 	if opLog == nil {
@@ -501,7 +487,7 @@ type logTailer struct {
 	session         *mgo.Session
 	logsColl        *mgo.Collection
 	opLog           *mgo.Collection
-	params          LogTailerParams
+	params          corelogger.LogTailerParams
 	logCh           chan *corelogger.LogRecord
 	lastID          int64
 	lastTime        time.Time
@@ -732,7 +718,7 @@ func (t *logTailer) tailOplog() error {
 	}
 }
 
-func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params corelogger.LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
