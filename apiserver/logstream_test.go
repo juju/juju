@@ -252,7 +252,7 @@ type stubSource struct {
 	stub *testing.Stub
 
 	ReturnGetStart  int64
-	ReturnNewTailer state.LogTailer
+	ReturnNewTailer corelogger.LogTailer
 }
 
 func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.PoolHelper, error) {
@@ -277,7 +277,7 @@ func (s *stubSource) getStart(sink string) (time.Time, error) {
 	return time.Unix(s.ReturnGetStart, 0), nil
 }
 
-func (s *stubSource) newTailer(args state.LogTailerParams) (state.LogTailer, error) {
+func (s *stubSource) newTailer(args state.LogTailerParams) (corelogger.LogTailer, error) {
 	s.stub.AddCall("newTailer", args)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -287,7 +287,7 @@ func (s *stubSource) newTailer(args state.LogTailerParams) (state.LogTailer, err
 }
 
 type stubLogTailer struct {
-	state.LogTailer
+	corelogger.LogTailer
 	stub *testing.Stub
 
 	ReturnLogs <-chan *corelogger.LogRecord

@@ -21,7 +21,7 @@ import (
 
 type logStreamSource interface {
 	getStart(sink string) (time.Time, error)
-	newTailer(state.LogTailerParams) (state.LogTailer, error)
+	newTailer(state.LogTailerParams) (corelogger.LogTailer, error)
 }
 
 type messageWriter interface {
@@ -52,7 +52,7 @@ func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
 //
 // Args for the HTTP request are as follows:
 //   all -> string - one of [true, false], if true, include records from all models
-//   sink -> string - the name of the the log forwarding target
+//   sink -> string - the name of the log forwarding target
 func (h *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger.Infof("log stream request handler starting")
 	handler := func(conn *websocket.Conn) {
@@ -108,7 +108,9 @@ func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter
 	return reqHandler, nil
 }
 
-func (h *logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig, clock clock.Clock) (state.LogTailer, error) {
+func (h *logStreamEndpointHandler) newTailer(
+	source logStreamSource, cfg params.LogStreamConfig, clock clock.Clock,
+) (corelogger.LogTailer, error) {
 	start, err := source.getStart(cfg.Sink)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting log start position")
@@ -174,7 +176,7 @@ func (st logStreamState) getStart(sink string) (time.Time, error) {
 	return time.Unix(0, lastSentTimestamp), nil
 }
 
-func (st logStreamState) newTailer(args state.LogTailerParams) (state.LogTailer, error) {
+func (st logStreamState) newTailer(args state.LogTailerParams) (corelogger.LogTailer, error) {
 	tailer, err := state.NewLogTailer(st, args)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -185,7 +187,7 @@ func (st logStreamState) newTailer(args state.LogTailerParams) (state.LogTailer,
 type logStreamRequestHandler struct {
 	conn       messageWriter
 	req        *http.Request
-	tailer     state.LogTailer
+	tailer     corelogger.LogTailer
 	poolHelper state.PoolHelper
 }
 

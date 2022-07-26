@@ -421,28 +421,6 @@ func (logger *DbLogger) Close() error {
 	return nil
 }
 
-// LogTailer allows for retrieval of Juju's logs from MongoDB. It
-// first returns any matching already recorded logs and then waits for
-// additional matching logs as they appear.
-type LogTailer interface {
-	// Logs returns the channel through which the LogTailer returns
-	// Juju logs. It will be closed when the tailer stops.
-	Logs() <-chan *corelogger.LogRecord
-
-	// Dying returns a channel which will be closed as the LogTailer
-	// stops.
-	Dying() <-chan struct{}
-
-	// Stop is used to request that the LogTailer stops. It blocks
-	// unil the LogTailer has stopped.
-	Stop() error
-
-	// Err returns the error that caused the LogTailer to stopped. If
-	// it hasn't stopped or stopped without error nil will be
-	// returned.
-	Err() error
-}
-
 // LogTailerParams specifies the filtering a LogTailer should apply to
 // logs in order to decide which to return.
 type LogTailerParams struct {
@@ -492,7 +470,7 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) {
+func NewLogTailer(st LogTailerState, params LogTailerParams) (corelogger.LogTailer, error) {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),

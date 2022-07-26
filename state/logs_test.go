@@ -390,7 +390,7 @@ func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 		s.writeLogs(c, s.otherUUID, 1, good)
 	}
 
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		// Only the entries the s.State's UUID should be reported.
 		s.assertTailer(c, tailer, 1, good)
 	}
@@ -411,7 +411,7 @@ func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
 		})
 	}
 
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		messages := map[string]bool{}
 		defer func() {
 			c.Assert(messages, gc.HasLen, 2)
@@ -451,7 +451,7 @@ func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
 	params := state.LogTailerParams{
 		MinLevel: loggo.INFO,
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 1, info)
 		s.assertTailer(c, tailer, 1, error)
 	}
@@ -560,7 +560,7 @@ func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 			"unit-foo-1",
 		},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 2, foo0)
 		s.assertTailer(c, tailer, 1, foo1)
 	}
@@ -582,7 +582,7 @@ func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
 			"unit-foo*",
 		},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 2, foo0)
 		s.assertTailer(c, tailer, 1, foo1)
 	}
@@ -605,7 +605,7 @@ func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
 			"unit-foo-0",
 		},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 1, foo1)
 	}
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
@@ -627,7 +627,7 @@ func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
 			"unit-*-0",
 		},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 1, foo1)
 	}
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
@@ -649,7 +649,7 @@ func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 	params := state.LogTailerParams{
 		IncludeModule: []string{"juju.thing", "elsewhere"},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 1, mod1)
 		s.assertTailer(c, tailer, 1, subMod1)
 		s.assertTailer(c, tailer, 1, mod2)
@@ -673,7 +673,7 @@ func (s *LogTailerSuite) TestExcludeModule(c *gc.C) {
 	params := state.LogTailerParams{
 		ExcludeModule: []string{"juju.thing", "elsewhere"},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 2, mod0)
 	}
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
@@ -696,7 +696,7 @@ func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
 		IncludeModule: []string{"foo", "bar", "qux"},
 		ExcludeModule: []string{"foo", "bar"},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		// Except just "qux" because "foo" and "bar" were included and
 		// then excluded.
 		s.assertTailer(c, tailer, 1, qux)
@@ -720,7 +720,7 @@ func (s *LogTailerSuite) TestIncludeLabels(c *gc.C) {
 	params := state.LogTailerParams{
 		IncludeLabel: []string{"juju_thing", "elsewhere"},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 1, mod1)
 		s.assertTailer(c, tailer, 1, mod2)
 	}
@@ -743,7 +743,7 @@ func (s *LogTailerSuite) TestExcludeLabels(c *gc.C) {
 	params := state.LogTailerParams{
 		ExcludeLabel: []string{"juju_thing", "juju_thing_hai", "elsewhere"},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		s.assertTailer(c, tailer, 2, mod0)
 	}
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
@@ -766,7 +766,7 @@ func (s *LogTailerSuite) TestIncludeExcludeLabels(c *gc.C) {
 		IncludeLabel: []string{"foo", "bar", "qux"},
 		ExcludeLabel: []string{"foo", "bar"},
 	}
-	assert := func(tailer state.LogTailer) {
+	assert := func(tailer corelogger.LogTailer) {
 		// Except just "qux" because "foo" and "bar" were included and
 		// then excluded.
 		s.assertTailer(c, tailer, 1, qux)
@@ -779,7 +779,7 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 	st *state.State,
 	params state.LogTailerParams,
 	writeLogs func(),
-	assertTailer func(state.LogTailer),
+	assertTailer func(corelogger.LogTailer),
 ) {
 	// Check the tailer does the right thing when reading from the
 	// logs collection.
@@ -888,7 +888,7 @@ func (s *LogTailerSuite) logTemplateToDoc(lt logTemplate, t time.Time) interface
 	)
 }
 
-func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedCount int, lt logTemplate) {
+func (s *LogTailerSuite) assertTailer(c *gc.C, tailer corelogger.LogTailer, expectedCount int, lt logTemplate) {
 	s.normaliseLogTemplate(&lt)
 
 	timeout := time.After(coretesting.LongWait)

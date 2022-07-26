@@ -101,6 +101,6 @@ func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LogTailerState, params state.LogTailerParams) (state.LogTailer, error) {
+func _newLogTailer(st state.LogTailerState, params state.LogTailerParams) (corelogger.LogTailer, error) {
 	return state.NewLogTailer(st, params)
 }
