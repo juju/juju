@@ -265,7 +265,6 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
-			ClientVersion: version.MustParse("2.9.99"),
 			AgentStream:   agentStream,
 			DryRun:        dryRun,
 		},
@@ -426,7 +425,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
-			ClientVersion: version.MustParse("2.9.99"),
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `
@@ -521,7 +519,6 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
-			ClientVersion: version.MustParse("2.9.99"),
 			AgentStream:   agentStream,
 			DryRun:        dryRun,
 		},
@@ -615,7 +612,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
-			ClientVersion: version.MustParse("2.9.99"),
 		},
 	)
 	c.Logf(err.Error())
@@ -787,23 +783,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	})
 }
 
-func (s *modelUpgradeSuite) TestDecideVersionIncompatibleClient(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
-
-	st := mocks.NewMockState(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	st.EXPECT().Model().AnyTimes().Return(model, nil)
-
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("1.9.99"), version.Zero, version.MustParse("3.9.99"), false, "", st, model,
-	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade a 3.9.99 model with a 1.9.99 client`)
-	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
-	c.Assert(canImplicitUpload, jc.IsFalse)
-}
-
-func (s *modelUpgradeSuite) TestDecideVersionFindToolUseClientMajor(c *gc.C) {
+func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajor(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -816,15 +796,14 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseClientMajor(c *gc.C) {
 			MajorVersion: 3, // client major.
 			MinorVersion: -1,
 		}).Return(params.FindToolsResult{}, errors.New(`fail to exit early`)),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("3.9.98"), version.Zero, version.MustParse("3.9.99"), false, "", st, model,
+	targetVersion, err := api.DecideVersion(
+		version.Zero, version.MustParse("3.9.99"), "", st, model,
 	)
-	c.Assert(err, gc.ErrorMatches, `fail to exit early`)
+	c.Assert(err, gc.ErrorMatches, `cannot find tool version from simple streams: fail to exit early`)
 	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
-	c.Assert(canImplicitUpload, jc.IsFalse)
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
@@ -840,39 +819,14 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
 			MajorVersion: 4, // target major.
 			MinorVersion: -1,
 		}).Return(params.FindToolsResult{}, errors.New(`fail to exit early`)),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("3.9.98"), version.MustParse("4.9.99"), version.MustParse("3.9.99"), false, "", st, model,
+	targetVersion, err := api.DecideVersion(
+		version.MustParse("4.9.99"), version.MustParse("3.9.99"), "", st, model,
 	)
-	c.Assert(err, gc.ErrorMatches, `fail to exit early`)
+	c.Assert(err, gc.ErrorMatches, `cannot find tool version from simple streams: fail to exit early`)
 	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
-	c.Assert(canImplicitUpload, jc.IsFalse)
-}
-
-func (s *modelUpgradeSuite) TestDecideVersionFindToolUseClientPriorMajor(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
-
-	st := mocks.NewMockState(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	st.EXPECT().Model().AnyTimes().Return(model, nil)
-
-	gomock.InOrder(
-		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
-			MajorVersion: 2, // client major -1 .
-			MinorVersion: -1,
-		}).Return(params.FindToolsResult{}, errors.New(`fail to exit early`)),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-	)
-
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("3.9.98"), version.Zero, version.MustParse("2.9.99"), false, "", st, model,
-	)
-	c.Assert(err, gc.ErrorMatches, `fail to exit early`)
-	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
-	c.Assert(canImplicitUpload, jc.IsFalse)
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C) {
@@ -896,12 +850,11 @@ func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("3.9.98"), version.MustParse("3.9.98"), version.MustParse("2.9.99"), false, "", st, model,
+	targetVersion, err := api.DecideVersion(
+		version.MustParse("3.9.98"), version.MustParse("2.9.99"), "", st, model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("3.9.98"))
-	c.Assert(canImplicitUpload, jc.IsFalse)
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionNextStable(c *gc.C) {
@@ -926,12 +879,11 @@ func (s *modelUpgradeSuite) TestDecideVersionNextStable(c *gc.C) {
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("2.9.99"), version.Zero, version.MustParse("2.9.99"), false, "", st, model,
+	targetVersion, err := api.DecideVersion(
+		version.Zero, version.MustParse("2.9.99"), "", st, model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("2.10.99"))
-	c.Assert(canImplicitUpload, jc.IsFalse)
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionNewestCurrent(c *gc.C) {
@@ -955,199 +907,9 @@ func (s *modelUpgradeSuite) TestDecideVersionNewestCurrent(c *gc.C) {
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("2.9.99"), version.Zero, version.MustParse("2.9.99"), false, "", st, model,
+	targetVersion, err := api.DecideVersion(
+		version.Zero, version.MustParse("2.9.99"), "", st, model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("2.9.100"))
-	c.Assert(canImplicitUpload, jc.IsFalse)
-}
-
-func (s *modelUpgradeSuite) TestDecideVersionCanImplicitUpload(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
-
-	st := mocks.NewMockState(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	st.EXPECT().Model().AnyTimes().Return(model, nil)
-	model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS)
-
-	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
-		MajorVersion: 2, MinorVersion: -1,
-	}).Return(params.FindToolsResult{}, nil)
-
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("2.9.100"), version.Zero, version.MustParse("2.9.99.1"), true, "", st, model,
-	)
-	c.Assert(err, gc.ErrorMatches, `available agent tool, upload required`)
-	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
-	c.Assert(canImplicitUpload, jc.IsTrue)
-}
-
-func (s *modelUpgradeSuite) TestDecideVersionNoAvailableToolFoundAndUploadIsNotAllowed(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
-
-	st := mocks.NewMockState(ctrl)
-	model := mocks.NewMockModel(ctrl)
-	st.EXPECT().Model().AnyTimes().Return(model, nil)
-	model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS)
-
-	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
-		MajorVersion: 2, MinorVersion: -1,
-	}).Return(params.FindToolsResult{}, nil)
-
-	targetVersion, canImplicitUpload, err := api.DecideVersion(
-		version.MustParse("2.9.100"), version.Zero, version.MustParse("2.9.99"),
-		false, // non official client is not allowed to upload.
-		"", st, model,
-	)
-	c.Assert(err, gc.ErrorMatches, `no more recent supported versions available`)
-	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
-	c.Assert(canImplicitUpload, jc.IsFalse)
-}
-
-func (s *modelUpgradeSuite) TestIsClientPublished(c *gc.C) {
-	published := modelupgrader.IsClientPublished(
-		version.MustParse("1.9.99"),
-		coretools.Versions{
-			&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
-		},
-	)
-	c.Assert(published, jc.IsFalse)
-
-	published = modelupgrader.IsClientPublished(
-		version.MustParse("2.9.6"),
-		coretools.Versions{
-			&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
-		},
-	)
-	c.Assert(published, jc.IsTrue)
-}
-
-func (s *modelUpgradeSuite) TestCheckClientCompatibility(c *gc.C) {
-	filterOnPrior, err := modelupgrader.CheckClientCompatibility(
-		version.MustParse("3.0.0"),
-		version.Zero,
-		version.MustParse("3.9.99"),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filterOnPrior, jc.IsFalse)
-
-	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
-		version.MustParse("3.0.0"),
-		version.Zero,
-		version.MustParse("2.9.99"),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filterOnPrior, jc.IsTrue)
-
-	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
-		version.MustParse("3.0.0"),
-		version.MustParse("2.9.99"),
-		version.MustParse("2.9.99"),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filterOnPrior, jc.IsTrue)
-
-	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
-		version.MustParse("2.9.99"),
-		version.MustParse("2.9.99"),
-		version.MustParse("3.0.0"),
-	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade a 3.0.0 model with a 2.9.99 client`)
-	c.Assert(filterOnPrior, jc.IsFalse)
-
-	filterOnPrior, err = modelupgrader.CheckClientCompatibility(
-		version.MustParse("4.0.0"),
-		version.MustParse("2.9.99"),
-		version.MustParse("2.9.99"),
-	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade a 2.9.99 model with a 4.0.0 client`)
-	c.Assert(filterOnPrior, jc.IsFalse)
-}
-
-func (s *modelUpgradeSuite) TestCheckCanImplicitUploadCAASModel(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	model := mocks.NewMockModel(ctrl)
-	model.EXPECT().Type().Return(state.ModelTypeCAAS)
-
-	canImplicitUpload := modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.9.99"),
-		false, false,
-	)
-	c.Assert(canImplicitUpload, jc.IsFalse)
-}
-
-func (s *modelUpgradeSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	model := mocks.NewMockModel(ctrl)
-	gomock.InOrder(
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-		model.EXPECT().Type().AnyTimes().Return(state.ModelTypeIAAS),
-	)
-
-	// Not IAAS model.
-	canImplicitUpload := modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0"),
-		false, false,
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// offical client but the client is a published version.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.9.99"),
-		version.MustParse("3.0.0"),
-		true, true,
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// not offical client.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.9.99"),
-		version.MustParse("3.0.0"),
-		false, false,
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
-
-	// newer client.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.0.0"),
-		version.MustParse("2.9.99"),
-		true, false,
-	)
-	c.Check(canImplicitUpload, jc.IsTrue)
-
-	// offical client and the client is not a published version,
-	// client version with build number.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.0.0.1"),
-		version.MustParse("3.0.0"),
-		true, false,
-	)
-	c.Check(canImplicitUpload, jc.IsTrue)
-
-	// offical client and the client is not a published version,
-	// agent version with build number.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0.1"),
-		true, false,
-	)
-	c.Check(canImplicitUpload, jc.IsTrue)
-
-	// offical client and the client is not a published version,
-	// but both client and agent version with build number == 0.
-	canImplicitUpload = modelupgrader.CheckCanImplicitUpload(model,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0"),
-		true, false,
-	)
-	c.Check(canImplicitUpload, jc.IsFalse)
 }

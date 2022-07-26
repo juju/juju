@@ -51,21 +51,16 @@ func (mr *MockSyncToolAPIMockRecorder) Close() *gomock.Call {
 }
 
 // UploadTools mocks base method.
-func (m *MockSyncToolAPI) UploadTools(arg0 io.ReadSeeker, arg1 version.Binary, arg2 ...string) (tools.List, error) {
+func (m *MockSyncToolAPI) UploadTools(arg0 io.ReadSeeker, arg1 version.Binary) (tools.List, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "UploadTools", varargs...)
+	ret := m.ctrl.Call(m, "UploadTools", arg0, arg1)
 	ret0, _ := ret[0].(tools.List)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadTools indicates an expected call of UploadTools.
-func (mr *MockSyncToolAPIMockRecorder) UploadTools(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockSyncToolAPIMockRecorder) UploadTools(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadTools", reflect.TypeOf((*MockSyncToolAPI)(nil).UploadTools), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadTools", reflect.TypeOf((*MockSyncToolAPI)(nil).UploadTools), arg0, arg1)
 }

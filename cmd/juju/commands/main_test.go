@@ -67,7 +67,7 @@ func configHelpText() string {
 }
 
 func syncToolsHelpText() string {
-	return helpText(newSyncToolsCommand(), "juju sync-agent-binaries")
+	return helpText(newSyncAgentBinaryCommand(), "juju sync-agent-binaries")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {

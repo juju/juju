@@ -24,13 +24,13 @@ import (
 
 var syncTools = sync.SyncTools
 
-func newSyncToolsCommand() cmd.Command {
-	return modelcmd.Wrap(&syncToolCommand{})
+func newSyncAgentBinaryCommand() cmd.Command {
+	return modelcmd.Wrap(&syncAgentBinaryCommand{})
 }
 
-// syncToolCommand copies the tool from either official agent binaries store or
+// syncAgentBinaryCommand copies the tool from either official agent binaries store or
 // a local directory to the controller.
-type syncToolCommand struct {
+type syncAgentBinaryCommand struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
 	versionStr    string
@@ -43,7 +43,7 @@ type syncToolCommand struct {
 	syncToolAPI   SyncToolAPI
 }
 
-var _ cmd.Command = (*syncToolCommand)(nil)
+var _ cmd.Command = (*syncAgentBinaryCommand)(nil)
 
 const synctoolsDoc = `
 This copies the Juju agent software from the official agent binaries store 
@@ -63,7 +63,7 @@ See also:
 
 `
 
-func (c *syncToolCommand) Info() *cmd.Info {
+func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "sync-agent-binary",
 		Purpose: "Copy agent binaries from the official agent store into a local controller.",
@@ -72,7 +72,7 @@ func (c *syncToolCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *syncToolCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *syncAgentBinaryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
@@ -82,7 +82,7 @@ func (c *syncToolCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.localDir, "local-dir", "", "Local destination directory")
 }
 
-func (c *syncToolCommand) Init(args []string) error {
+func (c *syncAgentBinaryCommand) Init(args []string) error {
 	if c.versionStr == "" {
 		return errors.NewNotValid(nil, "--version is required")
 	}
@@ -96,18 +96,18 @@ func (c *syncToolCommand) Init(args []string) error {
 // SyncToolAPI provides an interface with a subset of the
 // modelupgrader.Client API. This exists to enable mocking.
 type SyncToolAPI interface {
-	UploadTools(r io.ReadSeeker, v version.Binary, _ ...string) (coretools.List, error)
+	UploadTools(r io.ReadSeeker, v version.Binary) (coretools.List, error)
 	Close() error
 }
 
-func (c *syncToolCommand) getSyncToolAPI() (SyncToolAPI, error) {
+func (c *syncAgentBinaryCommand) getSyncToolAPI() (SyncToolAPI, error) {
 	if c.syncToolAPI != nil {
 		return c.syncToolAPI, nil
 	}
 	return c.NewModelUpgraderAPIClient()
 }
 
-func (c *syncToolCommand) Run(ctx *cmd.Context) (resultErr error) {
+func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	writer := loggo.NewMinimumLevelWriter(
 		cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr),
@@ -148,7 +148,6 @@ func (c *syncToolCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		defer api.Close()
 		adapter := syncToolAPIAdapter{api, c.targetVersion}
-		sctx.TargetToolsFinder = adapter
 		sctx.TargetToolsUploader = adapter
 	}
 	return block.ProcessBlockedError(syncTools(sctx), block.BlockChange)
@@ -160,14 +159,6 @@ func (c *syncToolCommand) Run(ctx *cmd.Context) (resultErr error) {
 type syncToolAPIAdapter struct {
 	SyncToolAPI
 	targetVersion version.Number
-}
-
-func (s syncToolAPIAdapter) FindTools(majorVersion int, stream string) (coretools.List, error) {
-	return coretools.List{
-		&coretools.Tools{
-			Version: version.Binary{Number: s.targetVersion},
-		},
-	}, nil
 }
 
 func (s syncToolAPIAdapter) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {

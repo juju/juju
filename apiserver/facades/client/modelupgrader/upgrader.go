@@ -29,13 +29,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelupgrader")
 
-// ModelUpgraderV2 defines the methods on the version 2 facade for the
-// modelupgrader API endpoint.
-type ModelUpgraderV2 interface {
-	AbortModelUpgrade(params.ModelParam) error
-	UpgradeModel(params.UpgradeModelParams) (params.UpgradeModelResult, error)
-}
-
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
@@ -50,10 +43,6 @@ type ModelUpgraderAPI struct {
 
 	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 }
-
-var (
-	_ ModelUpgraderV2 = (*ModelUpgraderAPI)(nil)
-)
 
 // NewModelUpgraderAPI creates a new api server endpoint for managing
 // models.
@@ -168,10 +157,10 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	targetVersion, result.CanImplicitUpload, err = m.decideVersion(
-		arg.ClientVersion, targetVersion, agentVersion, arg.OfficialClient, arg.AgentStream, st, model,
+	targetVersion, err = m.decideVersion(
+		targetVersion, agentVersion, arg.AgentStream, st, model,
 	)
-	if errors.Is(err, errors.NotFound) || errors.Is(err, errors.AlreadyExists) {
+	if errors.Is(errors.Cause(err), errors.NotFound) || errors.Is(errors.Cause(err), errors.AlreadyExists) {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}

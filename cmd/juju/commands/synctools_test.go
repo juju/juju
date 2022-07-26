@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -54,7 +53,7 @@ func (s *syncToolSuite) getSyncAgentBinariesCommand(c *gc.C, args ...string) (*g
 	ctrl := gomock.NewController(c)
 	s.fakeSyncToolAPI = mocks.NewMockSyncToolAPI(ctrl)
 
-	syncToolCMD := &syncToolCommand{syncToolAPI: s.fakeSyncToolAPI}
+	syncToolCMD := &syncAgentBinaryCommand{syncToolAPI: s.fakeSyncToolAPI}
 	syncToolCMD.SetClientStore(s.store)
 	return ctrl, func() (*cmd.Context, error) {
 		return cmdtesting.RunCommand(c, modelcmd.Wrap(syncToolCMD), args...)
@@ -110,8 +109,6 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
 			c.Assert(sctx.Source, gc.Equals, test.source)
 
 			c.Assert(sctx.TargetToolsFinder, gc.FitsTypeOf, syncToolAPIAdapter{})
-			finder := sctx.TargetToolsFinder.(syncToolAPIAdapter)
-			c.Assert(finder.SyncToolAPI, gc.Equals, s.fakeSyncToolAPI)
 
 			c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, syncToolAPIAdapter{})
 			uploader := sctx.TargetToolsUploader.(syncToolAPIAdapter)
@@ -175,21 +172,6 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
-}
-
-func (s *syncToolSuite) TestAPIAdapterFindTools(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	fakeAPI := mocks.NewMockSyncToolAPI(ctrl)
-
-	targetVersion, err := version.Parse("2.9.99")
-	c.Assert(err, jc.ErrorIsNil)
-	a := syncToolAPIAdapter{fakeAPI, targetVersion}
-	list, err := a.FindTools(2, "released")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.SameContents, coretools.List{&coretools.Tools{
-		Version: version.Binary{Number: targetVersion},
-	}})
 }
 
 func (s *syncToolSuite) TestAPIAdapterUploadTools(c *gc.C) {

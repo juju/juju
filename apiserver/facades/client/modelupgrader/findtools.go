@@ -19,73 +19,36 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func isClientPublished(clientVersion version.Number, streamVersions coretools.Versions) bool {
-	for _, v := range streamVersions {
-		if v.AgentVersion().Compare(clientVersion) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func checkClientCompatibility(clientVersion, targetVersion, agentVersion version.Number) (bool, error) {
-	switch clientVersion.Major - agentVersion.Major {
-	case 0:
-		return false, nil
-	case 1:
-		// The running model is the previous major version.
-		if targetVersion == version.Zero || targetVersion.Major == agentVersion.Major {
-			// Not requesting an upgrade across major release boundary.
-			// Warn of incompatible CLI and filter on the prior major version
-			// when searching for available tools.
-			// TODO(cherylj) Add in a suggestion to upgrade to 2.0 if
-			// no matching tools are found (bug 1532670)
-			return true, nil
-		}
-		return false, nil
-	default:
-		// This version of juju client cannot upgrade the running
-		// model version (can't guarantee API compatibility).
-		return false, errors.Errorf("cannot upgrade a %s model with a %s client", agentVersion, clientVersion)
-	}
-}
+var errUpToDate = errors.AlreadyExistsf("no upgrades available")
 
 func (m *ModelUpgraderAPI) decideVersion(
-	clientVersion, targetVersion, agentVersion version.Number, officialClient bool,
-	agentStream string, st State, model Model,
-) (_ version.Number, _ bool, err error) {
-	logger.Debugf(
-		"deciding target version for model upgrade, %q, %q, %q, %v, %q",
-		clientVersion, targetVersion, agentVersion, officialClient, agentStream,
-	)
-
-	filterOnPrior, err := checkClientCompatibility(clientVersion, targetVersion, agentVersion)
-	if err != nil {
-		return version.Zero, false, errors.Trace(err)
-	}
-	filterVersion := clientVersion
+	targetVersion, agentVersion version.Number, agentStream string, st State, model Model,
+) (_ version.Number, err error) {
+	logger.Debugf("deciding target version for model upgrade, %q, %q, %q", targetVersion, agentVersion, agentStream)
+	filterMajor := agentVersion.Major
 	if targetVersion != version.Zero {
-		filterVersion = targetVersion
-	} else if filterOnPrior {
-		filterVersion.Major--
+		filterMajor = targetVersion.Major
 	}
 	streamVersions, err := m.findTools(
-		st, model, filterVersion.Major, -1, agentVersion, "", "", agentStream,
+		st, model, filterMajor, -1, agentVersion, "", "", agentStream,
 	)
 	if err != nil {
-		return version.Zero, false, errors.Trace(err)
+		return version.Zero, errors.Trace(err)
 	}
-
 	if targetVersion != version.Zero {
+		if targetVersion.Compare(agentVersion.ToPatch()) < 0 {
+			return version.Zero, errUpToDate
+		}
+
 		// If not completely specified already, pick a single tools version.
 		filter := coretools.Filter{Number: targetVersion}
 		packagedAgents, err := streamVersions.Match(filter)
 		if err != nil {
-			return version.Zero, false, errors.Wrap(err, errors.New("no matching agent versions available"))
+			return version.Zero, errors.Wrap(err, errors.NotFoundf("no matching agent versions available"))
 		}
 		targetVersion, packagedAgents = packagedAgents.Newest()
 		logger.Debugf("target version %q is the best version, packagedAgents %s", targetVersion, packagedAgents)
-		return targetVersion, false, nil
+		return targetVersion, nil
 	}
 
 	// No explicitly specified version, so find the version to which we
@@ -106,58 +69,22 @@ func (m *ModelUpgraderAPI) decideVersion(
 	if found {
 		logger.Debugf("found a more recent stable version %s", newestNextStable)
 		targetVersion = newestNextStable
-		return targetVersion, false, nil
+		return targetVersion, nil
 	}
 	newestCurrent, found := streamVersions.NewestCompatible(agentVersion)
 	if found {
+		if newestCurrent.Compare(agentVersion) == 0 {
+			return version.Zero, errUpToDate
+		}
 		if newestCurrent.Compare(agentVersion) > 0 {
 			targetVersion = newestCurrent
 			logger.Debugf("found more recent current version %s", newestCurrent)
-			return targetVersion, false, nil
+			return targetVersion, nil
 		}
 	}
 
-	canImplicitUpload := checkCanImplicitUpload(
-		model, clientVersion, agentVersion, officialClient,
-		isClientPublished(clientVersion, streamVersions),
-	)
-
-	if canImplicitUpload {
-		// CLI should upload the local build and retry.
-		return version.Zero, true, errors.NewNotFound(nil, "available agent tool, upload required")
-	}
-	// no available tool found, and we are not allowed to upload.
-	return version.Zero, false, errors.New("no more recent supported versions available")
-}
-
-func checkCanImplicitUpload(
-	model Model, clientVersion, agentVersion version.Number,
-	isOfficialClient, isClientPublished bool,
-) bool {
-	if model.Type() != state.ModelTypeIAAS {
-		logger.Tracef("the model is not IAAS model")
-		return false
-	}
-	if isClientPublished {
-		logger.Tracef("the client is a published client")
-		// For official (under /snap/juju/bin) client, upload only if the client is not a published version.
-		return false
-	}
-	if !isOfficialClient {
-		logger.Tracef("the client is not an official client")
-		// For non official (under $GOPATH) client, always use --build-agent explicitly.
-		return false
-	}
-	newerClient := clientVersion.Compare(agentVersion) > 0
-	if newerClient {
-		logger.Tracef("the client version is not newer than agent version")
-		return true
-	}
-
-	if agentVersion.Build > 0 || clientVersion.Build > 0 {
-		return true
-	}
-	return false
+	// no available tool found, CLI could upload the local build and it's allowed.
+	return version.Zero, errors.NewNotFound(nil, "available agent tool, upload required")
 }
 
 func (m *ModelUpgraderAPI) findTools(

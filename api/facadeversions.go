@@ -87,7 +87,7 @@ var facadeVersions = map[string]int{
 	"ModelGeneration":              4,
 	"ModelManager":                 9,
 	"ModelSummaryWatcher":          1,
-	"ModelUpgrader":                2,
+	"ModelUpgrader":                1,
 	"NotifyWatcher":                1,
 	"OfferStatusWatcher":           1,
 	"Payloads":                     1,

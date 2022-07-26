@@ -281,20 +281,22 @@ func buildAgentTarball(
 	clientVersion := jujuversion.Current
 	clientVersion.Build = 0
 	if builtVersion.Number.Compare(clientVersion) != 0 {
-		return nil, errors.Errorf("agent binary %v not compatible with bootstrap client %v", toolsVersion.Number, jujuversion.Current)
+		return nil, errors.Errorf(
+			"agent binary %v not compatible with bootstrap client %v",
+			toolsVersion.Number, jujuversion.Current,
+		)
 	}
 	fileInfo, err := f.Stat()
 	if err != nil {
 		return nil, errors.Errorf("cannot stat newly made agent binary archive: %v", err)
 	}
 	size := fileInfo.Size()
+	agentBinary := "agent binary"
 	if official {
-		logger.Infof("using official agent binary %v (%dkB)", toolsVersion, (size+512)/1024)
-	} else {
-		logger.Infof("using agent binary %v aliased to %v (%dkB)",
-			toolsVersion, forceVersion, (size+512)/1024,
-		)
+		agentBinary = "official agent binary"
 	}
+	logger.Infof("using %s %v aliased to %v (%dkB)", agentBinary, toolsVersion, forceVersion, (size+512)/1024)
+
 	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return nil, err

@@ -60,28 +60,24 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 			params.UpgradeModelParams{
 				ModelTag:            coretesting.ModelTag.String(),
 				TargetVersion:       version.MustParse("2.9.1"),
-				ClientVersion:       version.MustParse("2.9.1"),
-				OfficialClient:      true,
 				IgnoreAgentVersions: true,
 				DryRun:              true,
 			}, &params.UpgradeModelResult{},
 		).DoAndReturn(func(objType string, facadeVersion int, id, request string, args, result interface{}) error {
 			out := result.(*params.UpgradeModelResult)
 			out.ChosenVersion = version.MustParse("2.9.99")
-			out.CanImplicitUpload = true
 			return nil
 		}),
 	)
 
 	client := modelupgrader.NewClient(apiCaller)
-	chosenVersion, canImplicitUpload, err := client.UpgradeModel(
+	chosenVersion, err := client.UpgradeModel(
 		coretesting.ModelTag.Id(),
-		version.MustParse("2.9.1"), version.MustParse("2.9.1"),
-		true, "", true, true,
+		version.MustParse("2.9.1"),
+		"", true, true,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(chosenVersion, gc.DeepEquals, version.MustParse("2.9.99"))
-	c.Assert(canImplicitUpload, jc.IsTrue)
 }
 
 func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
@@ -94,9 +90,8 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	req, err := http.NewRequest(
 		"POST",
 		fmt.Sprintf(
-			"/tools?binaryVersion=%s&series=%s",
+			"/tools?binaryVersion=%s",
 			version.MustParseBinary("2.9.100-ubuntu-amd64"),
-			"focal,jammy",
 		), nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,7 +116,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	client := modelupgrader.NewClient(apiCaller)
 
 	result, err := client.UploadTools(
-		nil, version.MustParseBinary("2.9.100-ubuntu-amd64"), "focal", "jammy",
+		nil, version.MustParseBinary("2.9.100-ubuntu-amd64"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.List{

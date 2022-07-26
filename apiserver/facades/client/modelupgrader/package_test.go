@@ -29,14 +29,7 @@ func (m *ModelUpgraderAPI) FindTools(
 }
 
 func (m *ModelUpgraderAPI) DecideVersion(
-	clientVersion, targetVersion, agentVersion version.Number, officialClient bool,
-	agentStream string, st State, model Model,
-) (_ version.Number, _ bool, err error) {
-	return m.decideVersion(clientVersion, targetVersion, agentVersion, officialClient, agentStream, st, model)
+	targetVersion, agentVersion version.Number, agentStream string, st State, model Model,
+) (_ version.Number, err error) {
+	return m.decideVersion(targetVersion, agentVersion, agentStream, st, model)
 }
-
-var (
-	IsClientPublished        = isClientPublished
-	CheckClientCompatibility = checkClientCompatibility
-	CheckCanImplicitUpload   = checkCanImplicitUpload
-)

@@ -309,12 +309,14 @@ type statusAPI interface {
 	Status(patterns []string) (*params.FullStatus, error)
 }
 
+// ClientAPI defines the client API methods.
 type ClientAPI interface {
 	toolsAPI
 	upgradeJujuAPI
 	statusAPI
 }
 
+// ModelConfigAPI defines the model config API methods.
 type ModelConfigAPI interface {
 	ModelGet() (map[string]interface{}, error)
 	Close() error
@@ -330,16 +332,16 @@ type ModelManagerAPI interface {
 // ModelUpgraderAPI defines model upgrader API methods.
 type ModelUpgraderAPI interface {
 	UpgradeModel(
-		modelUUID string, clientVersion, toVersion version.Number, officialClient bool,
-		stream string, ignoreAgentVersions, druRun bool,
-	) (version.Number, bool, error)
+		modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
+	) (version.Number, error)
 	AbortModelUpgrade(modelUUID string) error
-	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
+	UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error)
 
 	Close() error
 	BestAPIVersion() int
 }
 
+// ControllerAPI defines the controller API methods.
 type ControllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
@@ -401,25 +403,22 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	implicitAgentUploadAllowed := true
 	if modelType == model.CAAS {
 		if c.BuildAgent {
 			return errors.NotSupportedf("--build-agent for k8s model upgrades")
 		}
-		implicitAgentUploadAllowed = false
 	}
-
 	modelUpgrader, err := c.getModelUpgraderAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelUpgrader.Close()
 
-	if modelUpgrader.BestAPIVersion() < 2 {
+	if modelUpgrader.BestAPIVersion() == 0 {
 		// TODO(juju3) - remove
-		return c.upgradeModelLegacy(ctx, implicitAgentUploadAllowed, c.timeout)
+		return c.upgradeModelLegacy(ctx, modelType, c.timeout)
 	}
-	return c.upgradeModel(ctx, modelUpgrader, c.timeout)
+	return c.upgradeModel(ctx, modelUpgrader, c.timeout, modelType)
 }
 
 func uploadTools(
@@ -428,9 +427,9 @@ func uploadTools(
 	builtTools, err := sync.BuildAgentTarball(
 		buildAgent, "upgrade",
 		func(builtVersion version.Number) version.Number {
-			agentVersion.Build++
-			if agentVersion.Build > builtVersion.Build {
-				builtVersion.Build = agentVersion.Build
+			builtVersion.Build++
+			if agentVersion.Build >= builtVersion.Build {
+				builtVersion.Build = agentVersion.Build + 1
 			}
 			targetVersion = builtVersion
 			return builtVersion
@@ -466,16 +465,8 @@ func uploadTools(
 
 func (c *upgradeJujuCommand) upgradeModel(
 	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, fetchTimeout time.Duration,
+	modelType model.ModelType,
 ) (err error) {
-	defer func() {
-		if err == errUpToDate {
-			ctx.Infof(err.Error())
-			err = nil
-		}
-		if err != nil {
-			logger.Debugf("upgradeModel failed %v", err)
-		}
-	}()
 	targetVersion := c.Version
 	defer func() {
 		if err == nil {
@@ -489,6 +480,14 @@ func (c *upgradeJujuCommand) upgradeModel(
 			} else {
 				fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", targetVersion)
 			}
+		}
+
+		if err == errUpToDate {
+			ctx.Infof(err.Error())
+			err = nil
+		}
+		if err != nil {
+			logger.Debugf("upgradeModel failed %v", err)
 		}
 	}()
 
@@ -518,6 +517,12 @@ func (c *upgradeJujuCommand) upgradeModel(
 		// Can't happen. In theory.
 		return errors.New("incomplete model configuration")
 	}
+	if majorDiff := jujuversion.Current.Major - agentVersion.Major; majorDiff != 0 && majorDiff != 1 {
+		// This version of juju client cannot upgrade the running
+		// model version (can't guarantee API compatibility).
+		return errors.Errorf("cannot upgrade a %s model with a %s client", agentVersion, jujuversion.Current)
+	}
+
 	if c.Version == agentVersion {
 		return errUpToDate
 	}
@@ -529,7 +534,6 @@ func (c *upgradeJujuCommand) upgradeModel(
 	haveControllerModelPermission := err == nil
 	isControllerModel := haveControllerModelPermission && cfg.UUID() == controllerModelConfig[config.UUIDKey]
 
-	var canImplicitUpload bool
 	if c.BuildAgent {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
@@ -548,38 +552,34 @@ func (c *upgradeJujuCommand) upgradeModel(
 	if targetVersion != version.Zero {
 		// juju upgrade-controller --agent-version 3.x.x
 		// all good.
-	} else if c.BuildAgent {
-		if targetVersion, err = uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		builtMsg := " (built from source)"
-		fmt.Fprintf(ctx.Stdout,
-			"no prepackaged agent binaries available, using local agent binary %v%s\n",
-			targetVersion, builtMsg,
-		)
-	} else {
-		targetVersion, canImplicitUpload, err = c.notifyControllerUpgrade(
-			ctx, modelUpgrader,
-			version.Zero, // no target version provided, we figure it out on the server side.
-			c.DryRun,
-		)
+		_, _, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
 		if err == nil {
 			// All good!
-			// Upgraded to a next version or latest stable version.
-			logger.Debugf("upgraded to a next version or latest stable version")
+			// Upgraded to the provided target version.
+			logger.Debugf("upgraded to the provided target version %q", targetVersion)
 			return nil
-		}
-		if err == errUpToDate {
-			return err
 		}
 		if !errors.Is(err, errors.NotFound) {
 			// An unexpected error, should not happen.
 			return err
 		}
-		if !canImplicitUpload {
+
+		// If target version is the current local binary version, then try to upload.
+		canImplicitUpload := CheckCanImplicitUpload(
+			modelType, isOfficialClient(), jujuversion.Current, agentVersion,
+		)
+		if !canImplicitUpload || !isControllerModel {
 			// expecting to upload a local binary but we are not allowed to upload, so pretend there
 			// is no more recent version available.
-			logger.Debugf("expecting to upload the local binary first but we are not allowed to do that, err %v", err)
+			logger.Debugf("no available binary found, and we are not allowed to upload, err %v", err)
+			return errUpToDate
+		}
+
+		if targetVersion.Compare(jujuversion.Current) != 0 {
+			fmt.Fprintf(ctx.Stdout,
+				"try again with --agent-version=%s if you want to upload the local binary",
+				jujuversion.Current.ToPatch(),
+			)
 			return errUpToDate
 		}
 
@@ -591,17 +591,72 @@ func (c *upgradeJujuCommand) upgradeModel(
 			"no prepackaged agent binaries available, using local agent binary %v%s\n",
 			targetVersion, "",
 		)
-	}
 
-	targetVersion, canImplicitUpload, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
-	if canImplicitUpload {
-		// This should never happen.
-		logger.Debugf("the controller expects a local binary to be uploaded first")
-	}
-	if err != nil {
+		targetVersion, _, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else if c.BuildAgent {
+		if targetVersion, err = uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
+		builtMsg := " (built from source)"
+		fmt.Fprintf(ctx.Stdout,
+			"no prepackaged agent binaries available, using local agent binary %v%s\n",
+			targetVersion, builtMsg,
+		)
+		targetVersion, _, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		targetVersion, _, err = c.notifyControllerUpgrade(
+			ctx, modelUpgrader,
+			version.Zero, // no target version provided, we figure it out on the server side.
+			c.DryRun,
+		)
+		if err == nil {
+			// All good!
+			// Upgraded to a next stable version or the newest stable version.
+			logger.Debugf("upgraded to a next version or latest stable version")
+			return nil
+		}
+		if errors.Is(err, errors.NotFound) {
+			return errUpToDate
+		}
 		return err
 	}
-	return nil
+}
+
+// For test.
+var CheckCanImplicitUpload = checkCanImplicitUpload
+
+func checkCanImplicitUpload(
+	modelType model.ModelType, isOfficialClient bool,
+	clientVersion, agentVersion version.Number,
+) bool {
+	if modelType != model.IAAS {
+		logger.Tracef("the model is not IAAS model")
+		return false
+	}
+
+	if !isOfficialClient {
+		logger.Tracef("the client is not an official client")
+		// For non official (under $GOPATH) client, always use --build-agent explicitly.
+		return false
+	}
+	newerClient := clientVersion.Compare(agentVersion.ToPatch()) >= 0
+	if !newerClient {
+		logger.Tracef("the client version is not newer than agent version")
+		return false
+	}
+
+	if agentVersion.Build > 0 || clientVersion.Build > 0 {
+		return true
+	}
+	return false
 }
 
 func isOfficialClient() bool {
@@ -641,8 +696,8 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 			return chosenVersion, canImplicitUpload, block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
-	if chosenVersion, canImplicitUpload, err = modelUpgrader.UpgradeModel(
-		modelTag.Id(), jujuversion.Current, targetVersion, isOfficialClient(), c.AgentStream, c.IgnoreAgentVersions, dryRun,
+	if chosenVersion, err = modelUpgrader.UpgradeModel(
+		modelTag.Id(), targetVersion, c.AgentStream, c.IgnoreAgentVersions, dryRun,
 	); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {
 			return chosenVersion, canImplicitUpload, errors.Errorf("%s\n\n"+
@@ -666,7 +721,7 @@ you must first 'juju model-config -m controller agent-stream=%s'.
 `
 
 func (c *upgradeJujuCommand) upgradeModelLegacy(
-	ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration,
+	ctx *cmd.Context, modelType model.ModelType, fetchTimeout time.Duration,
 ) (err error) {
 	defer func() {
 		if err != nil {
@@ -756,7 +811,7 @@ func (c *upgradeJujuCommand) upgradeModelLegacy(
 	if err := c.precheckEnviron(controllerClient, agentVersion, upgradeCtx.chosen); err != nil {
 		return err
 	}
-
+	implicitUploadAllowed := modelType == model.IAAS
 	tryImplicit := implicitUploadAllowed && !upgradeCtx.isClientPublished()
 	// Look for any packaged binaries but only if we haven't been asked to build an agent.
 	var packagedAgentErr error
