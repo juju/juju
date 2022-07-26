@@ -607,7 +607,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		`if [ $ipv6Disabled -eq 0 ]; then`,
 		`  args="${args} --ipv6"`,
 		`fi`,
-		`$(mongod ${args})`,
+		`exec mongod ${args}`,
 		`'>/root/mongo.sh && chmod a+x /root/mongo.sh && /root/mongo.sh`,
 	}
 	statefulSetSpec.Spec.Template.Spec.Containers = []core.Container{
