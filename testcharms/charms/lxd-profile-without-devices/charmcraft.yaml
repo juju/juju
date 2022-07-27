@@ -41,6 +41,5 @@ parts:
       - README.md
       - config.yaml
       - hooks
-      - icon.svg
       - lxd-profile.yaml
       - metadata.yaml
