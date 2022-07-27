@@ -1,4 +1,4 @@
-module github.com/juju/juju
+module github.com/juju/juju/v2
 
 go 1.18
 
