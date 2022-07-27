@@ -93,11 +93,10 @@ func (s *APIRequesterSuite) TestDoRetrySuccess(c *gc.C) {
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
-	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
 	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil)
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
-	requester.retryInitialDelay = time.Microsecond
+	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -125,7 +124,7 @@ func (s *APIRequesterSuite) TestDoRetrySuccessBody(c *gc.C) {
 	})
 
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
-	requester.retryInitialDelay = time.Microsecond
+	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -140,12 +139,10 @@ func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
-	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
-	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
 
 	start := time.Now()
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
-	requester.retryInitialDelay = time.Microsecond
+	requester.retryDelay = time.Microsecond
 	_, err := requester.Do(req)
 	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: EOF`)
 	elapsed := time.Since(start)
@@ -166,7 +163,7 @@ func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
 
 	start := time.Now()
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
-	requester.retryInitialDelay = time.Second
+	requester.retryDelay = time.Second
 	_, err = requester.Do(req)
 	c.Assert(err, gc.ErrorMatches, `retry stopped`)
 	elapsed := time.Since(start)

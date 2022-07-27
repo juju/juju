@@ -113,17 +113,17 @@ func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryP
 // apiRequester creates a wrapper around the HTTPClient to allow for better
 // error handling.
 type apiRequester struct {
-	httpClient        HTTPClient
-	logger            Logger
-	retryInitialDelay time.Duration
+	httpClient HTTPClient
+	logger     Logger
+	retryDelay time.Duration
 }
 
 // newAPIRequester creates a new http.Client for making requests to a server.
 func newAPIRequester(httpClient HTTPClient, logger Logger) *apiRequester {
 	return &apiRequester{
-		httpClient:        httpClient,
-		logger:            logger,
-		retryInitialDelay: time.Second,
+		httpClient: httpClient,
+		logger:     logger,
+		retryDelay: 3 * time.Second,
 	}
 }
 
@@ -165,11 +165,10 @@ func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 		NotifyFunc: func(lastError error, attempt int) {
 			t.logger.Errorf("Charmhub API error (attempt %d): %v", attempt, lastError)
 		},
-		Attempts:    4,
-		Delay:       t.retryInitialDelay,
-		BackoffFunc: retry.DoubleDelay,
-		Clock:       clock.WallClock,
-		Stop:        req.Context().Done(),
+		Attempts: 2,
+		Delay:    t.retryDelay,
+		Clock:    clock.WallClock,
+		Stop:     req.Context().Done(),
 	})
 	return resp, err
 }
