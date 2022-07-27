@@ -1,3 +1,6 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Package bakerystorage provides an implementation
 // of the bakery Storage interface that uses MongoDB
 // to store items.

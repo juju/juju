@@ -1,3 +1,6 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Package leadership holds code pertaining to application leadership in juju. It's
 // expected to grow as we're able to extract (e.g.) the Ticket and Tracker
 // interfaces from worker/leadership; and quite possible the implementations

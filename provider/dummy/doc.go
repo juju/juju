@@ -1,3 +1,6 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Package dummy implements an environment provider for testing
 // purposes, registered with environs under the name "dummy".
 //

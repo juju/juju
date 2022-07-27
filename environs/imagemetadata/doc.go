@@ -1,3 +1,6 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Package imagemetadata supports locating, parsing, and filtering Ubuntu
 // image metadata in simplestreams format.
 //

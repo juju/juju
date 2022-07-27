@@ -1,3 +1,6 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Package pprof is a fork of net/http/pprof modified to communicate
 // over a unix socket.
 //

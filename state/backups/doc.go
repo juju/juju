@@ -1,3 +1,6 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 /*
 Package backups contains all the stand-alone backup-related
 functionality for juju state. That functionality is encapsulated by

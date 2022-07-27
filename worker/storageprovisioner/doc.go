@@ -1,3 +1,6 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Package storageprovisioner provides a worker that manages the provisioning
 // and deprovisioning of storage volumes and filesystems, and attaching them
 // to and detaching them from machines.
