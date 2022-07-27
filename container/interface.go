@@ -45,7 +45,7 @@ type Manager interface {
 	// this manager.
 	ListContainers() ([]instances.Instance, error)
 
-	// IsInitialized check whether or not required packages have been installed
+	// IsInitialized checks whether the required packages have been installed
 	// to support this manager.
 	IsInitialized() bool
 
