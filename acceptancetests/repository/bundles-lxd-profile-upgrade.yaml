@@ -9,7 +9,7 @@ applications:
       - "2"
       - "3"
   lxd-profile-subordinate:
-    charm: cs:~juju-qa/bionic/lxd-profile-subordinate-2
+    charm: juju-qa-lxd-profile-subordinate
   ubuntu:
     charm: cs:~jameinel/ubuntu-lite
     num_units: 4
