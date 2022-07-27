@@ -15,8 +15,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/retry"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
@@ -113,6 +115,7 @@ func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryP
 type apiRequester struct {
 	httpClient HTTPClient
 	logger     Logger
+	retryDelay time.Duration
 }
 
 // newAPIRequester creates a new http.Client for making requests to a server.
@@ -120,11 +123,57 @@ func newAPIRequester(httpClient HTTPClient, logger Logger) *apiRequester {
 	return &apiRequester{
 		httpClient: httpClient,
 		logger:     logger,
+		retryDelay: 3 * time.Second,
 	}
 }
 
 // Do performs the *http.Request and returns a *http.Response or an error.
+//
+// Handle empty response (io.EOF) errors specially and retry. The reason for
+// this is we get these errors from Charmhub fairly regularly (they're not
+// valid HTTP responses as there are no headers; they're empty responses).
 func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
+	// To retry requests with a body, we need to read the entire body in
+	// up-front, otherwise it'll be empty on retries.
+	var body []byte
+	if req.Body != nil {
+		var err error
+		body, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, errors.Annotate(err, "reading request body")
+		}
+		err = req.Body.Close()
+		if err != nil {
+			return nil, errors.Annotate(err, "closing request body")
+		}
+	}
+
+	// Try a fixed number of attempts with a doubling delay in between.
+	var resp *http.Response
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			if body != nil {
+				req.Body = io.NopCloser(bytes.NewReader(body))
+			}
+			var err error
+			resp, err = t.doOnce(req)
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, io.EOF)
+		},
+		NotifyFunc: func(lastError error, attempt int) {
+			t.logger.Errorf("Charmhub API error (attempt %d): %v", attempt, lastError)
+		},
+		Attempts: 2,
+		Delay:    t.retryDelay,
+		Clock:    clock.WallClock,
+		Stop:     req.Context().Done(),
+	})
+	return resp, err
+}
+
+func (t *apiRequester) doOnce(req *http.Request) (*http.Response, error) {
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
 		return nil, errors.Trace(err)
