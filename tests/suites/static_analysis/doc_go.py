@@ -85,6 +85,9 @@ def check_package(package):
 	if len(lines) > 2 and not lines[2].startswith('Package '):
 		errors.append('package comment does not start with "Package "')
 
+	if 'Copyright 20' in header:
+		errors.append('package comment should not include Copyright notice (add blank line after)')
+
 	return '; '.join(errors)
 
 
