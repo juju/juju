@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 /*
-This package contains functional tests only. Each feature-set of
+Package featuretests contains functional tests only. Each feature-set of
 Juju should have it's own file in which all the happy-paths are
 tested.
 

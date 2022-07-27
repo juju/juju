@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The metricsdebug package contains the implementation of a client to
-// access metrics debug functions within state.
 package metricsdebug
 
 import (
