@@ -15,8 +15,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/retry"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
@@ -134,8 +136,8 @@ func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 	// To retry requests with a body, we need to read the entire body in
 	// up-front, otherwise it'll be empty on retries.
 	var body []byte
-	var err error
 	if req.Body != nil {
+		var err error
 		body, err = io.ReadAll(req.Body)
 		if err != nil {
 			return nil, errors.Annotate(err, "reading request body")
@@ -147,34 +149,29 @@ func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	// Try a fixed number of attempts with a doubling delay in between.
-	const attempts = 4
-	delay := t.retryInitialDelay
-	i := 0
-	for {
-		if body != nil {
-			req.Body = io.NopCloser(bytes.NewReader(body))
-		}
-		resp, err := t.doOnce(req)
-		if err == nil {
-			// Success!
-			return resp, nil
-		}
-		if !errors.Is(err, io.EOF) {
-			// Not an EOF error, don't retry.
-			return nil, err
-		}
-		if i >= attempts-1 {
-			return nil, errors.Annotatef(err, "exceeded %d attempts", attempts)
-		}
-		t.logger.Errorf("retrying request after %v, error: %v", delay, err)
-		select {
-		case <-time.After(delay):
-		case <-req.Context().Done():
-			return nil, req.Context().Err()
-		}
-		delay *= 2
-		i++
-	}
+	var resp *http.Response
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			if body != nil {
+				req.Body = io.NopCloser(bytes.NewReader(body))
+			}
+			var err error
+			resp, err = t.doOnce(req)
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, io.EOF)
+		},
+		NotifyFunc: func(lastError error, attempt int) {
+			t.logger.Errorf("Charmhub API error (attempt %d): %v", attempt, lastError)
+		},
+		Attempts:    4,
+		Delay:       t.retryInitialDelay,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+		Stop:        req.Context().Done(),
+	})
+	return resp, err
 }
 
 func (t *apiRequester) doOnce(req *http.Request) (*http.Response, error) {

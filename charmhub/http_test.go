@@ -147,7 +147,7 @@ func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	requester.retryInitialDelay = time.Microsecond
 	_, err := requester.Do(req)
-	c.Assert(err, gc.ErrorMatches, `exceeded 4 attempts: EOF`)
+	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: EOF`)
 	elapsed := time.Since(start)
 	c.Assert(elapsed >= (1+2+4)*time.Microsecond, gc.Equals, true)
 }
@@ -168,7 +168,7 @@ func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
 	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
 	requester.retryInitialDelay = time.Second
 	_, err = requester.Do(req)
-	c.Assert(err, gc.ErrorMatches, `context canceled`)
+	c.Assert(err, gc.ErrorMatches, `retry stopped`)
 	elapsed := time.Since(start)
 	c.Assert(elapsed < 250*time.Millisecond, gc.Equals, true)
 }
