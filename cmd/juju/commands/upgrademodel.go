@@ -59,7 +59,7 @@ specified:
  - If the server major version does not match the client major version,
  the version selected is that of the client version.
 If the controller is without internet access, the client must first supply
-the software to the controller's cache via the ` + "`juju sync-agent-binaries`" + ` command.
+the software to the controller's cache via the ` + "`juju sync-agent-binary`" + ` command.
 The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g.: if one of the
 controllers in a high availability model failed to upgrade).
@@ -76,7 +76,7 @@ Examples:
     juju upgrade-model --agent-stream proposed
     
 See also: 
-    sync-agent-binaries`
+    sync-agent-binary`
 
 func newUpgradeJujuCommand() cmd.Command {
 	command := &upgradeJujuCommand{}
@@ -463,6 +463,59 @@ func uploadTools(
 	return targetVersion, nil
 }
 
+func (c *upgradeJujuCommand) upgradeWithTargetVersion(
+	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, isControllerModel, dryRun bool,
+	modelType model.ModelType, targetVersion, agentVersion version.Number,
+) (chosenVersion version.Number, err error) {
+
+	chosenVersion = targetVersion
+	// juju upgrade-controller --agent-version 3.x.x
+	_, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, dryRun)
+	if err == nil {
+		// All good!
+		// Upgraded to the provided target version.
+		logger.Debugf("upgraded to the provided target version %q", targetVersion)
+		return chosenVersion, nil
+	}
+	if !errors.Is(err, errors.NotFound) {
+		return chosenVersion, err
+	}
+
+	// If target version is the current local binary version, then try to upload.
+	canImplicitUpload := CheckCanImplicitUpload(
+		modelType, isOfficialClient(), jujuversion.Current, agentVersion,
+	)
+	if !canImplicitUpload || !isControllerModel {
+		// expecting to upload a local binary but we are not allowed to upload, so pretend there
+		// is no more recent version available.
+		logger.Debugf("no available binary found, and we are not allowed to upload, err %v", err)
+		return chosenVersion, errUpToDate
+	}
+
+	if targetVersion.Compare(jujuversion.Current.ToPatch()) != 0 {
+		logger.Warningf(
+			"try again with --agent-version=%s if you want to upload the local binary",
+			jujuversion.Current.ToPatch(),
+		)
+		return chosenVersion, errUpToDate
+	}
+
+	// found a best target version but a local binary is required to be uploaded.
+	if chosenVersion, err = uploadTools(modelUpgrader, false, agentVersion, dryRun); err != nil {
+		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
+	}
+	fmt.Fprintf(ctx.Stdout,
+		"no prepackaged agent binaries available, using local agent binary %v%s\n",
+		chosenVersion, "",
+	)
+
+	chosenVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, chosenVersion, dryRun)
+	if err != nil {
+		return chosenVersion, err
+	}
+	return chosenVersion, nil
+}
+
 func (c *upgradeJujuCommand) upgradeModel(
 	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, fetchTimeout time.Duration,
 	modelType model.ModelType,
@@ -550,50 +603,10 @@ func (c *upgradeJujuCommand) upgradeModel(
 
 	// Decide the target version to upgrade.
 	if targetVersion != version.Zero {
-		// juju upgrade-controller --agent-version 3.x.x
-		// all good.
-		_, _, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
-		if err == nil {
-			// All good!
-			// Upgraded to the provided target version.
-			logger.Debugf("upgraded to the provided target version %q", targetVersion)
-			return nil
-		}
-		if !errors.Is(err, errors.NotFound) {
-			// An unexpected error, should not happen.
-			return err
-		}
-
-		// If target version is the current local binary version, then try to upload.
-		canImplicitUpload := CheckCanImplicitUpload(
-			modelType, isOfficialClient(), jujuversion.Current, agentVersion,
-		)
-		if !canImplicitUpload || !isControllerModel {
-			// expecting to upload a local binary but we are not allowed to upload, so pretend there
-			// is no more recent version available.
-			logger.Debugf("no available binary found, and we are not allowed to upload, err %v", err)
-			return errUpToDate
-		}
-
-		if targetVersion.Compare(jujuversion.Current) != 0 {
-			fmt.Fprintf(ctx.Stdout,
-				"try again with --agent-version=%s if you want to upload the local binary",
-				jujuversion.Current.ToPatch(),
-			)
-			return errUpToDate
-		}
-
-		// found a best target version but a local binary is required to be uploaded.
-		if targetVersion, err = uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		fmt.Fprintf(ctx.Stdout,
-			"no prepackaged agent binaries available, using local agent binary %v%s\n",
-			targetVersion, "",
-		)
-
-		targetVersion, _, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
-		if err != nil {
+		if targetVersion, err = c.upgradeWithTargetVersion(
+			ctx, modelUpgrader, isControllerModel, c.DryRun,
+			modelType, targetVersion, agentVersion,
+		); err != nil {
 			return err
 		}
 		return nil
@@ -606,13 +619,13 @@ func (c *upgradeJujuCommand) upgradeModel(
 			"no prepackaged agent binaries available, using local agent binary %v%s\n",
 			targetVersion, builtMsg,
 		)
-		targetVersion, _, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
+		targetVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
 		if err != nil {
 			return err
 		}
 		return nil
 	} else {
-		targetVersion, _, err = c.notifyControllerUpgrade(
+		targetVersion, err = c.notifyControllerUpgrade(
 			ctx, modelUpgrader,
 			version.Zero, // no target version provided, we figure it out on the server side.
 			c.DryRun,
@@ -677,10 +690,10 @@ func isOfficialClient() bool {
 
 func (c *upgradeJujuCommand) notifyControllerUpgrade(
 	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, targetVersion version.Number, dryRun bool,
-) (chosenVersion version.Number, canImplicitUpload bool, err error) {
+) (chosenVersion version.Number, err error) {
 	_, details, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
-		return chosenVersion, canImplicitUpload, errors.Trace(err)
+		return chosenVersion, errors.Trace(err)
 	}
 	modelTag := names.NewModelTag(details.ModelUUID)
 
@@ -688,19 +701,19 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 		if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
 			const message = "previous upgrade not reset and no new upgrade triggered"
 			if err != nil {
-				return chosenVersion, canImplicitUpload, errors.Annotate(err, message)
+				return chosenVersion, errors.Annotate(err, message)
 			}
-			return chosenVersion, canImplicitUpload, errors.New(message)
+			return chosenVersion, errors.New(message)
 		}
 		if err := modelUpgrader.AbortModelUpgrade(modelTag.Id()); err != nil {
-			return chosenVersion, canImplicitUpload, block.ProcessBlockedError(err, block.BlockChange)
+			return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
 	if chosenVersion, err = modelUpgrader.UpgradeModel(
 		modelTag.Id(), targetVersion, c.AgentStream, c.IgnoreAgentVersions, dryRun,
 	); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {
-			return chosenVersion, canImplicitUpload, errors.Errorf("%s\n\n"+
+			return chosenVersion, errors.Errorf("%s\n\n"+
 				"Please wait for the upgrade to complete or if there was a problem with\n"+
 				"the last upgrade that has been resolved, consider running the\n"+
 				"upgrade-model command with the --reset-previous-upgrade option.", err,
@@ -709,9 +722,9 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 		if errors.Is(err, errors.AlreadyExists) {
 			err = errUpToDate
 		}
-		return chosenVersion, canImplicitUpload, block.ProcessBlockedError(err, block.BlockChange)
+		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 	}
-	return chosenVersion, canImplicitUpload, nil
+	return chosenVersion, nil
 }
 
 const unsupportedStreamMsg = `

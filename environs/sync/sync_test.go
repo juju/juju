@@ -96,47 +96,44 @@ var tests = []struct {
 	ctx         *sync.SyncContext
 	source      bool
 	tools       []version.Binary
-	version     version.Number
 	major       int
 	minor       int
 }{
 	{
 		description: "copy newest from the filesystem",
-		ctx:         &sync.SyncContext{},
-		source:      true,
-		tools:       v180all,
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("1.8.0"),
+		},
+		source: true,
+		tools:  v180all,
 	},
 	{
 		description: "copy newest from the dummy model",
-		ctx:         &sync.SyncContext{},
-		tools:       v180all,
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("1.8.0"),
+		},
+		tools: v180all,
 	},
 	{
 		description: "copy matching dev from the dummy model",
-		ctx:         &sync.SyncContext{},
-		version:     version.MustParse("1.9.3"),
-		tools:       v190all,
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("1.9.0"),
+		},
+		tools: v190all,
 	},
 	{
-		description: "copy matching major, minor from the dummy model",
-		ctx:         &sync.SyncContext{},
-		major:       3,
-		minor:       2,
-		tools:       []version.Binary{v320u64},
+		description: "copy matching version from the dummy model",
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("3.2.0"),
+		},
+		tools: []version.Binary{v320u64},
 	},
 	{
 		description: "copy matching major, minor dev from the dummy model",
-		ctx:         &sync.SyncContext{},
-		major:       3,
-		minor:       1,
-		tools:       []version.Binary{v310u64},
-	},
-	{
-		description: "copy all from the dummy model",
 		ctx: &sync.SyncContext{
-			AllVersions: true,
+			ChosenVersion: version.MustParse("3.1.0"),
 		},
-		tools: v1all,
+		tools: []version.Binary{v310u64},
 	},
 }
 
@@ -152,13 +149,10 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			if test.source {
 				test.ctx.Source = s.localStorage
 			}
-			if test.version != version.Zero {
-				jujuversion.Current = test.version
+			if test.ctx.ChosenVersion != version.Zero {
+				jujuversion.Current = test.ctx.ChosenVersion
 			}
-			if test.major > 0 {
-				test.ctx.MajorVersion = test.major
-				test.ctx.MinorVersion = test.minor
-			}
+
 			uploader := fakeToolsUploader{
 				uploaded: make(map[version.Binary]bool),
 			}
@@ -249,6 +243,42 @@ func (s *uploadSuite) TearDownTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
+func (s *uploadSuite) TestUpload(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
+	forceVersion := jujuversion.Current
+	s.patchBundleTools(c, forceVersion)
+	t, err := sync.Upload(ss, s.targetStorage, "released",
+		func(version.Number) version.Number { return forceVersion },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEqualsCurrentVersion(c, t.Version)
+	c.Assert(t.URL, gc.Not(gc.Equals), "")
+	hostOSType := coreos.HostOSTypeName()
+	s.assertUploadedTools(c, t, []string{hostOSType}, "released")
+}
+
+func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ss := NewMockSimplestreamsFetcher(ctrl)
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+
+	forceVersion := jujuversion.Current
+	forceVersion.Patch++
+	s.patchBundleTools(c, forceVersion)
+	t, err := sync.Upload(ss, s.targetStorage, "released",
+		func(version.Number) version.Number { return forceVersion },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion(c))
+}
+
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -256,7 +286,8 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	forceVersion := coretesting.CurrentVersion(c).Number
+	forceVersion := jujuversion.Current
+	forceVersion.Patch++
 	s.patchBundleTools(c, forceVersion)
 	builtTools, err := sync.BuildAgentTarball(true, "released",
 		func(version.Number) version.Number { return forceVersion },
@@ -275,11 +306,11 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	vers := jujuversion.Current
-	vers.Patch++
-	s.patchBundleTools(c, vers)
+	forceVersion := jujuversion.Current
+	forceVersion.Patch++
+	s.patchBundleTools(c, forceVersion)
 	builtTools, err := sync.BuildAgentTarball(true, "released",
-		func(localBinaryVersion version.Number) version.Number { return vers },
+		func(version.Number) version.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)

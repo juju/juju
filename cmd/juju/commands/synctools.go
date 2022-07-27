@@ -110,17 +110,16 @@ func (c *syncAgentBinaryCommand) getSyncToolAPI() (SyncToolAPI, error) {
 func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	writer := loggo.NewMinimumLevelWriter(
-		cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr),
-		loggo.INFO)
+		cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO,
+	)
 	_ = loggo.RegisterWriter("syncagentbinaries", writer)
 	defer func() { _, _ = loggo.RemoveWriter("syncagentbinaries") }()
 
 	sctx := &sync.SyncContext{
-		MajorVersion: c.targetVersion.Major,
-		MinorVersion: c.targetVersion.Minor,
-		DryRun:       c.dryRun,
-		Stream:       c.stream,
-		Source:       c.source,
+		ChosenVersion: c.targetVersion,
+		DryRun:        c.dryRun,
+		Stream:        c.stream,
+		Source:        c.source,
 	}
 
 	if c.localDir != "" {
@@ -147,7 +146,7 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 		defer api.Close()
-		adapter := syncToolAPIAdapter{api, c.targetVersion}
+		adapter := syncToolAPIAdapter{api}
 		sctx.TargetToolsUploader = adapter
 	}
 	return block.ProcessBlockedError(syncTools(sctx), block.BlockChange)
@@ -158,7 +157,6 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 // enables the use of sync.SyncTools.
 type syncToolAPIAdapter struct {
 	SyncToolAPI
-	targetVersion version.Number
 }
 
 func (s syncToolAPIAdapter) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {

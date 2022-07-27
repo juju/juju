@@ -41,12 +41,6 @@ type SyncContext struct {
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
 
-	// Copy tools with major version, if MajorVersion > 0.
-	MajorVersion int
-
-	// Copy tools with minor version, if MinorVersion > 0.
-	MinorVersion int
-
 	// DryRun controls that nothing is copied. Instead it's logged
 	// what would be coppied.
 	DryRun bool
@@ -57,6 +51,9 @@ type SyncContext struct {
 	// Source, if non-empty, specifies a directory in the local file system
 	// to use as a source.
 	Source string
+
+	// ChosenVersion is the requested version to upload.
+	ChosenVersion version.Number
 }
 
 // ToolsFinder provides an interface for finding tools of a specified version.
@@ -81,11 +78,11 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing available agent binaries")
-	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
-		syncContext.MajorVersion = jujuversion.Current.Major
-		syncContext.MinorVersion = -1
+	if syncContext.ChosenVersion.Major == 0 && syncContext.ChosenVersion.Minor == 0 {
+		syncContext.ChosenVersion.Major = jujuversion.Current.Major
+		syncContext.ChosenVersion.Minor = -1
 		if !syncContext.AllVersions {
-			syncContext.MinorVersion = jujuversion.Current.Minor
+			syncContext.ChosenVersion.Minor = jujuversion.Current.Minor
 		}
 	}
 
@@ -109,7 +106,7 @@ func SyncTools(syncContext *SyncContext) error {
 	sourceTools, err := envtools.FindToolsForCloud(
 		ss,
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
-		streams, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
+		streams, syncContext.ChosenVersion.Major, syncContext.ChosenVersion.Minor, coretools.Filter{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -125,30 +122,45 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing target agent binaries storage")
-	targetTools, err := syncContext.TargetToolsFinder.FindTools(syncContext.MajorVersion, syncContext.Stream)
-	switch err {
-	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
-	default:
-		return errors.Trace(err)
+
+	result, err := sourceTools.Match(coretools.Filter{Number: syncContext.ChosenVersion})
+	logger.Tracef("syncContext.ChosenVersion %s, result %s", syncContext.ChosenVersion, result)
+	if err != nil {
+		return errors.Wrap(err, errors.NotFoundf("%q", syncContext.ChosenVersion))
 	}
-	for _, tool := range targetTools {
-		logger.Debugf("found target agent binary: %v", tool)
+	_, chosenList := result.Newest()
+	logger.Tracef("syncContext.ChosenVersion %s, chosenList %s", syncContext.ChosenVersion, chosenList)
+	if syncContext.TargetToolsFinder != nil {
+		targetTools, err := syncContext.TargetToolsFinder.FindTools(
+			syncContext.ChosenVersion.Major, syncContext.Stream,
+		)
+		switch err {
+		case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
+		default:
+			return errors.Trace(err)
+		}
+		for _, tool := range targetTools {
+			logger.Debugf("found target agent binary: %v", tool)
+		}
+		if targetTools.Exclude(chosenList).Len() != targetTools.Len() {
+			// already in target.
+			return nil
+		}
+		logger.Infof("found %d target agent binaries; %d agent binaries to be copied", len(targetTools), len(chosenList))
 	}
 
-	missing := sourceTools.Exclude(targetTools)
-	logger.Infof("found %d agent binaries in target; %d agent binaries to be copied", len(targetTools), len(missing))
 	if syncContext.DryRun {
-		for _, tools := range missing {
+		for _, tools := range chosenList {
 			logger.Infof("copying %s from %s", tools.Version, tools.URL)
 		}
 		return nil
 	}
 
-	err = copyTools(toolsDir, syncContext.Stream, missing, syncContext.TargetToolsUploader)
+	err = copyTools(toolsDir, syncContext.Stream, chosenList, syncContext.TargetToolsUploader)
 	if err != nil {
 		return err
 	}
-	logger.Infof("copied %d agent binaries", len(missing))
+	logger.Infof("copied %d agent binaries", len(chosenList))
 	return nil
 }
 
@@ -211,6 +223,36 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 	sizeInKB := (size + 512) / 1024
 	logger.Infof("uploading %v (%dkB) to model", toolsName, sizeInKB)
 	return u.UploadTools(toolsDir, stream, tools, buf.Bytes())
+}
+
+// UploadFunc is the type of Upload, which may be
+// reassigned to control the behaviour of tools
+// uploading.
+type UploadFunc func(
+	envtools.SimplestreamsFetcher, storage.Storage, string,
+	func(vers version.Number) version.Number,
+) (*coretools.Tools, error)
+
+// Upload is exported for testing.
+var Upload UploadFunc = upload
+
+// upload builds whatever version of github.com/juju/juju is in $GOPATH,
+// uploads it to the given storage, and returns a Tools instance describing
+// them. If forceVersion is not nil, the uploaded tools bundle will report
+// the given version number.
+func upload(
+	ss envtools.SimplestreamsFetcher, store storage.Storage, stream string,
+	f func(vers version.Number) version.Number,
+) (*coretools.Tools, error) {
+	if f == nil {
+		f = func(vers version.Number) version.Number { return vers }
+	}
+	builtTools, err := BuildAgentTarball(true, stream, f)
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(builtTools.Dir)
+	return syncBuiltTools(ss, store, stream, builtTools)
 }
 
 // generateAgentMetadata copies the built tools tarball into a tarball for the specified
@@ -342,10 +384,9 @@ func syncBuiltTools(ss envtools.SimplestreamsFetcher, store storage.Storage, str
 			WriteMetadata: false,
 			WriteMirrors:  false,
 		},
-		AllVersions:  true,
-		Stream:       stream,
-		MajorVersion: builtTools.Version.Major,
-		MinorVersion: -1,
+		AllVersions:   true,
+		Stream:        stream,
+		ChosenVersion: builtTools.Version.Number,
 	}
 	logger.Debugf("uploading agent binaries to cloud storage")
 	err := SyncTools(syncContext)

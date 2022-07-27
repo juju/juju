@@ -1811,7 +1811,6 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionFailedExpectUploadButW
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "no upgrades available\n")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, fmt.Sprintf("try again with --agent-version=%s if you want to upload the local binary", current))
 }
 
 func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueToNotAllowed(c *gc.C) {

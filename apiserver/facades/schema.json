@@ -34583,7 +34583,7 @@
     {
         "Name": "ModelUpgrader",
         "Description": "ModelUpgraderAPI implements the model upgrader interface and is\nthe concrete implementation of the api end point.",
-        "Version": 2,
+        "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -34687,9 +34687,6 @@
                         "agent-stream": {
                             "type": "string"
                         },
-                        "client-version": {
-                            "$ref": "#/definitions/Number"
-                        },
                         "dry-run": {
                             "type": "boolean"
                         },
@@ -34699,26 +34696,19 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "official-client": {
-                            "type": "boolean"
-                        },
-                        "targer-version": {
+                        "targert-version": {
                             "$ref": "#/definitions/Number"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
-                        "targer-version",
-                        "client-version"
+                        "targert-version"
                     ]
                 },
                 "UpgradeModelResult": {
                     "type": "object",
                     "properties": {
-                        "can-implicit-upload": {
-                            "type": "boolean"
-                        },
                         "chosen-version": {
                             "$ref": "#/definitions/Number"
                         },
@@ -34728,8 +34718,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "chosen-version",
-                        "can-implicit-upload"
+                        "chosen-version"
                     ]
                 }
             }

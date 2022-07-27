@@ -1689,7 +1689,9 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
 			BootstrapSeries:  "bionic",
-			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(
+				build bool, _ string, _ func(version.Number) version.Number,
+			) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
@@ -1741,7 +1743,9 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
 			BootstrapSeries:  "bionic",
-			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(
+				build bool, _ string, _ func(version.Number) version.Number,
+			) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},

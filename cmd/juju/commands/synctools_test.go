@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -102,13 +103,10 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
 		called := false
 		syncTools = func(sctx *sync.SyncContext) error {
 			c.Assert(sctx.AllVersions, gc.Equals, false)
-			c.Assert(sctx.MajorVersion, gc.Equals, 2)
-			c.Assert(sctx.MinorVersion, gc.Equals, 9)
+			c.Assert(sctx.ChosenVersion, gc.Equals, version.MustParse("2.9.99"))
 			c.Assert(sctx.DryRun, gc.Equals, test.dryRun)
 			c.Assert(sctx.Stream, gc.Equals, test.stream)
 			c.Assert(sctx.Source, gc.Equals, test.source)
-
-			c.Assert(sctx.TargetToolsFinder, gc.FitsTypeOf, syncToolAPIAdapter{})
 
 			c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, syncToolAPIAdapter{})
 			uploader := sctx.TargetToolsUploader.(syncToolAPIAdapter)
@@ -183,7 +181,7 @@ func (s *syncToolSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	uploadToolsErr := errors.New("uh oh")
 	fakeAPI.EXPECT().UploadTools(bytes.NewReader([]byte("abc")), current).Return(nil, uploadToolsErr)
 
-	a := syncToolAPIAdapter{fakeAPI, current.Number}
+	a := syncToolAPIAdapter{fakeAPI}
 	err := a.UploadTools("released", "released", &coretools.Tools{Version: current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
 }
