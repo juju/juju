@@ -1,8 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package bundle provides access to the bundle api facade.
-// This facade contains api calls that are specific to bundles.
 package bundle
 
 import (
