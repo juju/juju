@@ -364,6 +364,15 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 			// This can happen when machines do have instance IDs, but the
 			// instances themselves are shut down, such as we have seen for
 			// dying models.
+			// If we're in the short poll group bump all the poll intervals for
+			// entries with an instance ID. Any without an instance ID will
+			// already have had their intervals bumped above.
+			if groupType == shortPollGroup {
+				for _, id := range instList {
+					u.instanceIDToGroupEntry[id].bumpShortPollInterval(u.config.Clock)
+				}
+			}
+
 			return nil
 		default:
 			return errors.Trace(err)
@@ -386,31 +395,48 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 	}
 
 	for idx, info := range infoList {
-		if info == nil {
-			u.config.Logger.Warningf("unable to retrieve instance information for instance: %q", instList[idx])
-			continue
-		}
-
-		var ifList network.InterfaceInfos
+		var nics network.InterfaceInfos
 		if netList != nil {
-			ifList = netList[idx]
+			nics = netList[idx]
 		}
 
-		entry := u.instanceIDToGroupEntry[instList[idx]]
-
-		providerStatus, providerAddrCount, err := u.processProviderInfo(entry, info, ifList)
-		if err != nil {
+		if err := u.processOneInstance(instList[idx], info, nics, groupType); err != nil {
 			return errors.Trace(err)
 		}
-
-		machineStatus, err := entry.m.Status()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		u.maybeSwitchPollGroup(groupType, entry, providerStatus, status.Status(machineStatus.Status), providerAddrCount)
 	}
 
+	return nil
+}
+
+func (u *updaterWorker) processOneInstance(
+	id instance.Id, info instances.Instance, nics network.InterfaceInfos, groupType pollGroupType,
+) error {
+	entry := u.instanceIDToGroupEntry[id]
+
+	// If we received ErrPartialInstances, and this ID is one of those not found,
+	// and we're in the short poll group, back off the poll interval.
+	// This will ensure that instances that have gone away do not cause excessive
+	// provider call volumes.
+	if info == nil {
+		u.config.Logger.Warningf("unable to retrieve instance information for instance: %q", id)
+
+		if groupType == shortPollGroup {
+			entry.bumpShortPollInterval(u.config.Clock)
+		}
+		return nil
+	}
+
+	providerStatus, providerAddrCount, err := u.processProviderInfo(entry, info, nics)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	machineStatus, err := entry.m.Status()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	u.maybeSwitchPollGroup(groupType, entry, providerStatus, status.Status(machineStatus.Status), providerAddrCount)
 	return nil
 }
 
