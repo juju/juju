@@ -35,6 +35,7 @@ jobs:
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.45.2
+        sudo snap install shfmt
 
     - name: Download Dependencies
       run: go mod download
