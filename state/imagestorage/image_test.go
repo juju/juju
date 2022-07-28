@@ -28,7 +28,7 @@ import (
 var _ = gc.Suite(&ImageSuite{})
 
 func TestPackage(t *stdtesting.T) {
-	mgotesting.MgoTestPackage(t)
+	testing.MgoTestPackage(t)
 }
 
 type ImageSuite struct {
