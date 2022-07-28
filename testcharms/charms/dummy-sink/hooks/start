@@ -1,3 +1,2 @@
-#!/bin/sh
-
-status-set maintenance "Started" || true
+#!/bin/bash
+scripts/check-token
