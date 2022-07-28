@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmdownloader
+package charmdownloader_test
 
 import (
 	"net/http"
@@ -18,6 +18,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
+	"github.com/juju/juju/apiserver/facades/controller/charmdownloader"
+	"github.com/juju/juju/apiserver/facades/controller/charmdownloader/mocks"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/rpc/params"
@@ -26,12 +28,12 @@ import (
 
 type charmDownloaderSuite struct {
 	clk              *testclock.Clock
-	authChecker      *MockAuthChecker
-	resourcesBackend *MockResourcesBackend
-	stateBackend     *MockStateBackend
-	modelBackend     *MockModelBackend
-	downloader       *MockDownloader
-	api              *CharmDownloaderAPI
+	authChecker      *mocks.MockAuthChecker
+	resourcesBackend *mocks.MockResourcesBackend
+	stateBackend     *mocks.MockStateBackend
+	modelBackend     *mocks.MockModelBackend
+	downloader       *mocks.MockDownloader
+	api              *charmdownloader.CharmDownloaderAPI
 }
 
 var _ = gc.Suite(&charmDownloaderSuite{})
@@ -47,7 +49,7 @@ func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharmsAuthChecks(
 func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	watcher := NewMockStringsWatcher(ctrl)
+	watcher := mocks.NewMockStringsWatcher(ctrl)
 	watcher.EXPECT().Changes().DoAndReturn(func() <-chan []string {
 		ch := make(chan []string, 1)
 		ch <- []string{"ufo", "cons", "piracy"}
@@ -89,11 +91,11 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	macaroons := macaroon.Slice{mac}
 
-	pendingCharm := NewMockCharm(ctrl)
+	pendingCharm := mocks.NewMockCharm(ctrl)
 	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
 	pendingCharm.EXPECT().URL().Return(charmURL)
 
-	app := NewMockApplication(ctrl)
+	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmPendingToBeDownloaded().Return(true)
 	app.EXPECT().Charm().Return(pendingCharm, false, nil)
 	app.EXPECT().CharmOrigin().Return(&resolvedOrigin)
@@ -129,11 +131,11 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 	c.Assert(err, jc.ErrorIsNil)
 	macaroons := macaroon.Slice{mac}
 
-	pendingCharm := NewMockCharm(ctrl)
+	pendingCharm := mocks.NewMockCharm(ctrl)
 	pendingCharm.EXPECT().Macaroon().Return(macaroons, nil)
 	pendingCharm.EXPECT().URL().Return(charmURL)
 
-	app := NewMockApplication(ctrl)
+	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmPendingToBeDownloaded().Return(true)
 	app.EXPECT().Charm().Return(pendingCharm, false, nil)
 	app.EXPECT().CharmOrigin().Return(&resolvedOrigin)
@@ -156,13 +158,13 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.clk = testclock.NewClock(time.Now())
-	s.authChecker = NewMockAuthChecker(ctrl)
-	s.resourcesBackend = NewMockResourcesBackend(ctrl)
-	s.stateBackend = NewMockStateBackend(ctrl)
-	s.modelBackend = NewMockModelBackend(ctrl)
-	s.downloader = NewMockDownloader(ctrl)
+	s.authChecker = mocks.NewMockAuthChecker(ctrl)
+	s.resourcesBackend = mocks.NewMockResourcesBackend(ctrl)
+	s.stateBackend = mocks.NewMockStateBackend(ctrl)
+	s.modelBackend = mocks.NewMockModelBackend(ctrl)
+	s.downloader = mocks.NewMockDownloader(ctrl)
 
-	s.api = newAPI(
+	s.api = charmdownloader.NewAPI(
 		s.authChecker,
 		s.resourcesBackend,
 		s.stateBackend,
@@ -170,7 +172,7 @@ func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.clk,
 		http.DefaultClient,
 		nil,
-		func(services.CharmDownloaderConfig) (Downloader, error) {
+		func(services.CharmDownloaderConfig) (charmdownloader.Downloader, error) {
 			return s.downloader, nil
 		},
 	)

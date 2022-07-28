@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller/raftlease/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
@@ -92,7 +93,7 @@ func (s *RaftLeaseClientValidationSuite) testValidateError(c *gc.C, f func(*Conf
 type RaftLeaseClientSuite struct {
 	testing.IsolationSuite
 
-	remote *MockRemote
+	remote *mocks.MockRemote
 	config Config
 }
 
@@ -528,7 +529,7 @@ func (s *RaftLeaseClientSuite) TestEnsureServersWithNoNewAddresses(c *gc.C) {
 func (s *RaftLeaseClientSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.remote = NewMockRemote(ctrl)
+	s.remote = mocks.NewMockRemote(ctrl)
 
 	// We always expect kill and wait for the remote, as we close the client
 	// which kills any remotes around.
@@ -554,7 +555,7 @@ func (s *RaftLeaseClientSuite) setupMocks(c *gc.C) *gomock.Controller {
 type RaftLeaseRemoteSuite struct {
 	testing.IsolationSuite
 
-	raftLeaseApplier *MockRaftLeaseApplier
+	raftLeaseApplier *mocks.MockRaftLeaseApplier
 
 	config RemoteConfig
 }
@@ -604,7 +605,7 @@ func (s *RaftLeaseRemoteSuite) TestRequestErrDropped(c *gc.C) {
 func (s *RaftLeaseRemoteSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.raftLeaseApplier = NewMockRaftLeaseApplier(ctrl)
+	s.raftLeaseApplier = mocks.NewMockRaftLeaseApplier(ctrl)
 
 	s.config = RemoteConfig{
 		APIInfo: &api.Info{},

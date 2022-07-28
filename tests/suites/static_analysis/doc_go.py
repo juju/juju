@@ -59,21 +59,6 @@ def check_package(package):
 		# No package doc comment
 		return None
 
-	# TODO(benhoyt): this should be an error -- move mocks in these packages to "/mocks" dir
-	#                (also below)
-	# ./api/controller/raftlease
-	# ./apiserver/facades/client/charms/services
-	# ./apiserver/facades/controller/charmdownloader
-	# ./container/lxd/testing
-	# ./container/testing
-	# ./core/charm/downloader
-	# ./environs/testing
-	# ./generate/schemagen/gen
-	# ./provider/oci/testing
-	# ./worker/charmdownloader
-	if 'generated GoMock package' in header:
-		return None
-
 	errors = []
 
 	comment_files = package_comment_files(package)
@@ -103,7 +88,7 @@ def package_comment_files(package):
 				if line.startswith('package '):
 					break
 				lines.append(line)
-		if lines and lines[-1].startswith('//') and 'generated GoMock package' not in lines[-1]:
+		if lines and lines[-1].startswith('//'):
 			files.append(name)
 	return files
 
