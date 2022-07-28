@@ -11,11 +11,11 @@ applications:
   telegraf:
     charm: telegraf
     channel: stable
-    revision: 29
+    revision: 42
   ubuntu:
     charm: ubuntu
     channel: stable
-    revision: 12
+    revision: 17
     num_units: 1
     to:
     - "1"
