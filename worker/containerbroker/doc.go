@@ -1,5 +1,6 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 // Package containerbroker worker sole responsibility is to manage the lifecycle
 // of a instance-broker. Configuration of the instance-broker relies on talking
 // to the provisioner to ensure that we correctly configure the correct

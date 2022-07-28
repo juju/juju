@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package controller defines an API end point for functions dealing
-// with controllers as a whole.
 package controller
 
 import (

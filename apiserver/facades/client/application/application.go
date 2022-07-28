@@ -1,9 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package application contains api calls for functionality
-// related to deploying and managing applications and their
-// related charms.
 package application
 
 import (

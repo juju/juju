@@ -1,7 +1,6 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package snap is a minimal service.Service implementation, derived from the on service/upstart package.
 package snap
 
 import (
