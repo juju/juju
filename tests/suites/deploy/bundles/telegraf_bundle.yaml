@@ -1,7 +1,7 @@
-series: focal
+series: bionic
 applications:
   influxdb:
-    charm: cs:influxdb
+    charm: influxdb
     channel: stable
     revision: 22
     num_units: 1
@@ -9,11 +9,11 @@ applications:
     - "0"
     constraints: arch=amd64
   telegraf:
-    charm: cs:telegraf
+    charm: telegraf
     channel: stable
     revision: 29
   ubuntu:
-    charm: cs:ubuntu
+    charm: ubuntu
     channel: stable
     revision: 12
     num_units: 1

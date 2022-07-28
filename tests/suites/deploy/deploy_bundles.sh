@@ -57,9 +57,9 @@ run_deploy_cmr_bundle() {
 	destroy_model "other"
 }
 
-# run_deploy_exported_charmstore_bundle_with_fixed_revisions tests how juju deploys
-# a charmstore bundle that specifies revisions for its charms
-run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
+# run_deploy_exported_charmhub_bundle_with_fixed_revisions tests how juju deploys
+# a charmhub bundle that specifies revisions for its charms
+run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	echo
 
 	file="${TEST_DIR}/test-export-bundles-deploy-with-fixed-revisions.log"
@@ -238,7 +238,7 @@ test_deploy_bundles() {
 
 		run "run_deploy_bundle"
 		run "run_deploy_bundle_overlay"
-		run "run_deploy_exported_charmstore_bundle_with_fixed_revisions"
+		run "run_deploy_exported_charmhub_bundle_with_fixed_revisions"
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_charmhub_bundle"
