@@ -1,21 +1,21 @@
 series: focal
 applications:
   influxdb:
-    charm: influxdb
+    charm: cs:influxdb
     channel: stable
-    revision: 24
+    revision: 22
     num_units: 1
     to:
     - "0"
     constraints: arch=amd64
   telegraf:
-    charm: telegraf
+    charm: cs:telegraf
     channel: stable
-    revision: 49
+    revision: 29
   ubuntu:
-    charm: ubuntu
+    charm: cs:ubuntu
     channel: stable
-    revision: 20
+    revision: 12
     num_units: 1
     to:
     - "1"
