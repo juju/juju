@@ -3,6 +3,7 @@ applications:
   influxdb:
     charm: influxdb
     channel: stable
+    revision: 24
     num_units: 1
     to:
     - "0"
@@ -10,6 +11,7 @@ applications:
   telegraf:
     charm: telegraf
     channel: stable
+    revision: 49
   ubuntu:
     charm: ubuntu
     channel: stable
