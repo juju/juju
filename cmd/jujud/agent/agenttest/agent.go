@@ -14,7 +14,6 @@ import (
 	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v2"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -92,7 +91,7 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) (mongo.Vers
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,
 	}
-	v, err := gitjujutesting.MongodVersion()
+	v, err := mgotesting.MongodVersion()
 	if err != nil {
 		return mongo.Version{}, errors.Trace(err)
 	}
@@ -208,7 +207,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
 	stateInfo := s.MongoInfo()
-	apiPort := gitjujutesting.FindTCPPort()
+	apiPort := mgotesting.FindTCPPort()
 	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(

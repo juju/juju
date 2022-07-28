@@ -52,7 +52,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v2 v2.0.0
 	github.com/juju/charm/v8 v8.0.1
-	github.com/juju/charmrepo/v6 v6.0.1
+	github.com/juju/charmrepo/v6 v6.0.2
 	github.com/juju/clock v1.0.0
 	github.com/juju/cmd/v3 v3.0.0
 	github.com/juju/collections v1.0.0
@@ -103,11 +103,11 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/vishvananda/netlink v1.2.0-beta
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
-	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
-	golang.org/x/net v0.0.0-20220708220712-1185a9018129
+	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
+	golang.org/x/net v0.0.0-20220726230323-06994584191e
 	golang.org/x/oauth2 v0.0.0-20220608161450-d0670ef3b1eb
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220721230656-c6bc011c0c49
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
 	golang.org/x/tools v0.1.11
 	google.golang.org/api v0.78.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
