@@ -4,7 +4,7 @@
 package agent
 
 import (
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -28,7 +28,7 @@ func (s *mongoSuite) TestStateWorkerDialDoesNotSetWriteMajorityWithoutReplsetCon
 }
 
 func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureReplset bool) {
-	inst := gitjujutesting.MgoInstance{
+	inst := mgotesting.MgoInstance{
 		Params: []string{"--replSet", "juju"},
 	}
 	err := inst.Start(coretesting.Certs)

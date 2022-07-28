@@ -23,6 +23,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -69,7 +70,7 @@ import (
 
 type BootstrapSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	testing.MgoSuite
+	mgotesting.MgoSuite
 	envtesting.ToolsFixture
 	store *jujuclient.MemStore
 	tw    loggo.TestWriter

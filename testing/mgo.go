@@ -6,7 +6,7 @@ package testing
 import (
 	"testing"
 
-	jujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 )
 
 // MgoTestPackage should be called to register the tests for any package
@@ -16,13 +16,13 @@ import (
 // tests. For tests that care about security (which should be few), use
 // MgoSSLTestPackage.
 func MgoTestPackage(t *testing.T) {
-	jujutesting.MgoServer.EnableReplicaSet = true
-	jujutesting.MgoTestPackage(t, nil)
+	mgotesting.MgoServer.EnableReplicaSet = true
+	mgotesting.MgoTestPackage(t, nil)
 }
 
 // MgoSSLTestPackage should be called to register the tests for any package
 // that requires a secure (SSL) connection to a MongoDB server.
 func MgoSSLTestPackage(t *testing.T) {
-	jujutesting.MgoServer.EnableReplicaSet = true
-	jujutesting.MgoTestPackage(t, Certs)
+	mgotesting.MgoServer.EnableReplicaSet = true
+	mgotesting.MgoTestPackage(t, Certs)
 }

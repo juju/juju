@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/mgo/v2/txn"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
@@ -22,7 +22,7 @@ import (
 )
 
 type TxnWatcherSuite struct {
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 	testing.BaseSuite
 
 	log          *mgo.Collection

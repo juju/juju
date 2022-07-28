@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/blobstore/v2"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v2"
 	txntesting "github.com/juju/txn/v2/testing"
@@ -31,7 +31,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type binaryStorageSuite struct {
-	gitjujutesting.IsolatedMgoSuite
+	mgotesting.IsolatedMgoSuite
 
 	storage            binarystorage.Storage
 	managedStorage     blobstore.ManagedStorage

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/mgo/v2/bson"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,7 +21,7 @@ import (
 )
 
 type LogsInternalSuite struct {
-	testing.MgoSuite
+	mgotesting.MgoSuite
 	testing.IsolationSuite
 }
 
@@ -261,7 +262,7 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceBiggerSize(c *gc.C)
 }
 
 type DBLogInitInternalSuite struct {
-	testing.MgoSuite
+	mgotesting.MgoSuite
 	testing.IsolationSuite
 }
 
