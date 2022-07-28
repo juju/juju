@@ -75,7 +75,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 	// bundleHandler.addCharm():
 	curl, err := charm.ParseURL("cs:bundle/no-such")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveCharm(errors.NotFoundf("bundle"), 1)
+	s.expectResolveCharm(errors.NotFoundf("bundle"))
 	bundleData := &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
 			"no-such": {
@@ -171,7 +171,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 
 	mysqlCurl, err := charm.ParseURL("cs:mysql-42")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveCharm(nil, 3)
+	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: mysqlCurl.Revision,
@@ -183,7 +183,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
 	// For wordpress
-	s.expectResolveCharm(nil, 2)
+	s.expectResolveCharm(nil)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleInvalidSeries))
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,6 +245,113 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1\n"+
 		"Deploy of bundle completed.\n")
+}
+
+const multiApplicationBundle = `
+name: istio
+bundle: kubernetes
+applications:
+  istio-ingressgateway:
+    charm: istio-gateway
+    channel: latest/edge
+    revision: 74
+  istio-pilot:
+    charm: istio-pilot
+    channel: latest/edge
+    revision: 95
+  training-operator:
+    charm: training-operator
+    channel: 1.3/edge
+    revision: 12`
+
+func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasSeries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	s.bundleResolver.EXPECT().ResolveCharm(
+		gomock.AssignableToTypeOf(&charm.URL{}),
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		// Ensure the same curl that is provided, is returned.
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+			return curl, origin, []string{"focal"}, nil
+		}).AnyTimes()
+	s.deployerAPI.EXPECT().AddCharm(
+		gomock.AssignableToTypeOf(&charm.URL{}),
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+			c.Assert(origin.Series, gc.Not(gc.Equals), "", gc.Commentf("series must be supplied"))
+			return origin, nil
+		}).AnyTimes()
+
+	istioGateway := charm.MustParseURL("ch:istio-gateway")
+	s.expectCharmInfo(istioGateway.String(), &apicharms.CharmInfo{
+		Revision: 74,
+		URL:      istioGateway.String(),
+		Meta: &charm.Meta{
+			Series: []string{"kubernetes"},
+		},
+	})
+	trainingOperator := charm.MustParseURL("ch:training-operator")
+	s.expectCharmInfo(trainingOperator.String(), &apicharms.CharmInfo{
+		Revision: 12,
+		URL:      trainingOperator.String(),
+		Meta: &charm.Meta{
+			Series: []string{"kubernetes"},
+		},
+	})
+	istioPilot := charm.MustParseURL("ch:istio-pilot")
+	s.expectCharmInfo(istioPilot.String(), &apicharms.CharmInfo{
+		Revision: 95,
+		URL:      istioPilot.String(),
+		Meta: &charm.Meta{
+			Series: []string{"kubernetes"},
+		},
+	})
+
+	s.expectDeploy()
+	s.expectDeploy()
+	s.expectDeploy()
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(multiApplicationBundle))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 3)
+}
+
+func (s *BundleDeployRepositorySuite) setupCharmUnitsNew(charmUnits []charmUnit) {
+	for _, chUnit := range charmUnits {
+		switch chUnit.curl.Schema {
+		case "cs", "ch":
+			resolveSeries := chUnit.resolveSeries
+			if len(resolveSeries) == 0 {
+				resolveSeries = []string{"bionic", "focal", "xenial"}
+			}
+			s.expectResolveCharmWithSeries(resolveSeries, nil)
+			s.expectAddCharm(chUnit.force)
+		case "local":
+			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
+		}
+		charmInfo := &apicharms.CharmInfo{
+			Revision: chUnit.curl.Revision,
+			URL:      chUnit.curl.String(),
+			Meta: &charm.Meta{
+				Series: chUnit.charmMetaSeries,
+			},
+		}
+		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
+		s.expectDeploy()
+		if chUnit.machineSeries != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
+		}
+	}
 }
 
 const wordpressBundleInvalidSeries = `
@@ -866,7 +973,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveCharm(nil, 3)
+	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -903,7 +1010,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveCharm(nil, 3)
+	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -1192,7 +1299,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBinding
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	s.expectResolveCharm(nil, 3)
+	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(grafanaBundleEndpointBindings))
@@ -1280,7 +1387,7 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 			if len(resolveSeries) == 0 {
 				resolveSeries = []string{"bionic", "focal", "xenial"}
 			}
-			s.expectResolveCharmWithSeries(resolveSeries, nil, 3)
+			s.expectResolveCharmWithSeries(resolveSeries, nil)
 			s.expectAddCharm(chUnit.force)
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
@@ -1303,7 +1410,7 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 
 func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
-		s.expectResolveCharm(nil, 3)
+		s.expectResolveCharm(nil)
 		s.expectAddCharm(chUnit.force)
 		charmInfo := &apicharms.CharmInfo{
 			Revision: chUnit.curl.Revision,
@@ -1419,10 +1526,10 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
+	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil).AnyTimes()
 }
 
-func (s *BundleDeployRepositorySuite) expectResolveCharmWithSeries(series []string, err error, times int) {
+func (s *BundleDeployRepositorySuite) expectResolveCharmWithSeries(series []string, err error) {
 	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
@@ -1434,8 +1541,8 @@ func (s *BundleDeployRepositorySuite) expectResolveCharmWithSeries(series []stri
 		}).AnyTimes()
 }
 
-func (s *BundleDeployRepositorySuite) expectResolveCharm(err error, times int) {
-	s.expectResolveCharmWithSeries([]string{"bionic", "focal", "xenial"}, err, times)
+func (s *BundleDeployRepositorySuite) expectResolveCharm(err error) {
+	s.expectResolveCharmWithSeries([]string{"bionic", "focal", "xenial"}, err)
 }
 
 func (s *BundleDeployRepositorySuite) expectAddCharm(force bool) {
@@ -1804,13 +1911,13 @@ func (s *BundleHandlerMakeModelSuite) expectEmptyModelRepresentation() {
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
 	status := &params.FullStatus{}
-	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil).AnyTimes()
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *gc.C) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
+	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil).AnyTimes()
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
