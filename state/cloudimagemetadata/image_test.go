@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"
@@ -22,7 +22,7 @@ import (
 )
 
 type cloudImageMetadataSuite struct {
-	testing.IsolatedMgoSuite
+	mgotesting.IsolatedMgoSuite
 
 	access  *TestMongo
 	storage cloudimagemetadata.Storage

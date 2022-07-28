@@ -55,7 +55,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	// we have a fresh mongo for each test case.
 	s.mgoInst.EnableAuth = true
 	s.mgoInst.EnableReplicaSet = true
-	err := s.mgoInst.Start(mgotesting.Certs)
+	err := s.mgoInst.Start(testing.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

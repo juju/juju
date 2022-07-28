@@ -30,14 +30,6 @@ var (
 // Policy holds a store policy for root keys.
 type Policy dbrootkeystore.Policy
 
-// maxPolicyCache holds the maximum number of store policies that can
-// hold cached keys in a given RootKeys instance.
-//
-// 100 is probably overkill, given that practical systems will
-// likely only have a small number of active policies on any given
-// macaroon collection.
-const maxPolicyCache = 100
-
 // RootKeys represents a cache of macaroon root keys.
 type RootKeys struct {
 	keys *dbrootkeystore.RootKeys

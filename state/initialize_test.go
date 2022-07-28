@@ -5,8 +5,8 @@ package state_test
 
 import (
 	"github.com/juju/clock"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +26,7 @@ import (
 )
 
 type InitializeSuite struct {
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 	testing.BaseSuite
 	Pool  *state.StatePool
 	State *state.State

@@ -21,7 +21,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	mgotxn "github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
@@ -4688,7 +4687,7 @@ type SetAdminMongoPasswordSuite struct {
 
 var _ = gc.Suite(&SetAdminMongoPasswordSuite{})
 
-func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.UserTag, password string) {
+func setAdminPassword(c *gc.C, inst *mgotesting.MgoInstance, owner names.UserTag, password string) {
 	session, err := inst.Dial()
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
@@ -4697,7 +4696,7 @@ func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.Use
 }
 
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
-	inst := &gitjujutesting.MgoInstance{
+	inst := &mgotesting.MgoInstance{
 		EnableAuth:       true,
 		EnableReplicaSet: true,
 	}

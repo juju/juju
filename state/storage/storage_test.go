@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/blobstore/v3"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,7 +20,7 @@ import (
 const testUUID = "9f484882-2f18-4fd2-967d-db9663db7bea"
 
 type StorageSuite struct {
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 	testing.BaseSuite
 	managedStorage blobstore.ManagedStorage
 	storage        storage.Storage

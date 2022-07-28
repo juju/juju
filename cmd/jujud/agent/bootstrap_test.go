@@ -78,7 +78,7 @@ import (
 // an already-bootstrapped environment.
 type BootstrapSuite struct {
 	testing.BaseSuite
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 
 	bootstrapParamsFile string
 	bootstrapParams     instancecfg.StateInitializationParams

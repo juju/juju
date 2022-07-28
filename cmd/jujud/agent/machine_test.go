@@ -41,7 +41,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
-	"github.com/scaleway/scaleway-sdk-go/logger"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

@@ -100,7 +100,6 @@ require (
 	github.com/pkg/sftp v1.13.4
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.9
 	github.com/vishvananda/netlink v1.2.0-beta
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
@@ -146,6 +145,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dnaeon/go-vcr v1.2.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect

@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,7 +28,7 @@ const (
 
 type targetSuite struct {
 	testing.IsolationSuite
-	testing.MgoSuite
+	mgotesting.MgoSuite
 	db       *mgo.Database
 	mongo    *Mongo
 	errorLog loggo.Logger

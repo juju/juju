@@ -13,7 +13,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v3"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -204,7 +203,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
 	stateInfo := s.MongoInfo()
-	apiPort := jujutesting.FindTCPPort()
+	apiPort := mgotesting.FindTCPPort()
 	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
