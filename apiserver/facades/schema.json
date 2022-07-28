@@ -34606,13 +34606,41 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpgradeModel"
+                            "$ref": "#/definitions/UpgradeModelParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UpgradeModelResult"
                         }
                     },
                     "description": "UpgradeModel upgrades a model."
                 }
             },
             "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
                 "ModelParam": {
                     "type": "object",
                     "properties": {
@@ -34653,7 +34681,7 @@
                         "Build"
                     ]
                 },
-                "UpgradeModel": {
+                "UpgradeModelParams": {
                     "type": "object",
                     "properties": {
                         "agent-stream": {
@@ -34668,14 +34696,29 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "to-version": {
+                        "targert-version": {
                             "$ref": "#/definitions/Number"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
-                        "to-version"
+                        "targert-version"
+                    ]
+                },
+                "UpgradeModelResult": {
+                    "type": "object",
+                    "properties": {
+                        "chosen-version": {
+                            "$ref": "#/definitions/Number"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "chosen-version"
                     ]
                 }
             }

@@ -489,10 +489,16 @@ type ModelParam struct {
 }
 
 // UpgradeModel contains the arguments for UpgradeModel API call.
-type UpgradeModel struct {
+type UpgradeModelParams struct {
 	ModelTag            string         `json:"model-tag"`
-	ToVersion           version.Number `json:"to-version"`
+	TargetVersion       version.Number `json:"targert-version"`
 	AgentStream         string         `json:"agent-stream,omitempty"`
 	IgnoreAgentVersions bool           `json:"ignore-agent-versions,omitempty"`
 	DryRun              bool           `json:"dry-run,omitempty"`
+}
+
+// UpgradeModelResult holds the result of a UpgradeModel API call.
+type UpgradeModelResult struct {
+	ChosenVersion version.Number `json:"chosen-version"`
+	Error         *Error         `json:"error,omitempty"`
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -61,5 +62,6 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		common.NewBlockChecker(backend),
 		auth,
 		context.CallContext(st),
+		registry.New,
 	)
 }

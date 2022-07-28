@@ -504,7 +504,10 @@ func bootstrapIAAS(
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
-		builtTools, err = args.BuildAgentTarball(args.BuildAgent, &forceVersion, cfg.AgentStream())
+		builtTools, err = args.BuildAgentTarball(
+			args.BuildAgent, cfg.AgentStream(),
+			func(version.Number) version.Number { return forceVersion },
+		)
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}

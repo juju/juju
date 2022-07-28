@@ -67,7 +67,7 @@ func configHelpText() string {
 }
 
 func syncToolsHelpText() string {
-	return helpText(newSyncToolsCommand(), "juju sync-agent-binaries")
+	return helpText(newSyncAgentBinaryCommand(), "juju sync-agent-binary")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -148,8 +148,8 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    2,
 		out:     "ERROR option provided but not defined: --model\n",
 	}, {
-		summary: "juju sync-agent-binaries registered properly",
-		args:    []string{"sync-agent-binaries", "--help"},
+		summary: "juju sync-agent-binary registered properly",
+		args:    []string{"sync-agent-binary", "--help"},
 		code:    0,
 		out:     syncToolsHelpText(),
 	}, {
@@ -466,7 +466,7 @@ var commandNames = []string{
 	"subnets",
 	"suspend-relation",
 	"switch",
-	"sync-agent-binaries",
+	"sync-agent-binary",
 	"sync-tools",
 	"trust",
 	"unexpose",
