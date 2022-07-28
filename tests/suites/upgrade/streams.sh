@@ -19,8 +19,7 @@ run_simplestream_metadata_prior_stable() {
 	major=$(echo "${previous_version}" | cut -d '.' -f 1)
 	minor=$(echo "${previous_version}" | cut -d '.' -f 2)
 
-	if snap info juju | grep -q "installed"
-	then
+	if snap info juju | grep -q "installed"; then
 		action="refresh"
 	else
 		action="install"
