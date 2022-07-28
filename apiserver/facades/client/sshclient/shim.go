@@ -19,6 +19,7 @@ type Backend interface {
 	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 	ModelTag() names.ModelTag
+	ControllerTag() names.ControllerTag
 }
 
 // SSHMachine specifies the methods on State.Machine of interest to
@@ -63,12 +64,18 @@ type backend struct {
 	*state.State
 	stateenvirons.EnvironConfigGetter
 
-	modelTag names.ModelTag
+	controllerTag names.ControllerTag
+	modelTag      names.ModelTag
 }
 
 // ModelTag returns the model tag of the backend.
 func (b *backend) ModelTag() names.ModelTag {
 	return b.modelTag
+}
+
+// ControllerTag returns the controller tag of the backend.
+func (b *backend) ControllerTag() names.ControllerTag {
+	return b.controllerTag
 }
 
 // GetMachineForEntity takes a machine or unit tag (as a string) and

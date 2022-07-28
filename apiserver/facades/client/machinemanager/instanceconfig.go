@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-type backend interface {
+type InstanceConfigBackend interface {
 	Model() (Model, error)
 	Machine(string) (Machine, error)
 	ToolsStorage() (binarystorage.StorageCloser, error)
@@ -31,7 +31,7 @@ type backend interface {
 // is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(ctrlSt ControllerBackend, st backend, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state model")

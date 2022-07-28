@@ -1,0 +1,27 @@
+series: bionic
+applications:
+  influxdb:
+    charm: influxdb
+    channel: stable
+    num_units: 1
+    to:
+    - "0"
+    constraints: arch=amd64
+  telegraf:
+    charm: telegraf
+    channel: stable
+  ubuntu:
+    charm: ubuntu
+    channel: stable
+    num_units: 1
+    to:
+    - "1"
+    constraints: arch=amd64
+machines:
+  "0": {}
+  "1": {}
+relations:
+- - telegraf:juju-info
+  - ubuntu:juju-info
+- - telegraf:influxdb-api
+  - influxdb:query

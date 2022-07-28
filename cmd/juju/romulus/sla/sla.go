@@ -1,8 +1,6 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The sla package contains the implementation of the juju sla
-// command.
 package sla
 
 import (

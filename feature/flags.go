@@ -1,7 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package feature package defines the names of the current feature flags.
 package feature
 
 // TODO (anastasiamac 2015-03-02)

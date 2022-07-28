@@ -40,9 +40,9 @@ type Backend interface {
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
 	Charm(*charm.URL) (Charm, error)
-	EndpointsRelation(...state.Endpoint) (Relation, error)
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
+	InferActiveRelation(...string) (Relation, error)
 	Machine(string) (Machine, error)
 	Model() (Model, error)
 	Unit(string) (Unit, error)
@@ -357,14 +357,6 @@ func (s stateShim) Charm(curl *charm.URL) (Charm, error) {
 	return stateCharmShim{ch}, nil
 }
 
-func (s stateShim) EndpointsRelation(eps ...state.Endpoint) (Relation, error) {
-	r, err := s.State.EndpointsRelation(eps...)
-	if err != nil {
-		return nil, err
-	}
-	return stateRelationShim{r, s.State}, nil
-}
-
 func (s stateShim) Model() (Model, error) {
 	m, err := s.State.Model()
 	if err != nil {
@@ -375,6 +367,14 @@ func (s stateShim) Model() (Model, error) {
 
 func (s stateShim) Relation(id int) (Relation, error) {
 	r, err := s.State.Relation(id)
+	if err != nil {
+		return nil, err
+	}
+	return stateRelationShim{r, s.State}, nil
+}
+
+func (s stateShim) InferActiveRelation(names ...string) (Relation, error) {
+	r, err := s.State.InferActiveRelation(names...)
 	if err != nil {
 		return nil, err
 	}
