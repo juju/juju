@@ -303,24 +303,23 @@ func packageLocalTools(toolsDir string, buildAgent bool) error {
 // in gzipped tar format to the given writer.
 type BundleToolsFunc func(
 	build bool, w io.Writer,
-	getForceVersion func(localBinaryVersion version.Number) version.Number,
-) (version.Binary, version.Number, bool, string, error)
+	getForceVersion func(version.Number) version.Number,
+) (builtVersion version.Binary, forceVersion version.Number, _ bool, _ string, _ error)
 
 // Override for testing.
 var BundleTools BundleToolsFunc = func(
 	build bool, w io.Writer,
-	getForceVersion func(localBinaryVersion version.Number) version.Number,
+	getForceVersion func(version.Number) version.Number,
 ) (version.Binary, version.Number, bool, string, error) {
 	return bundleTools(build, w, getForceVersion, JujudVersion)
 }
 
 // bundleTools bundles all the current juju tools in gzipped tar
-// format to the given writer.  If forceVersion is not nil and the
-// file isn't an official build, a FORCE-VERSION file is included in
+// format to the given writer. A FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
 func bundleTools(
 	build bool, w io.Writer,
-	getForceVersion func(localBinaryVersion version.Number) version.Number,
+	getForceVersion func(version.Number) version.Number,
 	jujudVersion func(dir string) (version.Binary, bool, error),
 ) (_ version.Binary, _ version.Number, official bool, sha256hash string, _ error) {
 	dir, err := ioutil.TempDir("", "juju-tools")

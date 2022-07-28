@@ -1734,7 +1734,7 @@ best version:
     %s
 `, builtVersion.Number)[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, fmt.Sprintf(`
-no prepackaged agent binaries available, using local agent binary %s
+no prepackaged agent binaries available, using the local snap jujud %s
 started upgrade to %s
 `, builtVersion.Number, builtVersion.Number)[1:])
 }

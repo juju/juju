@@ -712,7 +712,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(build bool, _ string,
-				getForceVersion func(localBinaryVersion version.Number) version.Number,
+				getForceVersion func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(version.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
@@ -1432,7 +1432,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 			AgentVersion:     toolsVersion,
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(localBinaryVersion version.Number) version.Number,
+				getForceVersion func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(version.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
@@ -1518,7 +1518,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(localBinaryVersion version.Number) version.Number,
+				getForceVersion func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(version.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
@@ -1553,7 +1553,7 @@ func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
 			SupportedBootstrapSeries: supportedJujuSeries,
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(localBinaryVersion version.Number) version.Number,
+				getForceVersion func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(version.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
@@ -1584,7 +1584,7 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 			SupportedBootstrapSeries: supportedJujuSeries,
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(localBinaryVersion version.Number) version.Number,
+				getForceVersion func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
 				ver := getForceVersion(version.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)

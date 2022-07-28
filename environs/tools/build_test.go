@@ -262,11 +262,10 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 }
 
 func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
-	c.Skip("TODO")
-
 	thisArch := arch.HostArch()
 	thisHost := coreos.HostOSTypeName()
-	dir := b.setUpFakeBinaries(c, fmt.Sprintf(osTypeArchMatchVersionFile, thisHost, thisArch))
+	b.patchExecCommand(c, thisHost, thisArch)
+	dir := b.setUpFakeBinaries(c, "")
 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -277,11 +276,11 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
 	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
-	c.Assert(official, jc.IsTrue)
+	c.Assert(official, jc.IsFalse)
 }
 
 func (b *buildSuite) TestJujudVersion(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 
 	resultVersion, official, err := tools.JujudVersion(dir)
@@ -291,7 +290,7 @@ func (b *buildSuite) TestJujudVersion(c *gc.C) {
 }
 
 func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,7 +306,7 @@ func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *gc.C) {
 }
 
 func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -324,7 +323,7 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 }
 
 func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -367,17 +366,23 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 	}
 }
 
-func (b *buildSuite) patchExecCommand(c *gc.C) {
+func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {
 	// Patch so that getting the version from our fake binary in the
 	// absence of a version file works.
+	if release == "" {
+		release = "ubuntu"
+	}
+	if arch == "" {
+		arch = "amd64"
+	}
 	ver := version.Binary{
 		Number: version.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,
 		},
-		Release: "ubuntu",
-		Arch:    "amd64",
+		Release: release,
+		Arch:    arch,
 	}
 	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
 		Stdout: ver.String(),
@@ -386,52 +391,6 @@ func (b *buildSuite) patchExecCommand(c *gc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 }
 
-func (b *buildSuite) TestBundleToolsUsesAdjacentVersionFirst(c *gc.C) {
-	c.Skip("TODO")
-
-	// If there are version files both beside the binary and in
-	// /usr/lib/juju, use the one beside the binary.
-	dir := b.setUpFakeBinaries(c, strings.Replace(fakeVersionFile, "1.2.3", "2.3.5", 1))
-	err := ioutil.WriteFile(
-		filepath.Join(tools.VersionFileFallbackDir, "jujud-versions.yaml"),
-		[]byte(fakeVersionFile),
-		0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	resultVersion, forceVersion, official, _, err := tools.BundleTools(false, bundleFile,
-		func(localBinaryVersion version.Number) version.Number {
-			localBinaryVersion.Build++
-			return localBinaryVersion
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(resultVersion.String(), gc.Equals, "2.3.5-ubuntu-arm64")
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
-	c.Assert(official, jc.IsTrue)
-}
-
 const (
 	fakeBinary = "some binary content\n"
-)
-
-var (
-	fakeVersionFile = `
-versions:
-  - version: 1.2.3-ubuntu-arm64
-    sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-  - version: 1.2.4-windows-amd64
-    sha256: aaaa059f4cb8e83405fe6daabaa3ae62ead64ff841e0c26064c3e111c857e1fb
-`[1:]
-
-	osTypeArchMatchVersionFile = `
-versions:
-  - version: 1.2.3-ubuntu-arm64
-    sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-  - version: 1.2.3-%s-%s
-    sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-`[1:]
 )

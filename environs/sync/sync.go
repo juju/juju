@@ -39,6 +39,7 @@ type SyncContext struct {
 	TargetToolsUploader ToolsUploader
 
 	// AllVersions controls the copy of all versions, not only the latest.
+	// TODO: remove here because it's only used for tests!
 	AllVersions bool
 
 	// DryRun controls that nothing is copied. Instead it's logged
@@ -146,7 +147,6 @@ func SyncTools(syncContext *SyncContext) error {
 			// already in target.
 			return nil
 		}
-		logger.Infof("found %d target agent binaries; %d agent binaries to be copied", len(targetTools), len(chosenList))
 	}
 
 	if syncContext.DryRun {
@@ -288,7 +288,7 @@ type BuiltAgent struct {
 
 // BuildAgentTarballFunc is a function which can build an agent tarball.
 type BuildAgentTarballFunc func(
-	build bool, stream string, getForceVersion func(localBinaryVersion version.Number) version.Number,
+	build bool, stream string, getForceVersion func(version.Number) version.Number,
 ) (*BuiltAgent, error)
 
 // Override for testing.
@@ -298,7 +298,7 @@ var BuildAgentTarball BuildAgentTarballFunc = buildAgentTarball
 // the expected agent path.
 func buildAgentTarball(
 	build bool, stream string,
-	getForceVersion func(localBinaryVersion version.Number) version.Number,
+	getForceVersion func(version.Number) version.Number,
 ) (_ *BuiltAgent, err error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.

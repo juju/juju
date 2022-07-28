@@ -441,7 +441,7 @@ func uploadTools(
 	defer os.RemoveAll(builtTools.Dir)
 
 	if dryRun {
-		logger.Debugf("dryrun, skipping upload tools")
+		logger.Debugf("dryrun, skipping upload agent binary")
 		return targetVersion, nil
 	}
 
@@ -494,7 +494,7 @@ func (c *upgradeJujuCommand) upgradeWithTargetVersion(
 
 	if targetVersion.Compare(jujuversion.Current.ToPatch()) != 0 {
 		logger.Warningf(
-			"try again with --agent-version=%s if you want to upload the local binary",
+			"try again with --agent-version=%s if you want to upgrade using the local packaged jujud from the snap",
 			jujuversion.Current.ToPatch(),
 		)
 		return chosenVersion, errUpToDate
@@ -505,7 +505,7 @@ func (c *upgradeJujuCommand) upgradeWithTargetVersion(
 		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 	}
 	fmt.Fprintf(ctx.Stdout,
-		"no prepackaged agent binaries available, using local agent binary %v%s\n",
+		"no prepackaged agent binaries available, using the local snap jujud %v%s\n",
 		chosenVersion, "",
 	)
 
@@ -570,11 +570,6 @@ func (c *upgradeJujuCommand) upgradeModel(
 		// Can't happen. In theory.
 		return errors.New("incomplete model configuration")
 	}
-	if majorDiff := jujuversion.Current.Major - agentVersion.Major; majorDiff != 0 && majorDiff != 1 {
-		// This version of juju client cannot upgrade the running
-		// model version (can't guarantee API compatibility).
-		return errors.Errorf("cannot upgrade a %s model with a %s client", agentVersion, jujuversion.Current)
-	}
 
 	if c.Version == agentVersion {
 		return errUpToDate
@@ -603,14 +598,13 @@ func (c *upgradeJujuCommand) upgradeModel(
 
 	// Decide the target version to upgrade.
 	if targetVersion != version.Zero {
-		if targetVersion, err = c.upgradeWithTargetVersion(
+		targetVersion, err = c.upgradeWithTargetVersion(
 			ctx, modelUpgrader, isControllerModel, c.DryRun,
 			modelType, targetVersion, agentVersion,
-		); err != nil {
-			return err
-		}
-		return nil
-	} else if c.BuildAgent {
+		)
+		return err
+	}
+	if c.BuildAgent {
 		if targetVersion, err = uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
@@ -620,27 +614,24 @@ func (c *upgradeJujuCommand) upgradeModel(
 			targetVersion, builtMsg,
 		)
 		targetVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, c.DryRun)
-		if err != nil {
-			return err
-		}
-		return nil
-	} else {
-		targetVersion, err = c.notifyControllerUpgrade(
-			ctx, modelUpgrader,
-			version.Zero, // no target version provided, we figure it out on the server side.
-			c.DryRun,
-		)
-		if err == nil {
-			// All good!
-			// Upgraded to a next stable version or the newest stable version.
-			logger.Debugf("upgraded to a next version or latest stable version")
-			return nil
-		}
-		if errors.Is(err, errors.NotFound) {
-			return errUpToDate
-		}
 		return err
 	}
+	// juju upgrade-controller without --build-agent or --agent-version
+	targetVersion, err = c.notifyControllerUpgrade(
+		ctx, modelUpgrader,
+		version.Zero, // no target version provided, we figure it out on the server side.
+		c.DryRun,
+	)
+	if err == nil {
+		// All good!
+		// Upgraded to a next stable version or the newest stable version.
+		logger.Debugf("upgraded to a next version or latest stable version")
+		return nil
+	}
+	if errors.Is(err, errors.NotFound) {
+		return errUpToDate
+	}
+	return err
 }
 
 // For test.
@@ -662,7 +653,10 @@ func checkCanImplicitUpload(
 	}
 	newerClient := clientVersion.Compare(agentVersion.ToPatch()) >= 0
 	if !newerClient {
-		logger.Tracef("the client version is not newer than agent version")
+		logger.Tracef(
+			"the client version(%s) is not newer than agent version(%s)",
+			clientVersion, agentVersion.ToPatch(),
+		)
 		return false
 	}
 

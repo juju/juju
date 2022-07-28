@@ -47,6 +47,9 @@ func (c *Client) AbortModelUpgrade(modelUUID string) error {
 }
 
 // UpgradeModel upgrades the model to the provided agent version.
+// The provided target version could be version.Zero, in which case
+// the best version is selected by the controller and returned as
+// ChosenVersion in the result.
 func (c *Client) UpgradeModel(
 	modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
 ) (version.Number, error) {

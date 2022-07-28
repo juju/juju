@@ -162,7 +162,6 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		),
 		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
 		ctrlModel.EXPECT().Name().Return("controller"),
-		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
 
 		// 1. Check controller model.
 		// - check agent version;
@@ -320,7 +319,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		),
 		ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS),
 		ctrlModel.EXPECT().Name().Return("controller"),
-		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
 
 		// 1. Check controller model.
 		// - check agent version;

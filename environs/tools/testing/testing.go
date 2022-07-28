@@ -38,7 +38,7 @@ import (
 func GetMockBundleTools(c *gc.C, expectedForceVersion version.Number) tools.BundleToolsFunc {
 	return func(
 		build bool, w io.Writer,
-		getForceVersion func(localBinaryVersion version.Number) version.Number,
+		getForceVersion func(version.Number) version.Number,
 	) (version.Binary, version.Number, bool, string, error) {
 		vers := coretesting.CurrentVersion(c)
 		forceVersion := getForceVersion(vers.Number)
@@ -53,7 +53,7 @@ func GetMockBundleTools(c *gc.C, expectedForceVersion version.Number) tools.Bund
 func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
 	return func(
 		build bool, stream string,
-		getForceVersion func(localBinaryVersion version.Number) version.Number,
+		getForceVersion func(version.Number) version.Number,
 	) (*sync.BuiltAgent, error) {
 		vers := coretesting.CurrentVersion(c)
 		vers.Number = getForceVersion(vers.Number)

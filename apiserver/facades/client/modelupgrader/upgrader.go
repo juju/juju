@@ -124,7 +124,9 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	logger.Tracef("UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
-		result.ChosenVersion = targetVersion
+		if err == nil {
+			result.ChosenVersion = targetVersion
+		}
 	}()
 
 	modelTag, err := names.ParseModelTag(arg.ModelTag)
@@ -206,7 +208,7 @@ func preCheckEnvironForUpgradeModel(
 		return errors.Trace(err)
 	}
 
-	if model.Name() != bootstrap.ControllerModelName || model.Owner().Name() != environs.AdminUser {
+	if model.Name() != bootstrap.ControllerModelName {
 		return nil
 	}
 

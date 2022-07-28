@@ -104,6 +104,7 @@ func (s *UpgradeControllerBaseSuite) TestUpgradeWithRealUpload(c *gc.C) {
 }
 
 func (s *UpgradeControllerBaseSuite) TestUpgradeCorrectControllerLegacy(c *gc.C) {
+	// TODO(juju3) - remove me
 	badControllerName := "not-the-right-controller"
 	badControllerSelected := errors.New("bad controller selected")
 	upgradeCommand := func(c *gc.C, test *upgradeTest) (*gomock.Controller, cmd.Command) {
