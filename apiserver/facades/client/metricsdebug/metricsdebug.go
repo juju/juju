@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package metricsdebug contains the implementation of an api endpoint
-// for metrics debug functionality.
 package metricsdebug
 
 import (

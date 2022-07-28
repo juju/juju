@@ -2825,16 +2825,37 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the application is in.
 func (a *Application) Relations() (relations []*Relation, err error) {
-	return applicationRelations(a.st, a.doc.Name)
+	return matchingRelations(a.st, a.doc.Name)
 }
 
-func applicationRelations(st *State, name string) (relations []*Relation, err error) {
-	defer errors.DeferredAnnotatef(&err, "can't get relations for application %q", name)
+// matchingRelations returns all relations matching the application(s)/endpoint(s) provided
+// There must be 1 or 2 supplied names, of the form <application>[:<relation>]
+func matchingRelations(st *State, names ...string) (relations []*Relation, err error) {
+	defer errors.DeferredAnnotatef(&err, "can't get relations matching %q", strings.Join(names, " "))
 	relationsCollection, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
+	var conditions []bson.D
+	for _, name := range names {
+		appName, relName, err := splitEndpointName(name)
+		if err != nil {
+			return nil, err
+		}
+		if relName == "" {
+			conditions = append(conditions, bson.D{{"endpoints.applicationname", appName}})
+		} else {
+			conditions = append(conditions, bson.D{{"endpoints", bson.D{{"$elemMatch", bson.D{
+				{"applicationname", appName},
+				{"relation.name", relName},
+			}}}}})
+		}
+	}
+
 	docs := []relationDoc{}
-	err = relationsCollection.Find(bson.D{{"endpoints.applicationname", name}}).All(&docs)
+	err = relationsCollection.Find(bson.D{{
+		"$and", conditions,
+	}}).All(&docs)
+
 	if err != nil {
 		return nil, err
 	}

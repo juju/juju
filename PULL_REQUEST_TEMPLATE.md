@@ -1,17 +1,18 @@
-## Please provide the following details to expedite review (and delete this heading)
-
-*Replace with a description about why this change is needed, along with a description of what changed.*
+*Why this change is needed and what it does.*
 
 ## Checklist
 
- - [ ] Requires a [pylibjuju](https://github.com/juju/python-libjuju) change
- - [ ] Added [integration tests](https://github.com/juju/juju/tree/develop/tests) for the PR
- - [ ] Added or updated [doc.go](https://discourse.charmhub.io/t/readme-in-packages/451) related to packages changed
- - [ ] Comments answer the question of why design decisions were made
+*If an item is not applicable, use `~strikethrough~`.*
+
+- [ ] Code style: imports ordered, good names, simple structure, etc
+- [ ] Comments saying why design decisions were made
+- [ ] Go unit tests, with comments saying what you're testing
+- [ ] [Integration tests](https://github.com/juju/juju/tree/develop/tests), with comments saying what you're testing
+- [ ] [doc.go](https://discourse.charmhub.io/t/readme-in-packages/451) added or updated in changed packages
 
 ## QA steps
 
-*Please replace with how we can verify that the change works.*
+*Commands to run to verify that the change works.*
 
 ```sh
 QA steps here
@@ -19,8 +20,8 @@ QA steps here
 
 ## Documentation changes
 
-*Please replace with any notes about how it affects current user workflow, CLI, or API.*
+*How it affects user workflow (CLI or API). Delete section if not applicable.*
 
 ## Bug reference
 
-*Please add a link to any bugs that this change is related to, e.g., https://bugs.launchpad.net/juju/+bug/9876543*
+*Link to Launchpad bug. Delete section if not applicable.*

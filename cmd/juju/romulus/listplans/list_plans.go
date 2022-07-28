@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The listplans package contains implementation of the command that
-// can be used to list plans that are available for a charm.
 package listplans
 
 import (
