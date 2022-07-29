@@ -13,6 +13,7 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
