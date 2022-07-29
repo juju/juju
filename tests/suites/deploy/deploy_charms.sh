@@ -278,7 +278,6 @@ test_deploy_charms() {
 
 		run "run_deploy_charm"
 		run "run_deploy_specific_series"
-		run "run_deploy_lxd_profile_charm_container"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
