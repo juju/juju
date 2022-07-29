@@ -4,13 +4,11 @@
 package modelconfig
 
 import (
-	"github.com/juju/names/v4"
-
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 )
 
 // Backend contains the state.State methods used in this package,
@@ -25,7 +23,6 @@ type Backend interface {
 	SetSLA(level, owner string, credentials []byte) error
 	SLALevel() (string, error)
 	SpaceByName(string) error
-	ControllerConfig() (controller.Config, error)
 	SetModelConstraints(value constraints.Value) error
 	ModelConstraints() (constraints.Value, error)
 }
