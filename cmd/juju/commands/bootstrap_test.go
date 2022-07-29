@@ -124,7 +124,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// NOTE(axw) we cannot patch BundleTools here, as the "gc.C" argument
 	// is invalidated once this method returns.
-	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, bool, string, error) {
+	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, func(version.Number) version.Number) (version.Binary, version.Number, bool, string, error) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
@@ -240,7 +240,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 			uploadVers := version.MustParseBinary(test.upload)
 			bootstrapVersion.Number = uploadVers.Number
 		}
-		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &bootstrapVersion.Number)))
+		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
@@ -1179,9 +1179,11 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
-	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, bool, string, error) {
-		return version.Binary{}, false, "", errors.New("no agent binaries for you")
-	})
+	s.PatchValue(&envtools.BundleTools,
+		func(bool, io.Writer, func(localBinaryVersion version.Number) version.Number) (version.Binary, version.Number, bool, string, error) {
+			return version.Binary{}, version.Number{}, false, "", errors.New("no agent binaries for you")
+		},
+	)
 	s.PatchValue(&envtools.DefaultBaseURL, c.MkDir())
 	resetJujuXDGDataHome(c)
 
@@ -1360,7 +1362,7 @@ my-dummy-cloud
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	patchedVersion := version.MustParse(vers)
 	patchedVersion.Build = 1
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &patchedVersion))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, patchedVersion))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
@@ -1416,7 +1418,9 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-	BuildAgentTarballAlwaysFails := func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
+	BuildAgentTarballAlwaysFails := func(
+		bool, string, func(version.Number) version.Number,
+	) (*sync.BuiltAgent, error) {
 		return nil, errors.New("an error")
 	}
 

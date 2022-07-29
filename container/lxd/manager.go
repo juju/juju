@@ -35,7 +35,8 @@ var (
 const lxdDefaultProfileName = "default"
 
 type containerManager struct {
-	server *Server
+	newServer func() (*Server, error)
+	server    *Server
 
 	modelUUID        string
 	namespace        instance.Namespace
@@ -45,7 +46,8 @@ type containerManager struct {
 	imageStream      string
 	imageMutex       sync.Mutex
 
-	profileMutex sync.Mutex
+	serverInitMutex sync.Mutex
+	profileMutex    sync.Mutex
 }
 
 // containerManager implements container.Manager.
@@ -53,9 +55,7 @@ var _ container.Manager = (*containerManager)(nil)
 
 // NewContainerManager creates the entity that knows how to create and manage
 // LXD containers.
-// TODO(jam): This needs to grow support for things like LXC's ImageURLGetter
-// functionality.
-func NewContainerManager(cfg container.ManagerConfig, svr *Server) (container.Manager, error) {
+func NewContainerManager(cfg container.ManagerConfig, newServer func() (*Server, error)) (container.Manager, error) {
 	modelUUID := cfg.PopValue(container.ConfigModelUUID)
 	if modelUUID == "" {
 		return nil, errors.Errorf("model UUID is required")
@@ -80,7 +80,7 @@ func NewContainerManager(cfg container.ManagerConfig, svr *Server) (container.Ma
 
 	cfg.WarnAboutUnused()
 	return &containerManager{
-		server:           svr,
+		newServer:        newServer,
 		modelUUID:        modelUUID,
 		namespace:        namespace,
 		availabilityZone: availabilityZone,
@@ -96,6 +96,10 @@ func (m *containerManager) Namespace() instance.Namespace {
 
 // DestroyContainer implements container.Manager.
 func (m *containerManager) DestroyContainer(id instance.Id) error {
+	if err := m.ensureInitialized(); err != nil {
+		return errors.Trace(err)
+	}
+
 	return errors.Trace(m.server.RemoveContainer(string(id)))
 }
 
@@ -108,6 +112,10 @@ func (m *containerManager) CreateContainer(
 	_ *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instances.Instance, *instance.HardwareCharacteristics, error) {
+	if err := m.ensureInitialized(); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	_ = callback(status.Provisioning, "Creating container spec", nil)
 	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, callback)
 	if err != nil {
@@ -129,6 +137,10 @@ func (m *containerManager) CreateContainer(
 
 // ListContainers implements container.Manager.
 func (m *containerManager) ListContainers() ([]instances.Instance, error) {
+	if err := m.ensureInitialized(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	containers, err := m.server.FilterContainers(m.namespace.Prefix())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -141,9 +153,28 @@ func (m *containerManager) ListContainers() ([]instances.Instance, error) {
 	return result, nil
 }
 
+// ensureInitialized checks to see if we have already established
+// the local LXD server. This is done lazily so that LXD daemons are
+// not active until we need to provision containers.
+// NOTE: It must be called at the top of public methods that connect
+// to the server.
+func (m *containerManager) ensureInitialized() error {
+	m.serverInitMutex.Lock()
+	defer m.serverInitMutex.Unlock()
+
+	if m.server != nil {
+		return nil
+	}
+
+	var err error
+	m.server, err = m.newServer()
+	return errors.Annotate(err, "initializing local LXD server")
+}
+
 // IsInitialized implements container.Manager.
+// It returns true if this host is running an OS that supports LXD by default.
 func (m *containerManager) IsInitialized() bool {
-	return m.server != nil
+	return HasSupport()
 }
 
 // getContainerSpec generates a spec for creating a new container.
@@ -300,6 +331,10 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 // When provisioner_task processProfileChanges() is removed,
 // maybe change to take an lxdprofile.ProfilePost as an arg.
 func (m *containerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
+	if err := m.ensureInitialized(); err != nil {
+		return errors.Trace(err)
+	}
+
 	m.profileMutex.Lock()
 	defer m.profileMutex.Unlock()
 	hasProfile, err := m.server.HasProfile(pName)
@@ -346,11 +381,21 @@ func (m *containerManager) verifyProfile(pName string) error {
 
 // LXDProfileNames implements container.LXDProfileManager
 func (m *containerManager) LXDProfileNames(containerName string) ([]string, error) {
+	if err := m.ensureInitialized(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return m.server.GetContainerProfiles(containerName)
 }
 
 // AssignLXDProfiles implements environs.LXDProfiler.
-func (m *containerManager) AssignLXDProfiles(instID string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+func (m *containerManager) AssignLXDProfiles(
+	instID string, profilesNames []string, profilePosts []lxdprofile.ProfilePost,
+) (current []string, err error) {
+	if err := m.ensureInitialized(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	report := func(err error) ([]string, error) {
 		// Always return the current profiles assigned to the instance.
 		currentProfiles, err2 := m.LXDProfileNames(instID)

@@ -26,7 +26,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
 	github.com/aws/smithy-go v1.8.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/pebble v0.0.0-20220620222205-a30d4c54906d
+	github.com/canonical/pebble v0.0.0-20220729021256-d9b6b8c3b562
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.7.1+incompatible
@@ -48,6 +48,7 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.1
+	github.com/juju/charm/v8 v8.0.1
 	github.com/juju/charm/v9 v9.0.1
 	github.com/juju/charmrepo/v7 v7.0.1
 	github.com/juju/clock v1.0.0
@@ -65,6 +66,7 @@ require (
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
 	github.com/juju/lumberjack/v2 v2.0.2
+	github.com/juju/mgo/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.2
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v4 v4.0.0
@@ -75,6 +77,7 @@ require (
 	github.com/juju/proxy v1.0.0
 	github.com/juju/pubsub/v2 v2.0.0
 	github.com/juju/ratelimit v1.0.2
+	github.com/juju/replicaset/v2 v2.0.2
 	github.com/juju/replicaset/v3 v3.0.0
 	github.com/juju/retry v1.0.0
 	github.com/juju/rfc/v2 v2.0.0
@@ -171,7 +174,6 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v1.0.0 // indirect
-	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
