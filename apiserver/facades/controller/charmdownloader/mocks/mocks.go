@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v9 "github.com/juju/charm/v9"
+	charm "github.com/juju/charm/v9"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	charmdownloader "github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	controller "github.com/juju/juju/controller"
@@ -87,7 +87,7 @@ func (mr *MockStateBackendMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockStateBackend) PrepareCharmUpload(arg0 *v9.URL) (services.UploadedCharm, error) {
+func (m *MockStateBackend) PrepareCharmUpload(arg0 *charm.URL) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)
@@ -302,10 +302,10 @@ func (mr *MockCharmMockRecorder) Macaroon() *gomock.Call {
 }
 
 // URL mocks base method.
-func (m *MockCharm) URL() *v9.URL {
+func (m *MockCharm) URL() *charm.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*v9.URL)
+	ret0, _ := ret[0].(*charm.URL)
 	return ret0
 }
 
@@ -339,7 +339,7 @@ func (m *MockDownloader) EXPECT() *MockDownloaderMockRecorder {
 }
 
 // DownloadAndStore mocks base method.
-func (m *MockDownloader) DownloadAndStore(arg0 *v9.URL, arg1 charm.Origin, arg2 macaroon_v2.Slice, arg3 bool) (charm.Origin, error) {
+func (m *MockDownloader) DownloadAndStore(arg0 *charm.URL, arg1 charm0.Origin, arg2 macaroon.Slice, arg3 bool) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadAndStore", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm0.Origin)

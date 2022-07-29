@@ -4,8 +4,6 @@
 package services_test
 
 import (
-	"net/http"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -95,7 +93,6 @@ func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Logger:       loggo.GetLogger("test"),
 		StateBackend: s.stateBackend,
 		ModelBackend: s.modelBackend,
-		Transport:    http.DefaultClient,
 	})
 	return ctrl
 }

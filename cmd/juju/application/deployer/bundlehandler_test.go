@@ -176,6 +176,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 			Series: []string{"jammy"},
 		},
 	}
+	s.expectAddCharm(false)
+	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
 	// For wordpress
 	s.expectResolveCharm(nil)

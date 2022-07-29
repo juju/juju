@@ -336,7 +336,7 @@ func bundleTools(
 		return version.Binary{}, version.Number{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
 	}
 	_, official, err = jujudVersion(existingJujuLocation)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return version.Binary{}, version.Number{}, official, "", errors.Trace(err)
 	}
 	if official && build {
