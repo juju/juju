@@ -176,9 +176,9 @@ run_deploy_lxd_to_machine() {
 		fi
 		lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1"
 		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
+		if [ $attempt -eq 20 ]; then
 			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for lxc profile to show 50sec")
+			echo $(red "timeout: waiting for lxc profile to show 100sec")
 			exit 5
 		fi
 		sleep 5
@@ -192,9 +192,9 @@ run_deploy_lxd_to_machine() {
 			break
 		fi
 		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
+		if [ $attempt -eq 20 ]; then
 			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for removal of lxc profile 50sec")
+			echo $(red "timeout: waiting for removal of lxc profile 100sec")
 			exit 5
 		fi
 		sleep 5
