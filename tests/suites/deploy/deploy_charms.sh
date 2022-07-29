@@ -8,7 +8,7 @@ run_deploy_charm() {
 	arch=$(uname -m)
 	if [[ $arch == "aarch64" ]];
 	then
-	  juju deploy cs:~jameinel/ubuntu-lite-7 --constaints "arch=arm64"
+	  juju deploy cs:~jameinel/ubuntu-lite-7 --constraints "arch=arm64"
 	else
 	  juju deploy cs:~jameinel/ubuntu-lite-7
 	fi
