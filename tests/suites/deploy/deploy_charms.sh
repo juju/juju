@@ -139,14 +139,15 @@ run_deploy_lxd_to_machine() {
 
 	ensure "${model_name}" "${file}"
 
-	juju add-machine -n 2 --series=bionic
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
 	arch=$(uname -m)
 	if [[ $arch == "aarch64" ]];
 	then
+	  juju add-machine -n 2 --series=bionic --constraints "arch=arm64"
 	  juju deploy "${charm}" --to 0 --series=bionic --constraints "arch=arm64"
 	else
+	  juju add-machine -n 2 --series=bionic
 	  juju deploy "${charm}" --to 0 --series=bionic --series=bionic
 	fi
 
