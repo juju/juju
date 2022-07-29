@@ -9,6 +9,7 @@ import (
 	"net"
 	"path/filepath"
 
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -43,7 +44,7 @@ import (
 
 type bootstrapSuite struct {
 	testing.BaseSuite
-	mgoInst gitjujutesting.MgoInstance
+	mgoInst mgotesting.MgoInstance
 }
 
 var _ = gc.Suite(&bootstrapSuite{})

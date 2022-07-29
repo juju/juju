@@ -11,7 +11,7 @@ import (
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
-	txn "github.com/juju/mgo/v2/txn"
+	txn "github.com/juju/mgo/v3/txn"
 )
 
 // MockBackingSpace is a mock of BackingSpace interface.

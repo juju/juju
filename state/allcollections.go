@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 
 	"github.com/juju/juju/state/bakerystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v2"
+	"github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"

@@ -4,9 +4,9 @@
 package mongo_test
 
 import (
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,7 +29,7 @@ func (s *adminSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
-	inst := &jujutesting.MgoInstance{
+	inst := &mgotesting.MgoInstance{
 		EnableReplicaSet: true,
 	}
 	err := inst.Start(coretesting.Certs)

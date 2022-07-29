@@ -5,7 +5,7 @@ package spaces_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

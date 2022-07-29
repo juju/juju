@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/testing"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
-	txntesting "github.com/juju/txn/v2/testing"
+	"github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
@@ -22,7 +22,7 @@ import (
 )
 
 type cloudImageMetadataSuite struct {
-	testing.IsolatedMgoSuite
+	mgotesting.IsolatedMgoSuite
 
 	access  *TestMongo
 	storage cloudimagemetadata.Storage
