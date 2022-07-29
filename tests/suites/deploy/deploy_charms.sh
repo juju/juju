@@ -5,12 +5,13 @@ run_deploy_charm() {
 
 	ensure "test-deploy-charm" "${file}"
 
-  arch=$(uname -m)
-  if [[ $arch == "aarch64" ]]; then
-      juju deploy cs:~jameinel/ubuntu-lite-7 --constaints "arch=arm64"
-    else
-      juju deploy cs:~jameinel/ubuntu-lite-7
-  fi
+	arch=$(uname -m)
+	if [[ $arch == "aarch64" ]];
+	then
+	  juju deploy cs:~jameinel/ubuntu-lite-7 --constaints "arch=arm64"
+	else
+	  juju deploy cs:~jameinel/ubuntu-lite-7
+	fi
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	destroy_model "test-deploy-charm"
