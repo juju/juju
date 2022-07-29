@@ -49,6 +49,9 @@ type OpenParams struct {
 	// InitDatabaseFunc, if non-nil, is a function that will be called
 	// just after the state database is opened.
 	InitDatabaseFunc InitDatabaseFunc
+
+	// MaxTxnAttempts is defaulted by OpenStatePool if otherwise not set.
+	MaxTxnAttempts int
 }
 
 // Validate validates the OpenParams.
@@ -93,8 +96,16 @@ func open(
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
+	maxTxnAttempts int,
 ) (*State, error) {
-	st, err := newState(controllerTag, controllerModelTag, controllerModelTag, session, newPolicy, clock, runTransactionObserver)
+	st, err := newState(controllerTag,
+		controllerModelTag,
+		controllerModelTag,
+		session,
+		newPolicy,
+		clock,
+		runTransactionObserver,
+		maxTxnAttempts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,6 +133,7 @@ func newState(
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
+	maxTxnAttempts int,
 ) (_ *State, err error) {
 
 	defer func() {
@@ -152,6 +164,7 @@ func newState(
 		modelUUID:              modelTag.Id(),
 		runTransactionObserver: runTransactionObserver,
 		clock:                  clock,
+		maxTxnAttempts:         maxTxnAttempts,
 	}
 
 	// Create State.
@@ -163,6 +176,7 @@ func newState(
 		database:               db,
 		newPolicy:              newPolicy,
 		runTransactionObserver: runTransactionObserver,
+		maxTxnAttempts:         maxTxnAttempts,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)

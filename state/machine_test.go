@@ -538,6 +538,7 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), gc.IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), gc.IsNil) },
 	}
+	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, perturb, perturb, perturb).Check()
 
 	err = s.machine.Destroy()

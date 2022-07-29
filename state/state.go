@@ -73,6 +73,7 @@ type State struct {
 	policy                 Policy
 	newPolicy              NewPolicyFunc
 	runTransactionObserver RunTransactionObserverFunc
+	maxTxnAttempts         int
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
@@ -94,6 +95,7 @@ func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
 		st.newPolicy,
 		st.stateClock,
 		st.runTransactionObserver,
+		st.maxTxnAttempts,
 	)
 	// We explicitly don't start the workers.
 	if err != nil {

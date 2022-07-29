@@ -378,7 +378,12 @@ func (b *BlobstoreCleaner) findUnmanagedResources() {
 }
 
 func txnRunner(db *mgo.Database) jujutxn.Runner {
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+	return jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  db,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
+	})
 }
 
 func removeStoredResourceOps(docID string) []txn.Op {

@@ -130,6 +130,10 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		return nil, errors.Annotate(err, "validating args")
 	}
 
+	if args.MaxTxnAttempts <= 0 {
+		args.MaxTxnAttempts = 20
+	}
+
 	pool := &StatePool{
 		pool: make(map[string]*PoolItem),
 		hub:  pubsub.NewSimpleHub(nil),
@@ -145,6 +149,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		args.NewPolicy,
 		args.Clock,
 		args.RunTransactionObserver,
+		args.MaxTxnAttempts,
 	)
 	if err != nil {
 		session.Close()
@@ -271,6 +276,7 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 		modelTag, p.systemState.controllerModelTag,
 		session, p.systemState.newPolicy, p.systemState.stateClock,
 		p.systemState.runTransactionObserver,
+		p.systemState.maxTxnAttempts,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -45,9 +45,11 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 	runner := db.runner
 	if runner == nil {
 		runner = jujutxn.NewRunner(jujutxn.RunnerParams{
-			Database:               db.raw,
-			Clock:                  db.clock,
-			ServerSideTransactions: true,
+			Database:                  db.raw,
+			Clock:                     db.clock,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "sstxns.log",
+			ServerSideTransactions:    true,
 		})
 	}
 	err := runner.Run(func(int) ([]txn.Op, error) {

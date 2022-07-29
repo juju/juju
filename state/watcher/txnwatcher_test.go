@@ -13,6 +13,7 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
@@ -27,7 +28,7 @@ type TxnWatcherSuite struct {
 
 	log          *mgo.Collection
 	stash        *mgo.Collection
-	runner       *txn.Runner
+	runner       jujutxn.Runner
 	w            *watcher.TxnWatcher
 	ch           chan watcher.Change
 	iteratorFunc func(collection *mgo.Collection) mongo.Iterator
@@ -51,14 +52,9 @@ func (s *TxnWatcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	db := s.MgoSuite.Session.DB("juju")
-	s.log = db.C("txnlog")
-	s.log.Create(&mgo.CollectionInfo{
-		Capped:   true,
-		MaxBytes: 1000000,
-	})
+	s.log = db.C("testingsstxns.log")
+	s.log.Create(&mgo.CollectionInfo{})
 	s.stash = db.C("txn.stash")
-	s.runner = txn.NewRunner(db.C("txn"))
-	s.runner.ChangeLog(s.log)
 	s.clock = testclock.NewClock(time.Now())
 	s.iteratorFunc = nil
 }
@@ -79,12 +75,29 @@ func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, 
 	return s.newWatcherWithError(c, expect, nil)
 }
 
+func (s *TxnWatcherSuite) newRunner(c *gc.C) {
+	runnerSession := s.MgoSuite.Session.New()
+	s.AddCleanup(func(c *gc.C) {
+		s.runner = nil
+		runnerSession.Close()
+	})
+	s.runner = jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  runnerSession.DB("juju"),
+		TransactionCollectionName: "txn",
+		ChangeLogName:             s.log.Name,
+		ServerSideTransactions:    true,
+		MaxRetryAttempts:          3,
+	})
+}
+
 func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error) (*watcher.TxnWatcher, *fakeHub) {
 	hub := newFakeHub(c, expect)
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
+
+	session := s.MgoSuite.Session.New()
 	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
-		Session:        s.MgoSuite.Session,
+		Session:        session,
 		JujuDBName:     "juju",
 		CollectionName: s.log.Name,
 		Hub:            hub,
@@ -95,11 +108,15 @@ func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError 
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		if watcherError == nil {
-			c.Assert(w.Stop(), jc.ErrorIsNil)
+			c.Check(w.Stop(), jc.ErrorIsNil)
 		} else {
-			c.Assert(w.Stop(), gc.Equals, watcherError)
+			c.Check(w.Stop(), gc.Equals, watcherError)
 		}
+		session.Close()
 	})
+
+	// Synchronize, otherwise the tests will race.
+	w.Report()
 	return w, hub
 }
 
@@ -114,7 +131,9 @@ func (s *TxnWatcherSuite) revno(c *gc.C, coll string, id interface{}) (revno int
 
 func (s *TxnWatcherSuite) insert(c *gc.C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Insert: M{"n": 1}}}
-	err := s.runner.Run(ops, "", nil)
+	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	revno = s.revno(c, coll, id)
 	c.Logf("insert(%#v, %#v) => revno %d", coll, id, revno)
@@ -126,7 +145,9 @@ func (s *TxnWatcherSuite) insertAll(c *gc.C, coll string, ids ...interface{}) (r
 	for _, id := range ids {
 		ops = append(ops, txn.Op{C: coll, Id: id, Insert: M{"n": 1}})
 	}
-	err := s.runner.Run(ops, "", nil)
+	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	for _, id := range ids {
 		revnos = append(revnos, s.revno(c, coll, id))
@@ -137,7 +158,9 @@ func (s *TxnWatcherSuite) insertAll(c *gc.C, coll string, ids ...interface{}) (r
 
 func (s *TxnWatcherSuite) update(c *gc.C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Update: M{"$inc": M{"n": 1}}}}
-	err := s.runner.Run(ops, "", nil)
+	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	revno = s.revno(c, coll, id)
 	c.Logf("update(%#v, %#v) => revno %d", coll, id, revno)
@@ -146,7 +169,9 @@ func (s *TxnWatcherSuite) update(c *gc.C, coll string, id interface{}) (revno in
 
 func (s *TxnWatcherSuite) remove(c *gc.C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Remove: true}}
-	err := s.runner.Run(ops, "", nil)
+	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("remove(%#v, %#v) => revno -1", coll, id)
 	return -1
@@ -170,6 +195,7 @@ func (s *TxnWatcherSuite) TestErrAndDead(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestInsert(c *gc.C) {
+	s.newRunner(c)
 	_, hub := s.newWatcher(c, 1)
 
 	revno := s.insert(c, "test", "a")
@@ -183,6 +209,7 @@ func (s *TxnWatcherSuite) TestInsert(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestUpdate(c *gc.C) {
+	s.newRunner(c)
 	s.insert(c, "test", "a")
 
 	_, hub := s.newWatcher(c, 1)
@@ -197,6 +224,7 @@ func (s *TxnWatcherSuite) TestUpdate(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestRemove(c *gc.C) {
+	s.newRunner(c)
 	s.insert(c, "test", "a")
 
 	_, hub := s.newWatcher(c, 1)
@@ -211,6 +239,28 @@ func (s *TxnWatcherSuite) TestRemove(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
+	s.newRunner(c)
+	_, hub := s.newWatcher(c, 3)
+
+	revno1 := s.insert(c, "test", "a")
+	revno2 := s.insert(c, "test", "b")
+	revno3 := s.insert(c, "test", "c")
+
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
+	hub.waitForExpected(c)
+
+	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
+		{"test", "a", revno1},
+		{"test", "b", revno2},
+		{"test", "c", revno3},
+	})
+}
+
+func (s *TxnWatcherSuite) TestMissingOplogCollection(c *gc.C) {
+	db := s.MgoSuite.Session.DB("juju")
+	s.log = db.C("missingsstxns.log")
+
+	s.newRunner(c)
 	_, hub := s.newWatcher(c, 3)
 
 	revno1 := s.insert(c, "test", "a")
@@ -228,6 +278,7 @@ func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestTransactionWithMultiple(c *gc.C) {
+	s.newRunner(c)
 	_, hub := s.newWatcher(c, 3)
 
 	revnos := s.insertAll(c, "test", "a", "b", "c")
@@ -246,6 +297,7 @@ func (s *TxnWatcherSuite) TestScale(c *gc.C) {
 	const N = 500
 	const T = 10
 
+	s.newRunner(c)
 	_, hub := s.newWatcher(c, N)
 
 	c.Logf("Creating %d documents, %d per transaction...", N, T)
@@ -255,7 +307,9 @@ func (s *TxnWatcherSuite) TestScale(c *gc.C) {
 		for j := 0; j < T && i*T+j < N; j++ {
 			ops = append(ops, txn.Op{C: "test", Id: i*T + j, Insert: M{"n": 1}})
 		}
-		err := s.runner.Run(ops, "", nil)
+		err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
+			return ops, nil
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -273,6 +327,7 @@ func (s *TxnWatcherSuite) TestScale(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
+	s.newRunner(c)
 	_, hub := s.newWatcher(c, 2)
 
 	revno1 := s.insert(c, "test", "a")
@@ -289,6 +344,7 @@ func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestDoubleUpdate(c *gc.C) {
+	s.newRunner(c)
 	_, hub := s.newWatcher(c, 2)
 
 	revno1 := s.insert(c, "test", "a")
@@ -316,6 +372,7 @@ func (s *TxnWatcherSuite) TestErrorRetry(c *gc.C) {
 		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 		return fakeIter
 	}
+	s.newRunner(c)
 	_, hub := s.newWatcher(c, 1)
 	revno := s.insert(c, "test", "a")
 
@@ -340,6 +397,7 @@ func (s *TxnWatcherSuite) TestOutOfSyncError(c *gc.C) {
 		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 		return fakeIter
 	}
+	s.newRunner(c)
 	_, hub := s.newWatcherWithError(c, 1, watcher.OutOfSyncError)
 	s.insert(c, "test", "a")
 

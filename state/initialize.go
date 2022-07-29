@@ -64,6 +64,10 @@ type InitializeParams struct {
 	// for closing this session; Initialize will copy it.
 	MongoSession *mgo.Session
 
+	// MaxTxnAttempts is the number of attempts when running transactions
+	// against mongo. OpenStatePool defaults this if 0.
+	MaxTxnAttempts int
+
 	// AdminPassword holds the password for the initial user.
 	AdminPassword string
 }
@@ -158,6 +162,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       args.MongoSession,
+		MaxTxnAttempts:     args.MaxTxnAttempts,
 		NewPolicy:          args.NewPolicy,
 		InitDatabaseFunc:   InitDatabase,
 	})

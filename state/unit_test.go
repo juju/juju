@@ -1104,8 +1104,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 			s.setControllerVote(c, host.Id(), true)
 		},
 	}
-	// You'll need to adjust the flip-flops to match the number of transaction
-	// retries.
+	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
 
 	c.Assert(target.Destroy(), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)

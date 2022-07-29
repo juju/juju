@@ -491,7 +491,7 @@ type ModelParam struct {
 // UpgradeModel contains the arguments for UpgradeModel API call.
 type UpgradeModelParams struct {
 	ModelTag            string         `json:"model-tag"`
-	TargetVersion       version.Number `json:"targert-version"`
+	TargetVersion       version.Number `json:"target-version"`
 	AgentStream         string         `json:"agent-stream,omitempty"`
 	IgnoreAgentVersions bool           `json:"ignore-agent-versions,omitempty"`
 	DryRun              bool           `json:"dry-run,omitempty"`

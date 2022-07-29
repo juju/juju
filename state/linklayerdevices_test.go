@@ -931,6 +931,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithModerateStateChu
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithTooMuchStateChurn(c *gc.C) {
 	childArgs, churnHook := s.prepareSetLinkLayerDevicesWithStateChurn(c)
+	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, churnHook, churnHook, churnHook).Check()
 	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, 1) // parent only
 

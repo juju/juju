@@ -263,6 +263,10 @@ type database struct {
 	// clock is used to time how long transactions take to run
 	clock clock.Clock
 
+	// maxTxnAttempts is used when creating the txn runner to control how
+	// many attempts a txn should have.
+	maxTxnAttempts int
+
 	mu           sync.RWMutex
 	queryTracker *queryTracker
 }
@@ -274,12 +278,13 @@ type RunTransactionObserverFunc func(dbName, modelUUID string, attempt int, dura
 func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
 	return &database{
-		raw:        db.raw.With(session),
-		schema:     db.schema,
-		modelUUID:  modelUUID,
-		runner:     db.runner,
-		ownSession: true,
-		clock:      db.clock,
+		raw:            db.raw.With(session),
+		schema:         db.schema,
+		modelUUID:      modelUUID,
+		runner:         db.runner,
+		ownSession:     true,
+		clock:          db.clock,
+		maxTxnAttempts: db.maxTxnAttempts,
 	}, session.Close
 }
 
@@ -385,11 +390,13 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			}
 		}
 		params := jujutxn.RunnerParams{
-			Database:               raw,
-			RunTransactionObserver: observer,
-			Clock:                  db.clock,
-			ServerSideTransactions: true,
-			MaxRetryAttempts:       40,
+			Database:                  raw,
+			RunTransactionObserver:    observer,
+			Clock:                     db.clock,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "sstxns.log",
+			ServerSideTransactions:    true,
+			MaxRetryAttempts:          db.maxTxnAttempts,
 		}
 		runner = jujutxn.NewRunner(params)
 	}
