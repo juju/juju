@@ -281,6 +281,31 @@ post_bootstrap() {
 	post_add_model
 }
 
+normalise_arch() {
+	raw_arch=${1}
+
+	case "${raw_arch}" in
+	"amd64" | "x86_64")
+		echo "amd64"
+		;;
+	i[3456789]86)
+		echo "i386"
+		;;
+	*arm | armv*)
+		echo "armhf"
+		;;
+	"aarch64")
+		echo "arm64"
+		;;
+	"ppc64" | "ppc64el" | "ppc64le")
+		echo "ppc64el"
+		;;
+	"s390x")
+		echo "s390x"
+		;;
+	esac
+}
+
 # post_add_model does provider specific config required after a new model is added
 # and shouldn't be used by any of the tests directly.
 post_add_model() {
@@ -290,7 +315,8 @@ post_add_model() {
 		;;
 	esac
 
-	juju set-model-constraints "arch=$(uname -m)"
+	arch=$(uname -m)
+	juju set-model-constraints "arch=$(normalise_arch  arch)"
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the
