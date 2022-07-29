@@ -24,7 +24,13 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy cs:postgresql --series bionic
+	arch=$(uname -m)
+	if [[ $arch == "aarch64" ]];
+	then
+	  juju deploy cs:postgresql --series bionic --constraints "arch=arm64"
+	else
+	  juju deploy cs:postgresql --series bionic
+	fi
 	series=$(juju status --format=json | jq ".applications.postgresql.series")
 
 	destroy_model "test-deploy-specific-series"
@@ -39,7 +45,13 @@ run_deploy_lxd_profile_charm() {
 
 	ensure "test-deploy-lxd-profile" "${file}"
 
-	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5
+	arch=$(uname -m)
+	if [[ $arch == "aarch64" ]];
+	then
+	  juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --constraints "arch=arm64"
+	else
+	  juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5
+	fi
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
 	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
@@ -54,7 +66,13 @@ run_deploy_lxd_profile_charm_container() {
 
 	ensure "test-deploy-lxd-profile-container" "${file}"
 
-	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic
+	arch=$(uname -m)
+	if [[ $arch == "aarch64" ]];
+	then
+	  juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic --constraints "arch=arm64"
+	else
+	  juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic
+	fi
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
@@ -70,8 +88,15 @@ run_deploy_local_lxd_profile_charm() {
 
 	ensure "test-deploy-local-lxd-profile" "${file}"
 
-	juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
-	juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
+	arch=$(uname -m)
+	if [[ $arch == "aarch64" ]];
+	then
+	  juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic --constraints "arch=arm64"
+	  juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate --constraints "arch=arm64"
+	else
+	  juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
+	  juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
+	fi
 	juju add-relation lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
@@ -117,7 +142,13 @@ run_deploy_lxd_to_machine() {
 	juju add-machine -n 2 --series=bionic
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to 0 --series=bionic
+	arch=$(uname -m)
+	if [[ $arch == "aarch64" ]];
+	then
+	  juju deploy "${charm}" --to 0 --series=bionicc --constraints "arch=arm64"
+	else
+	  juju deploy "${charm}" --to 0 --series=bionic --series=bionic
+	fi
 
 	# Test the case where we wait for the machine to start
 	# before deploying the unit.
@@ -180,7 +211,13 @@ run_deploy_lxd_to_container() {
 	ensure "${model_name}" "${file}"
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to lxd --series=bionic
+	arch=$(uname -m)
+	if [[ $arch == "aarch64" ]];
+	then
+	  juju deploy "${charm}" --to lxd --series=bionic --constraints "arch=arm64"
+	else
+	  juju deploy "${charm}" --to lxd --series=bionic --series=bionic
+	fi
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
