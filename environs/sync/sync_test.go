@@ -92,47 +92,44 @@ var tests = []struct {
 	ctx         *sync.SyncContext
 	source      bool
 	tools       []version.Binary
-	version     version.Number
 	major       int
 	minor       int
 }{
 	{
 		description: "copy newest from the filesystem",
-		ctx:         &sync.SyncContext{},
-		source:      true,
-		tools:       v180all,
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("1.8.0"),
+		},
+		source: true,
+		tools:  v180all,
 	},
 	{
 		description: "copy newest from the dummy model",
-		ctx:         &sync.SyncContext{},
-		tools:       v180all,
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("1.8.0"),
+		},
+		tools: v180all,
 	},
 	{
 		description: "copy matching dev from the dummy model",
-		ctx:         &sync.SyncContext{},
-		version:     version.MustParse("1.9.3"),
-		tools:       v190all,
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("1.9.0"),
+		},
+		tools: v190all,
 	},
 	{
-		description: "copy matching major, minor from the dummy model",
-		ctx:         &sync.SyncContext{},
-		major:       3,
-		minor:       2,
-		tools:       []version.Binary{v320u64},
+		description: "copy matching version from the dummy model",
+		ctx: &sync.SyncContext{
+			ChosenVersion: version.MustParse("3.2.0"),
+		},
+		tools: []version.Binary{v320u64},
 	},
 	{
 		description: "copy matching major, minor dev from the dummy model",
-		ctx:         &sync.SyncContext{},
-		major:       3,
-		minor:       1,
-		tools:       []version.Binary{v310u64},
-	},
-	{
-		description: "copy all from the dummy model",
 		ctx: &sync.SyncContext{
-			AllVersions: true,
+			ChosenVersion: version.MustParse("3.1.0"),
 		},
-		tools: v1all,
+		tools: []version.Binary{v310u64},
 	},
 }
 
@@ -148,13 +145,10 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			if test.source {
 				test.ctx.Source = s.localStorage
 			}
-			if test.version != version.Zero {
-				jujuversion.Current = test.version
+			if test.ctx.ChosenVersion != version.Zero {
+				jujuversion.Current = test.ctx.ChosenVersion
 			}
-			if test.major > 0 {
-				test.ctx.MajorVersion = test.major
-				test.ctx.MinorVersion = test.minor
-			}
+
 			uploader := fakeToolsUploader{
 				uploaded: make(map[version.Binary]bool),
 			}
@@ -227,7 +221,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.targetStorage = stor
 }
 
-func (s *uploadSuite) patchBundleTools(c *gc.C, v *version.Number) {
+func (s *uploadSuite) patchBundleTools(c *gc.C, v version.Number) {
 	// Mock out building of tools. Sync should not care about the contents
 	// of tools archives, other than that they hash correctly.
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, v))
@@ -249,8 +243,11 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	s.patchBundleTools(c, nil)
-	t, err := sync.Upload(ss, s.targetStorage, "released", nil)
+	forceVersion := jujuversion.Current
+	s.patchBundleTools(c, forceVersion)
+	t, err := sync.Upload(ss, s.targetStorage, "released",
+		func(version.Number) version.Number { return forceVersion },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -265,10 +262,12 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	vers := jujuversion.Current
-	vers.Patch++
-	s.patchBundleTools(c, &vers)
-	t, err := sync.Upload(ss, s.targetStorage, "released", &vers)
+	forceVersion := jujuversion.Current
+	forceVersion.Patch++
+	s.patchBundleTools(c, forceVersion)
+	t, err := sync.Upload(ss, s.targetStorage, "released",
+		func(version.Number) version.Number { return forceVersion },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion(c))
 }
@@ -280,8 +279,12 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	s.patchBundleTools(c, nil)
-	builtTools, err := sync.BuildAgentTarball(true, nil, "released")
+	forceVersion := jujuversion.Current
+	forceVersion.Patch++
+	s.patchBundleTools(c, forceVersion)
+	builtTools, err := sync.BuildAgentTarball(true, "released",
+		func(version.Number) version.Number { return forceVersion },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,10 +299,12 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	ss := NewMockSimplestreamsFetcher(ctrl)
 	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
 
-	vers := jujuversion.Current
-	vers.Patch++
-	s.patchBundleTools(c, &vers)
-	builtTools, err := sync.BuildAgentTarball(true, &vers, "released")
+	forceVersion := jujuversion.Current
+	forceVersion.Patch++
+	s.patchBundleTools(c, forceVersion)
+	builtTools, err := sync.BuildAgentTarball(true, "released",
+		func(version.Number) version.Number { return forceVersion },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
@@ -350,7 +355,10 @@ func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
 	defer func() { _ = f.Close() }()
 	defer func() { _ = os.Remove(f.Name()) }()
 
-	return envtools.BundleTools(true, f, &jujuversion.Current)
+	tvers, _, official, sha256hash, err := envtools.BundleTools(true, f,
+		func(version.Number) version.Number { return jujuversion.Current },
+	)
+	return tvers, official, sha256hash, err
 }
 
 type badBuildSuite struct {
@@ -414,7 +422,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	c.Assert(sha256Hash, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &jujuversion.Current))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, jujuversion.Current))
 
 	// Test that BundleTools func passes after it is
 	// mocked out
@@ -423,31 +431,6 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	c.Assert(vers.Number, gc.Equals, jujuversion.Current)
 	c.Assert(official, jc.IsFalse)
 	c.Assert(sha256Hash, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
-}
-
-func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
-	s.patchExecCommand(c)
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
-
-	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Test that original Upload Func fails as expected
-	t, err := sync.Upload(ss, stor, "released", nil)
-	c.Assert(t, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
-
-	// Test that Upload func passes after BundleTools func is mocked out
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, nil))
-	t, err = sync.Upload(ss, stor, "released", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEqualsCurrentVersion(c, t.Version)
-	c.Assert(t.URL, gc.Not(gc.Equals), "")
 }
 
 func (s *badBuildSuite) patchExecCommand(c *gc.C) {
@@ -462,14 +445,19 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 	s.patchExecCommand(c)
 
 	// Test that original BuildAgentTarball fails
-	builtTools, err := sync.BuildAgentTarball(true, nil, "released")
+	builtTools, err := sync.BuildAgentTarball(true, "released",
+		func(version.Number) version.Number { return version.Zero },
+	)
 	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 	c.Assert(builtTools, gc.IsNil)
 
 	// Test that BuildAgentTarball func passes after BundleTools func is
 	// mocked out
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, nil))
-	builtTools, err = sync.BuildAgentTarball(true, nil, "released")
+	forceVersion := coretesting.CurrentVersion(c).Number
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, forceVersion))
+	builtTools, err = sync.BuildAgentTarball(true, "released",
+		func(version.Number) version.Number { return forceVersion },
+	)
 	s.assertEqualsCurrentVersion(c, builtTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -477,7 +465,9 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *gc.C) {
 	s.patchExecCommand(c)
 
-	builtTools, err := sync.BuildAgentTarball(false, nil, "released")
+	builtTools, err := sync.BuildAgentTarball(false, "released",
+		func(version.Number) version.Number { return version.Zero },
+	)
 	c.Assert(err, gc.ErrorMatches, `no prepackaged agent available and no jujud binary can be found`)
 	c.Assert(builtTools, gc.IsNil)
 }
@@ -485,25 +475,33 @@ func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *gc.C) {
 func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 	var (
 		writer       io.Writer
-		forceVersion *version.Number
+		forceVersion version.Number
 		n            int
 		p            bytes.Buffer
 	)
 	p.WriteString("Hello World")
 
-	s.PatchValue(&envtools.BundleTools, func(build bool, writerArg io.Writer, forceVersionArg *version.Number) (vers version.Binary, official bool, sha256Hash string, err error) {
-		c.Assert(build, jc.IsTrue)
-		writer = writerArg
-		n, err = writer.Write(p.Bytes())
-		c.Assert(err, jc.ErrorIsNil)
-		forceVersion = forceVersionArg
-		vers.Number = jujuversion.Current
-		return
-	})
+	s.PatchValue(&envtools.BundleTools,
+		func(
+			build bool, writerArg io.Writer,
+			getForceVersion func(version.Number) version.Number,
+		) (vers version.Binary, fVersion version.Number, official bool, sha256Hash string, err error) {
+			c.Assert(build, jc.IsTrue)
+			writer = writerArg
+			n, err = writer.Write(p.Bytes())
+			c.Assert(err, jc.ErrorIsNil)
+			forceVersion = getForceVersion(version.Zero)
+			fVersion = forceVersion
+			vers.Number = jujuversion.Current
+			return
+		},
+	)
 
-	_, err := sync.BuildAgentTarball(true, &jujuversion.Current, "released")
+	_, err := sync.BuildAgentTarball(true, "released",
+		func(version.Number) version.Number { return jujuversion.Current },
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*forceVersion, gc.Equals, jujuversion.Current)
+	c.Assert(forceVersion, gc.Equals, jujuversion.Current)
 	c.Assert(writer, gc.NotNil)
 	c.Assert(n, gc.Equals, len(p.Bytes()))
 }
@@ -533,12 +531,16 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 	buildToolsFunc := toolstesting.GetMockBuildTools(c)
-	builtTools, err := buildToolsFunc(true, nil, "released")
+	builtTools, err := buildToolsFunc(true, "released",
+		func(version.Number) version.Number { return jujuversion.Current },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	checkTools(builtTools, current)
 
 	vers := version.MustParseBinary("1.5.3-ubuntu-amd64")
-	builtTools, err = buildToolsFunc(true, &vers.Number, "released")
+	builtTools, err = buildToolsFunc(true, "released",
+		func(version.Number) version.Number { return vers.Number },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	checkTools(builtTools, vers)
 }

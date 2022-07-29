@@ -59,10 +59,7 @@ func (s *managerSuite) makeManager(c *gc.C) {
 }
 
 func (s *managerSuite) makeManagerForConfig(c *gc.C, cfg container.ManagerConfig) {
-	svr, err := lxd.NewServer(s.cSvr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	manager, err := lxd.NewContainerManager(cfg, svr)
+	manager, err := lxd.NewContainerManager(cfg, func() (*lxd.Server, error) { return lxd.NewServer(s.cSvr) })
 	c.Assert(err, jc.ErrorIsNil)
 	s.manager = manager
 }
@@ -93,7 +90,8 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	instancecfg.PopulateInstanceConfig(
+
+	err = instancecfg.PopulateInstanceConfig(
 		icfg,
 		"lxd",
 		"",
@@ -104,6 +102,8 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		nil,
 		nil,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	list := coretools.List{
 		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
@@ -337,10 +337,10 @@ func (s *managerSuite) TestListContainers(c *gc.C) {
 }
 
 func (s *managerSuite) TestIsInitialized(c *gc.C) {
-	defer s.setup(c).Finish()
+	mgr, err := lxd.NewContainerManager(getBaseConfig(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.makeManager(c)
-	c.Check(s.manager.IsInitialized(), gc.Equals, true)
+	c.Check(mgr.IsInitialized(), gc.Equals, lxd.HasSupport())
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {

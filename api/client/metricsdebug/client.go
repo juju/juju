@@ -6,7 +6,6 @@ package metricsdebug
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
@@ -14,7 +13,6 @@ import (
 // Client provides access to the metric debug api
 type Client struct {
 	base.ClientFacade
-	st     api.Connection
 	facade base.FacadeCaller
 }
 

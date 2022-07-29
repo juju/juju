@@ -55,17 +55,6 @@ type Server struct {
 	clock clock.Clock
 }
 
-// MaybeNewLocalServer returns a Server based on a local socket connection,
-// if running on an OS supporting LXD containers by default.
-// Otherwise a nil server is returned.
-func MaybeNewLocalServer() (*Server, error) {
-	if !HasSupport() {
-		return nil, nil
-	}
-	svr, err := NewLocalServer()
-	return svr, errors.Trace(err)
-}
-
 // NewLocalServer returns a Server based on a local socket connection.
 func NewLocalServer() (*Server, error) {
 	cSvr, err := connectLocal()

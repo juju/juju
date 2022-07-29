@@ -162,8 +162,8 @@ github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJm
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac h1:X5YRFJiteUM3rajABEYJSzw1KWgmp1ulPFKxpfLm0M4=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
-github.com/canonical/pebble v0.0.0-20220620222205-a30d4c54906d h1:e8dsg555C5gfrtA3r4FEmL4i5fh3rwHhTfRS0E7bWV0=
-github.com/canonical/pebble v0.0.0-20220620222205-a30d4c54906d/go.mod h1:qAIw8HY2rZZZ7QOhG9wD/4rtXvPJfvaOg+uWbhSABpc=
+github.com/canonical/pebble v0.0.0-20220729021256-d9b6b8c3b562 h1:6AaAlZ1RTap/3tM875FDAPWdQUtvNrh3OV5XksgRhgo=
+github.com/canonical/pebble v0.0.0-20220729021256-d9b6b8c3b562/go.mod h1:qAIw8HY2rZZZ7QOhG9wD/4rtXvPJfvaOg+uWbhSABpc=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1 h1:6MnRN8NT7+YBpUIWxHtefFZOKTAPgGjpQSxqLNn0+qY=
