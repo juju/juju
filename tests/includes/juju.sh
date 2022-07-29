@@ -290,10 +290,7 @@ post_add_model() {
 		;;
 	esac
 
-	arch=$(uname -m)
-	if [[ $arch == "aarch64" ]]; then
-	  juju set-model-constraints arch=arm64
-  fi
+	juju set-model-constraints "arch=$(uname -m)"
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the
