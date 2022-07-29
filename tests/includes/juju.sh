@@ -281,6 +281,9 @@ post_bootstrap() {
 	post_add_model
 }
 
+# normalise_arch returns the Juju architecture corresponding to a machine's
+# reported architecture. The Juju architecture is used to filter simple
+# streams lookup of tools and images.
 normalise_arch() {
 	raw_arch=${1}
 
