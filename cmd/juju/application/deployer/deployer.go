@@ -15,6 +15,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -570,6 +571,25 @@ func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string 
 	// consistent output in any errors containing the returned list contents.
 	sort.Strings(tl)
 	return tl
+}
+
+func seriesSelectorRequirements(api ModelConfigGetter, cl jujuclock.Clock, chURL *charm.URL) (*config.Config, set.Strings, error) {
+	// resolver.resolve potentially updates the series of anything
+	// passed in. Store this for use in seriesSelector.
+	userRequestedSeries := chURL.Series
+
+	modelCfg, err := getModelConfig(api)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	imageStream := modelCfg.ImageStream()
+	workloadSeries, err := supportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return modelCfg, workloadSeries, nil
 }
 
 var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
