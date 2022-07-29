@@ -145,7 +145,7 @@ run_deploy_lxd_to_machine() {
 	arch=$(uname -m)
 	if [[ $arch == "aarch64" ]];
 	then
-	  juju deploy "${charm}" --to 0 --series=bionicc --constraints "arch=arm64"
+	  juju deploy "${charm}" --to 0 --series=bionic --constraints "arch=arm64"
 	else
 	  juju deploy "${charm}" --to 0 --series=bionic --series=bionic
 	fi
