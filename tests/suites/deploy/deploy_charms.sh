@@ -216,7 +216,7 @@ run_deploy_lxd_to_container() {
 	then
 	  juju deploy "${charm}" --to lxd --series=bionic --constraints "arch=arm64"
 	else
-	  juju deploy "${charm}" --to lxd --series=bionic --series=bionic
+	  juju deploy "${charm}" --to lxd --series=bionic
 	fi
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
@@ -278,7 +278,6 @@ test_deploy_charms() {
 
 		run "run_deploy_charm"
 		run "run_deploy_specific_series"
-		run "run_deploy_lxd_to_container"
 		run "run_deploy_lxd_profile_charm_container"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
@@ -288,6 +287,7 @@ test_deploy_charms() {
 			run "run_deploy_local_lxd_profile_charm"
 			;;
 		*)
+			run "run_deploy_lxd_to_container"
 			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
