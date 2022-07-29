@@ -205,7 +205,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	for _, plan := range plans {
 		table.AddRow(plan.URL, plan.Price, plan.Description)
 	}
-	fmt.Fprint(writer, table)
+	fmt.Fprintln(writer, table)
 	return nil
 }
 

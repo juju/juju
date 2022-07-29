@@ -837,7 +837,6 @@ Running operation 1 with 1 task
 
 Waiting for task 1...
 hello
-
 `[1:],
 	}, {
 		about:   "verbose",
@@ -848,12 +847,11 @@ Running operation 1 with 1 task
 
 Waiting for task 1...
 hello
-
 `[1:],
 	}, {
 		about:  "quiet",
 		quiet:  true,
-		output: "hello\n\n",
+		output: "hello\n",
 	}}
 
 	// Set up fake API client

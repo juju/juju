@@ -107,7 +107,6 @@ Time                  Type       Status       Message
 2017-11-28 12:39:56Z  juju-unit  executing    running install hoook
 2017-11-28 12:40:56Z  juju-unit  executing    running config-changed hoook
 2017-11-28 12:41:56Z  model      suspended    invalid credentials
-
 `[1:]
 	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0", "--utc")
 	c.Assert(err, jc.ErrorIsNil)

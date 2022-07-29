@@ -137,7 +137,6 @@ Name     Display name    Access     Date created  Last connection
 adam*    Adam Zulu       login      2012-10-08    2014-01-01
 barbara  Barbara Yellow  add-model  2013-05-02    just now
 charlie  Charlie Xavier  superuser  6 hours ago   never connected
-
 `[1:])
 }
 
@@ -152,7 +151,6 @@ adam*    Adam Zulu       login      2012-10-08    2014-01-01
 barbara  Barbara Yellow  add-model  2013-05-02    just now
 charlie  Charlie Xavier  superuser  6 hours ago   never connected
 davey    Davey Willow               2014-10-09    35 minutes ago (disabled)
-
 `[1:])
 }
 
@@ -166,7 +164,6 @@ Name     Display name    Access     Date created                   Last connecti
 adam*    Adam Zulu       login      2012-10-08 00:00:00 +0000 UTC  2014-01-01 00:00:00 +0000 UTC
 barbara  Barbara Yellow  add-model  2013-05-02 00:00:00 +0000 UTC  2016-09-15 12:00:00 +0000 UTC
 charlie  Charlie Xavier  superuser  2016-09-15 06:00:00 +0000 UTC  never connected
-
 `[1:])
 }
 
@@ -210,7 +207,6 @@ Name                Display name  Access  Last connection
 adam*               Adam          read    2015-03-01
 admin                             write   2015-03-20
 charlie@ubuntu.com  Charlie       read    never connected
-
 `[1:])
 }
 

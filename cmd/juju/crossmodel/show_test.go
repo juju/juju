@@ -112,7 +112,6 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 Store        URL             Access   Description                                 Endpoint  Interface  Role
 test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
                                       level database system                       log       http       provider
-
 `[1:],
 	)
 }
@@ -126,7 +125,6 @@ func (s *showSuite) TestShowDifferentController(c *gc.C) {
 Store      URL             Access   Description                                 Endpoint  Interface  Role
 different  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
                                     level database system                       log       http       provider
-
 `[1:],
 	)
 }
@@ -143,7 +141,6 @@ test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry
                                       Edition is an entry level database systemIBM                       
                                       DB2 Express Server Edition is an entry level                       
                                       dat                                                                
-
 `[1:],
 	)
 }
@@ -160,7 +157,6 @@ test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry
                                       Edition is an entry level database systemIBM                       
                                       DB2 Express Server Edition is an entry level                       
                                       ...                                                                
-
 `[1:],
 	)
 }

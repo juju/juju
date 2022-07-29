@@ -83,7 +83,7 @@ func formatWhoAmITabular(writer io.Writer, value interface{}) error {
 		modelName = "<no-current-model>"
 	}
 	fmt.Fprintf(tw, "Model:\t%s\n", modelName)
-	fmt.Fprintf(tw, "User:\t%s", details.UserName)
+	fmt.Fprintf(tw, "User:\t%s\n", details.UserName)
 	return tw.Flush()
 }
 

@@ -10,8 +10,9 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/naturalsort"
+
+	"github.com/juju/juju/cmd/output"
 )
 
 // FormatOneline writes a brief list of units and their subordinates.
@@ -59,7 +60,7 @@ func formatOneline(writer io.Writer, forceColor bool, value interface{}, printf 
 	pw := &output.PrintWriter{Writer: output.Writer(writer)}
 	pw.SetColorCapable(forceColor)
 	pprint := func(uName string, u unitStatus, level int) {
-		format := indent("\n", level*2, "- %s: %s (%v)")
+		format := indent("", level*2, "- %s: %s (%v)")
 		if forceColor {
 			printf(writer, format, colorVal(output.GoodHighlight, uName), u, level)
 		} else {
@@ -69,6 +70,7 @@ func formatOneline(writer io.Writer, forceColor bool, value interface{}, printf 
 			fmt.Fprintf(pw, " ")
 			printPorts(pw, u.OpenedPorts)
 		}
+		fmt.Fprintln(pw)
 	}
 	for _, svcName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
 		svc := fs.Applications[svcName]
