@@ -32474,14 +32474,14 @@
                         "model-tag": {
                             "type": "string"
                         },
-                        "targert-version": {
+                        "target-version": {
                             "$ref": "#/definitions/Number"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "model-tag",
-                        "targert-version"
+                        "target-version"
                     ]
                 },
                 "UpgradeModelResult": {
