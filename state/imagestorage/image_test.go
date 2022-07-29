@@ -46,6 +46,7 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 		TransactionCollectionName: "txns",
 		ChangeLogName:             "sstxns.log",
 		ServerSideTransactions:    true,
+		MaxRetryAttempts:          3,
 	})
 	s.patchTransactionRunner()
 }

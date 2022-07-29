@@ -57,6 +57,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		TransactionCollectionName: "txns",
 		ChangeLogName:             "sstxns.log",
 		ServerSideTransactions:    true,
+		MaxRetryAttempts:          3,
 	})
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }

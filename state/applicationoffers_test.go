@@ -801,6 +801,7 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 		}
 	}
 
+	state.SetMaxTxnAttempts(c, s.State, 3)
 	bumpTxnRevno := jujutxn.TestHook{Before: addRelation, After: rmRelations}
 	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
 

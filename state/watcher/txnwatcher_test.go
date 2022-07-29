@@ -13,7 +13,7 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
@@ -86,6 +86,7 @@ func (s *TxnWatcherSuite) newRunner(c *gc.C) {
 		TransactionCollectionName: "txn",
 		ChangeLogName:             s.log.Name,
 		ServerSideTransactions:    true,
+		MaxRetryAttempts:          3,
 	})
 }
 
