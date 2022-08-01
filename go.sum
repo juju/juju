@@ -589,8 +589,8 @@ github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5 h1:+eWzUG6XLDSdcz
 github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5/go.mod h1:F7wHQBX+lEJkv9PhNCgNJgCeI+GISZW2RefLINbmgXU=
 github.com/juju/ratelimit v1.0.2 h1:sRxmtRiajbvrcLQT7S+JbqU0ntsb9W2yhSdNN8tWfaI=
 github.com/juju/ratelimit v1.0.2/go.mod h1:qapgC/Gy+xNh9UxzV13HGGl/6UXNN+ct+vwSgWNm/qk=
-github.com/juju/replicaset/v2 v2.0.1 h1:SN/dCaKCz0QjMaJ9iAZ8V5JQ+eN/nstFfVFRaSwwHuo=
-github.com/juju/replicaset/v2 v2.0.1/go.mod h1:Mje4O+NYfZYzJKPcIVJcHQ62b63Y3T+qNXqocm4gxz0=
+github.com/juju/replicaset/v2 v2.0.2 h1:4bzoj5lPaDnZBHmJoNJgYtww402DGUNh+hIZtdS0Ufs=
+github.com/juju/replicaset/v2 v2.0.2/go.mod h1:hCXHAvcg9YZ/v5vE997LYWtbhK3zPamswgM+e9iY8r8=
 github.com/juju/retry v0.0.0-20151029024821-62c620325291/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
 github.com/juju/retry v0.0.0-20180821225755-9058e192b216/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
 github.com/juju/retry v1.0.0 h1:Tb1hFdDSPGLH/BGdYQOF7utQ9lA0ouVJX2imqgJK6tk=

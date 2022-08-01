@@ -193,6 +193,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeMachineHasContainers
 	case errors.Is(err, stateerrors.StorageAttachedError):
 		code = params.CodeStorageAttached
+	case errors.Is(err, stateerrors.IsControllerMemberError):
+		code = params.CodeTryAgain
 	case errors.Is(err, UnknownModelError):
 		code = params.CodeModelNotFound
 	case errors.Is(err, errors.NotSupported):

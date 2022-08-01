@@ -5,6 +5,7 @@ package backups
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v2"
 	"github.com/juju/replicaset/v2"
 
 	"github.com/juju/juju/mongo"
@@ -12,7 +13,9 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-var waitUntilReady = replicaset.WaitUntilReady
+var waitUntilReady = func(s *mgo.Session, timeout int) error {
+	return replicaset.WaitUntilReady(s, timeout)
+}
 
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
