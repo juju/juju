@@ -2,8 +2,8 @@
 # upgrade the series, and that the charm still behaves correctly.
 run_upgrade_series_relation() {
 	local start_series end_series
-	start_series="bionic"
-	end_series="focal"
+	start_series="focal"
+	end_series="jammy"
 
 	# Setup
 	ensure "test-upgrade-series-relation" "${TEST_DIR}/test-upgrade-series-relation.log"
@@ -21,7 +21,8 @@ run_upgrade_series_relation() {
 	reboot_machine 0
 	echo "Upgrading machine..."
 	echo "See ${TEST_DIR}/do-release-upgrade.log for progress."
-	juju ssh 0 'sudo do-release-upgrade -f DistUpgradeViewNonInteractive' &>"${TEST_DIR}/do-release-upgrade.log" || true
+	# TODO: remove -d flag once Ubuntu 22.04.1 is released
+	juju ssh 0 'sudo do-release-upgrade -d -f DistUpgradeViewNonInteractive' &>"${TEST_DIR}/do-release-upgrade.log" || true
 	reboot_machine 0
 	juju upgrade-series 0 complete
 
