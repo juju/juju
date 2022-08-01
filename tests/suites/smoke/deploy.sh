@@ -1,3 +1,8 @@
+# run_local_deploy is responsible for deploying revision 1 of the refresher
+# charm to first check that deployment is successful. The second part of this
+# test refreshes the charm to revision 2 and verifies that the upgrade hook of
+# the charm has been run by checking the status message of the unit for the
+# string that the charm outputs during it's upgrade hook.
 run_local_deploy() {
 	echo
 
@@ -5,14 +10,13 @@ run_local_deploy() {
 
 	ensure "test-local-deploy" "${file}"
 
-	juju deploy ./tests/suites/smoke/charms/ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy --revision=1 --channel=stable juju-qa-refresher
+	wait_for "refresher" "$(idle_condition "refresher")"
 
-	juju refresh ubuntu --path=./tests/suites/smoke/charms/ubuntu
+	juju refresh refresher
 
 	# Wait for the refresh to happen and then wait again.
-	sleep 10
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "upgrade hook ran v2" "$(workloadstatus "refresher" 0)"
 
 	destroy_model "test-local-deploy"
 }

@@ -18,7 +18,7 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy cs:postgresql --series bionic
+	juju deploy postgresql --series bionic
 	series=$(juju status --format=json | jq ".applications.postgresql.series")
 
 	destroy_model "test-deploy-specific-series"
@@ -33,8 +33,8 @@ run_deploy_lxd_profile_charm() {
 
 	ensure "test-deploy-lxd-profile" "${file}"
 
-	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5
-	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
+	juju deploy juju-qa-lxd-profile-without-devices
+	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
 
@@ -48,8 +48,8 @@ run_deploy_lxd_profile_charm_container() {
 
 	ensure "test-deploy-lxd-profile-container" "${file}"
 
-	juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5 --to lxd --series=bionic
-	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
+	juju deploy juju-qa-lxd-profile-without-devices --to lxd
+	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
 		check "juju-test-deploy-lxd-profile-container-lxd-profile"
@@ -64,8 +64,8 @@ run_deploy_local_lxd_profile_charm() {
 
 	ensure "test-deploy-local-lxd-profile" "${file}"
 
-	juju deploy ./tests/suites/deploy/charms/lxd-profile --series=bionic
-	juju deploy ./tests/suites/deploy/charms/lxd-profile-subordinate
+	juju deploy ./testcharms/charms/lxd-profile
+	juju deploy ./testcharms/charms/lxd-profile-subordinate
 	juju add-relation lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"

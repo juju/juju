@@ -90,7 +90,7 @@ exec_simplestream_metadata() {
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model test-upgrade-"${test_name}"
-	juju deploy ./tests/suites/upgrade/charms/ubuntu
+	juju deploy ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	local CURRENT UPDATED
