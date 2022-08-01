@@ -319,7 +319,7 @@ post_add_model() {
 	esac
 
 	arch=$(uname -m)
-	juju set-model-constraints "arch=$(normalise_arch  "${arch}")"
+	juju set-model-constraints "arch=$(normalise_arch "${arch}")"
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the

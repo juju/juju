@@ -109,7 +109,6 @@ run_deploy_lxd_to_machine() {
 
 	ensure "${model_name}" "${file}"
 
-
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
 	juju add-machine -n 2 --series=bionic
 	juju deploy "${charm}" --to 0 --series=bionic
@@ -236,14 +235,14 @@ test_deploy_charms() {
 
 		run "run_deploy_charm"
 		run "run_deploy_specific_series"
-#		run "run_deploy_lxd_to_container"
-#		run "run_deploy_lxd_profile_charm_container"
+		#		run "run_deploy_lxd_to_container"
+		#		run "run_deploy_lxd_profile_charm_container"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
 			run "run_deploy_lxd_to_machine"
 			run "run_deploy_lxd_profile_charm"
-#			run "run_deploy_local_lxd_profile_charm"
+			#			run "run_deploy_local_lxd_profile_charm"
 			;;
 		*)
 			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
