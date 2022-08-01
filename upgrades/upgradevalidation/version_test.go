@@ -50,20 +50,17 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 		}, {
 			from:    "2.9.34",
 			to:      "3.0.0",
-			allowed: false,
-			minVers: "0.0.0",
-			patch:   false, // We disallow upgrading to 3 for now.
-			err:     `cannot upgrade, "3.0.0" is not a supported version`,
-		},
-		{
+			allowed: true,
+			minVers: "2.9.33",
+			patch:   true,
+		}, {
 			from:    "2.9.0",
 			to:      "4.0.0",
 			allowed: false,
 			minVers: "0.0.0",
 			patch:   true,
 			err:     `cannot upgrade, "4.0.0" is not a supported version`,
-		},
-		{
+		}, {
 			from:    "3.0.0",
 			to:      "2.0.0",
 			allowed: false,

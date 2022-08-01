@@ -210,14 +210,12 @@ func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
 	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse(fmt.Sprintf("%d.0.0", jujuversion.Current.Major+1)),
+		Version: version.MustParse("3.0.0"),
 	}
 	err = s.client.SetModelAgentVersion(args)
-	// We disable upgrading to juju3 for now.
-	// 	c.Assert(err, gc.ErrorMatches, `
-	// these models must first be upgraded to at least 2.8.9 before upgrading the controller:
-	//  -admin/controller`[1:])
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade, "3.0.0" is not a supported version`)
+	c.Assert(err, gc.ErrorMatches, `
+these models must first be upgraded to at least 2.9.33 before upgrading the controller:
+ -admin/controller`[1:])
 }
 
 func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
