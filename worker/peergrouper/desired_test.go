@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
 type desiredPeerGroupSuite struct {
@@ -219,6 +220,24 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v", ipVersion),
 			expectChanged: true,
 		}, {
+			about: "controller dead -> removed from members",
+			machines: append(mkMachines("11v 12v", ipVersion), &controllerTracker{
+				id: "13",
+				addresses: []network.SpaceAddress{{
+					MachineAddress: network.MachineAddress{
+						Value: ipVersion.extraHost,
+						Type:  ipVersion.addressType,
+						Scope: network.ScopeCloudLocal,
+					},
+				}},
+				host: mkController(state.Dead),
+			}),
+			members:       mkMembers("1v 2v 3v", ipVersion),
+			statuses:      mkStatuses("1p 2s 3s", ipVersion),
+			expectVoting:  []bool{true, false},
+			expectMembers: mkMembers("1v 2s", ipVersion),
+			expectChanged: true,
+		}, {
 			about:         "controller removed as controller -> removed from member",
 			machines:      mkMachines("11v 12", ipVersion),
 			members:       mkMembers("1v 2 3", ipVersion),
@@ -254,6 +273,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 						Scope: network.ScopeCloudLocal,
 					},
 				}},
+				host: mkController(state.Alive),
 			}),
 			statuses:     mkStatuses("1s 2p 3s", ipVersion),
 			members:      mkMembers("1v 2v 3v", ipVersion),
@@ -269,6 +289,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			machines: append(mkMachines("11v 12v", ipVersion), &controllerTracker{
 				id:        "13",
 				wantsVote: true,
+				host:      mkController(state.Alive),
 			}),
 			statuses:      mkStatuses("1s 2p 3s", ipVersion),
 			members:       mkMembers("1v 2v 3v", ipVersion),
@@ -376,7 +397,19 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		c.Assert(desired.stepDownPrimary, gc.Equals, test.expectStepDown)
 		c.Assert(membersToTestMembers(members), jc.DeepEquals, membersToTestMembers(test.expectMembers))
 		for i, m := range test.machines {
-			vote, votePresent := desired.nodeVoting[m.Id()]
+			if m.host.Life() == state.Dead {
+				continue
+			}
+			var vote, votePresent bool
+			for _, member := range desired.members {
+				controllerId, ok := member.Tags[jujuNodeKey]
+				c.Assert(ok, jc.IsTrue)
+				if controllerId == m.Id() {
+					votePresent = true
+					vote = isVotingMember(member)
+					break
+				}
+			}
 			c.Check(votePresent, jc.IsTrue)
 			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("controller %s", m.Id()))
 		}
@@ -398,7 +431,20 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		countPrimaries := 0
 		c.Assert(err, gc.IsNil)
 		for i, m := range test.machines {
-			vote, votePresent := desired.nodeVoting[m.Id()]
+			var vote, votePresent bool
+			for _, member := range desired.members {
+				controllerId, ok := member.Tags[jujuNodeKey]
+				c.Assert(ok, jc.IsTrue)
+				if controllerId == m.Id() {
+					votePresent = true
+					vote = isVotingMember(member)
+					break
+				}
+			}
+			if m.host.Life() == state.Dead {
+				c.Assert(votePresent, jc.IsFalse)
+				continue
+			}
 			c.Check(votePresent, jc.IsTrue)
 			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("controller %s", m.Id()))
 			if isPrimaryMember(info, m.Id()) {
@@ -491,6 +537,12 @@ func newFloat64(f float64) *float64 {
 	return &f
 }
 
+func mkController(life state.Life) *fakeController {
+	ctrl := &fakeController{}
+	ctrl.val.Set(controllerDoc{life: life})
+	return ctrl
+}
+
 // mkMachines returns a slice of *machineTracker based on
 // the given description.
 // Each controller in the description is white-space separated
@@ -509,6 +561,7 @@ func mkMachines(description string, ipVersion TestIPVersion) []*controllerTracke
 					Scope: network.ScopeCloudLocal,
 				},
 			}},
+			host:      mkController(state.Alive),
 			wantsVote: strings.Contains(d.flags, "v"),
 		}
 	}

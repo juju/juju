@@ -21,8 +21,13 @@ const (
 	// HasContainersError indicates that the machine had attempted to be
 	// destroyed with containers still running.
 	HasContainersError = errors.ConstError("machine is hosting containers")
+
+	// IsControllerMemberError indicates the machine had attempted to be
+	// destroyed whilst still considered a controller.
+	IsControllerMemberError = errors.ConstError("machine is still a controller member")
 )
 
+// NewHasAssignedUnitsError creates a new error that satisfies HasAssignedUnitsError.
 func NewHasAssignedUnitsError(machineId string, unitNames []string) error {
 	return errors.WithType(
 		fmt.Errorf("machine %s has unit %q assigned",
@@ -32,7 +37,7 @@ func NewHasAssignedUnitsError(machineId string, unitNames []string) error {
 	)
 }
 
-// NewHasContainersError creates a new error that satisfies HasContainersError
+// NewHasContainersError creates a new error that satisfies HasContainersError.
 func NewHasContainersError(machineId string, containerIds []string) error {
 	return errors.WithType(
 		fmt.Errorf("machine %s is hosting containers %q",
@@ -42,6 +47,7 @@ func NewHasContainersError(machineId string, containerIds []string) error {
 	)
 }
 
+// NewHasAttachmentsError creates a new error that satisfies HasAttachmentsError.
 func NewHasAttachmentsError(machineId string, attachments []names.Tag) error {
 	return errors.WithType(
 		fmt.Errorf(
@@ -49,5 +55,24 @@ func NewHasAttachmentsError(machineId string, attachments []names.Tag) error {
 			machineId,
 			attachments),
 		HasAttachmentsError,
+	)
+}
+
+const (
+	voting    = "voting"
+	nonvoting = "non-voting"
+)
+
+// NewIsControllerMemberError creates a new error that satisfies IsControllerMemberError.
+func NewIsControllerMemberError(machineId string, isVoting bool) error {
+	status := nonvoting
+	if isVoting {
+		status = voting
+	}
+	return errors.WithType(
+		fmt.Errorf(
+			"machine %s is still a %s controller member",
+			machineId, status),
+		IsControllerMemberError,
 	)
 }

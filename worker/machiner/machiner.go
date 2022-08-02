@@ -226,6 +226,10 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			logger.Tracef("machine still has storage attached")
 			return nil
 		}
+		if params.IsCodeTryAgain(err) {
+			logger.Tracef("waiting for machine to be removed as a controller")
+			return nil
+		}
 		if params.IsCodeMachineHasContainers(err) {
 			logger.Tracef("machine still has containers")
 			return errors.Annotatef(err, "%q", mr.config.Tag)

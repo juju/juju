@@ -22,6 +22,6 @@ ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)
 if [ $ipv6Disabled -eq 0 ]; then
   args="${args} --ipv6"
 fi
-$(mongod ${args})
+exec mongod ${args}
 `[1:]
 )
