@@ -101,11 +101,14 @@ with the specified name.
 If the cluster does not have a storage provisioning capability, use the
 --skip-storage option to add the cluster without any workload storage configured.
 
-When adding a GKE or AKS cluster, you can use the --gke or --aks option to
-interactively be stepped through the registration process, or you can supply the
-necessary parameters directly.
+When adding an AKS, EKS, or GKE cluster, you can use the --aks, --eks, or --gke
+option to interactively be stepped through the registration process, or you can
+supply the necessary parameters directly. For this to work, you'll have to have az,
+eksctl, or gcloud installed and logged in.
 
 Examples:
+
+When your kubeconfig file is in the default location:
     juju add-k8s myk8scloud
     juju add-k8s myk8scloud --client
     juju add-k8s myk8scloud --controller mycontroller
@@ -115,16 +118,31 @@ Examples:
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
     juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass
 
+To add a Kubernetes cloud using data from your kubeconfig file, when this file is not in the default location:
     KUBECONFIG=path-to-kubeconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
+
+To add a Kubernetes cloud using data from kubectl, when your kubeconfig file is not in the default location:
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
+To add a GKE cluster 'myk8scloud' after gcloud login:
     juju add-k8s --gke myk8scloud
+
+To add a GKE cluster specifying the project the cluster belongs to:
     juju add-k8s --gke --project=myproject myk8scloud
+
+To specify the credential to use when accessing the  cluster:
     juju add-k8s --gke --credential=myaccount --project=myproject myk8scloud
+
+To specify the K8s cluster region or cloud/region:
     juju add-k8s --gke --credential=myaccount --project=myproject --region=someregion myk8scloud
 
+To add an AKS cluster named 'myk8scloud' after az login:
     juju add-k8s --aks myk8scloud
+
+To specify the cluster to import, when you have more than one cluster:
     juju add-k8s --aks --cluster-name mycluster myk8scloud
+
+To specify the Azure resource group of the AKS cluster:
     juju add-k8s --aks --cluster-name mycluster --resource-group myrg myk8scloud
 
 See also:
