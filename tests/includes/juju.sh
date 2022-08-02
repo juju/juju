@@ -152,34 +152,6 @@ bootstrap() {
 	export BOOTSTRAPPED_JUJU_CTRL_NAME="${name}"
 }
 
-# normalise_arch returns the Juju architecture corresponding to a machine's
-# reported architecture. The Juju architecture is used to filter simple
-# streams lookup of tools and images.
-normalise_arch() {
-	raw_arch=${1}
-
-	case "${raw_arch}" in
-	"amd64" | "x86_64")
-		echo "amd64"
-		;;
-	i[3456789]86)
-		echo "i386"
-		;;
-	*arm | armv*)
-		echo "armhf"
-		;;
-	"aarch64")
-		echo "arm64"
-		;;
-	"ppc64" | "ppc64el" | "ppc64le")
-		echo "ppc64el"
-		;;
-	"s390x")
-		echo "s390x"
-		;;
-	esac
-}
-
 # add_model is used to add a model for tracking. This is for internal use only
 # and shouldn't be used by any of the tests directly.
 add_model() {
@@ -318,8 +290,7 @@ post_add_model() {
 		;;
 	esac
 
-	arch=$(uname -m)
-	juju set-model-constraints "arch=$(normalise_arch "${arch}")"
+	juju set-model-constraints "arch=${BUILD_ARCH:-}"
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the
