@@ -818,11 +818,8 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			if hasVote {
-				return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
-			}
-			if m.IsManager() {
-				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
+			if hasVote || m.IsManager() {
+				return nil, stateerrors.NewIsControllerMemberError(m.Id(), hasVote)
 			}
 			asserts = append(asserts, bson.DocElem{
 				Name: "jobs", Value: bson.D{{Name: "$nin", Value: []MachineJob{JobManageModel}}}})

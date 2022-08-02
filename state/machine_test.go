@@ -316,7 +316,7 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 	c.Assert(container.IsContainer(), jc.IsTrue)
 }
 
-func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
+func (s *MachineSuite) TestLifeJobController(c *gc.C) {
 	m := s.machine0
 	err := m.Destroy()
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
