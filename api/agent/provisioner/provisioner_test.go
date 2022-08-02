@@ -217,7 +217,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	// Now try to EnsureDead machine 0 - should fail.
 	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
 	err = apiMachine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is still a controller member")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a non-voting controller member")
 }
 
 func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
