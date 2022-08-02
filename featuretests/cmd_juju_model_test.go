@@ -103,9 +103,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Name           Display name  Access  Last connection\n"+
 		"admin*         admin         admin   just now\n"+
-		"bar@ubuntuone                read    never connected\n"+
-		"\n")
-
+		"bar@ubuntuone                read    never connected\n")
 }
 
 func (s *cmdModelSuite) TestModelConfigGet(c *gc.C) {
@@ -137,7 +135,6 @@ func (s *cmdModelSuite) TestModelDefaultsGet(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Attribute  Default  Controller
 special    -        known
-
 `[1:])
 }
 
@@ -149,7 +146,6 @@ func (s *cmdModelSuite) TestModelDefaultsGetCloud(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Attribute  Default  Controller
 special    -        known
-
 `[1:])
 }
 
@@ -162,7 +158,6 @@ func (s *cmdModelSuite) TestModelDefaultsGetRegion(c *gc.C) {
 Attribute       Default  Controller
 special         -        -
   dummy-region  known    -
-
 `[1:])
 }
 

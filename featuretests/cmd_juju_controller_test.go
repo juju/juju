@@ -80,7 +80,6 @@ Use --refresh option with this command to see the latest information.
 
 Controller  Model       User   Access     Cloud/Region        Models  Nodes  HA  Version
 kontroll*   controller  admin  superuser  dummy/dummy-region       1      -   -  (unknown)  
-
 `[1:]
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
 }
@@ -93,8 +92,7 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 		"\n"+
 		"Model        Cloud/Region        Type   Status     Access  Last connection\n"+
 		"controller*  dummy/dummy-region  dummy  available  admin   just now\n"+
-		"new-model    dummy/dummy-region  dummy  available  admin   never connected\n"+
-		"\n")
+		"new-model    dummy/dummy-region  dummy  available  admin   never connected\n")
 }
 
 func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
@@ -105,8 +103,7 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 		"\n"+
 		"Model           Cloud/Region        Type   Status     Access  Last connection\n"+
 		"controller*     dummy/dummy-region  dummy  available  admin   just now\n"+
-		"test/new-model  dummy/dummy-region  dummy  available  -       never connected\n"+
-		"\n")
+		"test/new-model  dummy/dummy-region  dummy  available  -       never connected\n")
 }
 
 func (s *cmdControllerSuite) TestListModelsExactTimeFlag(c *gc.C) {
@@ -116,8 +113,7 @@ func (s *cmdControllerSuite) TestListModelsExactTimeFlag(c *gc.C) {
 		"Controller: kontroll\n"+
 		"\n"+
 		"Model        Cloud/Region        Type   Status     Access  Last connection\n"+
-		`controller\*  dummy/dummy-region  dummy  available  admin   20[0-9-]{8} [0-9:]{8} [-+][0-9]+ [A-Z]+\n`+
-		"\n") // 2019-04-15 16:37:43 +1200 NZST
+		`controller\*  dummy/dummy-region  dummy  available  admin   20[0-9-]{8} [0-9:]{8} [-+][0-9]+ [A-Z]+\n`) // 2019-04-15 16:37:43 +1200 NZST
 }
 
 func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
@@ -263,8 +259,7 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 		"\n"+
 		"Model        Cloud/Region        Type   Status      Access  Last connection\n"+
 		"controller*  dummy/dummy-region  dummy  available   admin   just now\n"+
-		"new-model    dummy/dummy-region  dummy  destroying  admin   never connected\n"+
-		"\n")
+		"new-model    dummy/dummy-region  dummy  destroying  admin   never connected\n")
 }
 
 func (s *cmdControllerSuite) TestAddModel(c *gc.C) {

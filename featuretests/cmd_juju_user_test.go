@@ -168,7 +168,6 @@ Controller: kontroll
 
 Name\s+Display name\s+Access\s+Date created\s+Last connection
 admin.*\s+admin\s+superuser\s+%s\s+%s
-
 `[1:], periodPattern, periodPattern)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, expected)
 }
