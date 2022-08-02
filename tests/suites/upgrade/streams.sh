@@ -132,7 +132,7 @@ exec_simplestream_metadata() {
 		fi
 	done
 
-	juju upgrade-charm ubuntu --path=./tests/suites/upgrade/charms/ubuntu
+	juju upgrade-charm ubuntu
 
 	sleep 10
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
