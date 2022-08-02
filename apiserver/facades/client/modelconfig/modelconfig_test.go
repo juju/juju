@@ -5,6 +5,11 @@ package modelconfig_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
@@ -14,10 +19,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type modelconfigSuite struct {

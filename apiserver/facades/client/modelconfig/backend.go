@@ -4,11 +4,12 @@
 package modelconfig
 
 import (
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/names/v4"
 )
 
 // Backend contains the state.State methods used in this package,
