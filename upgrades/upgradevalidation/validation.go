@@ -10,12 +10,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	// "github.com/juju/names/v4"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
-	// "github.com/juju/juju/apiserver/common/cloudspec"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/series"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -308,9 +306,7 @@ func getCheckForLXDVersion(
 			return nil, errors.Trace(err)
 		}
 		serverVersion := server.ServerVersion()
-		logger.Criticalf("server.ServerVersion() %q", serverVersion)
 		currentVer, err := lxd.ParseAPIVersion(serverVersion)
-		logger.Criticalf("currentVer %q, minVer %q, err %#v", currentVer, minVer, err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

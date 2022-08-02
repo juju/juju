@@ -27,6 +27,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -44,6 +45,7 @@ type Suite struct {
 	model          description.Model
 	resources      *common.Resources
 	authorizer     apiservertesting.FakeAuthorizer
+	cloudSpec      environscloudspec.CloudSpec
 }
 
 var _ = gc.Suite(&Suite{})
@@ -65,6 +67,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Controller: true}
+	s.cloudSpec = environscloudspec.CloudSpec{Type: "lxd"}
 }
 
 func (s *Suite) TestNotController(c *gc.C) {
@@ -559,6 +562,9 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.resources,
 		s.authorizer,
 		&stubPresence{},
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return s.cloudSpec, nil
+		},
 	)
 }
 

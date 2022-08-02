@@ -15,6 +15,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
@@ -121,11 +122,13 @@ func SourcePrecheck(
 	backend PrecheckBackend,
 	targetControllerVersion version.Number,
 	modelPresence ModelPresence, controllerPresence ModelPresence,
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 ) error {
 	ctx := precheckContext{
 		backend:                 backend,
 		presence:                modelPresence,
 		targetControllerVersion: targetControllerVersion,
+		environscloudspecGetter: environscloudspecGetter,
 	}
 	if err := ctx.checkModel(); err != nil {
 		return errors.Trace(err)
@@ -159,6 +162,7 @@ func SourcePrecheck(
 		backend:                 controllerBackend,
 		presence:                controllerPresence,
 		targetControllerVersion: targetControllerVersion,
+		environscloudspecGetter: environscloudspecGetter,
 	}
 	if err := controllerCtx.checkController(); err != nil {
 		return errors.Annotate(err, "controller")
@@ -170,6 +174,7 @@ type precheckContext struct {
 	backend                 PrecheckBackend
 	presence                ModelPresence
 	targetControllerVersion version.Number
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
 }
 
 func (ctx *precheckContext) checkModel() error {
@@ -193,7 +198,11 @@ func (ctx *precheckContext) checkModel() error {
 		}
 	}
 
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(ctx.targetControllerVersion)
+	cloudspec, err := ctx.environscloudspecGetter(names.NewModelTag(model.UUID()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	validators := upgradevalidation.ValidatorsForModelMigrationSource(ctx.targetControllerVersion, cloudspec)
 	checker := upgradevalidation.NewModelUpgradeCheck(model.UUID(), nil, ctx.backend, model, validators...)
 	blockers, err := checker.Validate()
 	if err != nil {
