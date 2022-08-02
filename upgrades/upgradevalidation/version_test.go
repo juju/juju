@@ -46,7 +46,7 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 			to:      "3.0.0",
 			allowed: true,
 			minVers: "2.9.33",
-			patch:   false,
+			patch:   true,
 		}, {
 			from:    "2.9.0",
 			to:      "4.0.0",

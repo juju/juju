@@ -381,7 +381,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 
 	netList, err := u.config.Environ.NetworkInterfaces(u.callContextFunc(ctx), instList)
 	if err != nil && !isPartialOrNoInstancesError(err) {
-		// NOTE(achilleasa): 2022-24-01: all existing providers (with the
+		// NOTE(achilleasa): 2022-01-24: all existing providers (with the
 		// exception of "manual" which we don't care about in this context)
 		// implement the NetworkInterfaces method.
 		//

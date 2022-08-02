@@ -5,8 +5,8 @@ run_appdata_basic() {
 
 	ensure "appdata-basic" "${file}"
 
-	juju deploy ./charms/appdata-source
-	juju deploy -n 2 ./charms/appdata-sink
+	juju deploy juju-qa-appdata-source
+	juju deploy -n 2 juju-qa-appdata-sink
 	juju relate appdata-source appdata-sink
 
 	wait_for "blocked" "$(workload_status appdata-source 0).current"
