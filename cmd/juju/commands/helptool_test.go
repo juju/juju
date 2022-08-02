@@ -32,17 +32,17 @@ Show help on a Juju charm hook tool.
 
 Global Options:
 --debug  (= false)
-    equivalent to --show-log --logging-config=<root>=DEBUG
+    Equivalent to --show-log --logging-config=<root>=DEBUG
 -h, --help  (= false)
     Show help on a command or other topic.
 --logging-config (= "")
-    specify log levels for modules
+    Specify log levels for modules
 --quiet  (= false)
-    show no informational output
+    Show no informational output
 --show-log  (= false)
     if set, write the log file to stderr
 --verbose  (= false)
-    show more verbose output
+    Show more verbose output
 
 Details:
 Juju charms can access a series of built-in helpers called 'hook-tools'.
