@@ -5,6 +5,8 @@ package lxd
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 )
 
@@ -17,4 +19,19 @@ var (
 // only the exported surface of the package.
 type serverSuite struct {
 	testing.IsolationSuite
+}
+
+func (s *serverSuite) TestParseAPIVersion(c *gc.C) {
+	ver, err := ParseAPIVersion("5.2")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ver, gc.Equals, version.MustParse("5.2.0"))
+
+	_, err = ParseAPIVersion("5")
+	c.Check(err, gc.ErrorMatches, `LXD API version "5": expected format <major>.<minor>`)
+
+	_, err = ParseAPIVersion("a.b")
+	c.Check(err, gc.ErrorMatches, `major a not valid`)
+
+	_, err = ParseAPIVersion("1.b")
+	c.Check(err, gc.ErrorMatches, `minor b not valid`)
 }
