@@ -80,39 +80,39 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 # run_deploy_exported_charmhub_bundle_with_float_revisions checks how juju
 # deploys a charmhub bundle when the revisions are not pinned
 run_deploy_exported_charmhub_bundle_with_float_revisions() {
-  echo
+	echo
 
-  file="${TEST_DIR}/test-export-bundles-deploy-with-float-revisions.log"
+	file="${TEST_DIR}/test-export-bundles-deploy-with-float-revisions.log"
 
-  ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
-  bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
-  bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
-  juju deploy ${bundle}
+	ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
+	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
+	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
+	juju deploy ${bundle}
 
-  if ! which "yq" >/dev/null 2>&1; then
-    sudo snap install yq --classic --channel latest/stable
-  fi
+	if ! which "yq" >/dev/null 2>&1; then
+		sudo snap install yq --classic --channel latest/stable
+	fi
 
-  echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
-  influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
-  telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
-  ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channel-map"."latest/stable".revision')
+	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
+	influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
+	telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
+	ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channel-map"."latest/stable".revision')
 
-  echo "Make a copy of reference yaml and insert revisions in it"
-  cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
-  yq -i "
+	echo "Make a copy of reference yaml and insert revisions in it"
+	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	yq -i "
     .applications.influxdb.revision = ${influxdb_rev} |
     .applications.telegraf.revision = ${telegraf_rev} |
     .applications.ubuntu.revision = ${ubuntu_rev}
   " "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 
-  # The model should be updated immediately, so we can export the bundle before
-  # everything is done deploying
-  echo "Compare export-bundle with telegraf_bundle_with_revisions"
-  juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-  # reformat the yaml to have the same format as telegraf_bundle_with_revisions.yaml
-  yq -i . "${TEST_DIR}/exported-bundle.yaml"
-  diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
+	# The model should be updated immediately, so we can export the bundle before
+	# everything is done deploying
+	echo "Compare export-bundle with telegraf_bundle_with_revisions"
+	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
+	# reformat the yaml to have the same format as telegraf_bundle_with_revisions.yaml
+	yq -i . "${TEST_DIR}/exported-bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
@@ -223,7 +223,6 @@ run_deploy_lxd_profile_bundle() {
 
 	destroy_model "${model_name}"
 }
-
 
 test_deploy_bundles() {
 	if [ "$(skip 'test_deploy_bundles')" ]; then
