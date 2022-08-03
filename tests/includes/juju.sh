@@ -290,7 +290,7 @@ post_add_model() {
 		;;
 	esac
 
-	if [[ -z ${MODEL_ARCH} ]]; then
+	if [[ -n ${MODEL_ARCH:-} ]]; then
 		juju set-model-constraints "arch=${MODEL_ARCH}"
 	fi
 }
