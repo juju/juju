@@ -31,14 +31,15 @@ var logger = loggo.GetLogger("juju.apiserver.modelupgrader")
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
-	statePool   StatePool
-	check       common.BlockCheckerInterface
-	authorizer  facade.Authorizer
-	toolsFinder common.ToolsFinder
-	apiUser     names.UserTag
-	isAdmin     bool
-	callContext context.ProviderCallContext
-	newEnviron  common.NewEnvironFunc
+	statePool        StatePool
+	check            common.BlockCheckerInterface
+	authorizer       facade.Authorizer
+	toolsFinder      common.ToolsFinder
+	apiUser          names.UserTag
+	isAdmin          bool
+	ctrlAgentVersion version.Number
+	callContext      context.ProviderCallContext
+	newEnviron       common.NewEnvironFunc
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -48,6 +49,7 @@ type ModelUpgraderAPI struct {
 // models.
 func NewModelUpgraderAPI(
 	controllerTag names.ControllerTag,
+	ctrlAgentVersion version.Number,
 	stPool StatePool,
 	toolsFinder common.ToolsFinder,
 	newEnviron common.NewEnvironFunc,
@@ -80,6 +82,7 @@ func NewModelUpgraderAPI(
 		newEnviron:              newEnviron,
 		registryAPIFunc:         registryAPIFunc,
 		environscloudspecGetter: environscloudspecGetter,
+		ctrlAgentVersion:        ctrlAgentVersion,
 	}, nil
 }
 
@@ -119,6 +122,16 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 	}
 	defer st.Release()
 	return st.AbortCurrentUpgrade()
+}
+
+func isKnownError(err error) bool {
+	if errors.Is(errors.Cause(err), errors.NotFound) {
+		return true
+	}
+	if errors.Is(errors.Cause(err), errors.AlreadyExists) {
+		return true
+	}
+	return false
 }
 
 // UpgradeModel upgrades a model.
@@ -164,7 +177,18 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	targetVersion, err = m.decideVersion(
 		targetVersion, agentVersion, arg.AgentStream, st, model,
 	)
-	if errors.Is(errors.Cause(err), errors.NotFound) || errors.Is(errors.Cause(err), errors.AlreadyExists) {
+	if isKnownError(err) &&
+		arg.TargetVersion == version.Zero && // no target vesion provided.
+		!model.IsControllerModel() &&
+		m.ctrlAgentVersion.Compare(agentVersion) > 0 {
+		// check if we can upgrade to the controller agent version if no target version provided.
+		logger.Debugf("checking if we can upgrade model %q to controller version %q", agentVersion, m.ctrlAgentVersion)
+		targetVersion = m.ctrlAgentVersion
+		targetVersion, err = m.decideVersion(
+			targetVersion, agentVersion, arg.AgentStream, st, model,
+		)
+	}
+	if isKnownError(err) {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}

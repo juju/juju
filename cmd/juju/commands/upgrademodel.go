@@ -617,6 +617,7 @@ func (c *upgradeJujuCommand) upgradeModel(
 		return err
 	}
 	// juju upgrade-controller without --build-agent or --agent-version
+	// or juju upgrade-model without --agent-version
 	targetVersion, err = c.notifyControllerUpgrade(
 		ctx, modelUpgrader,
 		version.Zero, // no target version provided, we figure it out on the server side.
