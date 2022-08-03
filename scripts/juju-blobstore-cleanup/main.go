@@ -12,17 +12,17 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/blobstore/v2"
+	"github.com/juju/blobstore/v3"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
@@ -378,7 +378,12 @@ func (b *BlobstoreCleaner) findUnmanagedResources() {
 }
 
 func txnRunner(db *mgo.Database) jujutxn.Runner {
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+	return jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  db,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
+	})
 }
 
 func removeStoredResourceOps(docID string) []txn.Op {

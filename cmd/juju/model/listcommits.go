@@ -169,7 +169,7 @@ func (c *CommitsCommand) printTabular(writer io.Writer, value interface{}) error
 	for _, c := range list.Commits {
 		table.AddRow(c.CommitId, c.CommittedAt, c.CommittedBy, c.BranchName)
 	}
-	_, _ = fmt.Fprint(writer, table)
+	_, _ = fmt.Fprintln(writer, table)
 	return nil
 }
 

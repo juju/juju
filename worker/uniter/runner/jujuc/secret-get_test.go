@@ -91,7 +91,6 @@ func (s *SecretGetSuite) TestSecretGet(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
 cert: cert
 key: key
-
 `[1:])
 }
 
@@ -113,7 +112,6 @@ func (s *SecretGetSuite) TestSecretGetEncoded(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
 cert: Y2VydA==
 key: a2V5
-
 `[1:])
 }
 

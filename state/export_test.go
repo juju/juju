@@ -17,13 +17,13 @@ import (
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
-	txntesting "github.com/juju/txn/v2/testing"
+	jujutxn "github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	jutils "github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
@@ -129,15 +129,35 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
+func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
+	st.maxTxnAttempts = n
+	db := st.database.(*database)
+	db.maxTxnAttempts = n
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  db.raw,
+		Clock:                     st.stateClock,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
+		MaxRetryAttempts:          db.maxTxnAttempts,
+	})
+	db.runner = runner
+	return
+}
+
 func newRunnerForHooks(st *State) jujutxn.Runner {
 	db := st.database.(*database)
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: db.raw,
-		Clock:    st.stateClock,
+		Database:                  db.raw,
+		Clock:                     st.stateClock,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
 		RunTransactionObserver: func(t jujutxn.Transaction) {
 			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
 				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 		},
+		MaxRetryAttempts: db.maxTxnAttempts,
 	})
 	db.runner = runner
 	return runner

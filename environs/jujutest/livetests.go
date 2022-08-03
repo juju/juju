@@ -145,7 +145,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
-	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
+	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, version.Zero))
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -881,7 +881,10 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	upgradeTools, err := sync.Upload(ss, t.toolsStorage, "released", &newVersion.Number)
+	upgradeTools, err := sync.Upload(
+		ss, t.toolsStorage, "released",
+		func(version.Number) version.Number { return newVersion.Number },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the put version really is the version we expect.

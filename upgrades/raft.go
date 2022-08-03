@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/errors"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 
 	"github.com/juju/juju/agent"
 	raftworker "github.com/juju/juju/worker/raft"

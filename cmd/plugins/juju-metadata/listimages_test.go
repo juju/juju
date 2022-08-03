@@ -90,7 +90,6 @@ public  jammy   i386   europe  im-42     devel     kvm        ebs
 public  jammy   i386   europe  im-42     devel     kvm        
 public  jammy   i386   europe  im-42     devel                
 public  focal   amd64  europe  im-21     released  kvm        ebs
-
 `[1:], "")
 }
 

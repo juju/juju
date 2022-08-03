@@ -13,12 +13,11 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/mgo/v3"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
-	jujutxn "github.com/juju/txn/v2"
-	txntesting "github.com/juju/txn/v2/testing"
+	jujutxn "github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/imagestorage"
@@ -32,7 +31,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type ImageSuite struct {
-	gitjujutesting.IsolatedMgoSuite
+	mgotesting.IsolatedMgoSuite
 	storage            imagestorage.Storage
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
@@ -42,7 +41,13 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	s.IsolatedMgoSuite.SetUpTest(c)
 	s.storage = imagestorage.NewStorage(s.Session, "my-uuid")
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
-	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
+	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  s.metadataCollection.Database,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
+		MaxRetryAttempts:          3,
+	})
 	s.patchTransactionRunner()
 }
 
@@ -54,7 +59,7 @@ func (s *ImageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ImageSuite) patchTransactionRunner() {
-	s.PatchValue(imagestorage.TxnRunner, func(db *mgo.Database) txn.Runner {
+	s.PatchValue(imagestorage.TxnRunner, func(db *mgo.Database) jujutxn.Runner {
 		return s.txnRunner
 	})
 }
@@ -202,10 +207,10 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 }
 
 type errorTransactionRunner struct {
-	txn.Runner
+	jujutxn.Runner
 }
 
-func (errorTransactionRunner) Run(transactions txn.TransactionSource) error {
+func (errorTransactionRunner) Run(transactions jujutxn.TransactionSource) error {
 	return errors.New("Run fails")
 }
 

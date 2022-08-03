@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package cloud defines an API end point for functions dealing with
-// the controller's cloud definition, and cloud credentials.
 package cloud
 
 import (
@@ -13,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -1006,7 +1004,7 @@ func grantCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag
 		cloudAccess, err := backend.GetCloudAccess(cloud, targetUserTag)
 		if errors.IsNotFound(err) {
 			// Conflicts with prior check, must be inconsistent state.
-			err = txn.ErrExcessiveContention
+			err = jujutxn.ErrExcessiveContention
 		}
 		if err != nil {
 			return errors.Annotate(err, "could not look up cloud access for user")

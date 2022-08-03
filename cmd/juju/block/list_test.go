@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -89,8 +89,7 @@ func (s *listCommandSuite) TestList(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ""+
 		"Disabled commands  Message\n"+
 		"destroy-model      Sysadmins in control.\n"+
-		"all                just temporary\n"+
-		"\n",
+		"all                just temporary\n",
 	)
 }
 
@@ -130,8 +129,7 @@ func (s *listCommandSuite) TestListAll(c *gc.C) {
 		"Name        Model UUID   Owner             Disabled commands\n"+
 		"controller  fake-uuid-1  admin             destroy-model, remove-object\n"+
 		"model-a     fake-uuid-2  bob@external      all\n"+
-		"model-b     fake-uuid-3  charlie@external  all, destroy-model\n"+
-		"\n")
+		"model-b     fake-uuid-3  charlie@external  all, destroy-model\n")
 }
 
 func (s *listCommandSuite) TestListAllYAML(c *gc.C) {

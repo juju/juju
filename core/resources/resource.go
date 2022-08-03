@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package resources provides the functionality of the "resources"
-// feature in Juju.
 package resources
 
 import (

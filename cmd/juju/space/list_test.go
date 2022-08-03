@@ -219,7 +219,6 @@ Space
 alpha
 space1
 space2
-
 `[1:]
 
 	assertAPICalls := func() {

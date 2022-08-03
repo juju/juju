@@ -1,7 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package lxdnames provides names for the lxd provider.
 package lxdnames
 
 // NOTE: this package exists to get around circular imports from cloud and

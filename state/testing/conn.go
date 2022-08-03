@@ -5,8 +5,8 @@ package testing
 
 import (
 	"github.com/juju/clock"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -59,7 +59,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 		args.AdminPassword = "admin-secret"
 	}
 
-	session, err := jujutesting.MgoServer.Dial()
+	session, err := mgotesting.MgoServer.Dial()
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 
@@ -133,9 +133,9 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 func NewMongoInfo() *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:      []string{jujutesting.MgoServer.Addr()},
+			Addrs:      []string{mgotesting.MgoServer.Addr()},
 			CACert:     testing.CACert,
-			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
+			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
 		},
 	}
 }

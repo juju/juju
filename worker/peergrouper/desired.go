@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 )
 
 // jujuNodeKey is the key for the tag where we save a member's node id.
@@ -54,11 +55,6 @@ type desiredChanges struct {
 
 	// members is the map of Id to replicaset.Member for the desired list of controller nodes in the replicaset.
 	members map[string]*replicaset.Member
-
-	// nodeVoting tracks which of the members should be set to vote. We should preserve an odd number of voters at all
-	// time. Also, when nodes are first added to the replicaset, we wait to give them voting rights for when they
-	// have managed to sync the data from the current primary.
-	nodeVoting map[string]bool
 }
 
 // peerGroupChanges tracks the process of computing the desiredChanges to the peer group.
@@ -113,9 +109,9 @@ func newPeerGroupInfo(
 			continue
 		}
 		found := false
-		if controllers[controllerId] != nil {
+		if node, got := controllers[controllerId]; got {
 			info.recognised[controllerId] = m
-			found = true
+			found = node.host.Life() != state.Dead
 		}
 
 		// This invariably makes for N^2, but we anticipate small N.
@@ -230,7 +226,6 @@ func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
 		desired: desiredChanges{
 			isChanged:       false,
 			stepDownPrimary: false,
-			nodeVoting:      map[string]bool{},
 			members:         map[string]*replicaset.Member{},
 		},
 	}
@@ -262,7 +257,6 @@ func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 
 	// Set up initial record of controller node votes. Any changes after
 	// this will trigger a peer group election.
-	p.getNodesVoting()
 	p.adjustVotes()
 
 	if err := p.updateAddresses(); err != nil {
@@ -342,6 +336,19 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 	for _, id := range nodeIds {
 		m := p.info.controllers[id]
 		member := p.desired.members[id]
+		if m.host.Life() != state.Alive {
+			if _, ok := p.desired.members[id]; !ok {
+				// Dead machine already removed from replicaset.
+				continue
+			}
+			logger.Debugf("controller %v has died %q, wants vote: %v", id, m.host.Life(), m.WantsVote())
+			if isPrimaryMember(p.info, id) {
+				p.desired.stepDownPrimary = true
+			}
+			delete(p.desired.members, id)
+			p.desired.isChanged = true
+			continue
+		}
 		isVoting := member != nil && isVotingMember(member)
 		wantsVote := m.WantsVote()
 		switch {
@@ -464,7 +471,6 @@ func (p *peerGroupChanges) adjustVotes() {
 	setVoting := func(memberIds []string, voting bool) {
 		for _, id := range memberIds {
 			setMemberVoting(p.desired.members[id], voting)
-			p.desired.nodeVoting[id] = voting
 		}
 	}
 
@@ -507,12 +513,6 @@ func (p *peerGroupChanges) createNonVotingMember() {
 		}
 		setMemberVoting(member, false)
 		p.desired.members[id] = member
-	}
-}
-
-func (p *peerGroupChanges) getNodesVoting() {
-	for id, m := range p.desired.members {
-		p.desired.nodeVoting[id] = isVotingMember(m)
 	}
 }
 

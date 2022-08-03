@@ -7,8 +7,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
@@ -80,6 +83,91 @@ func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+}
+
+func (s *APIRequesterSuite) TestDoRetrySuccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req := MustNewRequest(c, "http://api.foo.bar")
+
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
+	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil)
+
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester.retryDelay = time.Microsecond
+	resp, err := requester.Do(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+}
+
+func (s *APIRequesterSuite) TestDoRetrySuccessBody(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req, err := http.NewRequest("POST", "http://api.foo.bar", strings.NewReader("body"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+		b, err := io.ReadAll(req.Body)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(string(b), gc.Equals, "body")
+		return nil, io.EOF
+	})
+	mockHTTPClient.EXPECT().Do(req).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+		b, err := io.ReadAll(req.Body)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(string(b), gc.Equals, "body")
+		return emptyResponse(), nil
+	})
+
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester.retryDelay = time.Microsecond
+	resp, err := requester.Do(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+}
+
+func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req := MustNewRequest(c, "http://api.foo.bar")
+
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
+	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
+
+	start := time.Now()
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester.retryDelay = time.Microsecond
+	_, err := requester.Do(req)
+	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: EOF`)
+	elapsed := time.Since(start)
+	c.Assert(elapsed >= (1+2+4)*time.Microsecond, gc.Equals, true)
+}
+
+func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel right away
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://api.foo.bar", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
+
+	start := time.Now()
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester.retryDelay = time.Second
+	_, err = requester.Do(req)
+	c.Assert(err, gc.ErrorMatches, `retry stopped`)
+	elapsed := time.Since(start)
+	c.Assert(elapsed < 250*time.Millisecond, gc.Equals, true)
 }
 
 type RESTSuite struct {

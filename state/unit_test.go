@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -1104,8 +1104,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 			s.setControllerVote(c, host.Id(), true)
 		},
 	}
-	// You'll need to adjust the flip-flops to match the number of transaction
-	// retries.
+	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
 
 	c.Assert(target.Destroy(), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)
@@ -2443,6 +2442,34 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	err = subUnits[0].Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *UnitSuite) TestWatchUnits(c *gc.C) {
+	loggo.GetLogger("juju.state.pool.txnwatcher").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	w := s.State.WatchUnits()
+	defer testing.AssertStop(c, w)
+
+	// Initial event for unit created in test setup.
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("wordpress/0")
+
+	u, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(u.Name())
+	err = u.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(u.Name())
+
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(u.Name())
+
+	// Stop, check closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
 }
 
 func (s *UnitSuite) TestWatchUnit(c *gc.C) {

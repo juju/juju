@@ -12,11 +12,11 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
@@ -864,11 +864,8 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			if hasVote {
-				return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
-			}
-			if m.IsManager() {
-				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
+			if hasVote || m.IsManager() {
+				return nil, stateerrors.NewIsControllerMemberError(m.Id(), hasVote)
 			}
 			asserts = append(asserts, bson.DocElem{
 				Name: "jobs", Value: bson.D{{Name: "$nin", Value: []MachineJob{JobManageModel}}}})

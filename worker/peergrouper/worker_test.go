@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
@@ -408,17 +408,12 @@ func (s *workerSuite) TestAddressChangeNoHA(c *gc.C) {
 }
 
 var fatalErrorsTests = []struct {
-	errPattern   string
-	err          error
-	expectErr    string
-	advanceCount int
+	errPattern string
+	err        error
+	expectErr  string
 }{{
 	errPattern: "State.ControllerIds",
 	expectErr:  "cannot get controller ids: sample",
-}, {
-	errPattern:   "Controller.SetHasVote 11 true",
-	expectErr:    `adding new voters: cannot set voting status of "11" to true: sample`,
-	advanceCount: 2,
 }, {
 	errPattern: "Session.CurrentStatus",
 	expectErr:  "creating peer group info: cannot get replica set status: sample",
@@ -446,9 +441,6 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 			defer workertest.DirtyKill(c, w)
 
-			for j := 0; j < testCase.advanceCount; j++ {
-				_ = s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1)
-			}
 			done := make(chan error)
 			go func() {
 				done <- w.Wait()
@@ -1010,11 +1002,8 @@ func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
 	// When we advance the lifecycle (aka controller.Destroy()), we should notice that the controller no longer wants a vote
 	// controller.Destroy() advances to both Dying and SetWantsVote(false)
 	st.controller("11").advanceLifecycle(state.Dying, false)
-	// we should notice that we want to remove the vote first
-	update := s.mustNext(c, "removing vote")
-	assertMembers(c, update, mkMembers("0v 1 2", testIPv4))
-	// And once we don't have the vote, and we see the controller is Dying we should remove it
-	update = s.mustNext(c, "remove dying controller")
+	// We see the controller is Dying we should remove it.
+	update := s.mustNext(c, "remove dying controller")
 	assertMembers(c, update, mkMembers("0v 2", testIPv4))
 
 	// Now, controller 2 no longer has the vote, but if we now flag it as dying,
@@ -1096,10 +1085,6 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 
 // recordMemberChanges starts a go routine to record member changes.
 func (s *workerSuite) recordMemberChanges(c *gc.C, w *voyeur.Watcher) {
-	type voyeurResult struct {
-		ok  bool
-		val interface{}
-	}
 	go func() {
 		for {
 			c.Logf("waiting for next update")
@@ -1213,6 +1198,7 @@ func (s *workerSuite) newWorker(
 	supportsHA bool,
 ) worker.Worker {
 	return s.newWorkerWithConfig(c, Config{
+		Clock:                s.clock,
 		State:                st,
 		MongoSession:         session,
 		APIHostPortsSetter:   apiHostPortsSetter,

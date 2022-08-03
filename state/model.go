@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	jujuutils "github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
@@ -395,6 +395,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		st.newPolicy,
 		st.clock(),
 		st.runTransactionObserver,
+		st.maxTxnAttempts,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")

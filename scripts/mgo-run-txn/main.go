@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/gnuflag"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
-	jujutxn "github.com/juju/txn/v2"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 )
 
@@ -146,7 +146,8 @@ func main() {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  session.DB(args.Database),
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "txns.log",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
 		Clock:                     clock.WallClock,
 	})
 	txnOps := make([]txn.Op, len(ops))

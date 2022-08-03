@@ -65,7 +65,6 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 ID   Revision  Rotate  Backend  Path                  Age
 666         2  1h      juju     app/mariadb/password  0001-01-01  
 667         1  never   juju     app/gitlab/apitoken   0001-01-01  
-
 `[1:])
 }
 

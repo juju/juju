@@ -4,6 +4,7 @@
 package httpserver_test
 
 import (
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,10 +22,10 @@ var _ = gc.Suite(&stateFixture{})
 func (s *stateFixture) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
-	testing.MgoServer.EnableReplicaSet = true
-	err := testing.MgoServer.Start(nil)
+	mgotesting.MgoServer.EnableReplicaSet = true
+	err := mgotesting.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.IsolationSuite.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })
+	s.IsolationSuite.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
 }

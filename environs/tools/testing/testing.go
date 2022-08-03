@@ -35,27 +35,28 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.BundleToolsFunc {
-	return func(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, bool, string, error) {
-		if expectedForceVersion != nil {
-			c.Assert(forceVersion, jc.DeepEquals, expectedForceVersion)
-		} else {
-			c.Assert(forceVersion, gc.IsNil)
-		}
+func GetMockBundleTools(c *gc.C, expectedForceVersion version.Number) tools.BundleToolsFunc {
+	return func(
+		build bool, w io.Writer,
+		getForceVersion func(version.Number) version.Number,
+	) (version.Binary, version.Number, bool, string, error) {
 		vers := coretesting.CurrentVersion(c)
+		forceVersion := getForceVersion(vers.Number)
+		c.Assert(forceVersion, jc.DeepEquals, expectedForceVersion)
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
-		return vers, false, sha256Hash, nil
+		return vers, forceVersion, false, sha256Hash, nil
 	}
 }
 
 // GetMockBuildTools returns a sync.BuildAgentTarballFunc implementation which generates
 // a fake tools tarball.
 func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
-	return func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
+	return func(
+		build bool, stream string,
+		getForceVersion func(version.Number) version.Number,
+	) (*sync.BuiltAgent, error) {
 		vers := coretesting.CurrentVersion(c)
-		if forceVersion != nil {
-			vers.Number = *forceVersion
-		}
+		vers.Number = getForceVersion(vers.Number)
 
 		tgz, checksum := coretesting.TarGz(
 			coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))

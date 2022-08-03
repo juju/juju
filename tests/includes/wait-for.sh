@@ -27,7 +27,7 @@ wait_for() {
 		sleep "${SHORT_TIMEOUT}"
 
 		elapsed=$(date -u +%s)-$start_time
-		if [[ "${elapsed}" -ge ${timeout} ]]; then
+		if [[ ${elapsed} -ge ${timeout} ]]; then
 			echo "[-] $(red 'timed out waiting for')" "$(red "${name}")"
 			exit 1
 		fi

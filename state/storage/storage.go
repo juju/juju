@@ -6,8 +6,8 @@ package storage
 import (
 	"io"
 
-	"github.com/juju/blobstore/v2"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/blobstore/v3"
+	"github.com/juju/mgo/v3"
 )
 
 const (

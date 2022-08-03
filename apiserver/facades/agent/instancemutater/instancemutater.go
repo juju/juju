@@ -333,23 +333,31 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	changeResults := make([]params.ProfileInfoResult, len(units))
-	for i, unit := range units {
+
+	var changeResults []params.ProfileInfoResult
+	for _, unit := range units {
+		if unit.Life() == state.Dead {
+			logger.Debugf("unit %q is dead, do not load profile", unit.Name())
+			continue
+		}
 		appName := unit.ApplicationName()
 		app, err := api.st.Application(appName)
 		if err != nil {
-			changeResults[i].Error = apiservererrors.ServerError(err)
+			changeResults = append(changeResults, params.ProfileInfoResult{
+				Error: apiservererrors.ServerError(err)})
 			continue
 		}
 		cURL := app.CharmURL()
 		chURL, err := charm.ParseURL(*cURL)
 		if err != nil {
-			changeResults[i].Error = apiservererrors.ServerError(err)
+			changeResults = append(changeResults, params.ProfileInfoResult{
+				Error: apiservererrors.ServerError(err)})
 			continue
 		}
 		ch, err := api.st.Charm(chURL)
 		if err != nil {
-			changeResults[i].Error = apiservererrors.ServerError(err)
+			changeResults = append(changeResults, params.ProfileInfoResult{
+				Error: apiservererrors.ServerError(err)})
 			continue
 		}
 
@@ -361,11 +369,11 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 				Devices:     profile.Devices,
 			}
 		}
-		changeResults[i] = params.ProfileInfoResult{
+		changeResults = append(changeResults, params.ProfileInfoResult{
 			ApplicationName: appName,
 			Revision:        ch.Revision(),
 			Profile:         normalised,
-		}
+		})
 	}
 	modelName, err := api.st.ModelName()
 	if err != nil {

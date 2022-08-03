@@ -4837,7 +4837,6 @@ func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
 hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
-
 `[1:]
 
 	st := s.setupMigrationTest(c)
@@ -4855,7 +4854,6 @@ func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
 hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
-
 `[1:]
 
 	st := s.setupMigrationTest(c)
@@ -4982,7 +4980,6 @@ Running on subnets:  127.0.0.1/8, 10.0.2.1/8
                  
         # Remote:  (1)
       hosted-riak       me/model.riak
-
 `[1:])
 }
 func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
@@ -5034,12 +5031,12 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 
 	ctx.run(c, steps, s.WaitForModelWatchersIdle)
 
-	const expected = `
+	var expected = `
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:error)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
-`
+`[1:]
 	assertOneLineStatus(c, expected)
 }
 
@@ -5179,7 +5176,6 @@ Relation provider      Requirer                   Interface  Type         Messag
 mysql:juju-info        logging:info               juju-info  subordinate  
 mysql:server           wordpress:db               mysql      regular      suspended  
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  
-
 `[1:]
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
@@ -5715,7 +5711,6 @@ func (s *StatusSuite) TestFilterToActive(c *gc.C) {
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
@@ -5732,7 +5727,6 @@ func (s *StatusSuite) TestFilterToMachine(c *gc.C) {
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
@@ -5832,7 +5826,6 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:error)
 `
@@ -5849,7 +5842,6 @@ func (s *StatusSuite) TestFilterToApplication(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
@@ -5873,7 +5865,6 @@ func (s *StatusSuite) TestFilterToExposedApplication(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
@@ -5891,7 +5882,6 @@ func (s *StatusSuite) TestFilterToNotExposedApplication(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
@@ -5912,7 +5902,6 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: localhost (agent:idle, workload:active)
   - logging/0: localhost (agent:idle, workload:active)
 `
@@ -5934,7 +5923,6 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - wordpress/0: localhost (agent:idle, workload:active) 80/tcp
   - logging/0: localhost (agent:idle, workload:active)
 `
@@ -5951,7 +5939,6 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
@@ -5972,7 +5959,6 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
@@ -5987,7 +5973,6 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
@@ -6004,7 +5989,6 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:runStatus
 	const expected = `
-
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
   - logging/1: 10.0.2.1 (agent:idle, workload:active)
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
@@ -6411,7 +6395,6 @@ func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
-
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(string(output), gc.Equals, expected)
@@ -6424,7 +6407,6 @@ func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
-
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(string(output), gc.Equals, expected)

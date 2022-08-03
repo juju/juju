@@ -493,7 +493,7 @@ func (s *ExecSuite) TestVerbosity(c *gc.C) {
 	}{{
 		about:  "normal output",
 		args:   []string{"--machine=0", "marco"},
-		output: "polo\n\n",
+		output: "polo\n",
 	}, {
 		about:   "verbose",
 		args:    []string{"--machine=0", "marco"},
@@ -504,13 +504,12 @@ Running operation 1 with 1 task
 
 Waiting for task 1...
 polo
-
 `[1:],
 	}, {
 		about:  "quiet",
 		args:   []string{"--machine=0", "marco"},
 		quiet:  true,
-		output: "polo\n\n",
+		output: "polo\n",
 	}, {
 		about: "background",
 		args:  []string{"--machine=0", "marco", "--background"},
@@ -536,7 +535,7 @@ Check task status with 'juju show-task 1'
 	}, {
 		about:  "command failure",
 		args:   []string{"--machine=1", "marco"},
-		output: "I failed you\n\n",
+		output: "I failed you\n",
 		error: `(?m)the following task failed:
  - id "2" with return code 1
 
@@ -552,7 +551,6 @@ Running operation 1 with 1 task
 
 Waiting for task 2...
 I failed you
-
 `[1:],
 		error: `(?m)the following task failed:
  - id "2" with return code 1
@@ -563,7 +561,7 @@ use 'juju show-task' to inspect the failure
 		about:  "command failure quiet",
 		args:   []string{"--machine=1", "marco"},
 		quiet:  true,
-		output: "I failed you\n\n",
+		output: "I failed you\n",
 		error: `(?m)the following task failed:
  - id "2" with return code 1
 
@@ -842,7 +840,7 @@ use 'juju show-task' to inspect the failure
 		err     string
 	}{{
 		message: "smart (default)",
-		stdout:  "\n",
+		stdout:  "",
 		err:     errStr,
 	}, {
 		message: "yaml output",
@@ -909,7 +907,6 @@ func (s *ExecSuite) TestMultipleUnitsPlainOutput(c *gc.C) {
 	outputs := map[string]string{
 		"--unit=foo/34": `
 result34
-
 `[1:],
 		"--unit=foo/7,foo/112,foo/34": `
 foo/7:
@@ -921,14 +918,13 @@ result34
 foo/112:
 result112
 
-
 `[1:],
 	}
 
 	for unitFlag, stdout := range outputs {
 		runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
 		context, err := cmdtesting.RunCommand(c, runCmd,
-			"--format=plain", unitFlag, "hostname", "--utc")
+			"--format=plain", unitFlag, "do-stuff")
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(cmdtesting.Stdout(context), gc.Equals, stdout)

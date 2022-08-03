@@ -23,12 +23,10 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	agenttools "github.com/juju/juju/agent/tools"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 type buildSuite struct {
@@ -272,59 +270,26 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 	return dir
 }
 
-func (b *buildSuite) TestBundleToolsIncludesVersionFile(c *gc.C) {
-	dir := b.setUpFakeBinaries(c, fakeVersionFile)
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	resultVersion, official, sha256, err := tools.BundleTools(false, bundleFile, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Version should come from the version file.
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-arm64")
-	c.Assert(official, jc.IsTrue)
-
-	_, err = bundleFile.Seek(0, io.SeekStart)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = agenttools.UnpackTools(dir, &coretools.Tools{
-		Version: resultVersion,
-		SHA256:  sha256,
-	}, bundleFile)
-	c.Assert(err, jc.ErrorIsNil)
-
-	unpackDir := filepath.Join(dir, "tools", "1.2.3-ubuntu-arm64")
-	// downloaded-tools.txt is added by UnpackTools.
-	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
-		"downloaded-tools.txt", "jujuc", "jujud", "jujud-versions.yaml"})
-}
-
-func listDir(c *gc.C, dir string) []string {
-	entries, err := ioutil.ReadDir(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	var names []string
-	for _, entry := range entries {
-		names = append(names, entry.Name())
-	}
-	return names
-}
-
 func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 	thisArch := arch.HostArch()
 	thisHost := coreos.HostOSTypeName()
-	dir := b.setUpFakeBinaries(c, fmt.Sprintf(osTypeArchMatchVersionFile, thisHost, thisArch))
+	b.patchExecCommand(c, thisHost, thisArch)
+	dir := b.setUpFakeBinaries(c, "")
 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, nil)
+	resultVersion, forceVersion, official, _, err := tools.BundleTools(false, bundleFile,
+		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
-	c.Assert(official, jc.IsTrue)
+	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
+	c.Assert(official, jc.IsFalse)
 }
 
 func (b *buildSuite) TestJujudVersion(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 
 	resultVersion, official, err := tools.JujudVersion(dir)
@@ -334,21 +299,23 @@ func (b *buildSuite) TestJujudVersion(c *gc.C) {
 }
 
 func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	forceVersion := version.MustParse("1.2.3.1")
-	resultVersion, official, sha, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	resultVersion, forceVersion, official, sha, err := tools.BundleTools(false, bundleFile,
+		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
+	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
 	c.Assert(sha, gc.Not(gc.Equals), "")
 	c.Assert(official, jc.IsFalse)
 }
 
 func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,14 +324,15 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 		return version.Binary{}, true, nil
 	}
 
-	forceVersion := version.MustParse("1.2.3.1")
-	_, official, _, err := tools.BundleToolsForTest(true, bundleFile, &forceVersion, jujudVersion)
+	_, _, official, _, err := tools.BundleToolsForTest(true, bundleFile,
+		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+		jujudVersion)
 	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
 	c.Assert(official, jc.IsTrue)
 }
 
 func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
-	b.patchExecCommand(c)
+	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -373,9 +341,11 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 		return version.Binary{}, true, nil
 	}
 
-	forceVersion := version.MustParse("1.2.3.1")
-	_, official, _, err := tools.BundleToolsForTest(false, bundleFile, &forceVersion, jujudVersion)
+	_, forceVersion, official, _, err := tools.BundleToolsForTest(false, bundleFile,
+		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+		jujudVersion)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
 	c.Assert(official, jc.IsTrue)
 
 	bundleFile, err = os.Open(bundleFile.Name())
@@ -405,17 +375,23 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 	}
 }
 
-func (b *buildSuite) patchExecCommand(c *gc.C) {
+func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {
 	// Patch so that getting the version from our fake binary in the
 	// absence of a version file works.
+	if release == "" {
+		release = "ubuntu"
+	}
+	if arch == "" {
+		arch = "amd64"
+	}
 	ver := version.Binary{
 		Number: version.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,
 		},
-		Release: "ubuntu",
-		Arch:    "amd64",
+		Release: release,
+		Arch:    arch,
 	}
 	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
 		Stdout: ver.String(),
@@ -424,81 +400,6 @@ func (b *buildSuite) patchExecCommand(c *gc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 }
 
-func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) {
-	b.patchExecCommand(c)
-
-	// No version file next to the binary.
-	dir := b.setUpFakeBinaries(c, "")
-	// But one in the fallback location.
-	err := ioutil.WriteFile(
-		filepath.Join(tools.VersionFileFallbackDir, "jujud-versions.yaml"),
-		[]byte(fakeVersionFile),
-		0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	resultVersion, official, sha256, err := tools.BundleTools(false, bundleFile, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Version should come from the version file.
-	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-arm64")
-	c.Assert(official, jc.IsTrue)
-
-	_, err = bundleFile.Seek(0, io.SeekStart)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = agenttools.UnpackTools(dir, &coretools.Tools{
-		Version: resultVersion,
-		SHA256:  sha256,
-	}, bundleFile)
-	c.Assert(err, jc.ErrorIsNil)
-
-	unpackDir := filepath.Join(dir, "tools", "1.2.3-ubuntu-arm64")
-	// downloaded-tools.txt is added by UnpackTools.
-	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
-		"downloaded-tools.txt", "jujuc", "jujud", "jujud-versions.yaml"})
-}
-
-func (b *buildSuite) TestBundleToolsUsesAdjacentVersionFirst(c *gc.C) {
-	// If there are version files both beside the binary and in
-	// /usr/lib/juju, use the one beside the binary.
-	dir := b.setUpFakeBinaries(c, strings.Replace(fakeVersionFile, "1.2.3", "2.3.5", 1))
-	err := ioutil.WriteFile(
-		filepath.Join(tools.VersionFileFallbackDir, "jujud-versions.yaml"),
-		[]byte(fakeVersionFile),
-		0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(resultVersion.String(), gc.Equals, "2.3.5-ubuntu-arm64")
-	c.Assert(official, jc.IsTrue)
-}
-
 const (
 	fakeBinary = "some binary content\n"
-)
-
-var (
-	fakeVersionFile = `
-versions:
-  - version: 1.2.3-ubuntu-arm64
-    sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-  - version: 1.2.4-windows-amd64
-    sha256: aaaa059f4cb8e83405fe6daabaa3ae62ead64ff841e0c26064c3e111c857e1fb
-`[1:]
-
-	osTypeArchMatchVersionFile = `
-versions:
-  - version: 1.2.3-ubuntu-arm64
-    sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-  - version: 1.2.3-%s-%s
-    sha256: b6813a18f82b16ae8d0cfb9e3063302688906e0c547db629a94dfb7f70198f00
-`[1:]
 )

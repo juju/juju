@@ -10,9 +10,9 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/core/secrets"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/core/secrets"
 )
 
 type secretGetCommand struct {
@@ -65,7 +65,7 @@ func printPlainOutput(writer io.Writer, val interface{}) error {
 	default:
 		return cmd.FormatYaml(writer, val)
 	}
-	fmt.Fprintf(writer, str)
+	fmt.Fprintln(writer, str)
 	return nil
 }
 

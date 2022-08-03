@@ -13,11 +13,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
@@ -1049,7 +1049,7 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// EnsureDead does not require that it already be Dying, so this is the
 	// only point at which we can safely backstop lp:1233457 and mitigate
 	// the impact of unit agent bugs that leave relation scopes occupied).
-	relations, err := applicationRelations(op.unit.st, op.unit.doc.Application)
+	relations, err := matchingRelations(op.unit.st, op.unit.doc.Application)
 	if op.FatalError(err) {
 		return nil, err
 	} else {
@@ -1120,7 +1120,7 @@ type relationPredicate func(ru *RelationUnit) (bool, error)
 
 // relations implements RelationsJoined and RelationsInScope.
 func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
-	candidates, err := applicationRelations(u.st, u.doc.Application)
+	candidates, err := matchingRelations(u.st, u.doc.Application)
 	if err != nil {
 		return nil, err
 	}

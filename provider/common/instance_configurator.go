@@ -14,22 +14,18 @@ import (
 	"github.com/juju/juju/network/iptables"
 )
 
-// Implementations of this interface should provide a way to configure external
-// IP allocation and add firewall functionality.
+// InstanceConfigurator describes methods for manipulating firewall
+// rules directly on a single instance.
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instance_configurator.go github.com/juju/juju/provider/common InstanceConfigurator
 type InstanceConfigurator interface {
 
-	// Close all ports.
+	// DropAllPorts denies access to all ports.
 	DropAllPorts(exceptPorts []int, addr string) error
 
-	// Add network interface and allocate external IP address.
-	// Implementations should also configure this interface and initialise  ports state.
-	ConfigureExternalIpAddress(apiPort int) error
-
-	// Open or close ports.
+	// ChangeIngressRules opens and/or closes ports.
 	ChangeIngressRules(ipAddress string, insert bool, rules firewall.IngressRules) error
 
-	// List all ingress rules.
+	// FindIngressRules returns all firewall rules.
 	FindIngressRules() (firewall.IngressRules, error)
 }
 
@@ -89,34 +85,6 @@ func (c *sshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) e
 		return errors.Errorf("failed to drop all ports: %s", output)
 	}
 	logger.Tracef("drop all ports output: %s", output)
-	return nil
-}
-
-// ConfigureExternalIpAddressCommands returns the commands to run to configure
-// the external IP address
-func ConfigureExternalIpAddressCommands(apiPort int) []string {
-	commands := []string{
-		`printf 'auto eth1\niface eth1 inet dhcp' | sudo tee -a /etc/network/interfaces.d/eth1.cfg`,
-		"sudo ifup eth1",
-		iptables.DropCommand{Interface: "eth1"}.Render(),
-	}
-	if apiPort > 0 {
-		commands = append(commands, iptables.AcceptInternalCommand{
-			Protocol:        "tcp",
-			DestinationPort: apiPort,
-		}.Render())
-	}
-	return commands
-}
-
-// ConfigureExternalIpAddress implements InstanceConfigurator interface.
-func (c *sshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error {
-	cmds := ConfigureExternalIpAddressCommands(apiPort)
-	output, err := c.runCommand(strings.Join(cmds, "\n"))
-	if err != nil {
-		return errors.Errorf("failed to allocate external IP address: %s", output)
-	}
-	logger.Tracef("configure external ip address output: %s", output)
 	return nil
 }
 

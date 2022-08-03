@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/sstxn"
 	"github.com/juju/worker/v3"
 	"gopkg.in/retry.v1"
 	"gopkg.in/tomb.v2"
@@ -88,7 +89,7 @@ func (e outOfSyncError) Error() string {
 		e.lastSeenId)
 }
 
-// A TxnWatcher watches the txns.log collection and publishes all change events
+// A TxnWatcher watches the sstxns.log collection and publishes all change events
 // to the hub.
 type TxnWatcher struct {
 	hub    Hub
@@ -137,7 +138,7 @@ type TxnWatcherConfig struct {
 	Session *mgo.Session
 	// JujuDBName is the Juju database name, usually "juju".
 	JujuDBName string
-	// CollectionName is txn logs collection name, usually "txns.log".
+	// CollectionName is txn logs collection name, usually "sstxns.log".
 	CollectionName string
 	// Hub is where the changes are published to.
 	Hub Hub
@@ -380,18 +381,24 @@ func (w *TxnWatcher) flush() {
 	// doesn't grow to the size of the largest-ever change and never shrink
 }
 
-// initLastId reads the most recent changelog document and initializes
-// lastId with it. This causes all history that precedes the creation
-// of the watcher to be ignored.
+// initLastId writes an empty transaction to the change log and sets
+// lastId to that txnId. This causes all history that precedes the creation
+// of the watcher to be ignored. By writing an empty transaction to the
+// change log collection (usually sstxns.log), it ensures the collection
+// exists.
 func (w *TxnWatcher) initLastId(log *mgo.Collection) error {
-	var entry struct {
-		Id interface{} `bson:"_id"`
+	txnId := bson.NewObjectId()
+
+	// Create an empty txn to ensure the txn log collection exists and
+	// mark our log checkpoint.
+	sstxnRunner := sstxn.NewRunner(log.Database, w.logger)
+	sstxnRunner.ChangeLog(log)
+	err := sstxnRunner.Run(nil, txnId, nil)
+	if err != nil {
+		return errors.Annotatef(err, "failed to create checkpoint txn %s", txnId.String())
 	}
-	err := log.Find(nil).Sort("-$natural").One(&entry)
-	if err != nil && err != mgo.ErrNotFound {
-		return errors.Trace(err)
-	}
-	w.lastId = entry.Id
+
+	w.lastId = txnId
 	return nil
 }
 

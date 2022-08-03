@@ -9,10 +9,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -203,7 +203,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
 	stateInfo := s.MongoInfo()
-	apiPort := jujutesting.FindTCPPort()
+	apiPort := mgotesting.FindTCPPort()
 	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
@@ -226,7 +226,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
 			CAPrivateKey: coretesting.CAKey,
-			StatePort:    jujutesting.MgoServer.Port(),
+			StatePort:    mgotesting.MgoServer.Port(),
 			APIPort:      apiPort,
 		})
 	c.Assert(err, jc.ErrorIsNil)

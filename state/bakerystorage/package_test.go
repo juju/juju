@@ -4,11 +4,11 @@
 package bakerystorage
 
 import (
-	"testing"
+	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/juju/testing"
 )
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+func TestPackage(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
 }

@@ -16,13 +16,13 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	mgotxn "github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	mgotesting "github.com/juju/mgo/v3/testing"
+	mgotxn "github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
@@ -801,7 +801,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
-	gitjujutesting.MgoServer.Restart()
+	mgotesting.MgoServer.Restart()
 	c.Assert(s.State.Ping(), gc.NotNil)
 }
 
@@ -1484,6 +1484,78 @@ func (s *StateSuite) TestMachineCountForSeries(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, map[string]int{"quantal": 1})
+}
+
+func (s *StateSuite) TestInferActiveRelations(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	_, err = wp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ms := s.AddTestingApplication(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	_, err = ms.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("wp", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relation, err := s.State.InferActiveRelation("wp", "ms")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relation, gc.Matches, "wp:db ms:prod")
+
+	relation, err = s.State.InferActiveRelation("wp:db", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relation, gc.Matches, "wp:db ms:prod")
+
+	_, err = s.State.InferActiveRelation("wp", "ms:dev")
+	c.Assert(err, gc.ErrorMatches, `relation matching "wp ms:dev" not found`)
+}
+
+func (s *StateSuite) TestInferActiveRelationsNoRelations(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	_, err = wp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ms := s.AddTestingApplication(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	_, err = ms.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.InferActiveRelation("wp", "ms")
+	c.Assert(err, gc.ErrorMatches, `relation matching "wp ms" not found`)
+
+	_, err = s.State.InferActiveRelation("wp:db", "ms:prod")
+	c.Assert(err, gc.ErrorMatches, `relation matching "wp:db ms:prod" not found`)
+}
+
+func (s *StateSuite) TestInferActiveRelationsAmbiguous(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress-nolimit"))
+	_, err = wp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ms := s.AddTestingApplication(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	_, err = ms.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps1, err := s.State.InferEndpoints("wp", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps1...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps2, err := s.State.InferEndpoints("wp", "ms:dev")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps2...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.InferActiveRelation("wp", "ms")
+	c.Assert(err, gc.ErrorMatches, `ambiguous relation: "wp ms" could refer to "wp:db ms:prod"; "wp:db ms:dev"`)
+
+	relation, err := s.State.InferActiveRelation("wp", "ms:prod")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relation, gc.Matches, "wp:db ms:prod")
 }
 
 func (s *StateSuite) TestAllRelations(c *gc.C) {
@@ -2246,7 +2318,7 @@ var inferEndpointsTests = []struct {
 			{"ms", "wp"},
 			{"ms", "wp:db"},
 		},
-		err: `ambiguous relation: ".*" could refer to "wp:db ms:dev"; "wp:db ms:prod"`,
+		err: `ambiguous relation: ".*" could refer to "wp:db ms:dev"; "wp:db ms:prod"; "wp:db ms:test"`,
 	}, {
 		summary: "unambiguous provider/requirer relation",
 		inputs: [][]string{
@@ -4193,14 +4265,29 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 
 	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
-	changeFuncs := []func(){
-		func() { s.changeEnviron(c, modelConfig, "default-series", "1") },
-		func() { s.changeEnviron(c, modelConfig, "default-series", "2") },
-		func() { s.changeEnviron(c, modelConfig, "default-series", "3") },
+	hooks := []jujutxn.TestHook{
+		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "1") }},
+		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "2") }},
+		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "3") }},
 	}
-	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
-	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
+
+	altCtrl, err := state.OpenController(state.OpenParams{
+		Clock:              s.Clock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.State.ControllerModelTag(),
+		MongoSession:       s.Session,
+		MaxTxnAttempts:     3,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer altCtrl.Close()
+
+	altState, err := altCtrl.GetState(s.Model.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	defer altState.Release()
+
+	defer state.SetTestHooks(c, altState.State, hooks...).Check()
+	err = altState.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion, "released")
 }
@@ -4687,7 +4774,7 @@ type SetAdminMongoPasswordSuite struct {
 
 var _ = gc.Suite(&SetAdminMongoPasswordSuite{})
 
-func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.UserTag, password string) {
+func setAdminPassword(c *gc.C, inst *mgotesting.MgoInstance, owner names.UserTag, password string) {
 	session, err := inst.Dial()
 	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
@@ -4696,7 +4783,7 @@ func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.Use
 }
 
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
-	inst := &gitjujutesting.MgoInstance{
+	inst := &mgotesting.MgoInstance{
 		EnableAuth:       true,
 		EnableReplicaSet: true,
 	}

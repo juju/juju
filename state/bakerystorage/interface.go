@@ -1,18 +1,12 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package bakerystorage provides an implementation
-// of the bakery Storage interface that uses MongoDB
-// to store items.
-//
-// This is based on github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore.
 package bakerystorage
 
 import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/mongo"
@@ -26,7 +20,7 @@ type Config struct {
 
 	// GetStorage returns a bakery.Storage and a function that will close
 	// any associated resources.
-	GetStorage func(rootKeys *mgorootkeystore.RootKeys, coll mongo.Collection, expireAfter time.Duration) (storage bakery.RootKeyStore)
+	GetStorage func(rootKeys *RootKeys, coll mongo.Collection, expireAfter time.Duration) (storage bakery.RootKeyStore)
 }
 
 // Validate validates the configuration.
@@ -59,6 +53,6 @@ func New(config Config) (ExpirableStorage, error) {
 	}
 	return &storage{
 		config:   config,
-		rootKeys: mgorootkeystore.NewRootKeys(5),
+		rootKeys: NewRootKeys(5),
 	}, nil
 }

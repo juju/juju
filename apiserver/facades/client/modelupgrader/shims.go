@@ -5,11 +5,12 @@ package modelupgrader
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
 
@@ -30,6 +31,7 @@ type State interface {
 	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
 	AbortCurrentUpgrade() error
+	ControllerConfig() (controller.Config, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -39,6 +41,7 @@ type Model interface {
 	Owner() names.UserTag
 	Name() string
 	MigrationMode() state.MigrationMode
+	Type() state.ModelType
 }
 
 type statePoolShim struct {
