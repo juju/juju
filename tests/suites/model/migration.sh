@@ -75,6 +75,9 @@ run_model_migration_saas_common() {
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
 	juju relate dummy-sink dummy-source
 
+	juju switch "model-migration-saas"
+	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
+
 	juju migrate "model-migration-saas" "alt-model-migration-saas"
 	juju switch "alt-model-migration-saas"
 
@@ -136,6 +139,8 @@ run_model_migration_saas_external() {
 	juju relate dummy-sink dummy-source
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
+
 	juju migrate "model-migration-saas" "model-migration-saas-target"
 	juju switch "model-migration-saas-target"
 
