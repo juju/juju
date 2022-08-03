@@ -107,7 +107,7 @@ func (s *EnableHASuite) runEnableHA(c *gc.C, args ...string) (*cmd.Context, erro
 func (s *EnableHASuite) TestEnableHA(c *gc.C) {
 	ctx, err := s.runEnableHA(c, "-n", "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 1)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
@@ -164,7 +164,7 @@ func (s *EnableHASuite) TestEnableHAWithFive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
-			"adding machines: 1, 2, 3, 4\n\n")
+			"adding machines: 1, 2, 3, 4\n")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 5)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
@@ -176,7 +176,7 @@ func (s *EnableHASuite) TestEnableHAWithConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
-			"adding machines: 1, 2\n\n")
+			"adding machines: 1, 2\n")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 3)
 	expectedCons := constraints.MustParse("mem=4G")
@@ -189,7 +189,7 @@ func (s *EnableHASuite) TestEnableHAWithPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
-			"adding machines: 1, 2\n\n")
+			"adding machines: 1, 2\n")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 3)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
@@ -222,7 +222,7 @@ func (s *EnableHASuite) TestEnableHAAllows0(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
-			"adding machines: 1, 2\n\n")
+			"adding machines: 1, 2\n")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 0)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
@@ -236,7 +236,7 @@ func (s *EnableHASuite) TestEnableHADefaultsTo0(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
-			"adding machines: 1, 2\n\n")
+			"adding machines: 1, 2\n")
 
 	c.Assert(s.fake.numControllers, gc.Equals, 0)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
@@ -260,7 +260,6 @@ func (s *EnableHASuite) TestEnableHAEndToEnd(c *gc.C) {
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, `
 maintaining machines: 0
 adding machines: 1, 2
-
 `[1:])
 }
 
@@ -270,7 +269,6 @@ func (s *EnableHASuite) TestEnableHAToExisting(c *gc.C) {
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, `
 maintaining machines: 0
 converting machines: 1, 2
-
 `[1:])
 
 	c.Check(s.fake.numControllers, gc.Equals, 0)

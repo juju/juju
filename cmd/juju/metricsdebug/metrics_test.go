@@ -86,13 +86,14 @@ func (s *metricsSuite) TestSort(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"unit-metered-0"})
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE	  LABELS
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+UNIT          	           TIMESTAMP	METRIC	VALUE	  LABELS
 unit-metered-0	2016-08-22T12:02:04Z	   a-s	 15.0	        
 unit-metered-0	2016-08-22T12:02:04Z	   a-s	 10.0	 foo=bar
 unit-metered-0	2016-08-22T12:02:04Z	   a-s	  5.0	quux=baz
 unit-metered-0	2016-08-22T12:02:04Z	   b-s	 10.0	        
 unit-metered-0	2016-08-22T12:02:04Z	   c-s	  5.0	        
-`)
+`[1:])
 }
 
 func (s *metricsSuite) TestDefaultTabularFormat(c *gc.C) {

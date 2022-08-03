@@ -55,7 +55,6 @@ func (s *findSuite) TestFindNoArgs(c *gc.C) {
 		`
 Store   URL                   Access   Interfaces
 master  fred/test.hosted-db2  consume  http:db2, http:log
-
 `[1:],
 	)
 }
@@ -101,7 +100,6 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 		`
 Store   URL                    Access   Interfaces
 master  fred/model.hosted-db2  consume  http:db2, http:log
-
 `[1:],
 	)
 }
@@ -122,7 +120,6 @@ func (s *findSuite) TestEndpointFilter(c *gc.C) {
 		`
 Store   URL                    Access   Interfaces
 master  fred/model.hosted-db2  consume  http:db2, http:log
-
 `[1:],
 	)
 }
@@ -163,7 +160,6 @@ func (s *findSuite) TestFindTabular(c *gc.C) {
 		`
 Store   URL                    Access   Interfaces
 master  fred/model.hosted-db2  consume  http:db2, http:log
-
 `[1:],
 	)
 }
@@ -177,7 +173,6 @@ func (s *findSuite) TestFindDifferentController(c *gc.C) {
 		`
 Store      URL                    Access   Interfaces
 different  fred/model.hosted-db2  consume  http:db2, http:log
-
 `[1:],
 	)
 }

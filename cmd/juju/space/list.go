@@ -228,7 +228,7 @@ func printTabularLong(writer io.Writer, value interface{}) error {
 	}
 
 	table.AddRow("", "", "")
-	_, _ = fmt.Fprint(writer, table)
+	_, _ = fmt.Fprintln(writer, table)
 	return nil
 }
 

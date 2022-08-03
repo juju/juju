@@ -82,7 +82,6 @@ func (s *listSuite) TestList(c *gc.C) {
 Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs         
-
 `[1:])
 	c.Check(stderr, gc.Equals, "")
 }
@@ -117,7 +116,6 @@ func (s *listSuite) TestPatternsOkay(c *gc.C) {
 Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs  a-tag  
-
 `[1:])
 	c.Check(stderr, gc.Equals, "")
 	s.stub.CheckCalls(c, []testing.StubCall{{
@@ -149,7 +147,6 @@ func (s *listSuite) TestOutputFormats(c *gc.C) {
 Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs         
-
 `[1:],
 		"yaml": `
 - unit: a-application/0

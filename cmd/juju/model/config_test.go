@@ -177,8 +177,7 @@ func (s *ConfigCommandSuite) TestAllValuesTabular(c *gc.C) {
 	expected := "" +
 		"Attribute  From   Value\n" +
 		"running    model  true\n" +
-		"special    model  special value\n" +
-		"\n"
+		"special    model  special value\n"
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -327,8 +326,7 @@ func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *gc.C) {
 		"Attribute           From   Value\n" +
 		"cloudinit-userdata  model  <value set, see juju model-config cloudinit-userdata>\n" +
 		"running             model  true\n" +
-		"special             model  special value\n" +
-		"\n"
+		"special             model  special value\n"
 	c.Assert(output2, gc.Equals, expected2)
 }
 
@@ -346,8 +344,7 @@ func (s *ConfigCommandSuite) TestPassesCloudInitUserDataShort(c *gc.C) {
 		"Attribute           From   Value\n" +
 		"cloudinit-userdata  model  \"\"\n" +
 		"running             model  true\n" +
-		"special             model  special value\n" +
-		"\n"
+		"special             model  special value\n"
 	c.Assert(output, gc.Equals, expected)
 }
 

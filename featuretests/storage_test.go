@@ -133,7 +133,6 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	expected := `
 Unit             Storage ID  Type   Size  Status   Message
 storage-block/0  data/0      block        pending  
-
 `[1:]
 	runList(c, expected)
 }
@@ -146,7 +145,6 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	expected := `
 Unit             Storage ID  Type   Size  Status   Message
 storage-block/0  data/0      block        pending  
-
 `[1:]
 	runList(c, expected)
 }
@@ -260,7 +258,6 @@ modelscoped-unreleasable  modelscoped-unreleasable
 rootfs                    rootfs                    
 static                    static                    
 tmpfs                     tmpfs                     
-
 `[1:]
 	c.Assert(stdout, gc.Equals, expected)
 }
@@ -457,7 +454,6 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	expected := `
 Machine  Unit             Storage ID  Volume ID  Provider ID  Device  Size  State    Message
 0        storage-block/0  data/0      0/0                                   pending  
-
 `[1:]
 	c.Assert(stdout, gc.Equals, expected)
 }
@@ -577,7 +573,6 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Unit                  Storage ID  Type        Size  Status   Message
 storage-filesystem/0  data/0      filesystem        pending  
-
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 
@@ -599,7 +594,6 @@ storage-filesystem/0  data/0      filesystem        pending
 Unit                  Storage ID  Type        Size  Status   Message
 storage-filesystem/0  data/0      filesystem        pending  
 storage-filesystem/0  data/1      filesystem        pending  
-
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
@@ -652,7 +646,6 @@ Unit             Storage ID  Type   Pool         Size    Status     Message
                  allecto/2   block  modelscoped  1.0GiB  detaching  
 storage-block/0  data/0      block                       pending    
 storage-block/1  data/1      block                       pending    
-
 `[1:])
 
 	// Attempt to attach the allecto storage to the second unit.
@@ -680,7 +673,6 @@ Unit             Storage ID  Type   Pool         Size    Status     Message
 storage-block/0  data/0      block                       pending    
 storage-block/1  allecto/2   block  modelscoped  1.0GiB  attaching  
 storage-block/1  data/1      block                       pending    
-
 `[1:])
 }
 

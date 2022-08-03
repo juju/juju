@@ -137,7 +137,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 		}
 	}
 
-	_, err := fmt.Fprint(writer, table)
+	_, err := fmt.Fprintln(writer, table)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -224,7 +224,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	}
 	table.AddRow("Model", "SLA", "Message")
 	table.AddRow(l.Model, l.SLA, l.Message)
-	fmt.Fprint(writer, table)
+	fmt.Fprintln(writer, table)
 	return nil
 }
 
