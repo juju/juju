@@ -96,9 +96,10 @@ type PrecheckUnit interface {
 // for prechecks.
 type PrecheckRelation interface {
 	String() string
-	IsCrossModel() (bool, error)
 	Endpoints() []state.Endpoint
 	Unit(PrecheckUnit) (PrecheckRelationUnit, error)
+	AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error)
+	RemoteApplication() (string, bool, error)
 }
 
 // PrecheckRelationUnit describes the interface for relation units
@@ -106,6 +107,7 @@ type PrecheckRelation interface {
 type PrecheckRelationUnit interface {
 	Valid() (bool, error)
 	InScope() (bool, error)
+	UnitName() string
 }
 
 // ModelPresence represents the API server connections for a model.
@@ -475,35 +477,51 @@ func (ctx *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) e
 		return errors.Annotate(err, "retrieving model relations")
 	}
 	for _, rel := range relations {
-		// We expect a relationScope and settings for each of the
-		// units of the specified application, unless it is a
-		// remote application.
-		crossModel, err := rel.IsCrossModel()
-		if err != nil {
+		remoteAppName, crossModel, err := rel.RemoteApplication()
+		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "checking whether relation %s is cross-model", rel)
 		}
-		if crossModel {
-			continue
+
+		checkRelationUnit := func(ru PrecheckRelationUnit) error {
+			valid, err := ru.Valid()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !valid {
+				return nil
+			}
+			inScope, err := ru.InScope()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !inScope {
+				return errors.Errorf("unit %s hasn't joined relation %q yet", ru.UnitName(), rel)
+			}
+			return nil
 		}
+
 		for _, ep := range rel.Endpoints() {
-			for _, unit := range appUnits[ep.ApplicationName] {
-				ru, err := rel.Unit(unit)
+			// The endpoint app is either local or cross model.
+			// Handle each one as appropriate.
+			if crossModel && ep.ApplicationName == remoteAppName {
+				remoteUnits, err := rel.AllRemoteUnits(remoteAppName)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				valid, err := ru.Valid()
-				if err != nil {
-					return errors.Trace(err)
+				for _, ru := range remoteUnits {
+					if err := checkRelationUnit(ru); err != nil {
+						return errors.Trace(err)
+					}
 				}
-				if !valid {
-					continue
-				}
-				inScope, err := ru.InScope()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if !inScope {
-					return errors.Errorf("unit %s hasn't joined relation %s yet", unit.Name(), rel)
+			} else {
+				for _, unit := range appUnits[ep.ApplicationName] {
+					ru, err := rel.Unit(unit)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					if err := checkRelationUnit(ru); err != nil {
+						return errors.Trace(err)
+					}
 				}
 			}
 		}
