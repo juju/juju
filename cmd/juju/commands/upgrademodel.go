@@ -467,7 +467,6 @@ func (c *upgradeJujuCommand) upgradeWithTargetVersion(
 	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, isControllerModel, dryRun bool,
 	modelType model.ModelType, targetVersion, agentVersion version.Number,
 ) (chosenVersion version.Number, err error) {
-
 	chosenVersion = targetVersion
 	// juju upgrade-controller --agent-version 3.x.x
 	_, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, dryRun)
@@ -617,6 +616,7 @@ func (c *upgradeJujuCommand) upgradeModel(
 		return err
 	}
 	// juju upgrade-controller without --build-agent or --agent-version
+	// or juju upgrade-model without --agent-version
 	targetVersion, err = c.notifyControllerUpgrade(
 		ctx, modelUpgrader,
 		version.Zero, // no target version provided, we figure it out on the server side.

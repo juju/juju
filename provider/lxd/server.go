@@ -383,11 +383,11 @@ func ParseAPIVersion(s string) (version.Number, error) {
 	}
 	major, err := strconv.Atoi(versionParts[0])
 	if err != nil {
-		return version.Zero, errors.NotValidf("major %v", versionParts[0])
+		return version.Zero, errors.NotValidf("major version number  %v", versionParts[0])
 	}
 	minor, err := strconv.Atoi(versionParts[1])
 	if err != nil {
-		return version.Zero, errors.NotValidf("minor %v", versionParts[1])
+		return version.Zero, errors.NotValidf("minor version number  %v", versionParts[1])
 	}
 	return version.Number{Major: major, Minor: minor}, nil
 }

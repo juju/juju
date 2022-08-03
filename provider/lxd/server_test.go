@@ -30,8 +30,8 @@ func (s *serverSuite) TestParseAPIVersion(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `LXD API version "5": expected format <major>.<minor>`)
 
 	_, err = ParseAPIVersion("a.b")
-	c.Check(err, gc.ErrorMatches, `major a not valid`)
+	c.Check(err, gc.ErrorMatches, `major version number  a not valid`)
 
 	_, err = ParseAPIVersion("1.b")
-	c.Check(err, gc.ErrorMatches, `minor b not valid`)
+	c.Check(err, gc.ErrorMatches, `minor version number  b not valid`)
 }

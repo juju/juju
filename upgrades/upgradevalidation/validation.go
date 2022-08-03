@@ -313,7 +313,7 @@ func getCheckForLXDVersion(
 		logger.Debugf("current LXD version %q, min LXD version %q", currentVer, minVer)
 		if currentVer.Compare(minVer) < 0 {
 			return NewBlocker(
-				"LXD version has to be %q at least, but current version is %q",
+				"LXD version has to be at least %q, but current version is only %q",
 				minVer, currentVer,
 			), nil
 		}

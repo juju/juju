@@ -520,7 +520,7 @@ func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
 		{
 			input:    "a.b",
 			expected: false,
-			output:   `LXD API version "a.b": unexpected major number: strconv.(ParseInt|Atoi): parsing "a": invalid syntax`,
+			output:   `major version number  a not valid`,
 		},
 		{
 			input:    "0.9",
@@ -544,7 +544,7 @@ func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
 		},
 	} {
 		msg, ok := lxd.IsSupportedAPIVersion(t.input)
-		c.Assert(ok, gc.Equals, t.expected)
-		c.Assert(msg, gc.Matches, t.output)
+		c.Check(ok, gc.Equals, t.expected)
+		c.Check(msg, gc.Matches, t.output)
 	}
 }

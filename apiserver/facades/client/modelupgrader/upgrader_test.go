@@ -458,13 +458,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		model1.EXPECT().Name().Return("model-1"),
 	)
 
-	_, err = api.UpgradeModel(
+	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/controller":
 - current model ("2.9.1") has to be upgraded to "2.9.2" at least
@@ -472,13 +473,13 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - mongo version has to be "4.4" at least, but current version is "4.3"
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): xenial(2)
-- LXD version has to be "5.2.0" at least, but current version is "5.1.0"
+- LXD version has to be at least "5.2.0", but current version is only "5.1.0"
 "admin/model-1":
 - current model ("2.9.0") has to be upgraded to "2.9.2" at least
 - model is under "exporting" mode, upgrade blocked
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
-- LXD version has to be "5.2.0" at least, but current version is "5.1.0"`[1:])
+- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
@@ -559,7 +560,6 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	}
 	if !dryRun {
 		assertions = append(assertions,
-			// s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
 			st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
 		)
 	}
@@ -669,20 +669,20 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
-	_, err := api.UpgradeModel(
+	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Logf(err.Error())
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
-- LXD version has to be "5.2.0" at least, but current version is "5.1.0"`[1:])
+- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {

@@ -439,5 +439,5 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 		cloudSpec, upgradevalidation.MinLXDVersion,
 	)("", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be "5.2.0" at least, but current version is "5.1.0"`)
+	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
 }
