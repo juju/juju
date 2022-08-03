@@ -71,6 +71,6 @@ test_deploy_ck() {
 
 		run "run_deploy_caas_workload"
 
-		destroy_model "${run_deploy_ck_name}"
+		destroy_model "${run_deploy_ck_name}" 45m
 	)
 }
