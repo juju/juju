@@ -41,10 +41,9 @@ import (
 type modelUpgradeSuite struct {
 	jujutesting.IsolationSuite
 
-	adminUser        names.UserTag
-	authoriser       apiservertesting.FakeAuthorizer
-	callContext      context.ProviderCallContext
-	ctrlAgentVersion version.Number
+	adminUser   names.UserTag
+	authoriser  apiservertesting.FakeAuthorizer
+	callContext context.ProviderCallContext
 
 	statePool        *mocks.MockStatePool
 	toolsFinder      *mocks.MockToolsFinder
@@ -80,7 +79,6 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 
 	api, err := modelupgrader.NewModelUpgraderAPI(
 		coretesting.ControllerTag,
-		s.ctrlAgentVersion,
 		s.statePool,
 		s.toolsFinder,
 		func() (environs.BootstrapEnviron, error) {
@@ -460,13 +458,13 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		model1.EXPECT().Name().Return("model-1"),
 	)
 
-	result, _ := api.UpgradeModel(
+	_, err = api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Assert(result.Error.Error(), gc.Equals, `
+	c.Assert(err.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/controller":
 - current model ("2.9.1") has to be upgraded to "2.9.2" at least
@@ -561,6 +559,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	}
 	if !dryRun {
 		assertions = append(assertions,
+			// s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
 			st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
 		)
 	}
@@ -670,119 +669,20 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
-	result, _ := api.UpgradeModel(
+	_, err := api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Assert(result.Error.Error(), gc.Equals, `
+	c.Logf(err.Error())
+	c.Assert(err.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
 - LXD version has to be "5.2.0" at least, but current version is "5.1.0"`[1:])
-}
-
-func (s *modelUpgradeSuite) TestUpgradeModelRetryUseControllerVersion(c *gc.C) {
-	s.ctrlAgentVersion = version.MustParse("3.9.99")
-
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
-
-	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
-
-	server := upgradevalidationmocks.NewMockServer(ctrl)
-	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
-	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(httpClient *http.Client) lxd.ServerFactory {
-			return serverFactory
-		},
-	)
-
-	modelUUID := coretesting.ModelTag.Id()
-	model := mocks.NewMockModel(ctrl)
-	st := mocks.NewMockState(ctrl)
-	st.EXPECT().Release()
-
-	s.statePool.EXPECT().Get(modelUUID).AnyTimes().Return(st, nil)
-	st.EXPECT().Model().AnyTimes().Return(model, nil)
-
-	gomock.InOrder(
-		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
-
-		// find tool using agent version.
-		model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil),
-		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 2, MinorVersion: -1}).Return(
-			params.FindToolsResult{
-				List: []*coretools.Tools{
-					{Version: version.MustParseBinary("2.9.1-ubuntu-amd64")},
-				},
-			}, nil,
-		),
-		model.EXPECT().Type().Return(state.ModelTypeIAAS),
-		// find tool using controller version again.
-		model.EXPECT().IsControllerModel().Return(false),
-		s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{MajorVersion: 3, MinorVersion: -1}).Return(
-			params.FindToolsResult{
-				List: []*coretools.Tools{
-					{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
-				},
-			}, nil,
-		),
-		model.EXPECT().Type().Return(state.ModelTypeIAAS),
-
-		model.EXPECT().Name().Return("model-1"),
-		model.EXPECT().IsControllerModel().Return(false),
-
-		// - check no upgrade series in process.
-		st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
-
-		// - check if the model has win machines;
-		st.EXPECT().MachineCountForSeries(
-			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
-			"win2016", "win2016hv", "win2019", "win7", "win8", "win81",
-		).Return(nil, nil),
-		// - check if the model has deprecated ubuntu machines;
-		st.EXPECT().MachineCountForSeries(
-			"artful",
-			"bionic",
-			"cosmic",
-			"disco",
-			"eoan",
-			"groovy",
-			"hirsute",
-			"impish",
-			"precise",
-			"quantal",
-			"raring",
-			"saucy",
-			"trusty",
-			"utopic",
-			"vivid",
-			"wily",
-			"xenial",
-			"yakkety",
-			"zesty",
-		).Return(nil, nil),
-		// - check LXD version.
-		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
-		server.EXPECT().ServerVersion().Return("5.2"),
-
-		st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
-	)
-	result, err := api.UpgradeModel(
-		params.UpgradeModelParams{
-			ModelTag: coretesting.ModelTag.String(),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
-		ChosenVersion: version.MustParse("3.9.99"),
-	})
 }
 
 func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {

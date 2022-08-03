@@ -41,14 +41,6 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerModel, err := systemState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerAgentVersion, err := controllerModel.AgentVersion()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
@@ -64,10 +56,8 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 	}
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
-
 	return NewModelUpgraderAPI(
 		systemState.ControllerTag(),
-		controllerAgentVersion,
 		statePoolShim{StatePool: pool},
 		toolsFinder,
 		newEnviron,
