@@ -14,8 +14,6 @@ const (
 	TxnWatcherErrorShortWait = time.Duration(1.1 * float64(txnWatcherErrorShortWait))
 )
 
-var OutOfSyncError = outOfSyncError{}
-
 func NewTestHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) (*HubWatcher, <-chan struct{}) {
 	return newHubWatcher(hub, clock, modelUUID, logger)
 }

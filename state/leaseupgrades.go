@@ -48,7 +48,7 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 			Database:                  db.raw,
 			Clock:                     db.clock,
 			TransactionCollectionName: "txns",
-			ChangeLogName:             "sstxns.log",
+			ChangeLogName:             "-",
 			ServerSideTransactions:    true,
 		})
 	}

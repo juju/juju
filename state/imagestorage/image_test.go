@@ -44,7 +44,7 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  s.metadataCollection.Database,
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          3,
 	})

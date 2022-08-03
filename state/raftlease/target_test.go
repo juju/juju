@@ -538,7 +538,7 @@ func NewMongo(database *mgo.Database) *Mongo {
 		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
 			Database:                  database,
 			TransactionCollectionName: "txns",
-			ChangeLogName:             "sstxns.log",
+			ChangeLogName:             "-",
 			ServerSideTransactions:    true,
 		}),
 	}

@@ -56,14 +56,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"s"},
 			}},
 		},
-		txnLogC: {
-			// This collection is used by mgo/txn to record the set of documents
-			// affected by each successful transaction; and by state/watcher to
-			// generate a stream of document-resolution events that are delivered
-			// to, and interpreted by, both state and the multiwatcher.
-			global:    true,
-			rawAccess: true,
-		},
 
 		// ------------------
 
@@ -654,7 +646,6 @@ const (
 	linkLayerDevicesC          = "linklayerdevices"
 	ipAddressesC               = "ip.addresses"
 	toolsmetadataC             = "toolsmetadata"
-	txnLogC                    = "sstxns.log"
 	txnsC                      = "txns"
 	unitsC                     = "units"
 	unitStatesC                = "unitstates"
