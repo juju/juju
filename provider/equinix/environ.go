@@ -50,6 +50,8 @@ type environConfig struct {
 }
 
 type environ struct {
+	equinixFirewaller
+
 	ecfgMutex     sync.Mutex
 	ecfg          *environConfig
 	name          string
@@ -57,6 +59,13 @@ type environ struct {
 	equinixClient *packngo.Client
 	namespace     instance.Namespace
 }
+
+var (
+	_ environs.Environ           = (*environ)(nil)
+	_ environs.Firewaller        = (*environ)(nil)
+	_ environs.NetworkingEnviron = (*environ)(nil)
+	_ environs.InstanceTagger    = (*environ)(nil)
+)
 
 var providerInstance environProvider
 
@@ -70,6 +79,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
+}
+
+// TagInstance implements environs.InstanceTagger.
+func (e *environ) TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error {
+	return e.setTagsForDevice(string(id), tags)
 }
 
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
@@ -111,7 +125,8 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 
 func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	insts, err := e.getPacketInstancesByTag(map[string]string{
-		"juju-model-uuid": e.Config().UUID()})
+		"juju-model-uuid": e.Config().UUID(),
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -176,7 +191,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 			missingInstanceCount++
 			continue
 		}
-		toReturn[i] = &equinixDevice{e, d}
+		toReturn[i] = newInstance(d, e)
 	}
 
 	if missingInstanceCount > 0 {
@@ -213,16 +228,21 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-var configImmutableFields = []string{}
-var configFields = func() schema.Fields {
-	fs, _, err := configSchema.ValidationSchema()
-	if err != nil {
-		panic(err)
-	}
-	return fs
-}()
-var configSchema = environschema.Fields{}
-var configDefaults = schema.Defaults{}
+var (
+	configImmutableFields = []string{}
+	configFields          = func() schema.Fields {
+		fs, _, err := configSchema.ValidationSchema()
+		if err != nil {
+			panic(err)
+		}
+		return fs
+	}()
+)
+
+var (
+	configSchema   = environschema.Fields{}
+	configDefaults = schema.Defaults{}
+)
 
 func newConfig(cfg, old *config.Config) (*environConfig, error) {
 	// Ensure that the provided config is valid.
@@ -487,7 +507,7 @@ EOF`,
 		return nil, errors.Trace(err)
 	}
 
-	inst := &equinixDevice{e, d}
+	inst := newInstance(d, e)
 
 	arch = getArchitectureFromPlan(d.Plan.Name)
 
@@ -543,7 +563,7 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 
 	projectID, ok := e.cloud.Credential.Attributes()["project-id"]
 	if !ok {
-		return nil, fmt.Errorf("project-id not fond as attribute")
+		return nil, fmt.Errorf("project-id not found as attribute")
 	}
 
 	devices, _, err := e.equinixClient.Devices.List(projectID, nil)
@@ -556,11 +576,26 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 		deviceTags := set.NewStrings(dev.Tags...)
 		if queryTags.Intersection(deviceTags).Size() == queryTags.Size() {
 			devCopy := dev
-			toReturn = append(toReturn, &equinixDevice{e, &devCopy})
+			toReturn = append(toReturn, newInstance(&devCopy, e))
 		}
 	}
 
 	return toReturn, nil
+}
+
+// setTagsForDevice sets the tags for a device.
+func (e *environ) setTagsForDevice(id string, tags map[string]string) error {
+	deviceTags := []string{}
+	for k, v := range tags {
+		deviceTags = append(deviceTags, fmt.Sprintf("%s=%s", k, v))
+	}
+	req := &packngo.DeviceUpdateRequest{
+		Tags: &deviceTags,
+	}
+
+	_, _, err := e.equinixClient.Devices.Update(id, req)
+
+	return errors.Trace(err)
 }
 
 func mapJujuSubnetsToReservationIDs(subnetsToZoneMap []map[network.Id][]string) []string {
@@ -664,7 +699,7 @@ func validPlan(plan packngo.Plan, region string) bool {
 }
 
 func parseMemValue(v string) (uint64, error) {
-	var scaler = uint64(1)
+	scaler := uint64(1)
 	if strings.HasSuffix(v, "GB") {
 		scaler = 1024
 		v = strings.TrimSuffix(v, "GB")

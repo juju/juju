@@ -213,7 +213,7 @@ run_deploy_lxd_to_container() {
 		attempt=$((attempt + 1))
 		if [ $attempt -eq 10 ]; then
 			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for lxc profile to show 50sec")
+			echo $(red "timeout: waiting for removal of lxc profile 50sec")
 			exit 5
 		fi
 		sleep 5

@@ -6,12 +6,15 @@ package equinix
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/common"
 
 	"github.com/packethost/packngo"
 )
@@ -20,9 +23,22 @@ type equinixDevice struct {
 	e *environ
 
 	*packngo.Device
+	newInstanceConfigurator func(string) common.InstanceConfigurator
 }
 
-var _ instances.Instance = (*equinixDevice)(nil)
+var (
+	_ instances.Instance           = (*equinixDevice)(nil)
+	_ instances.InstanceFirewaller = (*equinixDevice)(nil)
+)
+
+// newInstance returns a new equinixDevice
+func newInstance(raw *packngo.Device, env *environ) *equinixDevice {
+	return &equinixDevice{
+		Device:                  raw,
+		e:                       env,
+		newInstanceConfigurator: common.NewSshInstanceConfigurator,
+	}
+}
 
 func (device *equinixDevice) String() string {
 	return device.ID
@@ -50,7 +66,6 @@ func (device *equinixDevice) Status(ctx context.ProviderCallContext) instance.St
 		Status:  jujuStatus,
 		Message: device.State,
 	}
-
 }
 
 // Addresses implements network.Addresses() returning generic address
@@ -82,4 +97,57 @@ func (device *equinixDevice) Addresses(ctx context.ProviderCallContext) (corenet
 	}
 
 	return addresses, nil
+}
+
+// OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
+// permitted for machine with the input ID.
+func (device *equinixDevice) OpenPorts(ctx context.ProviderCallContext, _ string, rules firewall.IngressRules) error {
+	client, err := device.getInstanceConfigurator(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(client.ChangeIngressRules("", true, rules))
+}
+
+// OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
+// restricted for machine with the input ID.
+func (device *equinixDevice) ClosePorts(ctx context.ProviderCallContext, _ string, rules firewall.IngressRules) error {
+	client, err := device.getInstanceConfigurator(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(client.ChangeIngressRules("", false, rules))
+}
+
+// IngressRules (InstanceFirewaller) returns the ingress rules that have been
+// applied to the input machine ID.
+func (device *equinixDevice) IngressRules(ctx context.ProviderCallContext, _ string) (firewall.IngressRules, error) {
+	client, err := device.getInstanceConfigurator(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rules, err := client.FindIngressRules()
+	return rules, errors.Trace(err)
+}
+
+func (device *equinixDevice) getInstanceConfigurator(
+	ctx context.ProviderCallContext,
+) (common.InstanceConfigurator, error) {
+	addresses, err := device.Addresses(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Try to find a public address.
+	// Different models use different VCNs (and therefore subnets),
+	// so the cloud-local IPs are no good if a controller is trying to
+	// configure an instance in another model.
+	for _, addr := range addresses {
+		if addr.Scope == corenetwork.ScopePublic {
+			return device.newInstanceConfigurator(addr.Value), nil
+		}
+	}
+
+	return nil, errors.NotFoundf("public address for instance %q", device.Id())
 }

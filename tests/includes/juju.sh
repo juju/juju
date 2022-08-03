@@ -292,18 +292,23 @@ post_add_model() {
 		add_images_for_vsphere
 		;;
 	esac
+
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		juju set-model-constraints "arch=${MODEL_ARCH}"
+	fi
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the
 # model is found before attempting to do so.
 #
 # ```
-# destroy_model <model name>
+# destroy_model <model name> [<timeout>]
 # ```
 destroy_model() {
-	local name
+	local name timeout
 
 	name=${1}
+	timeout=${2:-30m}
 	shift
 
 	# shellcheck disable=SC2034
@@ -316,7 +321,7 @@ destroy_model() {
 	output="${TEST_DIR}/${name}-destroy.log"
 
 	echo "====> Destroying juju model ${name}"
-	echo "${name}" | xargs -I % juju destroy-model -y --destroy-storage % >"${output}" 2>&1 || true
+	echo "${name}" | xargs -I % juju destroy-model -y --destroy-storage --timeout="$timeout" % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'

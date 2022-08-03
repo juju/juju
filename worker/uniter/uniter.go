@@ -74,10 +74,7 @@ type RebootQuerier interface {
 // RemoteInitFunc is used to init remote state
 type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) error
 
-// Uniter implements the capabilities of the unit agent. It is not intended to
-// implement the actual *behaviour* of the unit agent; that responsibility is
-// delegated to Mode values, which are expected to react to events and direct
-// the uniter's responses to them.
+// Uniter implements the capabilities of the unit agent, for example running hooks.
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
