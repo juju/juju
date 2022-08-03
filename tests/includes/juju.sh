@@ -290,7 +290,9 @@ post_add_model() {
 		;;
 	esac
 
-	juju set-model-constraints "arch=${BUILD_ARCH:-}"
+	if [[ -z "${MODEL_ARCH}" ]]; then
+		juju set-model-constraints "arch=${MODEL_ARCH}"
+	fi
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the
