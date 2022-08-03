@@ -289,6 +289,10 @@ post_add_model() {
 		add_images_for_vsphere
 		;;
 	esac
+
+	if [[ -z ${MODEL_ARCH} ]]; then
+		juju set-model-constraints "arch=${MODEL_ARCH}"
+	fi
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the
