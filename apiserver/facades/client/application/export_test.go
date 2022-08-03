@@ -4,10 +4,7 @@
 package application
 
 import (
-	"github.com/juju/juju/core/assumes"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var (
@@ -26,14 +23,4 @@ func GetModel(m *state.Model) Model {
 
 func SetModelType(api *APIv14, modelType state.ModelType) {
 	api.modelType = modelType
-}
-
-func MockSupportedFeatures(fs assumes.FeatureSet) {
-	supportedFeaturesGetter = func(stateenvirons.Model, environs.NewEnvironFunc) (assumes.FeatureSet, error) {
-		return fs, nil
-	}
-}
-
-func ResetSupportedFeaturesGetter() {
-	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 }

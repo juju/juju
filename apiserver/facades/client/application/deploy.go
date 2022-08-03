@@ -26,7 +26,7 @@ import (
 
 var (
 	// Overridden by tests.
-	supportedFeaturesGetter = stateenvirons.SupportedFeatures
+	SupportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
 
 // DeployApplicationParams contains the arguments required to deploy the referenced
@@ -210,7 +210,7 @@ func assertCharmAssumptions(assumesExprTree *assumes.ExpressionTree, model Model
 		return nil
 	}
 
-	featureSet, err := supportedFeaturesGetter(model, environs.New)
+	featureSet, err := SupportedFeaturesGetter(model, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "querying feature set supported by the model")
 	}

@@ -239,13 +239,13 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
-type storageInterface interface {
+type StorageInterface interface {
 	storagecommon.StorageAccess
 	VolumeAccess() storagecommon.VolumeAccess
 	FilesystemAccess() storagecommon.FilesystemAccess
 }
 
-var getStorageState = func(st *state.State) (storageInterface, error) {
+var getStorageState = func(st *state.State) (StorageInterface, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, err

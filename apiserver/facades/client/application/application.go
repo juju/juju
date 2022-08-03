@@ -55,6 +55,8 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
+
 var logger = loggo.GetLogger("juju.apiserver.application")
 
 // APIv4 provides the Application API facade for versions 1-4.
@@ -125,7 +127,7 @@ type APIv14 struct {
 // API provides the Application API facade for version 5.
 type APIBase struct {
 	backend       Backend
-	storageAccess storageInterface
+	storageAccess StorageInterface
 
 	authorizer   facade.Authorizer
 	check        BlockChecker
@@ -145,11 +147,11 @@ type APIBase struct {
 
 	storagePoolManager    poolmanager.PoolManager
 	registry              storage.ProviderRegistry
-	caasBroker            caasBrokerInterface
+	caasBroker            CaasBrokerInterface
 	deployApplicationFunc func(ApplicationDeployer, Model, DeployApplicationParams) (Application, error)
 }
 
-type caasBrokerInterface interface {
+type CaasBrokerInterface interface {
 	ValidateStorageClass(config map[string]interface{}) error
 	Version() (*version.Number, error)
 }
@@ -236,7 +238,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
-	storageAccess storageInterface,
+	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
 	updateSeries UpdateSeries,
 	blockChecker BlockChecker,
@@ -247,7 +249,7 @@ func NewAPIBase(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
-	caasBroker caasBrokerInterface,
+	caasBroker CaasBrokerInterface,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -529,7 +531,7 @@ func caasPrecheck(
 	args params.ApplicationDeploy,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
-	caasBroker caasBrokerInterface,
+	caasBroker CaasBrokerInterface,
 ) error {
 	if len(args.AttachStorage) > 0 {
 		return errors.Errorf(
@@ -614,7 +616,7 @@ func deployApplication(
 	deployApplicationFunc func(ApplicationDeployer, Model, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
-	caasBroker caasBrokerInterface,
+	caasBroker CaasBrokerInterface,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -1822,7 +1824,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 				)
 			}
 		} else {
-			info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+			info.DestroyedStorage, info.DetachedStorage, err = ClassifyDetachedStorage(
 				api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), unitStorage,
 			)
 			if err != nil {
@@ -1953,7 +1955,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 					)
 				}
 			} else {
-				destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
+				destroyed, detached, err := ClassifyDetachedStorage(
 					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), unitStorage,
 				)
 				if err != nil {
@@ -2428,7 +2430,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 // maybeUpdateExistingApplicationEndpoints looks for a remote application with the
 // specified name and source model tag and tries to update its endpoints with the
 // new ones specified. If the endpoints are compatible, the newly updated remote
-// application is returned.s.backend.remoteApplications["hosted-mysql"]
+// application is returned.
 // If the application status is Terminated, no updates are done.
 func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	applicationName string, sourceModelTag names.ModelTag, remoteEps []charm.Relation,
