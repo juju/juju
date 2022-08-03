@@ -58,7 +58,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
 
-	environscloudspecGetter := cloudspec.MakeCloudSpecGetterForModel(ctx.State())
+	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(ctx.StatePool())
 	return NewAPI(
 		newBacked(ctx.State()),
 		precheckBackend,

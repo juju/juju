@@ -186,7 +186,8 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	}
 
 	if err := m.validateModelUpgrade(false, modelTag, targetVersion, st, model); err != nil {
-		return result, errors.Trace(err)
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
 	if arg.DryRun {
 		return result, nil
@@ -270,12 +271,10 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
 		if err == nil && blockers != nil {
-			err = apiservererrors.ServerError(
-				errors.NewNotSupported(nil,
-					fmt.Sprintf(
-						"cannot upgrade to %q due to issues with these models:\n%s",
-						targetVersion, blockers,
-					),
+			err = errors.NewNotSupported(nil,
+				fmt.Sprintf(
+					"cannot upgrade to %q due to issues with these models:\n%s",
+					targetVersion, blockers,
 				),
 			)
 		}
@@ -310,12 +309,18 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, cloudspec)
 	for _, modelUUID := range modelUUIDs {
 		if modelUUID == modelTag.Id() {
 			// We have done checks for controller model above already.
 			continue
 		}
+
+		cloudspec, err := m.environscloudspecGetter(names.NewModelTag(modelUUID))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, cloudspec)
+
 		st, err := m.statePool.Get(modelUUID)
 		if err != nil {
 			return errors.Trace(err)

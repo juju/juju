@@ -47,7 +47,7 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
-	environscloudspecGetter := cloudspec.MakeCloudSpecGetterForModel(st)
+	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool)
 
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
