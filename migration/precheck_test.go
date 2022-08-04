@@ -4,8 +4,10 @@
 package migration_test
 
 import (
+	"net/http"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v2"
@@ -16,10 +18,14 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades/upgradevalidation"
+	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
 var (
@@ -37,13 +43,23 @@ type SourcePrecheckSuite struct {
 var _ = gc.Suite(&SourcePrecheckSuite{})
 
 func sourcePrecheck(backend migration.PrecheckBackend) error {
-	return migration.SourcePrecheck(backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence())
+	return migration.SourcePrecheck(
+		backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence(),
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return environscloudspec.CloudSpec{Type: "lxd"}, nil
+		},
+	)
 }
 
 func (*SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
-	err := migration.SourcePrecheck(backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence())
+	err := migration.SourcePrecheck(
+		backend, version.MustParse("2.9.32"), allAlivePresence(), allAlivePresence(),
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return environscloudspec.CloudSpec{Type: "lxd"}, nil
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -71,7 +87,17 @@ func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
 }
 
-func (*SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
+func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
+	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
+
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
@@ -81,14 +107,25 @@ func (*SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
-	err := migration.SourcePrecheck(backend, version.MustParse("3.0.0"), allAlivePresence(), allAlivePresence())
+
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.1")
+
+	err := migration.SourcePrecheck(
+		backend, version.MustParse("3.0.0"), allAlivePresence(), allAlivePresence(),
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return cloudSpec, nil
+		},
+	)
 	c.Assert(err.Error(), gc.Equals, `
 cannot migrate to controller ("3.0.0") due to issues:
 "foo/model-1":
 - current model ("2.9.31") has to be upgraded to "2.9.32" at least
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
-- the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`[1:])
+- the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)
+- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
 }
 
 func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
@@ -101,7 +138,12 @@ func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
-	err := migration.SourcePrecheck(backend, version.MustParse("2.9.99"), allAlivePresence(), allAlivePresence())
+	err := migration.SourcePrecheck(
+		backend, version.MustParse("2.9.99"), allAlivePresence(), allAlivePresence(),
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return environscloudspec.CloudSpec{Type: "lxd"}, nil
+		},
+	)
 	c.Assert(err.Error(), gc.Equals, `
 cannot migrate to controller ("2.9.99") due to issues:
 "foo/model-1":
@@ -176,7 +218,12 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	backend := newHappyBackend()
 	modelPresence := downAgentPresence("machine-1")
 	controllerPresence := allAlivePresence()
-	err := migration.SourcePrecheck(backend, version.MustParse("2.9.32"), modelPresence, controllerPresence)
+	err := migration.SourcePrecheck(
+		backend, version.MustParse("2.9.32"), modelPresence, controllerPresence,
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return environscloudspec.CloudSpec{Type: "foo"}, nil
+		},
+	)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
@@ -291,7 +338,12 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 	backend := newHappyBackend()
 	modelPresence := downAgentPresence("unit-foo-0")
 	controllerPresence := allAlivePresence()
-	err := migration.SourcePrecheck(backend, version.MustParse("2.9.32"), modelPresence, controllerPresence)
+	err := migration.SourcePrecheck(
+		backend, version.MustParse("2.9.32"), modelPresence, controllerPresence,
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return environscloudspec.CloudSpec{Type: "foo"}, nil
+		},
+	)
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (lost)")
 }
 

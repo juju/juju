@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/network"
@@ -374,22 +375,32 @@ func (s *serverFactory) Clock() clock.Clock {
 	return s.clock
 }
 
-// isSupportedAPIVersion defines what API versions we support.
-func isSupportedAPIVersion(version string) (msg string, ok bool) {
-	versionParts := strings.Split(version, ".")
+// ParseAPIVersion parses the LXD API version string.
+func ParseAPIVersion(s string) (version.Number, error) {
+	versionParts := strings.Split(s, ".")
 	if len(versionParts) < 2 {
-		return fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", version), false
+		return version.Zero, errors.NewNotValid(nil, fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", s))
 	}
-
 	major, err := strconv.Atoi(versionParts[0])
 	if err != nil {
-		return fmt.Sprintf("LXD API version %q: unexpected major number: %v", version, err), false
+		return version.Zero, errors.NotValidf("major version number  %v", versionParts[0])
 	}
+	minor, err := strconv.Atoi(versionParts[1])
+	if err != nil {
+		return version.Zero, errors.NotValidf("minor version number  %v", versionParts[1])
+	}
+	return version.Number{Major: major, Minor: minor}, nil
+}
 
-	if major < 1 {
+// isSupportedAPIVersion defines what API versions we support.
+func isSupportedAPIVersion(version string) (msg string, ok bool) {
+	ver, err := ParseAPIVersion(version)
+	if err != nil {
+		return err.Error(), false
+	}
+	if ver.Major < 1 {
 		return fmt.Sprintf("LXD API version %q: expected major version 1 or later", version), false
 	}
-
 	return "", true
 }
 

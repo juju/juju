@@ -10,11 +10,16 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/replicaset/v2"
 	"github.com/juju/version/v2"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/series"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/state"
 )
 
@@ -278,4 +283,40 @@ func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st St
 		), nil
 	}
 	return nil, nil
+}
+
+// For testing.
+var NewServerFactory = lxd.NewServerFactory
+
+var minLXDVersion = version.Number{Major: 5, Minor: 2}
+
+func getCheckForLXDVersion(
+	cloudspec environscloudspec.CloudSpec,
+	minVer version.Number,
+) Validator {
+	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+		if !lxdnames.IsDefaultCloud(cloudspec.Type) {
+			return nil, nil
+		}
+		httpClient := jujuhttp.NewClient(
+			jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		)
+		server, err := NewServerFactory(httpClient.Client()).RemoteServer(cloudspec)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		serverVersion := server.ServerVersion()
+		currentVer, err := lxd.ParseAPIVersion(serverVersion)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		logger.Debugf("current LXD version %q, min LXD version %q", currentVer, minVer)
+		if currentVer.Compare(minVer) < 0 {
+			return NewBlocker(
+				"LXD version has to be at least %q, but current version is only %q",
+				minVer, currentVer,
+			), nil
+		}
+		return nil, nil
+	}
 }

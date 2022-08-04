@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -26,12 +27,13 @@ import (
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	backend         Backend
-	precheckBackend migration.PrecheckBackend
-	pool            migration.Pool
-	authorizer      facade.Authorizer
-	resources       facade.Resources
-	presence        facade.Presence
+	backend                 Backend
+	precheckBackend         migration.PrecheckBackend
+	pool                    migration.Pool
+	authorizer              facade.Authorizer
+	resources               facade.Resources
+	presence                facade.Presence
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
 }
 
 type APIV1 struct {
@@ -52,17 +54,19 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backend:         backend,
-		precheckBackend: precheckBackend,
-		pool:            pool,
-		authorizer:      authorizer,
-		resources:       resources,
-		presence:        presence,
+		backend:                 backend,
+		precheckBackend:         precheckBackend,
+		pool:                    pool,
+		authorizer:              authorizer,
+		resources:               resources,
+		presence:                presence,
+		environscloudspecGetter: environscloudspecGetter,
 	}, nil
 }
 
@@ -186,6 +190,7 @@ func (api *API) Prechecks(arg params.PrechecksArgs) error {
 		arg.TargetControllerVersion,
 		api.presence.ModelPresence(model.UUID()),
 		api.presence.ModelPresence(controllerModel.UUID()),
+		api.environscloudspecGetter,
 	)
 }
 
