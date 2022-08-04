@@ -35,6 +35,8 @@ const (
 	// change (data is the Change instance).
 	TxnWatcherCollection = "collection"
 
+	// txnWatcherErrorWait is the delay after an error before trying to resume
+	// the change stream by a call to aggregate changeStream.
 	txnWatcherErrorWait = 5 * time.Second
 )
 
@@ -83,13 +85,26 @@ type TxnWatcher struct {
 	// averageSyncLen tracks a filtered average of how long the sync event queue gets before we flush
 	averageSyncLen float64
 
-	resumeToken  bson.Raw
-	cursorId     int64
+	// resumeToken is passed back by the aggregate changeStream call so that a change stream may
+	// be resumed if the cursor dies for some reason.
+	resumeToken bson.Raw
+
+	// cursorId is the id of the current cursor used for paging results from the change stream.
+	cursorId int64
+
+	// pollInterval is the duration of the long polling getMore call on the cursor.
 	pollInterval time.Duration
 
+	// readyChan is closed when the watcher has started the change stream, used for tests.
 	readyChan chan any
 
+	// runCmd can be used to override the db.Run function, used for tests.
 	runCmd RunCmdFunc
+
+	// watchCollections when set the watcher will only
+	// publish events for inserts, updates, replaces and deletes for documents
+	// in one of these collections.
+	watchCollections []string
 }
 
 // TxnWatcherConfig contains the configuration parameters required
@@ -111,6 +126,10 @@ type TxnWatcherConfig struct {
 	// RunCmd is called to run commands against an mgo.Database, used for
 	// testing.
 	RunCmd RunCmdFunc
+	// WatchCollections is optional, when provided the TxnWatcher will only
+	// publish events for inserts, updates, replaces and deletes for documents
+	// in one of these collections.
+	WatchCollections []string
 }
 
 // Validate ensures that all the values that have to be set are set.
@@ -140,16 +159,17 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 	}
 
 	w := &TxnWatcher{
-		hub:           config.Hub,
-		clock:         config.Clock,
-		logger:        config.Logger,
-		session:       config.Session,
-		jujuDBName:    config.JujuDBName,
-		notifySync:    TxnPollNotifyFunc,
-		reportRequest: make(chan chan map[string]interface{}),
-		readyChan:     make(chan any),
-		pollInterval:  config.PollInterval,
-		runCmd:        config.RunCmd,
+		hub:              config.Hub,
+		clock:            config.Clock,
+		logger:           config.Logger,
+		session:          config.Session,
+		jujuDBName:       config.JujuDBName,
+		notifySync:       TxnPollNotifyFunc,
+		reportRequest:    make(chan chan map[string]interface{}),
+		readyChan:        make(chan any),
+		pollInterval:     config.PollInterval,
+		runCmd:           config.RunCmd,
+		watchCollections: config.WatchCollections,
 	}
 	if w.logger == nil {
 		w.logger = noOpLogger{}
@@ -241,6 +261,7 @@ func (w *TxnWatcher) loop() error {
 	w.logger.Tracef("loop started")
 	defer w.logger.Tracef("loop finished")
 
+	// Change Stream specification can be found here:
 	// https://github.com/mongodb/specifications/blob/master/source/change-streams/change-streams.rst
 	w.resumeToken = bson.Raw{}
 	resume := false
@@ -362,19 +383,24 @@ func (w *TxnWatcher) init() (bool, error) {
 		cs["resumeAfter"] = w.resumeToken
 	}
 
+	match := bson.D{
+		{"$or", []bson.D{
+			{{"operationType", "insert"}},
+			{{"operationType", "update"}},
+			{{"operationType", "replace"}},
+			{{"operationType", "delete"}},
+		}},
+	}
+
+	if len(w.watchCollections) > 0 {
+		match = append(match, bson.DocElem{"ns.coll", bson.D{{"$in", w.watchCollections}}})
+	}
+
 	cmd := bson.D{
 		{"aggregate", 1},
 		{"pipeline", []bson.D{
 			{{"$changeStream", cs}},
-			{{"$match", bson.D{
-				{"$or", []bson.D{
-					{{"operationType", "insert"}},
-					{{"operationType", "update"}},
-					{{"operationType", "replace"}},
-					{{"operationType", "delete"}},
-				}},
-				{"ns.coll", bson.D{{"$not", bson.D{{"$in", []string{"txns", "txns.log", "txns.stash"}}}}}},
-			}}},
+			{{"$match", match}},
 		}},
 		{"cursor", bson.D{{"batchSize", 10}}},
 		{"readConcern", bson.D{{"level", "majority"}}},
@@ -411,12 +437,20 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 		revno := int64(0)
 		switch change.OperationType {
 		case "insert", "replace":
+			// We read the revno from the commited document as reported by the change stream.
 			revno = change.FullDocument.Revno
 		case "update":
+			// For updates we read the revno from the updated fields so that it isn't newer as
+			// FullDocument on an update is only guarenteed to be the state of the document after
+			// the update, not the state of the document as a result of the update, so the reported
+			// revno could be greater.
 			revno = change.UpdateDescription.UpdatedFields.Revno
 		case "delete":
+			// Revno of -1 indicates a deleted document.
 			revno = -1
 		default:
+			// If we have a bad change, then we can just skip it, making sure to update the resumption token
+			// to resume after this event.
 			w.logger.Warningf("received bad change type %s", change.OperationType)
 			w.resumeToken = change.Id
 			continue

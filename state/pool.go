@@ -189,11 +189,12 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	if err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
-				Session:    pool.txnWatcherSession,
-				JujuDBName: jujuDB,
-				Hub:        pool.hub,
-				Clock:      args.Clock,
-				Logger:     loggo.GetLogger("juju.state.pool.txnwatcher"),
+				Session:          pool.txnWatcherSession,
+				JujuDBName:       jujuDB,
+				Hub:              pool.hub,
+				Clock:            args.Clock,
+				Logger:           loggo.GetLogger("juju.state.pool.txnwatcher"),
+				WatchCollections: append([]string(nil), watchableCollections...),
 			})
 	}); err != nil {
 		pool.txnWatcherSession.Close()

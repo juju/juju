@@ -67,7 +67,7 @@ func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, *fakeHub) {
-	return s.newWatcherWithError(c, expect, nil, nil)
+	return s.newWatcherWithError(c, expect, nil, watcher.TxnWatcherConfig{})
 }
 
 func (s *TxnWatcherSuite) newRunner(c *gc.C) {
@@ -86,21 +86,19 @@ func (s *TxnWatcherSuite) newRunner(c *gc.C) {
 	})
 }
 
-func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error, runCmd func(*mgo.Database, any, any) error) (*watcher.TxnWatcher, *fakeHub) {
+func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error, baseConfig watcher.TxnWatcherConfig) (*watcher.TxnWatcher, *fakeHub) {
 	hub := newFakeHub(c, expect)
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
 
 	session := s.MgoSuite.Session.New()
-	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
-		Session:      session,
-		JujuDBName:   "juju",
-		Hub:          hub,
-		Clock:        s.clock,
-		Logger:       logger,
-		RunCmd:       runCmd,
-		PollInterval: 50 * time.Millisecond,
-	})
+	baseConfig.Session = session
+	baseConfig.JujuDBName = "juju"
+	baseConfig.Hub = hub
+	baseConfig.Clock = s.clock
+	baseConfig.Logger = logger
+	baseConfig.PollInterval = 50 * time.Millisecond
+	w, err := watcher.NewTxnWatcher(baseConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		if watcherError == nil {
@@ -353,7 +351,9 @@ func (s *TxnWatcherSuite) TestShouldRetryGetMore(c *gc.C) {
 		}
 		return db.Run(cmd, resp)
 	}
-	_, hub := s.newWatcherWithError(c, 1, nil, run)
+	_, hub := s.newWatcherWithError(c, 1, nil, watcher.TxnWatcherConfig{
+		RunCmd: run,
+	})
 	s.insert(c, "test", "a")
 	hub.waitForExpected()
 	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(2))
@@ -381,7 +381,9 @@ func (s *TxnWatcherSuite) TestShouldResume(c *gc.C) {
 		}
 		return db.Run(cmd, resp)
 	}
-	_, hub := s.newWatcherWithError(c, 1, nil, run)
+	_, hub := s.newWatcherWithError(c, 1, nil, watcher.TxnWatcherConfig{
+		RunCmd: run,
+	})
 	s.insert(c, "test", "a")
 	hub.waitForExpected()
 	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(2))
@@ -401,10 +403,28 @@ func (s *TxnWatcherSuite) TestNotResumable(c *gc.C) {
 		}
 		return db.Run(cmd, resp)
 	}
-	_, hub := s.newWatcherWithError(c, 1, watcher.FatalChangeStreamError, run)
+	_, hub := s.newWatcherWithError(c, 1, watcher.FatalChangeStreamError, watcher.TxnWatcherConfig{
+		RunCmd: run,
+	})
 	s.insert(c, "test", "a")
 	hub.waitForError()
 	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(1))
+}
+
+func (s *TxnWatcherSuite) TestFilterCollection(c *gc.C) {
+	s.newRunner(c)
+
+	_, hub := s.newWatcherWithError(c, 1, nil, watcher.TxnWatcherConfig{
+		WatchCollections: []string{"test"},
+	})
+	s.insert(c, "filtered", "b")
+	revno2 := s.insert(c, "test", "a")
+
+	hub.waitForExpected()
+
+	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
+		{"test", "a", revno2},
+	})
 }
 
 type fakeIterator struct {
