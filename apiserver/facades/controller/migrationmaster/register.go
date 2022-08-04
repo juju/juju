@@ -7,6 +7,8 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/migration"
 )
@@ -29,6 +31,8 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
+
+	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(ctx.StatePool())
 	return NewAPI(
 		newBacked(ctx.State()),
 		precheckBackend,
@@ -36,5 +40,6 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Presence(),
+		environscloudspecGetter,
 	)
 }
