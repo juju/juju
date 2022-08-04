@@ -22,7 +22,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
@@ -438,23 +436,6 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
-}
-
-func (s *modelManagerSuite) TestCreateModelLoggingOutputChecksFlag(c *gc.C) {
-	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
-		Config: map[string]interface{}{
-			"logging-output": "syslog",
-		},
-	}
-	_, err := s.api.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, `cannot set "logging-output" without setting the "logging-output" feature flag`)
-	cfg := coretesting.FakeControllerConfig()
-	cfg[controller.Features] = []interface{}{feature.LoggingOutput}
-	s.st.controllerCfg = &cfg
-	_, err = s.api.CreateModel(args)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {

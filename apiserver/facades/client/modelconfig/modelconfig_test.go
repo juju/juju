@@ -12,10 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -201,17 +199,6 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `only controller admins can set a model's logging level to TRACE`)
 }
 
-func (s *modelconfigSuite) TestCannotSetLoggingOutputWithoutFeatureFlag(c *gc.C) {
-	args := params.ModelSet{
-		map[string]interface{}{"logging-output": "syslog"},
-	}
-	err := s.api.ModelSet(args)
-	c.Assert(err, gc.ErrorMatches, `cannot set "logging-output" without setting the "logging-output" feature flag`)
-	s.backend.features = feature.LoggingOutput
-	err = s.api.ModelSet(args)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -308,7 +295,8 @@ func (m *mockBackend) Sequences() (map[string]int, error) {
 	return nil, nil
 }
 
-func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc) error {
+func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string,
+	validate ...state.ValidateConfigFunc) error {
 	for _, validateFunc := range validate {
 		if err := validateFunc(update, remove, m.old); err != nil {
 			return err
@@ -349,12 +337,6 @@ func (m *mockBackend) SLALevel() (string, error) {
 
 func (m *mockBackend) SpaceByName(string) error {
 	return nil
-}
-
-func (m *mockBackend) ControllerConfig() (controller.Config, error) {
-	cfg := testing.FakeControllerConfig()
-	cfg[controller.Features] = []interface{}{m.features}
-	return cfg, nil
 }
 
 type mockBlock struct {
