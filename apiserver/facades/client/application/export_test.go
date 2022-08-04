@@ -8,9 +8,8 @@ import (
 )
 
 var (
-	ParseSettingsCompatible = parseSettingsCompatible
-	NewStateStorage         = &newStateStorage
-	GetStorageState         = getStorageState
+	NewStateStorage = &newStateStorage
+	GetStorageState = getStorageState
 )
 
 func GetState(st *state.State) Backend {
@@ -19,8 +18,4 @@ func GetState(st *state.State) Backend {
 
 func GetModel(m *state.Model) Model {
 	return modelShim{m}
-}
-
-func SetModelType(api *APIv14, modelType state.ModelType) {
-	api.modelType = modelType
 }
