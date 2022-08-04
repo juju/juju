@@ -246,6 +246,8 @@ func (w *TxnWatcher) Report() map[string]interface{} {
 	}
 }
 
+// Ready waits for the watcher to have started the change stream against mongo or return an error.
+// Useful for testing.
 func (w *TxnWatcher) Ready() error {
 	select {
 	case <-w.tomb.Dying():
@@ -264,7 +266,7 @@ func (w *TxnWatcher) loop() error {
 	// Change Stream specification can be found here:
 	// https://github.com/mongodb/specifications/blob/master/source/change-streams/change-streams.rst
 	w.resumeToken = bson.Raw{}
-	resume := false
+	errorOccurred := false
 
 	immediate := make(chan time.Time)
 	close(immediate)
@@ -305,7 +307,7 @@ func (w *TxnWatcher) loop() error {
 
 		var added bool
 		var err error
-		if resume || first {
+		if errorOccurred || first {
 			if !first {
 				w.killCursor()
 			}
@@ -326,23 +328,25 @@ func (w *TxnWatcher) loop() error {
 			err = errors.New("test sync watcher error")
 		}
 		if err == nil {
-			if resume {
+			if errorOccurred {
 				w.logger.Infof("txn sync watcher resumed after failure")
 			}
-			resume = false
+			errorOccurred = false
 			w.flush()
 			if !added && w.notifySync != nil {
 				w.notifySync()
 			}
 		} else {
 			w.logger.Warningf("txn watcher sync error: %v", err)
+			// If didn't get a resumable error and either we have already had one error resuming
+			// or received a fatal error, then exit the watcher and report failure.
 			if !errors.Is(err, ResumableChangeStreamError) &&
-				(errors.Is(err, FatalChangeStreamError) || resume) {
+				(errors.Is(err, FatalChangeStreamError) || errorOccurred) {
 				_ = w.hub.Publish(TxnWatcherSyncErr, err)
 				return errors.Trace(err)
 			}
 			w.logger.Warningf("txn watcher resume queued")
-			resume = true
+			errorOccurred = true
 			next = w.clock.After(txnWatcherErrorWait)
 			if w.notifySync != nil {
 				w.notifySync()
