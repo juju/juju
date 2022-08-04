@@ -48,22 +48,14 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	if arg.RotateInterval < 0 {
 		return "", errors.NotValidf("rotate interval %q", arg.RotateInterval)
 	}
-	if !coresecrets.SecretStatus(arg.Status).IsValid() {
-		return "", errors.NotValidf("secret status %q", arg.Status)
-	}
 	if len(arg.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
-	URL := coresecrets.NewSimpleURL(arg.Path)
-	URL.ControllerUUID = s.controllerUUID
-	URL.ModelUUID = s.modelUUID
-	md, err := s.secretsService.CreateSecret(ctx, URL, secrets.CreateParams{
-		Type:           coresecrets.SecretType(arg.Type),
+	uri := coresecrets.NewURI()
+	md, err := s.secretsService.CreateSecret(ctx, uri, secrets.CreateParams{
 		Version:        secrets.Version,
 		Owner:          s.authOwner.String(),
-		Path:           arg.Path,
 		RotateInterval: arg.RotateInterval,
-		Status:         coresecrets.SecretStatus(arg.Status),
 		Description:    arg.Description,
 		Tags:           arg.Tags,
 		Params:         arg.Params,
@@ -72,72 +64,46 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return md.URL.WithRevision(md.Revision).ShortString(), nil
+	return md.URI.ShortString(), nil
 }
 
 // UpdateSecrets updates the specified secrets.
-func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Args)),
+func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	ctx := context.Background()
 	for i, arg := range args.Args {
-		ID, err := s.updateSecret(ctx, arg)
-		result.Results[i].Result = ID
+		err := s.updateSecret(ctx, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func secretStatusPtr(in *string) *coresecrets.SecretStatus {
-	if in == nil {
-		return nil
-	}
-	s := coresecrets.SecretStatus(*in)
-	return &s
-}
-
-func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) (string, error) {
-	secretUrl, err := coresecrets.ParseURL(arg.URL)
+func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
+	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
-	if secretUrl.Attribute != "" {
-		return "", errors.NotSupportedf("updating a single secret attribute %q", secretUrl.Attribute)
+	if uri.ControllerUUID != "" && uri.ControllerUUID != s.controllerUUID {
+		return errors.NotValidf("secret URL with controller UUID %q", uri.ControllerUUID)
 	}
-	if secretUrl.Revision > 0 {
-		return "", errors.NotSupportedf("updating secret revision %d", secretUrl.Revision)
-	}
-	if secretUrl.ControllerUUID != "" && secretUrl.ControllerUUID != s.controllerUUID {
-		return "", errors.NotValidf("secret URL with controller UUID %q", secretUrl.ControllerUUID)
-	}
-	if secretUrl.ModelUUID != "" && secretUrl.ModelUUID != s.modelUUID {
-		return "", errors.NotValidf("secret URL with model UUID %q", secretUrl.ModelUUID)
-	}
-	if arg.RotateInterval == nil && arg.Description == nil && arg.Status == nil &&
+	if arg.RotateInterval == nil && arg.Description == nil &&
 		arg.Tags == nil && len(arg.Params) == 0 && len(arg.Data) == 0 {
-		return "", errors.New("at least one attribute to update must be specified")
+		return errors.New("at least one attribute to update must be specified")
 	}
 	if arg.RotateInterval != nil && *arg.RotateInterval < 0 {
-		return "", errors.NotValidf("rotate interval %v", *arg.RotateInterval)
+		return errors.NotValidf("rotate interval %v", *arg.RotateInterval)
 	}
-	if arg.Status != nil && !coresecrets.SecretStatus(*arg.Status).IsValid() {
-		return "", errors.NotValidf("secret status %q", arg.Status)
-	}
-	secretUrl.ControllerUUID = s.controllerUUID
-	secretUrl.ModelUUID = s.modelUUID
-	md, err := s.secretsService.UpdateSecret(ctx, secretUrl, secrets.UpdateParams{
+	uri.ControllerUUID = s.controllerUUID
+	_, err = s.secretsService.UpdateSecret(ctx, uri, secrets.UpdateParams{
 		RotateInterval: arg.RotateInterval,
-		Status:         secretStatusPtr(arg.Status),
 		Description:    arg.Description,
 		Tags:           arg.Tags,
 		Params:         arg.Params,
 		Data:           arg.Data,
 	})
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return md.URL.WithRevision(md.Revision).ShortString(), nil
+	return errors.Trace(err)
 }
 
 // GetSecretValues returns the secret values for the specified secrets.
@@ -155,21 +121,14 @@ func (s *SecretsManagerAPI) GetSecretValues(args params.GetSecretArgs) (params.S
 }
 
 func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSecretArg) (coresecrets.SecretData, error) {
-	// TODO(wallyworld) - support ID
-	if arg.URL == "" {
-		return nil, errors.NotSupportedf("get secret by ID")
-	}
-	secretUrl, err := coresecrets.ParseURL(arg.URL)
+	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if secretUrl.ControllerUUID == "" {
-		secretUrl.ControllerUUID = s.controllerUUID
+	if uri.ControllerUUID == "" {
+		uri.ControllerUUID = s.controllerUUID
 	}
-	if secretUrl.ModelUUID == "" {
-		secretUrl.ModelUUID = s.modelUUID
-	}
-	val, err := s.secretsService.GetSecretValue(ctx, secretUrl)
+	val, err := s.secretsService.GetSecretValue(ctx, uri, 1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -196,8 +155,7 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 			changes := make([]params.SecretRotationChange, len(secretChanges))
 			for i, c := range secretChanges {
 				changes[i] = params.SecretRotationChange{
-					ID:             c.ID,
-					URL:            c.URL.ID(),
+					URI:            c.URI.String(),
 					RotateInterval: c.RotateInterval,
 					LastRotateTime: c.LastRotateTime,
 				}
@@ -230,24 +188,25 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
+	ctx := context.Background()
 	one := func(arg params.SecretRotatedArg) error {
-		secretUrl, err := coresecrets.ParseURL(arg.URL)
+		uri, err := coresecrets.ParseURI(arg.URI)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if secretUrl.ModelUUID != "" && secretUrl.ModelUUID != s.modelUUID {
-			return errors.NotValidf("secret URL with model UUID %q", secretUrl.ModelUUID)
+		uri.ControllerUUID = s.controllerUUID
+		md, err := s.secretsService.GetSecret(ctx, uri)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		secretUrl.ControllerUUID = s.controllerUUID
-		secretUrl.ModelUUID = s.modelUUID
-		app, ok := secretUrl.OwnerApplication()
-		if !ok {
+		owner, err := names.ParseTag(md.OwnerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(owner) {
 			return apiservererrors.ErrPerm
 		}
-		if !canAccess(names.NewApplicationTag(app)) {
-			return apiservererrors.ErrPerm
-		}
-		return s.secretsRotation.SecretRotated(secretUrl, arg.When)
+		return s.secretsRotation.SecretRotated(uri, arg.When)
 	}
 	for i, arg := range args.Args {
 		var result params.ErrorResult

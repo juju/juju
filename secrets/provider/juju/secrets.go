@@ -36,16 +36,13 @@ func NewSecretService(cfg secrets.ProviderConfig) (*secretsService, error) {
 }
 
 // CreateSecret implements SecretsService.
-func (s secretsService) CreateSecret(ctx context.Context, URL *coresecrets.URL, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
-	metadata, err := s.backend.CreateSecret(URL, state.CreateSecretParams{
+func (s secretsService) CreateSecret(ctx context.Context, uri *coresecrets.URI, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
+	metadata, err := s.backend.CreateSecret(uri, state.CreateSecretParams{
 		ProviderLabel:  Provider,
 		Version:        p.Version,
-		Type:           p.Type,
 		Owner:          p.Owner,
-		Path:           p.Path,
 		RotateInterval: p.RotateInterval,
 		Description:    p.Description,
-		Status:         p.Status,
 		Tags:           p.Tags,
 		Params:         p.Params,
 		Data:           p.Data,
@@ -57,21 +54,13 @@ func (s secretsService) CreateSecret(ctx context.Context, URL *coresecrets.URL, 
 }
 
 // GetSecretValue implements SecretsService.
-func (s secretsService) GetSecretValue(ctx context.Context, URL *coresecrets.URL) (coresecrets.SecretValue, error) {
-	// If no specific revision asked for, use the latest.
-	if URL.Revision == 0 {
-		metadata, err := s.GetSecret(ctx, URL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		URL = metadata.URL.WithRevision(metadata.Revision)
-	}
-	return s.backend.GetSecretValue(URL)
+func (s secretsService) GetSecretValue(ctx context.Context, uri *coresecrets.URI, revision int) (coresecrets.SecretValue, error) {
+	return s.backend.GetSecretValue(uri, revision)
 }
 
 // GetSecret implements SecretsService.
-func (s secretsService) GetSecret(ctx context.Context, URL *coresecrets.URL) (*coresecrets.SecretMetadata, error) {
-	return s.backend.GetSecret(URL.WithRevision(0).WithAttribute(""))
+func (s secretsService) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecrets.SecretMetadata, error) {
+	return s.backend.GetSecret(uri)
 }
 
 // ListSecrets implements SecretsService.
@@ -80,11 +69,10 @@ func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) 
 }
 
 // UpdateSecret implements SecretsService.
-func (s secretsService) UpdateSecret(ctx context.Context, URL *coresecrets.URL, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
-	metadata, err := s.backend.UpdateSecret(URL, state.UpdateSecretParams{
+func (s secretsService) UpdateSecret(ctx context.Context, uri *coresecrets.URI, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
+	metadata, err := s.backend.UpdateSecret(uri, state.UpdateSecretParams{
 		RotateInterval: p.RotateInterval,
 		Description:    p.Description,
-		Status:         p.Status,
 		Tags:           p.Tags,
 		Params:         p.Params,
 		Data:           p.Data,
@@ -98,6 +86,6 @@ func (s secretsService) UpdateSecret(ctx context.Context, URL *coresecrets.URL, 
 // TODO(wallyworld)
 
 // DeleteSecret implements SecretsService.
-func (s secretsService) DeleteSecret(ctx context.Context, URL *coresecrets.URL) error {
+func (s secretsService) DeleteSecret(ctx context.Context, uri *coresecrets.URI) error {
 	return errors.NotImplementedf("DeleteSecret")
 }

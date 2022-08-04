@@ -50,7 +50,7 @@ func (s *secretsResolver) NextOp(
 	url := remoteState.SecretRotations[0]
 	op, err := opFactory.NewRunHook(hook.Info{
 		Kind:      hooks.SecretRotate,
-		SecretURL: url,
+		SecretURI: url,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

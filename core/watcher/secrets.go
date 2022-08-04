@@ -11,8 +11,7 @@ import (
 
 // SecretRotationChange describes changes to secret rotation config.
 type SecretRotationChange struct {
-	ID             int
-	URL            *secrets.URL
+	URI            *secrets.URI
 	RotateInterval time.Duration
 	LastRotateTime time.Time
 }

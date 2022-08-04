@@ -467,7 +467,7 @@ func (s *UniterSuite) TestUniterRotateSecretHook(c *gc.C) {
 			waitHooks(startupHooks(false)),
 			waitUnitAgent{status: status.Idle},
 			createSecret{"app/u/password"},
-			rotateSecret{secrets.NewSimpleURL("app/u/password").ID()},
+			rotateSecret{secrets.NewURI().ShortString()},
 			waitHooks{"secret-rotate"},
 		),
 	})

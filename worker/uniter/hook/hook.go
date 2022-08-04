@@ -48,8 +48,8 @@ type Info struct {
 	// It is only set for the pre-series-upgrade hook.
 	SeriesUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
 
-	// SecretURL is the secret URL relevant to the hook.
-	SecretURL string `yaml:"secret-url,omitempty"`
+	// SecretURI is the secret URI relevant to the hook.
+	SecretURI string `yaml:"secret-uri,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -96,11 +96,11 @@ func (hi Info) Validate() error {
 	case hooks.LeaderElected, hooks.LeaderDeposed, hooks.LeaderSettingsChanged:
 		return nil
 	case hooks.SecretRotate:
-		if hi.SecretURL == "" {
+		if hi.SecretURI == "" {
 			return errors.Errorf("%q hook requires a secret URL", hi.Kind)
 		}
-		if _, err := secrets.ParseURL(hi.SecretURL); err != nil {
-			return errors.Errorf("invalid secret URL %q", hi.SecretURL)
+		if _, err := secrets.ParseURI(hi.SecretURI); err != nil {
+			return errors.Errorf("invalid secret URL %q", hi.SecretURI)
 		}
 		return nil
 	}

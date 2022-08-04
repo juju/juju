@@ -37,7 +37,7 @@ func (m *MockSecretsService) EXPECT() *MockSecretsServiceMockRecorder {
 }
 
 // CreateSecret mocks base method.
-func (m *MockSecretsService) CreateSecret(arg0 context.Context, arg1 *secrets.URL, arg2 secrets0.CreateParams) (*secrets.SecretMetadata, error) {
+func (m *MockSecretsService) CreateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secrets0.CreateParams) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*secrets.SecretMetadata)
@@ -52,7 +52,7 @@ func (mr *MockSecretsServiceMockRecorder) CreateSecret(arg0, arg1, arg2 interfac
 }
 
 // DeleteSecret mocks base method.
-func (m *MockSecretsService) DeleteSecret(arg0 context.Context, arg1 *secrets.URL) error {
+func (m *MockSecretsService) DeleteSecret(arg0 context.Context, arg1 *secrets.URI) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteSecret", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -66,7 +66,7 @@ func (mr *MockSecretsServiceMockRecorder) DeleteSecret(arg0, arg1 interface{}) *
 }
 
 // GetSecret mocks base method.
-func (m *MockSecretsService) GetSecret(arg0 context.Context, arg1 *secrets.URL) (*secrets.SecretMetadata, error) {
+func (m *MockSecretsService) GetSecret(arg0 context.Context, arg1 *secrets.URI) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecret", arg0, arg1)
 	ret0, _ := ret[0].(*secrets.SecretMetadata)
@@ -81,18 +81,18 @@ func (mr *MockSecretsServiceMockRecorder) GetSecret(arg0, arg1 interface{}) *gom
 }
 
 // GetSecretValue mocks base method.
-func (m *MockSecretsService) GetSecretValue(arg0 context.Context, arg1 *secrets.URL) (secrets.SecretValue, error) {
+func (m *MockSecretsService) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int) (secrets.SecretValue, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetSecretValue", arg0, arg1, arg2)
 	ret0, _ := ret[0].(secrets.SecretValue)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretValue indicates an expected call of GetSecretValue.
-func (mr *MockSecretsServiceMockRecorder) GetSecretValue(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockSecretsServiceMockRecorder) GetSecretValue(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretsService)(nil).GetSecretValue), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretValue", reflect.TypeOf((*MockSecretsService)(nil).GetSecretValue), arg0, arg1, arg2)
 }
 
 // ListSecrets mocks base method.
@@ -111,7 +111,7 @@ func (mr *MockSecretsServiceMockRecorder) ListSecrets(arg0, arg1 interface{}) *g
 }
 
 // UpdateSecret mocks base method.
-func (m *MockSecretsService) UpdateSecret(arg0 context.Context, arg1 *secrets.URL, arg2 secrets0.UpdateParams) (*secrets.SecretMetadata, error) {
+func (m *MockSecretsService) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secrets0.UpdateParams) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*secrets.SecretMetadata)

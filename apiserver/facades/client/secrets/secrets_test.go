@@ -71,20 +71,15 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now()
-	URL := &coresecrets.URL{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		Path:           "app/password",
-	}
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	metadata := []*coresecrets.SecretMetadata{{
-		URL:            URL,
-		Path:           "app/password",
+		URI:            uri,
 		RotateInterval: time.Hour,
 		Version:        1,
-		Status:         coresecrets.StatusActive,
 		Description:    "shhh",
+		OwnerTag:       "application-mysql",
 		Tags:           map[string]string{"foo": "bar"},
-		ID:             666,
 		Provider:       "juju",
 		ProviderID:     "abcd",
 		Revision:       2,
@@ -100,7 +95,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
-		s.secretsService.EXPECT().GetSecretValue(gomock.Any(), URL).Return(
+		s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 2).Return(
 			coresecrets.NewSecretValue(valueResult.Data), nil,
 		)
 	}
@@ -109,14 +104,12 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URL:            URL.String(),
-			Path:           "app/password",
+			URI:            uri.String(),
 			RotateInterval: time.Hour,
 			Version:        1,
-			Status:         "active",
 			Description:    "shhh",
+			OwnerTag:       "application-mysql",
 			Tags:           map[string]string{"foo": "bar"},
-			ID:             666,
 			Provider:       "juju",
 			ProviderID:     "abcd",
 			Revision:       2,

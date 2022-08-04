@@ -1068,7 +1068,7 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
-func GetSecretRotateTime(c *gc.C, st *State, id int) time.Time {
+func GetSecretRotateTime(c *gc.C, st *State, id string) time.Time {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
 

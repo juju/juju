@@ -32,19 +32,16 @@ func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 	}{
 		{
 			args: []string{},
-			err:  "ERROR missing secret name",
+			err:  "ERROR missing secret URI",
 		}, {
-			args: []string{"password", "s3cret", "foo=bar"},
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "s3cret", "foo=bar"},
 			err:  `ERROR key value "foo=bar" not valid when a singular value has already been specified`,
 		}, {
-			args: []string{"password", "foo=bar", "s3cret"},
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "foo=bar", "s3cret"},
 			err:  `ERROR singular value "s3cret" not valid when other key values are specified`,
 		}, {
-			args: []string{"password", "foo=bar", "--rotate", "-1h"},
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "foo=bar", "--rotate", "-1h"},
 			err:  `ERROR rotate interval "-1h0m0s" not valid`,
-		}, {
-			args: []string{"password", "--staged", "--active"},
-			err:  `ERROR specifying both --staged and --active not valid`,
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, "secret-update")
@@ -64,10 +61,9 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
-		"password", "secret", "--rotate", "1h",
+		"secret:9m4e2mr0ui3e8a215n4g", "secret", "--rotate", "1h",
 		"--description", "sssshhhh",
 		"--tag", "foo=bar", "--tag", "hello=world",
-		"--staged",
 	})
 
 	c.Assert(code, gc.Equals, 0)
@@ -75,12 +71,10 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	args := &jujuc.SecretUpsertArgs{
 		Value:          val,
 		RotateInterval: durationPtr(time.Hour),
-		Status:         statusPtr(coresecrets.StatusStaged),
 		Description:    stringPtr("sssshhhh"),
 		Tags:           tagPtr(map[string]string{"foo": "bar", "hello": "world"}),
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"password", args}}})
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.password\n")
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }
 
 func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
@@ -89,17 +83,15 @@ func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "apikey", "token=key="})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "secret:9m4e2mr0ui3e8a215n4g", "token=key="})
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	args := &jujuc.SecretUpsertArgs{
-		Value:  val,
-		Status: statusPtr(coresecrets.StatusActive),
-		Tags:   tagPtr(nil),
+		Value: val,
+		Tags:  tagPtr(nil),
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"apikey", args}}})
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }
 
 func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
@@ -108,15 +100,13 @@ func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "5h", "apikey"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "5h", "secret:9m4e2mr0ui3e8a215n4g"})
 
 	c.Assert(code, gc.Equals, 0)
 	args := &jujuc.SecretUpsertArgs{
 		Value:          coresecrets.NewSecretValue(nil),
 		RotateInterval: durationPtr(5 * time.Hour),
-		Status:         statusPtr(coresecrets.StatusActive),
 		Tags:           tagPtr(nil),
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"apikey", args}}})
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret://app.apikey\n")
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }

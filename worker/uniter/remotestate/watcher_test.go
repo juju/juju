@@ -466,7 +466,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
-	secretURLs := []string{"secret://app/mariadb/password", "secret://app/mysql/password"}
+	secretURLs := []string{"secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
 	s.rotateSecretWatcher.rotateCh <- secretURLs
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURLs)
@@ -1146,7 +1146,7 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 	c.Assert(snap.SecretRotations, gc.HasLen, 0)
 
 	select {
-	case s.rotateSecretWatcher.rotateCh <- []string{"secret://app/mariadb/password"}:
+	case s.rotateSecretWatcher.rotateCh <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("timed out waiting to signal rotate secret channel")
 	}
@@ -1158,7 +1158,7 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 
 	// Adding same event twice shouldn't re-add it.
 	select {
-	case s.rotateSecretWatcher.rotateCh <- []string{"secret://app/mariadb/password"}:
+	case s.rotateSecretWatcher.rotateCh <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("timed out waiting to signal rotate secret channel")
 	}
@@ -1166,9 +1166,9 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	snap = s.watcher.Snapshot()
-	c.Assert(snap.SecretRotations, gc.DeepEquals, []string{"secret://app/mariadb/password"})
+	c.Assert(snap.SecretRotations, gc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 
-	s.watcher.RotateSecretCompleted("secret://app/mariadb/password")
+	s.watcher.RotateSecretCompleted("secret:9m4e2mr0ui3e8a215n4g")
 	snap = s.watcher.Snapshot()
 	c.Assert(snap.SecretRotations, gc.HasLen, 0)
 }
@@ -1191,9 +1191,9 @@ func (s *WatcherSuite) TestLeaderRunsRotateWatcher(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Leader, jc.IsTrue)
 
-	s.rotateSecretWatcher.rotateCh <- []string{"secret://app/mysql/password"}
+	s.rotateSecretWatcher.rotateCh <- []string{"secret:8b4e2mr1wi3e8a215n5h"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, []string{"secret://app/mysql/password"})
+	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h"})
 
 	// When not a leader anymore, stop the worker.
 	s.leadership.minionTicket.ch <- struct{}{}

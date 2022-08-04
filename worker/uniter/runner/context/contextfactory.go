@@ -271,7 +271,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		ctx.seriesUpgradeTarget = hookInfo.SeriesUpgradeTarget
 	}
 	if hookInfo.Kind.IsSecret() {
-		ctx.secretURL = hookInfo.SecretURL
+		ctx.secretURI = hookInfo.SecretURI
 	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName

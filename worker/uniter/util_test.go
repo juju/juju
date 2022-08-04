@@ -1647,12 +1647,9 @@ type createSecret struct {
 
 func (s createSecret) step(c *gc.C, ctx *testContext) {
 	hr := time.Hour
-	active := secrets.StatusActive
 	_, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
-		Path:           s.secretPath,
 		RotateInterval: &hr,
-		Status:         &active,
-	}, secrets.TypeBlob, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	}, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

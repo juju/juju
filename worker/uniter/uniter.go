@@ -973,7 +973,7 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 		}
 	}
 	if hookInfo.Kind.IsSecret() {
-		statusData["secret-url"] = hookInfo.SecretURL
+		statusData["secret-uri"] = hookInfo.SecretURI
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)

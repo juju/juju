@@ -72,7 +72,7 @@ func New(config Config) (worker.Worker, error) {
 
 	w := &Worker{
 		config:  config,
-		secrets: make(map[int]secretRotateInfo),
+		secrets: make(map[string]secretRotateInfo),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -82,7 +82,7 @@ func New(config Config) (worker.Worker, error) {
 }
 
 type secretRotateInfo struct {
-	URL        *secrets.URL
+	URI        *secrets.URI
 	rotateTime time.Time
 }
 
@@ -91,7 +91,7 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	secrets map[int]secretRotateInfo
+	secrets map[string]secretRotateInfo
 
 	nextTimeout time.Time
 	timer       clock.Timer
@@ -140,7 +140,7 @@ func (w *Worker) rotate(now time.Time) {
 	var toRotate []string
 	for id, info := range w.secrets {
 		if !info.rotateTime.After(now) {
-			toRotate = append(toRotate, info.URL.ShortString())
+			toRotate = append(toRotate, info.URI.ShortString())
 			// Once secret has been queued for rotation, delete it here since
 			// it will re-appear via the watcher after the rotation is actually
 			// performed and the last rotated time is updated.
@@ -168,11 +168,11 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretRotationChang
 	for _, ch := range changes {
 		// Rotate interval of 0 means the rotation has been deleted.
 		if ch.RotateInterval == 0 {
-			delete(w.secrets, ch.ID)
+			delete(w.secrets, ch.URI.ShortString())
 			continue
 		}
-		w.secrets[ch.ID] = secretRotateInfo{
-			URL:        ch.URL,
+		w.secrets[ch.URI.ShortString()] = secretRotateInfo{
+			URI:        ch.URI,
 			rotateTime: ch.LastRotateTime.Add(ch.RotateInterval),
 		}
 	}
