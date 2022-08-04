@@ -374,13 +374,13 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 			{ApplicationName: "bar"},
 		},
 		relUnits: map[string]*fakeRelationUnit{
-			"foo/0": {valid: true, inScope: true},
-			"bar/0": {valid: true, inScope: true},
-			"bar/1": {valid: true, inScope: false},
+			"foo/0": {unitName: "foo/0", valid: true, inScope: true},
+			"bar/0": {unitName: "bar/0", valid: true, inScope: true},
+			"bar/1": {unitName: "bar/1", valid: true, inScope: false},
 		},
 	}}
 	err := sourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, "unit bar/1 hasn't joined relation foo:db bar:db yet")
+	c.Assert(err, gc.ErrorMatches, `unit bar/1 hasn't joined relation "foo:db bar:db" yet`)
 }
 
 func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C) {
@@ -404,18 +404,21 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
-		key:        "foo:db bar:db",
-		crossModel: true,
+		key: "foo:db remote-mysql:db",
 		endpoints: []state.Endpoint{
 			{ApplicationName: "foo"},
 			{ApplicationName: "remote-mysql"},
 		},
 		relUnits: map[string]*fakeRelationUnit{
-			"foo/0": {valid: true, inScope: false},
+			"foo/0": {unitName: "foo/0", valid: true, inScope: true},
+		},
+		remoteAppName: "remote-mysql",
+		remoteRelUnits: map[string][]*fakeRelationUnit{
+			"remote-mysql": {{unitName: "remote-mysql/0", valid: true, inScope: false}},
 		},
 	}}
 	err := sourcePrecheck(backend)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `unit remote-mysql/0 hasn't joined relation "foo:db remote-mysql:db" yet`)
 }
 
 type TargetPrecheckSuite struct {
@@ -1096,24 +1099,32 @@ func (u *fakeUnit) IsSidecar() (bool, error) {
 }
 
 type fakeRelation struct {
-	key           string
-	crossModel    bool
-	crossModelErr error
-	endpoints     []state.Endpoint
-	relUnits      map[string]*fakeRelationUnit
-	unitErr       error
+	key            string
+	endpoints      []state.Endpoint
+	relUnits       map[string]*fakeRelationUnit
+	remoteAppName  string
+	remoteRelUnits map[string][]*fakeRelationUnit
+	unitErr        error
 }
 
 func (r *fakeRelation) String() string {
 	return r.key
 }
 
-func (r *fakeRelation) IsCrossModel() (bool, error) {
-	return r.crossModel, r.crossModelErr
-}
-
 func (r *fakeRelation) Endpoints() []state.Endpoint {
 	return r.endpoints
+}
+
+func (r *fakeRelation) AllRemoteUnits(appName string) ([]migration.PrecheckRelationUnit, error) {
+	out := make([]migration.PrecheckRelationUnit, len(r.remoteRelUnits[appName]))
+	for i, ru := range r.remoteRelUnits[appName] {
+		out[i] = ru
+	}
+	return out, nil
+}
+
+func (r *fakeRelation) RemoteApplication() (string, bool, error) {
+	return r.remoteAppName, r.remoteAppName != "", nil
 }
 
 func (r *fakeRelation) Unit(u migration.PrecheckUnit) (migration.PrecheckRelationUnit, error) {
@@ -1121,8 +1132,13 @@ func (r *fakeRelation) Unit(u migration.PrecheckUnit) (migration.PrecheckRelatio
 }
 
 type fakeRelationUnit struct {
+	unitName           string
 	valid, inScope     bool
 	validErr, scopeErr error
+}
+
+func (ru *fakeRelationUnit) UnitName() string {
+	return ru.unitName
 }
 
 func (ru *fakeRelationUnit) Valid() (bool, error) {
