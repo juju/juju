@@ -10,7 +10,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/worker/v3"
-	"gopkg.in/retry.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/wrench"
@@ -36,40 +35,13 @@ const (
 	// change (data is the Change instance).
 	TxnWatcherCollection = "collection"
 
-	txnWatcherShortWait = 10 * time.Millisecond
-
-	maxResumeRetries         = 1
-	txnWatcherErrorShortWait = 500 * time.Millisecond
+	txnWatcherErrorWait = 5 * time.Second
 )
 
+// RunCmdFunc allows tests to override calls to mongo db.Run.
+type RunCmdFunc func(db *mgo.Database, cmd any, resp any) error
+
 var (
-
-	// PollStrategy is used to determine how long
-	// to delay between poll intervals. A new timer
-	// is created each time some watcher event is
-	// fired or if the old timer completes.
-	//
-	// It must not be changed when any watchers are active.
-	PollStrategy retry.Strategy = retry.Exponential{
-		Initial:  txnWatcherShortWait,
-		Factor:   1.5,
-		MaxDelay: 5 * time.Second,
-	}
-
-	// ErrorStrategy is used to determine how long
-	// to delay between poll intervals when attempting
-	// to recover from a mongo error.
-	// Given an initial delay of 500ms and 8 retries,
-	// we'll retry roughly like so:
-	// .5, 1, 2, 4, 8, 16, 30, 30
-	//
-	// It must not be changed when any watchers are active.
-	ErrorStrategy retry.Strategy = retry.Exponential{
-		Initial:  txnWatcherErrorShortWait,
-		Factor:   2.0,
-		MaxDelay: 30 * time.Second,
-	}
-
 	// TxnPollNotifyFunc allows tests to be able to specify
 	// callbacks each time the database has been polled and processed.
 	TxnPollNotifyFunc func()
@@ -111,12 +83,13 @@ type TxnWatcher struct {
 	// averageSyncLen tracks a filtered average of how long the sync event queue gets before we flush
 	averageSyncLen float64
 
-	resumeToken bson.Raw
-	cursorId    int64
+	resumeToken  bson.Raw
+	cursorId     int64
+	pollInterval time.Duration
 
 	readyChan chan any
 
-	runCmd func(db *mgo.Database, cmd any, resp any) error
+	runCmd RunCmdFunc
 }
 
 // TxnWatcherConfig contains the configuration parameters required
@@ -132,9 +105,12 @@ type TxnWatcherConfig struct {
 	Clock Clock
 	// Logger is used to control where the log messages for this watcher go.
 	Logger Logger
-	// Run is called to run commands against an mgo.Database, used for
+	// PollInterval is used to set how long mongo will wait before returning an
+	// empty result. It defaults to 1s.
+	PollInterval time.Duration
+	// RunCmd is called to run commands against an mgo.Database, used for
 	// testing.
-	RunCmd func(db *mgo.Database, cmd any, resp any) error
+	RunCmd RunCmdFunc
 }
 
 // Validate ensures that all the values that have to be set are set.
@@ -150,6 +126,9 @@ func (config TxnWatcherConfig) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
+	}
+	if config.PollInterval < 0 {
+		return errors.NotValidf("negative PollInterval")
 	}
 	return nil
 }
@@ -169,10 +148,14 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 		notifySync:    TxnPollNotifyFunc,
 		reportRequest: make(chan chan map[string]interface{}),
 		readyChan:     make(chan any),
+		pollInterval:  config.PollInterval,
 		runCmd:        config.RunCmd,
 	}
 	if w.logger == nil {
 		w.logger = noOpLogger{}
+	}
+	if w.pollInterval == 0 {
+		w.pollInterval = 1 * time.Second
 	}
 	if w.runCmd == nil {
 		w.runCmd = w.runCmdImpl
@@ -260,26 +243,20 @@ func (w *TxnWatcher) loop() error {
 
 	// https://github.com/mongodb/specifications/blob/master/source/change-streams/change-streams.rst
 	w.resumeToken = bson.Raw{}
+	resume := false
 
-	// Initially we have no retries and will use the
-	// polling backoff strategy.
-	retryCount := 0
-	backoffStrategy := PollStrategy
-
-	// Also make sure we have prepared the timer before
-	// we tell people we've started.
-	now := w.clock.Now()
-	backoff := backoffStrategy.NewTimer(now)
 	immediate := make(chan time.Time)
 	close(immediate)
 	var next <-chan time.Time = immediate
-	resume := false
+
 	first := true
+
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case <-next:
+			next = immediate
 		case resCh := <-w.reportRequest:
 			report := map[string]interface{}{
 				// How long was sync-events in our last flush
@@ -314,8 +291,6 @@ func (w *TxnWatcher) loop() error {
 			added, err = w.init()
 			if err != nil {
 				err = errors.Wrap(FatalChangeStreamError, err)
-			} else {
-				resume = false
 			}
 			if first {
 				defer w.killCursor()
@@ -323,42 +298,31 @@ func (w *TxnWatcher) loop() error {
 				first = false
 			}
 		} else {
-			d, _ := backoff.NextSleep(w.clock.Now())
-			added, err = w.sync(d)
+			added, err = w.sync()
 		}
 		if w.logger.IsTraceEnabled() && wrench.IsActive("txnwatcher", "sync-error") {
 			added = false
 			err = errors.New("test sync watcher error")
 		}
 		if err == nil {
-			if retryCount > 0 {
-				w.logger.Infof("txn sync watcher recovered after %d retries", retryCount)
+			if resume {
+				w.logger.Infof("txn sync watcher resumed after failure")
 			}
-			// Something's happened, so reset the exponential backoff
-			// so we'll retry again quickly.
-			if retryCount > 0 || added {
-				backoff = PollStrategy.NewTimer(w.clock.Now())
-				next = immediate
-			}
-			retryCount = 0
+			resume = false
 			w.flush()
 			if !added && w.notifySync != nil {
 				w.notifySync()
 			}
 		} else {
-			w.logger.Warningf("txn watcher sync error: %v\ncurrent retry count %d", err, retryCount)
+			w.logger.Warningf("txn watcher sync error: %v", err)
 			if !errors.Is(err, ResumableChangeStreamError) &&
-				(errors.Is(err, FatalChangeStreamError) || retryCount > maxResumeRetries) {
+				(errors.Is(err, FatalChangeStreamError) || resume) {
 				_ = w.hub.Publish(TxnWatcherSyncErr, err)
 				return errors.Trace(err)
 			}
+			w.logger.Warningf("txn watcher resume queued")
 			resume = true
-			retryCount++
-			if retryCount == 1 {
-				// An error occurred so set up the error retry strategy.
-				backoff = ErrorStrategy.NewTimer(w.clock.Now())
-				next = w.clock.After(txnWatcherErrorShortWait)
-			}
+			next = w.clock.After(txnWatcherErrorWait)
 			if w.notifySync != nil {
 				w.notifySync()
 			}
@@ -441,9 +405,6 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 		if err != nil {
 			return added, errors.Trace(err)
 		}
-
-		var m bson.M
-		bson.Unmarshal(changeRaw.Data, &m)
 		if len(change.Id.Data) == 0 {
 			return added, errors.Annotate(FatalChangeStreamError, "missing change id in change")
 		}
@@ -460,7 +421,6 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 			w.resumeToken = change.Id
 			continue
 		}
-		w.logger.Errorf("doc id %s %v", change.Ns.Collection, change.DocumentKey.Id)
 		w.syncEvents = append(w.syncEvents, Change{
 			C:     change.Ns.Collection,
 			Id:    change.DocumentKey.Id,
@@ -490,7 +450,7 @@ func (w *TxnWatcher) flush() {
 
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
-func (w *TxnWatcher) sync(maxWait time.Duration) (bool, error) {
+func (w *TxnWatcher) sync() (bool, error) {
 	w.logger.Tracef("txn watcher %p starting sync", w)
 
 	db := w.session.DB(w.jujuDBName)
@@ -501,7 +461,7 @@ func (w *TxnWatcher) sync(maxWait time.Duration) (bool, error) {
 			{"getMore", w.cursorId},
 			{"collection", "$cmd.aggregate"},
 			{"batchSize", 10},
-			{"maxTimeMS", maxWait.Milliseconds()},
+			{"maxTimeMS", w.pollInterval.Milliseconds()},
 		}, &resp)
 		if isCursorNotFoundError(err) {
 			return false, errors.Wrap(ResumableChangeStreamError, err)

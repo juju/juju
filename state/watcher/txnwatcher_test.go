@@ -93,12 +93,13 @@ func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError 
 
 	session := s.MgoSuite.Session.New()
 	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
-		Session:    session,
-		JujuDBName: "juju",
-		Hub:        hub,
-		Clock:      s.clock,
-		Logger:     logger,
-		RunCmd:     runCmd,
+		Session:      session,
+		JujuDBName:   "juju",
+		Hub:          hub,
+		Clock:        s.clock,
+		Logger:       logger,
+		RunCmd:       runCmd,
+		PollInterval: 50 * time.Millisecond,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
@@ -355,7 +356,7 @@ func (s *TxnWatcherSuite) TestShouldRetryGetMore(c *gc.C) {
 	_, hub := s.newWatcherWithError(c, 1, nil, run)
 	s.insert(c, "test", "a")
 	hub.waitForExpected()
-	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(3))
+	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(2))
 }
 
 func (s *TxnWatcherSuite) TestShouldResume(c *gc.C) {
