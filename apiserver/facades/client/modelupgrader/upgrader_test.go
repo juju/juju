@@ -4,6 +4,8 @@
 package modelupgrader_test
 
 import (
+	"net/http"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -24,13 +26,16 @@ import (
 	"github.com/juju/juju/docker/registry/image"
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
+	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
 type modelUpgradeSuite struct {
@@ -45,6 +50,7 @@ type modelUpgradeSuite struct {
 	bootstrapEnviron *mocks.MockBootstrapEnviron
 	blockChecker     *mocks.MockBlockCheckerInterface
 	registryProvider *registrymocks.MockRegistry
+	cloudSpec        environscloudspec.CloudSpec
 }
 
 var _ = gc.Suite(&modelUpgradeSuite{})
@@ -60,6 +66,7 @@ func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.callContext = context.NewEmptyCloudCallContext()
+	s.cloudSpec = environscloudspec.CloudSpec{Type: "lxd"}
 }
 
 func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *modelupgrader.ModelUpgraderAPI) {
@@ -80,6 +87,9 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		s.blockChecker, s.authoriser, s.callContext,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
+		},
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return s.cloudSpec, nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,6 +142,14 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
+
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
 
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := utils.NewUUID()
@@ -215,6 +233,10 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 			"yakkety",
 			"zesty",
 		).Return(nil, nil),
+		// - check LXD version.
+		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
+
 		ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil),
 
 		// 2. Check other models.
@@ -251,6 +273,9 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 			"yakkety",
 			"zesty",
 		).Return(nil, nil),
+		// - check LXD version.
+		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	}
 	if !dryRun {
 		assertions = append(assertions,
@@ -289,6 +314,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.2"),
 	})
+
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
 
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := utils.NewUUID()
@@ -372,6 +405,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 			"yakkety",
 			"zesty",
 		).Return(map[string]int{"xenial": 2}, nil),
+		// - check LXD version.
+		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.1"),
 		ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		ctrlModel.EXPECT().Name().Return("controller"),
 
@@ -415,17 +451,21 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
 			"xenial": 16, "yakkety": 17, "zesty": 18,
 		}, nil),
+		// - check LXD version.
+		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.1"),
 		model1.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model1.EXPECT().Name().Return("model-1"),
 	)
 
-	_, err = api.UpgradeModel(
+	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/controller":
 - current model ("2.9.1") has to be upgraded to "2.9.2" at least
@@ -433,11 +473,13 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - mongo version has to be "4.4" at least, but current version is "4.3"
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): xenial(2)
+- LXD version has to be at least "5.2.0", but current version is only "5.1.0"
 "admin/model-1":
 - current model ("2.9.0") has to be upgraded to "2.9.2" at least
 - model is under "exporting" mode, upgrade blocked
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
-- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)`[1:])
+- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
+- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
@@ -447,6 +489,14 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
+
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
 
 	modelUUID := coretesting.ModelTag.Id()
 	model := mocks.NewMockModel(ctrl)
@@ -504,10 +554,12 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 			"yakkety",
 			"zesty",
 		).Return(nil, nil),
+		// - check LXD version.
+		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	}
 	if !dryRun {
 		assertions = append(assertions,
-			// s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
 			st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil),
 		)
 	}
@@ -542,6 +594,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	s.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
 	})
+
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
 
 	modelUUID := coretesting.ModelTag.Id()
 	model := mocks.NewMockModel(ctrl)
@@ -603,22 +663,26 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 			"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
 			"xenial": 16, "yakkety": 17, "zesty": 18,
 		}, nil),
+		// - check LXD version.
+		serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.1"),
 		model.EXPECT().Owner().Return(names.NewUserTag("admin")),
 		model.EXPECT().Name().Return("model-1"),
 	)
-	_, err := api.UpgradeModel(
+	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Logf(err.Error())
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
-- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)`[1:])
+- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
+- LXD version has to be at least "5.2.0", but current version is only "5.1.0"`[1:])
 }
 
 func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
