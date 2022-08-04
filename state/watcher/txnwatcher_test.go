@@ -248,7 +248,7 @@ func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
 	revno3 := s.insert(c, "test", "c")
 
 	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
-	hub.waitForExpected(c)
+	hub.waitForExpected()
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
 		{"test", "a", revno1},
