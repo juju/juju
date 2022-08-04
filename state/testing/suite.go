@@ -14,7 +14,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -77,16 +76,6 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		initialTime = testing.NonZeroTime()
 	}
 	s.Clock = testclock.NewClock(initialTime)
-	// Patch the polling policy of the primary txn watcher for the
-	// state pool. Since we are using a testing clock the StartSync
-	// method on the state object advances the clock one second.
-	// Make the txn poller use a standard one second poll interval.
-	s.PatchValue(
-		&statewatcher.PollStrategy,
-		retry.Exponential{
-			Initial: time.Second,
-			Factor:  1.0,
-		})
 
 	s.AdminPassword = "admin-secret"
 	s.Controller = InitializeWithArgs(c, InitializeArgs{

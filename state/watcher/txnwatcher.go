@@ -441,11 +441,11 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 		revno := int64(0)
 		switch change.OperationType {
 		case "insert", "replace":
-			// We read the revno from the commited document as reported by the change stream.
+			// We read the revno from the committed document as reported by the change stream.
 			revno = change.FullDocument.Revno
 		case "update":
 			// For updates we read the revno from the updated fields so that it isn't newer as
-			// FullDocument on an update is only guarenteed to be the state of the document after
+			// FullDocument on an update is only guaranteed to be the state of the document after
 			// the update, not the state of the document as a result of the update, so the reported
 			// revno could be greater.
 			revno = change.UpdateDescription.UpdatedFields.Revno
