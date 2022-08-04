@@ -16,7 +16,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 )
 
-type secretCreateCommand struct {
+type secretAddCommand struct {
 	cmd.CommandBase
 	ctx Context
 
@@ -27,40 +27,40 @@ type secretCreateCommand struct {
 	data           map[string]string
 }
 
-// NewSecretCreateCommand returns a command to create a secret.
-func NewSecretCreateCommand(ctx Context) (cmd.Command, error) {
-	return &secretCreateCommand{
+// NewSecretAddCommand returns a command to add a secret.
+func NewSecretAddCommand(ctx Context) (cmd.Command, error) {
+	return &secretAddCommand{
 		ctx:            ctx,
 		rotateInterval: -1,
 	}, nil
 }
 
 // Info implements cmd.Command.
-func (c *secretCreateCommand) Info() *cmd.Info {
+func (c *secretAddCommand) Info() *cmd.Info {
 	doc := `
-Create a secret with either a single value or a list of key values.
+Add a secret with either a single value or a list of key values.
 If --base64 is specified, the values are already in base64 format and no
 encoding will be performed, otherwise the values will be base64 encoded
 prior to being stored.
 
 Examples:
-    secret-create 34ae35facd4
-    secret-create --base64 AA==
-    secret-create --rotate 24h s3cret 
-    secret-create --tag foo=bar --tag hello=world \
+    secret-add 34ae35facd4
+    secret-add --base64 AA==
+    secret-add --rotate 24h s3cret 
+    secret-add --tag foo=bar --tag hello=world \
         --description "my database password" \
         s3cret 
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-create",
+		Name:    "secret-add",
 		Args:    "[value|key=value...]",
-		Purpose: "create a new secret",
+		Purpose: "add a new secret",
 		Doc:     doc,
 	})
 }
 
 // SetFlags implements cmd.Command.
-func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *secretAddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.asBase64, "base64", false,
 		`specify the supplied values are base64 encoded strings`)
 	f.DurationVar(&c.rotateInterval, "rotate", 0, "how often the secret should be rotated")
@@ -69,7 +69,7 @@ func (c *secretCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements cmd.Command.
-func (c *secretCreateCommand) Init(args []string) error {
+func (c *secretAddCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret value")
 	}
@@ -83,7 +83,7 @@ func (c *secretCreateCommand) Init(args []string) error {
 }
 
 // Run implements cmd.Command.
-func (c *secretCreateCommand) Run(ctx *cmd.Context) error {
+func (c *secretAddCommand) Run(ctx *cmd.Context) error {
 	value := secrets.NewSecretValue(c.data)
 	id, err := c.ctx.CreateSecret(&SecretUpsertArgs{
 		Value:          value,

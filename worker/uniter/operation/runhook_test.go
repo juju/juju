@@ -909,7 +909,7 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 	newState, err := op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, expectState)
-	c.Assert(callbacks.rotatedSecretURL, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(callbacks.rotatedSecretURI, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 	c.Assert(callbacks.rotatedSecretTime.After(now), jc.IsTrue)
 }
 

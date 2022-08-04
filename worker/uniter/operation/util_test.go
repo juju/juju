@@ -229,7 +229,7 @@ type CommitHookCallbacks struct {
 	operation.Callbacks
 	*MockCommitHook
 
-	rotatedSecretURL  string
+	rotatedSecretURI  string
 	rotatedSecretTime time.Time
 }
 
@@ -238,7 +238,7 @@ func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 }
 
 func (cb *CommitHookCallbacks) SetSecretRotated(url string, when time.Time) error {
-	cb.rotatedSecretURL = url
+	cb.rotatedSecretURI = url
 	cb.rotatedSecretTime = when
 	return nil
 }

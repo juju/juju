@@ -99,11 +99,11 @@ func (c *Client) Update(uri string, cfg *secrets.SecretConfig, value secrets.Sec
 // GetValue returns the value of a secret.
 func (c *Client) GetValue(uri string) (secrets.SecretValue, error) {
 	arg := params.GetSecretArg{}
-	secretUrl, err := secrets.ParseURI(uri)
+	secretUri, err := secrets.ParseURI(uri)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	arg.URI = secretUrl.String()
+	arg.URI = secretUri.String()
 
 	var results params.SecretValueResults
 
@@ -145,8 +145,8 @@ func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRot
 }
 
 // SecretRotated records when a secret was last rotated.
-func (c *Client) SecretRotated(url string, when time.Time) error {
-	secretUrl, err := secrets.ParseURI(url)
+func (c *Client) SecretRotated(uri string, when time.Time) error {
+	secretUri, err := secrets.ParseURI(uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +154,7 @@ func (c *Client) SecretRotated(url string, when time.Time) error {
 	var results params.ErrorResults
 	args := params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:  secretUrl.String(),
+			URI:  secretUri.String(),
 			When: when,
 		}},
 	}

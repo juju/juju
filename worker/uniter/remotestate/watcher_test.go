@@ -466,10 +466,10 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
-	secretURLs := []string{"secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
-	s.rotateSecretWatcher.rotateCh <- secretURLs
+	secretURIs := []string{"secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
+	s.rotateSecretWatcher.rotateCh <- secretURIs
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURLs)
+	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
 
 	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()

@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type SecretCreateSuite struct {
+type SecretAddSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&SecretCreateSuite{})
+var _ = gc.Suite(&SecretAddSuite{})
 
-func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
+func (s *SecretAddSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	for _, t := range []struct {
@@ -44,7 +44,7 @@ func (s *SecretCreateSuite) TestCreateSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR rotate interval "-1h0m0s" not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, "secret-create")
+		com, err := jujuc.NewCommand(hctx, "secret-add")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -66,10 +66,10 @@ func tagPtr(t map[string]string) *map[string]string {
 	return &t
 }
 
-func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
+func (s *SecretAddSuite) TestCreateSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-create")
+	com, err := jujuc.NewCommand(hctx, "secret-add")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -90,10 +90,10 @@ func (s *SecretCreateSuite) TestCreateSecret(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
 
-func (s *SecretCreateSuite) TestCreateSecretBase64(c *gc.C) {
+func (s *SecretAddSuite) TestCreateSecretBase64(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-create")
+	com, err := jujuc.NewCommand(hctx, "secret-add")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "token=key="})

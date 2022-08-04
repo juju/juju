@@ -1397,10 +1397,10 @@ func (ctx *HookContext) WorkloadName() (string, error) {
 	return ctx.workloadName, nil
 }
 
-// SecretURL returns the secret URL for secret hooks.
+// SecretURI returns the secret URL for secret hooks.
 // This is not yet used by any hook commands - it is exported
 // for tests to use.
-func (ctx *HookContext) SecretURL() (string, error) {
+func (ctx *HookContext) SecretURI() (string, error) {
 	if ctx.secretURI == "" {
 		return "", errors.NotFoundf("secret URL")
 	}
