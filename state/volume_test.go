@@ -258,7 +258,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 
 	w := s.storageBackend.WatchVolumeAttachment(machineTag, volumeTag)
 	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	machine, err := s.State.Machine(assignedMachineId)
@@ -292,7 +292,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 
 	w := s.storageBackend.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0", "1") // initial
 	wc.AssertNoChange()
 
@@ -333,7 +333,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 
 	w := s.storageBackend.WatchModelVolumeAttachments()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
 	wc.AssertNoChange()
 
@@ -364,7 +364,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 
 	w := s.storageBackend.WatchMachineVolumes(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0/0", "0/1") // initial
 	wc.AssertNoChange()
 
@@ -412,7 +412,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 
 	w := s.storageBackend.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
 	wc.AssertNoChange()
 

@@ -100,7 +100,7 @@ func (s *MeterStateSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 
 func (s *MeterStateSuite) TestMeterStatusWatcherRespondstoMeterStatus(c *gc.C) {
 	watcher := s.unit.WatchMeterStatus()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, watcher)
 	wc.AssertOneChange()
 	err := s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +111,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, watcher)
 	wc.AssertOneChange()
 	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
@@ -128,7 +128,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatu
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, watcher)
 	wc.AssertOneChange()
 	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)

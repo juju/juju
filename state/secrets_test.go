@@ -427,7 +427,7 @@ func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) state.SecretsRotationWatcher
 	w := s.State.WatchSecretsRotationChanges("application-mariadb")
 
 	now := s.Clock.Now().Round(time.Second).UTC()
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	wc.AssertChange(watcher.SecretRotationChange{
 		ID:             md.ID,
 		URL:            md.URL,
@@ -445,7 +445,7 @@ func (s *SecretsWatcherSuite) TestWatchInitialEvent(c *gc.C) {
 
 func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	URL := secrets.NewSimpleURL("app/mariadb/password")
@@ -465,7 +465,7 @@ func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 
 func (s *SecretsWatcherSuite) TestWatchDelete(c *gc.C) {
 	w := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	URL := secrets.NewSimpleURL("app/mariadb/password")
@@ -484,7 +484,7 @@ func (s *SecretsWatcherSuite) TestWatchDelete(c *gc.C) {
 
 func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 	w := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	URL := secrets.NewSimpleURL("app/mariadb/password")
@@ -508,7 +508,7 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 
 func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C) {
 	w := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	URL := secrets.NewSimpleURL("app/mariadb/password")
@@ -531,7 +531,7 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C)
 
 func (s *SecretsWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	w := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	URL := secrets.NewSimpleURL("app/mariadb/password")

@@ -326,7 +326,7 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// initial event
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// single change is reported
@@ -366,7 +366,7 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// initial event
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// single change is reported

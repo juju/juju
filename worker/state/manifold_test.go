@@ -223,7 +223,6 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(newSt.RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
-	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		st, err := pool.Get(newSt.ModelUUID())

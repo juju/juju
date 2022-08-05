@@ -3519,7 +3519,7 @@ func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	// All except gone unit are reported in initial event.
 	w := s.mysql.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(alive.Name(), dying.Name(), dead.Name())
 	wc.AssertNoChange()
 
@@ -3540,7 +3540,7 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	// Empty initial event when no units.
 	w := s.mysql.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -3588,7 +3588,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	// TODO(fwereade) split this test up a bit.
 	w := s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -3630,7 +3630,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	rel2 := addRelation()
 	w = s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(rel1.String(), rel2.String())
 	wc.AssertNoChange()
 
@@ -3664,7 +3664,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wpx := s.AddTestingApplication(c, "wpx", wpch)
 	wpxWatcher := wpx.WatchRelations()
 	defer testing.AssertStop(c, wpxWatcher)
-	wpxWatcherC := testing.NewStringsWatcherC(c, s.State, wpxWatcher)
+	wpxWatcherC := testing.NewStringsWatcherC(c, wpxWatcher)
 	wpxWatcherC.AssertChange()
 	wpxWatcherC.AssertNoChange()
 
@@ -3697,7 +3697,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -3732,7 +3732,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
+	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
 func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
@@ -4237,7 +4237,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
@@ -4806,7 +4806,7 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	// Empty initial event.
 	w := s.app.WatchScale()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	err := s.app.SetScale(5, 0, true)
@@ -4843,7 +4843,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	_, err = s.State.SaveCloudService(state.SaveCloudServiceArgs{
@@ -4863,7 +4863,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = cloudSvc.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
+	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
 func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
@@ -5279,11 +5279,10 @@ deployment:
 }
 
 func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
-	s.State.StartSync()
 	w := s.State.WatchApplicationsWithPendingCharms()
 	defer func() { _ = w.Stop() }()
 
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange() // consume initial change set.
 
 	// Add a pending charm without an origin and associate it with the
@@ -5352,7 +5351,7 @@ func (s *ApplicationSuite) TestWatch(c *gc.C) {
 	w := s.mysql.WatchConfigSettingsHash()
 	defer testing.AssertStop(c, w)
 
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("1e11259677ef769e0ec4076b873c76dcc3a54be7bc651b081d0f0e2b87077717")
 
 	schema := environschema.Fields{

@@ -165,7 +165,7 @@ func (s *BlockDevicesSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w := sb.WatchBlockDevices(s.machine.MachineTag())
 	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Setting the same should not trigger the watcher.

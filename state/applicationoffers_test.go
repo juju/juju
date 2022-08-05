@@ -852,7 +852,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()
 
@@ -868,6 +868,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
+	wc.AssertOneChange()
 	err = u.SetStatus(status.StatusInfo{
 		Status: status.Blocked,
 	})
@@ -908,7 +909,7 @@ func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
 	w := s.State.WatchOffer(offer.OfferName)
 
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	// Initial event.
 	wc.AssertOneChange()
 

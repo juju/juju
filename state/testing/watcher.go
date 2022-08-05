@@ -66,29 +66,19 @@ type NotifyWatcher interface {
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*gc.C
-	State   SyncStarter
 	Watcher NotifyWatcher
-}
-
-// SyncStarter is an interface that watcher checkers will use to ensure
-// that changes to the watched object have been synchronized. This is
-// primarily implemented by state.State.
-type SyncStarter interface {
-	StartSync()
 }
 
 // NewNotifyWatcherC returns a NotifyWatcherC that checks for aggressive
 // event coalescence.
-func NewNotifyWatcherC(c *gc.C, st SyncStarter, w NotifyWatcher) NotifyWatcherC {
+func NewNotifyWatcherC(c *gc.C, w NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
 		C:       c,
-		State:   st,
 		Watcher: w,
 	}
 }
 
 func (c NotifyWatcherC) AssertNoChange() {
-	c.State.StartSync()
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		if ok {
@@ -115,7 +105,6 @@ loop:
 			break loop
 		case <-shortTimeout:
 			c.C.Logf("StartSync()")
-			c.State.StartSync()
 			shortTimeout = nil
 		case <-longTimeout:
 			c.Fatalf("watcher did not send change")
@@ -138,16 +127,14 @@ func (c NotifyWatcherC) AssertClosed() {
 // the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
 	*gc.C
-	State   SyncStarter
 	Watcher StringsWatcher
 }
 
 // NewStringsWatcherC returns a StringsWatcherC that checks for aggressive
 // event coalescence.
-func NewStringsWatcherC(c *gc.C, st SyncStarter, w StringsWatcher) StringsWatcherC {
+func NewStringsWatcherC(c *gc.C, w StringsWatcher) StringsWatcherC {
 	return StringsWatcherC{
 		C:       c,
-		State:   st,
 		Watcher: w,
 	}
 }
@@ -158,7 +145,6 @@ type StringsWatcher interface {
 }
 
 func (c StringsWatcherC) AssertNoChange() {
-	c.State.StartSync()
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
@@ -167,7 +153,6 @@ func (c StringsWatcherC) AssertNoChange() {
 }
 
 func (c StringsWatcherC) AssertChanges() {
-	c.State.StartSync()
 	select {
 	case <-c.Watcher.Changes():
 	case <-time.After(testing.LongWait):
@@ -215,7 +200,6 @@ func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 // collectChanges gets up to the max number of changes within the
 // testing.LongWait period.
 func (c StringsWatcherC) collectChanges(single bool, max int) []string {
-	c.State.StartSync()
 	timeout := time.After(testing.LongWait)
 	var actual []string
 	gotOneChange := false
@@ -254,7 +238,6 @@ func (c StringsWatcherC) AssertClosed() {
 // params.RelationUnitsChange.
 type RelationUnitsWatcherC struct {
 	*gc.C
-	State   SyncStarter
 	Watcher RelationUnitsWatcher
 	// settingsVersions keeps track of the settings version of each
 	// changed unit since the last received changes to ensure version
@@ -265,10 +248,9 @@ type RelationUnitsWatcherC struct {
 
 // NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that
 // checks for aggressive event coalescence.
-func NewRelationUnitsWatcherC(c *gc.C, st SyncStarter, w RelationUnitsWatcher) RelationUnitsWatcherC {
+func NewRelationUnitsWatcherC(c *gc.C, w RelationUnitsWatcher) RelationUnitsWatcherC {
 	return RelationUnitsWatcherC{
 		C:                   c,
-		State:               st,
 		Watcher:             w,
 		settingsVersions:    make(map[string]int64),
 		appSettingsVersions: make(map[string]int64),
@@ -281,7 +263,6 @@ type RelationUnitsWatcher interface {
 }
 
 func (c RelationUnitsWatcherC) AssertNoChange() {
-	c.State.StartSync()
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
@@ -295,7 +276,6 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 	// Get all items in changed in a map for easy lookup.
 	changedNames := set.NewStrings(changed...)
 	appChangedNames := set.NewStrings(appChanged...)
-	c.State.StartSync()
 	timeout := time.After(testing.LongWait)
 	select {
 	case actual, ok := <-c.Watcher.Changes():
@@ -351,16 +331,14 @@ func (c RelationUnitsWatcherC) AssertClosed() {
 // <-chan []SecretRotationChange
 type SecretsRotationWatcherC struct {
 	*gc.C
-	State   SyncStarter
 	Watcher SecretsRotationWatcher
 }
 
 // NewSecretsRotationWatcherC returns a SecretsRotationWatcherC that
 // checks for aggressive event coalescence.
-func NewSecretsRotationWatcherC(c *gc.C, st SyncStarter, w SecretsRotationWatcher) SecretsRotationWatcherC {
+func NewSecretsRotationWatcherC(c *gc.C, w SecretsRotationWatcher) SecretsRotationWatcherC {
 	return SecretsRotationWatcherC{
 		C:       c,
-		State:   st,
 		Watcher: w,
 	}
 }
@@ -371,7 +349,6 @@ type SecretsRotationWatcher interface {
 }
 
 func (c SecretsRotationWatcherC) AssertNoChange() {
-	c.State.StartSync()
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
@@ -382,7 +359,6 @@ func (c SecretsRotationWatcherC) AssertNoChange() {
 // AssertChange asserts the given changes was reported by the watcher,
 // but does not assume there are no following changes.
 func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretRotationChange) {
-	c.State.StartSync()
 	var received []watcher.SecretRotationChange
 	timeout := time.After(testing.LongWait)
 	for a := testing.LongAttempt.Start(); a.Next(); {

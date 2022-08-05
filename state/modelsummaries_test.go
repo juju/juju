@@ -338,7 +338,6 @@ func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(shared.InvalidateModelCredential("test"), jc.ErrorIsNil)
 
-	s.State.StartSync()
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)

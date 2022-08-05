@@ -2537,21 +2537,6 @@ type hasAdvance interface {
 	Advance(time.Duration)
 }
 
-// StartSync forces watchers to resynchronize their state with the
-// database immediately. This will happen periodically automatically.
-// This method is called only from tests.
-func (st *State) StartSync() {
-	if advanceable, ok := st.clock().(hasAdvance); ok {
-		// The amount of time we advance here just needs to be more
-		// than 10ms as that is the minimum time the txnwatcher
-		// is waiting on, however one second is more human noticeable.
-		// The state testing StateSuite type changes the polling interval
-		// of the pool's txnwatcher to be one second.
-		//advanceable.Advance(time.Second)
-		_ = advanceable
-	}
-}
-
 // SetAdminMongoPassword sets the administrative password
 // to access the state. If the password is non-empty,
 // all subsequent attempts to access the state must

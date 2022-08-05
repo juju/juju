@@ -63,27 +63,27 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 	s.w = s.machine.WatchForRebootEvent()
 
-	s.wc = statetesting.NewNotifyWatcherC(c, s.State, s.w)
+	s.wc = statetesting.NewNotifyWatcherC(c, s.w)
 	s.wc.AssertOneChange()
 
 	s.wC1 = s.c1.WatchForRebootEvent()
 
 	// Initial event on container 1.
-	s.wcC1 = statetesting.NewNotifyWatcherC(c, s.State, s.wC1)
+	s.wcC1 = statetesting.NewNotifyWatcherC(c, s.wC1)
 	s.wcC1.AssertOneChange()
 
 	// Get reboot watcher on container 2
 	s.wC2 = s.c2.WatchForRebootEvent()
 
 	// Initial event on container 2.
-	s.wcC2 = statetesting.NewNotifyWatcherC(c, s.State, s.wC2)
+	s.wcC2 = statetesting.NewNotifyWatcherC(c, s.wC2)
 	s.wcC2.AssertOneChange()
 
 	// Get reboot watcher on container 3
 	s.wC3 = s.c3.WatchForRebootEvent()
 
 	// Initial event on container 3.
-	s.wcC3 = statetesting.NewNotifyWatcherC(c, s.State, s.wC3)
+	s.wcC3 = statetesting.NewNotifyWatcherC(c, s.wC3)
 	s.wcC3.AssertOneChange()
 }
 
