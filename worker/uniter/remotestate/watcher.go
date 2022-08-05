@@ -687,12 +687,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			waitLeader = nil
 			waitMinion = w.leadershipTracker.WaitMinion().Ready()
 
-		case urls, ok := <-w.rotateSecretsChanges:
-			if !ok || len(urls) == 0 {
+		case uris, ok := <-w.rotateSecretsChanges:
+			if !ok || len(uris) == 0 {
 				continue
 			}
-			w.logger.Debugf("got rotate secret URLS: %q", urls)
-			w.rotateSecretURLs(urls)
+			w.logger.Debugf("got rotate secret URIs: %q", uris)
+			w.rotateSecretURIs(uris)
 
 		case change := <-w.storageAttachmentChanges:
 			w.logger.Debugf("storage attachment change for %s: %v", w.unit.Tag().Id(), change)
@@ -943,9 +943,9 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	return nil
 }
 
-// rotateSecretURLs adds the specified URLs to those that need
+// rotateSecretURIs adds the specified URLs to those that need
 // to be rotated.
-func (w *RemoteStateWatcher) rotateSecretURLs(urls []string) {
+func (w *RemoteStateWatcher) rotateSecretURIs(urls []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

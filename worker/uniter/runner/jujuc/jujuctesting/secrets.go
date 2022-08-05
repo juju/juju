@@ -16,31 +16,31 @@ type ContextSecrets struct {
 }
 
 // GetSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) GetSecret(ID string) (secrets.SecretValue, error) {
-	c.stub.AddCall("GetSecret", ID)
+func (c *ContextSecrets) GetSecret(uri string) (secrets.SecretValue, error) {
+	c.stub.AddCall("GetSecret", uri)
 	return c.SecretValue, nil
 }
 
 // CreateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) CreateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
-	c.stub.AddCall("CreateSecret", name, args)
-	return "secret://app." + name, nil
+func (c *ContextSecrets) CreateSecret(args *jujuc.SecretUpsertArgs) (string, error) {
+	c.stub.AddCall("CreateSecret", args)
+	return "secret:9m4e2mr0ui3e8a215n4g", nil
 }
 
 // UpdateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) UpdateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
-	c.stub.AddCall("UpdateSecret", name, args)
-	return "secret://app." + name, nil
+func (c *ContextSecrets) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) error {
+	c.stub.AddCall("UpdateSecret", uri, args)
+	return nil
 }
 
 // GrantSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) GrantSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
-	c.stub.AddCall("GrantSecret", name, args)
+func (c *ContextSecrets) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+	c.stub.AddCall("GrantSecret", uri, args)
 	return nil
 }
 
 // RevokeSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) RevokeSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
-	c.stub.AddCall("RevokeSecret", name, args)
+func (c *ContextSecrets) RevokeSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+	c.stub.AddCall("RevokeSecret", uri, args)
 	return nil
 }

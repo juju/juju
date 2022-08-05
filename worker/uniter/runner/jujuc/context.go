@@ -167,17 +167,11 @@ type ContextUnit interface {
 
 // SecretUpsertArgs specifies args used to create or update a secret.
 type SecretUpsertArgs struct {
-	// Type is the secret type (only used for insert).
-	Type secrets.SecretType
-
 	// Value is the new secret value or nil to not update.
 	Value secrets.SecretValue
 
 	// RotateInterval is the new rotate interval or nil to not update.
 	RotateInterval *time.Duration
-
-	// Status is whether a secret is pending or active or nil to not update.
-	Status *secrets.SecretStatus
 
 	// Description describes the secret or nil to not update.
 	Description *string
@@ -197,19 +191,19 @@ type SecretGrantRevokeArgs struct {
 // ContextSecrets is the part of a hook context related to secrets.
 type ContextSecrets interface {
 	// GetSecret returns the value of the specified secret.
-	GetSecret(ID string) (secrets.SecretValue, error)
+	GetSecret(string) (secrets.SecretValue, error)
 
 	// CreateSecret creates a secret with the specified data.
-	CreateSecret(name string, args *SecretUpsertArgs) (string, error)
+	CreateSecret(args *SecretUpsertArgs) (string, error)
 
 	// UpdateSecret creates a secret with the specified data.
-	UpdateSecret(name string, args *SecretUpsertArgs) (string, error)
+	UpdateSecret(string, *SecretUpsertArgs) error
 
 	// GrantSecret grants access to the specified secret.
-	GrantSecret(name string, args *SecretGrantRevokeArgs) error
+	GrantSecret(string, *SecretGrantRevokeArgs) error
 
 	// RevokeSecret revokes access to the specified secret.
-	RevokeSecret(name string, args *SecretGrantRevokeArgs) error
+	RevokeSecret(string, *SecretGrantRevokeArgs) error
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

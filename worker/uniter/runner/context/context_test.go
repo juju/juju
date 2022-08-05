@@ -872,7 +872,7 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 		c.Assert(request, gc.Equals, "GetSecretValues")
 		c.Assert(arg, gc.DeepEquals, params.GetSecretArgs{
 			Args: []params.GetSecretArg{{
-				URL: "secret://app/mariadb/password",
+				URI: "secret:9m4e2mr0ui3e8a215n4g",
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretValueResults{})
@@ -886,7 +886,7 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
-	value, err := hookContext.GetSecret("secret://app/mariadb/password")
+	value, err := hookContext.GetSecret("secret:9m4e2mr0ui3e8a215n4g")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -898,10 +898,6 @@ func durationPtr(d time.Duration) *time.Duration {
 }
 
 func stringPtr(s string) *string {
-	return &s
-}
-
-func statusPtr(s secrets.SecretStatus) *secrets.SecretStatus {
 	return &s
 }
 
@@ -921,10 +917,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 		c.Assert(request, gc.Equals, "CreateSecrets")
 		c.Check(arg, gc.DeepEquals, params.CreateSecretArgs{
 			Args: []params.CreateSecretArg{{
-				Type:           "blob",
-				Path:           "app/wordpress/password",
 				RotateInterval: time.Hour,
-				Status:         "active",
 				Description:    "my secret",
 				Tags:           map[string]string{"hello": "world"},
 				Data:           data,
@@ -933,7 +926,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			[]params.StringResult{{
-				Result: "secret://app/foo",
+				Result: "secret:9m4e2mr0ui3e8a215n4g",
 			}},
 		}
 		return nil
@@ -941,16 +934,14 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
-	id, err := hookContext.CreateSecret("password", &jujuc.SecretUpsertArgs{
-		Type:           secrets.TypeBlob,
+	id, err := hookContext.CreateSecret(&jujuc.SecretUpsertArgs{
 		Value:          value,
 		RotateInterval: durationPtr(time.Hour),
-		Status:         statusPtr(secrets.StatusActive),
 		Description:    stringPtr("my secret"),
 		Tags:           tagPtr(map[string]string{"hello": "world"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, "secret://app/foo")
+	c.Assert(id, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 }
 
 func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
@@ -965,18 +956,17 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		c.Assert(request, gc.Equals, "UpdateSecrets")
 		c.Check(arg, gc.DeepEquals, params.UpdateSecretArgs{
 			Args: []params.UpdateSecretArg{{
-				URL:            "secret://app/wordpress/password",
+				URI:            "secret:9m4e2mr0ui3e8a215n4g",
 				RotateInterval: durationPtr(time.Hour),
-				Status:         stringPtr("active"),
 				Description:    stringPtr("my secret"),
 				Tags:           tagPtr(map[string]string{"hello": "world"}),
 				Data:           data,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
-		*(result.(*params.StringResults)) = params.StringResults{
-			[]params.StringResult{{
-				Result: "secret://app/wordpress/password",
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
 			}},
 		}
 		return nil
@@ -984,15 +974,13 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
-	id, err := hookContext.UpdateSecret("password", &jujuc.SecretUpsertArgs{
+	err := hookContext.UpdateSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretUpsertArgs{
 		Value:          value,
 		RotateInterval: durationPtr(time.Hour),
-		Status:         statusPtr(secrets.StatusActive),
 		Description:    stringPtr("my secret"),
 		Tags:           tagPtr(map[string]string{"hello": "world"}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, "secret://app/wordpress/password")
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {

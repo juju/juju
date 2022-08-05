@@ -38454,10 +38454,7 @@
                         "description": {
                             "type": "string"
                         },
-                        "int": {
-                            "type": "integer"
-                        },
-                        "path": {
+                        "owner-tag": {
                             "type": "string"
                         },
                         "provider": {
@@ -38472,9 +38469,6 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
-                        "status": {
-                            "type": "string"
-                        },
                         "tags": {
                             "type": "object",
                             "patternProperties": {
@@ -38487,7 +38481,7 @@
                             "type": "string",
                             "format": "date-time"
                         },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         },
                         "value": {
@@ -38499,12 +38493,10 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "url",
-                        "path",
+                        "uri",
                         "version",
                         "rotate-interval",
-                        "status",
-                        "int",
+                        "owner-tag",
                         "provider",
                         "revision",
                         "create-time",
@@ -38614,7 +38606,7 @@
                             "$ref": "#/definitions/UpdateSecretArgs"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/ErrorResults"
                         }
                     },
                     "description": "UpdateSecrets updates the specified secrets."
@@ -38656,14 +38648,8 @@
                                 }
                             }
                         },
-                        "path": {
-                            "type": "string"
-                        },
                         "rotate-interval": {
                             "type": "integer"
-                        },
-                        "status": {
-                            "type": "string"
                         },
                         "tags": {
                             "type": "object",
@@ -38672,17 +38658,11 @@
                                     "type": "string"
                                 }
                             }
-                        },
-                        "type": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "type",
-                        "path",
-                        "rotate-interval",
-                        "status"
+                        "rotate-interval"
                     ]
                 },
                 "CreateSecretArgs": {
@@ -38779,14 +38759,14 @@
                 "GetSecretArg": {
                     "type": "object",
                     "properties": {
-                        "id": {
-                            "type": "string"
-                        },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
                 },
                 "GetSecretArgs": {
                     "type": "object",
@@ -38806,7 +38786,7 @@
                 "SecretRotatedArg": {
                     "type": "object",
                     "properties": {
-                        "url": {
+                        "uri": {
                             "type": "string"
                         },
                         "when": {
@@ -38816,7 +38796,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "url",
+                        "uri",
                         "when"
                     ]
                 },
@@ -38845,17 +38825,13 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
-                        "secret-id": {
-                            "type": "integer"
-                        },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "secret-id",
-                        "url",
+                        "uri",
                         "rotate-interval",
                         "last-rotate-time"
                     ]
@@ -38985,9 +38961,6 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
-                        "status": {
-                            "type": "string"
-                        },
                         "tags": {
                             "type": "object",
                             "patternProperties": {
@@ -38996,15 +38969,14 @@
                                 }
                             }
                         },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "url",
-                        "rotate-interval",
-                        "status"
+                        "uri",
+                        "rotate-interval"
                     ]
                 },
                 "UpdateSecretArgs": {
@@ -39088,17 +39060,13 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
-                        "secret-id": {
-                            "type": "integer"
-                        },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "secret-id",
-                        "url",
+                        "uri",
                         "rotate-interval",
                         "last-rotate-time"
                     ]

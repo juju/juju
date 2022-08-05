@@ -514,13 +514,11 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 
 func (s *watcherSuite) setupSecretRotationWatcher(
 	c *gc.C,
-) (func(corewatcher.SecretRotationChange), func(), func()) {
+) (*secrets.URI, func(corewatcher.SecretRotationChange), func(), func()) {
 	store := state.NewSecretsStore(s.State)
-	URL := secrets.NewSimpleURL("app/mysql/password")
-	_, err := store.CreateSecret(URL, state.CreateSecretParams{
+	uri := secrets.NewURI()
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
 		Owner:          "application-mysql",
-		Path:           "app/mysql/password",
-		Type:           "blob",
 		RotateInterval: time.Hour,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -575,29 +573,26 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 
 	// Initial event.
 	assertChange(corewatcher.SecretRotationChange{
-		ID:             1,
-		URL:            URL,
+		URI:            uri,
 		RotateInterval: time.Hour,
 		LastRotateTime: time.Time{},
 	})
-	return assertChange, assertNoChange, stop
+	return uri, assertChange, assertNoChange, stop
 }
 
 func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
-	assertChange, assertNoChange, stop := s.setupSecretRotationWatcher(c)
+	uri, assertChange, assertNoChange, stop := s.setupSecretRotationWatcher(c)
 	defer stop()
 
 	store := state.NewSecretsStore(s.State)
-	URL := secrets.NewSimpleURL("app/mysql/password")
 	minute := time.Minute
-	_, err := store.UpdateSecret(URL, state.UpdateSecretParams{
+	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
 		RotateInterval: &minute,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertChange(corewatcher.SecretRotationChange{
-		ID:             1,
-		URL:            URL,
+		URI:            uri,
 		RotateInterval: time.Minute,
 		LastRotateTime: time.Time{},
 	})

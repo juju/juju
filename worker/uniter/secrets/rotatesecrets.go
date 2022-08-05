@@ -47,16 +47,16 @@ func (s *secretsResolver) NextOp(
 		return nil, resolver.ErrNoOperation
 	}
 
-	url := remoteState.SecretRotations[0]
+	uri := remoteState.SecretRotations[0]
 	op, err := opFactory.NewRunHook(hook.Info{
 		Kind:      hooks.SecretRotate,
-		SecretURL: url,
+		SecretURI: uri,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	opCompleted := func() {
-		s.rotatedSecrets(url)
+		s.rotatedSecrets(uri)
 	}
 	return &secretCompleter{op, opCompleted}, nil
 }

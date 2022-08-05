@@ -44,13 +44,11 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 	for i, r := range response.Results {
 		details := SecretDetails{
 			Metadata: secrets.SecretMetadata{
-				Path:           r.Path,
 				RotateInterval: r.RotateInterval,
 				Version:        r.Version,
-				Status:         secrets.SecretStatus(r.Status),
 				Description:    r.Description,
+				OwnerTag:       r.OwnerTag,
 				Tags:           r.Tags,
-				ID:             r.ID,
 				Provider:       r.Provider,
 				ProviderID:     r.ProviderID,
 				Revision:       r.Revision,
@@ -58,9 +56,9 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 				UpdateTime:     r.UpdateTime,
 			},
 		}
-		url, err := secrets.ParseURL(r.URL)
+		uri, err := secrets.ParseURI(r.URI)
 		if err == nil {
-			details.Metadata.URL = url
+			details.Metadata.URI = uri
 		} else {
 			details.Error = err.Error()
 		}

@@ -33,6 +33,7 @@ func (s *SecretsSuite) TestNewClient(c *gc.C) {
 func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	now := time.Now()
+	uri := secrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Secrets")
 		c.Check(version, gc.Equals, 0)
@@ -44,14 +45,12 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
-				URL:            "secret://app/mariadb/password",
-				Path:           "app/password",
+				URI:            uri.String(),
 				RotateInterval: time.Hour,
 				Version:        1,
-				Status:         "active",
 				Description:    "shhh",
+				OwnerTag:       "application-mysql",
 				Tags:           map[string]string{"foo": "bar"},
-				ID:             1,
 				Provider:       "juju",
 				ProviderID:     "provider-id",
 				Revision:       2,
@@ -65,17 +64,14 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	client := apisecrets.NewClient(apiCaller)
 	result, err := client.ListSecrets(true)
 	c.Assert(err, jc.ErrorIsNil)
-	URL := secrets.NewSimpleURL("app/mariadb/password")
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
-			URL:            URL,
-			Path:           "app/password",
+			URI:            uri,
 			RotateInterval: time.Hour,
 			Version:        1,
-			Status:         secrets.StatusActive,
 			Description:    "shhh",
+			OwnerTag:       "application-mysql",
 			Tags:           map[string]string{"foo": "bar"},
-			ID:             1,
 			Provider:       "juju",
 			ProviderID:     "provider-id",
 			Revision:       2,
@@ -90,7 +86,7 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
-				URL: "secret://app/password",
+				URI: "secret:9m4e2mr0ui3e8a215n4g",
 				Value: &params.SecretValueResult{
 					Error: &params.Error{Message: "boom"},
 				},

@@ -908,12 +908,12 @@ func NewSecretsRotationWatcher(
 // mergeChanges combines the changes in current and newChanges, such that we end up with
 // only one change per rotation config change in the result; the most recent change wins.
 func (w *secretsRotationWatcher) mergeChanges(current, newChanges []watcher.SecretRotationChange) []watcher.SecretRotationChange {
-	chMap := make(map[int]watcher.SecretRotationChange)
+	chMap := make(map[string]watcher.SecretRotationChange)
 	for _, c := range current {
-		chMap[c.ID] = c
+		chMap[c.URI.String()] = c
 	}
 	for _, c := range newChanges {
-		chMap[c.ID] = c
+		chMap[c.URI.String()] = c
 	}
 	result := make([]watcher.SecretRotationChange, len(chMap))
 	i := 0
@@ -932,14 +932,13 @@ func (w *secretsRotationWatcher) loop(initialChanges []params.SecretRotationChan
 	copyChanges := func(changes []params.SecretRotationChange) []watcher.SecretRotationChange {
 		result := make([]watcher.SecretRotationChange, len(changes))
 		for i, ch := range changes {
-			url, err := secrets.ParseURL(ch.URL)
+			uri, err := secrets.ParseURI(ch.URI)
 			if err != nil {
-				logger.Errorf("ignoring invalid secret URL: %q", ch.URL)
+				logger.Errorf("ignoring invalid secret URI: %q", ch.URI)
 				continue
 			}
 			result[i] = watcher.SecretRotationChange{
-				ID:             ch.ID,
-				URL:            url,
+				URI:            uri,
 				RotateInterval: ch.RotateInterval,
 				LastRotateTime: ch.LastRotateTime,
 			}

@@ -31,10 +31,10 @@ func (s *SecretGetSuite) TestSecretGetSingularString(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret://app/mariadb/password"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 	c.Assert(code, gc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret://app/mariadb/password"}}})
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g"}}})
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "s3cret!\n")
 }
@@ -48,10 +48,10 @@ func (s *SecretGetSuite) TestSecretGetStringJson(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret://app/mariadb/password", "--format", "json"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "--format", "json"})
 	c.Assert(code, gc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret://app/mariadb/password"}}})
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g"}}})
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `{"key":"s3cret!"}`+"\n")
 }
@@ -65,10 +65,10 @@ func (s *SecretGetSuite) TestSecretGetSingularEncoded(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret://app/mariadb/password", "--base64"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "--base64"})
 	c.Assert(code, gc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret://app/mariadb/password"}}})
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g"}}})
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "czNjcmV0IQ==\n")
 }
@@ -83,10 +83,10 @@ func (s *SecretGetSuite) TestSecretGet(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret://app/mariadb/password"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 	c.Assert(code, gc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret://app/mariadb/password"}}})
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g"}}})
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
 cert: cert
@@ -104,31 +104,13 @@ func (s *SecretGetSuite) TestSecretGetEncoded(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret://app/mariadb/password", "--base64"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "--base64"})
 	c.Assert(code, gc.Equals, 0)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret://app/mariadb/password"}}})
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g"}}})
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
 cert: Y2VydA==
 key: a2V5
 `[1:])
-}
-
-func (s *SecretGetSuite) TestSecretGetAttribute(c *gc.C) {
-	hctx, _ := s.ContextSuite.NewHookContext()
-	hctx.ContextSecrets.SecretValue = secrets.NewSecretValue(map[string]string{
-		"cert": base64.StdEncoding.EncodeToString([]byte("cert")),
-		"key":  base64.StdEncoding.EncodeToString([]byte("key")),
-	})
-
-	com, err := jujuc.NewCommand(hctx, "secret-get")
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret://app/mariadb/password#cert"})
-	c.Assert(code, gc.Equals, 0)
-
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "GetSecret", Args: []interface{}{"secret://app/mariadb/password#cert"}}})
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "cert\n")
 }

@@ -38,7 +38,7 @@ func (*RestrictedContext) GetCharmState() (map[string]string, error) {
 	return nil, ErrRestrictedContext
 }
 
-// GetSingleCharmStateValue implements jujuc.unitCharmStateContext.
+// GetCharmStateValue implements jujuc.unitCharmStateContext.
 func (*RestrictedContext) GetCharmStateValue(string) (string, error) {
 	return "", ErrRestrictedContext
 }
@@ -254,26 +254,26 @@ func (*RestrictedContext) WorkloadName() (string, error) {
 }
 
 // GetSecret implements runner.Context.
-func (ctx *RestrictedContext) GetSecret(ID string) (secrets.SecretValue, error) {
+func (ctx *RestrictedContext) GetSecret(string) (secrets.SecretValue, error) {
 	return nil, ErrRestrictedContext
 }
 
 // CreateSecret implements runner.Context.
-func (ctx *RestrictedContext) CreateSecret(name string, args *SecretUpsertArgs) (string, error) {
+func (ctx *RestrictedContext) CreateSecret(*SecretUpsertArgs) (string, error) {
 	return "", ErrRestrictedContext
 }
 
 // UpdateSecret implements runner.Context.
-func (ctx *RestrictedContext) UpdateSecret(name string, args *SecretUpsertArgs) (string, error) {
-	return "", ErrRestrictedContext
+func (ctx *RestrictedContext) UpdateSecret(string, *SecretUpsertArgs) error {
+	return ErrRestrictedContext
 }
 
 // GrantSecret implements runner.Context.
-func (c *RestrictedContext) GrantSecret(name string, args *SecretGrantRevokeArgs) error {
+func (c *RestrictedContext) GrantSecret(string, *SecretGrantRevokeArgs) error {
 	return nil
 }
 
 // RevokeSecret implements runner.Context.
-func (c *RestrictedContext) RevokeSecret(name string, args *SecretGrantRevokeArgs) error {
+func (c *RestrictedContext) RevokeSecret(string, *SecretGrantRevokeArgs) error {
 	return nil
 }

@@ -130,10 +130,11 @@ type testContext struct {
 	application            *state.Application
 	unit                   *state.Unit
 	uniter                 *uniter.Uniter
-	relatedSvc             *state.Application
+	relatedApplication     *state.Application
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
+	createdSecretURI       string
 	updateStatusHookTicker *manualTicker
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
@@ -1157,8 +1158,8 @@ func (s addRelation) step(c *gc.C, ctx *testContext) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
-	if ctx.relatedSvc == nil {
-		ctx.relatedSvc = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
+	if ctx.relatedApplication == nil {
+		ctx.relatedApplication = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints(ctx.application.Name(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1192,7 +1193,7 @@ func (s addRelation) step(c *gc.C, ctx *testContext) {
 type addRelationUnit struct{}
 
 func (s addRelationUnit) step(c *gc.C, ctx *testContext) {
-	u, err := ctx.relatedSvc.AddUnit(state.AddUnitParams{})
+	u, err := ctx.relatedApplication.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1641,30 +1642,24 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *testContext) {
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }
 
-type createSecret struct {
-	secretPath string
-}
+type createSecret struct{}
 
 func (s createSecret) step(c *gc.C, ctx *testContext) {
 	hr := time.Hour
-	active := secrets.StatusActive
-	_, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
-		Path:           s.secretPath,
+	uri, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
 		RotateInterval: &hr,
-		Status:         &active,
-	}, secrets.TypeBlob, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	}, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
 	c.Assert(err, jc.ErrorIsNil)
+	ctx.createdSecretURI = uri
 }
 
-type rotateSecret struct {
-	secretURL string
-}
+type rotateSecret struct{}
 
 func (s rotateSecret) step(c *gc.C, ctx *testContext) {
 	select {
-	case ctx.secretsRotateCh <- []string{s.secretURL}:
+	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("sending rotate secret change for %q", s.secretURL)
+		c.Fatalf("sending rotate secret change for %q", ctx.createdSecretURI)
 	}
 }
 

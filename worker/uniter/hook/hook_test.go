@@ -53,7 +53,7 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.SecretRotate},
 		`"secret-rotate" hook requires a secret URL`,
 	}, {
-		hook.Info{Kind: hooks.SecretRotate, SecretURL: "foo"},
+		hook.Info{Kind: hooks.SecretRotate, SecretURI: "foo"},
 		`invalid secret URL "foo"`,
 	},
 	{hook.Info{Kind: hooks.Install}, ""},

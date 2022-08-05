@@ -4,6 +4,7 @@
 package secrets_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -46,48 +47,48 @@ func (s *ListSuite) setup(c *gc.C) *gomock.Controller {
 func (s *ListSuite) TestListTabular(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
 	s.secretsAPI.EXPECT().ListSecrets(false).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				ID: 666, RotateInterval: time.Hour,
-				Revision: 2, Path: "app/mariadb/password", Provider: "juju"},
+				URI: uri, RotateInterval: time.Hour,
+				Revision: 2, Provider: "juju"},
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				ID:       667,
-				Revision: 1, Path: "app/gitlab/apitoken", Provider: "juju"},
+				URI:      uri2,
+				Revision: 1, Provider: "juju"},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI))
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
-ID   Revision  Rotate  Backend  Path                  Age
-666         2  1h      juju     app/mariadb/password  0001-01-01  
-667         1  never   juju     app/gitlab/apitoken   0001-01-01  
-`[1:])
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+URI                          Revision  Rotate  Backend  Age
+%s         2  1h      juju     0001-01-01  
+%s         1  never   juju     0001-01-01  
+`[1:], uri.ShortString(), uri2.ShortString()))
 }
 
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	secretUrl, err := coresecrets.ParseURL("secret://app/mariadb/password")
-	c.Assert(err, jc.ErrorIsNil)
-	secretUrl2, err := coresecrets.ParseURL("secret://app/gitlab/apitoken")
-	c.Assert(err, jc.ErrorIsNil)
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URL: secretUrl, ID: 666, RotateInterval: time.Hour,
-				Version: 1, Revision: 2, Path: "app/mariadb/password", Provider: "juju",
-				Status: coresecrets.StatusActive, Description: "my secret",
-				Tags: map[string]string{"foo": "bar"},
+				URI: uri, RotateInterval: time.Hour,
+				Version: 1, Revision: 2, Provider: "juju",
+				Description: "my secret",
+				OwnerTag:    "application-mysql",
+				Tags:        map[string]string{"foo": "bar"},
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URL: secretUrl2, ID: 667, Version: 1, Revision: 1, Path: "app/gitlab/apitoken", Provider: "juju",
-				Status: coresecrets.StatusStaged,
+				URI: uri2, Version: 1, Revision: 1, Provider: "juju",
 			},
 			Error: "boom",
 		}}, nil)
@@ -96,15 +97,13 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml", "--show-secrets")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
-- ID: 666
-  URL: secret://app/mariadb/password
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+- URI: %s
   revision: 2
-  path: app/mariadb/password
-  status: active
   rotate-interval: 1h0m0s
   version: 1
   description: my secret
+  owner: mysql
   tags:
     foo: bar
   backend: juju
@@ -112,30 +111,25 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   update-time: 0001-01-01T00:00:00Z
   value:
     foo: bar
-- ID: 667
-  URL: secret://app/gitlab/apitoken
+- URI: %s
   revision: 1
-  path: app/gitlab/apitoken
-  status: staged
   version: 1
   backend: juju
   create-time: 0001-01-01T00:00:00Z
   update-time: 0001-01-01T00:00:00Z
   error: boom
-`[1:])
+`[1:], uri.ShortString(), uri2.ShortString()))
 }
 
 func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	secretUrl, err := coresecrets.ParseURL("secret://app/mariadb/password")
-	c.Assert(err, jc.ErrorIsNil)
+	uri := coresecrets.NewURI()
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URL: secretUrl, ID: 666,
-				Version: 1, Revision: 2, Path: "app/mariadb/password", Provider: "juju",
-				Status: coresecrets.StatusActive,
+				URI:     uri,
+				Version: 1, Revision: 2, Provider: "juju",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -144,7 +138,7 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "json", "--show-secrets")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
-[{"ID":666,"URL":"secret://app/mariadb/password","revision":2,"path":"app/mariadb/password","status":"active","version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
-`[1:])
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+[{"URI":"%s","revision":2,"version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
+`[1:], uri.ShortString()))
 }

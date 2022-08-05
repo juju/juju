@@ -37,7 +37,7 @@ func (m *MockSecretsRotation) EXPECT() *MockSecretsRotationMockRecorder {
 }
 
 // SecretRotated mocks base method.
-func (m *MockSecretsRotation) SecretRotated(arg0 *secrets.URL, arg1 time.Time) error {
+func (m *MockSecretsRotation) SecretRotated(arg0 *secrets.URI, arg1 time.Time) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SecretRotated", arg0, arg1)
 	ret0, _ := ret[0].(error)

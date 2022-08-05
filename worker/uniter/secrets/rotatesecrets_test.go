@@ -62,7 +62,7 @@ func (s *rotateSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 			Kind: operation.Continue,
 		},
 	}
-	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -75,7 +75,7 @@ func (s *rotateSecretsSuite) TestNextOpNotLeader(c *gc.C) {
 		},
 	}
 	s.remoteState.Leader = false
-	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -88,7 +88,7 @@ func (s *rotateSecretsSuite) TestNextOpNotAlive(c *gc.C) {
 		},
 	}
 	s.remoteState.Life = life.Dying
-	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -100,7 +100,7 @@ func (s *rotateSecretsSuite) TestNextOpNotReady(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
@@ -115,10 +115,10 @@ func (s *rotateSecretsSuite) TestNextOpRotate(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret://app/mariadb/password) hook")
+	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
 func (s *rotateSecretsSuite) TestRotateCommit(c *gc.C) {
@@ -131,7 +131,7 @@ func (s *rotateSecretsSuite) TestRotateCommit(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	var rotatedURL string
 	s.rotatedSecret = func(url string) {
 		rotatedURL = url
@@ -141,18 +141,18 @@ func (s *rotateSecretsSuite) TestRotateCommit(c *gc.C) {
 
 	hi := hook.Info{
 		Kind:      hooks.SecretRotate,
-		SecretURL: "secret://app/mariadb/password",
+		SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
 	}
 	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
 	now := time.Now()
-	s.mockCallbacks.EXPECT().SetSecretRotated("secret://app/mariadb/password", gomock.Any()).DoAndReturn(
+	s.mockCallbacks.EXPECT().SetSecretRotated("secret:9m4e2mr0ui3e8a215n4g", gomock.Any()).DoAndReturn(
 		func(url string, when time.Time) error {
-			c.Assert(url, gc.Equals, "secret://app/mariadb/password")
+			c.Assert(url, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 			c.Assert(when.After(now), jc.IsTrue)
 			return nil
 		},
 	)
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rotatedURL, gc.Equals, "secret://app/mariadb/password")
+	c.Assert(rotatedURL, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 }

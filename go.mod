@@ -99,6 +99,7 @@ require (
 	github.com/pkg/sftp v1.13.4
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
+	github.com/rs/xid v1.4.0
 	github.com/vishvananda/netlink v1.2.0-beta
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa

@@ -128,10 +128,10 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 }
 
 func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
-	url := secrets.NewSimpleURL("app/mariadb/password")
-	context.SetEnvironmentHookContextSecret(ctx, url.ID())
+	url := secrets.NewURI()
+	context.SetEnvironmentHookContextSecret(ctx, url.ShortString())
 	return []string{
-		"JUJU_SECRET_URL=" + url.ID(),
+		"JUJU_SECRET_URL=" + url.ShortString(),
 	}
 }
 
