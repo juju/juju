@@ -1642,13 +1642,18 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *testContext) {
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }
 
-type createSecret struct{}
+type createSecret struct {
+	applicationName string
+}
 
 func (s createSecret) step(c *gc.C, ctx *testContext) {
-	hr := time.Hour
+	if s.applicationName == "" {
+		s.applicationName = "u"
+	}
+	expiry := time.Now()
 	uri, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
-		RotateInterval: &hr,
-	}, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+		Expiry: &expiry,
+	}, names.NewApplicationTag(s.applicationName), secrets.NewSecretValue(map[string]string{"foo": "bar"}))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.createdSecretURI = uri
 }

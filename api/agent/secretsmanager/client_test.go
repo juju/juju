@@ -6,6 +6,7 @@ package secretsmanager_test
 import (
 	"time"
 
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -30,20 +31,13 @@ func (s *SecretsSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
-func durationPtr(d time.Duration) *time.Duration {
-	return &d
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func tagPtr(t map[string]string) *map[string]string {
-	return &t
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
+	expiry := time.Now()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
@@ -51,14 +45,18 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 		c.Check(request, gc.Equals, "CreateSecrets")
 		c.Check(arg, jc.DeepEquals, params.CreateSecretArgs{
 			Args: []params.CreateSecretArg{{
-				RotateInterval: time.Hour,
-				Description:    "my secret",
-				Tags:           map[string]string{"foo": "bar"},
-				Params: map[string]interface{}{
-					"password-length":        10,
-					"password-special-chars": true,
+				OwnerTag: "application-mysql",
+				UpsertSecretArg: params.UpsertSecretArg{
+					RotatePolicy: ptr(secrets.RotateDaily),
+					Expiry:       ptr(expiry),
+					Description:  ptr("my secret"),
+					Label:        ptr("foo"),
+					Params: map[string]interface{}{
+						"password-length":        10,
+						"password-special-chars": true,
+					},
+					Data: data,
 				},
-				Data: data,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
@@ -72,15 +70,16 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	value := secrets.NewSecretValue(data)
 	cfg := &secrets.SecretConfig{
-		RotateInterval: durationPtr(time.Hour),
-		Description:    stringPtr("my secret"),
+		RotatePolicy: ptr(secrets.RotateDaily),
+		Expiry:       ptr(expiry),
+		Description:  ptr("my secret"),
+		Label:        ptr("foo"),
 		Params: map[string]interface{}{
 			"password-length":        10,
 			"password-special-chars": true,
 		},
 	}
-	cfg.Tags = tagPtr(map[string]string{"foo": "bar"})
-	result, err := client.Create(cfg, value)
+	result, err := client.Create(cfg, names.NewApplicationTag("mysql"), value)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 }
@@ -96,13 +95,14 @@ func (s *SecretsSuite) TestCreateSecretsError(c *gc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	value := secrets.NewSecretValue(nil)
-	result, err := client.Create(&secrets.SecretConfig{}, value)
+	result, err := client.Create(&secrets.SecretConfig{}, names.NewApplicationTag("mysql"), value)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, gc.Equals, "")
 }
 
 func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
+	expiry := time.Now()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
@@ -110,15 +110,18 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 		c.Check(request, gc.Equals, "UpdateSecrets")
 		c.Check(arg, jc.DeepEquals, params.UpdateSecretArgs{
 			Args: []params.UpdateSecretArg{{
-				URI:            "secret:9m4e2mr0ui3e8a215n4g",
-				RotateInterval: durationPtr(time.Hour),
-				Description:    stringPtr("my secret"),
-				Tags:           tagPtr(map[string]string{"foo": "bar"}),
-				Params: map[string]interface{}{
-					"password-length":        10,
-					"password-special-chars": true,
+				URI: "secret:9m4e2mr0ui3e8a215n4g",
+				UpsertSecretArg: params.UpsertSecretArg{
+					RotatePolicy: ptr(secrets.RotateDaily),
+					Expiry:       ptr(expiry),
+					Description:  ptr("my secret"),
+					Label:        ptr("foo"),
+					Params: map[string]interface{}{
+						"password-length":        10,
+						"password-special-chars": true,
+					},
+					Data: data,
 				},
-				Data: data,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
@@ -130,9 +133,10 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	value := secrets.NewSecretValue(data)
 	cfg := &secrets.SecretConfig{
-		RotateInterval: durationPtr(time.Hour),
-		Description:    stringPtr("my secret"),
-		Tags:           tagPtr(map[string]string{"foo": "bar"}),
+		RotatePolicy: ptr(secrets.RotateDaily),
+		Expiry:       ptr(expiry),
+		Description:  ptr("my secret"),
+		Label:        ptr("foo"),
 		Params: map[string]interface{}{
 			"password-length":        10,
 			"password-special-chars": true,

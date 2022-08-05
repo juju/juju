@@ -4,67 +4,57 @@
 package jujuc
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/secrets"
 )
 
 type secretUpdateCommand struct {
-	cmd.CommandBase
-	ctx Context
+	secretUpsertCommand
 
-	uri            string
-	asBase64       bool
-	rotateInterval time.Duration
-	description    string
-	tags           map[string]string
-	data           map[string]string
+	uri string
 }
 
 // NewSecretUpdateCommand returns a command to create a secret.
 func NewSecretUpdateCommand(ctx Context) (cmd.Command, error) {
-	return &secretUpdateCommand{ctx: ctx, rotateInterval: -1}, nil
+	return &secretUpdateCommand{
+		secretUpsertCommand: secretUpsertCommand{ctx: ctx},
+	}, nil
 }
 
 // Info implements cmd.Command.
 func (c *secretUpdateCommand) Info() *cmd.Info {
 	doc := `
-Update a secret with either a single value or a list of key values.
-If --base64 is specified, the values are already in base64 format and no
-encoding will be performed, otherwise the values will be base64 encoded
+Update a secret with a list of key values.
+If a value has the '#base64' suffix, it is already in base64 format and no
+encoding will be performed, otherwise the value will be base64 encoded
 prior to being stored.
-To just update the rotate interval, do not specify any secret value.
-	
+To just update selected metadata like rotate policy, do not specify any secret value.
+
 Examples:
-    secret-update secret:9m4e2mr0ui3e8a215n4g 34ae35facd4
-    secret-update secret:9m4e2mr0ui3e8a215n4g s3ke3t --staged
-    secret-update --base64 secret:9m4e2mr0ui3e8a215n4g AA==
-    secret-update --rotate 24h secret:9m4e2mr0ui3e8a215n4g s3cret
-    secret-update --rotate 48h secret:9m4e2mr0ui3e8a215n4g
-    secret-update --tag foo=bar --tag hello=world \
-        --description "my database secret:9m4e2mr0ui3e8a215n4g"
+    secret-update secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
+    secret-update secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
+    secret-update secret:9m4e2mr0ui3e8a215n4g --rotate monthly token=s3cret 
+    secret-update secret:9m4e2mr0ui3e8a215n4g --expire 24h
+    secret-update secret:9m4e2mr0ui3e8a215n4g --expire 24h token=s3cret 
+    secret-update secret:9m4e2mr0ui3e8a215n4g --expire 2025-01-01T06:06:06 token=s3cret 
+    secret-update secret:9m4e2mr0ui3e8a215n4g --label db-password \
+        --description "my database password" \
+        data#base64 s3cret== 
+    secret-update secret:9m4e2mr0ui3e8a215n4g --label db-password \
+        --description "my database password"
+    secret-update secret:9m4e2mr0ui3e8a215n4g --label db-password \
+        --description "my database password" \
+        --file=/path/to/file
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-update",
-		Args:    "<ID> [value|key=value...]",
+		Args:    "<ID> [key[#base64]=value...]",
 		Purpose: "update an existing secret",
 		Doc:     doc,
 	})
-}
-
-// SetFlags implements cmd.Command.
-func (c *secretUpdateCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.asBase64, "base64", false,
-		`specify the supplied values are base64 encoded strings`)
-	f.DurationVar(&c.rotateInterval, "rotate", -1, "how often the secret should be rotated")
-	f.StringVar(&c.description, "description", "", "the secret description")
-	f.Var(cmd.StringMap{&c.tags}, "tag", "tag to apply to the secret")
 }
 
 // Init implements cmd.Command.
@@ -72,33 +62,14 @@ func (c *secretUpdateCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret URI")
 	}
-	if c.rotateInterval < -1 {
-		return errors.NotValidf("rotate interval %q", c.rotateInterval)
-	}
 	c.uri = args[0]
 	if _, err := secrets.ParseURI(c.uri); err != nil {
-		return errors.NewNotValid(err, fmt.Sprintf("secret URI %q not valid", c.uri))
+		return errors.Trace(err)
 	}
-
-	var err error
-	if len(args) > 1 {
-		c.data, err = secrets.CreatSecretData(c.asBase64, args[1:])
-	}
-	return err
+	return c.secretUpsertCommand.Init(args[1:])
 }
 
 // Run implements cmd.Command.
 func (c *secretUpdateCommand) Run(ctx *cmd.Context) error {
-	value := secrets.NewSecretValue(c.data)
-	args := SecretUpsertArgs{
-		Value: value,
-		Tags:  &c.tags,
-	}
-	if c.rotateInterval >= 0 {
-		args.RotateInterval = &c.rotateInterval
-	}
-	if c.description != "" {
-		args.Description = &c.description
-	}
-	return c.ctx.UpdateSecret(c.uri, &args)
+	return c.ctx.UpdateSecret(c.uri, c.marshallArg())
 }

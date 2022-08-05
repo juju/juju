@@ -5,7 +5,26 @@ package params
 
 import (
 	"time"
+
+	"github.com/juju/juju/core/secrets"
 )
+
+// UpsertSecretArg holds the args for creating or updating a secret.
+type UpsertSecretArg struct {
+	// RotatePolicy is how often a secret should be rotated.
+	RotatePolicy *secrets.RotatePolicy `json:"rotate-policy"`
+	// Expiry is when a secret should expire.
+	Expiry *time.Time `json:"expiry"`
+	// Description represents the secret's description.
+	Description *string `json:"description,omitempty"`
+	// Tags are the secret tags.
+	Label *string `json:"label,omitempty"`
+	// Params are used when generating secrets server side.
+	// See core/secrets/secret.go.
+	Params map[string]interface{} `json:"params,omitempty"`
+	// Data is the key values of the secret value itself.
+	Data map[string]string `json:"data,omitempty"`
+}
 
 // CreateSecretArgs holds args for creating secrets.
 type CreateSecretArgs struct {
@@ -14,17 +33,10 @@ type CreateSecretArgs struct {
 
 // CreateSecretArg holds the args for creating a secret.
 type CreateSecretArg struct {
-	// RotateInterval is how often a secret should be rotated.
-	RotateInterval time.Duration `json:"rotate-interval"`
-	// Description represents the secret's description.
-	Description string `json:"description,omitempty"`
-	// Params are used when generating secrets server side.
-	// See core/secrets/secret.go.
-	Params map[string]interface{} `json:"params,omitempty"`
-	// Tags are the secret tags.
-	Tags map[string]string `json:"tags,omitempty"`
-	// Data is the key values of the secret value itself.
-	Data map[string]string `json:"data,omitempty"`
+	UpsertSecretArg
+
+	// OwnerTag is the owner of the secret.
+	OwnerTag string `json:"owner-tag"`
 }
 
 // UpdateSecretArgs holds args for creating secrets.
@@ -34,20 +46,10 @@ type UpdateSecretArgs struct {
 
 // UpdateSecretArg holds the args for creating a secret.
 type UpdateSecretArg struct {
-	// URL identifies the secret to update.
+	UpsertSecretArg
+
+	// URI identifies the secret to update.
 	URI string `json:"uri"`
-	// RotateInterval is how often a secret should be rotated.
-	RotateInterval *time.Duration `json:"rotate-interval"`
-	// Description represents the secret's description.
-	Description *string `json:"description,omitempty"`
-	// Tags are the secret tags.
-	Tags *map[string]string `json:"tags,omitempty"`
-	// Params are used when generating secrets server side.
-	// See core/secrets/secret.go.
-	Params map[string]interface{} `json:"params,omitempty"`
-	// Data is the key values of the secret value itself.
-	// Use an empty value to keep the current value.
-	Data map[string]string `json:"data,omitempty"`
 }
 
 // GetSecretArgs holds the args for getting secrets.

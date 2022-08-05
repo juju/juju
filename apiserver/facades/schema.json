@@ -38628,6 +38628,9 @@
                 "CreateSecretArg": {
                     "type": "object",
                     "properties": {
+                        "UpsertSecretArg": {
+                            "$ref": "#/definitions/UpsertSecretArg"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -38639,6 +38642,16 @@
                         "description": {
                             "type": "string"
                         },
+                        "expiry": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "owner-tag": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -38648,21 +38661,16 @@
                                 }
                             }
                         },
-                        "rotate-interval": {
-                            "type": "integer"
-                        },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
+                        "rotate-policy": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "rotate-interval"
+                        "rotate-policy",
+                        "expiry",
+                        "UpsertSecretArg",
+                        "owner-tag"
                     ]
                 },
                 "CreateSecretArgs": {
@@ -38938,6 +38946,9 @@
                 "UpdateSecretArg": {
                     "type": "object",
                     "properties": {
+                        "UpsertSecretArg": {
+                            "$ref": "#/definitions/UpsertSecretArg"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -38949,6 +38960,13 @@
                         "description": {
                             "type": "string"
                         },
+                        "expiry": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -38958,16 +38976,8 @@
                                 }
                             }
                         },
-                        "rotate-interval": {
-                            "type": "integer"
-                        },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
+                        "rotate-policy": {
+                            "type": "string"
                         },
                         "uri": {
                             "type": "string"
@@ -38975,8 +38985,10 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "uri",
-                        "rotate-interval"
+                        "rotate-policy",
+                        "expiry",
+                        "UpsertSecretArg",
+                        "uri"
                     ]
                 },
                 "UpdateSecretArgs": {
@@ -38992,6 +39004,46 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
+                    ]
+                },
+                "UpsertSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "expiry": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "rotate-policy": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "rotate-policy",
+                        "expiry"
                     ]
                 }
             }

@@ -51,10 +51,10 @@ var validateTests = []struct {
 		`"pre-series-upgrade" hook requires a target series`,
 	}, {
 		hook.Info{Kind: hooks.SecretRotate},
-		`"secret-rotate" hook requires a secret URL`,
+		`"secret-rotate" hook requires a secret URI`,
 	}, {
 		hook.Info{Kind: hooks.SecretRotate, SecretURI: "foo"},
-		`invalid secret URL "foo"`,
+		`invalid secret URI "foo"`,
 	},
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},

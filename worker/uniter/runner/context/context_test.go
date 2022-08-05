@@ -893,16 +893,8 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	})
 }
 
-func durationPtr(d time.Duration) *time.Duration {
-	return &d
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func tagPtr(t map[string]string) *map[string]string {
-	return &t
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
@@ -910,6 +902,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 
 	data := map[string]string{"foo": "bar"}
 	value := secrets.NewSecretValue(data)
+	expiry := time.Now()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
@@ -917,11 +910,15 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 		c.Assert(request, gc.Equals, "CreateSecrets")
 		c.Check(arg, gc.DeepEquals, params.CreateSecretArgs{
 			Args: []params.CreateSecretArg{{
-				RotateInterval: time.Hour,
-				Description:    "my secret",
-				Tags:           map[string]string{"hello": "world"},
-				Data:           data,
-			}},
+				OwnerTag: "application-wordpress",
+				UpsertSecretArg: params.UpsertSecretArg{
+					RotatePolicy: ptr(secrets.RotateDaily),
+					Expiry:       ptr(expiry),
+					Description:  ptr("my secret"),
+					Label:        ptr("foo"),
+					Data:         data,
+				}},
+			},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
@@ -935,10 +932,11 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
 	id, err := hookContext.CreateSecret(&jujuc.SecretUpsertArgs{
-		Value:          value,
-		RotateInterval: durationPtr(time.Hour),
-		Description:    stringPtr("my secret"),
-		Tags:           tagPtr(map[string]string{"hello": "world"}),
+		Value:        value,
+		RotatePolicy: ptr(secrets.RotateDaily),
+		Expiry:       ptr(expiry),
+		Description:  ptr("my secret"),
+		Label:        ptr("foo"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(id, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
@@ -949,6 +947,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 
 	data := map[string]string{"foo": "bar"}
 	value := secrets.NewSecretValue(data)
+	expiry := time.Now()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
@@ -956,11 +955,14 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		c.Assert(request, gc.Equals, "UpdateSecrets")
 		c.Check(arg, gc.DeepEquals, params.UpdateSecretArgs{
 			Args: []params.UpdateSecretArg{{
-				URI:            "secret:9m4e2mr0ui3e8a215n4g",
-				RotateInterval: durationPtr(time.Hour),
-				Description:    stringPtr("my secret"),
-				Tags:           tagPtr(map[string]string{"hello": "world"}),
-				Data:           data,
+				URI: "secret:9m4e2mr0ui3e8a215n4g",
+				UpsertSecretArg: params.UpsertSecretArg{
+					RotatePolicy: ptr(secrets.RotateDaily),
+					Expiry:       ptr(expiry),
+					Description:  ptr("my secret"),
+					Label:        ptr("foo"),
+					Data:         data,
+				},
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
@@ -975,10 +977,11 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
 	err := hookContext.UpdateSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretUpsertArgs{
-		Value:          value,
-		RotateInterval: durationPtr(time.Hour),
-		Description:    stringPtr("my secret"),
-		Tags:           tagPtr(map[string]string{"hello": "world"}),
+		Value:        value,
+		RotatePolicy: ptr(secrets.RotateDaily),
+		Expiry:       ptr(expiry),
+		Description:  ptr("my secret"),
+		Label:        ptr("foo"),
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

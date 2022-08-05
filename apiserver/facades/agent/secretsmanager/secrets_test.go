@@ -74,6 +74,10 @@ func (s *SecretsManagerSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -82,7 +86,6 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Owner:          "application-mariadb",
 		RotateInterval: time.Hour,
 		Description:    "my secret",
-		Tags:           map[string]string{"hello": "world"},
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
@@ -100,15 +103,21 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 
 	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
-			RotateInterval: time.Hour,
-			Description:    "my secret",
-			Tags:           map[string]string{"hello": "world"},
-			Params:         map[string]interface{}{"param": 1},
-			Data:           map[string]string{"foo": "bar"},
+			OwnerTag: "application-mariadb",
+			UpsertSecretArg: params.UpsertSecretArg{
+				Description: ptr("my secret"),
+				Params:      map[string]interface{}{"param": 1},
+				Data:        map[string]string{"foo": "bar"},
+			},
 		}, {
-			RotateInterval: -1 * time.Hour,
+			UpsertSecretArg: params.UpsertSecretArg{
+				Data: nil,
+			},
 		}, {
-			Data: nil,
+			OwnerTag: "application-mysql",
+			UpsertSecretArg: params.UpsertSecretArg{
+				Data: map[string]string{"foo": "bar"},
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,9 +125,9 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Results: []params.StringResult{{
 			Result: gotURI.String(),
 		}, {
-			Error: &params.Error{Message: `rotate interval "-1h0m0s" not valid`, Code: params.CodeNotValid},
-		}, {
 			Error: &params.Error{Message: `empty secret value not valid`, Code: params.CodeNotValid},
+		}, {
+			Error: &params.Error{Message: `permission denied`, Code: params.CodeUnauthorized},
 		}},
 	})
 }
@@ -126,15 +135,11 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	rotate := time.Hour
 	description := "my secret"
-	tags := map[string]string{"hello": "world"}
 	p := secrets.UpdateParams{
-		RotateInterval: &rotate,
-		Description:    &description,
-		Tags:           &tags,
-		Params:         map[string]interface{}{"param": 1},
-		Data:           map[string]string{"foo": "bar"},
+		Description: &description,
+		Params:      map[string]interface{}{"param": 1},
+		Data:        map[string]string{"foo": "bar"},
 	}
 	uri := coresecrets.NewURI()
 	expectURI := *uri
@@ -150,21 +155,17 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	)
 	uri1 := *uri
 	uri1.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
-	badRotate := -1 * time.Hour
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
-			URI:            uri.ShortString(),
-			RotateInterval: &rotate,
-			Description:    &description,
-			Tags:           &tags,
-			Params:         map[string]interface{}{"param": 1},
-			Data:           map[string]string{"foo": "bar"},
+			URI: uri.ShortString(),
+			UpsertSecretArg: params.UpsertSecretArg{
+				Description: &description,
+				Params:      map[string]interface{}{"param": 1},
+				Data:        map[string]string{"foo": "bar"},
+			},
 		}, {
 			URI: uri.String(),
-		}, {
-			URI:            uri.ShortString(),
-			RotateInterval: &badRotate,
 		}, {
 			URI: uri1.String(),
 		}},
@@ -174,9 +175,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		Results: []params.ErrorResult{{}, {
 			Error: &params.Error{Message: `at least one attribute to update must be specified`},
 		}, {
-			Error: &params.Error{Code: params.CodeNotValid, Message: `rotate interval -1h0m0s not valid`},
-		}, {
-			Error: &params.Error{Code: params.CodeNotValid, Message: `secret URL with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
+			Error: &params.Error{Code: params.CodeNotValid, Message: `secret URI with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
 		}},
 	})
 }

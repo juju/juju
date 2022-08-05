@@ -742,19 +742,25 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 // CreateSecret creates a secret with the specified data.
 func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, error) {
 	cfg := &coresecrets.SecretConfig{
-		RotateInterval: args.RotateInterval,
-		Description:    args.Description,
-		Tags:           args.Tags,
+		Expiry:       args.Expiry,
+		RotatePolicy: args.RotatePolicy,
+		Description:  args.Description,
+		Label:        args.Label,
 	}
-	return ctx.secretFacade.Create(cfg, args.Value)
+	appName, err := names.UnitApplication(ctx.unitName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return ctx.secretFacade.Create(cfg, names.NewApplicationTag(appName), args.Value)
 }
 
 // UpdateSecret creates a secret with the specified data.
 func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) error {
 	cfg := &coresecrets.SecretConfig{
-		RotateInterval: args.RotateInterval,
-		Description:    args.Description,
-		Tags:           args.Tags,
+		Expiry:       args.Expiry,
+		RotatePolicy: args.RotatePolicy,
+		Description:  args.Description,
+		Label:        args.Label,
 	}
 	return ctx.secretFacade.Update(uri, cfg, args.Value)
 }
@@ -1397,12 +1403,12 @@ func (ctx *HookContext) WorkloadName() (string, error) {
 	return ctx.workloadName, nil
 }
 
-// SecretURI returns the secret URL for secret hooks.
+// SecretURI returns the secret URI for secret hooks.
 // This is not yet used by any hook commands - it is exported
 // for tests to use.
 func (ctx *HookContext) SecretURI() (string, error) {
 	if ctx.secretURI == "" {
-		return "", errors.NotFoundf("secret URL")
+		return "", errors.NotFoundf("secret URI")
 	}
 	return ctx.secretURI, nil
 }
