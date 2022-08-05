@@ -147,7 +147,7 @@ func (s *StateSuite) WaitForNextSync(c *gc.C) {
 	}()
 	timeout := time.After(jujutesting.LongWait)
 	for {
-		s.Clock.Advance(time.Second)
+		//s.Clock.Advance(time.Second)
 		loop := time.After(10 * time.Millisecond)
 		select {
 		case <-done:

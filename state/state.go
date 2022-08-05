@@ -2547,7 +2547,8 @@ func (st *State) StartSync() {
 		// is waiting on, however one second is more human noticeable.
 		// The state testing StateSuite type changes the polling interval
 		// of the pool's txnwatcher to be one second.
-		advanceable.Advance(time.Second)
+		//advanceable.Advance(time.Second)
+		_ = advanceable
 	}
 }
 

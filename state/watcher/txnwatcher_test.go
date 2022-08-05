@@ -30,8 +30,6 @@ type TxnWatcherSuite struct {
 	mgotesting.MgoSuite
 	testing.BaseSuite
 
-	log    *mgo.Collection
-	stash  *mgo.Collection
 	runner jujutxn.Runner
 	w      *watcher.TxnWatcher
 	ch     chan watcher.Change
@@ -53,11 +51,6 @@ func (s *TxnWatcherSuite) TearDownSuite(c *gc.C) {
 func (s *TxnWatcherSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
-
-	db := s.MgoSuite.Session.DB("juju")
-	s.log = db.C("testingsstxns.log")
-	s.log.Create(&mgo.CollectionInfo{})
-	s.stash = db.C("txn.stash")
 	s.clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
 }
 
@@ -119,7 +112,7 @@ func (s *TxnWatcherSuite) revno(c *gc.C, coll string, id interface{}) (revno int
 	var doc struct {
 		Revno int64 `bson:"txn-revno"`
 	}
-	err := s.log.Database.C(coll).FindId(id).One(&doc)
+	err := s.Session.DB("juju").C(coll).FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.Revno
 }
@@ -153,6 +146,20 @@ func (s *TxnWatcherSuite) insertAll(c *gc.C, coll string, ids ...interface{}) (r
 
 func (s *TxnWatcherSuite) update(c *gc.C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Update: M{"$inc": M{"n": 1}}}}
+	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	revno = s.revno(c, coll, id)
+	c.Logf("update(%#v, %#v) => revno %d", coll, id, revno)
+	return revno
+}
+
+func (s *TxnWatcherSuite) updateTwice(c *gc.C, coll string, id interface{}) (revno int64) {
+	ops := []txn.Op{
+		{C: coll, Id: id, Update: M{"$inc": M{"n": 1}}},
+		{C: coll, Id: id, Update: M{"$inc": M{"n": 1}, "$set": M{"x": "y"}}},
+	}
 	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	})
@@ -247,26 +254,6 @@ func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
 	})
 }
 
-func (s *TxnWatcherSuite) TestMissingOplogCollection(c *gc.C) {
-	db := s.MgoSuite.Session.DB("juju")
-	s.log = db.C("missingsstxns.log")
-
-	s.newRunner(c)
-	_, hub := s.newWatcher(c, 3)
-
-	revno1 := s.insert(c, "test", "a")
-	revno2 := s.insert(c, "test", "b")
-	revno3 := s.insert(c, "test", "c")
-
-	hub.waitForExpected()
-
-	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno1},
-		{"test", "b", revno2},
-		{"test", "c", revno3},
-	})
-}
-
 func (s *TxnWatcherSuite) TestTransactionWithMultiple(c *gc.C) {
 	s.newRunner(c)
 	_, hub := s.newWatcher(c, 3)
@@ -320,6 +307,21 @@ func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
 
 	revno1 := s.insert(c, "test", "a")
 	revno2 := s.remove(c, "test", "a")
+
+	hub.waitForExpected()
+
+	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
+		{"test", "a", revno1},
+		{"test", "a", revno2},
+	})
+}
+
+func (s *TxnWatcherSuite) TestMultiUpdateSameDocSameTxn(c *gc.C) {
+	s.newRunner(c)
+	_, hub := s.newWatcher(c, 2)
+
+	revno1 := s.insert(c, "test", "a")
+	revno2 := s.updateTwice(c, "test", "a")
 
 	hub.waitForExpected()
 

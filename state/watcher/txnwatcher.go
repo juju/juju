@@ -49,7 +49,7 @@ var (
 	TxnPollNotifyFunc func()
 )
 
-// A TxnWatcher watches the sstxns.log collection and publishes all change events
+// A TxnWatcher watches a mongo change stream and publishes all change events
 // to the hub.
 type TxnWatcher struct {
 	hub    Hub
@@ -317,6 +317,7 @@ func (w *TxnWatcher) loop() error {
 			}
 			if first {
 				defer w.killCursor()
+				w.logger.Infof("txn watcher started")
 				close(w.readyChan)
 				first = false
 			}
@@ -449,6 +450,24 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 			// the update, not the state of the document as a result of the update, so the reported
 			// revno could be greater.
 			revno = change.UpdateDescription.UpdatedFields.Revno
+			if revno == 0 && change.TxnNumber == 0 {
+				a := bson.M{}
+				err := bson.Unmarshal(changeRaw.Data, &a)
+				if err != nil {
+					return added, errors.Trace(err)
+				}
+				j, err := bson.MarshalJSON(a)
+				if err != nil {
+					return added, errors.Trace(err)
+				}
+				w.logger.Criticalf("update %s %v without revno %s", change.Ns.Collection, change.DocumentKey.Id, j)
+				w.resumeToken = change.Id
+				continue
+			} else if revno == 0 && change.TxnNumber != 0 {
+				// Skip update because the revno "$set" was elided.
+				w.resumeToken = change.Id
+				continue
+			}
 		case "delete":
 			// Revno of -1 indicates a deleted document.
 			revno = -1
@@ -459,6 +478,7 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 			w.resumeToken = change.Id
 			continue
 		}
+		w.logger.Tracef("txn watcher: %s %v #%d", change.Ns.Collection, change.DocumentKey.Id, revno)
 		w.syncEvents = append(w.syncEvents, Change{
 			C:     change.Ns.Collection,
 			Id:    change.DocumentKey.Id,
@@ -500,6 +520,7 @@ func (w *TxnWatcher) sync() (bool, error) {
 			{"collection", "$cmd.aggregate"},
 			{"batchSize", 10},
 			{"maxTimeMS", w.pollInterval.Milliseconds()},
+			{"readConcern", bson.D{{"level", "majority"}}},
 		}, &resp)
 		if isCursorNotFoundError(err) {
 			return false, errors.Wrap(ResumableChangeStreamError, err)
@@ -534,6 +555,7 @@ type changeStreamDocument struct {
 	ClusterTime       bson.MongoTimestamp `bson:"clusterTime"`
 	FullDocument      *txnDoc             `bson:"fullDocument"`
 	UpdateDescription *updateDescription  `bson:"updateDescription"`
+	TxnNumber         int64               `bson:"txnNumber"`
 }
 
 type updateDescription struct {
