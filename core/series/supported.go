@@ -28,16 +28,18 @@ type DistroSource interface {
 type supportedInfo struct {
 	mutex sync.RWMutex
 
-	source DistroSource
-	values map[SeriesName]seriesVersion
+	source                 DistroSource
+	values                 map[SeriesName]seriesVersion
+	ignoreDistroInfoUpdate *bool
 }
 
 // newSupportedInfo creates a supported info type for knowing if a series is
 // supported or not.
-func newSupportedInfo(source DistroSource, preset map[SeriesName]seriesVersion) *supportedInfo {
+func newSupportedInfo(source DistroSource, preset map[SeriesName]seriesVersion, ignoreDistroInfoUpdate *bool) *supportedInfo {
 	return &supportedInfo{
-		source: source,
-		values: preset,
+		source:                 source,
+		values:                 preset,
+		ignoreDistroInfoUpdate: ignoreDistroInfoUpdate,
 	}
 }
 
@@ -53,6 +55,10 @@ func (s *supportedInfo) compile(now time.Time) error {
 	// First thing here, is walk over the controller, workload maps to work out
 	// if something was previously supported and is no longer or the reverse.
 	for seriesName, version := range s.values {
+		if s.ignoreDistroInfoUpdate != nil {
+			version.IgnoreDistroInfoUpdate = *s.ignoreDistroInfoUpdate
+		}
+
 		distroInfo, ok := s.source.SeriesInfo(seriesName.String())
 		if !ok {
 			// The series isn't found in the distro info, we should continue
@@ -134,8 +140,8 @@ func (s *supportedInfo) controllerSeries() []string {
 		if version.WorkloadType != ControllerWorkloadType {
 			continue
 		}
-
 		if version.ESMSupported || version.Supported {
+			logger.Criticalf("controllerSeries namedSeries.Name.String() %q, %#v", namedSeries.Name.String(), version)
 			result = append(result, namedSeries.Name.String())
 		}
 	}
@@ -273,7 +279,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "14.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Utopic: {
 		WorkloadType: ControllerWorkloadType,
@@ -291,7 +296,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "16.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Yakkety: {
 		WorkloadType: ControllerWorkloadType,
@@ -309,7 +313,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "18.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Cosmic: {
 		WorkloadType: ControllerWorkloadType,
