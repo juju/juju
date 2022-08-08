@@ -270,7 +270,7 @@ pre_bootstrap() {
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
 	fi
 
-	if [[ ${MODEL_ARCH:-} != "amd64" ]]; then
+	if [[ -n ${SHORT_GIT_COMMIT:-} ]];  then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/ --config agent-stream=build-${SHORT_GIT_COMMIT}"
 	fi
 
