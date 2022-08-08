@@ -17,7 +17,7 @@ import (
 // SecretConfig is used when creating a secret.
 type SecretConfig struct {
 	RotatePolicy *RotatePolicy
-	Expiry       *time.Time
+	ExpireTime   *time.Time
 	Description  *string
 	Label        *string
 	Params       map[string]interface{}
@@ -126,9 +126,10 @@ type SecretMetadata struct {
 	Version int
 
 	// These can be updated after creation.
-	Description    string
-	Tags           map[string]string
-	RotateInterval time.Duration
+	Description  string
+	Label        string
+	RotatePolicy RotatePolicy
+	ExpireTime   *time.Time
 
 	// Set by service on creation/update.
 
@@ -142,6 +143,7 @@ type SecretMetadata struct {
 	// secret value is changed.
 	Revision int
 
-	CreateTime time.Time
-	UpdateTime time.Time
+	NextRotateTime *time.Time
+	CreateTime     time.Time
+	UpdateTime     time.Time
 }

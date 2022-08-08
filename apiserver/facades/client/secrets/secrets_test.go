@@ -55,6 +55,10 @@ func (s *SecretsSuite) TestListSecretsShow(c *gc.C) {
 	s.assertListSecrets(c, true)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	defer s.setup(c).Finish()
 
@@ -75,13 +79,15 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	metadata := []*coresecrets.SecretMetadata{{
 		URI:            uri,
-		RotateInterval: time.Hour,
 		Version:        1,
-		Description:    "shhh",
 		OwnerTag:       "application-mysql",
-		Tags:           map[string]string{"foo": "bar"},
 		Provider:       "juju",
 		ProviderID:     "abcd",
+		RotatePolicy:   coresecrets.RotateHourly,
+		ExpireTime:     ptr(now),
+		NextRotateTime: ptr(now.Add(time.Hour)),
+		Description:    "shhh",
+		Label:          "foobar",
 		Revision:       2,
 		CreateTime:     now,
 		UpdateTime:     now.Add(time.Second),
@@ -105,13 +111,15 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
 			URI:            uri.String(),
-			RotateInterval: time.Hour,
 			Version:        1,
-			Description:    "shhh",
 			OwnerTag:       "application-mysql",
-			Tags:           map[string]string{"foo": "bar"},
 			Provider:       "juju",
 			ProviderID:     "abcd",
+			RotatePolicy:   string(coresecrets.RotateHourly),
+			ExpireTime:     ptr(now),
+			NextRotateTime: ptr(now.Add(time.Hour)),
+			Description:    "shhh",
+			Label:          "foobar",
 			Revision:       2,
 			CreateTime:     now,
 			UpdateTime:     now.Add(time.Second),

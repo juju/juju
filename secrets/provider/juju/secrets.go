@@ -37,15 +37,22 @@ func NewSecretService(cfg secrets.ProviderConfig) (*secretsService, error) {
 
 // CreateSecret implements SecretsService.
 func (s secretsService) CreateSecret(ctx context.Context, uri *coresecrets.URI, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
+	if err := p.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	metadata, err := s.backend.CreateSecret(uri, state.CreateSecretParams{
-		ProviderLabel:  Provider,
-		Version:        p.Version,
-		Owner:          p.Owner,
-		RotateInterval: p.RotateInterval,
-		Description:    p.Description,
-		Tags:           p.Tags,
-		Params:         p.Params,
-		Data:           p.Data,
+		ProviderLabel: Provider,
+		Version:       p.Version,
+		Owner:         p.Owner,
+		UpdateSecretParams: state.UpdateSecretParams{
+			RotatePolicy:   p.RotatePolicy,
+			NextRotateTime: p.NextRotateTime,
+			ExpireTime:     p.ExpireTime,
+			Description:    p.Description,
+			Label:          p.Label,
+			Params:         p.Params,
+			Data:           p.Data,
+		},
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "saving secret metadata")
@@ -69,11 +76,16 @@ func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) 
 }
 
 // UpdateSecret implements SecretsService.
-func (s secretsService) UpdateSecret(ctx context.Context, uri *coresecrets.URI, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
+func (s secretsService) UpdateSecret(ctx context.Context, uri *coresecrets.URI, p secrets.UpsertParams) (*coresecrets.SecretMetadata, error) {
+	if err := p.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	metadata, err := s.backend.UpdateSecret(uri, state.UpdateSecretParams{
-		RotateInterval: p.RotateInterval,
+		RotatePolicy:   p.RotatePolicy,
+		NextRotateTime: p.NextRotateTime,
+		ExpireTime:     p.ExpireTime,
 		Description:    p.Description,
-		Tags:           p.Tags,
+		Label:          p.Label,
 		Params:         p.Params,
 		Data:           p.Data,
 	})

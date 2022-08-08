@@ -101,7 +101,7 @@ func (c *secretUpsertCommand) Init(args []string) error {
 		}
 		c.expireTime = expireTime.UTC()
 	}
-	if c.rotatePolicy != "" && !secrets.IsValid(c.rotatePolicy) {
+	if c.rotatePolicy != "" && !secrets.RotatePolicy(c.rotatePolicy).IsValid() {
 		return errors.NotValidf("rotate policy %q", c.rotatePolicy)
 	}
 	var err error
@@ -129,7 +129,7 @@ func (c *secretUpsertCommand) marshallArg() *SecretUpsertArgs {
 		arg.RotatePolicy = &p
 	}
 	if !c.expireTime.IsZero() {
-		arg.Expiry = &c.expireTime
+		arg.ExpireTime = &c.expireTime
 	}
 	if c.description != "" {
 		arg.Description = &c.description

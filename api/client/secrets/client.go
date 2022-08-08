@@ -44,13 +44,15 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 	for i, r := range response.Results {
 		details := SecretDetails{
 			Metadata: secrets.SecretMetadata{
-				RotateInterval: r.RotateInterval,
 				Version:        r.Version,
-				Description:    r.Description,
 				OwnerTag:       r.OwnerTag,
-				Tags:           r.Tags,
 				Provider:       r.Provider,
 				ProviderID:     r.ProviderID,
+				Description:    r.Description,
+				Label:          r.Label,
+				RotatePolicy:   secrets.RotatePolicy(r.RotatePolicy),
+				NextRotateTime: r.NextRotateTime,
+				ExpireTime:     r.ExpireTime,
 				Revision:       r.Revision,
 				CreateTime:     r.CreateTime,
 				UpdateTime:     r.UpdateTime,

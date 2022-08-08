@@ -5,7 +5,6 @@ package secrets_test
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -52,7 +51,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	s.secretsAPI.EXPECT().ListSecrets(false).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri, RotateInterval: time.Hour,
+				URI: uri, RotatePolicy: coresecrets.RotateHourly,
 				Revision: 2, Provider: "juju"},
 		}, {
 			Metadata: coresecrets.SecretMetadata{
@@ -66,7 +65,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 URI                          Revision  Rotate  Backend  Age
-%s         2  1h      juju     0001-01-01  
+%s         2  hourly  juju     0001-01-01  
 %s         1  never   juju     0001-01-01  
 `[1:], uri.ShortString(), uri2.ShortString()))
 }
@@ -79,11 +78,11 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	s.secretsAPI.EXPECT().ListSecrets(true).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri, RotateInterval: time.Hour,
+				URI: uri, RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, Revision: 2, Provider: "juju",
 				Description: "my secret",
 				OwnerTag:    "application-mysql",
-				Tags:        map[string]string{"foo": "bar"},
+				Label:       "foobar",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
@@ -99,22 +98,21 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 - URI: %s
-  revision: 2
-  rotate-interval: 1h0m0s
   version: 1
-  description: my secret
   owner: mysql
-  tags:
-    foo: bar
   backend: juju
+  revision: 2
+  description: my secret
+  label: foobar
+  rotate-policy: hourly
   create-time: 0001-01-01T00:00:00Z
   update-time: 0001-01-01T00:00:00Z
   value:
     foo: bar
 - URI: %s
-  revision: 1
   version: 1
   backend: juju
+  revision: 1
   create-time: 0001-01-01T00:00:00Z
   update-time: 0001-01-01T00:00:00Z
   error: boom
@@ -139,6 +137,6 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-[{"URI":"%s","revision":2,"version":1,"backend":"juju","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
+[{"URI":"%s","version":1,"backend":"juju","revision":2,"create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
 `[1:], uri.ShortString()))
 }

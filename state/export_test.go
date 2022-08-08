@@ -1075,7 +1075,7 @@ func GetSecretRotateTime(c *gc.C, st *State, id string) time.Time {
 	var doc secretRotationDoc
 	err := secretRotateCollection.FindId(secretGlobalKey(id)).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	return doc.LastRotateTime
+	return doc.LastRotateTime.UTC()
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

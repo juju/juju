@@ -30,6 +30,10 @@ func (s *SecretsSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	now := time.Now()
@@ -46,13 +50,15 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
 				URI:            uri.String(),
-				RotateInterval: time.Hour,
 				Version:        1,
-				Description:    "shhh",
 				OwnerTag:       "application-mysql",
-				Tags:           map[string]string{"foo": "bar"},
 				Provider:       "juju",
 				ProviderID:     "provider-id",
+				RotatePolicy:   string(secrets.RotateHourly),
+				ExpireTime:     ptr(now),
+				NextRotateTime: ptr(now.Add(time.Hour)),
+				Description:    "shhh",
+				Label:          "foobar",
 				Revision:       2,
 				CreateTime:     now,
 				UpdateTime:     now.Add(time.Second),
@@ -67,13 +73,15 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
 			URI:            uri,
-			RotateInterval: time.Hour,
 			Version:        1,
-			Description:    "shhh",
 			OwnerTag:       "application-mysql",
-			Tags:           map[string]string{"foo": "bar"},
 			Provider:       "juju",
 			ProviderID:     "provider-id",
+			RotatePolicy:   secrets.RotateHourly,
+			ExpireTime:     ptr(now),
+			NextRotateTime: ptr(now.Add(time.Hour)),
+			Description:    "shhh",
+			Label:          "foobar",
 			Revision:       2,
 			CreateTime:     now,
 			UpdateTime:     now.Add(time.Second),

@@ -111,7 +111,7 @@ func (mr *MockSecretsServiceMockRecorder) ListSecrets(arg0, arg1 interface{}) *g
 }
 
 // UpdateSecret mocks base method.
-func (m *MockSecretsService) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secrets0.UpdateParams) (*secrets.SecretMetadata, error) {
+func (m *MockSecretsService) UpdateSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secrets0.UpsertParams) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*secrets.SecretMetadata)

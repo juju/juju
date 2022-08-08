@@ -6,6 +6,7 @@ package secretsmanager
 import (
 	"reflect"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -51,5 +52,6 @@ func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		resources:       context.Resources(),
 		secretsRotation: context.State(),
 		accessSecret:    secretAccessor(agentName),
+		clock:           clock.WallClock,
 	}, nil
 }

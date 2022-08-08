@@ -69,13 +69,15 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	for i, m := range metadata {
 		secretResult := params.ListSecretResult{
 			URI:            m.URI.String(),
-			RotateInterval: m.RotateInterval,
 			Version:        m.Version,
-			Description:    m.Description,
 			OwnerTag:       m.OwnerTag,
-			Tags:           m.Tags,
 			Provider:       m.Provider,
 			ProviderID:     m.ProviderID,
+			Description:    m.Description,
+			Label:          m.Label,
+			RotatePolicy:   string(m.RotatePolicy),
+			NextRotateTime: m.NextRotateTime,
+			ExpireTime:     m.ExpireTime,
 			Revision:       m.Revision,
 			CreateTime:     m.CreateTime,
 			UpdateTime:     m.UpdateTime,

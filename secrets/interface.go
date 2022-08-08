@@ -7,6 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/core/secrets"
 )
 
@@ -17,23 +20,45 @@ const (
 
 // CreateParams are used to create a secret.
 type CreateParams struct {
-	ProviderLabel  string
-	Version        int
-	Owner          string
-	RotateInterval time.Duration
-	Description    string
-	Tags           map[string]string
+	UpsertParams
+
+	ProviderLabel string
+	Version       int
+	Owner         string
+}
+
+// Validate returns an error if params are invalid.
+func (p *CreateParams) Validate() error {
+	_, err := names.ParseTag(p.Owner)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return p.UpsertParams.Validate()
+}
+
+// UpsertParams are used to update a secret.
+type UpsertParams struct {
+	Description    *string
+	Label          *string
+	RotatePolicy   *secrets.RotatePolicy
+	NextRotateTime *time.Time
+	ExpireTime     *time.Time
 	Params         map[string]interface{}
 	Data           map[string]string
 }
 
-// UpdateParams are used to update a secret.
-type UpdateParams struct {
-	RotateInterval *time.Duration
-	Description    *string
-	Tags           *map[string]string
-	Params         map[string]interface{}
-	Data           map[string]string
+// Validate returns an error if params are invalid.
+func (p *UpsertParams) Validate() error {
+	if p.RotatePolicy != nil && !p.RotatePolicy.IsValid() {
+		return errors.NotValidf("secret rotate policy %q", p.RotatePolicy)
+	}
+	if p.RotatePolicy != nil && p.NextRotateTime == nil {
+		return errors.New("cannot specify a secret rotate policy without a next rotate time")
+	}
+	if p.RotatePolicy == nil && p.NextRotateTime != nil {
+		return errors.New("cannot specify a secret rotate time without a rotate policy")
+	}
+	return nil
 }
 
 // Filter is used when querying secrets.
@@ -43,11 +68,11 @@ type Filter struct {
 
 // SecretsService instances provide a backend for storing secrets values.
 type SecretsService interface {
-	// CreateSecret creates a new secret and returns a URL for accessing the secret value.
+	// CreateSecret creates a new secret with the given URI.
 	CreateSecret(context.Context, *secrets.URI, CreateParams) (*secrets.SecretMetadata, error)
 
 	// UpdateSecret updates a given secret with a new secret value.
-	UpdateSecret(context.Context, *secrets.URI, UpdateParams) (*secrets.SecretMetadata, error)
+	UpdateSecret(context.Context, *secrets.URI, UpsertParams) (*secrets.SecretMetadata, error)
 
 	// DeleteSecret deletes the specified secret.
 	DeleteSecret(context.Context, *secrets.URI) error

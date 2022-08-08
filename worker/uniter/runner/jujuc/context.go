@@ -166,18 +166,16 @@ type ContextUnit interface {
 }
 
 // SecretUpsertArgs specifies args used to create or update a secret.
+// Nil values are not included in the update.
 type SecretUpsertArgs struct {
 	// Value is the new secret value or nil to not update.
 	Value secrets.SecretValue
 
-	// RotateInterval is the new rotate interval or nil to not update.
 	RotatePolicy *secrets.RotatePolicy
-	Expiry       *time.Time
+	ExpireTime   *time.Time
 
-	// Description describes the secret or nil to not update.
 	Description *string
-
-	Label *string
+	Label       *string
 }
 
 // SecretGrantRevokeArgs specify the args used to grant or revoke access to a secret.

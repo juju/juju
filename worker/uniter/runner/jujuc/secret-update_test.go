@@ -91,9 +91,9 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	c.Assert(call.Args[0], gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 	args, ok := call.Args[1].(*jujuc.SecretUpsertArgs)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(args.Expiry, gc.NotNil)
-	c.Assert(args.Expiry.After(expectedExpiry), jc.IsTrue)
-	args.Expiry = nil
+	c.Assert(args.ExpireTime, gc.NotNil)
+	c.Assert(args.ExpireTime.After(expectedExpiry), jc.IsTrue)
+	args.ExpireTime = nil
 	c.Assert(args, jc.DeepEquals, expectedArgs)
 }
 

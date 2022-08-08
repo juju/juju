@@ -742,7 +742,7 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 // CreateSecret creates a secret with the specified data.
 func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, error) {
 	cfg := &coresecrets.SecretConfig{
-		Expiry:       args.Expiry,
+		ExpireTime:   args.ExpireTime,
 		RotatePolicy: args.RotatePolicy,
 		Description:  args.Description,
 		Label:        args.Label,
@@ -757,7 +757,7 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, erro
 // UpdateSecret creates a secret with the specified data.
 func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) error {
 	cfg := &coresecrets.SecretConfig{
-		Expiry:       args.Expiry,
+		ExpireTime:   args.ExpireTime,
 		RotatePolicy: args.RotatePolicy,
 		Description:  args.Description,
 		Label:        args.Label,
