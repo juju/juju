@@ -18,8 +18,6 @@ test_ck() {
 
 	test_deploy_ck
 
-	if [[ ${BOOTSTRAP_REUSE:-} != "true" ]]; then
-		# CK takes too long to tear down (1h+), so forcibly destroy it
-		juju kill-controller -y -t 0 "${BOOTSTRAPPED_JUJU_CTRL_NAME}" || true
-	fi
+	# CK takes too long to tear down (1h+), so forcibly destroy it
+	export KILL_CONTROLLER=true
 }

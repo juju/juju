@@ -376,7 +376,11 @@ destroy_controller() {
 	output="${TEST_DIR}/${name}-destroy-controller.log"
 
 	echo "====> Destroying juju ($(green "${name}"))"
-	echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
+		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+	else
+		echo "${name}" | xargs -I % juju kill-controller -t 0 -y % >"${output}" 2>&1
+	fi
 
 	set +e
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)
