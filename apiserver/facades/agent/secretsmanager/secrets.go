@@ -5,6 +5,7 @@ package secretsmanager
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -44,22 +45,30 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
-	if arg.RotateInterval < 0 {
-		return "", errors.NotValidf("rotate interval %q", arg.RotateInterval)
+func toValue[T any](v *T) T {
+	if v == nil {
+		return *new(T)
 	}
+	return *v
+}
+
+func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
+	// TODO(wallyworld) - handle label, rotation etc
 	if len(arg.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
+	if arg.OwnerTag != s.authOwner.String() {
+		return "", apiservererrors.ErrPerm
+	}
 	uri := coresecrets.NewURI()
 	md, err := s.secretsService.CreateSecret(ctx, uri, secrets.CreateParams{
-		Version:        secrets.Version,
-		Owner:          s.authOwner.String(),
-		RotateInterval: arg.RotateInterval,
-		Description:    arg.Description,
-		Tags:           arg.Tags,
-		Params:         arg.Params,
-		Data:           arg.Data,
+		Version:     secrets.Version,
+		Owner:       s.authOwner.String(),
+		Description: toValue(arg.Description),
+		Params:      arg.Params,
+		Data:        arg.Data,
+		// TODO(wallyworld) - fix me, interval will be replaced
+		RotateInterval: time.Hour,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -81,27 +90,23 @@ func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.
 }
 
 func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
+	// TODO(wallyworld) - handle label, rotation etc
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if uri.ControllerUUID != "" && uri.ControllerUUID != s.controllerUUID {
-		return errors.NotValidf("secret URL with controller UUID %q", uri.ControllerUUID)
+		return errors.NotValidf("secret URI with controller UUID %q", uri.ControllerUUID)
 	}
-	if arg.RotateInterval == nil && arg.Description == nil &&
-		arg.Tags == nil && len(arg.Params) == 0 && len(arg.Data) == 0 {
+	if arg.RotatePolicy == nil && arg.Description == nil && arg.Expiry == nil &&
+		arg.Label == nil && len(arg.Params) == 0 && len(arg.Data) == 0 {
 		return errors.New("at least one attribute to update must be specified")
-	}
-	if arg.RotateInterval != nil && *arg.RotateInterval < 0 {
-		return errors.NotValidf("rotate interval %v", *arg.RotateInterval)
 	}
 	uri.ControllerUUID = s.controllerUUID
 	_, err = s.secretsService.UpdateSecret(ctx, uri, secrets.UpdateParams{
-		RotateInterval: arg.RotateInterval,
-		Description:    arg.Description,
-		Tags:           arg.Tags,
-		Params:         arg.Params,
-		Data:           arg.Data,
+		Description: arg.Description,
+		Params:      arg.Params,
+		Data:        arg.Data,
 	})
 	return errors.Trace(err)
 }

@@ -4,6 +4,10 @@
 package secrets_test
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,44 +21,60 @@ type CreateSecretSuite struct {
 
 var _ = gc.Suite(&CreateSecretSuite{})
 
-func (s *CreateSecretSuite) TestInvalidSingularValue(c *gc.C) {
-	_, err := secrets.CreatSecretData(false, []string{"token", "foo=bar"})
-	c.Assert(err, gc.ErrorMatches, `key value "foo=bar" not valid when a singular value has already been specified`)
-
-	_, err = secrets.CreatSecretData(false, []string{"foo=bar", "token"})
-	c.Assert(err, gc.ErrorMatches, `singular value "token" not valid when other key values are specified`)
+func (s *CreateSecretSuite) TestBadKey(c *gc.C) {
+	_, err := secrets.CreateSecretData([]string{"fo=bar"})
+	c.Assert(err, gc.ErrorMatches, `key "fo" not valid`)
 }
 
-func (s *CreateSecretSuite) TestSingularValue(c *gc.C) {
-	data, err := secrets.CreatSecretData(false, []string{"token"})
+func (s *CreateSecretSuite) TestKeyValues(c *gc.C) {
+	data, err := secrets.CreateSecretData([]string{"foo=bar", "hello=world", "goodbye#base64=world"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"data": "dG9rZW4=",
+		"foo":     "YmFy",
+		"hello":   "d29ybGQ=",
+		"goodbye": "world",
 	})
 }
 
-func (s *CreateSecretSuite) TestSingularValueBase64(c *gc.C) {
-	data, err := secrets.CreatSecretData(true, []string{"key="})
+func (s *CreateSecretSuite) TestYAMLFile(c *gc.C) {
+	data := `
+    hello: world
+    goodbye#base64: world
+    another-key: !!binary |
+      R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5
+      OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+
+      +f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLC
+      AgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs=`
+
+	dir := c.MkDir()
+	fileName := filepath.Join(dir, "secret.yaml")
+	err := ioutil.WriteFile(fileName, []byte(data), os.FileMode(0644))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"data": "key=",
+
+	attrs, err := secrets.ReadSecretData(fileName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attrs, jc.DeepEquals, secrets.SecretData{
+		"hello":       "d29ybGQ=",
+		"goodbye":     "world",
+		"another-key": `R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLCAgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs=`,
 	})
 }
 
-func (s *CreateSecretSuite) TestValues(c *gc.C) {
-	data, err := secrets.CreatSecretData(false, []string{"foo=bar", "hello=world"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"foo":   "YmFy",
-		"hello": "d29ybGQ=",
-	})
-}
+func (s *CreateSecretSuite) TestJSONFile(c *gc.C) {
+	data := `{
+    "hello": "world",
+    "goodbye#base64": "world",
+}`
 
-func (s *CreateSecretSuite) TestValuesBase64(c *gc.C) {
-	data, err := secrets.CreatSecretData(true, []string{"foo=bar", "hello=world"})
+	dir := c.MkDir()
+	fileName := filepath.Join(dir, "secret.json")
+	err := ioutil.WriteFile(fileName, []byte(data), os.FileMode(0644))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, jc.DeepEquals, secrets.SecretData{
-		"foo":   "bar",
-		"hello": "world",
+
+	attrs, err := secrets.ReadSecretData(fileName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attrs, jc.DeepEquals, secrets.SecretData{
+		"hello":   "d29ybGQ=",
+		"goodbye": "world",
 	})
 }

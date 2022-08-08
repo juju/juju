@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -28,7 +29,7 @@ func NewClient(caller base.APICaller) *Client {
 }
 
 // Create creates a new secret.
-func (c *Client) Create(cfg *secrets.SecretConfig, value secrets.SecretValue) (string, error) {
+func (c *Client) Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value secrets.SecretValue) (string, error) {
 	var data secrets.SecretData
 	if value != nil {
 		data = value.EncodedValues()
@@ -37,17 +38,15 @@ func (c *Client) Create(cfg *secrets.SecretConfig, value secrets.SecretValue) (s
 	var results params.StringResults
 
 	arg := params.CreateSecretArg{
-		Params: cfg.Params,
-		Data:   data,
-	}
-	if cfg.RotateInterval != nil {
-		arg.RotateInterval = *cfg.RotateInterval
-	}
-	if cfg.Description != nil {
-		arg.Description = *cfg.Description
-	}
-	if cfg.Tags != nil {
-		arg.Tags = *cfg.Tags
+		OwnerTag: ownerTag.String(),
+		UpsertSecretArg: params.UpsertSecretArg{
+			RotatePolicy: cfg.RotatePolicy,
+			Expiry:       cfg.Expiry,
+			Description:  cfg.Description,
+			Label:        cfg.Label,
+			Params:       cfg.Params,
+			Data:         data,
+		},
 	}
 	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{arg},
@@ -81,12 +80,15 @@ func (c *Client) Update(uri string, cfg *secrets.SecretConfig, value secrets.Sec
 	var results params.ErrorResults
 
 	arg := params.UpdateSecretArg{
-		URI:            secretUri.String(),
-		RotateInterval: cfg.RotateInterval,
-		Description:    cfg.Description,
-		Tags:           cfg.Tags,
-		Params:         cfg.Params,
-		Data:           data,
+		URI: secretUri.String(),
+		UpsertSecretArg: params.UpsertSecretArg{
+			RotatePolicy: cfg.RotatePolicy,
+			Expiry:       cfg.Expiry,
+			Description:  cfg.Description,
+			Label:        cfg.Label,
+			Params:       cfg.Params,
+			Data:         data,
+		},
 	}
 	if err := c.facade.FacadeCall("UpdateSecrets", params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{arg},

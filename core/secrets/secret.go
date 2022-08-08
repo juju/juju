@@ -16,10 +16,11 @@ import (
 
 // SecretConfig is used when creating a secret.
 type SecretConfig struct {
-	RotateInterval *time.Duration
-	Description    *string
-	Tags           *map[string]string
-	Params         map[string]interface{}
+	RotatePolicy *RotatePolicy
+	Expiry       *time.Time
+	Description  *string
+	Label        *string
+	Params       map[string]interface{}
 }
 
 // URI represents a reference to a secret.

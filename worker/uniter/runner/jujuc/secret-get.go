@@ -76,7 +76,7 @@ func (c *secretGetCommand) Init(args []string) (err error) {
 	}
 	c.secretUri, err = secrets.ParseURI(args[0])
 	if err != nil {
-		return errors.NotValidf("secret URL %q", args[0])
+		return errors.NotValidf("secret URI %q", args[0])
 	}
 	return cmd.CheckEmpty(args[1:])
 }

@@ -4,6 +4,9 @@
 package jujuc_test
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -34,14 +37,20 @@ func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 			args: []string{},
 			err:  "ERROR missing secret URI",
 		}, {
-			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "s3cret", "foo=bar"},
-			err:  `ERROR key value "foo=bar" not valid when a singular value has already been specified`,
+			args: []string{"foo"},
+			err:  `ERROR secret URI "foo" not valid`,
 		}, {
-			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "foo=bar", "s3cret"},
-			err:  `ERROR singular value "s3cret" not valid when other key values are specified`,
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "s3cret"},
+			err:  `ERROR key value "s3cret" not valid`,
 		}, {
-			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "foo=bar", "--rotate", "-1h"},
-			err:  `ERROR rotate interval "-1h0m0s" not valid`,
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "foo=bar", "--rotate", "foo"},
+			err:  `ERROR rotate policy "foo" not valid`,
+		}, {
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "foo=bar", "--expire", "-1h"},
+			err:  `ERROR negative expire duration "-1h" not valid`,
+		}, {
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "foo=bar", "--expire", "2022-01-01"},
+			err:  `ERROR expire time or duration "2022-01-01" not valid`,
 		},
 	} {
 		com, err := jujuc.NewCommand(hctx, "secret-update")
@@ -57,24 +66,35 @@ func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
+	expectedExpiry := time.Now().Add(time.Hour)
 	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
-		"secret:9m4e2mr0ui3e8a215n4g", "secret", "--rotate", "1h",
+		"secret:9m4e2mr0ui3e8a215n4g", "data=secret",
+		"--rotate", "daily", "--expire", "1h",
 		"--description", "sssshhhh",
-		"--tag", "foo=bar", "--tag", "hello=world",
+		"--label", "foobar",
 	})
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
-	args := &jujuc.SecretUpsertArgs{
-		Value:          val,
-		RotateInterval: durationPtr(time.Hour),
-		Description:    stringPtr("sssshhhh"),
-		Tags:           tagPtr(map[string]string{"foo": "bar", "hello": "world"}),
+	expectedArgs := &jujuc.SecretUpsertArgs{
+		Value:        val,
+		RotatePolicy: ptr(coresecrets.RotateDaily),
+		Description:  ptr("sssshhhh"),
+		Label:        ptr("foobar"),
 	}
-	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
+	s.Stub.CheckCallNames(c, "UpdateSecret")
+	call := s.Stub.Calls()[0]
+	c.Assert(call.Args, gc.HasLen, 2)
+	c.Assert(call.Args[0], gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	args, ok := call.Args[1].(*jujuc.SecretUpsertArgs)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(args.Expiry, gc.NotNil)
+	c.Assert(args.Expiry.After(expectedExpiry), jc.IsTrue)
+	args.Expiry = nil
+	c.Assert(args, jc.DeepEquals, expectedArgs)
 }
 
 func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
@@ -83,13 +103,12 @@ func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--base64", "secret:9m4e2mr0ui3e8a215n4g", "token=key="})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "token#base64=key="})
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
 	args := &jujuc.SecretUpsertArgs{
 		Value: val,
-		Tags:  tagPtr(nil),
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }
@@ -100,13 +119,45 @@ func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "secret-update")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "5h", "secret:9m4e2mr0ui3e8a215n4g"})
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "daily", "secret:9m4e2mr0ui3e8a215n4g"})
 
 	c.Assert(code, gc.Equals, 0)
 	args := &jujuc.SecretUpsertArgs{
-		Value:          coresecrets.NewSecretValue(nil),
-		RotateInterval: durationPtr(5 * time.Hour),
-		Tags:           tagPtr(nil),
+		Value:        coresecrets.NewSecretValue(nil),
+		RotatePolicy: ptr(coresecrets.RotateDaily),
+	}
+	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
+}
+
+func (s *SecretUpdateSuite) TestUpdateSecretFromFile(c *gc.C) {
+	data := `
+    key: |-
+      secret
+    another-key: !!binary |
+      R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5
+      OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/+
+      +f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLC
+      AgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs=`
+
+	dir := c.MkDir()
+	fileName := filepath.Join(dir, "secret.yaml")
+	err := ioutil.WriteFile(fileName, []byte(data), os.FileMode(0644))
+	c.Assert(err, jc.ErrorIsNil)
+
+	hctx, _ := s.ContextSuite.NewHookContext()
+	com, err := jujuc.NewCommand(hctx, "secret-update")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "token#base64=key=", "--file", fileName})
+
+	c.Assert(code, gc.Equals, 0)
+	val := coresecrets.NewSecretValue(map[string]string{
+		"token":       "key=",
+		"key":         "c2VjcmV0",
+		"another-key": `R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLCAgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs=`,
+	})
+	args := &jujuc.SecretUpsertArgs{
+		Value: val,
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }

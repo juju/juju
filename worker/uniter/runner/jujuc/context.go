@@ -171,13 +171,13 @@ type SecretUpsertArgs struct {
 	Value secrets.SecretValue
 
 	// RotateInterval is the new rotate interval or nil to not update.
-	RotateInterval *time.Duration
+	RotatePolicy *secrets.RotatePolicy
+	Expiry       *time.Time
 
 	// Description describes the secret or nil to not update.
 	Description *string
 
-	// Tags are stored with the secret metadata or nil to not update.
-	Tags *map[string]string
+	Label *string
 }
 
 // SecretGrantRevokeArgs specify the args used to grant or revoke access to a secret.

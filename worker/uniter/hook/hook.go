@@ -97,10 +97,10 @@ func (hi Info) Validate() error {
 		return nil
 	case hooks.SecretRotate:
 		if hi.SecretURI == "" {
-			return errors.Errorf("%q hook requires a secret URL", hi.Kind)
+			return errors.Errorf("%q hook requires a secret URI", hi.Kind)
 		}
 		if _, err := secrets.ParseURI(hi.SecretURI); err != nil {
-			return errors.Errorf("invalid secret URL %q", hi.SecretURI)
+			return errors.Errorf("invalid secret URI %q", hi.SecretURI)
 		}
 		return nil
 	}
