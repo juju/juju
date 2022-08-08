@@ -186,6 +186,8 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	return results, nil
 }
 
+var supportedJujuSeries = series.WorkloadSeries
+
 func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
 	if p.ParentId != "" && p.ContainerType == "" {
 		return nil, fmt.Errorf("parent machine specified without container type")
@@ -223,6 +225,13 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 			return nil, errors.Trace(err)
 		}
 		p.Series = config.PreferredSeries(conf)
+	}
+	supportedSeries, err := supportedJujuSeries(time.Now(), p.Series, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !supportedSeries.Contains(p.Series) {
+		return nil, errors.NotSupportedf("series %q", p.Series)
 	}
 
 	var placementDirective string
