@@ -612,14 +612,7 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 		return errors.Trace(err)
 	}
 
-	var found bool
-	for _, name := range workloadSeries.Values() {
-		if name == seriesName {
-			found = true
-			break
-		}
-	}
-	if !found && !d.force {
+	if !workloadSeries.Contains(seriesName) && !d.force {
 		return errors.NotSupportedf("series: %s", seriesName)
 	}
 	return nil
