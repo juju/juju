@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -61,6 +60,8 @@ type SecretsStore interface {
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
+	GetSecretConsumer(*secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
+	SaveSecretConsumer(*secrets.URI, string, *secrets.SecretConsumerMetadata) error
 }
 
 // NewSecretsStore creates a new mongo backed secrets store.
@@ -366,6 +367,78 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	return result, nil
 }
 
+type secretConsumerDoc struct {
+	DocID string `bson:"_id"`
+
+	ConsumerTag string `bson:"consumer-tag"`
+	Label       string `bson:"label"`
+	Revision    int    `bson:"revision"`
+}
+
+func secretConsumerKey(id, consumer string) string {
+	return fmt.Sprintf("secret#%s#%s", id, consumer)
+}
+
+// GetSecretConsumer gets secret consumer metadata.
+func (s *secretsStore) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secrets.SecretConsumerMetadata, error) {
+	secretConsumersCollection, closer := s.st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	key := secretConsumerKey(uri.ID, consumerTag)
+	docID := s.st.docID(key)
+	var doc secretConsumerDoc
+	err := secretConsumersCollection.FindId(docID).One(&doc)
+	if errors.Cause(err) == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("consumer %q metadata for secret %q", consumerTag, uri.String())
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &secrets.SecretConsumerMetadata{
+		Label:    doc.Label,
+		Revision: doc.Revision,
+	}, nil
+}
+
+// SaveSecretConsumer saves or updates secret consumer metadata.
+func (s *secretsStore) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metadata *secrets.SecretConsumerMetadata) error {
+	key := secretConsumerKey(uri.ID, consumerTag)
+	docID := s.st.docID(key)
+	secretConsumersCollection, closer := s.st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	var doc secretConsumerDoc
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		err := secretConsumersCollection.FindId(docID).One(&doc)
+		if err := errors.Cause(err); err != nil && err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			return []txn.Op{{
+				C:      secretConsumersC,
+				Id:     docID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{
+					"label":    metadata.Label,
+					"revision": metadata.Revision,
+				}},
+			}}, nil
+		}
+		return []txn.Op{{
+			C:      secretConsumersC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: secretConsumerDoc{
+				DocID:       docID,
+				ConsumerTag: consumerTag,
+				Label:       metadata.Label,
+				Revision:    metadata.Revision,
+			},
+		}}, nil
+	}
+	return s.st.db().Run(buildTxn)
+}
+
 type secretRotationDoc struct {
 	DocID    string `bson:"_id"`
 	TxnRevno int64  `bson:"txn-revno"`
@@ -375,20 +448,11 @@ type secretRotationDoc struct {
 	// These fields are denormalised here so that the watcher
 	// only needs to access this collection.
 	NextRotateTime time.Time `bson:"next-rotate-time"`
-	Owner          string    `bson:"owner"`
-}
-
-func secretGlobalKey(id string) string {
-	return fmt.Sprintf("secret#%s", id)
-}
-
-func secretIDFromGlobalKey(key string) string {
-	id := strings.TrimPrefix(key, "secret#")
-	return id
+	Owner          string    `bson:"owner-tag"`
 }
 
 func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotatePolicy *secrets.RotatePolicy, nextRotateTime *time.Time) ([]txn.Op, error) {
-	secretKey := secretGlobalKey(uri.ID)
+	secretKey := uri.ID
 	if p := toValue(rotatePolicy); p == "" || p == secrets.RotateNever {
 		return []txn.Op{{
 			C:      secretRotateC,
@@ -402,7 +466,7 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateP
 	secretRotateCollection, closer := s.st.db().GetCollection(secretRotateC)
 	defer closer()
 
-	var doc secretMetadataDoc
+	var doc secretRotationDoc
 	err := secretRotateCollection.FindId(secretKey).One(&doc)
 	if err := errors.Cause(err); err != nil && err != mgo.ErrNotFound {
 		return nil, errors.Trace(err)
@@ -437,16 +501,16 @@ func (st *State) SecretRotated(uri *secrets.URI, when time.Time) error {
 	defer closer2()
 
 	when = when.Round(time.Second).UTC()
+	secretKey := uri.ID
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var metadataDoc secretMetadataDoc
-		err := secretMetadataCollection.FindId(uri.ID).One(&metadataDoc)
+		err := secretMetadataCollection.FindId(secretKey).One(&metadataDoc)
 		if errors.Cause(err) == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("secret %q", uri.String())
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		secretKey := secretGlobalKey(uri.ID)
 
 		var currentDoc secretRotationDoc
 		err = secretRotateCollection.FindId(secretKey).One(&currentDoc)
@@ -525,9 +589,9 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretRotationChange, 
 	secretRotateCollection, closer := w.db.GetCollection(secretRotateC)
 	defer closer()
 
-	iter := secretRotateCollection.Find(bson.D{{"owner", w.owner}}).Iter()
+	iter := secretRotateCollection.Find(bson.D{{"owner-tag", w.owner}}).Iter()
 	for iter.Next(&doc) {
-		uriStr := secretIDFromGlobalKey(doc.DocID)
+		uriStr := doc.DocID
 		uri, err := secrets.ParseURI(uriStr)
 		if err != nil {
 			_ = iter.Close()
@@ -548,15 +612,14 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretRotationChange, 
 }
 
 func (w *secretsRotationWatcher) merge(details []corewatcher.SecretRotationChange, change watcher.Change) ([]corewatcher.SecretRotationChange, error) {
-	docID := change.Id.(string)
-	id := secretIDFromGlobalKey(docID)
-	knownDetails, known := w.known[docID]
+	changeID := change.Id.(string)
+	knownDetails, known := w.known[changeID]
 
 	doc := secretRotationDoc{}
 	if change.Revno >= 0 {
 		secretsRotationColl, closer := w.db.GetCollection(secretRotateC)
 		defer closer()
-		err := secretsRotationColl.Find(bson.D{{"_id", change.Id}, {"owner", w.owner}}).One(&doc)
+		err := secretsRotationColl.Find(bson.D{{"_id", change.Id}, {"owner-tag", w.owner}}).One(&doc)
 		if err != nil && errors.Cause(err) != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -565,7 +628,7 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretRotationChang
 		}
 	} else if known {
 		for i, detail := range details {
-			if detail.URI.ID == id {
+			if detail.URI.ID == changeID {
 				details[i].RotateInterval = 0
 				return details, nil
 			}
@@ -577,12 +640,12 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretRotationChang
 		return details, nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
-		uriStr := secretIDFromGlobalKey(doc.DocID)
+		uriStr := doc.DocID
 		uri, err := secrets.ParseURI(uriStr)
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid secret URI %q", uriStr)
 		}
-		w.known[docID] = rotateWatcherDetails{
+		w.known[changeID] = rotateWatcherDetails{
 			txnRevNo: doc.TxnRevno,
 			URI:      uri,
 		}

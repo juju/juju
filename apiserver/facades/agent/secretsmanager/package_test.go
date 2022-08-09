@@ -30,7 +30,7 @@ func NewTestAPI(
 	resources facade.Resources,
 	service secrets.SecretsService,
 	secretsRotation SecretsRotation,
-	accessSecret common.GetAuthFunc,
+	manageSecret common.GetAuthFunc,
 	ownerTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -39,13 +39,13 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authOwner:       ownerTag,
+		authTag:         ownerTag,
 		controllerUUID:  coretesting.ControllerTag.Id(),
 		modelUUID:       coretesting.ModelTag.Id(),
 		resources:       resources,
 		secretsService:  service,
 		secretsRotation: secretsRotation,
-		accessSecret:    accessSecret,
+		manageSecret:    manageSecret,
 		clock:           clock,
 	}, nil
 }

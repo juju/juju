@@ -80,6 +80,21 @@ func (mr *MockSecretsServiceMockRecorder) GetSecret(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretsService)(nil).GetSecret), arg0, arg1)
 }
 
+// GetSecretConsumer mocks base method.
+func (m *MockSecretsService) GetSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string) (*secrets.SecretConsumerMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretConsumer indicates an expected call of GetSecretConsumer.
+func (mr *MockSecretsServiceMockRecorder) GetSecretConsumer(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsService)(nil).GetSecretConsumer), arg0, arg1, arg2)
+}
+
 // GetSecretValue mocks base method.
 func (m *MockSecretsService) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int) (secrets.SecretValue, error) {
 	m.ctrl.T.Helper()
@@ -108,6 +123,20 @@ func (m *MockSecretsService) ListSecrets(arg0 context.Context, arg1 secrets0.Fil
 func (mr *MockSecretsServiceMockRecorder) ListSecrets(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsService)(nil).ListSecrets), arg0, arg1)
+}
+
+// SaveSecretConsumer mocks base method.
+func (m *MockSecretsService) SaveSecretConsumer(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 *secrets.SecretConsumerMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveSecretConsumer", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveSecretConsumer indicates an expected call of SaveSecretConsumer.
+func (mr *MockSecretsServiceMockRecorder) SaveSecretConsumer(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretConsumer", reflect.TypeOf((*MockSecretsService)(nil).SaveSecretConsumer), arg0, arg1, arg2, arg3)
 }
 
 // UpdateSecret mocks base method.

@@ -246,3 +246,38 @@ func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, metadata)
 }
+
+func (s *SecretsManagerSuite) TestGetSecretConsumer(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:    "foobar",
+		Revision: 2,
+	}
+	s.secretsStore.EXPECT().GetSecretConsumer(uri, "application-mariadb").Return(
+		consumer, nil,
+	)
+
+	result, err := service.GetSecretConsumer(context.Background(), uri, "application-mariadb")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, consumer)
+}
+
+func (s *SecretsManagerSuite) TestSaveSecretConsumer(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:    "foobar",
+		Revision: 2,
+	}
+	s.secretsStore.EXPECT().SaveSecretConsumer(uri, "application-wordpress", consumer).Return(nil)
+
+	err := service.SaveSecretConsumer(context.Background(), uri, "application-wordpress", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+}
