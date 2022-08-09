@@ -38767,6 +38767,15 @@
                 "GetSecretArg": {
                     "type": "object",
                     "properties": {
+                        "label": {
+                            "type": "string"
+                        },
+                        "peek": {
+                            "type": "boolean"
+                        },
+                        "update": {
+                            "type": "boolean"
+                        },
                         "uri": {
                             "type": "string"
                         }

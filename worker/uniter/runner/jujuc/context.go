@@ -189,7 +189,7 @@ type SecretGrantRevokeArgs struct {
 // ContextSecrets is the part of a hook context related to secrets.
 type ContextSecrets interface {
 	// GetSecret returns the value of the specified secret.
-	GetSecret(string) (secrets.SecretValue, error)
+	GetSecret(string, string, bool, bool) (secrets.SecretValue, error)
 
 	// CreateSecret creates a secret with the specified data.
 	CreateSecret(args *SecretUpsertArgs) (string, error)

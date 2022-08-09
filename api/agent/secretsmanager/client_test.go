@@ -169,7 +169,10 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 		c.Check(request, gc.Equals, "GetSecretValues")
 		c.Check(arg, jc.DeepEquals, params.GetSecretArgs{
 			Args: []params.GetSecretArg{{
-				URI: "secret:9m4e2mr0ui3e8a215n4g",
+				URI:    "secret:9m4e2mr0ui3e8a215n4g",
+				Label:  "label",
+				Update: true,
+				Peek:   true,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretValueResults{})
@@ -181,7 +184,7 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetValue("secret:9m4e2mr0ui3e8a215n4g")
+	result, err := client.GetValue("secret:9m4e2mr0ui3e8a215n4g", "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	value := secrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(result, jc.DeepEquals, value)
@@ -197,7 +200,7 @@ func (s *SecretsSuite) TestGetSecretsError(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetValue("secret:9m4e2mr0ui3e8a215n4g")
+	result, err := client.GetValue("secret:9m4e2mr0ui3e8a215n4g", "", true, true)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, gc.IsNil)
 }

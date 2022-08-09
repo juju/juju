@@ -322,18 +322,18 @@ func (mr *MockContextMockRecorder) GetRawK8sSpec() *gomock.Call {
 }
 
 // GetSecret mocks base method.
-func (m *MockContext) GetSecret(arg0 string) (secrets.SecretValue, error) {
+func (m *MockContext) GetSecret(arg0, arg1 string, arg2, arg3 bool) (secrets.SecretValue, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecret", arg0)
+	ret := m.ctrl.Call(m, "GetSecret", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(secrets.SecretValue)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecret indicates an expected call of GetSecret.
-func (mr *MockContextMockRecorder) GetSecret(arg0 interface{}) *gomock.Call {
+func (mr *MockContextMockRecorder) GetSecret(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockContext)(nil).GetSecret), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockContext)(nil).GetSecret), arg0, arg1, arg2, arg3)
 }
 
 // GoalState mocks base method.
