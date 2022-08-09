@@ -262,13 +262,18 @@ pre_bootstrap() {
 	else
 		# In CI tests, both Build and OfficialBuild are set.
 		# Juju confuses when it needs to decide the operator image tag to use.
-		# So we need to explicitely set the agent version for CI tests.
-		version=$(juju_version)
+		# So we need to explicitly set the agent version for CI tests.
+		if [[ -n ${JUJU_VERSION:-} ]]; then
+			version=${JUJU_VERSION}
+		else
+			version=$(juju_version)
+		fi
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
 	fi
 
 	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/ --config agent-stream=build-${SHORT_GIT_COMMIT}"
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/"
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=build-${SHORT_GIT_COMMIT}"
 	fi
 
 	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
