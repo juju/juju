@@ -20,9 +20,12 @@ run_model_destroy() {
 	echo "Ensure current model is 'model-new'"
 	juju models --format json | jq -r '."current-model"' | check model-new
 
-	echo "Destroy model 'model-new'"
 	destroy_model "model-new"
-	juju switch :model-destroy
+	is_destroyed=$(juju models --format json | jq -r '.models[] | select(."short-name" == "model-new")')
+	if [[ -z ${is_destroyed} ]]; then is_destroyed=true; fi
+	check_contains "${is_destroyed}" true
+
+	juju switch model-destroy
 
 	echo "Ensure current model is 'model-destroy'"
 	juju models --format json | jq -r '."current-model"' | check model-destroy
