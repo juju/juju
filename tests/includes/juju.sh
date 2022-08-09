@@ -266,7 +266,11 @@ pre_bootstrap() {
 		# In CI tests, both Build and OfficialBuild are set.
 		# Juju confuses when it needs to decide the operator image tag to use.
 		# So we need to explicitly set the agent version for CI tests.
-		version=$(juju_version)
+		if [[ -n ${JUJU_VERSION:-} ]]; then
+			version=${JUJU_VERSION}
+		else
+			version=$(juju_version)
+		fi
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
 	fi
 
