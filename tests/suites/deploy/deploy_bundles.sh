@@ -69,10 +69,22 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	bundle=./tests/suites/deploy/bundles/telegraf_bundle.yaml
 	juju deploy ${bundle}
 
+	echo "Make a copy of reference yaml"
+	cp ${bundle} "${TEST_DIR}/telegraf_bundle.yaml"
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		if ! which "yq" >/dev/null 2>&1; then
+			sudo snap install yq --classic --channel latest/stable
+		fi
+		yq -i "
+			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
+			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
+		" "${TEST_DIR}/telegraf_bundle.yaml"
+	fi
 	# no need to wait for the bundle to finish deploying to
 	# check the export.
 	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-	diff -u ${bundle} "${TEST_DIR}/exported-bundle.yaml"
+	yq -i . "${TEST_DIR}/exported-bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle.yaml" "${TEST_DIR}/exported-bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
 }
@@ -101,10 +113,17 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	echo "Make a copy of reference yaml and insert revisions in it"
 	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 	yq -i "
-    .applications.influxdb.revision = ${influxdb_rev} |
-    .applications.telegraf.revision = ${telegraf_rev} |
-    .applications.ubuntu.revision = ${ubuntu_rev}
-  " "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+		.applications.influxdb.revision = ${influxdb_rev} |
+		.applications.telegraf.revision = ${telegraf_rev} |
+		.applications.ubuntu.revision = ${ubuntu_rev}
+	" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		yq -i "
+			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
+			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
+		" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	fi
 
 	# The model should be updated immediately, so we can export the bundle before
 	# everything is done deploying
