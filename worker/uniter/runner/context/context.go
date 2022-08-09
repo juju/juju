@@ -731,8 +731,8 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 }
 
 // GetSecret returns the value of the specified secret.
-func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) {
-	v, err := ctx.secretFacade.GetValue(name)
+func (ctx *HookContext) GetSecret(uri, label string, update, peek bool) (coresecrets.SecretValue, error) {
+	v, err := ctx.secretFacade.GetValue(uri, label, update, peek)
 	if err != nil {
 		return nil, err
 	}

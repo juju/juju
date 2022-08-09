@@ -59,7 +59,10 @@ type GetSecretArgs struct {
 
 // GetSecretArg holds the args for getting a secret.
 type GetSecretArg struct {
-	URI string `json:"uri"`
+	URI    string `json:"uri"`
+	Label  string `json:"label,omitempty"`
+	Update bool   `json:"update,omitempty"`
+	Peek   bool   `json:"peek,omitempty"`
 }
 
 // SecretValueResults holds secret value results.

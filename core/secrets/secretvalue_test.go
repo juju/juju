@@ -27,10 +27,6 @@ func (s *SecretValueSuite) TestEncodedValues(c *gc.C) {
 		"a": base64.StdEncoding.EncodeToString([]byte("foo")),
 		"b": base64.StdEncoding.EncodeToString([]byte("1")),
 	})
-
-	c.Assert(val.Singular(), jc.IsFalse)
-	_, err := val.EncodedValue()
-	c.Assert(err, gc.ErrorMatches, "secret is not a singular value")
 }
 
 func (s *SecretValueSuite) TestValues(c *gc.C) {
@@ -46,30 +42,19 @@ func (s *SecretValueSuite) TestValues(c *gc.C) {
 		"a": "foo",
 		"b": "1",
 	})
-
-	_, err = val.Value()
-	c.Assert(err, gc.ErrorMatches, "secret is not a singular value")
 }
 
-func (s *SecretValueSuite) TestSingularValue(c *gc.C) {
+func (s *SecretValueSuite) TestKeyValue(c *gc.C) {
 	in := map[string]string{
-		"data": base64.StdEncoding.EncodeToString([]byte("foo")),
+		"a": base64.StdEncoding.EncodeToString([]byte("foo")),
+		"b": base64.StdEncoding.EncodeToString([]byte("1")),
 	}
 	val := secrets.NewSecretValue(in)
 
-	sval, err := val.Value()
+	v, err := val.KeyValue("a")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sval, gc.Equals, "foo")
-}
-
-func (s *SecretValueSuite) TestSingularEncodedValue(c *gc.C) {
-	in := map[string]string{
-		"data": base64.StdEncoding.EncodeToString([]byte("foo")),
-	}
-	val := secrets.NewSecretValue(in)
-	c.Assert(val.Singular(), jc.IsTrue)
-
-	bval, err := val.EncodedValue()
+	c.Assert(v, gc.Equals, "foo")
+	v, err = val.KeyValue("a#base64")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bval, gc.Equals, in["data"])
+	c.Assert(v, gc.Equals, base64.StdEncoding.EncodeToString([]byte("foo")))
 }

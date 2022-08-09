@@ -94,7 +94,7 @@ type secretValueDetails struct {
 }
 
 type secretDisplayDetails struct {
-	URI            string               `json:"URI" yaml:"URI"`
+	URI            string               `json:"uri" yaml:"uri"`
 	Version        int                  `json:"version" yaml:"version"`
 	Owner          string               `json:"owner,omitempty" yaml:"owner,omitempty"`
 	Provider       string               `json:"backend" yaml:"backend"`

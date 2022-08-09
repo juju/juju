@@ -872,7 +872,10 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 		c.Assert(request, gc.Equals, "GetSecretValues")
 		c.Assert(arg, gc.DeepEquals, params.GetSecretArgs{
 			Args: []params.GetSecretArg{{
-				URI: "secret:9m4e2mr0ui3e8a215n4g",
+				URI:    "secret:9m4e2mr0ui3e8a215n4g",
+				Label:  "label",
+				Update: true,
+				Peek:   true,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretValueResults{})
@@ -886,7 +889,7 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
-	value, err := hookContext.GetSecret("secret:9m4e2mr0ui3e8a215n4g")
+	value, err := hookContext.GetSecret("secret:9m4e2mr0ui3e8a215n4g", "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",

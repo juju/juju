@@ -97,7 +97,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-- URI: %s
+- uri: %s
   version: 1
   owner: mysql
   backend: juju
@@ -109,7 +109,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   update-time: 0001-01-01T00:00:00Z
   value:
     foo: bar
-- URI: %s
+- uri: %s
   version: 1
   backend: juju
   revision: 1
@@ -137,6 +137,6 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-[{"URI":"%s","version":1,"backend":"juju","revision":2,"create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
+[{"uri":"%s","version":1,"backend":"juju","revision":2,"create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
 `[1:], uri.ShortString()))
 }

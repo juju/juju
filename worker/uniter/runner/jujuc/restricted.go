@@ -254,7 +254,7 @@ func (*RestrictedContext) WorkloadName() (string, error) {
 }
 
 // GetSecret implements runner.Context.
-func (ctx *RestrictedContext) GetSecret(string) (secrets.SecretValue, error) {
+func (ctx *RestrictedContext) GetSecret(string, string, bool, bool) (secrets.SecretValue, error) {
 	return nil, ErrRestrictedContext
 }
 

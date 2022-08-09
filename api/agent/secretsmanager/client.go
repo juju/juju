@@ -99,8 +99,12 @@ func (c *Client) Update(uri string, cfg *secrets.SecretConfig, value secrets.Sec
 }
 
 // GetValue returns the value of a secret.
-func (c *Client) GetValue(uri string) (secrets.SecretValue, error) {
-	arg := params.GetSecretArg{}
+func (c *Client) GetValue(uri, label string, update, peek bool) (secrets.SecretValue, error) {
+	arg := params.GetSecretArg{
+		Label:  label,
+		Update: update,
+		Peek:   peek,
+	}
 	secretUri, err := secrets.ParseURI(uri)
 	if err != nil {
 		return nil, errors.Trace(err)
