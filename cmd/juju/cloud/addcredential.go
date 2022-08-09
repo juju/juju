@@ -39,7 +39,7 @@ Providing the ` + "`-f <credentials.yaml>` " + `option switches to the
 non-interactive mode. <credentials.yaml> must be a path to a correctly 
 formatted YAML-formatted file. 
 
-Sample yaml file shows four credentials being stored against three clouds:
+Sample yaml file shows five credentials being stored against four clouds:
 
   credentials:
     aws:
@@ -54,12 +54,19 @@ Sample yaml file shows four credentials being stored against three clouds:
         application-password: <password>
         subscription-id: <uuid>
     lxd:
-      <credential-name>:
+      <credential-a>:
         auth-type: interactive
         trust-password: <password>
-      <credential-name>:
+      <credential-b>:
         auth-type: interactive
         trust-password: <password>
+    google:
+      <credential-name>:
+        auth-type: oauth2
+        project-id: <project-id>
+        private-key: <private-key>
+        client-email: <email>
+        client-id: <client-id>
 
 The <credential-name> parameter of each credential is arbitrary, but must
 be unique within each <cloud-name>. This allows allow each cloud to store 
