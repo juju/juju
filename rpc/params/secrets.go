@@ -12,9 +12,9 @@ import (
 // UpsertSecretArg holds the args for creating or updating a secret.
 type UpsertSecretArg struct {
 	// RotatePolicy is how often a secret should be rotated.
-	RotatePolicy *secrets.RotatePolicy `json:"rotate-policy"`
-	// Expiry is when a secret should expire.
-	Expiry *time.Time `json:"expiry"`
+	RotatePolicy *secrets.RotatePolicy `json:"rotate-policy,omitempty"`
+	// ExpireTime is when a secret should expire.
+	ExpireTime *time.Time `json:"expire-time,omitempty"`
 	// Description represents the secret's description.
 	Description *string `json:"description,omitempty"`
 	// Tags are the secret tags.
@@ -87,12 +87,14 @@ type ListSecretResults struct {
 type ListSecretResult struct {
 	URI            string             `json:"uri"`
 	Version        int                `json:"version"`
-	RotateInterval time.Duration      `json:"rotate-interval"`
-	Description    string             `json:"description,omitempty"`
 	OwnerTag       string             `json:"owner-tag"`
-	Tags           map[string]string  `json:"tags,omitempty"`
 	Provider       string             `json:"provider"`
 	ProviderID     string             `json:"provider-id,omitempty"`
+	RotatePolicy   string             `json:"rotate-policy,omitempty"`
+	NextRotateTime *time.Time         `json:"next-rotate-time,omitempty"`
+	ExpireTime     *time.Time         `json:"expire-time,omitempty"`
+	Description    string             `json:"description,omitempty"`
+	Label          string             `json:"label,omitempty"`
 	Revision       int                `json:"revision"`
 	CreateTime     time.Time          `json:"create-time"`
 	UpdateTime     time.Time          `json:"update-time"`

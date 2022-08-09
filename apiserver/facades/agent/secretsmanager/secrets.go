@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -29,6 +30,7 @@ type SecretsManagerAPI struct {
 	resources       facade.Resources
 	secretsRotation SecretsRotation
 	authOwner       names.Tag
+	clock           clock.Clock
 }
 
 // CreateSecrets creates new secrets.
@@ -45,15 +47,7 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 	return result, nil
 }
 
-func toValue[T any](v *T) T {
-	if v == nil {
-		return *new(T)
-	}
-	return *v
-}
-
 func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
-	// TODO(wallyworld) - handle label, rotation etc
 	if len(arg.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
@@ -62,18 +56,33 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	}
 	uri := coresecrets.NewURI()
 	md, err := s.secretsService.CreateSecret(ctx, uri, secrets.CreateParams{
-		Version:     secrets.Version,
-		Owner:       s.authOwner.String(),
-		Description: toValue(arg.Description),
-		Params:      arg.Params,
-		Data:        arg.Data,
-		// TODO(wallyworld) - fix me, interval will be replaced
-		RotateInterval: time.Hour,
+		Version:      secrets.Version,
+		Owner:        s.authOwner.String(),
+		UpsertParams: fromUpsertParams(s.clock, arg.UpsertSecretArg),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return md.URI.ShortString(), nil
+}
+
+func fromUpsertParams(clock clock.Clock, p params.UpsertSecretArg) secrets.UpsertParams {
+	var nextRotateTime *time.Time
+	if p.RotatePolicy != nil {
+		// TODO(wallyworld) - we need to take into account last rotate time
+		// This approximate will do for now.
+		now := clock.Now()
+		nextRotateTime = p.RotatePolicy.NextRotateTime(&now)
+	}
+	return secrets.UpsertParams{
+		RotatePolicy:   p.RotatePolicy,
+		NextRotateTime: nextRotateTime,
+		ExpireTime:     p.ExpireTime,
+		Description:    p.Description,
+		Label:          p.Label,
+		Params:         p.Params,
+		Data:           p.Data,
+	}
 }
 
 // UpdateSecrets updates the specified secrets.
@@ -90,7 +99,6 @@ func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.
 }
 
 func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
-	// TODO(wallyworld) - handle label, rotation etc
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)
@@ -98,16 +106,12 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	if uri.ControllerUUID != "" && uri.ControllerUUID != s.controllerUUID {
 		return errors.NotValidf("secret URI with controller UUID %q", uri.ControllerUUID)
 	}
-	if arg.RotatePolicy == nil && arg.Description == nil && arg.Expiry == nil &&
+	if arg.RotatePolicy == nil && arg.Description == nil && arg.ExpireTime == nil &&
 		arg.Label == nil && len(arg.Params) == 0 && len(arg.Data) == 0 {
 		return errors.New("at least one attribute to update must be specified")
 	}
 	uri.ControllerUUID = s.controllerUUID
-	_, err = s.secretsService.UpdateSecret(ctx, uri, secrets.UpdateParams{
-		Description: arg.Description,
-		Params:      arg.Params,
-		Data:        arg.Data,
-	})
+	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(s.clock, arg.UpsertSecretArg))
 	return errors.Trace(err)
 }
 

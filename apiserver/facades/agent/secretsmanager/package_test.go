@@ -6,6 +6,7 @@ package secretsmanager
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
@@ -31,6 +32,7 @@ func NewTestAPI(
 	secretsRotation SecretsRotation,
 	accessSecret common.GetAuthFunc,
 	ownerTag names.Tag,
+	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -44,5 +46,6 @@ func NewTestAPI(
 		secretsService:  service,
 		secretsRotation: secretsRotation,
 		accessSecret:    accessSecret,
+		clock:           clock,
 	}, nil
 }

@@ -38454,6 +38454,17 @@
                         "description": {
                             "type": "string"
                         },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "next-rotate-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
                         "owner-tag": {
                             "type": "string"
                         },
@@ -38466,16 +38477,8 @@
                         "revision": {
                             "type": "integer"
                         },
-                        "rotate-interval": {
-                            "type": "integer"
-                        },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
+                        "rotate-policy": {
+                            "type": "string"
                         },
                         "update-time": {
                             "type": "string",
@@ -38495,7 +38498,6 @@
                     "required": [
                         "uri",
                         "version",
-                        "rotate-interval",
                         "owner-tag",
                         "provider",
                         "revision",
@@ -38642,7 +38644,7 @@
                         "description": {
                             "type": "string"
                         },
-                        "expiry": {
+                        "expire-time": {
                             "type": "string",
                             "format": "date-time"
                         },
@@ -38667,8 +38669,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "rotate-policy",
-                        "expiry",
                         "UpsertSecretArg",
                         "owner-tag"
                     ]
@@ -38960,7 +38960,7 @@
                         "description": {
                             "type": "string"
                         },
-                        "expiry": {
+                        "expire-time": {
                             "type": "string",
                             "format": "date-time"
                         },
@@ -38985,8 +38985,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "rotate-policy",
-                        "expiry",
                         "UpsertSecretArg",
                         "uri"
                     ]
@@ -39020,7 +39018,7 @@
                         "description": {
                             "type": "string"
                         },
-                        "expiry": {
+                        "expire-time": {
                             "type": "string",
                             "format": "date-time"
                         },
@@ -39040,11 +39038,7 @@
                             "type": "string"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "rotate-policy",
-                        "expiry"
-                    ]
+                    "additionalProperties": false
                 }
             }
         }

@@ -94,19 +94,21 @@ type secretValueDetails struct {
 }
 
 type secretDisplayDetails struct {
-	URI            string              `json:"URI" yaml:"URI"`
-	Revision       int                 `json:"revision" yaml:"revision"`
-	RotateInterval time.Duration       `json:"rotate-interval,omitempty" yaml:"rotate-interval,omitempty"`
-	Version        int                 `json:"version" yaml:"version"`
-	Description    string              `json:"description,omitempty" yaml:"description,omitempty"`
-	Owner          string              `json:"owner,omitempty" yaml:"owner,omitempty"`
-	Tags           map[string]string   `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Provider       string              `json:"backend" yaml:"backend"`
-	ProviderID     string              `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
-	CreateTime     time.Time           `json:"create-time" yaml:"create-time"`
-	UpdateTime     time.Time           `json:"update-time" yaml:"update-time"`
-	Error          string              `json:"error,omitempty" yaml:"error,omitempty"`
-	Value          *secretValueDetails `json:"value,omitempty" yaml:"value,omitempty"`
+	URI            string               `json:"URI" yaml:"URI"`
+	Version        int                  `json:"version" yaml:"version"`
+	Owner          string               `json:"owner,omitempty" yaml:"owner,omitempty"`
+	Provider       string               `json:"backend" yaml:"backend"`
+	ProviderID     string               `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
+	Revision       int                  `json:"revision" yaml:"revision"`
+	Description    string               `json:"description,omitempty" yaml:"description,omitempty"`
+	Label          string               `json:"label,omitempty" yaml:"label,omitempty"`
+	RotatePolicy   secrets.RotatePolicy `json:"rotate-policy,omitempty" yaml:"rotate-policy,omitempty"`
+	NextRotateTime *time.Time           `json:"next-rotate-time,omitempty" yaml:"next-rotate-time,omitempty"`
+	ExpireTime     *time.Time           `json:"expire-time,omitempty" yaml:"expire-time,omitempty"`
+	CreateTime     time.Time            `json:"create-time" yaml:"create-time"`
+	UpdateTime     time.Time            `json:"update-time" yaml:"update-time"`
+	Error          string               `json:"error,omitempty" yaml:"error,omitempty"`
+	Value          *secretValueDetails  `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
 // Run implements cmd.Run.
@@ -134,13 +136,15 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 		}
 		details[i] = secretDisplayDetails{
 			URI:            m.Metadata.URI.ShortString(),
-			RotateInterval: m.Metadata.RotateInterval,
 			Version:        m.Metadata.Version,
-			Description:    m.Metadata.Description,
 			Owner:          ownerId,
-			Tags:           m.Metadata.Tags,
 			Provider:       m.Metadata.Provider,
 			ProviderID:     m.Metadata.ProviderID,
+			Description:    m.Metadata.Description,
+			Label:          m.Metadata.Label,
+			RotatePolicy:   m.Metadata.RotatePolicy,
+			NextRotateTime: m.Metadata.NextRotateTime,
+			ExpireTime:     m.Metadata.ExpireTime,
 			Revision:       m.Metadata.Revision,
 			CreateTime:     m.Metadata.CreateTime,
 			UpdateTime:     m.Metadata.UpdateTime,
@@ -178,7 +182,7 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	now := time.Now()
 	for _, s := range secrets {
 		age := common.UserFriendlyDuration(s.UpdateTime, now)
-		w.Print(s.URI, s.Revision, common.HumaniseInterval(s.RotateInterval), s.Provider, age)
+		w.Print(s.URI, s.Revision, s.RotatePolicy, s.Provider, age)
 		w.Println()
 	}
 	return tw.Flush()

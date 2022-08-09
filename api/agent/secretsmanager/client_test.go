@@ -48,7 +48,7 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 				OwnerTag: "application-mysql",
 				UpsertSecretArg: params.UpsertSecretArg{
 					RotatePolicy: ptr(secrets.RotateDaily),
-					Expiry:       ptr(expiry),
+					ExpireTime:   ptr(expiry),
 					Description:  ptr("my secret"),
 					Label:        ptr("foo"),
 					Params: map[string]interface{}{
@@ -71,7 +71,7 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	value := secrets.NewSecretValue(data)
 	cfg := &secrets.SecretConfig{
 		RotatePolicy: ptr(secrets.RotateDaily),
-		Expiry:       ptr(expiry),
+		ExpireTime:   ptr(expiry),
 		Description:  ptr("my secret"),
 		Label:        ptr("foo"),
 		Params: map[string]interface{}{
@@ -113,7 +113,7 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 				URI: "secret:9m4e2mr0ui3e8a215n4g",
 				UpsertSecretArg: params.UpsertSecretArg{
 					RotatePolicy: ptr(secrets.RotateDaily),
-					Expiry:       ptr(expiry),
+					ExpireTime:   ptr(expiry),
 					Description:  ptr("my secret"),
 					Label:        ptr("foo"),
 					Params: map[string]interface{}{
@@ -134,7 +134,7 @@ func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 	value := secrets.NewSecretValue(data)
 	cfg := &secrets.SecretConfig{
 		RotatePolicy: ptr(secrets.RotateDaily),
-		Expiry:       ptr(expiry),
+		ExpireTime:   ptr(expiry),
 		Description:  ptr("my secret"),
 		Label:        ptr("foo"),
 		Params: map[string]interface{}{

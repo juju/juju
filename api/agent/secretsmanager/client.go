@@ -41,7 +41,7 @@ func (c *Client) Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value sec
 		OwnerTag: ownerTag.String(),
 		UpsertSecretArg: params.UpsertSecretArg{
 			RotatePolicy: cfg.RotatePolicy,
-			Expiry:       cfg.Expiry,
+			ExpireTime:   cfg.ExpireTime,
 			Description:  cfg.Description,
 			Label:        cfg.Label,
 			Params:       cfg.Params,
@@ -83,7 +83,7 @@ func (c *Client) Update(uri string, cfg *secrets.SecretConfig, value secrets.Sec
 		URI: secretUri.String(),
 		UpsertSecretArg: params.UpsertSecretArg{
 			RotatePolicy: cfg.RotatePolicy,
-			Expiry:       cfg.Expiry,
+			ExpireTime:   cfg.ExpireTime,
 			Description:  cfg.Description,
 			Label:        cfg.Label,
 			Params:       cfg.Params,

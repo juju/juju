@@ -913,7 +913,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 				OwnerTag: "application-wordpress",
 				UpsertSecretArg: params.UpsertSecretArg{
 					RotatePolicy: ptr(secrets.RotateDaily),
-					Expiry:       ptr(expiry),
+					ExpireTime:   ptr(expiry),
 					Description:  ptr("my secret"),
 					Label:        ptr("foo"),
 					Data:         data,
@@ -934,7 +934,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 	id, err := hookContext.CreateSecret(&jujuc.SecretUpsertArgs{
 		Value:        value,
 		RotatePolicy: ptr(secrets.RotateDaily),
-		Expiry:       ptr(expiry),
+		ExpireTime:   ptr(expiry),
 		Description:  ptr("my secret"),
 		Label:        ptr("foo"),
 	})
@@ -958,7 +958,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 				URI: "secret:9m4e2mr0ui3e8a215n4g",
 				UpsertSecretArg: params.UpsertSecretArg{
 					RotatePolicy: ptr(secrets.RotateDaily),
-					Expiry:       ptr(expiry),
+					ExpireTime:   ptr(expiry),
 					Description:  ptr("my secret"),
 					Label:        ptr("foo"),
 					Data:         data,
@@ -979,7 +979,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	err := hookContext.UpdateSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretUpsertArgs{
 		Value:        value,
 		RotatePolicy: ptr(secrets.RotateDaily),
-		Expiry:       ptr(expiry),
+		ExpireTime:   ptr(expiry),
 		Description:  ptr("my secret"),
 		Label:        ptr("foo"),
 	})

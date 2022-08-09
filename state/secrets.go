@@ -23,29 +23,30 @@ import (
 
 // CreateSecretParams are used to create a secret.
 type CreateSecretParams struct {
-	ProviderLabel  string
-	Version        int
-	Owner          string
-	RotateInterval time.Duration
-	Description    string
-	Tags           map[string]string
-	Params         map[string]interface{}
-	Data           secrets.SecretData
+	UpdateSecretParams
+
+	ProviderLabel string
+	Version       int
+	Owner         string
 }
 
 // UpdateSecretParams are used to update a secret.
 type UpdateSecretParams struct {
-	RotateInterval *time.Duration
+	RotatePolicy   *secrets.RotatePolicy
+	NextRotateTime *time.Time
+	ExpireTime     *time.Time
 	Description    *string
-	Tags           *map[string]string
+	Label          *string
 	Params         map[string]interface{}
 	Data           secrets.SecretData
 }
 
 func (u *UpdateSecretParams) hasUpdate() bool {
-	return u.RotateInterval != nil ||
+	return u.NextRotateTime != nil ||
+		u.RotatePolicy != nil ||
 		u.Description != nil ||
-		u.Tags != nil ||
+		u.Label != nil ||
+		u.ExpireTime != nil ||
 		len(u.Data) > 0 ||
 		len(u.Params) > 0
 }
@@ -70,23 +71,29 @@ func NewSecretsStore(st *State) *secretsStore {
 type secretMetadataDoc struct {
 	DocID string `bson:"_id"`
 
-	Version        int               `bson:"version"`
-	OwnerTag       string            `bson:"owner-tag"`
-	RotateInterval time.Duration     `bson:"rotate-interval"`
-	Description    string            `bson:"description"`
-	Tags           map[string]string `bson:"tags"`
-	Provider       string            `bson:"provider"`
-	ProviderID     string            `bson:"provider-id"`
-	Revision       int               `bson:"latest-revision"`
-	CreateTime     time.Time         `bson:"create-time"`
-	UpdateTime     time.Time         `bson:"update-time"`
+	Version    int    `bson:"version"`
+	OwnerTag   string `bson:"owner-tag"`
+	Provider   string `bson:"provider"`
+	ProviderID string `bson:"provider-id"`
+
+	Description string `bson:"description"`
+	Label       string `bson:"tags"`
+	Revision    int    `bson:"latest-revision"`
+
+	RotatePolicy   string     `bson:"rotate-policy"`
+	NextRotateTime *time.Time `bson:"next-rotate-time"`
+	ExpireTime     *time.Time `bson:"expire-time"`
+
+	CreateTime time.Time `bson:"create-time"`
+	UpdateTime time.Time `bson:"update-time"`
 }
 
-type secretValueDoc struct {
+type secretRevisionDoc struct {
 	DocID string `bson:"_id"`
 
 	Revision   int            `bson:"revision"`
 	CreateTime time.Time      `bson:"create-time"`
+	ExpireTime time.Time      `bson:"expiry"`
 	Data       secretsDataMap `bson:"data"`
 }
 
@@ -110,58 +117,73 @@ type secretsStore struct {
 	st *State
 }
 
-func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams) (*secretMetadataDoc, error) {
-	interval := p.RotateInterval
-	if interval < 0 {
-		interval = 0
-	}
-	md := &secretMetadataDoc{
-		DocID:          uri.ID,
-		Version:        p.Version,
-		OwnerTag:       p.Owner,
-		RotateInterval: interval,
-		Description:    p.Description,
-		Tags:           p.Tags,
-		Provider:       p.ProviderLabel,
-		ProviderID:     "",
-		Revision:       1,
-		CreateTime:     s.st.nowToTheSecond(),
-		UpdateTime:     s.st.nowToTheSecond(),
-	}
-	return md, nil
+func ptr[T any](v T) *T {
+	return &v
 }
 
-func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *UpdateSecretParams) {
-	if p.RotateInterval != nil {
-		doc.RotateInterval = *p.RotateInterval
+func toValue[T any](v *T) T {
+	if v == nil {
+		return *new(T)
 	}
+	return *v
+}
+
+func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams) (*secretMetadataDoc, error) {
+	md := &secretMetadataDoc{
+		DocID:      uri.ID,
+		Version:    p.Version,
+		OwnerTag:   p.Owner,
+		Provider:   p.ProviderLabel,
+		ProviderID: "",
+		CreateTime: s.st.nowToTheSecond(),
+		UpdateTime: s.st.nowToTheSecond(),
+	}
+	err := s.updateSecretMetadataDoc(md, &p.UpdateSecretParams)
+	return md, err
+}
+
+func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *UpdateSecretParams) error {
 	if p.Description != nil {
-		doc.Description = *p.Description
+		doc.Description = toValue(p.Description)
 	}
-	if p.Tags != nil {
-		doc.Tags = *p.Tags
+	if p.Label != nil {
+		doc.Label = toValue(p.Label)
+	}
+	if p.RotatePolicy != nil {
+		doc.RotatePolicy = string(toValue(p.RotatePolicy))
+	}
+	if p.NextRotateTime != nil {
+		doc.NextRotateTime = ptr(toValue(p.NextRotateTime).Round(time.Second).UTC())
+	}
+	if p.ExpireTime != nil {
+		doc.ExpireTime = ptr(toValue(p.ExpireTime).Round(time.Second).UTC())
 	}
 	if len(p.Data) > 0 {
 		doc.Revision++
 	}
 	doc.UpdateTime = s.st.nowToTheSecond()
+	return nil
 }
 
 func secretRevisionKey(uri *secrets.URI, revision int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, revision)
 }
 
-func (s *secretsStore) secretValueDoc(uri *secrets.URI, revision int, data secrets.SecretData) *secretValueDoc {
+func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, revision int, expireTime *time.Time, data secrets.SecretData) *secretRevisionDoc {
 	dataCopy := make(secretsDataMap)
 	for k, v := range data {
 		dataCopy[k] = v
 	}
-	return &secretValueDoc{
+	doc := &secretRevisionDoc{
 		DocID:      secretRevisionKey(uri, revision),
 		Revision:   revision,
 		CreateTime: s.st.nowToTheSecond(),
 		Data:       dataCopy,
 	}
+	if expireTime != nil {
+		doc.ExpireTime = toValue(expireTime).Round(time.Second).UTC()
+	}
+	return doc
 }
 
 // CreateSecret creates a new secret.
@@ -171,7 +193,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		return nil, errors.Trace(err)
 	}
 	revision := 1
-	valueDoc := s.secretValueDoc(uri, revision, p.Data)
+	valueDoc := s.secretRevisionDoc(uri, revision, p.ExpireTime, p.Data)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if _, err := s.GetSecretValue(uri, revision); err == nil {
@@ -185,13 +207,13 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 				Assert: txn.DocMissing,
 				Insert: *metadataDoc,
 			}, {
-				C:      secretValuesC,
+				C:      secretRevisionsC,
 				Id:     valueDoc.DocID,
 				Assert: txn.DocMissing,
 				Insert: *valueDoc,
 			},
 		}
-		rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotateInterval)
+		rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -222,7 +244,11 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		s.updateSecretMetadataDoc(&metadataDoc, &p)
+		if err := s.updateSecretMetadataDoc(&metadataDoc, &p); err != nil {
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		ops := []txn.Op{
 			{
 				C:      secretMetadataC,
@@ -235,16 +261,16 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 			if _, err := s.GetSecretValue(uri, metadataDoc.Revision); err == nil {
 				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
 			}
-			valueDoc := s.secretValueDoc(uri, metadataDoc.Revision, p.Data)
+			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.Revision, p.ExpireTime, p.Data)
 			ops = append(ops, txn.Op{
-				C:      secretValuesC,
-				Id:     valueDoc.DocID,
+				C:      secretRevisionsC,
+				Id:     revisionDoc.DocID,
 				Assert: txn.DocMissing,
-				Insert: *valueDoc,
+				Insert: *revisionDoc,
 			})
 		}
-		if p.RotateInterval != nil {
-			rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, *p.RotateInterval)
+		if p.RotatePolicy != nil {
+			rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -268,10 +294,12 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 	return &secrets.SecretMetadata{
 		URI:            uri,
 		Version:        doc.Version,
-		RotateInterval: doc.RotateInterval,
+		RotatePolicy:   secrets.RotatePolicy(doc.RotatePolicy),
+		NextRotateTime: doc.NextRotateTime,
+		ExpireTime:     doc.ExpireTime,
 		Description:    doc.Description,
+		Label:          doc.Label,
 		OwnerTag:       doc.OwnerTag,
-		Tags:           doc.Tags,
 		Provider:       doc.Provider,
 		ProviderID:     doc.ProviderID,
 		Revision:       doc.Revision,
@@ -282,10 +310,10 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 
 // GetSecretValue gets the secret value for the specified URL.
 func (s *secretsStore) GetSecretValue(uri *secrets.URI, revision int) (secrets.SecretValue, error) {
-	secretValuesCollection, closer := s.st.db().GetCollection(secretValuesC)
+	secretValuesCollection, closer := s.st.db().GetCollection(secretRevisionsC)
 	defer closer()
 
-	var doc secretValueDoc
+	var doc secretRevisionDoc
 	err := secretValuesCollection.FindId(secretRevisionKey(uri, revision)).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret %q", uri.String())
@@ -346,8 +374,8 @@ type secretRotationDoc struct {
 
 	// These fields are denormalised here so that the watcher
 	// only needs to access this collection.
-	RotateInterval time.Duration `bson:"rotate-interval"`
-	Owner          string        `bson:"owner"`
+	NextRotateTime time.Time `bson:"next-rotate-time"`
+	Owner          string    `bson:"owner"`
 }
 
 func secretGlobalKey(id string) string {
@@ -359,14 +387,17 @@ func secretIDFromGlobalKey(key string) string {
 	return id
 }
 
-func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateInterval time.Duration) ([]txn.Op, error) {
+func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotatePolicy *secrets.RotatePolicy, nextRotateTime *time.Time) ([]txn.Op, error) {
 	secretKey := secretGlobalKey(uri.ID)
-	if rotateInterval <= 0 {
+	if p := toValue(rotatePolicy); p == "" || p == secrets.RotateNever {
 		return []txn.Op{{
 			C:      secretRotateC,
 			Id:     secretKey,
 			Remove: true,
 		}}, nil
+	}
+	if nextRotateTime == nil {
+		return nil, errors.New("must specify a secret rotate time")
 	}
 	secretRotateCollection, closer := s.st.db().GetCollection(secretRotateC)
 	defer closer()
@@ -381,7 +412,7 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateI
 			C:      secretRotateC,
 			Id:     secretKey,
 			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"rotate-interval": rotateInterval}},
+			Update: bson.M{"$set": bson.M{"rotate-time": nextRotateTime}},
 		}}, nil
 	}
 	return []txn.Op{{
@@ -390,9 +421,9 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateI
 		Assert: txn.DocMissing,
 		Insert: secretRotationDoc{
 			DocID:          secretKey,
-			RotateInterval: rotateInterval,
+			NextRotateTime: (*nextRotateTime).Round(time.Second).UTC(),
 			Owner:          owner,
-			LastRotateTime: s.st.nowToTheSecond(),
+			LastRotateTime: s.st.nowToTheSecond().UTC(),
 		},
 	}}, nil
 }
@@ -405,7 +436,7 @@ func (st *State) SecretRotated(uri *secrets.URI, when time.Time) error {
 	secretRotateCollection, closer2 := st.db().GetCollection(secretRotateC)
 	defer closer2()
 
-	when = when.Round(time.Second)
+	when = when.Round(time.Second).UTC()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var metadataDoc secretMetadataDoc
 		err := secretMetadataCollection.FindId(uri.ID).One(&metadataDoc)
@@ -507,8 +538,9 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretRotationChange, 
 			URI:      uri,
 		}
 		details = append(details, corewatcher.SecretRotationChange{
-			URI:            uri,
-			RotateInterval: doc.RotateInterval,
+			URI: uri,
+			// TODO(wallyworld) - fix rotation to work with rotate policy
+			RotateInterval: 0,
 			LastRotateTime: doc.LastRotateTime.UTC(),
 		})
 	}
@@ -555,8 +587,9 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretRotationChang
 			URI:      uri,
 		}
 		details = append(details, corewatcher.SecretRotationChange{
-			URI:            uri,
-			RotateInterval: doc.RotateInterval,
+			URI: uri,
+			// TODO(wallyworld) - fix rotation to work with rotate policy
+			RotateInterval: 0,
 			LastRotateTime: doc.LastRotateTime.UTC(),
 		})
 	}

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -36,6 +38,7 @@ type SecretsManagerSuite struct {
 	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
 	accessSecret           common.GetAuthFunc
 	ownerTag               names.Tag
+	clock                  clock.Clock
 
 	facade *secretsmanager.SecretsManagerAPI
 }
@@ -63,8 +66,10 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	}
 	s.expectAuthUnitAgent()
 
+	s.clock = testclock.NewClock(time.Now())
 	var err error
-	s.facade, err = secretsmanager.NewTestAPI(s.authorizer, s.resources, s.secretsService, s.secretsRotationService, s.accessSecret, s.ownerTag)
+	s.facade, err = secretsmanager.NewTestAPI(
+		s.authorizer, s.resources, s.secretsService, s.secretsRotationService, s.accessSecret, s.ownerTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -82,12 +87,17 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	p := secrets.CreateParams{
-		Version:        secrets.Version,
-		Owner:          "application-mariadb",
-		RotateInterval: time.Hour,
-		Description:    "my secret",
-		Params:         map[string]interface{}{"param": 1},
-		Data:           map[string]string{"foo": "bar"},
+		Version: secrets.Version,
+		Owner:   "application-mariadb",
+		UpsertParams: secrets.UpsertParams{
+			RotatePolicy:   ptr(coresecrets.RotateDaily),
+			NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
+			ExpireTime:     ptr(s.clock.Now()),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			Params:         map[string]interface{}{"param": 1},
+			Data:           map[string]string{"foo": "bar"},
+		},
 	}
 	var gotURI *coresecrets.URI
 	s.secretsService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
@@ -105,9 +115,12 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Args: []params.CreateSecretArg{{
 			OwnerTag: "application-mariadb",
 			UpsertSecretArg: params.UpsertSecretArg{
-				Description: ptr("my secret"),
-				Params:      map[string]interface{}{"param": 1},
-				Data:        map[string]string{"foo": "bar"},
+				RotatePolicy: ptr(coresecrets.RotateDaily),
+				ExpireTime:   ptr(s.clock.Now()),
+				Description:  ptr("my secret"),
+				Label:        ptr("foobar"),
+				Params:       map[string]interface{}{"param": 1},
+				Data:         map[string]string{"foo": "bar"},
 			},
 		}, {
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -135,17 +148,20 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	description := "my secret"
-	p := secrets.UpdateParams{
-		Description: &description,
-		Params:      map[string]interface{}{"param": 1},
-		Data:        map[string]string{"foo": "bar"},
+	p := secrets.UpsertParams{
+		RotatePolicy:   ptr(coresecrets.RotateDaily),
+		NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
+		ExpireTime:     ptr(s.clock.Now()),
+		Description:    ptr("my secret"),
+		Label:          ptr("foobar"),
+		Params:         map[string]interface{}{"param": 1},
+		Data:           map[string]string{"foo": "bar"},
 	}
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	expectURI.ControllerUUID = coretesting.ControllerTag.Id()
 	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).DoAndReturn(
-		func(_ context.Context, uri *coresecrets.URI, p secrets.UpdateParams) (*coresecrets.SecretMetadata, error) {
+		func(_ context.Context, uri *coresecrets.URI, p secrets.UpsertParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
 				URI:      uri,
 				Revision: 2,
@@ -160,9 +176,12 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		Args: []params.UpdateSecretArg{{
 			URI: uri.ShortString(),
 			UpsertSecretArg: params.UpsertSecretArg{
-				Description: &description,
-				Params:      map[string]interface{}{"param": 1},
-				Data:        map[string]string{"foo": "bar"},
+				RotatePolicy: ptr(coresecrets.RotateDaily),
+				ExpireTime:   ptr(s.clock.Now()),
+				Description:  ptr("my secret"),
+				Label:        ptr("foobar"),
+				Params:       map[string]interface{}{"param": 1},
+				Data:         map[string]string{"foo": "bar"},
 			},
 		}, {
 			URI: uri.String(),

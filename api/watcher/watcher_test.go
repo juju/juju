@@ -512,14 +512,21 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertNoChange()
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *watcherSuite) setupSecretRotationWatcher(
 	c *gc.C,
 ) (*secrets.URI, func(corewatcher.SecretRotationChange), func(), func()) {
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
-		Owner:          "application-mysql",
-		RotateInterval: time.Hour,
+		Owner: "application-mysql",
+		UpdateSecretParams: state.UpdateSecretParams{
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(time.Now()),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -565,6 +572,8 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 			c.Assert(changes, gc.HasLen, 1)
 			c.Assert(changes[0].LastRotateTime.Before(time.Now()), jc.IsTrue)
 			changes[0].LastRotateTime = time.Time{}
+			// TODO(wallyworld) - fix rotation to work with rotate policy
+			change.RotateInterval = 0
 			c.Assert(changes[0], jc.DeepEquals, change)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
@@ -585,9 +594,10 @@ func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 	defer stop()
 
 	store := state.NewSecretsStore(s.State)
-	minute := time.Minute
+
 	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
-		RotateInterval: &minute,
+		RotatePolicy:   ptr(secrets.RotateDaily),
+		NextRotateTime: ptr(time.Now()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

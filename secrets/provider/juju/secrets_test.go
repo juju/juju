@@ -54,33 +54,45 @@ func (s *SecretsManagerSuite) TestNewServiceInvalidBackend(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `Juju secret store config missing state backend`)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	service := juju.NewTestService(s.secretsStore)
 
+	now := time.Now()
 	p := secrets.CreateParams{
-		Version:        secrets.Version,
-		ProviderLabel:  juju.Provider,
-		Owner:          "application-app",
-		RotateInterval: time.Hour,
-		Description:    "my secret",
-		Tags:           map[string]string{"hello": "world"},
-		Params:         map[string]interface{}{"param": 1},
-		Data:           map[string]string{"foo": "bar"},
+		Version:       secrets.Version,
+		ProviderLabel: juju.Provider,
+		Owner:         "application-app",
+		UpsertParams: secrets.UpsertParams{
+			RotatePolicy:   ptr(coresecrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			ExpireTime:     ptr(now.Add(time.Hour)),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			Params:         map[string]interface{}{"param": 1},
+			Data:           map[string]string{"foo": "bar"},
+		},
 	}
 	expectedP := state.CreateSecretParams{
-		Version:        p.Version,
-		ProviderLabel:  "juju",
-		Owner:          "application-app",
-		RotateInterval: time.Hour,
-		Description:    "my secret",
-		Tags:           map[string]string{"hello": "world"},
-		Params:         p.Params,
-		Data:           p.Data,
+		Version:       p.Version,
+		ProviderLabel: "juju",
+		Owner:         "application-app",
+		UpdateSecretParams: state.UpdateSecretParams{
+			RotatePolicy:   ptr(coresecrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			ExpireTime:     ptr(now.Add(time.Hour)),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			Params:         map[string]interface{}{"param": 1},
+			Data:           map[string]string{"foo": "bar"},
+		},
 	}
 	uri := coresecrets.NewURI()
-	now := time.Now()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	s.secretsStore.EXPECT().CreateSecret(uri, expectedP).DoAndReturn(
 		func(uri *coresecrets.URI, p state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
@@ -100,30 +112,52 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestCreateSecretMissingNextRotateTime(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	p := secrets.CreateParams{
+		Version:       secrets.Version,
+		ProviderLabel: juju.Provider,
+		Owner:         "application-app",
+		UpsertParams: secrets.UpsertParams{
+			RotatePolicy: ptr(coresecrets.RotateDaily),
+			Data:         map[string]string{"foo": "bar"},
+		},
+	}
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+
+	_, err := service.CreateSecret(context.Background(), uri, p)
+	c.Assert(err, gc.ErrorMatches, "cannot specify a secret rotate policy without a next rotate time")
+}
+
 func (s *SecretsManagerSuite) TestUpdateSecret(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	service := juju.NewTestService(s.secretsStore)
 
-	rotate := time.Hour
-	description := "my secret"
-	tags := map[string]string{"hello": "world"}
-	p := secrets.UpdateParams{
-		RotateInterval: &rotate,
-		Description:    &description,
-		Tags:           &tags,
+	now := time.Now()
+	p := secrets.UpsertParams{
+		RotatePolicy:   ptr(coresecrets.RotateDaily),
+		NextRotateTime: ptr(now.Add(time.Minute)),
+		ExpireTime:     ptr(now.Add(time.Hour)),
+		Description:    ptr("my secret"),
+		Label:          ptr("foobar"),
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
 	}
 	expectedP := state.UpdateSecretParams{
-		RotateInterval: &rotate,
-		Description:    &description,
-		Tags:           &tags,
-		Params:         p.Params,
-		Data:           p.Data,
+		RotatePolicy:   ptr(coresecrets.RotateDaily),
+		NextRotateTime: ptr(now.Add(time.Minute)),
+		ExpireTime:     ptr(now.Add(time.Hour)),
+		Description:    ptr("my secret"),
+		Label:          ptr("foobar"),
+		Params:         map[string]interface{}{"param": 1},
+		Data:           map[string]string{"foo": "bar"},
 	}
 	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
-	now := time.Now()
 	s.secretsStore.EXPECT().UpdateSecret(uri, expectedP).DoAndReturn(
 		func(uri *coresecrets.URI, p state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
@@ -140,6 +174,22 @@ func (s *SecretsManagerSuite) TestUpdateSecret(c *gc.C) {
 		URI:        uri,
 		UpdateTime: now,
 	})
+}
+
+func (s *SecretsManagerSuite) TestUpdateSecretMissingNextRotateTime(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	p := secrets.UpsertParams{
+		RotatePolicy: ptr(coresecrets.RotateDaily),
+		Data:         map[string]string{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+
+	_, err := service.UpdateSecret(context.Background(), uri, p)
+	c.Assert(err, gc.ErrorMatches, "cannot specify a secret rotate policy without a next rotate time")
 }
 
 func (s *SecretsManagerSuite) TestGetSecret(c *gc.C) {

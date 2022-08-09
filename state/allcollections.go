@@ -555,7 +555,7 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
-		secretValuesC: {
+		secretRevisionsC: {
 			global: true,
 		},
 
@@ -676,7 +676,7 @@ const (
 	firewallRulesC       = "firewallRules"
 
 	// Secrets
-	secretMetadataC = "secretMetadata"
-	secretValuesC   = "secretValues"
-	secretRotateC   = "secretRotate"
+	secretMetadataC  = "secretMetadata"
+	secretRevisionsC = "secretRevisions"
+	secretRotateC    = "secretRotate"
 )
