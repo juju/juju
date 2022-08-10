@@ -167,6 +167,46 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	c.Assert(machines.Machines, gc.HasLen, 2)
 }
 
+func (s *AddMachineManagerSuite) TestAddMachinesUnSupportedSeries(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	apiParams := make([]params.AddMachineParams, 2)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []model.MachineJob{model.JobHostUnits},
+		}
+	}
+	apiParams[0].Series = "jammy"
+	apiParams[1].Series = "bionic"
+	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
+	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
+
+	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
+		Series: "jammy",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.HostVolumeParams{
+			{
+				Volume:     state.VolumeParams{Pool: "", Size: 1},
+				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
+			},
+			{
+				Volume:     state.VolumeParams{Pool: "", Size: 1},
+				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
+			},
+			{
+				Volume:     state.VolumeParams{Pool: "", Size: 2},
+				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
+			},
+		},
+	}).Return(&state.Machine{}, nil)
+
+	machines, err := s.api.AddMachines(params.AddMachines{MachineParams: apiParams})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines.Machines, gc.HasLen, 2)
+	c.Assert(machines.Machines[0].Error, gc.IsNil)
+	c.Assert(machines.Machines[1].Error, gc.ErrorMatches, `series "bionic" not supported`)
+}
+
 func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	defer s.setup(c).Finish()
 
