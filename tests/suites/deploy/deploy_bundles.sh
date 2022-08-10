@@ -69,9 +69,6 @@ run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
 	echo "Make a copy of reference yaml"
 	cp ${bundle} "${TEST_DIR}/telegraf_bundle.yaml"
 	if [[ -n ${MODEL_ARCH:-} ]]; then
-		if ! which "yq" >/dev/null 2>&1; then
-			sudo snap install yq --classic --channel latest/stable
-		fi
 		yq -i "
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
@@ -97,10 +94,6 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
 	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
 	juju deploy ${bundle}
-
-	if ! which "yq" >/dev/null 2>&1; then
-		sudo snap install yq --classic --channel latest/stable
-	fi
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
 	influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
