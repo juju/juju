@@ -97,7 +97,8 @@ type ConsumeDetails interface {
 	Close() error
 }
 
-var supportedJujuSeries = series.WorkloadSeries
+// For testing.
+var SupportedJujuSeries = series.WorkloadSeries
 
 type DeployerAPI interface {
 	// APICallCloser is needed for the DeployResourcesFunc.

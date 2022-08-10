@@ -1057,7 +1057,7 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 		supportedSeries = []string{chID.URL.Series}
 	}
 
-	workloadSeries, err := supportedJujuSeries(h.clock.Now(), chSeries, h.modelConfig.ImageStream())
+	workloadSeries, err := SupportedJujuSeries(h.clock.Now(), chSeries, h.modelConfig.ImageStream())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

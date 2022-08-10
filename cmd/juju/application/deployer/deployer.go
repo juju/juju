@@ -338,7 +338,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := supportedJujuSeries(d.clock.Now(), d.series, imageStream)
+		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), d.series, imageStream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -584,7 +584,7 @@ func seriesSelectorRequirements(api ModelConfigGetter, cl jujuclock.Clock, chURL
 	}
 
 	imageStream := modelCfg.ImageStream()
-	workloadSeries, err := supportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
+	workloadSeries, err := SupportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -607,7 +607,7 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
-	workloadSeries, err := supportedJujuSeries(d.clock.Now(), seriesName, imageStream)
+	workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
 	if err != nil {
 		return errors.Trace(err)
 	}

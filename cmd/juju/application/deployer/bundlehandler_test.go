@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
@@ -43,6 +44,8 @@ import (
 )
 
 type BundleDeployRepositorySuite struct {
+	testing.IsolationSuite
+
 	allWatcher     *mocks.MockAllWatch
 	bundleResolver *mocks.MockResolver
 	deployerAPI    *mocks.MockDeployerAPI
@@ -58,6 +61,16 @@ var _ = gc.Suite(&BundleDeployRepositorySuite{})
 func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&SupportedJujuSeries,
+		func(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 }
 
 func (s *BundleDeployRepositorySuite) TearDownTest(_ *gc.C) {
