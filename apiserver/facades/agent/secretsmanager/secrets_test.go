@@ -5,12 +5,12 @@ package secretsmanager_test
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -160,6 +160,8 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	expectURI.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsService.EXPECT().GetSecret(gomock.Any(), &expectURI).Return(
+		&coresecrets.SecretMetadata{OwnerTag: "application-mariadb"}, nil)
 	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).DoAndReturn(
 		func(_ context.Context, uri *coresecrets.URI, p secrets.UpsertParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
@@ -202,23 +204,45 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	// Secret 1 has been consumed before.
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
-	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 1).Return(
+	s.secretsService.EXPECT().GetSecretConsumer(gomock.Any(), uri, "application-mariadb").Return(
+		&coresecrets.SecretConsumerMetadata{Revision: 666}, nil)
+
+	// Secret 2 has not been consumed before.
+	data2 := map[string]string{"foo": "bar2"}
+	val2 := coresecrets.NewSecretValue(data2)
+	uri2 := coresecrets.NewURI()
+	uri2.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsService.EXPECT().GetSecretConsumer(gomock.Any(), uri2, "application-mariadb").Return(
+		nil, errors.NotFoundf("secret"))
+	s.secretsService.EXPECT().GetSecret(
+		gomock.Any(), uri2).Return(&coresecrets.SecretMetadata{Revision: 668}, nil)
+	s.secretsService.EXPECT().SaveSecretConsumer(
+		gomock.Any(), uri2, "application-mariadb", &coresecrets.SecretConsumerMetadata{Revision: 668}).Return(nil)
+	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(
 		val, nil,
+	)
+	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri2, 668).Return(
+		val2, nil,
 	)
 
 	results, err := s.facade.GetSecretValues(params.GetSecretArgs{
 		Args: []params.GetSecretArg{{
 			URI: uri.ShortString(),
+		}, {
+			URI: uri2.ShortString(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.SecretValueResults{
 		Results: []params.SecretValueResult{{
 			Data: data,
+		}, {
+			Data: data2,
 		}},
 	})
 }
@@ -230,7 +254,9 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
-	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 1).Return(
+	s.secretsService.EXPECT().GetSecretConsumer(gomock.Any(), uri, "application-mariadb").Return(
+		&coresecrets.SecretConsumerMetadata{Revision: 666}, nil)
+	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(
 		val, nil,
 	)
 

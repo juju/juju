@@ -147,3 +147,14 @@ type SecretMetadata struct {
 	CreateTime     time.Time
 	UpdateTime     time.Time
 }
+
+// SecretConsumerMetadata holds metadata about a secret
+// for a consumer of the secret.
+type SecretConsumerMetadata struct {
+	// Label is used when notifying the consumer
+	// about changes to the secret.
+	Label string
+	// Revision is current revision the
+	// consumer wants to read.
+	Revision int
+}

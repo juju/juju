@@ -65,6 +65,21 @@ func (mr *MockSecretsStoreMockRecorder) GetSecret(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretsStore)(nil).GetSecret), arg0)
 }
 
+// GetSecretConsumer mocks base method.
+func (m *MockSecretsStore) GetSecretConsumer(arg0 *secrets.URI, arg1 string) (*secrets.SecretConsumerMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretConsumer indicates an expected call of GetSecretConsumer.
+func (mr *MockSecretsStoreMockRecorder) GetSecretConsumer(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsStore)(nil).GetSecretConsumer), arg0, arg1)
+}
+
 // GetSecretValue mocks base method.
 func (m *MockSecretsStore) GetSecretValue(arg0 *secrets.URI, arg1 int) (secrets.SecretValue, error) {
 	m.ctrl.T.Helper()
@@ -93,6 +108,20 @@ func (m *MockSecretsStore) ListSecrets(arg0 state.SecretsFilter) ([]*secrets.Sec
 func (mr *MockSecretsStoreMockRecorder) ListSecrets(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsStore)(nil).ListSecrets), arg0)
+}
+
+// SaveSecretConsumer mocks base method.
+func (m *MockSecretsStore) SaveSecretConsumer(arg0 *secrets.URI, arg1 string, arg2 *secrets.SecretConsumerMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveSecretConsumer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveSecretConsumer indicates an expected call of SaveSecretConsumer.
+func (mr *MockSecretsStoreMockRecorder) SaveSecretConsumer(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSecretConsumer", reflect.TypeOf((*MockSecretsStore)(nil).SaveSecretConsumer), arg0, arg1, arg2)
 }
 
 // UpdateSecret mocks base method.

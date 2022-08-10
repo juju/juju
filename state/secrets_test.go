@@ -278,6 +278,62 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	_, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	md := &secrets.SecretConsumerMetadata{
+		Label:    "foobar",
+		Revision: 666,
+	}
+	err = s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+	_, err = s.store.GetSecretConsumer(uri, "application-mysql")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	md := &secrets.SecretConsumerMetadata{
+		Label:    "foobar",
+		Revision: 666,
+	}
+	err := s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+	md.Revision = 668
+	err = s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err = s.store.GetSecretConsumer(uri, "application-mariadb")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+}
+
+func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	md := &secrets.SecretConsumerMetadata{
+		Label:    "foobar",
+		Revision: 666,
+	}
+	state.SetBeforeHooks(c, s.State, func() {
+		err := s.store.SaveSecretConsumer(uri, "application-mariadb", &secrets.SecretConsumerMetadata{Revision: 668})
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	err := s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	c.Assert(err, jc.ErrorIsNil)
+	md2, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md2, jc.DeepEquals, md)
+}
+
 func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	uri := secrets.NewURI()
 	uri.ControllerUUID = s.State.ControllerUUID()

@@ -559,10 +559,17 @@ func allCollections() CollectionSchema {
 			global: true,
 		},
 
+		secretConsumersC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"consumer-tag"},
+			}},
+		},
+
 		secretRotateC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"owner"},
+				Key: []string{"owner-tag"},
 			}},
 		},
 
@@ -678,5 +685,6 @@ const (
 	// Secrets
 	secretMetadataC  = "secretMetadata"
 	secretRevisionsC = "secretRevisions"
+	secretConsumersC = "secretConsumers"
 	secretRotateC    = "secretRotate"
 )

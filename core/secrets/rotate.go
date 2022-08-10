@@ -10,15 +10,13 @@ import "time"
 type RotatePolicy string
 
 const (
-	RotateNever       = RotatePolicy("never")
-	RotateHourly      = RotatePolicy("hourly")
-	RotateDaily       = RotatePolicy("daily")
-	RotateWeekly      = RotatePolicy("weekly")
-	RotateHalfMonthly = RotatePolicy("half-monthly")
-	RotateMonthly     = RotatePolicy("monthly")
-	RotateQuarterly   = RotatePolicy("quarterly")
-	RotateHalfYearly  = RotatePolicy("half-yearly")
-	RotateYearly      = RotatePolicy("yearly")
+	RotateNever     = RotatePolicy("never")
+	RotateHourly    = RotatePolicy("hourly")
+	RotateDaily     = RotatePolicy("daily")
+	RotateWeekly    = RotatePolicy("weekly")
+	RotateMonthly   = RotatePolicy("monthly")
+	RotateQuarterly = RotatePolicy("quarterly")
+	RotateYearly    = RotatePolicy("yearly")
 )
 
 func (p RotatePolicy) String() string {
@@ -31,9 +29,8 @@ func (p RotatePolicy) String() string {
 // IsValid returns true if v is a valid rotate policy.
 func (p RotatePolicy) IsValid() bool {
 	switch p {
-	case RotateNever, RotateHourly, RotateDaily, RotateWeekly, RotateHalfMonthly,
-		RotateMonthly, RotateQuarterly, RotateHalfYearly,
-		RotateYearly:
+	case RotateNever, RotateHourly, RotateDaily, RotateWeekly,
+		RotateMonthly, RotateQuarterly, RotateYearly:
 		return true
 	}
 	return false
@@ -57,14 +54,10 @@ func (p RotatePolicy) NextRotateTime(lastRotateTime *time.Time) *time.Time {
 		result = lastRotated.AddDate(0, 0, 1)
 	case RotateWeekly:
 		result = lastRotated.AddDate(0, 0, 7)
-	case RotateHalfMonthly:
-		result = lastRotated.AddDate(0, 0, 14)
 	case RotateMonthly:
 		result = lastRotated.AddDate(0, 1, 0)
 	case RotateQuarterly:
 		result = lastRotated.AddDate(0, 3, 0)
-	case RotateHalfYearly:
-		result = lastRotated.AddDate(0, 6, 0)
 	case RotateYearly:
 		result = lastRotated.AddDate(1, 0, 0)
 	}

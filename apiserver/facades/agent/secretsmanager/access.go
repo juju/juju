@@ -7,9 +7,10 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	coresecrets "github.com/juju/juju/core/secrets"
 )
 
-func secretAccessor(agentAppName string) common.GetAuthFunc {
+func secretOwner(agentAppName string) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
 		return func(secretOwnerTag names.Tag) bool {
 			// We currently only support secrets owned by applications.
@@ -19,4 +20,9 @@ func secretAccessor(agentAppName string) common.GetAuthFunc {
 			return agentAppName == secretOwnerTag.Id()
 		}, nil
 	}
+}
+
+func (s *SecretsManagerAPI) checkCanRead(uri *coresecrets.URI) error {
+	// TODO(wallyworld)
+	return nil
 }

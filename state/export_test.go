@@ -1073,7 +1073,7 @@ func GetSecretRotateTime(c *gc.C, st *State, id string) time.Time {
 	defer closer()
 
 	var doc secretRotationDoc
-	err := secretRotateCollection.FindId(secretGlobalKey(id)).One(&doc)
+	err := secretRotateCollection.FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.LastRotateTime.UTC()
 }
