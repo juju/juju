@@ -937,6 +937,35 @@ func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
 	s.assertLocalRevision(c, 42, myriakPath)
 }
 
+func (s *RefreshSuccessStateSuite) TestCharmPathNotFound(c *gc.C) {
+	myriakPath := filepath.Join(c.MkDir(), "riak")
+	_, err := os.Stat(myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*file does not exist")
+}
+
+func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
+	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
+
+	// Change the revision to 42 and upgrade to it with explicit revision.
+	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := s.assertUpgraded(c, s.riak, 42, false)
+	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
+	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *RefreshSuccessStateSuite) TestSwitchToLocalNotFound(c *gc.C) {
+	myriakPath := filepath.Join(c.MkDir(), "riak")
+	_, err := os.Stat(myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*file does not exist")
+}
+
 func (s *RefreshSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	// Revision 7 is running to start with.
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")

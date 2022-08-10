@@ -349,8 +349,11 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	// Ensure that the switchURL (if provided) always contains a schema. If
 	// one is missing inject the default value we selected above.
 	if c.SwitchURL != "" {
-		if c.SwitchURL, err = charm.EnsureSchema(c.SwitchURL, defaultCharmSchema); err != nil {
-			return errors.Trace(err)
+		// Don't prepend `ch:` when referring to a local charm
+		if !refresher.IsLocalURL(c.SwitchURL) {
+			if c.SwitchURL, err = charm.EnsureSchema(c.SwitchURL, defaultCharmSchema); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
