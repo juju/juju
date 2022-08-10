@@ -242,7 +242,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	agent := params.Entity{Tag: s.rawMachine.Tag().String()}
 
 	// The machine must have its existing tools set before we query for the
@@ -284,7 +284,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawMachine.Tag().String(),
 			Tools: &params.Version{
-				Version: coretesting.CurrentVersion(c),
+				Version: coretesting.CurrentVersion(),
 			},
 		}},
 	}
@@ -296,7 +296,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	args := params.EntitiesVersion{
@@ -378,7 +378,7 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	// In order to call SetModelAgentVersion we have to first SetTools on
 	// all the existing machines
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	err := s.apiMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rawMachine.SetAgentVersion(current)

@@ -330,7 +330,7 @@ func GetExportedFields(arg interface{}) set.Strings {
 }
 
 // CurrentVersion returns the current Juju version, asserting on error.
-func CurrentVersion(c *gc.C) version.Binary {
+func CurrentVersion() version.Binary {
 	return version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),

@@ -61,7 +61,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 	agenttest.InstallFakeEnsureMongo(s)
 
-	s.oldVersion = coretesting.CurrentVersion(c)
+	s.oldVersion = coretesting.CurrentVersion()
 	s.oldVersion.Major--
 
 	// Don't wait so long in tests.

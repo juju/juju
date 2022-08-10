@@ -194,7 +194,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
-	currentVersion := coretesting.CurrentVersion(c)
+	currentVersion := coretesting.CurrentVersion()
 	currentVersion.Major = 2
 	currentVersion.Minor = 3
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)

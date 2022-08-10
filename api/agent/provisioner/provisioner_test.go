@@ -774,7 +774,7 @@ func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
 }
 
 func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	var toolsList = coretools.List{&coretools.Tools{Version: current}}
 	var called bool
 	var a string

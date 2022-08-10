@@ -98,7 +98,7 @@ func (s *UpgradeControllerBaseSuite) TestUpgradeWithRealUpload(c *gc.C) {
 	_, cmd := s.upgradeControllerCommand(c, nil)
 	_, err := cmdtesting.RunCommand(c, cmd, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
-	vers := coretesting.CurrentVersion(c)
+	vers := coretesting.CurrentVersion()
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
 }
