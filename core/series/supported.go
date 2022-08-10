@@ -141,7 +141,6 @@ func (s *supportedInfo) controllerSeries() []string {
 			continue
 		}
 		if version.ESMSupported || version.Supported {
-			logger.Criticalf("controllerSeries namedSeries.Name.String() %q, %#v", namedSeries.Name.String(), version)
 			result = append(result, namedSeries.Name.String())
 		}
 	}
