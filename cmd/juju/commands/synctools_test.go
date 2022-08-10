@@ -177,7 +177,7 @@ func (s *syncToolSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	defer ctrl.Finish()
 	fakeAPI := mocks.NewMockSyncToolAPI(ctrl)
 
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	uploadToolsErr := errors.New("uh oh")
 	fakeAPI.EXPECT().UploadTools(bytes.NewReader([]byte("abc")), current).Return(nil, uploadToolsErr)
 

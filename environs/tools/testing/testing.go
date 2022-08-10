@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -35,14 +36,16 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func GetMockBundleTools(c *gc.C, expectedForceVersion version.Number) tools.BundleToolsFunc {
+func GetMockBundleTools(expectedForceVersion version.Number) tools.BundleToolsFunc {
 	return func(
 		build bool, w io.Writer,
 		getForceVersion func(version.Number) version.Number,
 	) (version.Binary, version.Number, bool, string, error) {
-		vers := coretesting.CurrentVersion(c)
+		vers := coretesting.CurrentVersion()
 		forceVersion := getForceVersion(vers.Number)
-		c.Assert(forceVersion, jc.DeepEquals, expectedForceVersion)
+		if forceVersion.Compare(expectedForceVersion) != 0 {
+			return version.Binary{}, version.Number{}, false, "", errors.Errorf("%#v != expected %#v", forceVersion, expectedForceVersion)
+		}
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
 		return vers, forceVersion, false, sha256Hash, nil
 	}
@@ -55,7 +58,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
 		build bool, stream string,
 		getForceVersion func(version.Number) version.Number,
 	) (*sync.BuiltAgent, error) {
-		vers := coretesting.CurrentVersion(c)
+		vers := coretesting.CurrentVersion()
 		vers.Number = getForceVersion(vers.Number)
 
 		tgz, checksum := coretesting.TarGz(

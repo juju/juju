@@ -224,11 +224,11 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 func (s *uploadSuite) patchBundleTools(c *gc.C, v version.Number) {
 	// Mock out building of tools. Sync should not care about the contents
 	// of tools archives, other than that they hash correctly.
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, v))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(v))
 }
 
 func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
-	c.Assert(v, gc.Equals, coretesting.CurrentVersion(c))
+	c.Assert(v, gc.Equals, coretesting.CurrentVersion())
 }
 
 func (s *uploadSuite) TearDownTest(c *gc.C) {
@@ -269,7 +269,7 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 		func(version.Number) version.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion(c))
+	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion())
 }
 
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
@@ -309,7 +309,7 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
 	// Reported version from build call matches the real jujud version.
-	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion(c))
+	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion())
 }
 
 func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOSTypes []string, stream string) {
@@ -408,7 +408,7 @@ func (s *badBuildSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	c.Assert(v, gc.Equals, current)
 }
 
@@ -422,7 +422,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	c.Assert(sha256Hash, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, jujuversion.Current))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(jujuversion.Current))
 
 	// Test that BundleTools func passes after it is
 	// mocked out
@@ -435,7 +435,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 
 func (s *badBuildSuite) patchExecCommand(c *gc.C) {
 	execCommand := s.GetExecCommand(jujutesting.PatchExecConfig{
-		Stdout: coretesting.CurrentVersion(c).String(),
+		Stdout: coretesting.CurrentVersion().String(),
 		Args:   make(chan []string, 2),
 	})
 	s.PatchValue(&envtools.ExecCommand, execCommand)
@@ -453,8 +453,8 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 
 	// Test that BuildAgentTarball func passes after BundleTools func is
 	// mocked out
-	forceVersion := coretesting.CurrentVersion(c).Number
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, forceVersion))
+	forceVersion := coretesting.CurrentVersion().Number
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(forceVersion))
 	builtTools, err = sync.BuildAgentTarball(true, "released",
 		func(version.Number) version.Number { return forceVersion },
 	)
@@ -575,7 +575,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 		"released",
 		"released",
 		&coretools.Tools{
-			Version: coretesting.CurrentVersion(c),
+			Version: coretesting.CurrentVersion(),
 			Size:    7,
 			SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
 		}, []byte("content"))

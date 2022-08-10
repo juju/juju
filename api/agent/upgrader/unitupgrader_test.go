@@ -76,19 +76,19 @@ func (s *unitUpgraderSuite) addMachineApplicationCharmAndUnit(c *gc.C, appName s
 }
 
 func (s *unitUpgraderSuite) TestSetVersionWrongUnit(c *gc.C) {
-	err := s.st.SetVersion("unit-wordpress-42", testing.CurrentVersion(c))
+	err := s.st.SetVersion("unit-wordpress-42", testing.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitUpgraderSuite) TestSetVersionNotUnit(c *gc.C) {
-	err := s.st.SetVersion("foo-42", testing.CurrentVersion(c))
+	err := s.st.SetVersion("foo-42", testing.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	agentTools, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
@@ -115,7 +115,7 @@ func (s *unitUpgraderSuite) TestToolsNotUnit(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestTools(c *gc.C) {
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
 	s.rawMachine.SetAgentVersion(current)
@@ -162,7 +162,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionNotUnit(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersion(c *gc.C) {
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
 	s.rawMachine.SetAgentVersion(current)

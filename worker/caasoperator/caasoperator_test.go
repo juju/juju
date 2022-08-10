@@ -291,7 +291,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "WatchContainerStart", "SetStatus", "Watch", "Charm", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
-	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion(c))
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion())
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "(?:juju-pod-init|)")
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
@@ -521,7 +521,7 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "WatchContainerStart", "SetStatus", "Watch", "Charm", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
-	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion(c))
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion())
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "(?:juju-pod-init|)")
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
@@ -566,7 +566,7 @@ func (s *WorkerSuite) TestOperatorNoWaitContainerStart(c *gc.C) {
 
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
-	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion(c))
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion())
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 5, "Watch", "gitlab")
 }
