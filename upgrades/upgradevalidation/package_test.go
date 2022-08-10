@@ -25,6 +25,4 @@ var (
 	CheckMongoStatusForControllerUpgrade        = checkMongoStatusForControllerUpgrade
 	CheckMongoVersionForControllerModel         = checkMongoVersionForControllerModel
 	GetCheckForLXDVersion                       = getCheckForLXDVersion
-
-	MinLXDVersion = minLXDVersion
 )

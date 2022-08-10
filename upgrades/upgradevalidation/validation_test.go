@@ -383,9 +383,7 @@ func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType 
 		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
-	blocker, err := upgradevalidation.GetCheckForLXDVersion(
-		cloudSpec, upgradevalidation.MinLXDVersion,
-	)("", nil, nil, nil)
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec)("", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.IsNil)
 }
@@ -410,9 +408,7 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionSkippedForNonLXDCloud(
 		},
 	)
 
-	blocker, err := upgradevalidation.GetCheckForLXDVersion(
-		environscloudspec.CloudSpec{Type: "foo"}, upgradevalidation.MinLXDVersion,
-	)("", nil, nil, nil)
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(environscloudspec.CloudSpec{Type: "foo"})("", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.IsNil)
 }
@@ -435,9 +431,7 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 		server.EXPECT().ServerVersion().Return("5.1"),
 	)
 
-	blocker, err := upgradevalidation.GetCheckForLXDVersion(
-		cloudSpec, upgradevalidation.MinLXDVersion,
-	)("", nil, nil, nil)
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec)("", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
 }
