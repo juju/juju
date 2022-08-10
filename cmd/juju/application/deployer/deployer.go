@@ -266,10 +266,6 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot deploy bundle")
 	}
-	if err = handleUnmarshallError(ds.Parts()); err != nil && !d.force {
-		return nil, errors.Annotate(err, "cannot deploy bundle, invalid fields")
-	}
-
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -286,22 +282,6 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		Series:       platform.Series,
 	}
 	return &localBundle{deployBundle: db}, nil
-}
-
-func handleUnmarshallError(parts []*charm.BundleDataPart) error {
-	messages := set.NewStrings()
-	for _, part := range parts {
-		if part == nil {
-			continue
-		}
-		if part.UnmarshallError != nil {
-			messages.Add(part.UnmarshallError.Error())
-		}
-	}
-	if messages.IsEmpty() {
-		return nil
-	}
-	return errors.New(strings.Join(messages.Values(), "\n"))
 }
 
 // newDeployBundle returns the config needed to eventually call

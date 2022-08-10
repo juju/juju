@@ -235,54 +235,6 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local bundle from: %s", bundlePath))
 }
 
-func (s *deployerSuite) TestGetDeployerLocalBundleStrict(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.testGetDeployerLocalBundleStrict(c, false)
-	c.Assert(err.Error(), gc.Equals, ("cannot deploy bundle, invalid fields: unmarshal document 0: yaml: unmarshal errors:\n  line 3: field descriptn not found in bundle\n  line 8: field contstraints not found in applications"))
-}
-
-func (s *deployerSuite) TestGetDeployerLocalBundleStrictUseForce(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	deployer, err := s.testGetDeployerLocalBundleStrict(c, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Matches, "deploy local bundle from: .*")
-
-}
-
-func (s *deployerSuite) testGetDeployerLocalBundleStrict(c *gc.C, force bool) (Deployer, error) {
-	s.expectFilesystem()
-
-	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic"
-	cfg.FlagSet = &gnuflag.FlagSet{}
-	cfg.Force = force
-	s.expectModelType()
-
-	content := `
-      series: xenial
-      descriptn: bundle to fail strict parsing
-      applications:
-          wordpress:
-              charm: wordpress
-              num_units: 1
-              contstraints: "mem=8G"
-          mysql:
-              charm: mysql
-              num_units: 2
-      relations:
-          - ["wordpress:db", "mysql:server"]
-`
-
-	bundlePath := s.makeBundleDir(c, content)
-	s.expectStat(bundlePath, nil)
-	cfg.CharmOrBundle = bundlePath
-
-	factory := s.newDeployerFactory()
-	return factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
-}
-
 func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
 	bundle := charm.MustParseURL("cs:test-bundle")
 	cfg := s.basicDeployerConfig()
