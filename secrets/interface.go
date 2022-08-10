@@ -80,12 +80,6 @@ type SecretsService interface {
 	// GetSecret returns the metadata for the specified secret.
 	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
 
-	// GetSecretConsumer returns metadata about the consumer of a secret.
-	GetSecretConsumer(context.Context, *secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
-
-	// SaveSecretConsumer saves metadata about the consumer of a secret.
-	SaveSecretConsumer(context.Context, *secrets.URI, string, *secrets.SecretConsumerMetadata) error
-
 	// GetSecretValue returns the value of the specified secret.
 	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, error)
 

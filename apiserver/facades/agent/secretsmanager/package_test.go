@@ -22,6 +22,8 @@ func TestPackage(t *testing.T) {
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretservice.go github.com/juju/juju/secrets SecretsService
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationservice.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsRotation
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationwatcher.go github.com/juju/juju/state SecretsRotationWatcher
 
@@ -29,9 +31,10 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	service secrets.SecretsService,
+	consumer SecretsConsumer,
 	secretsRotation SecretsRotation,
 	manageSecret common.GetAuthFunc,
-	ownerTag names.Tag,
+	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
@@ -39,11 +42,12 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authTag:         ownerTag,
+		authTag:         authTag,
 		controllerUUID:  coretesting.ControllerTag.Id(),
 		modelUUID:       coretesting.ModelTag.Id(),
 		resources:       resources,
 		secretsService:  service,
+		secretsConsumer: consumer,
 		secretsRotation: secretsRotation,
 		manageSecret:    manageSecret,
 		clock:           clock,

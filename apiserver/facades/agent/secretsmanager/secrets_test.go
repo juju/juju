@@ -34,10 +34,12 @@ type SecretsManagerSuite struct {
 	resources  *facademocks.MockResources
 
 	secretsService         *mocks.MockSecretsService
+	secretsConsumer        *mocks.MockSecretsConsumer
+	secretsWatcher         *mocks.MockStringsWatcher
 	secretsRotationService *mocks.MockSecretsRotation
 	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
 	accessSecret           common.GetAuthFunc
-	ownerTag               names.Tag
+	authTag                names.Tag
 	clock                  clock.Clock
 
 	facade *secretsmanager.SecretsManagerAPI
@@ -56,12 +58,15 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.resources = facademocks.NewMockResources(ctrl)
 
 	s.secretsService = mocks.NewMockSecretsService(ctrl)
+	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
+	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.secretsRotationService = mocks.NewMockSecretsRotation(ctrl)
 	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
-	s.ownerTag = names.NewApplicationTag("mariadb")
+	s.authTag = names.NewUnitTag("mariadb/0")
 	s.accessSecret = func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			return tag.Id() == s.ownerTag.Id()
+			appName, _ := names.UnitApplication(s.authTag.Id())
+			return tag.Id() == appName
 		}, nil
 	}
 	s.expectAuthUnitAgent()
@@ -69,7 +74,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Now())
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.secretsService, s.secretsRotationService, s.accessSecret, s.ownerTag, s.clock)
+		s.authorizer, s.resources, s.secretsService, s.secretsConsumer, s.secretsRotationService, s.accessSecret, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -209,20 +214,20 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
-	s.secretsService.EXPECT().GetSecretConsumer(gomock.Any(), uri, "application-mariadb").Return(
-		&coresecrets.SecretConsumerMetadata{Revision: 666}, nil)
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, "unit-mariadb-0").Return(
+		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666}, nil)
 
 	// Secret 2 has not been consumed before.
 	data2 := map[string]string{"foo": "bar2"}
 	val2 := coresecrets.NewSecretValue(data2)
 	uri2 := coresecrets.NewURI()
 	uri2.ControllerUUID = coretesting.ControllerTag.Id()
-	s.secretsService.EXPECT().GetSecretConsumer(gomock.Any(), uri2, "application-mariadb").Return(
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri2, "unit-mariadb-0").Return(
 		nil, errors.NotFoundf("secret"))
 	s.secretsService.EXPECT().GetSecret(
 		gomock.Any(), uri2).Return(&coresecrets.SecretMetadata{Revision: 668}, nil)
-	s.secretsService.EXPECT().SaveSecretConsumer(
-		gomock.Any(), uri2, "application-mariadb", &coresecrets.SecretConsumerMetadata{Revision: 668}).Return(nil)
+	s.secretsConsumer.EXPECT().SaveSecretConsumer(
+		uri2, "unit-mariadb-0", &coresecrets.SecretConsumerMetadata{CurrentRevision: 668}).Return(nil)
 	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(
 		val, nil,
 	)
@@ -230,8 +235,8 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 		val2, nil,
 	)
 
-	results, err := s.facade.GetSecretValues(params.GetSecretArgs{
-		Args: []params.GetSecretArg{{
+	results, err := s.facade.GetSecretValues(params.GetSecretValueArgs{
+		Args: []params.GetSecretValueArg{{
 			URI: uri.ShortString(),
 		}, {
 			URI: uri2.ShortString(),
@@ -254,14 +259,14 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
-	s.secretsService.EXPECT().GetSecretConsumer(gomock.Any(), uri, "application-mariadb").Return(
-		&coresecrets.SecretConsumerMetadata{Revision: 666}, nil)
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, "unit-mariadb-0").Return(
+		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666}, nil)
 	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(
 		val, nil,
 	)
 
-	results, err := s.facade.GetSecretValues(params.GetSecretArgs{
-		Args: []params.GetSecretArg{{
+	results, err := s.facade.GetSecretValues(params.GetSecretValueArgs{
+		Args: []params.GetSecretValueArg{{
 			URI: uri.String(),
 		}},
 	})
@@ -269,6 +274,37 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.SecretValueResults{
 		Results: []params.SecretValueResult{{
 			Data: data,
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestWatchSecretsChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges("unit-mariadb-0").Return(
+		s.secretsWatcher,
+	)
+	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
+
+	uri := coresecrets.NewURI()
+	watchChan := make(chan []string, 1)
+	watchChan <- []string{uri.String()}
+	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
+
+	result, err := s.facade.WatchSecretsChanges(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "unit-mariadb-0",
+		}, {
+			Tag: "unit-foo-0",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{{
+			StringsWatcherId: "1",
+			Changes:          []string{uri.String()},
+		}, {
+			Error: &params.Error{Code: "unauthorized access", Message: "permission denied"},
 		}},
 	})
 }

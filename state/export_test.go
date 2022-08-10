@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -201,6 +202,16 @@ func ControllerRefCount(st *State, controllerUUID string) (int, error) {
 
 	key := externalControllerRefCountKey(controllerUUID)
 	return nsRefcounts.read(refcounts, key)
+}
+
+func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction([]txn.Op{incOp})
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {

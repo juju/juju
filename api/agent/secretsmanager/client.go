@@ -100,7 +100,7 @@ func (c *Client) Update(uri string, cfg *secrets.SecretConfig, value secrets.Sec
 
 // GetValue returns the value of a secret.
 func (c *Client) GetValue(uri, label string, update, peek bool) (secrets.SecretValue, error) {
-	arg := params.GetSecretArg{
+	arg := params.GetSecretValueArg{
 		Label:  label,
 		Update: update,
 		Peek:   peek,
@@ -113,8 +113,8 @@ func (c *Client) GetValue(uri, label string, update, peek bool) (secrets.SecretV
 
 	var results params.SecretValueResults
 
-	if err := c.facade.FacadeCall("GetSecretValues", params.GetSecretArgs{
-		Args: []params.GetSecretArg{arg},
+	if err := c.facade.FacadeCall("GetSecretValues", params.GetSecretValueArgs{
+		Args: []params.GetSecretValueArg{arg},
 	}, &results); err != nil {
 		return nil, errors.Trace(err)
 	}

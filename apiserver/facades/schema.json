@@ -38581,7 +38581,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/GetSecretArgs"
+                            "$ref": "#/definitions/GetSecretValueArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/SecretValueResults"
@@ -38612,6 +38612,18 @@
                         }
                     },
                     "description": "UpdateSecrets updates the specified secrets."
+                },
+                "WatchSecretsChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
                 },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
@@ -38764,7 +38776,7 @@
                         "results"
                     ]
                 },
-                "GetSecretArg": {
+                "GetSecretValueArg": {
                     "type": "object",
                     "properties": {
                         "label": {
@@ -38785,13 +38797,13 @@
                         "uri"
                     ]
                 },
-                "GetSecretArgs": {
+                "GetSecretValueArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/GetSecretArg"
+                                "$ref": "#/definitions/GetSecretValueArg"
                             }
                         }
                     },
@@ -38944,6 +38956,42 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/StringResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
                             }
                         }
                     },

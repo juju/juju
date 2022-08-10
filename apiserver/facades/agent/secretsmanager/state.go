@@ -15,3 +15,10 @@ type SecretsRotation interface {
 	WatchSecretsRotationChanges(owner string) state.SecretsRotationWatcher
 	SecretRotated(uri *secrets.URI, when time.Time) error
 }
+
+// SecretsConsumer instances provide secret consumer apis.
+type SecretsConsumer interface {
+	GetSecretConsumer(*secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
+	SaveSecretConsumer(*secrets.URI, string, *secrets.SecretConsumerMetadata) error
+	WatchConsumedSecretsChanges(string) state.StringsWatcher
+}

@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -209,7 +210,124 @@ func (s *SecretsSuite) TestUpdateData(c *gc.C) {
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		Data: newData,
 	})
+}
 
+func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		ProviderLabel: "juju",
+		Version:       1,
+		UpdateSecretParams: state.UpdateSecretParams{
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	cmd := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: 1,
+	}
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	newData := map[string]string{"foo": "bar", "hello": "world"}
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		Data: newData,
+	})
+	cmd, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd, jc.DeepEquals, &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: 1,
+		LatestRevision:  2,
+	})
+}
+
+func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		ProviderLabel: "juju",
+		Version:       1,
+		UpdateSecretParams: state.UpdateSecretParams{
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	cmd := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: 1,
+	}
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", cmd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.SetBeforeHooks(c, s.State, func() {
+		err = s.State.SaveSecretConsumer(uri, "unit-mysql-0", cmd)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	newData := map[string]string{"foo": "bar", "hello": "world"}
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		Data: newData,
+	})
+	cmd, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.LatestRevision, gc.Equals, 2)
+	cmd, err = s.State.GetSecretConsumer(uri, "unit-mysql-0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.LatestRevision, gc.Equals, 2)
+}
+
+func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		ProviderLabel: "juju",
+		Version:       1,
+		UpdateSecretParams: state.UpdateSecretParams{
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	cmd := &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: 1,
+	}
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SaveSecretConsumer(uri, "unit-mysql-0", cmd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.SetBeforeHooks(c, s.State, func() {
+		consColl, closer := state.GetCollection(s.State, "secretConsumers")
+		defer closer()
+		err := consColl.Writeable().RemoveId(state.DocID(s.State, fmt.Sprintf("secret#%s#unit-mysql-0", uri.ID)))
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = state.IncSecretConsumerRefCount(s.State, uri, 1)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	newData := map[string]string{"foo": "bar", "hello": "world"}
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		Data: newData,
+	})
+	cmd, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.LatestRevision, gc.Equals, 2)
+	_, err = s.State.GetSecretConsumer(uri, "unit-mysql-0")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMetadata, expectedRevision int, update state.UpdateSecretParams) {
@@ -279,57 +397,85 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
 	uri := secrets.NewURI()
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
 	uri.ControllerUUID = s.State.ControllerUUID()
-	_, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+
+	_, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	md := &secrets.SecretConsumerMetadata{
-		Label:    "foobar",
-		Revision: 666,
+		Label:           "foobar",
+		CurrentRevision: 666,
 	}
-	err = s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+	md2, err := s.State.GetSecretConsumer(uri, "unit-mariadb-0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
-	_, err = s.store.GetSecretConsumer(uri, "application-mysql")
+	_, err = s.State.GetSecretConsumer(uri, "unit-mysql-0")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
 	uri := secrets.NewURI()
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
 	uri.ControllerUUID = s.State.ControllerUUID()
 	md := &secrets.SecretConsumerMetadata{
-		Label:    "foobar",
-		Revision: 666,
+		Label:           "foobar",
+		CurrentRevision: 666,
 	}
-	err := s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+	md2, err := s.State.GetSecretConsumer(uri, "unit-mariadb-0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
-	md.Revision = 668
-	err = s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	md.CurrentRevision = 668
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err = s.store.GetSecretConsumer(uri, "application-mariadb")
+	md2, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
 	uri := secrets.NewURI()
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
 	uri.ControllerUUID = s.State.ControllerUUID()
 	md := &secrets.SecretConsumerMetadata{
-		Label:    "foobar",
-		Revision: 666,
+		Label:           "foobar",
+		CurrentRevision: 666,
 	}
 	state.SetBeforeHooks(c, s.State, func() {
-		err := s.store.SaveSecretConsumer(uri, "application-mariadb", &secrets.SecretConsumerMetadata{Revision: 668})
+		err := s.State.SaveSecretConsumer(uri, "unit-mariadb-0", &secrets.SecretConsumerMetadata{CurrentRevision: 668})
 		c.Assert(err, jc.ErrorIsNil)
 	})
-	err := s.store.SaveSecretConsumer(uri, "application-mariadb", md)
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.store.GetSecretConsumer(uri, "application-mariadb")
+	md2, err := s.State.GetSecretConsumer(uri, "unit-mariadb-0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 }
@@ -387,20 +533,20 @@ func (s *SecretsSuite) TestSecretRotatedConcurrent(c *gc.C) {
 	c.Assert(rotated, gc.Equals, later.Round(time.Second))
 }
 
-type SecretsWatcherSuite struct {
+type SecretsRotationWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore
 }
 
-var _ = gc.Suite(&SecretsWatcherSuite{})
+var _ = gc.Suite(&SecretsRotationWatcherSuite{})
 
-func (s *SecretsWatcherSuite) SetUpTest(c *gc.C) {
+func (s *SecretsRotationWatcherSuite) SetUpTest(c *gc.C) {
 	c.Skip("rotation not implemented")
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecretsStore(s.State)
 }
 
-func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotationWatcher, *secrets.URI) {
+func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotationWatcher, *secrets.URI) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -425,12 +571,12 @@ func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotationWatche
 	return w, uri
 }
 
-func (s *SecretsWatcherSuite) TestWatchInitialEvent(c *gc.C) {
+func (s *SecretsRotationWatcherSuite) TestWatchInitialEvent(c *gc.C) {
 	w, _ := s.setupWatcher(c)
 	testing.AssertStop(c, w)
 }
 
-func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
+func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
 	defer testing.AssertStop(c, w)
@@ -450,7 +596,7 @@ func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *SecretsWatcherSuite) TestWatchDelete(c *gc.C) {
+func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
 	defer testing.AssertStop(c, w)
@@ -467,7 +613,7 @@ func (s *SecretsWatcherSuite) TestWatchDelete(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
+func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
 	defer testing.AssertStop(c, w)
@@ -492,7 +638,7 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C) {
+func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
 	defer testing.AssertStop(c, w)
@@ -515,7 +661,7 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C)
 	wc.AssertNoChange()
 }
 
-func (s *SecretsWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
+func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
 	defer testing.AssertStop(c, w)
@@ -552,5 +698,95 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 		URI:            md.URI.Raw(),
 		RotateInterval: 0,
 	})
+	wc.AssertNoChange()
+}
+
+type SecretsWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+}
+
+var _ = gc.Suite(&SecretsWatcherSuite{})
+
+func (s *SecretsWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecretsStore(s.State)
+}
+
+func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	w := s.State.WatchConsumedSecretsChanges("unit-mariadb-0")
+
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+
+	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+	// No event until rev > 1.
+	wc.AssertNoChange()
+	return w, uri
+}
+
+func (s *SecretsWatcherSuite) TestWatcherStartStop(c *gc.C) {
+	w, _ := s.setupWatcher(c)
+	testing.AssertStop(c, w)
+}
+
+func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	defer testing.AssertStop(c, w)
+
+	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		Data: secrets.SecretData{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+}
+
+func (s *SecretsWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	defer testing.AssertStop(c, w)
+
+	uri2 := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo2": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SaveSecretConsumer(uri2, "unit-mariadb-0", &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+	// No event until rev > 1.
+	wc.AssertNoChange()
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		Data: secrets.SecretData{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+
+	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
+		Data: secrets.SecretData{"foo2": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(uri2.String())
 	wc.AssertNoChange()
 }
