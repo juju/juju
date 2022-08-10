@@ -54,7 +54,7 @@ run_deploy_caas_workload() {
 	juju deploy cs:~juju/mediawiki-k8s-4 --config kubernetes-service-type=loadbalancer
 	juju relate mediawiki-k8s:db mariadb-k8s:server
 
-	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current'
+	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current' 300
 	wait_for "active" '.applications["mediawiki-k8s"] | ."application-status".current'
 }
 
