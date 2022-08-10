@@ -11,6 +11,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	client "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
@@ -18,7 +20,6 @@ import (
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/testing"
 )
 
 var (
@@ -44,11 +45,6 @@ func (s *serverIntegrationSuite) TestLocalServer(c *gc.C) {
 			"https://192.168.0.1:8443",
 		},
 	}
-	serverInfo := &api.Server{
-		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "1.1",
-		},
-	}
 
 	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
@@ -62,7 +58,7 @@ func (s *serverIntegrationSuite) TestLocalServer(c *gc.C) {
 		server.EXPECT().StorageSupported().Return(true),
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
-		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
 	svr, err := factory.LocalServer()
@@ -87,11 +83,6 @@ func (s *serverIntegrationSuite) TestLocalServerRetrySemantics(c *gc.C) {
 			"https://192.168.0.1:8443",
 		},
 	}
-	serverInfo := &api.Server{
-		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "1.1",
-		},
-	}
 
 	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
@@ -109,7 +100,7 @@ func (s *serverIntegrationSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		server.EXPECT().StorageSupported().Return(true),
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
-		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
 	svr, err := factory.LocalServer()
@@ -158,11 +149,6 @@ func (s *serverIntegrationSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 			"https://192.168.0.1:8443",
 		},
 	}
-	serverInfo := &api.Server{
-		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "a.b",
-		},
-	}
 
 	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
@@ -176,7 +162,7 @@ func (s *serverIntegrationSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 		server.EXPECT().StorageSupported().Return(true),
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
-		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().ServerVersion().Return("a.b"),
 	)
 
 	svr, err := factory.LocalServer()
@@ -314,11 +300,6 @@ func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *gc.C)
 			"https://192.168.0.1:8443",
 		},
 	}
-	serverInfo := &api.Server{
-		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "2.2",
-		},
-	}
 
 	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
@@ -330,7 +311,7 @@ func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *gc.C)
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().StorageSupported().Return(false),
-		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
 	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
@@ -353,11 +334,6 @@ func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalSer
 			"https://192.168.0.1:8443",
 		},
 	}
-	serverInfo := &api.Server{
-		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "1.1",
-		},
-	}
 
 	factory, server, interfaceAddr := lxd.NewLocalServerFactory(ctrl)
 
@@ -371,7 +347,7 @@ func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalSer
 		server.EXPECT().StorageSupported().Return(true),
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
-		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
 	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
@@ -387,11 +363,6 @@ func (s *serverIntegrationSuite) TestRemoteServer(c *gc.C) {
 
 	profile := &api.Profile{}
 	etag := "etag"
-	serverInfo := &api.Server{
-		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "1.1",
-		},
-	}
 
 	factory, server := lxd.NewRemoteServerFactory(ctrl)
 
@@ -399,7 +370,7 @@ func (s *serverIntegrationSuite) TestRemoteServer(c *gc.C) {
 		server.EXPECT().StorageSupported().Return(true),
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
-		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
 	creds := cloud.NewCredential("any", map[string]string{
@@ -420,18 +391,11 @@ func (s *serverIntegrationSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	etag := "etag"
-	serverInfo := &api.Server{
-		ServerUntrusted: api.ServerUntrusted{
-			APIVersion: "1.1",
-		},
-	}
-
 	factory, server := lxd.NewRemoteServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().StorageSupported().Return(false),
-		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
 	)
 
 	creds := cloud.NewCredential("any", map[string]string{
@@ -483,7 +447,7 @@ func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "credentials not valid")
 }
 
-func (s *serverIntegrationSuite) TestRemoteServerWithGetServerError(c *gc.C) {
+func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -491,7 +455,7 @@ func (s *serverIntegrationSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 
 	gomock.InOrder(
 		server.EXPECT().StorageSupported().Return(false),
-		server.EXPECT().GetServer().Return(nil, "", errors.New("bad")),
+		server.EXPECT().ServerVersion().Return("5.1"),
 	)
 
 	creds := cloud.NewCredential("any", map[string]string{
@@ -503,48 +467,36 @@ func (s *serverIntegrationSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
 }
 
 func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {
 	for _, t := range []struct {
-		input    string
-		expected bool
-		output   string
+		input  string
+		output string
 	}{
 		{
-			input:    "foo",
-			expected: false,
-			output:   `LXD API version "foo": expected format <major>\.<minor>`,
+			input:  "foo",
+			output: `LXD API version "foo": expected format <major>\.<minor>`,
 		},
 		{
-			input:    "a.b",
-			expected: false,
-			output:   `major version number  a not valid`,
+			input:  "a.b",
+			output: `major version number  a not valid`,
 		},
 		{
-			input:    "0.9",
-			expected: false,
-			output:   `LXD API version "0.9": expected major version 1 or later`,
+			input:  "5.1",
+			output: `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`,
 		},
 		{
-			input:    "1.0",
-			expected: true,
-			output:   "",
-		},
-		{
-			input:    "2.0",
-			expected: true,
-			output:   "",
-		},
-		{
-			input:    "2.1",
-			expected: true,
-			output:   "",
+			input:  "5.2",
+			output: "",
 		},
 	} {
-		msg, ok := lxd.IsSupportedAPIVersion(t.input)
-		c.Check(ok, gc.Equals, t.expected)
-		c.Check(msg, gc.Matches, t.output)
+		err := lxd.ValidateAPIVersion(t.input)
+		if t.output == "" {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.output)
+		}
 	}
 }

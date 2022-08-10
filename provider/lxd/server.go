@@ -350,16 +350,13 @@ func (s *serverFactory) validateServer(svr Server) error {
 		}
 	}
 
-	// One final request, to make sure we grab the server information for
-	// validating the api version
-	serverInfo, _, err := svr.GetServer()
-	if err != nil {
+	apiVersion := svr.ServerVersion()
+	err := ValidateAPIVersion(apiVersion)
+	if errors.Is(err, errors.NotSupported) {
 		return errors.Trace(err)
 	}
-
-	apiVersion := serverInfo.APIVersion
-	if msg, ok := isSupportedAPIVersion(apiVersion); !ok {
-		logger.Warningf(msg)
+	if err != nil {
+		logger.Warningf(err.Error())
 		logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
 	} else {
 		logger.Tracef("using LXD API version %q", apiVersion)
@@ -375,8 +372,8 @@ func (s *serverFactory) Clock() clock.Clock {
 	return s.clock
 }
 
-// ParseAPIVersion parses the LXD API version string.
-func ParseAPIVersion(s string) (version.Number, error) {
+// parseAPIVersion parses the LXD API version string.
+func parseAPIVersion(s string) (version.Number, error) {
 	versionParts := strings.Split(s, ".")
 	if len(versionParts) < 2 {
 		return version.Zero, errors.NewNotValid(nil, fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", s))
@@ -392,16 +389,22 @@ func ParseAPIVersion(s string) (version.Number, error) {
 	return version.Number{Major: major, Minor: minor}, nil
 }
 
-// isSupportedAPIVersion defines what API versions we support.
-func isSupportedAPIVersion(version string) (msg string, ok bool) {
-	ver, err := ParseAPIVersion(version)
+// minLXDVersion defines the min version of LXD we support.
+var minLXDVersion = version.Number{Major: 5, Minor: 2}
+
+// ValidateAPIVersion validates the LXD version.
+func ValidateAPIVersion(version string) error {
+	ver, err := parseAPIVersion(version)
 	if err != nil {
-		return err.Error(), false
+		return err
 	}
-	if ver.Major < 1 {
-		return fmt.Sprintf("LXD API version %q: expected major version 1 or later", version), false
+	logger.Tracef("current LXD version %q, min LXD version %q", ver, minLXDVersion)
+	if ver.Compare(minLXDVersion) < 0 {
+		return errors.NewNotSupported(nil,
+			fmt.Sprintf("LXD version has to be at least %q, but current version is only %q", minLXDVersion, ver),
+		)
 	}
-	return "", true
+	return nil
 }
 
 func getMessageFromErr(err error) (bool, string) {
