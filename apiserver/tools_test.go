@@ -435,7 +435,7 @@ func (s *toolsSuite) TestUploadConvertsSeries(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
-		Version: testing.CurrentVersion(c).String(),
+		Version: testing.CurrentVersion().String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
@@ -501,7 +501,7 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 	defer newSt.Close()
 
 	tools := s.storeFakeTools(c, newSt, "abc", binarystorage.Metadata{
-		Version: testing.CurrentVersion(c).String(),
+		Version: testing.CurrentVersion().String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
@@ -510,7 +510,7 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
-		Version: testing.CurrentVersion(c).String(),
+		Version: testing.CurrentVersion().String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})

@@ -35,7 +35,7 @@ type BaseSuite struct {
 func (s *BaseSuite) InitializeCurrentToolsDir(c *gc.C, dataDir string) {
 	// Initialize the tools directory for the agent.
 	// This should be <DataDir>/tools/<version>-<series>-<arch>.
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	toolsDir := tools.SharedToolsDir(dataDir, current)
 	// Make that directory.
 	err := os.MkdirAll(toolsDir, 0755)

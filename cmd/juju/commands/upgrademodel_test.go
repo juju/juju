@@ -579,7 +579,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	defer ctrl.Finish()
 	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
-	vers := coretesting.CurrentVersion(c)
+	vers := coretesting.CurrentVersion()
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
 }
@@ -1115,7 +1115,7 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgradeLegacy(c *gc.C) {
 }
 
 func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
-	nextVersion := coretesting.CurrentVersion(c)
+	nextVersion := coretesting.CurrentVersion()
 	nextVersion.Minor++
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1705,7 +1705,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c 
 	})
 
 	c.Assert(agentVersion.Build, gc.Equals, 0)
-	builtVersion := coretesting.CurrentVersion(c)
+	builtVersion := coretesting.CurrentVersion()
 	targetVersion := builtVersion.Number
 	builtVersion.Build++
 	gomock.InOrder(
@@ -1751,7 +1751,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate(c *gc.
 	})
 
 	c.Assert(agentVersion.Build, gc.Equals, 0)
-	targetVersion := coretesting.CurrentVersion(c)
+	targetVersion := coretesting.CurrentVersion()
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
 		s.controllerAPI.EXPECT().ModelConfig().Return(cfg, nil),
@@ -1828,7 +1828,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueT
 		"agent-version": agentVersion.String(),
 	})
 
-	targetVersion := coretesting.CurrentVersion(c).Number
+	targetVersion := coretesting.CurrentVersion().Number
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
 		s.controllerAPI.EXPECT().ModelConfig().Return(cfg, nil),
@@ -1869,7 +1869,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionExpectUploadFailedDueT
 		"uuid": coretesting.ControllerTag.Id(),
 	})
 
-	builtVersion := coretesting.CurrentVersion(c)
+	builtVersion := coretesting.CurrentVersion()
 	targetVersion := builtVersion.Number
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(modelCfg, nil),
@@ -1965,7 +1965,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithBuildAgent(c *gc.C) {
 		"agent-version": agentVersion.String(),
 	})
 	c.Assert(agentVersion.Build, gc.Equals, 0)
-	builtVersion := coretesting.CurrentVersion(c)
+	builtVersion := coretesting.CurrentVersion()
 	builtVersion.Build++
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
