@@ -232,27 +232,41 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 
 // ComposeAndVerifyBundle merges base and overlays then verifies the
 // combined bundle data.
-func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*charm.BundleData, error) {
+func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*charm.BundleData, []error, error) {
 	var dsList []charm.BundleDataSource
+	unMarshallErrors := make([]error, 0)
+	unMarshallErrors = append(unMarshallErrors, gatherErrors(base)...)
 
 	dsList = append(dsList, base)
 	for _, pathToOverlay := range pathToOverlays {
 		ds, err := charm.LocalBundleDataSource(pathToOverlay)
 		if err != nil {
-			return nil, errors.Annotatef(err, "unable to process overlays")
+			return nil, nil, errors.Annotatef(err, "unable to process overlays")
 		}
 		dsList = append(dsList, ds)
+		unMarshallErrors = append(unMarshallErrors, gatherErrors(ds)...)
 	}
 
 	bundleData, err := charm.ReadAndMergeBundleData(dsList...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	if err = verifyBundle(bundleData, base.BasePath()); err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	return bundleData, nil
+	return bundleData, unMarshallErrors, nil
+}
+
+func gatherErrors(ds BundleDataSource) []error {
+	returnErrors := make([]error, 0)
+	for _, p := range ds.Parts() {
+		if p.UnmarshallError == nil {
+			continue
+		}
+		returnErrors = append(returnErrors, p.UnmarshallError)
+	}
+	return returnErrors
 }
 
 func verifyBundle(data *charm.BundleData, bundleDir string) error {
