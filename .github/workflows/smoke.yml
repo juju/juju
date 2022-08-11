@@ -102,7 +102,7 @@ jobs:
         set -euxo pipefail
         sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
-        sudo snap install lxd
+        sudo snap install lxd --channel latest/stable
         sudo snap install yq
         sudo snap install juju --classic --channel=${{ matrix.snap_version }}
 
