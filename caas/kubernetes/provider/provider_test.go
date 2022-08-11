@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
@@ -17,6 +18,16 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
+	k8scorev1 "k8s.io/api/core/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	fakeapiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	fakedynamic "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes"
+	fakek8s "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
+	k8siotesting "k8s.io/client-go/testing"
 )
 
 func fakeConfig(c *gc.C, attrs ...coretesting.Attrs) *config.Config {
@@ -55,6 +66,35 @@ func fakeCredential() cloud.Credential {
 	})
 }
 
+func fakeK8sClients(c *rest.Config) (
+	kubernetes.Interface,
+	apiextensionsclientset.Interface,
+	dynamic.Interface,
+	error,
+) {
+	k8sClient := fakek8s.NewSimpleClientset()
+	apiextensionsclient := fakeapiextensions.NewSimpleClientset()
+	scheme := runtime.NewScheme()
+	dynamicClient := fakedynamic.NewSimpleDynamicClient(scheme)
+
+	// The fake k8sClient needs to be able to respond to a namespaces call
+	// So we add a Reactor to its Reaction chain
+	k8sClient.PrependReactor("get", "namespaces",
+		func(action k8siotesting.Action) (handled bool, ret runtime.Object, err error) {
+			err = errors.NotFoundf("namespace")
+			if a, ok := action.(k8siotesting.GetActionImpl); ok {
+				if a.Name == "testmodel" {
+					return true, &k8scorev1.Namespace{}, nil
+				}
+				err = errors.NotFoundf("namespace %q", a.Name)
+			}
+			return false, nil, err
+		},
+	)
+
+	return k8sClient, apiextensionsclient, dynamicClient, nil
+}
+
 type providerSuite struct {
 	testing.IsolationSuite
 	dialStub testing.Stub
@@ -76,11 +116,11 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {
-	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	config := fakeConfig(c)
+	s.PatchValue(&provider.NewK8sClients, fakeK8sClients)
+	cfg := fakeConfig(c)
 	broker, err := s.provider.Open(environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
-		Config: config,
+		Config: cfg,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(broker, gc.NotNil)
@@ -103,6 +143,19 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 	spec := fakeCloudSpec()
 	spec.Credential = &credential
 	s.testOpenError(c, spec, `validating cloud spec: "oauth1" auth-type not supported`)
+}
+
+func (s *providerSuite) TestOpenNamespaceNotFound(c *gc.C) {
+	// Just use the no-op fake clients - the namespaces call will fail and we
+	// will get namespace not found, as desired
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
+	cfg := fakeConfig(c)
+	broker, err := s.provider.Open(environs.OpenParams{
+		Cloud:  fakeCloudSpec(),
+		Config: cfg,
+	})
+	c.Check(err, gc.ErrorMatches, `model "testmodel" not found`)
+	c.Assert(broker, gc.IsNil)
 }
 
 func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {

@@ -28,6 +28,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type kubernetesEnvironProvider struct {
@@ -146,7 +148,20 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 		return nil, errors.Trace(err)
 	}
 
+	k8sClient, _, _, err := NewK8sClients(k8sRestConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Check if this is the "controller" model
 	if args.Config.Name() != environsbootstrap.ControllerModelName {
+		// Check the model namespace exists before trying to open the broker
+		modelName := args.Config.Name()
+		_, err = k8sClient.CoreV1().Namespaces().Get(stdcontext.TODO(), modelName, v1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil, errors.NotFoundf("model %q", modelName)
+		}
+
 		broker, err := newK8sBroker(
 			args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
 			k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
@@ -155,11 +170,6 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 			return nil, errors.Trace(err)
 		}
 		return broker, nil
-	}
-
-	k8sClient, _, _, err := NewK8sClients(k8sRestConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	ns, err := findControllerNamespace(
