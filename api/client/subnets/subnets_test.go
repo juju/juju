@@ -4,46 +4,34 @@
 package subnets_test
 
 import (
-	"errors"
-
+	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/subnets"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // SubnetsSuite tests the client side subnets API
 type SubnetsSuite struct {
-	coretesting.BaseSuite
-
-	apiCaller *apitesting.CallChecker
-	api       *subnets.API
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
 
-func (s *SubnetsSuite) prepareAPICall(c *gc.C, args apitesting.APICall) {
-	s.apiCaller = apitesting.APICallChecker(c, args)
-	best := &apitesting.BestVersionCaller{
-		BestVersion:   3,
-		APICallerFunc: s.apiCaller.APICallerFunc,
-	}
-	s.api = subnets.NewAPI(best)
-	c.Check(s.api, gc.NotNil)
-	c.Check(s.apiCaller.CallCount, gc.Equals, 0)
-}
-
 // TestNewAPISuccess checks that a new subnets API is created when passed a non-nil caller
 func (s *SubnetsSuite) TestNewAPISuccess(c *gc.C) {
-	apiCaller := apitesting.APICallChecker(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	apiCaller := basemocks.NewMockAPICallCloser(ctrl)
+	apiCaller.EXPECT().BestFacadeVersion("Subnets").Return(4)
+
 	api := subnets.NewAPI(apiCaller)
 	c.Check(api, gc.NotNil)
-	c.Check(apiCaller.CallCount, gc.Equals, 0)
 }
 
 // TestNewAPIWithNilCaller checks that a new subnets API is not created when passed a nil caller
@@ -52,7 +40,7 @@ func (s *SubnetsSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
-func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) apitesting.APICall {
+func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) (params.AddSubnetsParams, params.ErrorResults) {
 	spaceTag := names.NewSpaceTag(space).String()
 	if providerId != "" {
 		cidr = ""
@@ -70,94 +58,112 @@ func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) apitesti
 		Results: []params.ErrorResult{{}},
 	}
 
-	args := apitesting.APICall{
-		Facade:  "Subnets",
-		Method:  "AddSubnets",
-		Args:    expectArgs,
-		Results: expectResults,
-	}
-
-	return args
+	return expectArgs, expectResults
 }
 
-func makeListSubnetsArgs(space *names.SpaceTag, zone string) apitesting.APICall {
-	expectResults := params.ListSubnetsResults{}
+func makeListSubnetsArgs(space *names.SpaceTag, zone string) (params.SubnetsFilters, params.ListSubnetsResults) {
 	expectArgs := params.SubnetsFilters{
 		SpaceTag: space.String(),
 		Zone:     zone,
 	}
-	args := apitesting.APICall{
-		Facade:  "Subnets",
-		Method:  "ListSubnets",
-		Results: expectResults,
-		Args:    expectArgs,
-	}
-	return args
+	return expectArgs, params.ListSubnetsResults{}
 }
 
 func (s *SubnetsSuite) TestAddSubnet(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	cidr := "1.1.1.0/24"
 	providerId := "foo"
 	space := "bar"
 	zones := []string{"foo", "bar"}
-	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
-	s.prepareAPICall(c, args)
-	err := s.api.AddSubnet(
+	args, results := makeAddSubnetsArgs(cidr, providerId, space, zones)
+	result := new(params.ErrorResults)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("AddSubnets", args, result).SetArg(2, results).Return(nil)
+	client := subnets.NewAPIFromCaller(mockFacadeCaller)
+
+	err := client.AddSubnet(
 		cidr,
 		network.Id(providerId),
 		names.NewSpaceTag(space),
 		zones,
 	)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SubnetsSuite) TestAddSubnetFails(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	cidr := "1.1.1.0/24"
 	providerId := "foo"
 	space := "bar"
 	zones := []string{"foo", "bar"}
-	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
-	args.Error = errors.New("bang")
-	s.prepareAPICall(c, args)
-	err := s.api.AddSubnet(
+	args, results := makeAddSubnetsArgs(cidr, providerId, space, zones)
+	results.Results[0].Error = &params.Error{
+		Message: "bang",
+		Code:    "500",
+	}
+	result := new(params.ErrorResults)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("AddSubnets", args, result).SetArg(2, results).Return(nil)
+	client := subnets.NewAPIFromCaller(mockFacadeCaller)
+
+	err := client.AddSubnet(
 		cidr,
 		network.Id(providerId),
 		names.NewSpaceTag(space),
 		zones,
 	)
-	c.Check(s.apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
 }
 
 func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	space := names.NewSpaceTag("foo")
 	zone := "bar"
-	args := makeListSubnetsArgs(&space, zone)
-	s.prepareAPICall(c, args)
-	results, err := s.api.ListSubnets(&space, zone)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	args, results := makeListSubnetsArgs(&space, zone)
+	result := new(params.ListSubnetsResults)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ListSubnets", args, result).SetArg(2, results).Return(nil)
+	client := subnets.NewAPIFromCaller(mockFacadeCaller)
+
+	obtainedResults, err := client.ListSubnets(&space, zone)
+
 	c.Assert(err, jc.ErrorIsNil)
 
 	var expectedResults []params.Subnet
-	c.Assert(results, jc.DeepEquals, expectedResults)
+	c.Assert(obtainedResults, jc.DeepEquals, expectedResults)
 }
 
 func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	space := names.NewSpaceTag("foo")
 	zone := "bar"
-	args := makeListSubnetsArgs(&space, zone)
-	args.Error = errors.New("bang")
-	s.prepareAPICall(c, args)
-	results, err := s.api.ListSubnets(&space, zone)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	args, results := makeListSubnetsArgs(&space, zone)
+	result := new(params.ListSubnetsResults)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("ListSubnets", args, result).SetArg(2, results).Return(errors.New("bang"))
+	client := subnets.NewAPIFromCaller(mockFacadeCaller)
+
+	obtainedResults, err := client.ListSubnets(&space, zone)
 	c.Assert(err, gc.ErrorMatches, "bang")
 
 	var expectedResults []params.Subnet
-	c.Assert(results, jc.DeepEquals, expectedResults)
+	c.Assert(obtainedResults, jc.DeepEquals, expectedResults)
 }
 
 func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
+	ctrl *gomock.Controller,
 	cidrs []string,
 	results []params.SubnetsResult,
 	err error, expectErr string,
@@ -166,15 +172,14 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
 	if results != nil {
 		expectedResults.Results = results
 	}
+	args := params.CIDRParams{CIDRS: cidrs}
 
-	s.prepareAPICall(c, apitesting.APICall{
-		Facade:  "Subnets",
-		Method:  "SubnetsByCIDR",
-		Results: expectedResults,
-		Error:   err,
-	})
-	gotResult, gotErr := s.api.SubnetsByCIDR(cidrs)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	result := new(params.SubnetsResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SubnetsByCIDR", args, result).SetArg(2, expectedResults).Return(err)
+	client := subnets.NewAPIFromCaller(mockFacadeCaller)
+
+	gotResult, gotErr := client.SubnetsByCIDR(cidrs)
 	c.Assert(gotResult, jc.DeepEquals, results)
 
 	if expectErr != "" {
@@ -190,21 +195,30 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
 }
 
 func (s *SubnetsSuite) TestSubnetsByCIDRWithNoCIDRs(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	var cidrs []string
 
-	s.testSubnetsByCIDR(c, cidrs, []params.SubnetsResult{}, nil, "")
+	s.testSubnetsByCIDR(c, ctrl, cidrs, []params.SubnetsResult{}, nil, "")
 }
 
 func (s *SubnetsSuite) TestSubnetsByCIDRWithNoResults(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	cidrs := []string{"10.0.1.10/24"}
 
-	s.testSubnetsByCIDR(c, cidrs, []params.SubnetsResult{}, nil, "")
+	s.testSubnetsByCIDR(c, ctrl, cidrs, []params.SubnetsResult{}, nil, "")
 }
 
 func (s *SubnetsSuite) TestSubnetsByCIDRWithResults(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	cidrs := []string{"10.0.1.10/24"}
 
-	s.testSubnetsByCIDR(c, cidrs, []params.SubnetsResult{{
+	s.testSubnetsByCIDR(c, ctrl, cidrs, []params.SubnetsResult{{
 		Subnets: []params.SubnetV2{{
 			ID: "aaabbb",
 			Subnet: params.Subnet{
