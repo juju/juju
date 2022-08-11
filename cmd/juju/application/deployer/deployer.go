@@ -338,7 +338,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), d.series, imageStream)
+		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

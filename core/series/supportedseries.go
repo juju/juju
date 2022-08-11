@@ -146,7 +146,12 @@ func updateSeriesVersions() error {
 	switch hostOS {
 	case jujuos.Ubuntu:
 		for seriesName, s := range sInfo {
-			ubuntuSeries[SeriesName(seriesName)] = seriesVersion{
+			key := SeriesName(seriesName)
+			if _, known := ubuntuSeries[key]; known {
+				// We only update unknown/new series.
+				continue
+			}
+			ubuntuSeries[key] = seriesVersion{
 				WorkloadType:             ControllerWorkloadType,
 				Version:                  s.Version,
 				LTS:                      s.LTS,
