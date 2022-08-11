@@ -22,7 +22,6 @@ import (
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/charmrepo/v7"
-	csclientparams "github.com/juju/charmrepo/v7/csclient/params"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -63,8 +62,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/juju/testing"
+	jujuseries "github.com/juju/juju/core/series"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -76,11 +74,6 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// defaultSupportedJujuSeries is used to return canned information about what
-// juju supports in terms of the release cycle
-// see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "focal", "jammy", testing.KubernetesSeriesName)
-
 var defaultLocalOrigin = commoncharm.Origin{
 	Source:       commoncharm.OriginLocal,
 	Architecture: arch.DefaultArchitecture,
@@ -89,7 +82,7 @@ var defaultLocalOrigin = commoncharm.Origin{
 }
 
 type DeploySuiteBase struct {
-	testing.RepoSuite
+	jjtesting.RepoSuite
 	coretesting.CmdBlockHelper
 	DeployResources deployer.DeployResourcesFunc
 
@@ -165,9 +158,17 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
-		return defaultSupportedJujuSeries, nil
-	})
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
+
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
@@ -1019,10 +1020,16 @@ func (s *CAASDeploySuiteBase) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 }
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
-		return defaultSupportedJujuSeries, nil
-	})
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 
@@ -1445,16 +1452,22 @@ func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
 }
 
 func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
-	supported := set.NewStrings(series.SupportedJujuWorkloadSeries()...)
+	supported := set.NewStrings(jujuseries.SupportedJujuWorkloadSeries()...)
 	// Allowing kubernetes as an option, can lead to an unrelated failure:
 	// 		series "kubernetes" in a non container model not valid
 	supported.Remove("kubernetes")
-	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
+	supportedNotEMS := supported.Difference(set.NewStrings(jujuseries.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
-		return supported, nil
-	})
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 
 	nonEMSSeries := supportedNotEMS.Values()[0]
 
@@ -1963,11 +1976,6 @@ type FakeStoreStateSuite struct {
 	riak *state.Application
 }
 
-func (s *FakeStoreStateSuite) runDeploy(c *gc.C, args ...string) error {
-	_, _, err := s.runDeployWithOutput(c, args...)
-	return err
-}
-
 func (s *FakeStoreStateSuite) runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
 	deploy := s.deployCommandForState()
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), args...)
@@ -2285,9 +2293,17 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
-		return defaultSupportedJujuSeries, nil
-	})
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
+
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 }
@@ -2584,7 +2600,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			risk := csclientparams.Channel(deployCmd.Channel.Risk)
+			risk := csparams.Channel(deployCmd.Channel.Risk)
 			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
 			return &store.CharmStoreAdaptor{
 				MacaroonGetter:     cstoreClient,
