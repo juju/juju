@@ -101,6 +101,7 @@ jobs:
       run: |
         set -euxo pipefail
         sudo apt-get remove lxd lxd-client
+        sudo snap remove lxd --purge
         sudo snap install snapcraft --classic
         sudo snap install lxd --channel latest/stable
         sudo snap install yq
