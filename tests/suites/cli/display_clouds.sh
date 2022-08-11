@@ -81,7 +81,7 @@ EOF
 	echo "${CLOUDS}" >>"${TEST_DIR}/juju/clouds.yaml"
 	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq -S 'with_entries(select(
 	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
-	                                                  | del(.value.defined) |  del(.value.description)))' | uniq -u)
+	                                                  | del(.value.defined) |  del(.value.description)))')
 	EXPECTED=$(echo "${CLOUDS}" | yq -I0 -oj | jq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
                                                   (objects | select(contains($endpoint))) |= del(.endpoint)
                                                 ))')
@@ -89,11 +89,27 @@ EOF
 		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
 		exit 1
 	fi
-}
 
-#run_show_cloud(){
-#
-#}
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client 2>/dev/null | yq -I0 -oj | jq -S 'with_entries((select(.value!= null)))')
+	EXPECTED=$(
+		cat <<'EOF' | jq -S
+	{
+    "auth-types": [
+      "oauth1"
+    ],
+    "defined": "local",
+    "description": "Metal As A Service",
+    "endpoint": "http://10.125.0.10:5240/MAAS/",
+    "type": "maas"
+  }
+EOF
+	)
+
+	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
+		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
+		exit 1
+	fi
+}
 
 test_display_clouds() {
 	if [ "$(skip 'test_display_clouds')" ]; then
