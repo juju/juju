@@ -73,12 +73,15 @@ run_deploy_exported_charmstore_bundle_with_fixed_revisions() {
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
 		" "${TEST_DIR}/telegraf_bundle.yaml"
+	else
+		yq -i . "${TEST_DIR}/telegraf_bundle.yaml"
 	fi
 	# no need to wait for the bundle to finish deploying to
 	# check the export.
-	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-	yq -i . "${TEST_DIR}/exported-bundle.yaml"
-	diff -u "${TEST_DIR}/telegraf_bundle.yaml" "${TEST_DIR}/exported-bundle.yaml"
+	echo "Compare export-bundle with telegraf_bundle"
+	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
+	yq -i . "${TEST_DIR}/exported_bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
 }
@@ -118,10 +121,10 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	# The model should be updated immediately, so we can export the bundle before
 	# everything is done deploying
 	echo "Compare export-bundle with telegraf_bundle_with_revisions"
-	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
+	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
 	# reformat the yaml to have the same format as telegraf_bundle_with_revisions.yaml
-	yq -i . "${TEST_DIR}/exported-bundle.yaml"
-	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
+	yq -i . "${TEST_DIR}/exported_bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
