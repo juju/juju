@@ -45,6 +45,22 @@ EOF
 	fi
 }
 
+run_assess_clouds(){
+  echo
+
+  mkdir -p "${TEST_DIR}/juju"
+  echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
+  echo "" >>"${TEST_DIR}/juju/credentials.yaml"
+
+  CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq 'with_entries(select(.value.defined != "built-in"))')
+  EXPECTED={}
+  if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
+    echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
+    exit 1
+  fi
+
+}
+
 test_display_clouds() {
 	if [ "$(skip 'test_display_clouds')" ]; then
 		echo "==> TEST SKIPPED: display clouds"
@@ -57,5 +73,6 @@ test_display_clouds() {
 		cd .. || exit
 
 		run "run_show_clouds"
+		run "run_assess_clouds"
 	)
 }
