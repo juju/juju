@@ -101,7 +101,7 @@ var errConnTimedOut = errors.New("open connection timed out")
 func (c *killCommand) Run(ctx *cmd.Context) error {
 	controllerName, err := c.ControllerName()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "getting controller name")
 	}
 	store := c.ClientStore()
 	if !c.assumeYes {
@@ -249,7 +249,10 @@ func (c *killCommand) DirectDestroyRemaining(
 			} else {
 				env, err = environs.Open(stdcontext.TODO(), cloudProvider, openParams)
 			}
-			if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				logger.Warningf("model %s not found, skipping", model.Name)
+				continue
+			} else if err != nil {
 				logger.Errorf(err.Error())
 				hasErrors = true
 				continue
