@@ -71,8 +71,7 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 
 	echo "Make a copy of reference yaml"
 	cp ${bundle} "${TEST_DIR}/telegraf_bundle.yaml"
-	if [[ -n ${MODEL_ARCH:-} ]];
-	then
+	if [[ -n ${MODEL_ARCH:-} ]]; then
 		yq -i "
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
