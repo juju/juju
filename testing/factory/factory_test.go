@@ -526,7 +526,7 @@ func (s *factorySuite) TestMakeModel(c *gc.C) {
 	params := &factory.ModelParams{
 		Name:        "foo",
 		Owner:       owner.UserTag(),
-		ConfigAttrs: testing.Attrs{"default-series": "precise"},
+		ConfigAttrs: testing.Attrs{"default-series": "jammy"},
 	}
 
 	st := s.Factory.MakeModel(c, params)
@@ -542,5 +542,5 @@ func (s *factorySuite) TestMakeModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "precise")
+	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "jammy")
 }
