@@ -45,21 +45,55 @@ EOF
 	fi
 }
 
-run_assess_clouds(){
-  echo
+run_assess_clouds() {
+	echo
 
-  mkdir -p "${TEST_DIR}/juju"
-  echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
-  echo "" >>"${TEST_DIR}/juju/credentials.yaml"
+	mkdir -p "${TEST_DIR}/juju"
+	echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
+	echo "" >>"${TEST_DIR}/juju/credentials.yaml"
 
-  CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq 'with_entries(select(.value.defined != "built-in"))')
-  EXPECTED={}
-  if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
-    echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
-    exit 1
-  fi
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq 'with_entries(select(.value.defined != "built-in"))')
+	EXPECTED={}
+	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
+		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
+		exit 1
+	fi
 
+	CLOUDS=$(
+		cat <<'EOF'
+ clouds:
+   finfolk-vmaas:
+     auth-types:
+     - oauth1
+     endpoint: http://10.125.0.10:5240/MAAS/
+     type: maas
+   vsphere:
+     auth-types:
+     - userpass
+     endpoint: 10.247.0.3
+     regions:
+       QA:
+         endpoint: 10.247.0.3
+     type: vsphere
+EOF
+	)
+
+	echo "${CLOUDS}" >>"${TEST_DIR}/juju/clouds.yaml"
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq -S 'with_entries(select(
+	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
+	                                                  | del(.value.defined) |  del(.value.description)))' | uniq -u)
+	EXPECTED=$(echo "${CLOUDS}" | yq -I0 -oj | jq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
+                                                  (objects | select(contains($endpoint))) |= del(.endpoint)
+                                                ))')
+	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
+		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
+		exit 1
+	fi
 }
+
+#run_show_cloud(){
+#
+#}
 
 test_display_clouds() {
 	if [ "$(skip 'test_display_clouds')" ]; then
