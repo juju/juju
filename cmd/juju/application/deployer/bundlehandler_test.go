@@ -64,7 +64,7 @@ func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 
 	// TODO: remove this patch once we removed all the old series from tests in current package.
 	s.PatchValue(&SupportedJujuSeries,
-		func(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
+		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
 				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
 				"jammy", "focal", "bionic", "xenial",
