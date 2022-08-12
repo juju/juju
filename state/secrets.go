@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -60,8 +61,6 @@ type SecretsStore interface {
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
-	GetSecretConsumer(*secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
-	SaveSecretConsumer(*secrets.URI, string, *secrets.SecretConsumerMetadata) error
 }
 
 // NewSecretsStore creates a new mongo backed secrets store.
@@ -269,6 +268,18 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 				Assert: txn.DocMissing,
 				Insert: *revisionDoc,
 			})
+			// Ensure no new consumers are added while update is in progress.
+			countOps, err := s.st.checkConsumerCountOps(uri, 0)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, countOps...)
+
+			updateConsumersOps, err := s.st.secretUpdateConsumersOps(uri, metadataDoc.Revision)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, updateConsumersOps...)
 		}
 		if p.RotatePolicy != nil {
 			rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
@@ -370,22 +381,47 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 type secretConsumerDoc struct {
 	DocID string `bson:"_id"`
 
-	ConsumerTag string `bson:"consumer-tag"`
-	Label       string `bson:"label"`
-	Revision    int    `bson:"revision"`
+	ConsumerTag     string `bson:"consumer-tag"`
+	Label           string `bson:"label"`
+	CurrentRevision int    `bson:"current-revision"`
+	LatestRevision  int    `bson:"latest-revision"`
 }
 
 func secretConsumerKey(id, consumer string) string {
 	return fmt.Sprintf("secret#%s#%s", id, consumer)
 }
 
+// checkConsumerCountOps returns txn ops to ensure that no new secrets consumers
+// are added whilst a txn is in progress.
+func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, error) {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+	countOp, _, err := nsRefcounts.CurrentOp(refCountCollection, uri.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// If not incrementing the consumer count, just ensure the count is stable.
+	if inc == 0 {
+		return []txn.Op{countOp}, nil
+	}
+	if inc > 0 {
+		incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []txn.Op{countOp, incOp}, err
+	}
+	incOp := nsRefcounts.JustIncRefOp(refcountsC, uri.ID, inc)
+	return []txn.Op{countOp, incOp}, err
+}
+
 // GetSecretConsumer gets secret consumer metadata.
-func (s *secretsStore) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secrets.SecretConsumerMetadata, error) {
-	secretConsumersCollection, closer := s.st.db().GetCollection(secretConsumersC)
+func (st *State) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secrets.SecretConsumerMetadata, error) {
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
 	key := secretConsumerKey(uri.ID, consumerTag)
-	docID := s.st.docID(key)
+	docID := st.docID(key)
 	var doc secretConsumerDoc
 	err := secretConsumersCollection.FindId(docID).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
@@ -395,21 +431,31 @@ func (s *secretsStore) GetSecretConsumer(uri *secrets.URI, consumerTag string) (
 		return nil, errors.Trace(err)
 	}
 	return &secrets.SecretConsumerMetadata{
-		Label:    doc.Label,
-		Revision: doc.Revision,
+		Label:           doc.Label,
+		CurrentRevision: doc.CurrentRevision,
+		LatestRevision:  doc.LatestRevision,
 	}, nil
 }
 
 // SaveSecretConsumer saves or updates secret consumer metadata.
-func (s *secretsStore) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metadata *secrets.SecretConsumerMetadata) error {
+func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metadata *secrets.SecretConsumerMetadata) error {
 	key := secretConsumerKey(uri.ID, consumerTag)
-	docID := s.st.docID(key)
-	secretConsumersCollection, closer := s.st.db().GetCollection(secretConsumersC)
+	docID := st.docID(key)
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
+	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
+	defer mCloser()
 
 	var doc secretConsumerDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		err := secretConsumersCollection.FindId(docID).One(&doc)
+		n, err := secretMetadataCollection.FindId(uri.ID).Count()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n == 0 {
+			return nil, errors.NotFoundf("secret %q", uri)
+		}
+		err = secretConsumersCollection.FindId(docID).One(&doc)
 		if err := errors.Cause(err); err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -419,24 +465,90 @@ func (s *secretsStore) SaveSecretConsumer(uri *secrets.URI, consumerTag string, 
 				Id:     docID,
 				Assert: txn.DocExists,
 				Update: bson.M{"$set": bson.M{
-					"label":    metadata.Label,
-					"revision": metadata.Revision,
+					"label":            metadata.Label,
+					"current-revision": metadata.CurrentRevision,
 				}},
 			}}, nil
 		}
-		return []txn.Op{{
+		ops := []txn.Op{{
 			C:      secretConsumersC,
 			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: secretConsumerDoc{
-				DocID:       docID,
-				ConsumerTag: consumerTag,
-				Label:       metadata.Label,
-				Revision:    metadata.Revision,
+				DocID:           docID,
+				ConsumerTag:     consumerTag,
+				Label:           metadata.Label,
+				CurrentRevision: metadata.CurrentRevision,
+				LatestRevision:  metadata.LatestRevision,
 			},
-		}}, nil
+		}}
+
+		// Increment the consumer count, ensuring no new consumers
+		// are added while update is in progress.
+		countRefOps, err := st.checkConsumerCountOps(uri, 1)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, countRefOps...)
+		return ops, nil
 	}
-	return s.st.db().Run(buildTxn)
+	return st.db().Run(buildTxn)
+}
+
+// secretUpdateConsumersOps updates the latest secret revision number
+// on all consumers. This triggers the secrets change watcher.
+func (st *State) secretUpdateConsumersOps(uri *secrets.URI, newRevision int) ([]txn.Op, error) {
+	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	var (
+		doc secretConsumerDoc
+		ops []txn.Op
+	)
+	id := st.docID(secretConsumerKey(uri.ID, ".*"))
+	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
+	iter := secretConsumersCollection.Find(q).Iter()
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      secretConsumersC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"latest-revision": newRevision}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotate(err, "getting secret consumers")
+	}
+	return ops, nil
+}
+
+// WatchConsumedSecretsChanges returns a watcher for updates to secrets
+// that have been previously read by the specified consumer.
+func (st *State) WatchConsumedSecretsChanges(consumer string) StringsWatcher {
+	return newCollectionWatcher(st, colWCfg{
+		col: secretConsumersC,
+		filter: func(key interface{}) bool {
+			secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+			defer closer()
+
+			var doc secretConsumerDoc
+			err := secretConsumersCollection.FindId(key).One(&doc)
+			if err != nil {
+				return false
+			}
+			// Only trigger on revisions > 1 because the initial secret-get
+			// will have read revision 1.
+			return doc.ConsumerTag == consumer && doc.LatestRevision > 1
+		},
+		idconv: func(id string) string {
+			parts := strings.Split(id, "#")
+			if len(parts) < 2 {
+				return id
+			}
+			uri := secrets.URI{ID: parts[1]}
+			return uri.String()
+		},
+	})
 }
 
 type secretRotationDoc struct {

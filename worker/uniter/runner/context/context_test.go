@@ -870,8 +870,8 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "GetSecretValues")
-		c.Assert(arg, gc.DeepEquals, params.GetSecretArgs{
-			Args: []params.GetSecretArg{{
+		c.Assert(arg, gc.DeepEquals, params.GetSecretValueArgs{
+			Args: []params.GetSecretValueArg{{
 				URI:    "secret:9m4e2mr0ui3e8a215n4g",
 				Label:  "label",
 				Update: true,

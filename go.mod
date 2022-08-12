@@ -48,7 +48,7 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.1
-	github.com/juju/charm/v9 v9.0.1
+	github.com/juju/charm/v9 v9.0.3
 	github.com/juju/charmrepo/v7 v7.0.1
 	github.com/juju/clock v1.0.0
 	github.com/juju/cmd/v3 v3.0.2

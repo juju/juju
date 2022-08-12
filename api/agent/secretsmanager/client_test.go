@@ -167,8 +167,8 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSecretValues")
-		c.Check(arg, jc.DeepEquals, params.GetSecretArgs{
-			Args: []params.GetSecretArg{{
+		c.Check(arg, jc.DeepEquals, params.GetSecretValueArgs{
+			Args: []params.GetSecretValueArg{{
 				URI:    "secret:9m4e2mr0ui3e8a215n4g",
 				Label:  "label",
 				Update: true,

@@ -154,7 +154,9 @@ type SecretConsumerMetadata struct {
 	// Label is used when notifying the consumer
 	// about changes to the secret.
 	Label string
-	// Revision is current revision the
+	// CurrentRevision is current revision the
 	// consumer wants to read.
-	Revision int
+	CurrentRevision int
+	// LatestRevision is the latest secret revision.
+	LatestRevision int
 }

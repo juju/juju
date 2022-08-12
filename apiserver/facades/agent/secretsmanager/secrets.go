@@ -29,6 +29,7 @@ type SecretsManagerAPI struct {
 	secretsService  secrets.SecretsService
 	resources       facade.Resources
 	secretsRotation SecretsRotation
+	secretsConsumer SecretsConsumer
 	authTag         names.Tag
 	clock           clock.Clock
 }
@@ -140,7 +141,7 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 }
 
 // GetSecretValues returns the secret values for the specified secrets.
-func (s *SecretsManagerAPI) GetSecretValues(args params.GetSecretArgs) (params.SecretValueResults, error) {
+func (s *SecretsManagerAPI) GetSecretValues(args params.GetSecretValueArgs) (params.SecretValueResults, error) {
 	result := params.SecretValueResults{
 		Results: make([]params.SecretValueResult, len(args.Args)),
 	}
@@ -153,7 +154,7 @@ func (s *SecretsManagerAPI) GetSecretValues(args params.GetSecretArgs) (params.S
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSecretArg) (coresecrets.SecretData, error) {
+func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSecretValueArg) (coresecrets.SecretData, error) {
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -164,7 +165,7 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 	if err := s.checkCanRead(uri); err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-	consumer, err := s.secretsService.GetSecretConsumer(ctx, uri, s.authTag.String())
+	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag.String())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -178,24 +179,61 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 		if consumer == nil {
 			consumer = &coresecrets.SecretConsumerMetadata{}
 		}
-		consumer.Revision = md.Revision
+		consumer.CurrentRevision = md.Revision
 		if arg.Label != "" {
 			consumer.Label = arg.Label
 		}
 
 		if update {
-			err := s.secretsService.SaveSecretConsumer(ctx, uri, s.authTag.String(), consumer)
+			err := s.secretsConsumer.SaveSecretConsumer(uri, s.authTag.String(), consumer)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 	}
 
-	val, err := s.secretsService.GetSecretValue(ctx, uri, consumer.Revision)
+	val, err := s.secretsService.GetSecretValue(ctx, uri, consumer.CurrentRevision)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return val.EncodedValues(), nil
+}
+
+// WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
+func (s *SecretsManagerAPI) WatchSecretsChanges(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, []string, error) {
+		_, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		if s.authTag.String() != arg.Tag {
+			return "", nil, apiservererrors.ErrPerm
+		}
+		w := s.secretsConsumer.WatchConsumedSecretsChanges(arg.Tag)
+		if secretChanges, ok := <-w.Changes(); ok {
+			changes := make([]string, len(secretChanges))
+			for i, c := range secretChanges {
+				changes[i] = c
+			}
+			return s.resources.Register(w), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.StringsWatchResult
+		id, changes, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.StringsWatcherId = id
+			result.Changes = changes
+		}
+		results.Results[i] = result
+	}
+	return results, nil
 }
 
 // WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config.

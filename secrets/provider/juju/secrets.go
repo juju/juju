@@ -70,16 +70,6 @@ func (s secretsService) GetSecret(ctx context.Context, uri *coresecrets.URI) (*c
 	return s.backend.GetSecret(uri)
 }
 
-// GetSecretConsumer implements SecretsService.
-func (s secretsService) GetSecretConsumer(ctx context.Context, uri *coresecrets.URI, owner string) (*coresecrets.SecretConsumerMetadata, error) {
-	return s.backend.GetSecretConsumer(uri, owner)
-}
-
-// SaveSecretConsumer implements SecretsService.
-func (s secretsService) SaveSecretConsumer(ctx context.Context, uri *coresecrets.URI, consumerTag string, sc *coresecrets.SecretConsumerMetadata) error {
-	return s.backend.SaveSecretConsumer(uri, consumerTag, sc)
-}
-
 // ListSecrets implements SecretsService.
 func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) ([]*coresecrets.SecretMetadata, error) {
 	return s.backend.ListSecrets(state.SecretsFilter{})

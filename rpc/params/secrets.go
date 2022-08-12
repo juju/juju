@@ -52,13 +52,13 @@ type UpdateSecretArg struct {
 	URI string `json:"uri"`
 }
 
-// GetSecretArgs holds the args for getting secrets.
-type GetSecretArgs struct {
-	Args []GetSecretArg `json:"args"`
+// GetSecretValueArgs holds the args for getting secret values.
+type GetSecretValueArgs struct {
+	Args []GetSecretValueArg `json:"args"`
 }
 
-// GetSecretArg holds the args for getting a secret.
-type GetSecretArg struct {
+// GetSecretValueArg holds the args for getting a secret value.
+type GetSecretValueArg struct {
 	URI    string `json:"uri"`
 	Label  string `json:"label,omitempty"`
 	Update bool   `json:"update,omitempty"`

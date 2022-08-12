@@ -51,6 +51,7 @@ func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		secretsService:  service,
 		resources:       context.Resources(),
 		secretsRotation: context.State(),
+		secretsConsumer: context.State(),
 		manageSecret:    secretOwner(agentAppName),
 		clock:           clock.WallClock,
 	}, nil
