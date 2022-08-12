@@ -312,6 +312,9 @@ type HookContext struct {
 	// secretURI is the reference to the secret relevant to the hook.
 	secretURI string
 
+	// secretLabel is the secret label to expose to the hook.
+	secretLabel string
+
 	mu sync.Mutex
 }
 
@@ -1083,7 +1086,8 @@ func (ctx *HookContext) HookVars(
 
 	if ctx.secretURI != "" {
 		vars = append(vars,
-			"JUJU_SECRET_URL="+ctx.secretURI,
+			"JUJU_SECRET_ID="+ctx.secretURI,
+			"JUJU_SECRET_LABEL="+ctx.secretLabel,
 		)
 	}
 

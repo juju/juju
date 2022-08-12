@@ -38,7 +38,6 @@ type SecretsManagerSuite struct {
 	secretsWatcher         *mocks.MockStringsWatcher
 	secretsRotationService *mocks.MockSecretsRotation
 	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
-	accessSecret           common.GetAuthFunc
 	authTag                names.Tag
 	clock                  clock.Clock
 
@@ -63,18 +62,22 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsRotationService = mocks.NewMockSecretsRotation(ctrl)
 	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
 	s.authTag = names.NewUnitTag("mariadb/0")
-	s.accessSecret = func() (common.AuthFunc, error) {
+	accessSecret := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			appName, _ := names.UnitApplication(s.authTag.Id())
 			return tag.Id() == appName
 		}, nil
+	}
+	canRead := func(consumer names.Tag, uri *coresecrets.URI) bool {
+		return consumer.String() == s.authTag.String()
 	}
 	s.expectAuthUnitAgent()
 
 	s.clock = testclock.NewClock(time.Now())
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.secretsService, s.secretsConsumer, s.secretsRotationService, s.accessSecret, s.authTag, s.clock)
+		s.authorizer, s.resources, s.secretsService, s.secretsConsumer, s.secretsRotationService,
+		accessSecret, canRead, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -227,7 +230,10 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 	s.secretsService.EXPECT().GetSecret(
 		gomock.Any(), uri2).Return(&coresecrets.SecretMetadata{Revision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
-		uri2, "unit-mariadb-0", &coresecrets.SecretConsumerMetadata{CurrentRevision: 668}).Return(nil)
+		uri2, "unit-mariadb-0", &coresecrets.SecretConsumerMetadata{
+			CurrentRevision: 668,
+			LatestRevision:  668,
+		}).Return(nil)
 	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(
 		val, nil,
 	)

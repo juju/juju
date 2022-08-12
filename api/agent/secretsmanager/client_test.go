@@ -205,6 +205,54 @@ func (s *SecretsSuite) TestGetSecretsError(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
+func (s *SecretsSuite) TestWatchSecretsChanges(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchSecretsChanges")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-foo-0"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	_, err := client.WatchSecretsChanges("foo/0")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretsSuite) GetLatestSecretsRevisionInfo(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetLatestSecretsRevisionInfo")
+		c.Check(arg, jc.DeepEquals, params.GetSecretConsumerInfoArgs{
+			ConsumerTag: "unit-foo-0",
+			URIs:        []string{"secret:9m4e2mr0ui3e8a215n4g"},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretConsumerInfoResults{})
+		*(result.(*params.SecretConsumerInfoResults)) = params.SecretConsumerInfoResults{
+			Results: []params.SecretConsumerInfoResult{{
+				Revision: 666,
+				Label:    "foobar",
+			}},
+		}
+		return nil
+	})
+	var info map[string]secretsmanager.SecretRevisionInfo
+	client := secretsmanager.NewClient(apiCaller)
+	info, err := client.GetLatestSecretsRevisionInfo("foo-0", []string{"secret:9m4e2mr0ui3e8a215n4g"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{})
+}
+
 func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")

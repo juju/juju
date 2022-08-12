@@ -52,6 +52,25 @@ type UpdateSecretArg struct {
 	URI string `json:"uri"`
 }
 
+// GetSecretConsumerInfoArgs holds the args for getting secret
+// consumer metadata.
+type GetSecretConsumerInfoArgs struct {
+	ConsumerTag string   `json:"consumer-tag"`
+	URIs        []string `json:"uris"`
+}
+
+// SecretConsumerInfoResults holds secret value results.
+type SecretConsumerInfoResults struct {
+	Results []SecretConsumerInfoResult `json:"results"`
+}
+
+// SecretValueResult is the result of getting a secret value.
+type SecretConsumerInfoResult struct {
+	Revision int    `json:"revision"`
+	Label    string `json:"label"`
+	Error    *Error `json:"error,omitempty"`
+}
+
 // GetSecretValueArgs holds the args for getting secret values.
 type GetSecretValueArgs struct {
 	Args []GetSecretValueArg `json:"args"`

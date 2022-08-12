@@ -131,7 +131,8 @@ func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
 	url := secrets.NewURI()
 	context.SetEnvironmentHookContextSecret(ctx, url.ShortString())
 	return []string{
-		"JUJU_SECRET_URL=" + url.ShortString(),
+		"JUJU_SECRET_ID=" + url.ShortString(),
+		"JUJU_SECRET_LABEL=label-" + url.ShortString(),
 	}
 }
 

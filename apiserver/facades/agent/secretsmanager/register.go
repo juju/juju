@@ -53,6 +53,7 @@ func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		secretsRotation: context.State(),
 		secretsConsumer: context.State(),
 		manageSecret:    secretOwner(agentAppName),
+		canRead:         canReadSecret(context.Auth()),
 		clock:           clock.WallClock,
 	}, nil
 }

@@ -113,6 +113,10 @@ type State struct {
 	// machine/container addresses - it's used to determine whether we
 	// need to run config-changed.
 	AddressesHash string `yaml:"addresses-hash,omitempty"`
+
+	// SecretRevisions store the last seen revision for each secret - it's
+	// used to determine if we need to run secret-changed.
+	SecretRevisions map[string]int `yaml:"secret-revisions,omitempty"`
 }
 
 // Validate returns an error if the state violates expectations.
@@ -225,6 +229,7 @@ func NewStateOps(readwriter UnitStateReadWriter) *StateOps {
 
 // UnitStateReadWriter encapsulates the methods from a state.Unit
 // required to set and get unit state.
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniterstaterw_mock.go github.com/juju/juju/worker/uniter/operation UnitStateReadWriter
 type UnitStateReadWriter interface {
 	State() (params.UnitStateResult, error)

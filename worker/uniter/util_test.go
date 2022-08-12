@@ -1661,6 +1661,21 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 	ctx.createdSecretURI = uri
 }
 
+type changeSecret struct{}
+
+func (s changeSecret) step(c *gc.C, ctx *testContext) {
+	err := ctx.secretsFacade.Update(ctx.createdSecretURI, &secrets.SecretConfig{}, secrets.NewSecretValue(map[string]string{"foo": "bar2"}))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type getSecret struct{}
+
+func (s getSecret) step(c *gc.C, ctx *testContext) {
+	val, err := ctx.secretsFacade.GetValue(ctx.createdSecretURI, "foorbar", false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
+}
+
 type rotateSecret struct{}
 
 func (s rotateSecret) step(c *gc.C, ctx *testContext) {

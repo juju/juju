@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -126,6 +127,63 @@ func (c *Client) GetValue(uri, label string, update, peek bool) (secrets.SecretV
 		return nil, err
 	}
 	return secrets.NewSecretValue(results.Results[0].Data), nil
+}
+
+// WatchSecretsChanges returns a watcher which serves changes to
+// secrets payloads for any secrets consumed by the specified unit.
+func (c *Client) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
+	}
+	err := c.facade.FacadeCall("WatchSecretsChanges", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// SecretRevisionInfo holds info used to read a secret vale.
+type SecretRevisionInfo struct {
+	Revision int
+	Label    string
+}
+
+// GetLatestSecretsRevisionInfo returns the current revision and labels for secrets consumed
+// by the specified unit.
+func (c *Client) GetLatestSecretsRevisionInfo(unitName string, uris []string) (map[string]SecretRevisionInfo, error) {
+	var results params.SecretConsumerInfoResults
+	args := params.GetSecretConsumerInfoArgs{
+		ConsumerTag: names.NewUnitTag(unitName).String(),
+		URIs:        uris,
+	}
+
+	err := c.facade.FacadeCall("GetLatestSecretsRevisionInfo", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(uris) {
+		return nil, errors.Errorf("expected %d result, got %d", len(uris), len(results.Results))
+	}
+	info := make(map[string]SecretRevisionInfo)
+	for i, latest := range results.Results {
+		if err := results.Results[i].Error; err != nil && err.Code != params.CodeNotFound {
+			return nil, errors.Annotatef(err, "finding latest info for secret %q", uris[i])
+		}
+		info[uris[i]] = SecretRevisionInfo{
+			Revision: latest.Revision,
+			Label:    latest.Label,
+		}
+	}
+	return info, err
 }
 
 // WatchSecretsRotationChanges returns a watcher which serves changes to
