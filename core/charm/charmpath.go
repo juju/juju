@@ -74,6 +74,7 @@ func charmSeries(series string, force bool, cm charm.CharmMeta) (string, error) 
 		return series, nil
 	}
 	computedSeries, err := ComputedSeries(cm)
+	logger.Tracef("series %q, %v", series, computedSeries)
 	if err != nil {
 		return "", err
 	}

@@ -448,7 +448,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 	// Get the series to use.
 	series, err := selector.charmSeries()
-	logger.Tracef("Using series %s from %v to deploy %v", series, supportedSeries, userRequestedURL)
+	logger.Infof("Using series %q from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
 	imageStream := modelCfg.ImageStream()
 	// Avoid deploying charm if it's not valid for the model.

@@ -106,6 +106,13 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// At this point, because we have no idea what series the charm supports,
 	// *everything* requires --force.
 	if !s.force {
+		logger.Tracef("juju supported series %s", s.supportedJujuSeries.SortedValues())
+		logger.Tracef("charm supported series %s", s.supportedSeries)
+		if charm.IsMissingSeriesError(err) {
+			// TODO: rephrase charm.errMissingSeries!
+			return "", errors.NotValidf("the charm supported series (%v) are deprecated", s.supportedSeries)
+		}
+
 		// We know err is not nil due to above, so return the error
 		// returned to us from the charm call.
 		return "", err
@@ -143,13 +150,9 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 }
 
 func (s seriesSelector) validateSeries(seriesName string) error {
-	// if we're forcing then we don't need the following validation checks.
 	if len(s.supportedJujuSeries) == 0 {
 		// programming error
 		return errors.Errorf("expected supported juju series to exist")
-	}
-	if s.force {
-		return nil
 	}
 
 	if !s.supportedJujuSeries.Contains(seriesName) {
