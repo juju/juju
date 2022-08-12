@@ -74,26 +74,19 @@ func AllWorkloadOSTypes(requestedSeries, imageStream string) (set.Strings, error
 	return result, nil
 }
 
-func seriesForTypes(
-	path string, now time.Time, requestedSeries, imageStream string) (*supportedInfo, error) {
-	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruent with the Ubuntu release cycle for its own series (not
-	// including centos), so that should be reflected here.
-	//
+func seriesForTypes(path string, now time.Time, requestedSeries, imageStream string) (*supportedInfo, error) {
 	// For non-LTS releases; they'll appear in juju/os as default available, but
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
 	// the non-LTS should disappear if they're not in the release window for that
 	// series.
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
-	composeSeriesVersions()
+	updateSeriesVersionsOnce()
 	if requestedSeries != "" && imageStream == Daily {
 		setSupported(allSeriesVersions, requestedSeries)
 	}
-
 	source := series.NewDistroInfo(path)
-	ignoreDistroInfoUpdate := true // We do not want to update the `.Supported`.
-	supported := newSupportedInfo(source, allSeriesVersions, &ignoreDistroInfoUpdate)
+	supported := newSupportedInfo(source, allSeriesVersions)
 	if err := supported.compile(now); err != nil {
 		return nil, errors.Trace(err)
 	}

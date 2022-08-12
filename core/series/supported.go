@@ -28,18 +28,16 @@ type DistroSource interface {
 type supportedInfo struct {
 	mutex sync.RWMutex
 
-	source                 DistroSource
-	values                 map[SeriesName]seriesVersion
-	ignoreDistroInfoUpdate *bool
+	source DistroSource
+	values map[SeriesName]seriesVersion
 }
 
 // newSupportedInfo creates a supported info type for knowing if a series is
 // supported or not.
-func newSupportedInfo(source DistroSource, preset map[SeriesName]seriesVersion, ignoreDistroInfoUpdate *bool) *supportedInfo {
+func newSupportedInfo(source DistroSource, preset map[SeriesName]seriesVersion) *supportedInfo {
 	return &supportedInfo{
-		source:                 source,
-		values:                 preset,
-		ignoreDistroInfoUpdate: ignoreDistroInfoUpdate,
+		source: source,
+		values: preset,
 	}
 }
 
@@ -55,10 +53,6 @@ func (s *supportedInfo) compile(now time.Time) error {
 	// First thing here, is walk over the controller, workload maps to work out
 	// if something was previously supported and is no longer or the reverse.
 	for seriesName, version := range s.values {
-		if s.ignoreDistroInfoUpdate != nil {
-			version.IgnoreDistroInfoUpdate = *s.ignoreDistroInfoUpdate
-		}
-
 		distroInfo, ok := s.source.SeriesInfo(seriesName.String())
 		if !ok {
 			// The series isn't found in the distro info, we should continue
@@ -77,7 +71,11 @@ func (s *supportedInfo) compile(now time.Time) error {
 		// false when reading in the distro information. Setting OverrideSupport
 		// to true, will force it to be the same value as the default.
 		if !version.IgnoreDistroInfoUpdate {
-			supported = distroInfo.Supported(now)
+			if current {
+				// We only want to update the previously supported to possibly deprecated.
+				// But we do not want to update a Juju deprecated LTS to supported again.
+				supported = distroInfo.Supported(now)
+			}
 		}
 
 		s.values[seriesName] = seriesVersion{

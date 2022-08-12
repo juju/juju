@@ -32,7 +32,7 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("updated").Return(series.DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("deprecated-lts").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
@@ -48,7 +48,7 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 			Version:      "1.1.1",
 			Supported:    true,
 		},
-		"updated": {
+		"deprecated-lts": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",
 			Supported:    false,
@@ -65,14 +65,14 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 		},
 	}
 
-	info := newSupportedInfo(mockDistroSource, preset, nil)
+	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported", "updated"})
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
 }
 
 func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
@@ -97,7 +97,7 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 		},
 	}
 
-	info := newSupportedInfo(mockDistroSource, preset, nil)
+	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -107,7 +107,7 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
 }
 
-func (s *SupportedSuite) TestCompileForControllersWithGlobalOverrideIgnore(c *gc.C) {
+func (s *SupportedSuite) TestCompileForControllersNoUpdate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -124,12 +124,12 @@ func (s *SupportedSuite) TestCompileForControllersWithGlobalOverrideIgnore(c *gc
 		"supported": {
 			WorkloadType:           ControllerWorkloadType,
 			Version:                "1.1.1",
-			Supported:              true,
-			IgnoreDistroInfoUpdate: true,
+			Supported:              false,
+			IgnoreDistroInfoUpdate: false,
 		},
 	}
 
-	info := newSupportedInfo(mockDistroSource, preset, boolptr(false))
+	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -139,7 +139,7 @@ func (s *SupportedSuite) TestCompileForControllersWithGlobalOverrideIgnore(c *gc
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
 }
 
-func (s *SupportedSuite) TestCompileForControllersWithGlobalOverrideNotIgnore(c *gc.C) {
+func (s *SupportedSuite) TestCompileForControllersUpdated(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -148,8 +148,8 @@ func (s *SupportedSuite) TestCompileForControllersWithGlobalOverrideNotIgnore(c 
 	mockDistroSource := NewMockDistroSource(ctrl)
 	mockDistroSource.EXPECT().Refresh().Return(nil)
 	mockDistroSource.EXPECT().SeriesInfo("supported").Return(series.DistroInfoSerie{
-		Released: now.AddDate(0, 0, 9),
-		EOL:      now.AddDate(0, 0, 10),
+		Released: now.AddDate(0, 0, -10),
+		EOL:      now.AddDate(0, 0, -9),
 	}, true)
 
 	preset := map[SeriesName]seriesVersion{
@@ -161,14 +161,14 @@ func (s *SupportedSuite) TestCompileForControllersWithGlobalOverrideNotIgnore(c 
 		},
 	}
 
-	info := newSupportedInfo(mockDistroSource, preset, boolptr(true))
+	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
 }
 
 func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
@@ -192,7 +192,7 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 		},
 	}
 
-	info := newSupportedInfo(mockDistroSource, preset, nil)
+	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -214,7 +214,7 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("ctrl-updated").Return(series.DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("ctrl-deprecated-lts").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
@@ -227,7 +227,7 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("work-updated").Return(series.DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("work-deprecated-lts").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
@@ -243,7 +243,7 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 			Version:      "1.1.1",
 			Supported:    true,
 		},
-		"ctrl-updated": {
+		"ctrl-deprecated-lts": {
 			WorkloadType: ControllerWorkloadType,
 			Version:      "1.1.1",
 			Supported:    false,
@@ -263,7 +263,7 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 			Version:      "1.1.1",
 			Supported:    true,
 		},
-		"work-updated": {
+		"work-deprecated-lts": {
 			WorkloadType: OtherWorkloadType,
 			Version:      "1.1.1",
 			Supported:    false,
@@ -280,23 +280,19 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 		},
 	}
 
-	info := newSupportedInfo(mockDistroSource, preset, nil)
+	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
 	c.Assert(err, jc.ErrorIsNil)
 
 	workSeries := info.workloadSeries(false)
 	sort.Strings(workSeries)
 
-	c.Assert(workSeries, jc.DeepEquals, []string{"ctrl-supported", "ctrl-updated", "work-supported", "work-updated"})
+	c.Assert(workSeries, jc.DeepEquals, []string{"ctrl-supported", "work-supported"})
 
 	// Double check that controller series doesn't change when we have workload
 	// types.
 	ctrlSeries := info.controllerSeries()
 	sort.Strings(ctrlSeries)
 
-	c.Assert(ctrlSeries, jc.DeepEquals, []string{"ctrl-supported", "ctrl-updated"})
-}
-
-func boolptr(b bool) *bool {
-	return &b
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{"ctrl-supported"})
 }
