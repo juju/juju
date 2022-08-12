@@ -4,7 +4,7 @@ run_deploy_ck() {
 	echo
 
 	local name model_name file overlay_path kube_home storage_path
-	name="${2}"
+	name="deploy-ck"
 	model_name="${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
@@ -54,10 +54,8 @@ run_deploy_caas_workload() {
 	juju deploy cs:~juju/mediawiki-k8s-4 --config kubernetes-service-type=loadbalancer
 	juju relate mediawiki-k8s:db mariadb-k8s:server
 
-	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current'
+	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current' 300
 	wait_for "active" '.applications["mediawiki-k8s"] | ."application-status".current'
-
-	destroy_model "${model_name}"
 }
 
 test_deploy_ck() {
@@ -70,11 +68,8 @@ test_deploy_ck() {
 		set_verbosity
 
 		cd .. || exit
-		local run_deploy_ck_name="deploy-ck"
-		run "run_deploy_ck" "${run_deploy_ck_name}"
 
+		run "run_deploy_ck"
 		run "run_deploy_caas_workload"
-
-		destroy_model "${run_deploy_ck_name}" 45m
 	)
 }

@@ -219,9 +219,22 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if IsLocalURL(d.charmRef) {
+		// This was clearly meant to refer to a local charm, which we've not
+		// been able to find, so return the error
+		return nil, errors.Annotatef(err, "%q", d.charmRef)
+	}
+
 	// Not a valid local charm, in this case, we should move onto the next
 	// refresher.
 	return nil, ErrExhausted
+}
+
+// IsLocalURL checks if the provided URL refers to a local charm (i.e. it
+// begins with one of  `/`  `./`  `../` ).
+func IsLocalURL(url string) bool {
+	return strings.HasPrefix(url, "/") || strings.HasPrefix(url, "./") ||
+		strings.HasPrefix(url, "../")
 }
 
 func (d *localCharmRefresher) String() string {

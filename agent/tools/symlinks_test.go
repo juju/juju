@@ -27,7 +27,7 @@ var _ = gc.Suite(&SymlinksSuite{})
 
 func (s *SymlinksSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
-	s.toolsDir = tools.SharedToolsDir(s.dataDir, testing.CurrentVersion(c))
+	s.toolsDir = tools.SharedToolsDir(s.dataDir, testing.CurrentVersion())
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("created %s", s.toolsDir)
