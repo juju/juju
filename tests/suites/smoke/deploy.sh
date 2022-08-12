@@ -28,11 +28,11 @@ run_charmstore_deploy() {
 
 	ensure "test-charmstore-deploy" "${file}"
 
-	juju deploy cs:~jameinel/ubuntu-lite-6 ubuntu
+	juju deploy cs:ubuntu-19 ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	juju refresh ubuntu
-	wait_for "ubuntu" "$(idle_condition_for_rev "ubuntu" "9")"
+	wait_for "ubuntu" "$(idle_condition_for_rev "ubuntu" "20")"
 
 	destroy_model "test-charmstore-deploy"
 }
