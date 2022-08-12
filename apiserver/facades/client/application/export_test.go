@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	NewStateStorage = &newStateStorage
-	GetStorageState = getStorageState
+	ParseSettingsCompatible = parseSettingsCompatible
+	NewStateStorage         = &newStateStorage
+	GetStorageState         = getStorageState
 )
 
 func GetState(st *state.State) Backend {

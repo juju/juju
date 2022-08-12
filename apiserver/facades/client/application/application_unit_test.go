@@ -660,8 +660,7 @@ func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	s.backend.EXPECT().InferActiveRelation("a", "b").Return(nil, errors.New("no relations found"))
 
@@ -670,8 +669,7 @@ func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	s.backend.EXPECT().InferActiveRelation("a:b", "c:d").Return(nil, errors.NotFoundf(`relation "a:b c:d"`))
 
@@ -700,8 +698,7 @@ func (s *ApplicationSuite) TestDestroyRelationId(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	s.backend.EXPECT().Relation(123).Return(nil, errors.NotFoundf(`relation "123"`))
 
@@ -877,8 +874,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	s.backend.EXPECT().Application("postgresql").Return(nil, errors.NotFoundf(`application "postgresql"`))
 
@@ -949,8 +945,7 @@ func (s *ApplicationSuite) TestForceDestroyConsumedApplication(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyConsumedApplicationNotFound(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	s.backend.EXPECT().RemoteApplication("hosted-db2").Return(nil, errors.NotFoundf(`saas application "hosted-db2"`))
 
@@ -1949,8 +1944,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	controllerUUID := utils.MustNewUUID().String()
 
@@ -1978,8 +1972,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestConsumeFromSameController(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	s.consumeApplicationArgs.Args[0].ControllerInfo = &params.ExternalControllerInfo{
 		ControllerTag: coretesting.ControllerTag.String(),
@@ -1997,8 +1990,7 @@ func (s *ApplicationSuite) TestConsumeFromSameController(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	s.addRemoteApplicationParams.Name = "beirut"
 	s.addRemoteApplicationParams.Bindings = map[string]string{"server": "myspace"}
@@ -2909,8 +2901,7 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestLeader(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	result, err := s.api.Leader(params.Entity{Tag: names.NewApplicationTag("postgresql").String()})
 	c.Assert(err, jc.ErrorIsNil)
