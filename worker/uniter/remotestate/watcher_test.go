@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -33,6 +34,7 @@ type WatcherSuite struct {
 	watcher                      *remotestate.RemoteStateWatcher
 	clock                        *testclock.Clock
 
+	secretsClient            *mockSecretsClient
 	rotateSecretWatcher      *mockRotateSecretsWatcher
 	rotateSecretWatcherEvent chan string
 
@@ -125,6 +127,9 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.rotateSecretWatcherEvent = make(chan string)
+	s.secretsClient = &mockSecretsClient{
+		secretsWatcher: newMockStringsWatcher(),
+	}
 
 	s.clock = testclock.NewClock(time.Now())
 
@@ -187,6 +192,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		Sidecar:                      s.sidecar,
 		EnforcedCharmModifiedVersion: s.enforcedCharmModifiedVersion,
 		LeadershipTracker:            s.leadership,
+		SecretsClient:                s.secretsClient,
 		SecretRotateWatcherFunc: func(u names.UnitTag, rotateCh chan []string) (worker.Worker, error) {
 			select {
 			case s.rotateSecretWatcherEvent <- u.Id():
@@ -229,6 +235,7 @@ func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:       map[string]int{},
 		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		SecretInfo:          map[string]secretsmanager.SecretRevisionInfo{},
 	})
 }
 
@@ -240,6 +247,7 @@ func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 		ActionChanged:       map[string]int{},
 		ActionsBlocked:      true,
 		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		SecretInfo:          map[string]secretsmanager.SecretRevisionInfo{},
 	})
 }
 
@@ -250,6 +258,7 @@ func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *gc.C) {
 		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:       map[string]int{},
 		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
+		SecretInfo:          map[string]secretsmanager.SecretRevisionInfo{},
 	})
 }
 
@@ -276,6 +285,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.relationsWatcher.changes <- []string{}
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
+	s.secretsClient.secretsWatcher.changes <- []string{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
 
@@ -291,6 +301,7 @@ func (s *WatcherSuite) signalAll() {
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.applicationWatcher.changes <- struct{}{}
+	s.secretsClient.secretsWatcher.changes <- []string{}
 	if s.st.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		s.st.unit.instanceDataWatcher.changes <- struct{}{}
@@ -318,6 +329,7 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
 		UpgradeSeriesTarget:   "focal",
+		SecretInfo:            map[string]secretsmanager.SecretRevisionInfo{},
 	})
 }
 
@@ -341,6 +353,7 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
+		SecretInfo:            map[string]secretsmanager.SecretRevisionInfo{},
 	})
 }
 
@@ -366,6 +379,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ActionsBlocked:         true,
 		ActionChanged:          map[string]int{},
 		ContainerRunningStatus: nil,
+		SecretInfo:             map[string]secretsmanager.SecretRevisionInfo{},
 	})
 
 	t := time.Now()
@@ -402,6 +416,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ActionChanged:          map[string]int{},
 		ProviderID:             s.st.unit.providerID,
 		ContainerRunningStatus: s.running,
+		SecretInfo:             map[string]secretsmanager.SecretRevisionInfo{},
 	})
 
 	s.running = &remotestate.ContainerRunningStatus{
@@ -436,6 +451,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ActionChanged:          map[string]int{},
 		ProviderID:             s.st.unit.providerID,
 		ContainerRunningStatus: s.running,
+		SecretInfo:             map[string]secretsmanager.SecretRevisionInfo{},
 	})
 }
 
@@ -470,6 +486,19 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.rotateSecretWatcher.rotateCh <- secretURIs
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+
+	s.secretsClient.secretsWatcher.changes <- secretURIs
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {
+			Revision: 666,
+			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
+		},
+		"secret:8b4e2mr1wi3e8a215n5h": {
+			Revision: 667,
+			Label:    "label-secret:8b4e2mr1wi3e8a215n5h",
+		},
+	})
 
 	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
 	assertOneChange()
@@ -1025,6 +1054,24 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
 
+	secretURIs := []string{"secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
+	s.rotateSecretWatcher.rotateCh <- secretURIs
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+
+	s.secretsClient.secretsWatcher.changes <- secretURIs
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {
+			Revision: 666,
+			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
+		},
+		"secret:8b4e2mr1wi3e8a215n5h": {
+			Revision: 667,
+			Label:    "label-secret:8b4e2mr1wi3e8a215n5h",
+		},
+	})
+
 	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
@@ -1076,6 +1123,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
+		SecretInfo:            map[string]secretsmanager.SecretRevisionInfo{},
 	})
 }
 

@@ -272,6 +272,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	}
 	if hookInfo.Kind.IsSecret() {
 		ctx.secretURI = hookInfo.SecretURI
+		ctx.secretLabel = hookInfo.SecretLabel
 	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName

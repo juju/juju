@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	coresecrets "github.com/juju/juju/core/secrets"
 )
 
@@ -22,7 +23,14 @@ func secretOwner(agentAppName string) common.GetAuthFunc {
 	}
 }
 
-func (s *SecretsManagerAPI) checkCanRead(uri *coresecrets.URI) error {
-	// TODO(wallyworld)
-	return nil
+type canReadSecretFunc func(consumer names.Tag, uri *coresecrets.URI) bool
+
+func canReadSecret(authorizer facade.Authorizer) canReadSecretFunc {
+	return func(consumer names.Tag, uri *coresecrets.URI) bool {
+		if !authorizer.AuthOwner(consumer) {
+			return false
+		}
+		// TODO(wallyworld)
+		return true
+	}
 }

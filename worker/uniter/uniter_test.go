@@ -472,6 +472,23 @@ func (s *UniterSuite) TestUniterRotateSecretHook(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterSecretChangedHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"change secret hook runs when there are secret changes",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			createSecret{},
+			getSecret{},
+			changeSecret{},
+			waitHooks{"secret-changed"},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(

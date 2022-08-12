@@ -25,7 +25,9 @@ type SecretsManagerAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	manageSecret    common.GetAuthFunc
+	manageSecret common.GetAuthFunc
+	canRead      canReadSecretFunc
+
 	secretsService  secrets.SecretsService
 	resources       facade.Resources
 	secretsRotation SecretsRotation
@@ -140,6 +142,43 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	return errors.Trace(err)
 }
 
+// GetLatestSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
+func (s *SecretsManagerAPI) GetLatestSecretsRevisionInfo(args params.GetSecretConsumerInfoArgs) (params.SecretConsumerInfoResults, error) {
+	result := params.SecretConsumerInfoResults{
+		Results: make([]params.SecretConsumerInfoResult, len(args.URIs)),
+	}
+	consumerTag, err := names.ParseTag(args.ConsumerTag)
+	if err != nil {
+		return params.SecretConsumerInfoResults{}, errors.Trace(err)
+	}
+	for i, uri := range args.URIs {
+		data, err := s.getSecretConsumerInfo(consumerTag, uri)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i] = params.SecretConsumerInfoResult{
+			Revision: data.LatestRevision,
+			Label:    data.Label,
+		}
+	}
+	return result, nil
+}
+
+func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr string) (*coresecrets.SecretConsumerMetadata, error) {
+	uri, err := coresecrets.ParseURI(uriStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if uri.ControllerUUID == "" {
+		uri.ControllerUUID = s.controllerUUID
+	}
+	if !s.canRead(consumerTag, uri) {
+		return nil, apiservererrors.ErrPerm
+	}
+	return s.secretsConsumer.GetSecretConsumer(uri, consumerTag.String())
+}
+
 // GetSecretValues returns the secret values for the specified secrets.
 func (s *SecretsManagerAPI) GetSecretValues(args params.GetSecretValueArgs) (params.SecretValueResults, error) {
 	result := params.SecretValueResults{
@@ -162,7 +201,7 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 	if uri.ControllerUUID == "" {
 		uri.ControllerUUID = s.controllerUUID
 	}
-	if err := s.checkCanRead(uri); err != nil {
+	if !s.canRead(s.authTag, uri) {
 		return nil, apiservererrors.ErrPerm
 	}
 	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag.String())
@@ -177,7 +216,9 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 			return nil, errors.Trace(err)
 		}
 		if consumer == nil {
-			consumer = &coresecrets.SecretConsumerMetadata{}
+			consumer = &coresecrets.SecretConsumerMetadata{
+				LatestRevision: md.Revision,
+			}
 		}
 		consumer.CurrentRevision = md.Revision
 		if arg.Label != "" {

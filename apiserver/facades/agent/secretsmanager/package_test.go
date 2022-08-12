@@ -34,6 +34,7 @@ func NewTestAPI(
 	consumer SecretsConsumer,
 	secretsRotation SecretsRotation,
 	manageSecret common.GetAuthFunc,
+	canRead canReadSecretFunc,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -50,6 +51,7 @@ func NewTestAPI(
 		secretsConsumer: consumer,
 		secretsRotation: secretsRotation,
 		manageSecret:    manageSecret,
+		canRead:         canRead,
 		clock:           clock,
 	}, nil
 }
