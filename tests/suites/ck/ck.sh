@@ -56,6 +56,8 @@ run_deploy_caas_workload() {
 
 	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current' 300
 	wait_for "active" '.applications["mediawiki-k8s"] | ."application-status".current'
+
+	destroy_model "${model_name}"
 }
 
 test_deploy_ck() {
