@@ -197,7 +197,7 @@ func (c *killCommand) DirectDestroyRemaining(
 	hostedConfig, err := api.HostedModelConfigs()
 	if err != nil {
 		hasErrors = true
-		logger.Errorf("unable to retrieve hosted model config: %v", err)
+		logger.Warningf("unable to retrieve hosted model config: %v", err)
 	}
 	ctrlUUID := ""
 	// try to get controller UUID or just ignore.
@@ -214,26 +214,26 @@ func (c *killCommand) DirectDestroyRemaining(
 			// Only model name is guaranteed to be set in the result
 			// when an error is returned.
 			hasErrors = true
-			logger.Errorf("could not kill %s directly: %v", model.Name, model.Error)
+			logger.Warningf("could not kill %s directly: %v", model.Name, model.Error)
 			continue
 		}
 		ctx.Infof("Killing %s/%s directly", model.Owner.Id(), model.Name)
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Warningf(err.Error())
 			hasErrors = true
 			continue
 		}
 		p, err := environs.Provider(model.CloudSpec.Type)
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Warningf(err.Error())
 			hasErrors = true
 			continue
 		}
 
 		modelCloudSpec, err := transformModelCloudSpecForInstanceRoles(model.Name, model.CloudSpec, controllerCloudSpec)
 		if err != nil {
-			logger.Errorf("could not kill %s directly: %v", model.Name, err)
+			logger.Warningf("could not kill %s directly: %v", model.Name, err)
 			continue
 		}
 
@@ -250,13 +250,13 @@ func (c *killCommand) DirectDestroyRemaining(
 				env, err = environs.Open(stdcontext.TODO(), cloudProvider, openParams)
 			}
 			if err != nil {
-				logger.Errorf(err.Error())
+				logger.Warningf(err.Error())
 				hasErrors = true
 				continue
 			}
 			cloudCallCtx := cloudCallContext(c.credentialAPIFunctionForModel(model.Name))
 			if err := env.Destroy(cloudCallCtx); err != nil {
-				logger.Errorf(err.Error())
+				logger.Warningf(err.Error())
 				hasErrors = true
 				continue
 			}
@@ -264,7 +264,7 @@ func (c *killCommand) DirectDestroyRemaining(
 		ctx.Infof("  done")
 	}
 	if hasErrors {
-		logger.Errorf("there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
+		logger.Warningf("there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
 	} else {
 		ctx.Infof("All hosted models destroyed, cleaning up controller machines")
 	}
