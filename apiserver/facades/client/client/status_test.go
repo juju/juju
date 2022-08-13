@@ -553,7 +553,8 @@ func addUnitWithVersion(c *gc.C, application *state.Application, version string)
 	return unit
 }
 
-func (s *statusUnitTestSuite) checkAppVersion(c *gc.C, application *state.Application, expectedVersion string) params.ApplicationStatus {
+func (s *statusUnitTestSuite) checkAppVersion(c *gc.C, application *state.Application,
+	expectedVersion string) params.ApplicationStatus {
 	client := apiclient.NewClient(s.APIState)
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -908,7 +909,8 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 
 	s.ctrl = gomock.NewController(c)
 	charmhubClient := mocks.NewMockCharmhubRefreshClient(s.ctrl)
-	charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
+	charmhubClient.EXPECT().RefreshWithRequestMetrics(gomock.Any(), gomock.Any(),
+		gomock.Any()).Return([]transport.RefreshResponse{
 		{Entity: transport.RefreshEntity{Revision: 42}},
 	}, nil)
 	newCharmhubClient := func(st charmrevisionupdater.State) (charmrevisionupdater.CharmhubRefreshClient, error) {
@@ -916,7 +918,8 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, clock.WallClock, newCharmstoreClient, newCharmhubClient)
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, clock.WallClock,
+		newCharmstoreClient, newCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1151,9 +1154,10 @@ func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 type filteringBranchesSuite struct {
 	baseSuite
 
-	appA string
-	appB string
-	subB string
+	appA    string
+	appB    string
+	subB    string
+	leaders map[string]string
 }
 
 var _ = gc.Suite(&filteringBranchesSuite{})
@@ -1243,6 +1247,24 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *gc.C) {
 	c.Assert(status.Applications, gc.HasLen, 1)
 }
 
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnitLeader(c *gc.C) {
+	s.assertBranchAssignUnit(c, "apple", s.appA+"/0")
+	err := s.State.AddBranch("banana", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := s.clientForTest(c)
+
+	status, err := client.FullStatus(params.StatusParams{
+		Patterns: []string{s.appA + "/leader"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Branches, gc.HasLen, 1)
+	b, ok := status.Branches["apple"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
+	c.Assert(status.Applications, gc.HasLen, 1)
+}
+
 func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) {
 	err := s.State.AddBranch("apple", "test-user")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1313,12 +1335,23 @@ func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
 			Tag:        s.AdminUserTag(c),
 			Controller: true,
 		},
-		Resources_:        common.NewResources(),
-		LeadershipReader_: mockLeadershipReader{},
+		Resources_: common.NewResources(),
+		LeadershipReader_: mockLeadershipReader{
+			leaders: map[string]string{s.appA: s.appA + "/0"},
+		},
 	}
-	client, err := client.NewFacade(ctx)
+
+	var (
+		err     error
+		client_ *client.Client
+	)
+
+	s.leaders, err = ctx.LeadershipReader_.Leaders()
 	c.Assert(err, jc.ErrorIsNil)
-	return client
+
+	client_, err = client.NewFacade(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	return client_
 }
 
 func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName string) {
@@ -1341,10 +1374,12 @@ func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, a
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type mockLeadershipReader struct{}
+type mockLeadershipReader struct {
+	leaders map[string]string
+}
 
 func (m mockLeadershipReader) Leaders() (map[string]string, error) {
-	return make(map[string]string), nil
+	return m.leaders, nil
 }
 
 func setGenerationsControllerConfig(c *gc.C, st *state.State) {

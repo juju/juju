@@ -302,11 +302,12 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
 	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
 	logger.Tracef("Offers: %v", context.offers)
+	logger.Tracef("Leaders", context.leaders)
 	logger.Tracef("Relations: %v", context.relations)
 
 	if len(args.Patterns) > 0 {
-		predicate := BuildPredicateFor(args.Patterns, context.leaders)
-
+		patterns := resolveLeaderUnits(args.Patterns, context.leaders)
+		predicate := BuildPredicateFor(patterns)
 		// First, attempt to match machines. Any units on those
 		// machines are implicitly matched.
 		matchedMachines := make(set.Strings)
@@ -352,6 +353,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				if machineId != "" {
 					machineUnits[machineId] = append(machineUnits[machineId], unit.ApplicationName())
 				}
+
 				// Always start examining at the top-level. This
 				// prevents a situation where we filter a subordinate
 				// before we discover its parent is a match.
@@ -450,6 +452,22 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		ControllerTimestamp: context.controllerTimestamp,
 		Branches:            context.processBranches(),
 	}, nil
+}
+
+// resolveLeaderUnits resolves the passed in leader pattern to an existing application leader unit
+// and then replaces it inplace in the patterns
+func resolveLeaderUnits(patterns []string, leaders map[string]string) []string {
+	for i, v := range patterns {
+		if strings.Contains(v, "leader") {
+			application := strings.Split(v, "/")[0]
+			unit, ok := leaders[application]
+			if ok {
+				patterns[i] = unit
+				continue
+			}
+		}
+	}
+	return patterns
 }
 
 func filterBranches(ctxBranches map[string]cache.Branch,

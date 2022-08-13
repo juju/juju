@@ -72,7 +72,7 @@ func UnitChainPredicateFn(
 
 // BuildPredicate returns a Predicate which will evaluate a machine,
 // service, or unit against the given patterns.
-func BuildPredicateFor(patterns []string, leaders map[string]string) Predicate {
+func BuildPredicateFor(patterns []string) Predicate {
 
 	or := func(predicates ...closurePredicate) (bool, error) {
 		// Differentiate between a valid format that eliminated all
@@ -101,15 +101,15 @@ func BuildPredicateFor(patterns []string, leaders map[string]string) Predicate {
 		default:
 			panic(errors.Errorf("expected a machine or an applications or a unit, got %T", i))
 		case *state.Machine:
-			shims, err := buildMachineMatcherShims(i.(*state.Machine), leaders, patterns)
+			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
 				return false, err
 			}
 			return or(shims...)
 		case *state.Unit:
-			return or(buildUnitMatcherShims(i.(*state.Unit), leaders, patterns)...)
+			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
 		case *state.Application:
-			shims, err := buildApplicationMatcherShims(i.(*state.Application), leaders, patterns...)
+			shims, err := buildApplicationMatcherShims(i.(*state.Application), patterns...)
 			if err != nil {
 				return false, err
 			}
@@ -143,8 +143,8 @@ func matchMachineId(m *state.Machine, patterns []string) (bool, bool, error) {
 	return false, anyValid, nil
 }
 
-func unitMatchUnitName(u *state.Unit, params matcherParams) (bool, bool, error) {
-	um, err := NewUnitMatcher(params)
+func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
+	um, err := NewUnitMatcher(patterns)
 	if err != nil {
 		// Currently, the only error possible here is a matching
 		// error. We don't want this error to hold up further
@@ -155,15 +155,15 @@ func unitMatchUnitName(u *state.Unit, params matcherParams) (bool, bool, error) 
 	return um.matchUnit(u), true, nil
 }
 
-func unitMatchAgentStatus(u *state.Unit, params matcherParams) (bool, bool, error) {
+func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) {
 	statusInfo, err := u.AgentStatus()
 	if err != nil {
 		return false, false, err
 	}
-	return matchAgentStatus(params.patterns, statusInfo.Status)
+	return matchAgentStatus(patterns, statusInfo.Status)
 }
 
-func unitMatchWorkloadStatus(u *state.Unit, params matcherParams) (bool, bool, error) {
+func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, error) {
 	workloadStatusInfo, err := u.Status()
 	if err != nil {
 		return false, false, err
@@ -172,18 +172,18 @@ func unitMatchWorkloadStatus(u *state.Unit, params matcherParams) (bool, bool, e
 	if err != nil {
 		return false, false, err
 	}
-	return matchWorkloadStatus(params.patterns, workloadStatusInfo.Status, agentStatusInfo.Status)
+	return matchWorkloadStatus(patterns, workloadStatusInfo.Status, agentStatusInfo.Status)
 }
 
-func unitMatchExposure(u *state.Unit, params matcherParams) (bool, bool, error) {
+func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 	s, err := u.Application()
 	if err != nil {
 		return false, false, err
 	}
-	return matchExposure(params.patterns, s)
+	return matchExposure(patterns, s)
 }
 
-func unitMatchPort(u *state.Unit, params matcherParams) (bool, bool, error) {
+func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	unitPortRanges, err := u.OpenedPortRanges()
 	if err != nil {
 		if errors.IsNotAssigned(err) {
@@ -192,13 +192,12 @@ func unitMatchPort(u *state.Unit, params matcherParams) (bool, bool, error) {
 		return false, false, err
 	}
 
-	return matchPortRanges(params.patterns, unitPortRanges.UniquePortRanges()...)
+	return matchPortRanges(patterns, unitPortRanges.UniquePortRanges()...)
 }
 
-// buildApplicationMatcherShims adds matchers for application name, application units, application unit leaders and
+// buildApplicationMatcherShims adds matchers for application name, application units and
 // whether the application is exposed.
-func buildApplicationMatcherShims(a *state.Application, leaders map[string]string,
-	patterns ...string) (shims []closurePredicate, _ error) {
+func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
 		for _, p := range patterns {
@@ -214,7 +213,7 @@ func buildApplicationMatcherShims(a *state.Application, leaders map[string]strin
 
 	// If the service has an unit instance that matches any of the
 	// given criteria, consider the service a match as well.
-	unitShims, err := buildShimsForUnit(a.AllUnits, leaders, patterns...)
+	unitShims, err := buildShimsForUnit(a.AllUnits, patterns...)
 	if err != nil {
 		return nil, err
 	}
@@ -228,20 +227,19 @@ func buildApplicationMatcherShims(a *state.Application, leaders map[string]strin
 
 	return shims, nil
 }
-func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), leaders map[string]string,
-	patterns ...string) (shims []closurePredicate, _ error) {
+
+func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string) (shims []closurePredicate, _ error) {
 	units, err := unitsFn()
 	if err != nil {
 		return nil, err
 	}
 	for _, u := range units {
-		shims = append(shims, buildUnitMatcherShims(u, leaders, patterns)...)
+		shims = append(shims, buildUnitMatcherShims(u, patterns)...)
 	}
 	return shims, nil
 }
 
-func buildMachineMatcherShims(m *state.Machine, leaders map[string]string, patterns []string) (shims []closurePredicate,
-	_ error) {
+func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
 	// Look at machine ID.
 	shims = append(shims, func() (bool, bool, error) { return matchMachineId(m, patterns) })
 
@@ -269,13 +267,9 @@ func buildMachineMatcherShims(m *state.Machine, leaders map[string]string, patte
 	return
 }
 
-func buildUnitMatcherShims(u *state.Unit, leaders map[string]string, patterns []string) []closurePredicate {
-	closeOver := func(f func(*state.Unit, matcherParams) (bool, bool, error)) closurePredicate {
-		umParams := matcherParams{
-			patterns: patterns,
-			leaders:  leaders,
-		}
-		return func() (bool, bool, error) { return f(u, umParams) }
+func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate {
+	closeOver := func(f func(*state.Unit, []string) (bool, bool, error)) closurePredicate {
+		return func() (bool, bool, error) { return f(u, patterns) }
 	}
 	return []closurePredicate{
 		closeOver(unitMatchUnitName),
@@ -328,8 +322,7 @@ func matchExposure(patterns []string, s *state.Application) (bool, bool, error) 
 	return false, false, nil
 }
 
-func matchWorkloadStatus(patterns []string, workloadStatus status.Status, agentStatus status.Status) (bool, bool,
-	error) {
+func matchWorkloadStatus(patterns []string, workloadStatus status.Status, agentStatus status.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a known status, ignore it.
@@ -367,7 +360,6 @@ func matchAgentStatus(patterns []string, agentStatus status.Status) (bool, bool,
 
 type unitMatcher struct {
 	patterns []string
-	leaders  map[string]string
 }
 
 // matchesAny returns true if the unitMatcher will
@@ -414,21 +406,12 @@ func (m unitMatcher) matchUnit(u *state.Unit) bool {
 // invalid syntax is encountered.
 func (m unitMatcher) matchString(s string) bool {
 	for _, pattern := range m.patterns {
-		if strings.HasSuffix(pattern, "/leader") {
-			applicationName := strings.Split(pattern, "/")[0]
-			if leader, ok := m.leaders[applicationName]; ok {
-				if s == leader {
-					return true
-				}
-			}
-		} else {
-			ok, err := path.Match(pattern, s)
-			if err != nil {
-				// We validate patterns, so should never get here.
-				panic(fmt.Errorf("pattern syntax error in %q", pattern))
-			} else if ok {
-				return true
-			}
+		ok, err := path.Match(pattern, s)
+		if err != nil {
+			// We validate patterns, so should never get here.
+			panic(fmt.Errorf("pattern syntax error in %q", pattern))
+		} else if ok {
+			return true
 		}
 	}
 	return false
@@ -446,10 +429,10 @@ var validPattern = regexp.MustCompile("^[a-z0-9-*]+$")
 // is invalid. Patterns are valid if they contain only
 // alpha-numeric characters, hyphens, or asterisks (and one
 // optional '/' to separate service/unit).
-func NewUnitMatcher(params matcherParams) (unitMatcher, error) {
-	pattCopy := make([]string, len(params.patterns))
-	for i, pattern := range params.patterns {
-		pattCopy[i] = params.patterns[i]
+func NewUnitMatcher(patterns []string) (unitMatcher, error) {
+	pattCopy := make([]string, len(patterns))
+	for i, pattern := range patterns {
+		pattCopy[i] = patterns[i]
 		fields := strings.Split(pattern, "/")
 		if len(fields) > 2 {
 			return unitMatcher{}, fmt.Errorf("pattern %q contains too many '/' characters", pattern)
@@ -463,10 +446,5 @@ func NewUnitMatcher(params matcherParams) (unitMatcher, error) {
 			pattCopy[i] += "/*"
 		}
 	}
-	return unitMatcher{patterns: pattCopy, leaders: params.leaders}, nil
-}
-
-type matcherParams struct {
-	patterns []string
-	leaders  map[string]string
+	return unitMatcher{pattCopy}, nil
 }
