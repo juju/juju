@@ -5,6 +5,7 @@ package secretsmanager_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -381,6 +382,80 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 			},
 			{
 				Error: &params.Error{Code: params.CodeNotValid, Message: `secret URI "bad" not valid`},
+			},
+		},
+	})
+}
+
+func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+	subjectTag := names.NewUnitTag("wordpress/0")
+	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
+	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
+		OwnerTag: "application-mariadb",
+	}, nil).AnyTimes()
+	s.secretsConsumer.EXPECT().GrantSecret(uri, scopeTag, subjectTag, coresecrets.RoleView).Return(errors.New("boom"))
+
+	result, err := s.facade.SecretsGrant(params.GrantRevokeSecretArgs{
+		Args: []params.GrantRevokeSecretArg{{
+			URI:         uri.ShortString(),
+			ScopeTag:    scopeTag.String(),
+			SubjectTags: []string{subjectTag.String()},
+			Role:        "view",
+		}, {
+			URI:      uri.ShortString(),
+			ScopeTag: scopeTag.String(),
+			Role:     "bad",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Code: "", Message: fmt.Sprintf(`cannot change access to %q for "unit-wordpress-0": boom`, uri.String())},
+			},
+			{
+				Error: &params.Error{Code: params.CodeNotValid, Message: `secret role "bad" not valid`},
+			},
+		},
+	})
+}
+
+func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+	subjectTag := names.NewUnitTag("wordpress/0")
+	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
+	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
+		OwnerTag: "application-mariadb",
+	}, nil).AnyTimes()
+	s.secretsConsumer.EXPECT().RevokeSecret(uri, scopeTag, subjectTag).Return(errors.New("boom"))
+
+	result, err := s.facade.SecretsRevoke(params.GrantRevokeSecretArgs{
+		Args: []params.GrantRevokeSecretArg{{
+			URI:         uri.ShortString(),
+			ScopeTag:    scopeTag.String(),
+			SubjectTags: []string{subjectTag.String()},
+			Role:        "view",
+		}, {
+			URI:      uri.ShortString(),
+			ScopeTag: scopeTag.String(),
+			Role:     "bad",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Code: "", Message: fmt.Sprintf(`cannot change access to %q for "unit-wordpress-0": boom`, uri.String())},
+			},
+			{
+				Error: &params.Error{Code: params.CodeNotValid, Message: `secret role "bad" not valid`},
 			},
 		},
 	})

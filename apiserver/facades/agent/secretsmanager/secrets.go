@@ -357,3 +357,71 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 	}
 	return results, nil
 }
+
+type grantRevokeFunc func(*coresecrets.URI, names.Tag, names.Tag, coresecrets.SecretRole) error
+
+// SecretsGrant grants access to a secret for the specified subjects.
+func (s *SecretsManagerAPI) SecretsGrant(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
+	return s.secretsGrantRevoke(args, s.secretsConsumer.GrantSecret)
+}
+
+// SecretsRevoke revokes access to a secret for the specified subjects.
+func (s *SecretsManagerAPI) SecretsRevoke(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
+	return s.secretsGrantRevoke(args, func(uri *coresecrets.URI, scope, subject names.Tag, _ coresecrets.SecretRole) error {
+		return s.secretsConsumer.RevokeSecret(uri, scope, subject)
+	})
+}
+
+func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
+	canAccess, err := s.manageSecret()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	ctx := context.Background()
+	one := func(arg params.GrantRevokeSecretArg) error {
+		uri, err := coresecrets.ParseURI(arg.URI)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		uri.ControllerUUID = s.controllerUUID
+		md, err := s.secretsService.GetSecret(ctx, uri)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		owner, err := names.ParseTag(md.OwnerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(owner) {
+			return apiservererrors.ErrPerm
+		}
+		scopeTag, err := names.ParseTag(arg.ScopeTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		role := coresecrets.SecretRole(arg.Role)
+		if role != "" && !role.IsValid() {
+			return errors.NotValidf("secret role %q", arg.Role)
+		}
+		for _, tagStr := range arg.SubjectTags {
+			subjectTag, err := names.ParseTag(tagStr)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if err := op(uri, scopeTag, subjectTag, role); err != nil {
+				return errors.Annotatef(err, "cannot change access to %q for %q", uri, tagStr)
+			}
+		}
+		return nil
+	}
+	for i, arg := range args.Args {
+		var result params.ErrorResult
+		result.Error = apiservererrors.ServerError(one(arg))
+		results.Results[i] = result
+	}
+	return results, nil
+}

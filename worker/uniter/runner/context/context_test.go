@@ -996,20 +996,33 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GrantSecrets")
-		c.Fatalf("TODO")
+		c.Assert(request, gc.Equals, "SecretsGrant")
+		c.Check(arg, gc.DeepEquals, params.GrantRevokeSecretArgs{
+			Args: []params.GrantRevokeSecretArg{{
+				URI:         "secret:9m4e2mr0ui3e8a215n4g",
+				ScopeTag:    "relation-wordpress.db#mysql.server",
+				SubjectTags: []string{"application-mariadb"},
+				Role:        "view",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
 		return nil
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
 	app := "mariadb"
-	relationId := 666
-	err := hookContext.GrantSecret("password", &jujuc.SecretGrantRevokeArgs{
+	relationKey := "wordpress:db mysql:server"
+	err := hookContext.GrantSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
-		RelationId:      &relationId,
+		RelationKey:     &relationKey,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.DeepEquals, &params.Error{Message: "boom", Code: ""})
 }
 
 func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
@@ -1019,16 +1032,30 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "RevokeSecrets")
-		c.Fatalf("TODO")
+		c.Assert(request, gc.Equals, "SecretsRevoke")
+		c.Check(arg, gc.DeepEquals, params.GrantRevokeSecretArgs{
+			Args: []params.GrantRevokeSecretArg{{
+				URI:         "secret:9m4e2mr0ui3e8a215n4g",
+				ScopeTag:    "relation-wordpress.db#mysql.server",
+				SubjectTags: []string{"application-mariadb"},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
 		return nil
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
 	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
 	app := "mariadb"
-	err := hookContext.GrantSecret("password", &jujuc.SecretGrantRevokeArgs{
+	relationKey := "wordpress:db mysql:server"
+	err := hookContext.RevokeSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
+		RelationKey:     &relationKey,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.DeepEquals, &params.Error{Message: "boom", Code: ""})
 }

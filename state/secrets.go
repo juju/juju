@@ -12,6 +12,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
+	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/tomb.v2"
 
@@ -549,6 +550,16 @@ func (st *State) WatchConsumedSecretsChanges(consumer string) StringsWatcher {
 			return uri.String()
 		},
 	})
+}
+
+// GrantSecret implements SecretsService.
+func (st *State) GrantSecret(uri *secrets.URI, scope, subject names.Tag, role secrets.SecretRole) error {
+	return errors.NotImplementedf("GrantSecret")
+}
+
+// RevokeSecret implements SecretsService.
+func (st *State) RevokeSecret(uri *secrets.URI, scope, subject names.Tag) error {
+	return errors.NotImplementedf("RevokeSecret")
 }
 
 type secretRotationDoc struct {

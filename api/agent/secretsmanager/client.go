@@ -242,16 +242,76 @@ func (c *Client) SecretRotated(uri string, when time.Time) error {
 type SecretRevokeGrantArgs struct {
 	ApplicationName *string
 	UnitName        *string
-	RelationId      *int
+	RelationKey     *string
 	Role            secrets.SecretRole
 }
 
 // Grant grants access to the specified secret.
-func (c *Client) Grant(url string, args *SecretRevokeGrantArgs) error {
-	return errors.NotImplementedf("Grant")
+func (c *Client) Grant(uri string, p *SecretRevokeGrantArgs) error {
+	secretUri, err := secrets.ParseURI(uri)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	args := grantRevokeArgsToParams(p, secretUri)
+	var results params.ErrorResults
+	err = c.facade.FacadeCall("SecretsGrant", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+func grantRevokeArgsToParams(p *SecretRevokeGrantArgs, secretUri *secrets.URI) params.GrantRevokeSecretArgs {
+	var subjectTag, scopeTag string
+	if p.ApplicationName != nil {
+		subjectTag = names.NewApplicationTag(*p.ApplicationName).String()
+	}
+	if p.UnitName != nil {
+		subjectTag = names.NewUnitTag(*p.UnitName).String()
+	}
+	if p.RelationKey != nil {
+		scopeTag = names.NewRelationTag(*p.RelationKey).String()
+	} else {
+		scopeTag = subjectTag
+	}
+	args := params.GrantRevokeSecretArgs{
+		Args: []params.GrantRevokeSecretArg{{
+			URI:         secretUri.String(),
+			ScopeTag:    scopeTag,
+			SubjectTags: []string{subjectTag},
+			Role:        string(p.Role),
+		}},
+	}
+	return args
 }
 
 // Revoke revokes access to the specified secret.
-func (c *Client) Revoke(url string, args *SecretRevokeGrantArgs) error {
-	return errors.NotImplementedf("Revoke")
+func (c *Client) Revoke(uri string, p *SecretRevokeGrantArgs) error {
+	secretUri, err := secrets.ParseURI(uri)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	args := grantRevokeArgsToParams(p, secretUri)
+	var results params.ErrorResults
+	err = c.facade.FacadeCall("SecretsRevoke", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

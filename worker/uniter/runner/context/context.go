@@ -773,7 +773,7 @@ func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArg
 	return ctx.secretFacade.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
-		RelationId:      args.RelationId,
+		RelationKey:     args.RelationKey,
 		Role:            coresecrets.RoleView,
 	})
 }
@@ -783,6 +783,7 @@ func (ctx *HookContext) RevokeSecret(uri string, args *jujuc.SecretGrantRevokeAr
 	return ctx.secretFacade.Revoke(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
+		RelationKey:     args.RelationKey,
 	})
 }
 
