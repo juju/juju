@@ -11,3 +11,12 @@ const (
 	RoleRotate = SecretRole("rotate")
 	RoleManage = SecretRole("manage")
 )
+
+// IsValid returns true if r is a valid secret role.
+func (r SecretRole) IsValid() bool {
+	switch r {
+	case RoleView, RoleRotate, RoleManage:
+		return true
+	}
+	return false
+}

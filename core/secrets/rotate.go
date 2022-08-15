@@ -26,7 +26,7 @@ func (p RotatePolicy) String() string {
 	return string(p)
 }
 
-// IsValid returns true if v is a valid rotate policy.
+// IsValid returns true if p is a valid rotate policy.
 func (p RotatePolicy) IsValid() bool {
 	switch p {
 	case RotateNever, RotateHourly, RotateDaily, RotateWeekly,

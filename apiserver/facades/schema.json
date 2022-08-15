@@ -38601,6 +38601,30 @@
                     },
                     "description": "GetSecretValues returns the secret values for the specified secrets."
                 },
+                "SecretsGrant": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SecretsGrant grants access to a secret for the specified subjects."
+                },
+                "SecretsRevoke": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SecretsRevoke revokes access to a secret for the specified subjects."
+                },
                 "SecretsRotated": {
                     "type": "object",
                     "properties": {
@@ -38835,6 +38859,48 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/GetSecretValueArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "GrantRevokeSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "subject-tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "scope-tag",
+                        "subject-tags",
+                        "role"
+                    ]
+                },
+                "GrantRevokeSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantRevokeSecretArg"
                             }
                         }
                     },

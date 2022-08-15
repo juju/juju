@@ -153,3 +153,23 @@ type SecretRotatedArg struct {
 	URI  string    `json:"uri"`
 	When time.Time `json:"when"`
 }
+
+// GrantRevokeSecretArgs holds args for changing access to secrets.
+type GrantRevokeSecretArgs struct {
+	Args []GrantRevokeSecretArg `json:"args"`
+}
+
+// GrantRevokeSecretArg holds the args for changing access to a secret.
+type GrantRevokeSecretArg struct {
+	// URI identifies the secret to grant.
+	URI string `json:"uri"`
+
+	// ScopeTag is defines the entity to which the access is scoped.
+	ScopeTag string `json:"scope-tag"`
+
+	// OwnerTag is the owner of the secret.
+	SubjectTags []string `json:"subject-tags"`
+
+	// Role is the role being granted.
+	Role string `json:"role"`
+}

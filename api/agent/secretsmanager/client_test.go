@@ -300,3 +300,65 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	err := client.SecretRotated("secret:9m4e2mr0ui3e8a215n4g", now)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
+
+func (s *SecretsSuite) TestGrant(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SecretsGrant")
+		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
+			Args: []params.GrantRevokeSecretArg{{
+				URI:         "secret:9m4e2mr0ui3e8a215n4g",
+				ScopeTag:    "relation-wordpress.db#mysql.server",
+				SubjectTags: []string{"unit-wordpress-0"},
+				Role:        "view",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Grant("secret:9m4e2mr0ui3e8a215n4g", &secretsmanager.SecretRevokeGrantArgs{
+		UnitName:    ptr("wordpress/0"),
+		RelationKey: ptr("wordpress:db mysql:server"),
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretsSuite) TestRevoke(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SecretsRevoke")
+		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
+			Args: []params.GrantRevokeSecretArg{{
+				URI:         "secret:9m4e2mr0ui3e8a215n4g",
+				ScopeTag:    "relation-wordpress.db#mysql.server",
+				SubjectTags: []string{"application-wordpress"},
+				Role:        "view",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Revoke("secret:9m4e2mr0ui3e8a215n4g", &secretsmanager.SecretRevokeGrantArgs{
+		ApplicationName: ptr("wordpress"),
+		RelationKey:     ptr("wordpress:db mysql:server"),
+		Role:            secrets.RoleView,
+	})
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}

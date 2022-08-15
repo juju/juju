@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v4"
 )
 
 // MockSecretsConsumer is a mock of SecretsConsumer interface.
@@ -48,6 +49,34 @@ func (m *MockSecretsConsumer) GetSecretConsumer(arg0 *secrets.URI, arg1 string) 
 func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretConsumer", reflect.TypeOf((*MockSecretsConsumer)(nil).GetSecretConsumer), arg0, arg1)
+}
+
+// GrantSecret mocks base method.
+func (m *MockSecretsConsumer) GrantSecret(arg0 *secrets.URI, arg1, arg2 names.Tag, arg3 secrets.SecretRole) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// GrantSecret indicates an expected call of GrantSecret.
+func (mr *MockSecretsConsumerMockRecorder) GrantSecret(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockSecretsConsumer)(nil).GrantSecret), arg0, arg1, arg2, arg3)
+}
+
+// RevokeSecret mocks base method.
+func (m *MockSecretsConsumer) RevokeSecret(arg0 *secrets.URI, arg1, arg2 names.Tag) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeSecret indicates an expected call of RevokeSecret.
+func (mr *MockSecretsConsumerMockRecorder) RevokeSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockSecretsConsumer)(nil).RevokeSecret), arg0, arg1, arg2)
 }
 
 // SaveSecretConsumer mocks base method.
