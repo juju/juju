@@ -50,8 +50,6 @@ type environConfig struct {
 }
 
 type environ struct {
-	equinixFirewaller
-
 	ecfgMutex     sync.Mutex
 	ecfg          *environConfig
 	name          string
@@ -62,7 +60,6 @@ type environ struct {
 
 var (
 	_ environs.Environ           = (*environ)(nil)
-	_ environs.Firewaller        = (*environ)(nil)
 	_ environs.NetworkingEnviron = (*environ)(nil)
 	_ environs.InstanceTagger    = (*environ)(nil)
 )
