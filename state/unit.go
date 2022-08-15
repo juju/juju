@@ -1365,6 +1365,7 @@ func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.Status
 		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
+		clock:     u.st.clock(),
 	}
 	return statusHistory(args)
 }
@@ -2991,6 +2992,7 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 		db:        g.st.db(),
 		globalKey: g.globalKey,
 		filter:    filter,
+		clock:     g.st.clock(),
 	}
 	return statusHistory(args)
 }

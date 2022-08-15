@@ -117,7 +117,3 @@ func (v *fakeVolume) Info() (state.VolumeInfo, error) {
 	}
 	return *v.info, nil
 }
-
-type nopSyncStarter struct{}
-
-func (nopSyncStarter) StartSync() {}

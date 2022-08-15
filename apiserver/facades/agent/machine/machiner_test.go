@@ -292,7 +292,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }
 

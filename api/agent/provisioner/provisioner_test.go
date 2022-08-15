@@ -597,7 +597,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	w, err := apiMachine.WatchContainers(instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -643,7 +643,7 @@ func (s *provisionerSuite) TestWatchContainersErrors(c *gc.C) {
 func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 	w, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.

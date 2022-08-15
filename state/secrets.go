@@ -126,6 +126,7 @@ func (s *secretsStore) secretMetadataDoc(baseURL *secrets.URL, p *CreateSecretPa
 	if interval < 0 {
 		interval = 0
 	}
+	now := s.st.nowToTheSecond()
 	md := &secretMetadataDoc{
 		DocID:          baseURL.String(),
 		Path:           p.Path,
@@ -139,8 +140,8 @@ func (s *secretsStore) secretMetadataDoc(baseURL *secrets.URL, p *CreateSecretPa
 		Provider:       p.ProviderLabel,
 		ProviderID:     "",
 		Revision:       1,
-		CreateTime:     s.st.nowToTheSecond(),
-		UpdateTime:     s.st.nowToTheSecond(),
+		CreateTime:     now,
+		UpdateTime:     now,
 	}
 	return baseURL.WithRevision(md.Revision), md, nil
 }

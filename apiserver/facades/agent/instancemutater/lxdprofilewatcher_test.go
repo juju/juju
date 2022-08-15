@@ -413,17 +413,13 @@ func (s *lxdProfileWatcherSuite) setupWatchers(c *gc.C) {
 	s.instanceWatcher.EXPECT().Wait().Return(nil)
 }
 
-type noopSyncer struct{}
-
-func (noopSyncer) StartSync() {}
-
 func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *gc.C) worker.Worker {
 	s.setupWatchers(c)
 
 	s.machine0.EXPECT().Id().AnyTimes().Return("0")
 
 	w := instancemutater.NewTestLxdProfileWatcher(c, s.machine0, s.state)
-	wc := testing.NewNotifyWatcherC(c, noopSyncer{}, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 	s.wc0 = wc

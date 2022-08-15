@@ -307,7 +307,10 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, URL *secrets.URL, data map[s
 	if tags != nil {
 		expected.Tags = *tags
 	}
-	c.Assert(md, jc.DeepEquals, expected)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(md, mc, expected)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -497,11 +500,17 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// TODO(quiescence): reimplement some quiescence on the SecretsRotationWatcher
 	wc.AssertChange(watcher.SecretRotationChange{
 		ID:             md.ID,
 		URL:            md.URL,
+		RotateInterval: time.Minute,
+		LastRotateTime: md.UpdateTime.UTC(),
+	}, watcher.SecretRotationChange{
+		ID:             md.ID,
+		URL:            md.URL,
 		RotateInterval: time.Second,
-		LastRotateTime: md.CreateTime.UTC(),
+		LastRotateTime: md.UpdateTime.UTC(),
 	})
 	wc.AssertNoChange()
 }
@@ -522,6 +531,11 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(watcher.SecretRotationChange{
+		ID:             md.ID,
+		URL:            md.URL,
+		RotateInterval: time.Minute,
+		LastRotateTime: md.UpdateTime.UTC(),
+	}, watcher.SecretRotationChange{
 		ID:             md.ID,
 		URL:            md.URL,
 		RotateInterval: 0,
@@ -555,6 +569,11 @@ func (s *SecretsWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(watcher.SecretRotationChange{
+		ID:             md.ID,
+		URL:            md.URL,
+		RotateInterval: time.Minute,
+		LastRotateTime: md.CreateTime.UTC(),
+	}, watcher.SecretRotationChange{
 		ID:             md2.ID,
 		URL:            md2.URL,
 		RotateInterval: time.Hour,

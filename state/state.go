@@ -2533,10 +2533,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
 }
 
-type hasAdvance interface {
-	Advance(time.Duration)
-}
-
 // SetAdminMongoPassword sets the administrative password
 // to access the state. If the password is non-empty,
 // all subsequent attempts to access the state must

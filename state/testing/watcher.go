@@ -91,10 +91,6 @@ func (c NotifyWatcherC) AssertNoChange() {
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
-	// Wait a very small amount of time, so that if there is already an event
-	// queued to be processed, we see it, before the StartSync flushes new
-	// events into the queue.
-	shortTimeout := time.After(1 * time.Millisecond)
 	longTimeout := time.After(testing.LongWait)
 loop:
 	for {
@@ -103,11 +99,27 @@ loop:
 			c.C.Logf("got change")
 			c.Assert(ok, jc.IsTrue)
 			break loop
-		case <-shortTimeout:
-			c.C.Logf("StartSync()")
-			shortTimeout = nil
 		case <-longTimeout:
 			c.Fatalf("watcher did not send change")
+			break loop
+		}
+	}
+	c.AssertNoChange()
+}
+
+// TODO(quiescence): reimplement quiescence and delete this utility
+func (c NotifyWatcherC) AssertChanges(n int) {
+	longTimeout := time.After(testing.LongWait)
+	got := 0
+loop:
+	for got < n {
+		select {
+		case _, ok := <-c.Watcher.Changes():
+			c.C.Logf("got change")
+			c.Assert(ok, jc.IsTrue)
+			got++
+		case <-longTimeout:
+			c.Fatalf("watcher did not %d send change(s)", n-got)
 			break loop
 		}
 	}
@@ -368,7 +380,9 @@ func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretRotationCh
 			c.Assert(ok, jc.IsTrue)
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
-				c.Assert(received, jc.DeepEquals, expect)
+				mc := jc.NewMultiChecker()
+				mc.AddExpr(`_[_].LastRotateTime`, jc.Almost, jc.ExpectedValue)
+				c.Assert(received, mc, expect)
 				return
 			}
 		case <-timeout:

@@ -401,7 +401,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	defer statetesting.AssertStop(c, resource)
 
 	// Check that the Watch has consumed the initial event
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Log a message and check the watcher result.

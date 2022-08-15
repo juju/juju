@@ -406,7 +406,6 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 		case <-timeout:
 			c.Fatalf("timed out waiting for provisioning")
 		case <-time.After(coretesting.ShortWait):
-			s.State.StartSync()
 		case _, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
 			err := m.Refresh()
@@ -794,16 +793,12 @@ func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 		w := unit.Watch()
 		defer worker.Stop(w)
 
-		// Trigger a sync on the state used by the agent, and wait
-		// for the unit to be removed.
-		agentState.StartSync()
+		// Wait for the unit to be removed.
 		timeout := time.After(coretesting.LongWait)
 		for done := false; !done; {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not cleaned up")
-			case <-time.After(coretesting.ShortWait):
-				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
 				if errors.IsNotFound(err) {
@@ -827,16 +822,13 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		w := app.Watch()
 		defer worker.Stop(w)
 
-		// Trigger a sync on the state used by the agent, and wait for the unit
-		// to be created.
-		agentState.StartSync()
+		// Wait for the unit to be created.
 		timeout := time.After(longerWait)
 		for {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not created")
 			case <-time.After(coretesting.ShortWait):
-				s.State.StartSync()
 			case <-w.Changes():
 				units, err := app.AllUnits()
 				c.Assert(err, jc.ErrorIsNil)
@@ -862,7 +854,6 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for ssh keys file to be updated.
-	s.State.StartSync()
 	timeout := time.After(coretesting.LongWait)
 	sshKeyWithCommentPrefix := sshtesting.ValidKeyOne.Key + " Juju:user@host"
 	for {
@@ -870,7 +861,6 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			s.State.StartSync()
 			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, jc.ErrorIsNil)
 			keysStr := strings.Join(keys, "\n")
@@ -943,7 +933,6 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 
 	// Wait for config to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		s.BackingState.StartSync()
 		if !attempt.HasNext() {
 			break
 		}
@@ -991,7 +980,6 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for state to be updated.
-	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		devices, err := sb.BlockDevices(m.MachineTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1173,7 +1161,7 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, func() {})
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
@@ -1192,7 +1180,7 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, nil,
 		func(agent.Config, *state.State, *MachineAgent) {
-			agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
+			agenttest.WaitMatch(c, matcher.Check, longerWait, func() {})
 		},
 	)
 }
@@ -1221,7 +1209,7 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
 	})
 }
 
@@ -1266,7 +1254,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
 	})
 }
 
@@ -1316,7 +1304,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
 
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
 	})
 }
 
@@ -1361,7 +1349,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, migratingModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
 	})
 }
 
@@ -1390,8 +1378,6 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 						return // successfully removed
 					}
 					c.Assert(err, jc.ErrorIsNil) // guaranteed fail
-				case <-time.After(coretesting.ShortWait):
-					st.StartSync()
 				case <-timeout:
 					c.Fatalf("timed out waiting for workers")
 				}
@@ -1413,7 +1399,7 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, longerWait, func() {})
 	})
 }
 

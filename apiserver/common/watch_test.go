@@ -102,7 +102,7 @@ func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
 	mw := common.NewMultiNotifyWatcher(w0, w1)
 	defer statetesting.AssertStop(c, mw)
 
-	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, mw)
+	wc := statetesting.NewNotifyWatcherC(c, mw)
 	wc.AssertOneChange()
 
 	w0.C <- struct{}{}
@@ -120,12 +120,8 @@ func (*multiNotifyWatcherSuite) TestMultiNotifyWatcherStop(c *gc.C) {
 	w1 := apiservertesting.NewFakeNotifyWatcher()
 
 	mw := common.NewMultiNotifyWatcher(w0, w1)
-	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, mw)
+	wc := statetesting.NewNotifyWatcherC(c, mw)
 	wc.AssertOneChange()
 	statetesting.AssertCanStopWhenSending(c, mw)
 	wc.AssertClosed()
 }
-
-type nopSyncStarter struct{}
-
-func (nopSyncStarter) StartSync() {}

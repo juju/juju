@@ -44,7 +44,7 @@ type StateSuite struct {
 	ControllerInheritedConfig map[string]interface{}
 	ControllerModelType       state.ModelType
 	RegionConfig              cloud.RegionConfig
-	Clock                     *testclock.Clock
+	Clock                     testclock.AdvanceableClock
 	txnSyncNotify             chan struct{}
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
@@ -75,7 +75,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	if initialTime.IsZero() {
 		initialTime = testing.NonZeroTime()
 	}
-	s.Clock = testclock.NewClock(initialTime)
+	s.Clock = testclock.NewDilatedWallClock(100 * time.Millisecond) //testclock.NewClock(initialTime)
 
 	s.AdminPassword = "admin-secret"
 	s.Controller = InitializeWithArgs(c, InitializeArgs{
@@ -190,7 +190,6 @@ func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 
 	timeout := time.After(jujutesting.LongWait)
 	for {
-		s.Clock.Advance(10 * time.Millisecond)
 		loop := time.After(10 * time.Millisecond)
 		select {
 		case <-loop:

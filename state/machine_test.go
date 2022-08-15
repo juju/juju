@@ -128,13 +128,13 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRecordAgentStartInformation(c *gc.C) {
-	now := s.Clock.Now().Truncate(time.Millisecond)
+	now := s.Clock.Now().Truncate(time.Minute)
 	err := s.machine.RecordAgentStartInformation("thundering-herds")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.AgentStartTime(), gc.Equals, now)
+	c.Assert(s.machine.AgentStartTime().Truncate(time.Minute), gc.Equals, now)
 	c.Assert(s.machine.Hostname(), gc.Equals, "thundering-herds")
 
 	// Passing an empty hostname should be ignored
@@ -142,7 +142,7 @@ func (s *MachineSuite) TestRecordAgentStartInformation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.AgentStartTime(), gc.Equals, now)
+	c.Assert(s.machine.AgentStartTime().Truncate(time.Minute), gc.Equals, now)
 	c.Assert(s.machine.Hostname(), gc.Equals, "thundering-herds", gc.Commentf("expected the host name not be changed"))
 }
 
@@ -1633,7 +1633,7 @@ func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
 	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	quiesceInterval := 500 * time.Millisecond
+	quiesceInterval := 10 * time.Second
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.State.WatchModelMachineStartTimes(quiesceInterval)
 

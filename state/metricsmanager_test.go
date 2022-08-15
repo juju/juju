@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/state"
 	testing "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type metricsManagerSuite struct {
@@ -56,7 +55,7 @@ func (s *metricsManagerSuite) TestSetLastSuccesfulSend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.IncrementConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
-	now := coretesting.ZeroTime().Round(time.Second).UTC()
+	now := s.Clock.Now().Round(time.Second).UTC()
 	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, now)
@@ -110,7 +109,7 @@ func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 	c.Assert(mm.ModelStatus().Code, gc.Equals, state.MeterNotSet)
-	now := coretesting.NonZeroTime()
+	now := s.Clock.Now()
 	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {

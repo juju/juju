@@ -106,7 +106,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = s.rawMachine.SetAgentVersion(version.MustParseBinary("3.4.567.8-ubuntu-amd64"))

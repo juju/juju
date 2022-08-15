@@ -223,7 +223,7 @@ func (s *UnitStatusSuite) TestStatusHistoryInitial(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestStatusHistoryShort(c *gc.C) {
-	primeUnitStatusHistory(c, s.unit, 5, 0)
+	primeUnitStatusHistory(c, s.Clock, s.unit, 5, 0)
 
 	history, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Check(err, jc.ErrorIsNil)
@@ -237,7 +237,7 @@ func (s *UnitStatusSuite) TestStatusHistoryShort(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestStatusHistoryLong(c *gc.C) {
-	primeUnitStatusHistory(c, s.unit, 25, 0)
+	primeUnitStatusHistory(c, s.Clock, s.unit, 25, 0)
 
 	history, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 15})
 	c.Check(err, jc.ErrorIsNil)

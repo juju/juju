@@ -508,8 +508,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				err = r.Destroy()
 				c.Assert(err, jc.ErrorIsNil)
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.DEBUG)
-
-				return false
+				return true
 			},
 			triggerEvent: func(st *state.State) {
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
@@ -548,7 +547,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				sdb := state.BlockDeviceInfo{DeviceName: "sdb"}
 				err = m.SetMachineBlockDevices(sdb)
 				c.Assert(err, jc.ErrorIsNil)
-				return false
+				return true
 			},
 			triggerEvent: func(st *state.State) {
 				m, err := st.Machine("0")
@@ -3779,6 +3778,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Handle that cleanup doc and create another, check one change.
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 	err = relV.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -3820,6 +3820,8 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	// Destroy them both, check one change.
 	err = riak.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): reimplement some quiescence on the cleanup watcher
+	wc.AssertOneChange()
 	err = allHooks.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -3827,7 +3829,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	// Clean them both up, check one change.
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	wc.AssertChanges(2)
 }
 
 func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
@@ -4266,27 +4268,14 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
 	hooks := []jujutxn.TestHook{
-		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "1") }},
-		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "2") }},
-		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "3") }},
+		{Before: func() { s.changeEnviron(c, modelConfig, "default-series", "1") }},
+		{Before: func() { s.changeEnviron(c, modelConfig, "default-series", "2") }},
+		{Before: func() { s.changeEnviron(c, modelConfig, "default-series", "3") }},
 	}
 
-	altCtrl, err := state.OpenController(state.OpenParams{
-		Clock:              s.Clock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.State.ControllerModelTag(),
-		MongoSession:       s.Session,
-		MaxTxnAttempts:     3,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer altCtrl.Close()
-
-	altState, err := altCtrl.GetState(s.Model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer altState.Release()
-
-	defer state.SetTestHooks(c, altState.State, hooks...).Check()
-	err = altState.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	state.SetMaxTxnAttempts(c, s.State, 3)
+	defer state.SetTestHooks(c, s.State, hooks...).Check()
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
 	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion, "released")
@@ -5014,10 +5003,11 @@ func (s *StateSuite) TestWatchRelationEgressNetworksIgnoresIngress(c *gc.C) {
 
 func (s *StateSuite) testOpenParams() state.OpenParams {
 	return state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
-		MongoSession:       s.Session,
+		Clock:               clock.WallClock,
+		ControllerTag:       s.State.ControllerTag(),
+		ControllerModelTag:  s.modelTag,
+		MongoSession:        s.Session,
+		WatcherPollInterval: 10 * time.Millisecond,
 	}
 }
 

@@ -4883,9 +4883,6 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history[0].Message, gc.Equals, "")
 
 	// Must overwrite the history
-	// Updating status may cause the history entries to be written with
-	// the same timestamp due to the precision used by the db.
-	s.Clock.Advance(1 * time.Millisecond)
 	err = app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Allocating,
 		Message: "operator message",
@@ -4899,9 +4896,6 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history[1].Status, gc.Equals, status.Unset)
 	c.Assert(history[1].Message, gc.Equals, "")
 
-	// Updating status may cause the history entries to be written with
-	// the same timestamp due to the precision used by the db.
-	s.Clock.Advance(1 * time.Millisecond)
 	err = app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: "operator running",
