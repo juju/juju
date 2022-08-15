@@ -115,7 +115,7 @@ func newSummaryFormatter(writer io.Writer, forceColor bool) *summaryFormatter {
 		openPorts:   set.NewStrings(),
 		stateToUnit: make(map[status.Status]int),
 	}
-	f.tw = output.Wrapper{TabWriter: w}
+	f.tw = &output.Wrapper{TabWriter: w}
 	return f
 }
 
@@ -126,7 +126,7 @@ type summaryFormatter struct {
 	openPorts  set.Strings
 	// status -> count
 	stateToUnit map[status.Status]int
-	tw          output.Wrapper
+	tw          *output.Wrapper
 }
 
 func (f *summaryFormatter) delimitKeysWithTabs(ctx *ansiterm.Context, values ...string) {
@@ -135,10 +135,18 @@ func (f *summaryFormatter) delimitKeysWithTabs(ctx *ansiterm.Context, values ...
 		if strings.Contains(v, ":") {
 			splitted := strings.Split(v, ":")
 			str := splitted[i]
-			ctx.Fprintf(f.tw, "%s", str)
+			if ctx != nil {
+				ctx.Fprintf(f.tw, "%s", str)
+			} else {
+				fmt.Fprintf(f.tw, "%s", str)
+			}
 			cCtx.Fprintf(f.tw, "%s\t", ":")
 		} else {
-			ctx.Fprintf(f.tw, "%s\t", v)
+			if ctx != nil {
+				ctx.Fprintf(f.tw, "%s\t", v)
+			} else {
+				fmt.Fprintf(f.tw, "%s\t", v)
+			}
 		}
 	}
 	fmt.Fprint(f.tw)
@@ -150,10 +158,18 @@ func (f *summaryFormatter) delimitValuesWithTabs(ctx *ansiterm.Context, values .
 		if strings.HasPrefix(val, "(") && strings.HasSuffix(val, ")") {
 			val = strings.Split(strings.Split(val, "(")[1], ")")[0]
 			fmt.Fprint(f.tw, "(")
-			ctx.Fprintf(f.tw, "%s", val)
+			if ctx != nil {
+				ctx.Fprintf(f.tw, "%s", val)
+			} else {
+				fmt.Fprintf(f.tw, "%s", val)
+			}
 			fmt.Fprint(f.tw, ")\t")
 		} else {
-			ctx.Fprintf(f.tw, "%s\t", v)
+			if ctx != nil {
+				ctx.Fprintf(f.tw, "%s\t", v)
+			} else {
+				fmt.Fprintf(f.tw, "%s\t", v)
+			}
 		}
 	}
 	fmt.Fprintln(f.tw)

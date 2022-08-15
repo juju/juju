@@ -68,11 +68,10 @@ func newRefreshCommand() *refreshCommand {
 			return modelconfig.NewClient(api)
 		},
 		NewCharmHubClient: func(url string) (store.DownloadBundleClient, error) {
-			cfg, err := charmhub.CharmHubConfigFromURL(url, logger)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return charmhub.NewClient(cfg)
+			return charmhub.NewClient(charmhub.Config{
+				URL:    url,
+				Logger: logger,
+			})
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
 		NewCharmStore: func(
@@ -325,14 +324,26 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// There is a timing window where deploy has been called and the charm
+	// is not yet downloaded. Check here to verify the origin has an ID,
+	// otherwise refresh result may be in accurate. We could use the
+	// retry package, but the issue is only seen in automated test due to
+	// speed. Can always use retry if it becomes an issue.
+	if oldOrigin.Source == commoncharm.OriginCharmHub && oldOrigin.ID == "" {
+		return errors.Errorf("%q deploy incomplete, please try refresh again in a little bit.", c.ApplicationName)
+	}
+
 	// Set a default URL schema for charm URLs that don't provide one.
 	var defaultCharmSchema = charm.CharmHub
 
 	// Ensure that the switchURL (if provided) always contains a schema. If
 	// one is missing inject the default value we selected above.
 	if c.SwitchURL != "" {
-		if c.SwitchURL, err = charm.EnsureSchema(c.SwitchURL, defaultCharmSchema); err != nil {
-			return errors.Trace(err)
+		// Don't prepend `ch:` when referring to a local charm
+		if !refresher.IsLocalURL(c.SwitchURL) {
+			if c.SwitchURL, err = charm.EnsureSchema(c.SwitchURL, defaultCharmSchema); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 

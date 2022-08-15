@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	pacman "github.com/juju/packaging/v2/manager"
 	jc "github.com/juju/testing/checkers"
@@ -62,7 +62,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 	agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 
-	s.oldVersion = coretesting.CurrentVersion(c)
+	s.oldVersion = coretesting.CurrentVersion()
 	s.oldVersion.Major--
 
 	// Don't wait so long in tests.

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 )
 
 // IsValidFieldName returns true if the given name is acceptable for

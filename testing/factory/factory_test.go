@@ -401,8 +401,10 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
 
 	applicationCharmURL, _ := application.CharmURL()
-	unitCharmURL, _ := saved.CharmURL()
-	c.Assert(unitCharmURL.String(), gc.Equals, *applicationCharmURL)
+	c.Assert(applicationCharmURL, gc.NotNil)
+	unitCharmURL := saved.CharmURL()
+	c.Assert(unitCharmURL, gc.NotNil)
+	c.Assert(*unitCharmURL, gc.Equals, *applicationCharmURL)
 }
 
 func (s *factorySuite) TestMakeRelationNil(c *gc.C) {

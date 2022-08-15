@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -53,7 +53,7 @@ func init() {
 
 type liveSuite struct {
 	testing.BaseSuite
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 	jujutest.LiveTests
 }
 
@@ -85,7 +85,7 @@ func (s *liveSuite) TearDownTest(c *gc.C) {
 
 type suite struct {
 	testing.BaseSuite
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 	jujutest.Tests
 
 	callCtx context.ProviderCallContext

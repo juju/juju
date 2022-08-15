@@ -376,12 +376,10 @@ func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		cfg, err := charmhub.CharmHubConfigFromURL(url, logger)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return charmhub.NewClient(cfg)
+		return charmhub.NewClient(charmhub.Config{
+			URL:    url,
+			Logger: logger,
+		})
 	}
 
 	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), charmStoreRepo, downloadClient), nil

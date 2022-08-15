@@ -666,8 +666,8 @@ func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, err
 	return nil, errors.Errorf("no relations found")
 }
 
-func (m *mockBackend) EndpointsRelation(endpoints ...state.Endpoint) (application.Relation, error) {
-	m.MethodCall(m, "EndpointsRelation", endpoints)
+func (m *mockBackend) InferActiveRelation(endpoints ...string) (application.Relation, error) {
+	m.MethodCall(m, "InferActiveRelation", endpoints)
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}

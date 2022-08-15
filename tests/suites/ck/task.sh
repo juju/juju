@@ -18,5 +18,6 @@ test_ck() {
 
 	test_deploy_ck
 
-	destroy_controller "test-ck"
+	# CK takes too long to tear down (1h+), so forcibly destroy it
+	export KILL_CONTROLLER=true
 }

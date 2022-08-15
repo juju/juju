@@ -164,6 +164,6 @@ func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRun
 }
 
 // SetSecretRotated is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetSecretRotated(url string, when time.Time) error {
-	return opc.u.secrets.SecretRotated(url, when)
+func (opc *operationCallbacks) SetSecretRotated(uri string, when time.Time) error {
+	return opc.u.secrets.SecretRotated(uri, when)
 }

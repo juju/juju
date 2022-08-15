@@ -1340,8 +1340,7 @@ func (w *srvSecretRotationWatcher) translateChanges(changes []corewatcher.Secret
 	result := make([]params.SecretRotationChange, len(changes))
 	for i, c := range changes {
 		result[i] = params.SecretRotationChange{
-			ID:             c.ID,
-			URL:            c.URL.ID(),
+			URI:            c.URI.String(),
 			RotateInterval: c.RotateInterval,
 			LastRotateTime: c.LastRotateTime,
 		}

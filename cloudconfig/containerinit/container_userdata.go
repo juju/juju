@@ -73,9 +73,9 @@ func CloudInitUserData(
 	if err = udata.Configure(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Run ifconfig to get the addresses of the internal container at least
+	// Run ifconfig/ip addr to get the addresses of the internal container at least
 	// logged in the host.
-	cloudConfig.AddRunCmd("ifconfig")
+	cloudConfig.AddRunCmd("ifconfig || ip addr")
 
 	if instanceConfig.MachineContainerHostname != "" {
 		logger.Debugf("Cloud-init configured to set hostname")

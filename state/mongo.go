@@ -5,7 +5,7 @@ package state
 
 import (
 	"github.com/juju/juju/mongo"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 )
 
 // environMongo implements state/lease.Mongo to expose environ-filtered mongo

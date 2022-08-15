@@ -17,13 +17,13 @@ import (
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
-	txntesting "github.com/juju/txn/v2/testing"
+	jujutxn "github.com/juju/txn/v3"
+	txntesting "github.com/juju/txn/v3/testing"
 	jutils "github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -129,15 +130,35 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
+func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
+	st.maxTxnAttempts = n
+	db := st.database.(*database)
+	db.maxTxnAttempts = n
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:                  db.raw,
+		Clock:                     st.stateClock,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
+		MaxRetryAttempts:          db.maxTxnAttempts,
+	})
+	db.runner = runner
+	return
+}
+
 func newRunnerForHooks(st *State) jujutxn.Runner {
 	db := st.database.(*database)
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: db.raw,
-		Clock:    st.stateClock,
+		Database:                  db.raw,
+		Clock:                     st.stateClock,
+		TransactionCollectionName: "txns",
+		ChangeLogName:             "sstxns.log",
+		ServerSideTransactions:    true,
 		RunTransactionObserver: func(t jujutxn.Transaction) {
 			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
 				t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 		},
+		MaxRetryAttempts: db.maxTxnAttempts,
 	})
 	db.runner = runner
 	return runner
@@ -181,6 +202,16 @@ func ControllerRefCount(st *State, controllerUUID string) (int, error) {
 
 	key := externalControllerRefCountKey(controllerUUID)
 	return nsRefcounts.read(refcounts, key)
+}
+
+func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction([]txn.Op{incOp})
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
@@ -1048,14 +1079,14 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
-func GetSecretRotateTime(c *gc.C, st *State, id int) time.Time {
+func GetSecretRotateTime(c *gc.C, st *State, id string) time.Time {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
 
 	var doc secretRotationDoc
-	err := secretRotateCollection.FindId(secretGlobalKey(id)).One(&doc)
+	err := secretRotateCollection.FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	return doc.LastRotateTime
+	return doc.LastRotateTime.UTC()
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

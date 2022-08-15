@@ -165,7 +165,7 @@ func (c *MoveCommand) printHuman(writer io.Writer, value interface{}) error {
 	}
 
 	for _, change := range list {
-		_, _ = fmt.Fprintf(writer, "Subnet %s moved from %s to %s", change.CIDR, change.SpaceFrom, change.SpaceTo)
+		_, _ = fmt.Fprintf(writer, "Subnet %s moved from %s to %s\n", change.CIDR, change.SpaceFrom, change.SpaceTo)
 	}
 
 	return nil
@@ -190,7 +190,7 @@ func (c *MoveCommand) printTabular(writer io.Writer, value interface{}) error {
 	}
 
 	table.AddRow("", "", "")
-	_, _ = fmt.Fprint(writer, table)
+	_, _ = fmt.Fprintln(writer, table)
 
 	return errors.Trace(tw.Flush())
 }

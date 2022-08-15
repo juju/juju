@@ -35,8 +35,8 @@ run_deploy_cmr_bundle() {
 
 	ensure "test-cmr-bundles-deploy" "${file}"
 
-	# mysql charm does not have stable channel, so we use edge channel
-	juju deploy mysql --channel=edge
+	# mysql charm does not have stable channel, so we use the candidate channel
+	juju deploy mysql --channel=candidate
 	wait_for "mysql" ".applications | keys[0]"
 
 	juju offer mysql:db
@@ -57,22 +57,79 @@ run_deploy_cmr_bundle() {
 	destroy_model "other"
 }
 
-run_deploy_exported_bundle() {
+# run_deploy_exported_charmhub_bundle_with_fixed_revisions tests how juju deploys
+# a charmhub bundle that specifies revisions for its charms
+run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	echo
 
-	file="${TEST_DIR}/test-export-bundles-deploy.log"
+	file="${TEST_DIR}/test-export-bundles-deploy-with-fixed-revisions.log"
 
-	ensure "test-export-bundles-deploy" "${file}"
+	ensure "test-export-bundles-deploy-with-fixed-revisions" "${file}"
 
 	bundle=./tests/suites/deploy/bundles/telegraf_bundle.yaml
 	juju deploy ${bundle}
 
+	echo "Make a copy of reference yaml"
+	cp ${bundle} "${TEST_DIR}/telegraf_bundle.yaml"
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		yq -i "
+			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
+			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
+		" "${TEST_DIR}/telegraf_bundle.yaml"
+	else
+		yq -i . "${TEST_DIR}/telegraf_bundle.yaml"
+	fi
 	# no need to wait for the bundle to finish deploying to
 	# check the export.
-	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-	diff ${bundle} "${TEST_DIR}/exported-bundle.yaml"
+	echo "Compare export-bundle with telegraf_bundle"
+	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
+	yq -i . "${TEST_DIR}/exported_bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
-	destroy_model "test-export-bundles-deploy"
+	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
+}
+
+# run_deploy_exported_charmhub_bundle_with_float_revisions checks how juju
+# deploys a charmhub bundle when the revisions are not pinned
+run_deploy_exported_charmhub_bundle_with_float_revisions() {
+	echo
+
+	file="${TEST_DIR}/test-export-bundles-deploy-with-float-revisions.log"
+
+	ensure "test-export-bundles-deploy-with-float-revisions" "${file}"
+	bundle=./tests/suites/deploy/bundles/telegraf_bundle_without_revisions.yaml
+	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
+	juju deploy ${bundle}
+
+	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
+	influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
+	telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
+	ubuntu_rev=$(juju info ubuntu --format json | jq -r '."channel-map"."latest/stable".revision')
+
+	echo "Make a copy of reference yaml and insert revisions in it"
+	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	yq -i "
+		.applications.influxdb.revision = ${influxdb_rev} |
+		.applications.telegraf.revision = ${telegraf_rev} |
+		.applications.ubuntu.revision = ${ubuntu_rev}
+	" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		yq -i "
+			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
+			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
+		" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	fi
+
+	# The model should be updated immediately, so we can export the bundle before
+	# everything is done deploying
+	echo "Compare export-bundle with telegraf_bundle_with_revisions"
+	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
+	# reformat the yaml to have the same format as telegraf_bundle_with_revisions.yaml
+	yq -i . "${TEST_DIR}/exported_bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported_bundle.yaml"
+
+	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
 
 run_deploy_trusted_bundle() {
@@ -195,7 +252,8 @@ test_deploy_bundles() {
 
 		run "run_deploy_bundle"
 		run "run_deploy_bundle_overlay"
-		run "run_deploy_exported_bundle"
+		run "run_deploy_exported_charmhub_bundle_with_fixed_revisions"
+		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_charmhub_bundle"
 

@@ -1764,24 +1764,16 @@ func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	// Make a series of requests to cope with eventual consistency.
-	// Each request will attempt to add more instances to the requested
-	// set.
-	var foundServers []nova.ServerDetail
-	for a := shortAttempt.Start(); a.Next(); {
-		var err error
-		foundServers, err = e.listServers(ctx, ids)
-		if err != nil {
-			logger.Debugf("error listing servers: %v", err)
-			if !IsNotFoundError(err) {
-				handleCredentialError(err, ctx)
-				return nil, err
-			}
-		}
-		if len(foundServers) == len(ids) {
-			break
+
+	foundServers, err := e.listServers(ctx, ids)
+	if err != nil {
+		logger.Debugf("error listing servers: %v", err)
+		if !IsNotFoundError(err) {
+			handleCredentialError(err, ctx)
+			return nil, err
 		}
 	}
+
 	logger.Tracef("%d/%d live servers found", len(foundServers), len(ids))
 	if len(foundServers) == 0 {
 		return nil, environs.ErrNoInstances
@@ -1789,21 +1781,19 @@ func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 
 	instsById := make(map[string]instances.Instance, len(foundServers))
 	for i, server := range foundServers {
-		// TODO(wallyworld): lookup the flavor details to fill in the
-		// instance type data
 		instsById[server.Id] = &openstackInstance{
 			e:            e,
 			serverDetail: &foundServers[i],
 		}
 	}
 
-	// Update the instance structs with any floating IP address that has been assigned to the instance.
-	if err := e.updateFloatingIPAddresses(ctx, instsById); err != nil {
+	// Update the instance structs with any floating IP address
+	// that has been assigned to the instance.
+	if err = e.updateFloatingIPAddresses(ctx, instsById); err != nil {
 		return nil, err
 	}
 
 	insts := make([]instances.Instance, len(ids))
-	var err error
 	for i, id := range ids {
 		if inst := instsById[string(id)]; inst != nil {
 			insts[i] = inst

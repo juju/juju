@@ -29,6 +29,7 @@ type controllerTracker struct {
 	// protected by the mutex.
 	id        string
 	wantsVote bool
+	hasVote   bool
 	addresses network.SpaceAddresses
 }
 
@@ -40,6 +41,7 @@ func newControllerTracker(node ControllerNode, host ControllerHost, notifyCh cha
 		host:      host,
 		addresses: host.Addresses(),
 		wantsVote: node.WantsVote(),
+		hasVote:   node.HasVote(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
@@ -76,6 +78,14 @@ func (c *controllerTracker) WantsVote() bool {
 	return c.wantsVote
 }
 
+// HasVote returns whether the controller has a vote (according to
+// state).
+func (c *controllerTracker) HasVote() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.hasVote
+}
+
 // Addresses returns the controller addresses from state.
 func (c *controllerTracker) Addresses() network.SpaceAddresses {
 	c.mu.Lock()
@@ -85,7 +95,7 @@ func (c *controllerTracker) Addresses() network.SpaceAddresses {
 	return out
 }
 
-// SelectMongoAddress returns the best address on the controller node for MongoDB peer
+// SelectMongoAddressFromSpace returns the best address on the controller node for MongoDB peer
 // use, using the input space.
 func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.SpaceInfo) (string, error) {
 	if space.ID == "" {
@@ -127,8 +137,8 @@ func (c *controllerTracker) GoString() string {
 	defer c.mu.Unlock()
 
 	return fmt.Sprintf(
-		"&peergrouper.controller{id: %q, wantsVote: %v, addresses: %v}",
-		c.id, c.wantsVote, c.addresses,
+		"&peergrouper.controller{id: %q, wantsVote: %v, hasVote: %v, addresses: %v}",
+		c.id, c.wantsVote, c.hasVote, c.addresses,
 	)
 }
 
@@ -215,6 +225,10 @@ func (c *controllerTracker) hasNodeChanged() (bool, error) {
 		}
 		return false, errors.Trace(err)
 	}
+	// hasVote doesn't count towards a node change but
+	// we still want to record the latest value.
+	c.hasVote = c.node.HasVote()
+
 	changed := false
 	if wantsVote := c.node.WantsVote(); wantsVote != c.wantsVote {
 		c.wantsVote = wantsVote

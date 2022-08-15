@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/kr/pretty"
@@ -284,7 +285,7 @@ func (w *pgWorker) loop() error {
 			idle.Reset(IdleTime)
 			continue
 		case <-controllerChanges:
-			// A controller controller was added or removed.
+			// A controller was added or removed.
 			logger.Tracef("<-controllerChanges")
 			changed, err := w.updateControllerNodes()
 			if err != nil {
@@ -339,9 +340,9 @@ func (w *pgWorker) loop() error {
 
 		members, err := w.updateReplicaSet()
 		if err != nil {
-			if _, isReplicaSetError := err.(*replicaSetError); isReplicaSetError {
+			if errors.Is(err, replicaSetError) {
 				logger.Errorf("cannot set replicaset: %v", err)
-			} else if _, isStepDownPrimary := err.(*stepDownPrimaryError); !isStepDownPrimary {
+			} else if !errors.Is(err, stepDownPrimaryError) {
 				return errors.Trace(err)
 			} else {
 				logger.Tracef("isStepDownPrimary error: %v", err)
@@ -585,18 +586,14 @@ func (w *pgWorker) publishAPIServerDetails(
 	}
 }
 
-// replicaSetError holds an error returned as a result
+// replicaSetError means an error occurred as a result
 // of calling replicaset.Set. As this is expected to fail
 // in the normal course of things, it needs special treatment.
-type replicaSetError struct {
-	error
-}
+const replicaSetError = errors.ConstError("replicaset error")
 
 // stepDownPrimaryError means we needed to ask the primary to step down, so we should come back and re-evaluate the
 // replicaset once the new primary is voted in
-type stepDownPrimaryError struct {
-	error
-}
+const stepDownPrimaryError = errors.ConstError("primary is stepping down, must reevaluate peer group")
 
 // updateReplicaSet sets the current replica set members, and applies the
 // given voting status to nodes in the state. A mapping of controller ID
@@ -618,8 +615,8 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(desired.members))
 		} else {
 			var output []string
-			for id, v := range desired.nodeVoting {
-				output = append(output, fmt.Sprintf("  %s: %v", id, v))
+			for id, m := range desired.members {
+				output = append(output, fmt.Sprintf("  %s: %v", id, isVotingMember(m)))
 			}
 			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
 		}
@@ -636,9 +633,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		// reconnected so we can keep operating
 		w.config.MongoSession.Refresh()
 		// However, we no longer know who the primary is, so we have to error out and have it reevaluated
-		return nil, &stepDownPrimaryError{
-			error: errors.Errorf("primary is stepping down, must reevaluate peer group"),
-		}
+		return nil, stepDownPrimaryError
 	}
 
 	// Figure out if we are running on the mongo primary.
@@ -650,49 +645,6 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	logger.Debugf("controller node %q primary: %v", controllerId, isPrimary)
 	if !isPrimary {
 		return desired.members, nil
-	}
-
-	// We cannot change the HasVote flag of a controller in state at exactly
-	// the same moment as changing its voting status in the replica set.
-	//
-	// Thus we need to be careful that a controller which is actually a voting
-	// member is not seen to not have a vote, because otherwise
-	// there is nothing to prevent the controller being removed.
-	//
-	// To avoid this happening, we make sure when we call SetReplicaSet,
-	// that the voting status of nodes is the union of both old
-	// and new voting nodes - that is the set of HasVote nodes
-	// is a superset of all the actual voting nodes.
-	//
-	// Only after the call has taken place do we reset the voting status
-	// of the nodes that have lost their vote.
-	//
-	// If there's a crash, the voting status may not reflect the
-	// actual voting status for a while, but when things come
-	// back on line, it will be sorted out, as desiredReplicaSet
-	// will return the actual voting status.
-	//
-	// Note that we potentially update the HasVote status of the nodes even
-	// if the members have not changed.
-	var added, removed []*controllerTracker
-	// Iterate in obvious order so we don't get weird log messages
-	votingIds := make([]string, 0, len(desired.nodeVoting))
-	for id := range desired.nodeVoting {
-		votingIds = append(votingIds, id)
-	}
-	sortAsInts(votingIds)
-	for _, id := range votingIds {
-		hasVote := desired.nodeVoting[id]
-		m := info.controllers[id]
-		switch {
-		case hasVote && !m.node.HasVote():
-			added = append(added, m)
-		case !hasVote && m.node.HasVote():
-			removed = append(removed, m)
-		}
-	}
-	if err := setHasVote(added, true); err != nil {
-		return nil, errors.Annotate(err, "adding new voters")
 	}
 
 	// Currently k8s controllers do not support HA, so only update
@@ -713,17 +665,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			ms = append(ms, *m)
 		}
 		if err := w.config.MongoSession.Set(ms); err != nil {
-			// We've failed to set the replica set, so revert back
-			// to the previous settings.
-			if err1 := setHasVote(added, false); err1 != nil {
-				logger.Errorf("cannot revert controller voting after failure to change replica set: %v", err1)
-			}
-			return nil, &replicaSetError{err}
+			return nil, errors.WithType(err, replicaSetError)
 		}
 		logger.Infof("successfully updated replica set")
-	}
-	if err := setHasVote(removed, false); err != nil {
-		return nil, errors.Annotate(err, "removing non-voters")
 	}
 
 	// Reset controller status for members of the changed peer-group.
@@ -734,25 +678,65 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	for _, tracker := range info.controllers {
+	if err := w.updateVoteStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, tracker := range w.controllerTrackers {
 		if tracker.host.Life() != state.Alive && !tracker.node.HasVote() {
-			logger.Debugf("removing dying controller %s", tracker.Id())
+			logger.Debugf("removing dying controller %s references", tracker.Id())
 			if err := w.config.State.RemoveControllerReference(tracker.node); err != nil {
 				logger.Errorf("failed to remove dying controller as a controller after removing its vote: %v", err)
 			}
 		}
 	}
-	for _, removedTracker := range removed {
-		if removedTracker.host.Life() == state.Alive {
-			logger.Infof("vote removed from %v but controller is %s, should soon die", removedTracker.Id(), state.Alive)
-		}
-	}
 	return desired.members, nil
 }
 
+func (w *pgWorker) updateVoteStatus() error {
+	currentMembers, err := w.config.MongoSession.CurrentMembers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	orphanedNodes := set.NewStrings()
+	for id := range w.controllerTrackers {
+		orphanedNodes.Add(id)
+	}
+	var voting, nonVoting []*controllerTracker
+	for _, m := range currentMembers {
+		node, ok := w.controllerTrackers[m.Tags[jujuNodeKey]]
+		orphanedNodes.Remove(node.Id())
+		if ok {
+			if !node.HasVote() && isVotingMember(&m) {
+				logger.Tracef("controller %v is now voting member", node.Id())
+				voting = append(voting, node)
+			} else if node.HasVote() && !isVotingMember(&m) {
+				logger.Tracef("controller %v is now non voting member", node.Id())
+				nonVoting = append(nonVoting, node)
+			}
+		}
+	}
+	logger.Debugf("controllers which are no longer in replicaset: %v", orphanedNodes.Values())
+	for _, id := range orphanedNodes.Values() {
+		node := w.controllerTrackers[id]
+		nonVoting = append(nonVoting, node)
+	}
+	if err := setHasVote(voting, true); err != nil {
+		return errors.Annotatef(err, "adding voters")
+	}
+	if err := setHasVote(nonVoting, false); err != nil {
+		return errors.Annotatef(err, "removing non-voters")
+	}
+	return nil
+}
+
+const (
+	voting    = "voting"
+	nonvoting = "non-voting"
+)
+
 func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
 	var result []string
-	// Its easier to read if we sort by Id.
+	// It's easier to read if we sort by Id.
 	keys := make([]string, 0, len(members))
 	for key := range members {
 		keys = append(keys, key)
@@ -760,11 +744,11 @@ func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
 	sort.Strings(keys)
 	for _, key := range keys {
 		m := members[key]
-		voting := "not-voting"
+		voteStatus := nonvoting
 		if isVotingMember(m) {
-			voting = "voting"
+			voteStatus = voting
 		}
-		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, %s", m.Id, m.Tags, voting))
+		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, %s", m.Id, m.Tags, voteStatus))
 	}
 	return strings.Join(result, "\n")
 }

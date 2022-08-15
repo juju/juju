@@ -1531,9 +1531,9 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	if unit.IsPrincipal() {
 		result.Machine, _ = unit.AssignedMachineId()
 	}
-	curl, _ := unit.CharmURL()
-	if applicationCharm != "" && curl != nil && curl.String() != applicationCharm {
-		result.Charm = curl.String()
+	unitCharm := unit.CharmURL()
+	if applicationCharm != "" && unitCharm != nil && *unitCharm != applicationCharm {
+		result.Charm = *unitCharm
 	}
 	workloadVersion, err := context.status.UnitWorkloadVersion(unit.Name())
 	if err == nil {
@@ -1550,7 +1550,18 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				result.Subordinates[name] = context.processUnit(subUnit, applicationCharm, true)
+				subUnitAppCharm := ""
+				subUnitApp, err := subUnit.Application()
+				if err != nil {
+					logger.Debugf("error fetching subordinate application for %q", subUnit.ApplicationName())
+				}
+				subUnitAppCh, _, err := subUnitApp.Charm()
+				if err == nil {
+					subUnitAppCharm = subUnitAppCh.String()
+				} else {
+					logger.Debugf("error fetching subordinate application charm for %q", subUnit.ApplicationName())
+				}
+				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
 			}
 		}
 	}

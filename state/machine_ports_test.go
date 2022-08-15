@@ -6,8 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -523,5 +522,5 @@ func (s *MachinePortsDocSuite) TestChangesForIndividualUnits(c *gc.C) {
 	// Verify that if we call changes on the machine ports instance we
 	// get no ops as everything has been committed.
 	_, err = s.machPortRanges.Changes().Build(0)
-	c.Assert(err, gc.Equals, txn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
 }

@@ -57,7 +57,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	// wedged, so dump the logs.
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 
-	s.oldVersion = coretesting.CurrentVersion(c)
+	s.oldVersion = coretesting.CurrentVersion()
 	s.oldVersion.Major = 1
 	s.oldVersion.Minor = 16
 

@@ -144,15 +144,14 @@ func (s *workerSuite) TestFirstSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: time.Hour,
 		LastRotateTime: s.clock.Now(),
 	}}
 	s.advanceClock(c, time.Hour)
-	s.expectRotated(c, url.ShortString())
+	s.expectRotated(c, uri.ShortString())
 }
 
 func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
@@ -166,10 +165,9 @@ func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: 2 * time.Hour,
 		LastRotateTime: now,
 	}}
@@ -177,13 +175,12 @@ func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
 	s.expectNoRotates(c)
 
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: 3 * time.Hour,
 		LastRotateTime: now,
 	}}
 	s.advanceClock(c, 2*time.Hour)
-	s.expectRotated(c, url.ShortString())
+	s.expectRotated(c, uri.ShortString())
 }
 
 func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
@@ -197,10 +194,9 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: time.Hour,
 		LastRotateTime: now,
 	}}
@@ -208,8 +204,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
 	s.expectNoRotates(c)
 
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: 2 * time.Hour,
 		LastRotateTime: now,
 	}}
@@ -218,7 +213,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
 
 	// Final sanity check.
 	s.advanceClock(c, time.Hour)
-	s.expectRotated(c, url.ShortString())
+	s.expectRotated(c, uri.ShortString())
 }
 
 func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
@@ -232,10 +227,9 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: time.Hour,
 		LastRotateTime: now,
 	}}
@@ -243,19 +237,18 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 	s.expectNoRotates(c)
 
 	// New secret with earlier rotate time triggers first.
-	url2 := secrets.NewSimpleURL("app/mysql/password")
+	uri2 := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             2,
-		URL:            url2,
+		URI:            uri2,
 		RotateInterval: 30 * time.Minute,
 		LastRotateTime: now,
 	}}
 	time.Sleep(testing.ShortWait) // ensure advanceClock happens after timer is updated
 	s.advanceClock(c, 15*time.Minute)
-	s.expectRotated(c, url2.ShortString())
+	s.expectRotated(c, uri2.ShortString())
 
 	s.advanceClock(c, 30*time.Minute)
-	s.expectRotated(c, url.ShortString())
+	s.expectRotated(c, uri.ShortString())
 }
 
 func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
@@ -269,25 +262,23 @@ func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: time.Hour,
 		LastRotateTime: now,
 	}}
 	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
 
-	url2 := secrets.NewSimpleURL("app/mysql/password")
+	uri2 := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             2,
-		URL:            url2,
+		URI:            uri2,
 		RotateInterval: time.Hour,
 		LastRotateTime: now.Add(30 * time.Minute),
 	}}
 
 	s.advanceClock(c, 90*time.Minute)
-	s.expectRotated(c, url.ShortString(), url2.ShortString())
+	s.expectRotated(c, uri.ShortString(), uri2.ShortString())
 }
 
 func (s *workerSuite) TestDeleteSecretRotation(c *gc.C) {
@@ -300,10 +291,9 @@ func (s *workerSuite) TestDeleteSecretRotation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: time.Hour,
 		LastRotateTime: s.clock.Now(),
 	}}
@@ -311,7 +301,7 @@ func (s *workerSuite) TestDeleteSecretRotation(c *gc.C) {
 	s.expectNoRotates(c)
 
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
+		URI:            uri,
 		RotateInterval: 0,
 	}}
 	s.advanceClock(c, 30*time.Hour)
@@ -329,19 +319,17 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: time.Hour,
 		LastRotateTime: now,
 	}}
 	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
 
-	url2 := secrets.NewSimpleURL("app/mysql/password")
+	uri2 := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             2,
-		URL:            url2,
+		URI:            uri2,
 		RotateInterval: time.Hour,
 		LastRotateTime: now.Add(-30 * time.Minute),
 	}}
@@ -349,7 +337,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	s.expectNoRotates(c)
 
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             2,
+		URI:            uri2,
 		RotateInterval: 0,
 	}}
 	s.advanceClock(c, 15*time.Minute)
@@ -357,7 +345,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	s.expectNoRotates(c)
 
 	s.advanceClock(c, 30*time.Minute)
-	s.expectRotated(c, url.ShortString())
+	s.expectRotated(c, uri.ShortString())
 }
 
 func (s *workerSuite) TestRotateGranularity(c *gc.C) {
@@ -371,20 +359,18 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
-	url := secrets.NewSimpleURL("app/mariadb/password")
+	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             1,
-		URL:            url,
+		URI:            uri,
 		RotateInterval: 45 * time.Second,
 		LastRotateTime: now,
 	}}
 	err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1) // ensure some fake time has elapsed
 	c.Assert(err, jc.ErrorIsNil)
 
-	url2 := secrets.NewSimpleURL("app/mysql/password")
+	uri2 := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		ID:             2,
-		URL:            url2,
+		URI:            uri2,
 		RotateInterval: 50 * time.Second,
 		LastRotateTime: now,
 	}}
@@ -395,5 +381,5 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 
 	err = s.clock.WaitAdvance(14*time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectRotated(c, url.ShortString(), url2.ShortString())
+	s.expectRotated(c, uri.ShortString(), uri2.ShortString())
 }

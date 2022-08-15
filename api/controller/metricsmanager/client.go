@@ -1,8 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The metricsmanager package contains implementation for an api facade to
-// access metrics functions within state
 package metricsmanager
 
 import (

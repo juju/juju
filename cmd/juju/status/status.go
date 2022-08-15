@@ -459,22 +459,22 @@ func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
 
 func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error {
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		return FormatOneline(writer, value)
+		return FormatOneline(writer, false, value)
 	}
-	// NO_COLOR="" and --color=true
+
 	if c.color {
-		return FormatOnelineWithColor(writer, value)
+		return FormatOneline(writer, c.color, value)
 	}
 
 	if isTerminal(writer) && !c.noColor {
-		return FormatOnelineWithColor(writer, value)
+		return FormatOneline(writer, true, value)
 	}
 
 	if !isTerminal(writer) && c.color {
-		return FormatOnelineWithColor(writer, value)
+		return FormatOneline(writer, true, value)
 	}
 
-	return FormatOneline(writer, value)
+	return FormatOneline(writer, false, value)
 }
 
 func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {

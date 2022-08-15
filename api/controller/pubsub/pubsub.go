@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package pubsub implements the API for streaming pubsub messages between api
-// servers.
 package pubsub
 
 import (

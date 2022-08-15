@@ -1,8 +1,10 @@
+# Ensure that Charmed Kubernetes deploys successfully, and that we can
+# create storage on the cluster using kubectl after it's deployed.
 run_deploy_ck() {
 	echo
 
 	local name model_name file overlay_path kube_home storage_path
-	name="${2}"
+	name="deploy-ck"
 	model_name="${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
@@ -15,7 +17,7 @@ run_deploy_ck() {
 		sudo snap install kubectl --classic --channel latest/stable
 	fi
 
-	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current'
+	wait_for "active" '.applications["kubernetes-control-plane"] | ."application-status".current' 1800
 	wait_for "active" '.applications["kubernetes-worker"] | ."application-status".current'
 
 	kube_home="${HOME}/.kube"
@@ -29,6 +31,8 @@ run_deploy_ck() {
 	kubectl get sc -o yaml
 }
 
+# Ensure that a CAAS workload (mariadb+mediawiki) deploys successfully,
+# and that we can relate the two applications once it has.
 run_deploy_caas_workload() {
 	echo
 
@@ -50,10 +54,8 @@ run_deploy_caas_workload() {
 	juju deploy cs:~juju/mediawiki-k8s-4 --config kubernetes-service-type=loadbalancer
 	juju relate mediawiki-k8s:db mariadb-k8s:server
 
-	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current'
+	wait_for "active" '.applications["mariadb-k8s"] | ."application-status".current' 300
 	wait_for "active" '.applications["mediawiki-k8s"] | ."application-status".current'
-
-	destroy_model "${model_name}"
 }
 
 test_deploy_ck() {
@@ -66,11 +68,8 @@ test_deploy_ck() {
 		set_verbosity
 
 		cd .. || exit
-		local run_deploy_ck_name="deploy-ck"
-		run "run_deploy_ck" "${run_deploy_ck_name}"
 
+		run "run_deploy_ck"
 		run "run_deploy_caas_workload"
-
-		destroy_model "${run_deploy_ck_name}"
 	)
 }

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3/arch"
 	gc "gopkg.in/check.v1"
 
@@ -485,7 +485,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	makeDirty := txn.TestHook{
+	makeDirty := jujutxn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(machine), gc.IsNil) },
 	}
 	defer state.SetTestHooks(c, s.State, makeDirty).Check()
@@ -516,7 +516,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addContainer := txn.TestHook{
+	addContainer := jujutxn.TestHook{
 		Before: func() {
 			_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",

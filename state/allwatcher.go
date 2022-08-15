@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"

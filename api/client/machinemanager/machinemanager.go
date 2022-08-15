@@ -142,11 +142,13 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (scrip
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
-func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
-	p := params.Entities{}
-	p.Entities = make([]params.Entity, len(machines))
+func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]params.ErrorResult, error) {
+	p := params.RetryProvisioningArgs{
+		All: all,
+	}
+	p.Machines = make([]string, len(machines))
 	for i, machine := range machines {
-		p.Entities[i] = params.Entity{Tag: machine.String()}
+		p.Machines[i] = machine.String()
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("RetryProvisioning", p, &results)

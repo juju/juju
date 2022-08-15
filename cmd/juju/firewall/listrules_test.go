@@ -9,12 +9,12 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -53,7 +53,6 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 Service          Whitelist subnets
 juju-controller  10.2.0.0/16
 ssh              192.168.1.0/16,10.0.0.0/8
-
 `[1:],
 		"",
 	)

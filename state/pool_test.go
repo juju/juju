@@ -90,7 +90,8 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertStateClosed := func(st *state.State) {
-		c.Assert(func() { st.Ping() }, gc.PanicMatches, "Session already closed")
+		err := st.Ping()
+		c.Assert(err, gc.ErrorMatches, "Closed explicitly")
 	}
 
 	assertStateClosed(s.State)

@@ -53,13 +53,16 @@ func PatchGetSnapManager(patcher patcher, mgr SnapManager) {
 }
 
 func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
-	return mgr.(*containerManager).getImageSources()
+	cMgr := mgr.(*containerManager)
+	_ = cMgr.ensureInitialized()
+	return cMgr.getImageSources()
 }
 
 func NetworkDevicesFromConfig(mgr container.Manager, netConfig *container.NetworkConfig) (
 	map[string]device, []string, error,
 ) {
 	cMgr := mgr.(*containerManager)
+	_ = cMgr.ensureInitialized()
 	return cMgr.networkDevicesFromConfig(netConfig)
 }
 

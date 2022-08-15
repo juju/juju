@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
@@ -255,12 +255,57 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	err = stopWorker(worker)
 	c.Check(err, jc.ErrorIsNil)
 
-	s.accessor.CheckCalls(c, []gitjujutesting.StubCall{{
+	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "Machine",
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.CheckCalls(c, []gitjujutesting.StubCall{{
+	s.accessor.machine.CheckCalls(c, []jujutesting.StubCall{{
+		FuncName: "Life",
+	}, {
+		FuncName: "Watch",
+	}, {
+		FuncName: "Refresh",
+	}, {
+		FuncName: "Life",
+	}, {
+		FuncName: "SetStatus",
+		Args: []interface{}{
+			status.Stopped,
+			"",
+			map[string]interface{}(nil),
+		},
+	}, {
+		FuncName: "EnsureDead",
+	}})
+}
+
+func (s *MachinerSuite) TestMachinerTryAgain(c *gc.C) {
+	// Machine is dying. We'll respond to "EnsureDead" by
+	// saying that we need to try again;
+	// this should not cause an error.
+	s.accessor.machine.life = life.Dying
+	s.accessor.machine.SetErrors(
+		nil, // Watch
+		nil, // Refresh
+		nil, // SetStatus
+		&params.Error{Code: params.CodeTryAgain},
+	)
+
+	worker, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor, Tag: s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.accessor.machine.watcher.changes <- struct{}{}
+	err = stopWorker(worker)
+	c.Check(err, jc.ErrorIsNil)
+
+	s.accessor.CheckCalls(c, []jujutesting.StubCall{{
+		FuncName: "Machine",
+		Args:     []interface{}{s.machineTag},
+	}})
+
+	s.accessor.machine.CheckCalls(c, []jujutesting.StubCall{{
 		FuncName: "Life",
 	}, {
 		FuncName: "Watch",

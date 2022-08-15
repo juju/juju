@@ -1,10 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package modelmanager defines an API end point for functions dealing with
-// models.  Creating, listing and sharing models. This facade is available at
-// the root of the controller API, and as such, there is no implicit Model
-// associated.
 package modelmanager
 
 import (
@@ -17,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -33,7 +29,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -430,11 +425,6 @@ func (m *ModelManagerAPI) newModel(
 	controllerCfg, err := m.state.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	_, ok := newConfig.LoggingOutput()
-	if ok && !controllerCfg.Features().Contains(feature.LoggingOutput) {
-		return nil, errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
 	}
 
 	// Create the Environ.
@@ -1094,7 +1084,7 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if errors.IsNotFound(err) {
 				// Conflicts with prior check, must be inconsistent state.
-				err = txn.ErrExcessiveContention
+				err = jujutxn.ErrExcessiveContention
 			}
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")

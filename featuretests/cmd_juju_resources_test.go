@@ -78,7 +78,6 @@ Resource          Supplied by  Revision
 install-resource  upload       -
 store-resource    upload       -
 upload-resource   upload       -
-
 `[1:])
 
 	// check "juju resources <unit>"
@@ -90,7 +89,6 @@ Resource          Revision
 install-resource  -
 store-resource    -
 upload-resource   -
-
 `[1:])
 
 	// check "juju attach-resource"
@@ -117,7 +115,6 @@ Resource          Revision
 install-resource  1
 store-resource    1
 upload-resource   1
-
 `[1:])
 	s.client.stub.CheckCallNames(c, "ListResources")
 }

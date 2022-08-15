@@ -1,31 +1,33 @@
-# SHORT_TIMEOUT creates a consistent short timeout of the wait_for condition.
+# SHORT_TIMEOUT is the time between polling attempts.
 SHORT_TIMEOUT=5
 
 # wait_for defines the ability to wait for a given condition to happen in a
 # juju status output. The output is JSON, so everything that the API server
 # knows about should be valid.
 # The query argument is a jq query.
-# The default timeout is 10 minutes (120 attempts @ 5 seconds each).
-# You can change this by providing the max_attempts argument.
+# The default timeout is 10 minutes. You can change this by providing the
+# timeout argument (an integer number of seconds).
 #
 # ```
-# wait_for <model name> <query> [<max_attempts>]
+# wait_for <model name> <query> [<timeout>]
 # ```
 wait_for() {
-	local name query max_attempts
+	local name query timeout
 
 	name=${1}
 	query=${2}
-	max_attempts=${3:-120} # default timeout: 120x5s = 10m
+	timeout=${3:-600} # default timeout: 600s = 10m
 
 	attempt=0
+	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
 	until [[ "$(juju status --format=json 2>/dev/null | jq -S "${query}" | grep "${name}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
 		juju status --relations 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 
-		if [[ "${attempt}" -ge ${max_attempts} ]]; then
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
 			echo "[-] $(red 'timed out waiting for')" "$(red "${name}")"
 			exit 1
 		fi
@@ -273,7 +275,7 @@ wait_for_systemd_service_files_to_appear() {
 		attempt=$((attempt + 1))
 	done
 
-	# shellcheck disable=SC2046
+	# shellcheck disable=SC2046,SC2005
 	echo $(red "Timed out waiting for the systemd unit files for ${unit} to appear")
 	exit 1
 }

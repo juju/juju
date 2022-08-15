@@ -11,6 +11,15 @@ run_deploy_revision() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
 
 	# check resource revision per channel specified.
+	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "1"')
+	check_contains "${got}" "true"
+
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	juju config juju-qa-test foo-file=true
+	wait_for "resource line one: testing one." "$(workload_status juju-qa-test 0).message"
+
+	# check resource revision again per channel specified.
 	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "1"'
 
 	destroy_model "${model_name}"
@@ -29,6 +38,15 @@ run_deploy_revision_resource() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
 
 	# check resource revision as specified in command.
+	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "4"')
+	check_contains "${got}" "true"
+
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	juju config juju-qa-test foo-file=true
+	wait_for "resource line one: testing four." "$(workload_status juju-qa-test 0).message"
+
+	# check resource revision again per channel specified.
 	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "4"'
 
 	destroy_model "${model_name}"
@@ -44,7 +62,7 @@ run_deploy_revision_fail() {
 
 	got=$(juju deploy juju-qa-test --revision 9 2>&1 || true)
 	# bad request should be caught by client
-	check_contains "${got}" 'ERROR invalid channel for "ch:juju-qa-test": channel cannot be empty'
+	check_contains "${got}" 'revision requires a channel for future upgrades'
 
 	destroy_model "${model_name}"
 }
@@ -61,10 +79,24 @@ run_deploy_revision_upgrade() {
 	juju deploy juju-qa-test --revision 9 --channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
 
-	# Ensure that upgrade-charm gets the revision from the channel
-	# listed at deploy.
-	# revision 15 is in channel latest/edge
-	juju upgrade-charm juju-qa-test
+	attempt=0
+	while true; do
+		# Ensure that refresh gets the revision from the channel
+		# listed at deploy.
+		# revision 15 is in channel latest/edge
+		OUT=$(juju refresh juju-qa-test 2>&1 || true)
+		if echo "${OUT}" | grep -E -q "Added"; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for charm download to complete 50sec")
+			exit 5
+		fi
+		sleep 5
+	done
+
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 15)"
 
 	destroy_model "${model_name}"
@@ -82,8 +114,8 @@ test_deploy_revision() {
 		cd .. || exit
 
 		run "run_deploy_revision"
-		run "run_deploy_revision_resource"
 		run "run_deploy_revision_fail"
 		run "run_deploy_revision_upgrade"
+		run "run_deploy_revision_resource"
 	)
 }

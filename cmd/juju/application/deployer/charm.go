@@ -417,17 +417,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 	ctx.Verbosef("Preparing to deploy %q from the %s", userRequestedURL.Name, location)
 
-	// resolver.resolve potentially updates the series of anything
-	// passed in. Store this for use in seriesSelector.
-	userRequestedSeries := userRequestedURL.Series
-
-	modelCfg, err := getModelConfig(deployAPI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	imageStream := modelCfg.ImageStream()
-	workloadSeries, err := supportedJujuSeries(c.clock.Now(), userRequestedSeries, imageStream)
+	modelCfg, workloadSeries, err := seriesSelectorRequirements(deployAPI, c.clock, userRequestedURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -447,7 +437,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	selector := seriesSelector{
-		charmURLSeries:      userRequestedSeries,
+		charmURLSeries:      userRequestedURL.Series,
 		seriesFlag:          c.series,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
@@ -460,6 +450,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	series, err := selector.charmSeries()
 	logger.Tracef("Using series %s from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
+	imageStream := modelCfg.ImageStream()
 	// Avoid deploying charm if it's not valid for the model.
 	// We check this first before possibly suggesting --force.
 	if err == nil {

@@ -522,11 +522,6 @@ def main():
             testrun_argv.extend(["--stable-juju-agent", args.stable_juju_agent])
         if args.devel_juju_agent:
             testrun_argv.extend(["--devel-juju-agent", args.devel_juju_agent])
-    elif assess == "upgrade_series":
-        testrun_argv.extend([
-            "--from-series", args.from_series,
-            "--to-series", args.to_series
-        ])
 
     testrun_argv = [str(arg) for arg in testrun_argv]
     LOG.info("testing " + ' '.join(testrun_argv))

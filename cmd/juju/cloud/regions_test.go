@@ -67,7 +67,7 @@ func (s *regionsSuite) TestListRegionsLocalOnly(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlondon\nparis\n\n")
+	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlondon\nparis\n")
 }
 
 func (s *regionsSuite) setupControllerData(c *gc.C) cmd.Command {
@@ -119,14 +119,14 @@ func (s *regionsSuite) TestListRegionsControllerOnly(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, "\nController Cloud Regions\nhive  \nmind  \n\n")
+	c.Assert(out, jc.DeepEquals, "\nController Cloud Regions\nhive  \nmind  \n")
 }
 
 func (s *regionsSuite) TestListRegionsBuiltInCloud(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "localhost", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlocalhost\n\n")
+	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlocalhost\n")
 }
 
 func (s *regionsSuite) TestListRegionsYaml(c *gc.C) {
@@ -155,7 +155,6 @@ func (s *regionsSuite) TestListNoController(c *gc.C) {
 Client Cloud Regions
 london
 paris
-
 `[1:])
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }

@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/mgorootkeystore"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,7 +23,7 @@ import (
 // This suite is not about a feature tests per se, but tests the integration
 // of the mongo-based bakery storage with the macaroon bakery service.
 type BakeryStorageSuite struct {
-	gitjujutesting.MgoSuite
+	mgotesting.MgoSuite
 	gitjujutesting.LoggingSuite
 
 	store  bakerystorage.ExpirableStorage
@@ -61,8 +61,8 @@ func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 		GetCollection: func() (mongo.Collection, func()) {
 			return mongo.CollectionFromName(s.db, s.coll.Name)
 		},
-		GetStorage: func(rootKeys *mgorootkeystore.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
-			return rootKeys.NewStore(coll.Writeable().Underlying(), mgorootkeystore.Policy{
+		GetStorage: func(rootKeys *bakerystorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
+			return rootKeys.NewStore(coll.Writeable().Underlying(), bakerystorage.Policy{
 				ExpiryDuration: expireAfter,
 			})
 		},

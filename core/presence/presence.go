@@ -1,11 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The presence package works on the premise that an agent it alive
-// if it has a current connection to one of the API servers.
-//
-// This package handles all of the logic around collecting an organising
-// the information around all the connections made to the API servers.
 package presence
 
 import (

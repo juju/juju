@@ -135,7 +135,6 @@ hosted-db2  app-hosted-db2  cs:db2-5  0/0        myctrl          myctrl:fred@ext
                                                                                                                mysql     db2        requirer
 zdiff-db2   app-zdiff-db2   cs:db2-5  1/3        differentstore  differentstore:fred@external/model.zdiff-db2  log       http       provider
                                                                                                                mysql     db2        requirer
-
 `[1:],
 		"",
 	)
@@ -148,7 +147,6 @@ func (s *ListSuite) TestListTabularNoConnections(c *gc.C) {
 		`
 Offer       User  Relation ID  Status  Endpoint  Interface  Role  Ingress subnets
 hosted-db2  -                                                     
-
 `[1:],
 		"",
 	)
@@ -211,7 +209,6 @@ hosted-db2  -
 zdiff-db2   fred  1            joined  server    mysql      provider  
             mary  1            joined  server    mysql      provider  192.168.0.1/32,10.0.0.0/8
             mary  2            joined  db        db2        provider  
-
 `[1:],
 		"",
 	)
@@ -228,7 +225,6 @@ adiff-db2  mary  3            joined  db        db2        provider
 zdiff-db2  fred  1            joined  server    mysql      provider  
            mary  1            joined  server    mysql      provider  192.168.0.1/32,10.0.0.0/8
            mary  2            joined  db        db2        provider  
-
 `[1:],
 		"",
 	)

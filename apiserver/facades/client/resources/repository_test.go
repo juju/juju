@@ -31,19 +31,17 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 	s.expectRefresh(true)
 	s.expectListResourceRevisions(2)
 
-	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
-		Fingerprint: fp,
+		Fingerprint: fp(c),
 		Size:        0,
 	}, {
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
 		Revision:    2,
-		Fingerprint: fp,
+		Fingerprint: fp(c),
 		Size:        0,
 	}}, charmID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,13 +49,13 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
-		Fingerprint: fp,
+		Fingerprint: fp(c),
 		Size:        0,
 	}, {
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
 		Revision:    2,
-		Fingerprint: fp,
+		Fingerprint: fp(c),
 		Size:        0,
 	}})
 }
@@ -67,8 +65,6 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
 	s.expectRefresh(false)
 	s.expectListResourceRevisions(1)
 
-	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	c.Assert(err, jc.ErrorIsNil)
 	id := charmID()
 	id.Origin.ID = ""
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
@@ -82,7 +78,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
 		Revision:    1,
-		Fingerprint: fp,
+		Fingerprint: fp(c),
 		Size:        0,
 	}})
 }
@@ -91,8 +87,6 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStoreNoRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRefreshWithRevision(1, true)
 
-	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
@@ -104,7 +98,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStoreNoRevision(c *gc.C) {
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
 		Revision:    1,
-		Fingerprint: fp,
+		Fingerprint: fp(c),
 		Size:        0,
 	}})
 }
@@ -147,6 +141,42 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 			Fingerprint: hash.Fingerprint{}},
 		Size: 0,
 	}})
+}
+
+func (s *CharmHubClientSuite) TestResourceInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectRefreshWithRevision(25, false)
+
+	curl := charm.MustParseURL("ch:amd64/focal/ubuntu-19")
+	rev := curl.Revision
+	channel := corecharm.MustParseChannel("stable")
+	origin := corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Type:     "charm",
+		Revision: &rev,
+		Channel:  &channel,
+		Platform: corecharm.Platform{
+			OS:           "ubuntu",
+			Series:       "focal",
+			Architecture: "amd64",
+		},
+	}
+
+	result, err := s.newClient().ResourceInfo(curl, origin, "wal-e", 25)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, charmresource.Resource{
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
+		Origin:      charmresource.OriginStore,
+		Revision:    25,
+		Fingerprint: fp(c),
+		Size:        0,
+	})
+}
+
+func fp(c *gc.C) charmresource.Fingerprint {
+	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
+	c.Assert(err, jc.ErrorIsNil)
+	return fp
 }
 
 func (s *CharmHubClientSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -229,8 +259,9 @@ func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int, id bool) {
 				Resources: []transport.ResourceRevision{
 					resourceRevision(rev),
 				},
-				Summary: "PostgreSQL object-relational SQL database (supported version)",
-				Version: "208",
+				Revision: 19,
+				Summary:  "PostgreSQL object-relational SQL database (supported version)",
+				Version:  "208",
 			},
 			EffectiveChannel: "latest/stable",
 			Error:            (*transport.APIError)(nil),
@@ -244,6 +275,7 @@ func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int, id bool) {
 // charmhubConfigMatcher matches only the charm IDs and revisions of a
 // charmhub.RefreshMany config.
 type charmhubConfigMatcher struct {
+	c  *gc.C
 	id bool
 }
 

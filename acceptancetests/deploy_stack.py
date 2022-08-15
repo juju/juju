@@ -639,10 +639,14 @@ class CreateController:
 
     def tear_down(self, has_controller):
         """Tear down via client.tear_down."""
-        if has_controller:
-            self.tear_down_client.tear_down()
-        else:
-            self.tear_down_client.kill_controller(check=True)
+        try:
+            if has_controller:
+                self.tear_down_client.tear_down()
+            else:
+                self.tear_down_client.kill_controller(check=True)
+        except:
+            safe_print_status(self.client)
+            pass
 
 
 class ExistingController:

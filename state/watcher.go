@@ -20,8 +20,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
@@ -411,7 +411,7 @@ func (st *State) WatchApplicationCharms() StringsWatcher {
 
 // WatchUnits notifies when units change.
 func (st *State) WatchUnits() StringsWatcher {
-	return newLifecycleWatcher(st, unitsC, nil, isLocalID(st), nil)
+	return newCollectionWatcher(st, colWCfg{col: unitsC})
 }
 
 // WatchMachines notifies when machines change.

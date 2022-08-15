@@ -92,7 +92,7 @@ to your charm by the framework.
 ## Architecture
 
 The Juju client, server and agent are all written in Golang. The standard Juju
-packaging includes an embedded database for centralised logging and ersistence,
+packaging includes an embedded database for centralised logging and persistence,
 but there is no need to manage that database separately.
 
 Operators can be written in any language but we do encourage new authors to

@@ -242,7 +242,6 @@ another/0  waiting   allocating  1                               waiting for mac
 
 Machine  State    Address  Inst id  Series   AZ  Message
 1        pending           id1      quantal      
-
 `)
 
 	context = s.run(c, "status", "--no-color", "10")
@@ -253,7 +252,6 @@ another/1  waiting   allocating  10                              waiting for mac
 
 Machine  State    Address  Inst id  Series   AZ  Message
 10       pending           id10     quantal      
-
 `)
 }
 
@@ -280,7 +278,6 @@ func (s *StatusSuite) TestStatusMachineFilteringWithUnassignedUnits(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 Machine  State    Address  Inst id  Series   AZ  Message
 1        pending           id1      quantal      
-
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, ``)
 }

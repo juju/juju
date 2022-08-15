@@ -17,8 +17,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -627,14 +627,12 @@ func (checker *ModelChecker) readApplicationsAndUnits() {
 		units, err := app.AllUnits()
 		checkErr(err, "AllUnits")
 		for _, unit := range units {
-			unitCharmURL, err := unit.CharmURL()
-			checkErr(err, "unit CharmURL")
+			unitCharmURL := unit.CharmURL()
 			if unitCharmURL == nil {
 				continue
 			}
-			unitString := unitCharmURL.String()
-			if unitString != *charmURL {
-				checker.unitReferencedCharms.Add(unitString, unit.Name())
+			if *unitCharmURL != *charmURL {
+				checker.unitReferencedCharms.Add(*unitCharmURL, unit.Name())
 			}
 			tools, err := unit.AgentTools()
 			checkErr(err, "unit AgentTools")

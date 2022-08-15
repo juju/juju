@@ -112,7 +112,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	table.AddRow("Total", b.Total.Limit, b.Total.Budgeted, b.Total.Available, b.Total.Consumed)
 	table.AddRow("", "", "", "", "")
 	table.AddRow("Credit limit:", b.Credit, "", "", "")
-	fmt.Fprint(writer, table)
+	fmt.Fprintln(writer, table)
 	return nil
 }
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -52,7 +52,7 @@ var singletonErrorCodes = map[error]string{
 	stateerrors.ErrCannotEnterScope:    params.CodeCannotEnterScope,
 	stateerrors.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
 	stateerrors.ErrDead:                params.CodeDead,
-	txn.ErrExcessiveContention:         params.CodeExcessiveContention,
+	jujutxn.ErrExcessiveContention:     params.CodeExcessiveContention,
 	leadership.ErrClaimDenied:          params.CodeLeadershipClaimDenied,
 	lease.ErrClaimDenied:               params.CodeLeaseClaimDenied,
 	ErrBadId:                           params.CodeNotFound,
@@ -193,6 +193,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeMachineHasContainers
 	case errors.Is(err, stateerrors.StorageAttachedError):
 		code = params.CodeStorageAttached
+	case errors.Is(err, stateerrors.IsControllerMemberError):
+		code = params.CodeTryAgain
 	case errors.Is(err, UnknownModelError):
 		code = params.CodeModelNotFound
 	case errors.Is(err, errors.NotSupported):

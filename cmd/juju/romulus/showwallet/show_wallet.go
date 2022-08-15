@@ -125,7 +125,7 @@ func (c *showWalletCommand) formatTabular(writer io.Writer, value interface{}) e
 	table.AddRow("Total", b.Total.Consumed, b.Total.Budgeted, "", b.Total.Usage)
 	table.AddRow("Wallet", "", b.Limit, "")
 	table.AddRow("Unallocated", "", b.Total.Unallocated, "")
-	fmt.Fprint(writer, table)
+	fmt.Fprintln(writer, table)
 	return nil
 }
 

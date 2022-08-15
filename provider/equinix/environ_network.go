@@ -69,7 +69,7 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	}
 
 	var instanceSubnets []network.SubnetInfo
-nextSubnet: //API client limitation since we can't get the actual blocks for individual instance we have to do this
+nextSubnet: // API client limitation since we can't get the actual blocks for individual instance we have to do this
 	for _, psub := range projectSubnets {
 		_, ipnet, err := net.ParseCIDR(psub.CIDR)
 		if err != nil {
@@ -121,7 +121,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 			return nil, err
 		}
 
-		dev := &equinixDevice{e, device}
+		dev := newInstance(device, e)
 
 		subnets, err := e.Subnets(ctx, id, nil)
 		if err != nil {
@@ -184,7 +184,6 @@ func (e *environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
 	attrs := e.cloud.Credential.Attributes()
 	if attrs == nil {
 		return nil, errors.Trace(fmt.Errorf("empty attribute credentials"))
-
 	}
 	// We checked the presence of project-id when we were verifying the credentials.
 	projectID := attrs["project-id"]

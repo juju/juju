@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -37,6 +38,12 @@ type Logger interface {
 
 // SecretRotateWatcherFunc is a function returning a secrets rotation watcher.
 type SecretRotateWatcherFunc func(names.UnitTag, chan []string) (worker.Worker, error)
+
+// SecretsClient provides access to the secrets manager facade.
+type SecretsClient interface {
+	WatchSecretsChanges(string) (watcher.StringsWatcher, error)
+	GetLatestSecretsRevisionInfo(string, []string) (map[string]secretsmanager.SecretRevisionInfo, error)
+}
 
 // RemoteStateWatcher collects unit, application, and application config information
 // from separate state watchers, and updates a Snapshot which is sent on a
@@ -63,6 +70,9 @@ type RemoteStateWatcher struct {
 	canApplyCharmProfile          bool
 	workloadEventChannel          <-chan string
 	shutdownChannel               <-chan bool
+
+	secretsClient  SecretsClient
+	secretsChanges chan []string
 
 	secretRotateWatcherFunc SecretRotateWatcherFunc
 	secretRotateWatcher     worker.Worker
@@ -93,6 +103,7 @@ type WatcherConfig struct {
 	State                         State
 	LeadershipTracker             leadership.Tracker
 	SecretRotateWatcherFunc       SecretRotateWatcherFunc
+	SecretsClient                 SecretsClient
 	UpdateStatusChannel           UpdateStatusTimerFunc
 	CommandChannel                <-chan string
 	RetryHookChannel              watcher.NotifyChannel
@@ -140,6 +151,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		storageAttachmentChanges:      make(chan storageAttachmentChange),
 		leadershipTracker:             config.LeadershipTracker,
 		secretRotateWatcherFunc:       config.SecretRotateWatcherFunc,
+		secretsClient:                 config.SecretsClient,
 		updateStatusChannel:           config.UpdateStatusChannel,
 		commandChannel:                config.CommandChannel,
 		retryHookChannel:              config.RetryHookChannel,
@@ -160,6 +172,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionChanged:       make(map[string]int),
 			UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 			WorkloadEvents:      config.InitialWorkloadEventIDs,
+			SecretInfo:          make(map[string]secretsmanager.SecretRevisionInfo),
 		},
 		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
@@ -228,6 +241,10 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	}
 	snapshot.SecretRotations = make([]string, len(w.current.SecretRotations))
 	copy(snapshot.SecretRotations, w.current.SecretRotations)
+	snapshot.SecretInfo = make(map[string]secretsmanager.SecretRevisionInfo)
+	for u, r := range w.current.SecretInfo {
+		snapshot.SecretInfo[u] = r
+	}
 	return snapshot
 }
 
@@ -372,6 +389,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	addressesChanges := addressesw.Changes()
 	if err := w.catacomb.Add(addressesw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
+	var seenSecretsChange bool
+	secretsw, err := w.secretsClient.WatchSecretsChanges(w.unit.Tag().Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	secretsChanges := secretsw.Changes()
+	if err := w.catacomb.Add(secretsw); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
@@ -536,6 +564,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenApplicationChange)
 
+		case secrets, ok := <-secretsChanges:
+			w.logger.Debugf("got secrets change for %s: %s", w.unit.Tag().Id(), secrets)
+			if !ok {
+				return errors.New("secrets watcher closed")
+			}
+			if err := w.secretsChanged(secrets); err != nil {
+				return errors.Trace(err)
+			}
+			observedEvent(&seenSecretsChange)
+
 		case _, ok := <-instanceDataChannel:
 			w.logger.Debugf("got instance data change for %s", w.unit.Tag().Id())
 			if !ok {
@@ -687,12 +725,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			waitLeader = nil
 			waitMinion = w.leadershipTracker.WaitMinion().Ready()
 
-		case urls, ok := <-w.rotateSecretsChanges:
-			if !ok || len(urls) == 0 {
+		case uris, ok := <-w.rotateSecretsChanges:
+			if !ok || len(uris) == 0 {
 				continue
 			}
-			w.logger.Debugf("got rotate secret URLS: %q", urls)
-			w.rotateSecretURLs(urls)
+			w.logger.Debugf("got rotate secret URIs: %q", uris)
+			w.rotateSecretURIs(uris)
 
 		case change := <-w.storageAttachmentChanges:
 			w.logger.Debugf("storage attachment change for %s: %v", w.unit.Tag().Id(), change)
@@ -874,6 +912,25 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	return nil
 }
 
+// secretsChanged responds to changes in secrets.
+func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	info, err := w.secretsClient.GetLatestSecretsRevisionInfo(w.unit.Tag().Id(), secretURIs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.logger.Debugf("got latest secret info: %#v", info)
+	for _, uri := range secretURIs {
+		if latest, ok := info[uri]; ok {
+			w.current.SecretInfo[uri] = latest
+		} else {
+			delete(w.current.SecretInfo, uri)
+		}
+	}
+	return nil
+}
+
 func (w *RemoteStateWatcher) instanceDataChanged() error {
 	name, err := w.unit.LXDProfileName()
 	if err != nil {
@@ -943,9 +1000,9 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	return nil
 }
 
-// rotateSecretURLs adds the specified URLs to those that need
+// rotateSecretURIs adds the specified URLs to those that need
 // to be rotated.
-func (w *RemoteStateWatcher) rotateSecretURLs(urls []string) {
+func (w *RemoteStateWatcher) rotateSecretURIs(urls []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

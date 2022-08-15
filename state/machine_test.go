@@ -11,12 +11,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -316,7 +316,7 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 	c.Assert(container.IsContainer(), jc.IsTrue)
 }
 
-func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
+func (s *MachineSuite) TestLifeJobController(c *gc.C) {
 	m := s.machine0
 	err := m.Destroy()
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
@@ -538,6 +538,7 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), gc.IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), gc.IsNil) },
 	}
+	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, perturb, perturb, perturb).Check()
 
 	err = s.machine.Destroy()

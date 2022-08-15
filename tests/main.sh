@@ -6,6 +6,7 @@ export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005 -e SC2
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
+export BOOTSTRAP_CLOUD="${BOOTSTRAP_CLOUD:-lxd}"
 export BOOTSTRAP_SERIES="${BOOTSTRAP_SERIES:-}"
 export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
@@ -44,6 +45,7 @@ TEST_NAMES="agents \
             caasadmission \
             charmhub \
             cli \
+            constraints \
             controller \
             ck \
             deploy \
@@ -180,6 +182,10 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		if [[ -z ${PROVIDER} ]]; then
 			PROVIDER="${CLOUD}"
 		fi
+		# We want "ec2" to redirect to "aws". This is needed e.g. for the ck tests
+		if [[ ${PROVIDER} == "ec2" ]]; then
+			PROVIDER="aws"
+		fi
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
@@ -225,7 +231,7 @@ fi
 echo ""
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq shellcheck
+check_dependencies curl jq yq shellcheck
 
 if [[ ${USER:-'root'} == "root" ]]; then
 	echo "The testsuite must not be run as root." >&2

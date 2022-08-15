@@ -18,7 +18,7 @@ const (
 	ConfigAvailabilityZone = "availability-zone"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/container Manager,Initialiser
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination testing/package_mock.go -write_package_comment=false github.com/juju/juju/container Manager,Initialiser
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 // The name of the manager is used to namespace the containers on the machine.
@@ -45,7 +45,7 @@ type Manager interface {
 	// this manager.
 	ListContainers() ([]instances.Instance, error)
 
-	// IsInitialized check whether or not required packages have been installed
+	// IsInitialized checks whether the required packages have been installed
 	// to support this manager.
 	IsInitialized() bool
 

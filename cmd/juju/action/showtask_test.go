@@ -272,7 +272,6 @@ foo:
   bar: baz
 
 hello
-
 `[1:],
 	}, {
 		should:            "set an appropriate timer and wait, get a result",

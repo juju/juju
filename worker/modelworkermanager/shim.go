@@ -1,5 +1,6 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package modelworkermanager
 
 import (
@@ -7,7 +8,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
@@ -43,13 +43,6 @@ func (g StatePoolController) RecordLogger(modelUUID string) (RecordLogger, error
 		return nil, errors.Trace(err)
 	}
 	loggingOutputs, _ := config.LoggingOutput()
-	controllerConfig, err := ps.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !controllerConfig.Features().Contains(feature.LoggingOutput) {
-		loggingOutputs = []string{}
-	}
 	return g.getLoggers(loggingOutputs, ps), nil
 }
 
