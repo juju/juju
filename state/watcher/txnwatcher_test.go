@@ -90,7 +90,7 @@ func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError 
 	baseConfig.Hub = hub
 	baseConfig.Clock = s.clock
 	baseConfig.Logger = logger
-	baseConfig.PollInterval = 50 * time.Millisecond
+	baseConfig.PollInterval = testing.ShortWait
 	w, err := watcher.NewTxnWatcher(baseConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {

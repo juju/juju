@@ -738,7 +738,7 @@ var watchableCollections = []string{
 	sshHostKeysC,
 	spacesC,
 	statusesC,
-	statusesHistoryC,
+	// statusesHistoryC,
 	storageAttachmentsC,
 	storageConstraintsC,
 	deviceConstraintsC,

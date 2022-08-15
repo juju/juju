@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime/pprof"
 	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -52,6 +53,9 @@ type OpenParams struct {
 
 	// MaxTxnAttempts is defaulted by OpenStatePool if otherwise not set.
 	MaxTxnAttempts int
+
+	// WatcherPollInterval is defaulted by the TxnWatcher if otherwise not set.
+	WatcherPollInterval time.Duration
 }
 
 // Validate validates the OpenParams.

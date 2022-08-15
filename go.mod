@@ -50,7 +50,7 @@ require (
 	github.com/juju/blobstore/v3 v3.0.1
 	github.com/juju/charm/v9 v9.0.1
 	github.com/juju/charmrepo/v7 v7.0.1
-	github.com/juju/clock v1.0.0
+	github.com/juju/clock v1.0.2
 	github.com/juju/cmd/v3 v3.0.2
 	github.com/juju/collections v1.0.0
 	github.com/juju/description/v3 v3.0.1
@@ -82,7 +82,7 @@ require (
 	github.com/juju/rpcreflect v1.0.0
 	github.com/juju/schema v1.0.1
 	github.com/juju/terms-client/v2 v2.0.0
-	github.com/juju/testing v1.0.1
+	github.com/juju/testing v1.0.2
 	github.com/juju/txn/v3 v3.0.1
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v3 v3.0.0
@@ -103,7 +103,7 @@ require (
 	github.com/vishvananda/netlink v1.2.0-beta
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20220728211354-c7608f3a8462
+	golang.org/x/net v0.0.0-20220809012201-f428fae20770
 	golang.org/x/oauth2 v0.0.0-20220608161450-d0670ef3b1eb
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10

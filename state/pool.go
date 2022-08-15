@@ -195,6 +195,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 				Clock:            args.Clock,
 				Logger:           loggo.GetLogger("juju.state.pool.txnwatcher"),
 				WatchCollections: append([]string(nil), watchableCollections...),
+				PollInterval:     args.WatcherPollInterval,
 			})
 	}); err != nil {
 		pool.txnWatcherSession.Close()

@@ -478,7 +478,7 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 			w.resumeToken = change.Id
 			continue
 		}
-		w.logger.Tracef("txn watcher: %s %v #%d", change.Ns.Collection, change.DocumentKey.Id, revno)
+		w.logger.Debugf("txn watcher: %s %v #%d", change.Ns.Collection, change.DocumentKey.Id, revno)
 		w.syncEvents = append(w.syncEvents, Change{
 			C:     change.Ns.Collection,
 			Id:    change.DocumentKey.Id,
@@ -515,6 +515,11 @@ func (w *TxnWatcher) sync() (bool, error) {
 	resp := aggregateResponse{}
 	var err error
 	for i := 0; i < 2; i++ {
+		select {
+		case <-w.tomb.Dying():
+			return false, tomb.ErrDying
+		default:
+		}
 		err = w.runCmd(db, bson.D{
 			{"getMore", w.cursorId},
 			{"collection", "$cmd.aggregate"},
