@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/client/modelconfig"
@@ -290,7 +291,7 @@ func formatVersions(agents coretools.Versions) string {
 	for _, agent := range agents {
 		formatted.Add(fmt.Sprintf("    %s", agent.AgentVersion().String()))
 	}
-	return strings.Join(formatted.SortedValues(), "\n")
+	return strings.Join(naturalsort.Sort(formatted.Values()), "\n")
 }
 
 type toolsAPI interface {
