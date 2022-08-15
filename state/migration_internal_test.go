@@ -217,7 +217,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// secrets
 		secretMetadataC,
-		secretValuesC,
+		secretRevisionsC,
+		secretConsumersC,
 		secretRotateC,
 	)
 

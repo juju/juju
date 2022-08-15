@@ -309,8 +309,11 @@ type HookContext struct {
 	// updated to when Juju is issued the `upgrade-series` command.
 	seriesUpgradeTarget string
 
-	// secretURL is the reference to the secret relevant to the hook.
-	secretURL string
+	// secretURI is the reference to the secret relevant to the hook.
+	secretURI string
+
+	// secretLabel is the secret label to expose to the hook.
+	secretLabel string
 
 	mu sync.Mutex
 }
@@ -731,8 +734,8 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 }
 
 // GetSecret returns the value of the specified secret.
-func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) {
-	v, err := ctx.secretFacade.GetValue(name)
+func (ctx *HookContext) GetSecret(uri, label string, update, peek bool) (coresecrets.SecretValue, error) {
+	v, err := ctx.secretFacade.GetValue(uri, label, update, peek)
 	if err != nil {
 		return nil, err
 	}
@@ -740,49 +743,47 @@ func (ctx *HookContext) GetSecret(name string) (coresecrets.SecretValue, error) 
 }
 
 // CreateSecret creates a secret with the specified data.
-func (ctx *HookContext) CreateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
-	app, _ := names.UnitApplication(ctx.UnitName())
-	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
-	cfg.RotateInterval = args.RotateInterval
-	cfg.Status = args.Status
-	cfg.Description = args.Description
-	cfg.Tags = args.Tags
-	return ctx.secretFacade.Create(cfg, args.Type, args.Value)
+func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, error) {
+	cfg := &coresecrets.SecretConfig{
+		ExpireTime:   args.ExpireTime,
+		RotatePolicy: args.RotatePolicy,
+		Description:  args.Description,
+		Label:        args.Label,
+	}
+	appName, err := names.UnitApplication(ctx.unitName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return ctx.secretFacade.Create(cfg, names.NewApplicationTag(appName), args.Value)
 }
 
 // UpdateSecret creates a secret with the specified data.
-func (ctx *HookContext) UpdateSecret(name string, args *jujuc.SecretUpsertArgs) (string, error) {
-	app, _ := names.UnitApplication(ctx.UnitName())
-	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
-	cfg.RotateInterval = args.RotateInterval
-	cfg.Status = args.Status
-	cfg.Description = args.Description
-	cfg.Tags = args.Tags
-	URL := coresecrets.NewSimpleURL(cfg.Path)
-	return ctx.secretFacade.Update(URL.ID(), cfg, args.Value)
+func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) error {
+	cfg := &coresecrets.SecretConfig{
+		ExpireTime:   args.ExpireTime,
+		RotatePolicy: args.RotatePolicy,
+		Description:  args.Description,
+		Label:        args.Label,
+	}
+	return ctx.secretFacade.Update(uri, cfg, args.Value)
 }
 
 // GrantSecret grants access to a specified secret.
-func (ctx *HookContext) GrantSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
-	app, _ := names.UnitApplication(ctx.UnitName())
-	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
-	URL := coresecrets.NewSimpleURL(cfg.Path)
-	return ctx.secretFacade.Grant(URL.ID(), &secretsmanager.SecretRevokeGrantArgs{
+func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+	return ctx.secretFacade.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
-		RelationId:      args.RelationId,
+		RelationKey:     args.RelationKey,
 		Role:            coresecrets.RoleView,
 	})
 }
 
 // RevokeSecret revokes access to a specified secret.
-func (ctx *HookContext) RevokeSecret(name string, args *jujuc.SecretGrantRevokeArgs) error {
-	app, _ := names.UnitApplication(ctx.UnitName())
-	cfg := coresecrets.NewSecretConfig(coresecrets.AppSnippet, app, name)
-	URL := coresecrets.NewSimpleURL(cfg.Path)
-	return ctx.secretFacade.Revoke(URL.ID(), &secretsmanager.SecretRevokeGrantArgs{
+func (ctx *HookContext) RevokeSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+	return ctx.secretFacade.Revoke(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
+		RelationKey:     args.RelationKey,
 	})
 }
 
@@ -1084,9 +1085,10 @@ func (ctx *HookContext) HookVars(
 		)
 	}
 
-	if ctx.secretURL != "" {
+	if ctx.secretURI != "" {
 		vars = append(vars,
-			"JUJU_SECRET_URL="+ctx.secretURL,
+			"JUJU_SECRET_ID="+ctx.secretURI,
+			"JUJU_SECRET_LABEL="+ctx.secretLabel,
 		)
 	}
 
@@ -1406,12 +1408,12 @@ func (ctx *HookContext) WorkloadName() (string, error) {
 	return ctx.workloadName, nil
 }
 
-// SecretURL returns the secret URL for secret hooks.
+// SecretURI returns the secret URI for secret hooks.
 // This is not yet used by any hook commands - it is exported
 // for tests to use.
-func (ctx *HookContext) SecretURL() (string, error) {
-	if ctx.secretURL == "" {
-		return "", errors.NotFoundf("secret URL")
+func (ctx *HookContext) SecretURI() (string, error) {
+	if ctx.secretURI == "" {
+		return "", errors.NotFoundf("secret URI")
 	}
-	return ctx.secretURL, nil
+	return ctx.secretURI, nil
 }

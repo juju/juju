@@ -6,6 +6,8 @@ package secretsmanager
 import (
 	"time"
 
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/state"
 )
@@ -13,5 +15,14 @@ import (
 // SecretsRotation instances provide secret rotation apis.
 type SecretsRotation interface {
 	WatchSecretsRotationChanges(owner string) state.SecretsRotationWatcher
-	SecretRotated(url *secrets.URL, when time.Time) error
+	SecretRotated(uri *secrets.URI, when time.Time) error
+}
+
+// SecretsConsumer instances provide secret consumer apis.
+type SecretsConsumer interface {
+	GetSecretConsumer(*secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
+	SaveSecretConsumer(*secrets.URI, string, *secrets.SecretConsumerMetadata) error
+	WatchConsumedSecretsChanges(string) state.StringsWatcher
+	GrantSecret(uri *secrets.URI, scope names.Tag, subject names.Tag, role secrets.SecretRole) error
+	RevokeSecret(uri *secrets.URI, scope names.Tag, subject names.Tag) error
 }

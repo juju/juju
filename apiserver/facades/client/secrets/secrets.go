@@ -68,22 +68,22 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
 		secretResult := params.ListSecretResult{
-			URL:            m.URL.String(),
-			Path:           m.Path,
-			RotateInterval: m.RotateInterval,
+			URI:            m.URI.String(),
 			Version:        m.Version,
-			Status:         string(m.Status),
-			Description:    m.Description,
-			Tags:           m.Tags,
-			ID:             m.ID,
+			OwnerTag:       m.OwnerTag,
 			Provider:       m.Provider,
 			ProviderID:     m.ProviderID,
+			Description:    m.Description,
+			Label:          m.Label,
+			RotatePolicy:   string(m.RotatePolicy),
+			NextRotateTime: m.NextRotateTime,
+			ExpireTime:     m.ExpireTime,
 			Revision:       m.Revision,
 			CreateTime:     m.CreateTime,
 			UpdateTime:     m.UpdateTime,
 		}
 		if arg.ShowSecrets {
-			val, err := s.secretsService.GetSecretValue(ctx, m.URL)
+			val, err := s.secretsService.GetSecretValue(ctx, m.URI, m.Revision)
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}

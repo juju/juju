@@ -133,7 +133,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.makeTestModel(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -672,7 +672,7 @@ func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
-		Version: testing.CurrentVersion(c),
+		Version: testing.CurrentVersion(),
 		URL:     "file:///does/not/matter",
 	})
 	s.testToolsMetadata(c)

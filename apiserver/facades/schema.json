@@ -38454,10 +38454,18 @@
                         "description": {
                             "type": "string"
                         },
-                        "int": {
-                            "type": "integer"
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
                         },
-                        "path": {
+                        "label": {
+                            "type": "string"
+                        },
+                        "next-rotate-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "owner-tag": {
                             "type": "string"
                         },
                         "provider": {
@@ -38469,25 +38477,14 @@
                         "revision": {
                             "type": "integer"
                         },
-                        "rotate-interval": {
-                            "type": "integer"
-                        },
-                        "status": {
+                        "rotate-policy": {
                             "type": "string"
-                        },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
                         },
                         "update-time": {
                             "type": "string",
                             "format": "date-time"
                         },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         },
                         "value": {
@@ -38499,12 +38496,9 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "url",
-                        "path",
+                        "uri",
                         "version",
-                        "rotate-interval",
-                        "status",
-                        "int",
+                        "owner-tag",
                         "provider",
                         "revision",
                         "create-time",
@@ -38583,17 +38577,53 @@
                     },
                     "description": "CreateSecrets creates new secrets."
                 },
+                "GetLatestSecretsRevisionInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GetSecretConsumerInfoArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretConsumerInfoResults"
+                        }
+                    },
+                    "description": "GetLatestSecretsRevisionInfo returns the latest secret revisions for the specified secrets."
+                },
                 "GetSecretValues": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/GetSecretArgs"
+                            "$ref": "#/definitions/GetSecretValueArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/SecretValueResults"
                         }
                     },
                     "description": "GetSecretValues returns the secret values for the specified secrets."
+                },
+                "SecretsGrant": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SecretsGrant grants access to a secret for the specified subjects."
+                },
+                "SecretsRevoke": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SecretsRevoke revokes access to a secret for the specified subjects."
                 },
                 "SecretsRotated": {
                     "type": "object",
@@ -38614,10 +38644,22 @@
                             "$ref": "#/definitions/UpdateSecretArgs"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringResults"
+                            "$ref": "#/definitions/ErrorResults"
                         }
                     },
                     "description": "UpdateSecrets updates the specified secrets."
+                },
+                "WatchSecretsChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
                 },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
@@ -38636,6 +38678,9 @@
                 "CreateSecretArg": {
                     "type": "object",
                     "properties": {
+                        "UpsertSecretArg": {
+                            "$ref": "#/definitions/UpsertSecretArg"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -38647,6 +38692,16 @@
                         "description": {
                             "type": "string"
                         },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "owner-tag": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -38656,33 +38711,14 @@
                                 }
                             }
                         },
-                        "path": {
-                            "type": "string"
-                        },
-                        "rotate-interval": {
-                            "type": "integer"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "type": {
+                        "rotate-policy": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "type",
-                        "path",
-                        "rotate-interval",
-                        "status"
+                        "UpsertSecretArg",
+                        "owner-tag"
                     ]
                 },
                 "CreateSecretArgs": {
@@ -38776,25 +38812,53 @@
                         "results"
                     ]
                 },
-                "GetSecretArg": {
+                "GetSecretConsumerInfoArgs": {
                     "type": "object",
                     "properties": {
-                        "id": {
+                        "consumer-tag": {
                             "type": "string"
                         },
-                        "url": {
+                        "uris": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "consumer-tag",
+                        "uris"
+                    ]
+                },
+                "GetSecretValueArg": {
+                    "type": "object",
+                    "properties": {
+                        "label": {
+                            "type": "string"
+                        },
+                        "peek": {
+                            "type": "boolean"
+                        },
+                        "update": {
+                            "type": "boolean"
+                        },
+                        "uri": {
                             "type": "string"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
                 },
-                "GetSecretArgs": {
+                "GetSecretValueArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/GetSecretArg"
+                                "$ref": "#/definitions/GetSecretValueArg"
                             }
                         }
                     },
@@ -38803,10 +38867,86 @@
                         "args"
                     ]
                 },
+                "GrantRevokeSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "subject-tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "scope-tag",
+                        "subject-tags",
+                        "role"
+                    ]
+                },
+                "GrantRevokeSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantRevokeSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "SecretConsumerInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "revision",
+                        "label"
+                    ]
+                },
+                "SecretConsumerInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretConsumerInfoResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "SecretRotatedArg": {
                     "type": "object",
                     "properties": {
-                        "url": {
+                        "uri": {
                             "type": "string"
                         },
                         "when": {
@@ -38816,7 +38956,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "url",
+                        "uri",
                         "when"
                     ]
                 },
@@ -38845,17 +38985,13 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
-                        "secret-id": {
-                            "type": "integer"
-                        },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "secret-id",
-                        "url",
+                        "uri",
                         "rotate-interval",
                         "last-rotate-time"
                     ]
@@ -38959,9 +39095,48 @@
                         "results"
                     ]
                 },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "UpdateSecretArg": {
                     "type": "object",
                     "properties": {
+                        "UpsertSecretArg": {
+                            "$ref": "#/definitions/UpsertSecretArg"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -38973,6 +39148,13 @@
                         "description": {
                             "type": "string"
                         },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
                         "params": {
                             "type": "object",
                             "patternProperties": {
@@ -38982,29 +39164,17 @@
                                 }
                             }
                         },
-                        "rotate-interval": {
-                            "type": "integer"
-                        },
-                        "status": {
+                        "rotate-policy": {
                             "type": "string"
                         },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "url",
-                        "rotate-interval",
-                        "status"
+                        "UpsertSecretArg",
+                        "uri"
                     ]
                 },
                 "UpdateSecretArgs": {
@@ -39021,6 +39191,42 @@
                     "required": [
                         "args"
                     ]
+                },
+                "UpsertSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "rotate-policy": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }
@@ -39088,17 +39294,13 @@
                         "rotate-interval": {
                             "type": "integer"
                         },
-                        "secret-id": {
-                            "type": "integer"
-                        },
-                        "url": {
+                        "uri": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "secret-id",
-                        "url",
+                        "uri",
                         "rotate-interval",
                         "last-rotate-time"
                     ]

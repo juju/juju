@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -201,6 +202,16 @@ func ControllerRefCount(st *State, controllerUUID string) (int, error) {
 
 	key := externalControllerRefCountKey(controllerUUID)
 	return nsRefcounts.read(refcounts, key)
+}
+
+func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction([]txn.Op{incOp})
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
@@ -1069,14 +1080,14 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
-func GetSecretRotateTime(c *gc.C, st *State, id int) time.Time {
+func GetSecretRotateTime(c *gc.C, st *State, id string) time.Time {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
 
 	var doc secretRotationDoc
-	err := secretRotateCollection.FindId(secretGlobalKey(id)).One(&doc)
+	err := secretRotateCollection.FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	return doc.LastRotateTime
+	return doc.LastRotateTime.UTC()
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

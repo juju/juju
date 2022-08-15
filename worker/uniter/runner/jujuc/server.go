@@ -83,7 +83,7 @@ func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
 }
 
 var secretCommands = map[string]creator{
-	"secret-create": NewSecretCreateCommand,
+	"secret-add":    NewSecretAddCommand,
 	"secret-update": NewSecretUpdateCommand,
 	"secret-get":    NewSecretGetCommand,
 	"secret-grant":  NewSecretGrantCommand,

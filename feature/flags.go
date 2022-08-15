@@ -40,6 +40,3 @@ const Secrets = "secrets"
 // RaftAPILeases will switch all lease store management transport, currently
 // handled by Pubsub to facade API interaction.
 const RaftAPILeases = "raft-api-leases"
-
-// LoggingOutput enables the ability to configure different logging backends.
-const LoggingOutput = "logging-output"

@@ -145,7 +145,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
-	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, version.Zero))
+	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(coretesting.FakeVersionNumber))
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -964,7 +964,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		c.Skip("HasProvisioner is false; cannot test deployment")
 	}
 
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	other := current
 	other.Release = "quantal"
 

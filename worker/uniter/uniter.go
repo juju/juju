@@ -387,6 +387,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
+				SecretsClient:                 u.secrets,
 				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
@@ -487,8 +488,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-			Secrets: secrets.NewSecretsResolver(watcher.RotateSecretCompleted),
-			Logger:  u.logger,
+			Secrets: secrets.NewSecretsResolver(
+				u.logger.Child("secrets"),
+				watcher.RotateSecretCompleted,
+			),
+			Logger: u.logger,
 		}
 		if u.modelType == model.CAAS && u.isRemoteUnit {
 			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewRemoteContainerInitResolver())
@@ -973,7 +977,8 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 		}
 	}
 	if hookInfo.Kind.IsSecret() {
-		statusData["secret-url"] = hookInfo.SecretURL
+		statusData["secret-uri"] = hookInfo.SecretURI
+		statusData["secret-label"] = hookInfo.SecretLabel
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)

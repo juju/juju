@@ -51,7 +51,7 @@ func (rh *runHook) String() string {
 	case rh.info.Kind.IsStorage():
 		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
 	case rh.info.Kind.IsSecret():
-		suffix = fmt.Sprintf(" (%s)", rh.info.SecretURL)
+		suffix = fmt.Sprintf(" (%s)", rh.info.SecretURI)
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
@@ -103,7 +103,7 @@ func RunningHookMessage(hookName string, info hook.Info) string {
 		return fmt.Sprintf("running %s hook for %s", hookName, info.RemoteUnit)
 	}
 	if info.Kind.IsSecret() {
-		return fmt.Sprintf("running %s hook for %s", hookName, info.SecretURL)
+		return fmt.Sprintf("running %s hook for %s", hookName, info.SecretURI)
 	}
 	return fmt.Sprintf("running %s hook", hookName)
 }
@@ -294,7 +294,7 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
 	case hooks.SecretRotate:
-		err = rh.callbacks.SetSecretRotated(rh.info.SecretURL, time.Now())
+		err = rh.callbacks.SetSecretRotated(rh.info.SecretURI, time.Now())
 	}
 	if err != nil {
 		return nil, err

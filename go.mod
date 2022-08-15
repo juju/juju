@@ -49,7 +49,7 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.1
-	github.com/juju/charm/v9 v9.0.1
+	github.com/juju/charm/v9 v9.0.4
 	github.com/juju/charmrepo/v7 v7.0.1
 	github.com/juju/clock v1.0.2
 	github.com/juju/cmd/v3 v3.0.2
@@ -85,7 +85,6 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.0.2
 	github.com/juju/txn/v3 v3.0.1
-	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/utils/v3 v3.0.0
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/webbrowser v1.0.0
@@ -101,6 +100,7 @@ require (
 	github.com/pkg/sftp v1.13.4
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
+	github.com/rs/xid v1.4.0
 	github.com/vishvananda/netlink v1.2.0-beta
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa

@@ -305,24 +305,31 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	f.StringVar(&c.JujuDbSnapPath, "db-snap", "", "Path to a locally built .snap to use as the internal juju-db service.")
+	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
+		"Path to a locally built .snap to use as the internal juju-db service.")
 	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --db-snap")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the provisioned controller instance if bootstrap fails")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false,
+		"Do not destroy the provisioned controller instance if bootstrap fails")
 	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "After bootstrap, upgrade to the latest patch release")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
-	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
-	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
-	f.Var(&c.storagePool, "storage-pool", "Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
+	f.Var(&c.config, "config",
+		"Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
+	f.Var(&c.modelDefaults, "model-default",
+		"Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
+	f.Var(&c.storagePool, "storage-pool",
+		"Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
 	f.StringVar(&c.initialModelName, "add-model", "", "Name of an initial model to create on the new controller")
-	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
+	f.BoolVar(&c.showClouds, "clouds", false,
+		"Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
 	f.StringVar(&c.ControllerCharmPath, "controller-charm-path", "", "Path to a locally built controller charm")
-	f.StringVar(&c.ControllerCharmRisk, "controller-charm-risk", "beta", "The controller charm risk if not using a local charm")
+	f.StringVar(&c.ControllerCharmRisk, "controller-charm-risk", "beta",
+		"The controller charm risk if not using a local charm")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -361,7 +368,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return errors.Errorf("--controller-charm-path %q is not a valid charm", c.ControllerCharmPath)
 		}
 		if ch.Meta().Name != bootstrap.ControllerCharmName {
-			return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath, bootstrap.ControllerCharmName)
+			return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath,
+				bootstrap.ControllerCharmName)
 		}
 	}
 	if c.ControllerCharmRisk != "" {
@@ -416,7 +424,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
-		return errors.Errorf("this client can only bootstrap %v.%v agents", jujuversion.Current.Major, jujuversion.Current.Minor)
+		return errors.Errorf("this client can only bootstrap %v.%v agents", jujuversion.Current.Major,
+			jujuversion.Current.Minor)
 	}
 
 	switch len(args) {
@@ -442,7 +451,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext,
+		args bootstrap.BootstrapParams) error
 
 	// CloudDetector returns a CloudDetector for the given provider,
 	// if the provider supports it.
@@ -459,7 +469,8 @@ type BootstrapInterface interface {
 
 type bootstrapFuncs struct{}
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron,
+	callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, callCtx, args)
 }
 
@@ -664,7 +675,8 @@ to create a new model to deploy %sworkloads.
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err = errors.NewNotFound(nil, fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloud.Name))
+			err = errors.NewNotFound(nil,
+				fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloud.Name))
 		}
 
 		if err == cmd.ErrSilent {
@@ -1195,7 +1207,8 @@ func (c *bootstrapCommand) detectCloud(
 	ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
 	provider, err := environs.Provider(c.Cloud)
 	if errors.IsNotFound(err) {
-		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
+		return fail(errors.NewNotFound(nil,
+			fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
 	} else if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -1205,7 +1218,8 @@ func (c *bootstrapCommand) detectCloud(
 			"provider %q does not support detecting regions",
 			c.Cloud,
 		)
-		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
+		return fail(errors.NewNotFound(nil,
+			fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
 	}
 
 	var cloudEndpoint string
@@ -1519,18 +1533,14 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Annotate(err, "finalizing authorized-keys")
 	}
 
-	v, ok := bootstrapModelConfig[config.LoggingOutputKey]
-	if ok && v != "" && !controllerConfig.Features().Contains(feature.LoggingOutput) {
-		return bootstrapConfigs{}, errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
-	}
-
 	// We need to do an Azure specific check here to ensure that
 	// if a resource-group-name is specified, the user has also
 	// not specified a default model, otherwise we end up with 2
 	// models with the same resource group name.
 	resourceGroupName, ok := bootstrapModelConfig["resource-group-name"]
 	if ok && resourceGroupName != "" && c.initialModelName != "" {
-		return bootstrapConfigs{}, errors.Errorf("if using resource-group-name %q then a workload model cannot be specified as well", resourceGroupName)
+		return bootstrapConfigs{}, errors.Errorf("if using resource-group-name %q then a workload model cannot be specified as well",
+			resourceGroupName)
 	}
 
 	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)

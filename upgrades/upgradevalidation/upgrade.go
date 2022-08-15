@@ -5,10 +5,14 @@ package upgradevalidation
 
 import (
 	"github.com/juju/version/v2"
+
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 // ValidatorsForControllerUpgrade returns a list of validators for controller upgrade,
-func ValidatorsForControllerUpgrade(isControllerModel bool, targetVersion version.Number) []Validator {
+func ValidatorsForControllerUpgrade(
+	isControllerModel bool, targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
+) []Validator {
 	if isControllerModel {
 		validators := []Validator{
 			getCheckTargetVersionForModel(targetVersion, UpgradeToAllowed),
@@ -19,6 +23,7 @@ func ValidatorsForControllerUpgrade(isControllerModel bool, targetVersion versio
 				checkMongoVersionForControllerModel,
 				checkNoWinMachinesForModel,
 				checkForDeprecatedUbuntuSeriesForModel,
+				getCheckForLXDVersion(cloudspec, minLXDVersion),
 			)
 		}
 		return validators
@@ -29,20 +34,26 @@ func ValidatorsForControllerUpgrade(isControllerModel bool, targetVersion versio
 	}
 	if targetVersion.Major == 3 {
 		validators = append(validators,
-			checkNoWinMachinesForModel, checkForDeprecatedUbuntuSeriesForModel,
+			checkNoWinMachinesForModel,
+			checkForDeprecatedUbuntuSeriesForModel,
+			getCheckForLXDVersion(cloudspec, minLXDVersion),
 		)
 	}
 	return validators
 }
 
 // ValidatorsForModelUpgrade returns a list of validators for model upgrade,
-func ValidatorsForModelUpgrade(force bool, targetVersion version.Number) []Validator {
+func ValidatorsForModelUpgrade(
+	force bool, targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
+) []Validator {
 	validators := []Validator{
 		getCheckUpgradeSeriesLockForModel(force),
 	}
 	if targetVersion.Major == 3 {
 		validators = append(validators,
-			checkNoWinMachinesForModel, checkForDeprecatedUbuntuSeriesForModel,
+			checkNoWinMachinesForModel,
+			checkForDeprecatedUbuntuSeriesForModel,
+			getCheckForLXDVersion(cloudspec, minLXDVersion),
 		)
 	}
 	return validators

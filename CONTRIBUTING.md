@@ -309,7 +309,7 @@ Many tests use a standalone instance of `mongod` as part of their setup. The
 `mongod` binary found in `$PATH` is executed by these suites.  If you don't already have MongoDB installed, or have difficulty using your installed version to run Juju tests, you may want to install the [`juju-db` snap](https://snapcraft.io/juju-db), which is guaranteed to work with Juju.
 
 ```bash
-sudo snap install juju-db
+sudo snap install juju-db --channel 4.4/stable
 sudo snap alias juju-db.mongod mongod
 sudo snap alias juju-db.mongo mongo
 ```

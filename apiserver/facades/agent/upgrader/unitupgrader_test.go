@@ -183,7 +183,7 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and OSType without
 	// having to pass it in again
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -220,7 +220,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawUnit.Tag().String(),
 			Tools: &params.Version{
-				Version: testing.CurrentVersion(c),
+				Version: testing.CurrentVersion(),
 			},
 		}},
 	}
@@ -232,7 +232,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
-	cur := testing.CurrentVersion(c)
+	cur := testing.CurrentVersion()
 	_, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	args := params.EntitiesVersion{
@@ -290,7 +290,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -311,7 +311,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}}}

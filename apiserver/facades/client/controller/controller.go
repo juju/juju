@@ -750,6 +750,7 @@ var runMigrationPrechecks = func(
 		backend,
 		targetControllerVersion,
 		modelPresence, controllerPresence,
+		cloudspec.MakeCloudSpecGetterForModel(st),
 	); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}

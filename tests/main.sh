@@ -182,6 +182,10 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 		if [[ -z ${PROVIDER} ]]; then
 			PROVIDER="${CLOUD}"
 		fi
+		# We want "ec2" to redirect to "aws". This is needed e.g. for the ck tests
+		if [[ ${PROVIDER} == "ec2" ]]; then
+			PROVIDER="aws"
+		fi
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
@@ -227,7 +231,7 @@ fi
 echo ""
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq shellcheck
+check_dependencies curl jq yq shellcheck
 
 if [[ ${USER:-'root'} == "root" ]]; then
 	echo "The testsuite must not be run as root." >&2

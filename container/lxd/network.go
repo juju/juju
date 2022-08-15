@@ -153,10 +153,6 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 		if err != nil {
 			return errors.Trace(err)
 		}
-	} else {
-		if err := verifyNoIPv6(net); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	s.localBridgeName = network.DefaultLXDBridge
@@ -188,7 +184,6 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 // devices is suitable for LXD to work with Juju.
 func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 	checked := make([]string, 0, len(nics))
-	var ipV6ErrMsg error
 	for name, nic := range nics {
 		checked = append(checked, name)
 
@@ -208,11 +203,6 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 			return errors.Annotatef(err, "retrieving network %q", netName)
 		}
 
-		if err := verifyNoIPv6(net); err != nil {
-			ipV6ErrMsg = err
-			continue
-		}
-
 		// Versions of the LXD profile prior to 3.22 have a "nictype" member
 		// under NIC entries in the "devices" list.
 		// Later versions were observed to have this member absent,
@@ -226,17 +216,11 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 		return nil
 	}
 
-	// A nic with valid type found, but the network configures IPv6.
-	if ipV6ErrMsg != nil {
-		return ipV6ErrMsg
-	}
-
 	// No nics with a nictype of nicTypeBridged, nicTypeMACVLAN was found.
 	return errors.Errorf(fmt.Sprintf(
 		"no network device found with nictype %q or %q"+
 			"\n\tthe following devices were checked: %s"+
-			"\nNote: juju does not support IPv6."+
-			"\nReconfigure lxd to use a network of type %q or %q, disabling IPv6.",
+			"\nReconfigure lxd to use a network of type %q or %q.",
 		nicTypeBridged, nicTypeMACVLAN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN))
 }
 
@@ -272,27 +256,6 @@ func getProfileNICs(profile *api.Profile) map[string]device {
 		}
 	}
 	return nics
-}
-
-// verifyNoIPv6 checks that the input network has no IPv6 configuration.
-// An error is returned when it does.
-// TODO (manadart 2018-05-28) The intention is to support IPv6, so this
-// restriction is temporary.
-func verifyNoIPv6(net *api.Network) error {
-	if !net.Managed {
-		return nil
-	}
-	cfg, ok := net.Config["ipv6.address"]
-	if !ok {
-		return nil
-	}
-	if cfg == "none" {
-		return nil
-	}
-
-	return errors.Errorf("juju does not support IPv6. Disable IPv6 in LXD via:\n"+
-		"\tlxc network set %s ipv6.address none\n"+
-		"and run the command again", net.Name)
 }
 
 func isValidNICType(nic device) bool {

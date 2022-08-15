@@ -30,6 +30,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
+
 	gc "gopkg.in/check.v1"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 
@@ -240,7 +241,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 			uploadVers := version.MustParseBinary(test.upload)
 			bootstrapVersion.Number = uploadVers.Number
 		}
-		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, bootstrapVersion.Number)))
+		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(bootstrapVersion.Number)))
 	}
 
 	if test.hostArch != "" {
@@ -466,11 +467,6 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--storage-pool", "name=test"},
 	err:  `storage pool requires a type`,
 }}
-
-func (s *BootstrapSuite) TestRunModelLoggingOutputChecksFlag(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "my-controller", "--config", "logging-output=syslog")
-	c.Check(err, gc.ErrorMatches, `cannot set "logging-output" without setting the "logging-output" feature flag`)
-}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "unknown", "my-controller")
@@ -1362,7 +1358,7 @@ my-dummy-cloud
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	patchedVersion := version.MustParse(vers)
 	patchedVersion.Build = 1
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, patchedVersion))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(patchedVersion))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 

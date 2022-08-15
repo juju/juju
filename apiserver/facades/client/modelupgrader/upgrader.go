@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
@@ -39,7 +40,8 @@ type ModelUpgraderAPI struct {
 	callContext context.ProviderCallContext
 	newEnviron  common.NewEnvironFunc
 
-	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
 }
 
 // NewModelUpgraderAPI creates a new api server endpoint for managing
@@ -53,6 +55,7 @@ func NewModelUpgraderAPI(
 	authorizer facade.Authorizer,
 	callCtx context.ProviderCallContext,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 ) (*ModelUpgraderAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -67,15 +70,16 @@ func NewModelUpgraderAPI(
 	}
 
 	return &ModelUpgraderAPI{
-		statePool:       stPool,
-		check:           blockChecker,
-		authorizer:      authorizer,
-		toolsFinder:     toolsFinder,
-		apiUser:         apiUser,
-		isAdmin:         isAdmin,
-		callContext:     callCtx,
-		newEnviron:      newEnviron,
-		registryAPIFunc: registryAPIFunc,
+		statePool:               stPool,
+		check:                   blockChecker,
+		authorizer:              authorizer,
+		toolsFinder:             toolsFinder,
+		apiUser:                 apiUser,
+		isAdmin:                 isAdmin,
+		callContext:             callCtx,
+		newEnviron:              newEnviron,
+		registryAPIFunc:         registryAPIFunc,
+		environscloudspecGetter: environscloudspecGetter,
 	}, nil
 }
 
@@ -182,7 +186,8 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 	}
 
 	if err := m.validateModelUpgrade(false, modelTag, targetVersion, st, model); err != nil {
-		return result, errors.Trace(err)
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
 	if arg.DryRun {
 		return result, nil
@@ -266,20 +271,23 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
 		if err == nil && blockers != nil {
-			err = apiservererrors.ServerError(
-				errors.NewNotSupported(nil,
-					fmt.Sprintf(
-						"cannot upgrade to %q due to issues with these models:\n%s",
-						targetVersion, blockers,
-					),
+			err = errors.NewNotSupported(nil,
+				fmt.Sprintf(
+					"cannot upgrade to %q due to issues with these models:\n%s",
+					targetVersion, blockers,
 				),
 			)
 		}
 	}()
 
+	cloudspec, err := m.environscloudspecGetter(modelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	isControllerModel := model.IsControllerModel()
 	if !isControllerModel {
-		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion)
+		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion, cloudspec)
 		checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), m.statePool, st, model, validators...)
 		blockers, err = checker.Validate()
 		if err != nil {
@@ -290,7 +298,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 
 	checker := upgradevalidation.NewModelUpgradeCheck(
 		modelTag.Id(), m.statePool, st, model,
-		upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion)...,
+		upgradevalidation.ValidatorsForControllerUpgrade(true, targetVersion, cloudspec)...,
 	)
 	blockers, err = checker.Validate()
 	if err != nil {
@@ -301,12 +309,18 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion)
 	for _, modelUUID := range modelUUIDs {
 		if modelUUID == modelTag.Id() {
 			// We have done checks for controller model above already.
 			continue
 		}
+
+		cloudspec, err := m.environscloudspecGetter(names.NewModelTag(modelUUID))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		validators := upgradevalidation.ValidatorsForControllerUpgrade(false, targetVersion, cloudspec)
+
 		st, err := m.statePool.Get(modelUUID)
 		if err != nil {
 			return errors.Trace(err)

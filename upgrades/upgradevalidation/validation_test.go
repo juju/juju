@@ -5,6 +5,7 @@ package upgradevalidation_test
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades/upgradevalidation"
@@ -359,4 +362,82 @@ func (s *upgradeValidationSuite) TestCheckMongoVersionForControllerModel(c *gc.C
 	blocker, err = upgradevalidation.CheckMongoVersionForControllerModel("", pool, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker.Error(), gc.Equals, `mongo version has to be "4.4" at least, but current version is "4.3"`)
+}
+
+func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType string) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	server := mocks.NewMockServer(ctrl)
+	serverFactory := mocks.NewMockServerFactory(ctrl)
+
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
+
+	cloudSpec := environscloudspec.CloudSpec{Type: cloudType}
+	gomock.InOrder(
+		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.2"),
+	)
+
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(
+		cloudSpec, upgradevalidation.MinLXDVersion,
+	)("", nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+}
+
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLXD(c *gc.C) {
+	s.assertGetCheckForLXDVersion(c, "lxd")
+}
+
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLocalhost(c *gc.C) {
+	s.assertGetCheckForLXDVersion(c, "localhost")
+}
+
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionSkippedForNonLXDCloud(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	serverFactory := mocks.NewMockServerFactory(ctrl)
+
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
+
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(
+		environscloudspec.CloudSpec{Type: "foo"}, upgradevalidation.MinLXDVersion,
+	)("", nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+}
+
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	server := mocks.NewMockServer(ctrl)
+	serverFactory := mocks.NewMockServerFactory(ctrl)
+
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(httpClient *http.Client) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
+	cloudSpec := environscloudspec.CloudSpec{Type: "lxd"}
+	gomock.InOrder(
+		serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil),
+		server.EXPECT().ServerVersion().Return("5.1"),
+	)
+
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(
+		cloudSpec, upgradevalidation.MinLXDVersion,
+	)("", nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.2.0", but current version is only "5.1.0"`)
 }
