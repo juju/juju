@@ -5,7 +5,7 @@ package migration
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/state"
@@ -152,8 +152,24 @@ func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, erro
 	return ru, errors.Trace(err)
 }
 
-// IsCrossModel implements PreCheckRelation.
-func (s *precheckRelationShim) IsCrossModel() (bool, error) {
-	_, result, err := s.Relation.RemoteApplication()
-	return result, errors.Trace(err)
+// AllRemoteUnits implements PreCheckRelation.
+func (s *precheckRelationShim) AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error) {
+	all, err := s.Relation.AllRemoteUnits(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]PrecheckRelationUnit, len(all))
+	for i, ru := range all {
+		out[i] = ru
+	}
+	return out, nil
+}
+
+// RemoteApplication implements PreCheckRelation.
+func (s *precheckRelationShim) RemoteApplication() (string, bool, error) {
+	app, isCrossModel, err := s.Relation.RemoteApplication()
+	if isCrossModel {
+		return app.Name(), true, nil
+	}
+	return "", false, errors.Trace(err)
 }

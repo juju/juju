@@ -1,9 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package application contains api calls for functionality
-// related to deploying and managing applications and their
-// related charms.
 package application
 
 import (
@@ -142,23 +139,12 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		return nil, errors.Trace(err)
 	}
 
-	options := []charmhub.Option{
-		charmhub.WithHTTPTransport(func(l charmhub.Logger) charmhub.Transport {
-			return ctx.HTTPClient(facade.CharmhubHTTPClient)
-		}),
-	}
-
-	var chCfg charmhub.Config
-	chURL, ok := modelCfg.CharmHubURL()
-	if ok {
-		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger, options...)
-	} else {
-		chCfg, err = charmhub.CharmHubConfig(logger, options...)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	chClient, err := charmhub.NewClient(chCfg)
+	chURL, _ := modelCfg.CharmHubURL()
+	chClient, err := charmhub.NewClient(charmhub.Config{
+		URL:        chURL,
+		HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+		Logger:     logger,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1977,16 +1963,9 @@ func (api *APIBase) DestroyRelation(args params.DestroyRelation) (err error) {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	var (
-		rel Relation
-		eps []state.Endpoint
-	)
+	var rel Relation
 	if len(args.Endpoints) > 0 {
-		eps, err = api.backend.InferEndpoints(args.Endpoints...)
-		if err != nil {
-			return err
-		}
-		rel, err = api.backend.EndpointsRelation(eps...)
+		rel, err = api.backend.InferActiveRelation(args.Endpoints...)
 	} else {
 		rel, err = api.backend.Relation(args.RelationId)
 	}

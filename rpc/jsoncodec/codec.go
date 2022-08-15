@@ -1,7 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The jsoncodec package provides a JSON codec for the rpc package.
 package jsoncodec
 
 import (

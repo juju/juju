@@ -12,6 +12,7 @@ import (
 	relation "github.com/juju/juju/core/relation"
 	params "github.com/juju/juju/rpc/params"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
+	names "github.com/juju/names/v4"
 )
 
 // MockContextRelation is a mock of ContextRelation interface.
@@ -136,6 +137,20 @@ func (m *MockContextRelation) ReadSettings(arg0 string) (params.Settings, error)
 func (mr *MockContextRelationMockRecorder) ReadSettings(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSettings", reflect.TypeOf((*MockContextRelation)(nil).ReadSettings), arg0)
+}
+
+// RelationTag mocks base method.
+func (m *MockContextRelation) RelationTag() names.RelationTag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RelationTag")
+	ret0, _ := ret[0].(names.RelationTag)
+	return ret0
+}
+
+// RelationTag indicates an expected call of RelationTag.
+func (mr *MockContextRelationMockRecorder) RelationTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationTag", reflect.TypeOf((*MockContextRelation)(nil).RelationTag))
 }
 
 // RemoteApplicationName mocks base method.

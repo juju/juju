@@ -1,5 +1,6 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package auditlog
 
 import (
@@ -14,7 +15,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/lumberjack"
+	"github.com/juju/lumberjack/v2"
 
 	"github.com/juju/juju/core/paths"
 )

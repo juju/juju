@@ -48,7 +48,6 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("igor")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	s.callContext = context.NewEmptyCloudCallContext()
 	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
@@ -64,6 +63,56 @@ func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
 	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+}
+
+// TestNonAuthUserDenied tests that a user without admin non
+// superuser permission cannot access a facade function.
+func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("jeremy")
+	s.authorizer.AdminTag = names.NewUserTag("igor")
+
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	s.facade = facade
+
+	args := params.Entities{
+		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
+	}
+	results, err := s.facade.PublicAddress(args)
+	// Check this was an error permission
+	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
+	c.Assert(results, gc.DeepEquals, params.SSHAddressResults{})
+}
+
+// TestSuperUserAuth tests that a user with superuser privilege
+// can access a facade function.
+func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("superuser-jeremy")
+	s.authorizer.AdminTag = names.NewUserTag("igor")
+
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
+	c.Assert(err, jc.ErrorIsNil)
+	s.facade = facade
+
+	args := params.Entities{
+		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
+	}
+	results, err := s.facade.PublicAddress(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
+		Results: []params.SSHAddressResult{
+			{Address: "1.1.1.1"},
+			{Address: "3.3.3.3"},
+			{Error: apiservertesting.NotFoundError("entity")},
+		},
+	})
+	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"GetMachineForEntity", []interface{}{s.m0}},
+		{"GetMachineForEntity", []interface{}{s.uFoo}},
+		{"GetMachineForEntity", []interface{}{s.uOther}},
+	})
+
 }
 
 func (s *facadeSuite) TestPublicAddress(c *gc.C) {
@@ -191,7 +240,11 @@ type mockBackend struct {
 }
 
 func (backend *mockBackend) ModelTag() names.ModelTag {
-	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+	return testing.ModelTag
+}
+
+func (backend *mockBackend) ControllerTag() names.ControllerTag {
+	return testing.ControllerTag
 }
 
 func (backend *mockBackend) ModelConfig() (*config.Config, error) {

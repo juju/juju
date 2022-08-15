@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package metricsdebug contains the implementation of an api endpoint
-// for metrics debug functionality.
 package metricsdebug
 
 import (
@@ -181,12 +179,13 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 		if err != nil {
 			return errors.Trace(err)
 		}
-		chURL, err := unit.CharmURL()
+		chURLStr := unit.CharmURL()
+		if chURLStr == nil {
+			return errors.New("no charm url")
+		}
+		chURL, err := charm.ParseURL(*chURLStr)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		if chURL == nil {
-			return errors.New("no charm url")
 		}
 		if !charm.Local.Matches(chURL.Schema) {
 			return errors.New("not a local charm")

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -131,13 +130,9 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	// Make sure DefaultSpace exists.
 	checkDefaultSpace := c.checkDefaultSpace()
 
-	// To use the logging-output feature, the feature flag needs to be set.
-	checkLoggingConfig := c.checkLoggingOutput()
-
 	// Replace any deprecated attributes with their new values.
 	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	return c.backend.UpdateModelConfig(attrs, nil,
-		checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmhubURL, checkLoggingConfig)
+	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmhubURL)
 }
 
 func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
@@ -214,23 +209,6 @@ func (c *ModelConfigAPI) checkCharmhubURL() state.ValidateConfigFunc {
 			if v != oldURL {
 				return errors.New("charmhub-url cannot be changed")
 			}
-		}
-		return nil
-	}
-}
-
-func (c *ModelConfigAPI) checkLoggingOutput() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		v, ok := updateAttrs[config.LoggingOutputKey]
-		if !ok || v == "" {
-			return nil
-		}
-		cfg, err := c.backend.ControllerConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !cfg.Features().Contains(feature.LoggingOutput) {
-			return errors.Errorf("cannot set %q without setting the %q feature flag", config.LoggingOutputKey, feature.LoggingOutput)
 		}
 		return nil
 	}

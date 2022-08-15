@@ -7,3 +7,5 @@ provides:
   dev:
     interface: mysql
     limit: 2
+  test:
+    interface: mysql

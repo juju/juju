@@ -6,16 +6,16 @@ package migration
 import (
 	"fmt"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
@@ -86,7 +86,7 @@ type PrecheckUnit interface {
 	Name() string
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
-	CharmURL() (*charm.URL, error)
+	CharmURL() *string
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	ShouldBeAssigned() bool
@@ -97,9 +97,10 @@ type PrecheckUnit interface {
 // for prechecks.
 type PrecheckRelation interface {
 	String() string
-	IsCrossModel() (bool, error)
 	Endpoints() []state.Endpoint
 	Unit(PrecheckUnit) (PrecheckRelationUnit, error)
+	AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error)
+	RemoteApplication() (string, bool, error)
 }
 
 // PrecheckRelationUnit describes the interface for relation units
@@ -107,6 +108,7 @@ type PrecheckRelation interface {
 type PrecheckRelationUnit interface {
 	Valid() (bool, error)
 	InScope() (bool, error)
+	UnitName() string
 }
 
 // ModelPresence represents the API server connections for a model.
@@ -122,11 +124,13 @@ func SourcePrecheck(
 	backend PrecheckBackend,
 	targetControllerVersion version.Number,
 	modelPresence ModelPresence, controllerPresence ModelPresence,
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 ) error {
 	ctx := precheckContext{
 		backend:                 backend,
 		presence:                modelPresence,
 		targetControllerVersion: targetControllerVersion,
+		environscloudspecGetter: environscloudspecGetter,
 	}
 	if err := ctx.checkModel(); err != nil {
 		return errors.Trace(err)
@@ -160,6 +164,7 @@ func SourcePrecheck(
 		backend:                 controllerBackend,
 		presence:                controllerPresence,
 		targetControllerVersion: targetControllerVersion,
+		environscloudspecGetter: environscloudspecGetter,
 	}
 	if err := controllerCtx.checkController(); err != nil {
 		return errors.Annotate(err, "controller")
@@ -171,6 +176,7 @@ type precheckContext struct {
 	backend                 PrecheckBackend
 	presence                ModelPresence
 	targetControllerVersion version.Number
+	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
 }
 
 func (ctx *precheckContext) checkModel() error {
@@ -194,7 +200,11 @@ func (ctx *precheckContext) checkModel() error {
 		}
 	}
 
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(ctx.targetControllerVersion)
+	cloudspec, err := ctx.environscloudspecGetter(names.NewModelTag(model.UUID()))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	validators := upgradevalidation.ValidatorsForModelMigrationSource(ctx.targetControllerVersion, cloudspec)
 	checker := upgradevalidation.NewModelUpgradeCheck(model.UUID(), nil, ctx.backend, model, validators...)
 	blockers, err := checker.Validate()
 	if err != nil {
@@ -421,8 +431,8 @@ func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []Precheck
 			}
 		}
 
-		unitCharmURL, _ := unit.CharmURL()
-		if *appCharmURL != unitCharmURL.String() {
+		unitCharmURL := unit.CharmURL()
+		if unitCharmURL == nil || *appCharmURL != *unitCharmURL {
 			return errors.Errorf("unit %s is upgrading", unit.Name())
 		}
 	}
@@ -476,35 +486,51 @@ func (ctx *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) e
 		return errors.Annotate(err, "retrieving model relations")
 	}
 	for _, rel := range relations {
-		// We expect a relationScope and settings for each of the
-		// units of the specified application, unless it is a
-		// remote application.
-		crossModel, err := rel.IsCrossModel()
-		if err != nil {
+		remoteAppName, crossModel, err := rel.RemoteApplication()
+		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "checking whether relation %s is cross-model", rel)
 		}
-		if crossModel {
-			continue
+
+		checkRelationUnit := func(ru PrecheckRelationUnit) error {
+			valid, err := ru.Valid()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !valid {
+				return nil
+			}
+			inScope, err := ru.InScope()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !inScope {
+				return errors.Errorf("unit %s hasn't joined relation %q yet", ru.UnitName(), rel)
+			}
+			return nil
 		}
+
 		for _, ep := range rel.Endpoints() {
-			for _, unit := range appUnits[ep.ApplicationName] {
-				ru, err := rel.Unit(unit)
+			// The endpoint app is either local or cross model.
+			// Handle each one as appropriate.
+			if crossModel && ep.ApplicationName == remoteAppName {
+				remoteUnits, err := rel.AllRemoteUnits(remoteAppName)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				valid, err := ru.Valid()
-				if err != nil {
-					return errors.Trace(err)
+				for _, ru := range remoteUnits {
+					if err := checkRelationUnit(ru); err != nil {
+						return errors.Trace(err)
+					}
 				}
-				if !valid {
-					continue
-				}
-				inScope, err := ru.InScope()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if !inScope {
-					return errors.Errorf("unit %s hasn't joined relation %s yet", unit.Name(), rel)
+			} else {
+				for _, unit := range appUnits[ep.ApplicationName] {
+					ru, err := rel.Unit(unit)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					if err := checkRelationUnit(ru); err != nil {
+						return errors.Trace(err)
+					}
 				}
 			}
 		}

@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The setplan package contains the implementation of the juju set-plan
-// command.
 package setplan
 
 import (

@@ -3,33 +3,47 @@ run_model_migration() {
 	# Echo out to ensure nice output to the test suite.
 	echo
 
-	# The following ensures that a bootstrap juju exists.
-	file="${TEST_DIR}/test-model-migration.log"
-	ensure "model-migration" "${file}"
-
 	# Ensure we have another controller available.
 	bootstrap_alt_controller "alt-model-migration"
+	juju switch "alt-model-migration"
+	juju add-model "model-migration"
 
-	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju deploy ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	juju migrate "model-migration" "alt-model-migration"
-	juju switch "alt-model-migration"
+	# Capture logs to ensure they are migrated
+	old_logs="$(juju debug-log --no-tail -l DEBUG)"
+
+	juju migrate "model-migration" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 
 	# Wait for the new model migration to appear in the alt controller.
 	wait_for_model "model-migration"
 
 	# Once the model has appeared, switch to it.
-	juju switch "alt-model-migration:model-migration"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-migration"
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+
+	# Add a unit to ubuntu to ensure the model is functional
+	juju add-unit ubuntu
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
 
 	# Clean up.
 	destroy_controller "alt-model-migration"
 
-	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	# Add a unit to ubuntu to ensure the model is functional
+	juju add-unit ubuntu
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 2)"
+
+	# Assert old logs have been transfered over
+	new_logs="$(juju debug-log --no-tail --replay -l DEBUG)"
+	if [[ ${new_logs} != *"${old_logs}"* ]]; then
+		echo "$(red 'logs failed to migrate')"
+		exit 1
+	fi
+
 	destroy_model "model-migration"
 }
 
@@ -47,19 +61,22 @@ run_model_migration_saas_common() {
 	bootstrap_alt_controller "alt-model-migration-saas"
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	juju deploy ./acceptancetests/repository/charms/dummy-source
+	juju deploy juju-qa-dummy-source
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju add-model blog
 	juju switch blog
-	juju deploy ./acceptancetests/repository/charms/dummy-sink
+	juju deploy juju-qa-dummy-sink
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
 	juju relate dummy-sink dummy-source
+
+	juju switch "model-migration-saas"
+	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
 
 	juju migrate "model-migration-saas" "alt-model-migration-saas"
 	juju switch "alt-model-migration-saas"
@@ -108,13 +125,13 @@ run_model_migration_saas_external() {
 	bootstrap_alt_controller "model-migration-saas-target"
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	juju deploy ./acceptancetests/repository/charms/dummy-source
+	juju deploy juju-qa-dummy-source
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju switch "model-migration-saas-consume"
-	juju deploy ./acceptancetests/repository/charms/dummy-sink
+	juju deploy juju-qa-dummy-sink
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
@@ -122,6 +139,8 @@ run_model_migration_saas_external() {
 	juju relate dummy-sink dummy-source
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
+
 	juju migrate "model-migration-saas" "model-migration-saas-target"
 	juju switch "model-migration-saas-target"
 
@@ -169,14 +188,14 @@ run_model_migration_saas_consumer() {
 	bootstrap_alt_controller "model-migration-saas-target"
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	juju deploy ./acceptancetests/repository/charms/dummy-source
+	juju deploy juju-qa-dummy-source
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju switch "model-migration-saas-consume"
 	juju add-model "model-migration-consumer"
-	juju deploy ./acceptancetests/repository/charms/dummy-sink
+	juju deploy juju-qa-dummy-sink
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 

@@ -300,11 +300,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:            logger,
-		CharmhubTransport: a.charmhubHTTPClient,
-		StorageFactory:    a.newStorage,
-		StateBackend:      a.backendState,
-		ModelBackend:      a.backendModel,
+		Logger:             logger,
+		CharmhubHTTPClient: a.charmhubHTTPClient,
+		StorageFactory:     a.newStorage,
+		StateBackend:       a.backendState,
+		ModelBackend:       a.backendModel,
 	})
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
@@ -525,10 +525,10 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 	a.mu.Unlock()
 
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:            logger,
-		CharmhubTransport: a.charmhubHTTPClient,
-		StateBackend:      a.backendState,
-		ModelBackend:      a.backendModel,
+		Logger:             logger,
+		CharmhubHTTPClient: a.charmhubHTTPClient,
+		StateBackend:       a.backendState,
+		ModelBackend:       a.backendModel,
 	})
 
 	return repoFactory.GetCharmRepository(src)

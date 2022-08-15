@@ -24,8 +24,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/lumberjack"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/lumberjack/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -422,7 +422,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 }
 
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
-	newVers := coretesting.CurrentVersion(c)
+	newVers := coretesting.CurrentVersion()
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
@@ -736,7 +736,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 		}
 		return false, nil
 	})
-	vers := coretesting.CurrentVersion(c)
+	vers := coretesting.CurrentVersion()
 	vers.Minor--
 	m, _, _ := s.primeAgentVersion(c, vers, job)
 	ctrl, a := s.newAgent(c, m)
@@ -1136,7 +1136,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	vers := coretesting.CurrentVersion(c)
+	vers := coretesting.CurrentVersion()
 	s.primeAgentWithMachine(c, m, vers)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()

@@ -1,8 +1,6 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The sla package contains the implementation of the juju sla
-// command.
 package sla
 
 import (
@@ -226,7 +224,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	}
 	table.AddRow("Model", "SLA", "Message")
 	table.AddRow(l.Model, l.SLA, l.Message)
-	fmt.Fprint(writer, table)
+	fmt.Fprintln(writer, table)
 	return nil
 }
 

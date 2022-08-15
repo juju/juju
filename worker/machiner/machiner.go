@@ -1,5 +1,6 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package machiner
 
 import (
@@ -223,6 +224,10 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 		}
 		if params.IsCodeMachineHasAttachedStorage(err) {
 			logger.Tracef("machine still has storage attached")
+			return nil
+		}
+		if params.IsCodeTryAgain(err) {
+			logger.Tracef("waiting for machine to be removed as a controller")
 			return nil
 		}
 		if params.IsCodeMachineHasContainers(err) {

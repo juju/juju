@@ -1,7 +1,6 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package hook provides types that define the hooks known to the Uniter
 package hook
 
 import (
@@ -49,8 +48,11 @@ type Info struct {
 	// It is only set for the pre-series-upgrade hook.
 	SeriesUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
 
-	// SecretURL is the secret URL relevant to the hook.
-	SecretURL string `yaml:"secret-url,omitempty"`
+	// SecretURI is the secret URI relevant to the hook.
+	SecretURI string `yaml:"secret-uri,omitempty"`
+
+	// SecretLabel is the secret label to expose to the hook.
+	SecretLabel string `yaml:"secret-label,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -96,12 +98,12 @@ func (hi Info) Validate() error {
 		return nil
 	case hooks.LeaderElected, hooks.LeaderDeposed, hooks.LeaderSettingsChanged:
 		return nil
-	case hooks.SecretRotate:
-		if hi.SecretURL == "" {
-			return errors.Errorf("%q hook requires a secret URL", hi.Kind)
+	case hooks.SecretRotate, hooks.SecretChanged, hooks.SecretExpired, hooks.SecretRemove:
+		if hi.SecretURI == "" {
+			return errors.Errorf("%q hook requires a secret URI", hi.Kind)
 		}
-		if _, err := secrets.ParseURL(hi.SecretURL); err != nil {
-			return errors.Errorf("invalid secret URL %q", hi.SecretURL)
+		if _, err := secrets.ParseURI(hi.SecretURI); err != nil {
+			return errors.Errorf("invalid secret URI %q", hi.SecretURI)
 		}
 		return nil
 	}

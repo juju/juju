@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/names/v4"
-	"github.com/juju/replicaset/v2"
+	"github.com/juju/replicaset/v3"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

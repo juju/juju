@@ -6,7 +6,7 @@ package globalclock
 import (
 	"time"
 
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 )
 
 // clockDocID is the document ID for the global clock document.

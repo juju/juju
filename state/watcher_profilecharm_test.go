@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"

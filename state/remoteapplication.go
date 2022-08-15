@@ -12,11 +12,11 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -781,7 +781,7 @@ func (s *RemoteApplication) Refresh() error {
 
 // Relations returns a Relation for every relation the application is in.
 func (s *RemoteApplication) Relations() (relations []*Relation, err error) {
-	return applicationRelations(s.st, s.doc.Name)
+	return matchingRelations(s.st, s.doc.Name)
 }
 
 // AddRemoteApplicationParams contains the parameters for adding a remote application

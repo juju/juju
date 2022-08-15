@@ -13,10 +13,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -2024,8 +2024,8 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// refcount.
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := u.CharmURL()
-	c.Assert(ok, jc.IsFalse)
+	charmURL := u.CharmURL()
+	c.Assert(charmURL, gc.IsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
 
@@ -2033,7 +2033,9 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// used by app as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	curl, err := u.CharmURL()
+	charmURL = u.CharmURL()
+	c.Assert(charmURL, gc.NotNil)
+	curl, err := charm.ParseURL(*charmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
 	assertSettingsRef(c, s.State, appName, oldCh, 2)

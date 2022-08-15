@@ -489,12 +489,11 @@ func (mr *MockUnitMockRecorder) AssignedMachineId() *gomock.Call {
 }
 
 // CharmURL mocks base method.
-func (m *MockUnit) CharmURL() (*charm.URL, error) {
+func (m *MockUnit) CharmURL() *string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmURL")
-	ret0, _ := ret[0].(*charm.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(*string)
+	return ret0
 }
 
 // CharmURL indicates an expected call of CharmURL.

@@ -19,7 +19,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -466,9 +465,26 @@ func (s *UniterSuite) TestUniterRotateSecretHook(c *gc.C) {
 			createUniter{},
 			waitHooks(startupHooks(false)),
 			waitUnitAgent{status: status.Idle},
-			createSecret{"app/u/password"},
-			rotateSecret{secrets.NewSimpleURL("app/u/password").ID()},
+			createSecret{},
+			rotateSecret{},
 			waitHooks{"secret-rotate"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSecretChangedHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"change secret hook runs when there are secret changes",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			createSecret{},
+			getSecret{},
+			changeSecret{},
+			waitHooks{"secret-changed"},
 		),
 	})
 }

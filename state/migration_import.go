@@ -15,8 +15,8 @@ import (
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 

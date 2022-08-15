@@ -7,8 +7,8 @@ import (
 	// Only used for time types.
 	"time"
 
-	mgo "github.com/juju/mgo/v2"
-	"github.com/juju/testing"
+	"github.com/juju/mgo/v3"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +18,7 @@ import (
 )
 
 type UpdaterSuite struct {
-	testing.MgoSuite
+	mgotesting.MgoSuite
 	config globalclock.UpdaterConfig
 }
 

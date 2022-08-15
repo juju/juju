@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

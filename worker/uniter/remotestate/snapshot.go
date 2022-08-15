@@ -6,6 +6,7 @@ package remotestate
 import (
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
@@ -89,8 +90,12 @@ type Snapshot struct {
 	// executed by this unit.
 	Commands []string
 
-	// SecretRotations is a list of secret URLs that need to be rotated.
+	// SecretRotations is a list of secret URIs that need to be rotated.
 	SecretRotations []string
+
+	// SecretInfo is a list of the labels and revision info
+	// for secrets consumed by this unit.
+	SecretInfo map[string]secretsmanager.SecretRevisionInfo
 
 	// UpgradeSeriesStatus is the preparation status of
 	// any currently running series upgrade.

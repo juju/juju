@@ -74,7 +74,6 @@ ctrlOne     -           -      -                                   -      -   - 
 ctrlThree*  -           -      -                                   -      -   -  (unknown)  
 ctrlTwo     -           -      -                                   -      -   -  (unknown)  
 kontroll    controller  admin  superuser  dummy/dummy-region       1      -   -  (unknown)  
-
 `[1:]
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -272,7 +272,7 @@ func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.Applicati
 		offerAccess, err := backend.GetOfferAccess(offer.OfferUUID, targetUserTag)
 		if errors.IsNotFound(err) {
 			// Conflicts with prior check, must be inconsistent state.
-			err = txn.ErrExcessiveContention
+			err = jujutxn.ErrExcessiveContention
 		}
 		if err != nil {
 			return errors.Annotate(err, "could not look up offer access for user")

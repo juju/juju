@@ -6,7 +6,7 @@ machines:
   '3': {}
 applications:
   lxd-profile:
-    charm: cs:~juju-qa/bionic/lxd-profile-without-devices-5
+    charm: juju-qa-lxd-profile-without-devices
     num_units: 8
     to:
       - lxd:0

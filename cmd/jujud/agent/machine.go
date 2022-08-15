@@ -19,8 +19,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/lumberjack"
-	"github.com/juju/mgo/v2"
+	"github.com/juju/lumberjack/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3"
@@ -600,7 +600,7 @@ func (a *MachineAgent) makeEngineCreator(
 		// Create a single HTTP client so we can reuse HTTP connections, for
 		// example across the various Charmhub API requests required for deploy.
 		charmhubLogger := loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
-		charmhubHTTPClient := charmhub.DefaultHTTPTransport(charmhubLogger)
+		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
@@ -875,8 +875,10 @@ func (a *MachineAgent) Restart() error {
 // in use. Why can't upgradesteps depend on the main state connection?
 func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
-	if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
-		return nil, errors.Trace(err)
+	if !a.isCaasAgent {
+		if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	info, ok := agentConfig.MongoInfo()
 	if !ok {

@@ -225,7 +225,7 @@ tracks:
 func (s *infoSuite) newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
 		arches: arch.AllArches(),
-		CharmHubClientFunc: func(charmhub.Config, charmhub.FileSystem) (CharmHubClient, error) {
+		CharmHubClientFunc: func(charmhub.Config) (CharmHubClient, error) {
 			return s.charmHubAPI, nil
 		},
 	}

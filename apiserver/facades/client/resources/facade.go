@@ -73,23 +73,12 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		schema := curl.Schema
 		switch {
 		case charm.CharmHub.Matches(schema):
-			options := []charmhub.Option{
-				charmhub.WithHTTPTransport(func(l charmhub.Logger) charmhub.Transport {
-					return ctx.HTTPClient(facade.CharmhubHTTPClient)
-				}),
-			}
-
-			var chCfg charmhub.Config
-			chURL, ok := modelCfg.CharmHubURL()
-			if ok {
-				chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger, options...)
-			} else {
-				chCfg, err = charmhub.CharmHubConfig(logger, options...)
-			}
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			chClient, err := charmhub.NewClient(chCfg)
+			chURL, _ := modelCfg.CharmHubURL()
+			chClient, err := charmhub.NewClient(charmhub.Config{
+				URL:        chURL,
+				HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+				Logger:     logger,
+			})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

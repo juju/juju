@@ -1,9 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// package gate provides a mechanism by which independent workers can wait for
-// one another to finish a task, without introducing explicit dependencies
-// between those workers.
 package gate
 
 // Unlocker is used to unlock a shared gate.

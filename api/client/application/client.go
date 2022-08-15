@@ -1,10 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package application provides access to the application api facade.
-// This facade contains api calls that are specific to applications.
-// As a rule of thumb, if the argument for an api requires an application name
-// and affects only that application then the call belongs here.
 package application
 
 import (

@@ -19,12 +19,14 @@ jobs:
         set -euxo pipefail
         sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
-        sudo snap install lxd
+        sudo snap refresh lxd --channel latest/stable
+        
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "/snap/bin" >> $GITHUB_PATH
         lxc network set lxdbr0 ipv6.address none
+        lxc version
 
     - name: Checkout
       uses: actions/checkout@v3

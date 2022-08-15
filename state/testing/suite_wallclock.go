@@ -4,8 +4,8 @@
 package testing
 
 import (
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,7 +22,7 @@ var _ = gc.Suite(&StateWithWallClockSuite{})
 // state.State. This should be deprecated in favour of StateSuite, and tests
 // updated to use the testing clock StateSuite provides.
 type StateWithWallClockSuite struct {
-	testing.MgoSuite
+	mgotesting.MgoSuite
 	coretesting.BaseSuite
 	NewPolicy                 state.NewPolicyFunc
 	Controller                *state.Controller

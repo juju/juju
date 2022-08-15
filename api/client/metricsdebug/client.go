@@ -1,14 +1,11 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The metricsdebug package contains the implementation of a client to
-// access metrics debug functions within state.
 package metricsdebug
 
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
@@ -16,7 +13,6 @@ import (
 // Client provides access to the metric debug api
 type Client struct {
 	base.ClientFacade
-	st     api.Connection
 	facade base.FacadeCaller
 }
 

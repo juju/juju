@@ -74,15 +74,18 @@ func newInternalResourceOpener(
 		NewClient() (*ResourceRetryClient, error)
 	}
 
-	var charmURL *charm.URL
+	var chURLStr *string
 	if unit != nil {
-		charmURL, _ = unit.CharmURL()
+		chURLStr = unit.CharmURL()
 	} else {
-		cURL, _ := application.CharmURL()
-		charmURL, err = charm.ParseURL(*cURL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		chURLStr, _ = application.CharmURL()
+	}
+	if chURLStr == nil {
+		return nil, errors.Errorf("missing charm URL for %q", appName)
+	}
+	charmURL, err := charm.ParseURL(*chURLStr)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	switch {
 	case charm.CharmHub.Matches(charmURL.Schema):

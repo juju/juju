@@ -13,11 +13,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2"
-	"github.com/juju/mgo/v2/bson"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
-	jujutxn "github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
@@ -1049,7 +1049,7 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// EnsureDead does not require that it already be Dying, so this is the
 	// only point at which we can safely backstop lp:1233457 and mitigate
 	// the impact of unit agent bugs that leave relation scopes occupied).
-	relations, err := applicationRelations(op.unit.st, op.unit.doc.Application)
+	relations, err := matchingRelations(op.unit.st, op.unit.doc.Application)
 	if op.FatalError(err) {
 		return nil, err
 	} else {
@@ -1120,7 +1120,7 @@ type relationPredicate func(ru *RelationUnit) (bool, error)
 
 // relations implements RelationsJoined and RelationsInScope.
 func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
-	candidates, err := applicationRelations(u.st, u.doc.Application)
+	candidates, err := matchingRelations(u.st, u.doc.Application)
 	if err != nil {
 		return nil, err
 	}
@@ -1459,13 +1459,8 @@ func (u *Unit) OpenedPortRanges() (UnitPortRanges, error) {
 }
 
 // CharmURL returns the charm URL this unit is currently using.
-func (u *Unit) CharmURL() (*charm.URL, error) {
-	if u.doc.CharmURL == nil {
-		return nil, nil
-	}
-
-	cURL, err := charm.ParseURL(*u.doc.CharmURL)
-	return cURL, errors.Trace(err)
+func (u *Unit) CharmURL() *string {
+	return u.doc.CharmURL
 }
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
@@ -1495,7 +1490,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 				return nil, stateerrors.ErrDead
 			}
 		}
-		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
+		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl.String()}}
 		if count, err := units.Find(sel).Count(); err != nil {
 			return nil, errors.Trace(err)
 		} else if count == 1 {
@@ -1516,13 +1511,13 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Set the new charm URL.
-		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
+		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl.String()}}}}
 		ops := append(incOps,
 			txn.Op{
 				C:      unitsC,
 				Id:     u.doc.DocID,
 				Assert: append(notDeadDoc, differentCharm...),
-				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
+				Update: bson.D{{"$set", bson.D{{"charmurl", curl.String()}}}},
 			})
 
 		unitCURL := u.doc.CharmURL
@@ -1553,23 +1548,22 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 // charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
 func (u *Unit) charm() (*Charm, error) {
-	cURL, err := u.CharmURL()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if cURL == nil {
+	cURLStr := u.CharmURL()
+	if cURLStr == nil {
 		app, err := u.Application()
 		if err != nil {
 			return nil, err
 		}
-		appCURLStr, _ := app.CharmURL()
-		cURL, err = charm.ParseURL(*appCURLStr)
-		if err != nil {
-			return nil, errors.NotValidf("application charm url")
-		}
+		cURLStr, _ = app.CharmURL()
 	}
 
+	if cURLStr == nil {
+		return nil, errors.Errorf("missing charm URL for %q", u.Name())
+	}
+	cURL, err := charm.ParseURL(*cURLStr)
+	if err != nil {
+		return nil, errors.NotValidf("charm url %q", *cURLStr)
+	}
 	ch, err := u.st.Charm(cURL)
 	return ch, errors.Annotatef(err, "getting charm for %s", u)
 }

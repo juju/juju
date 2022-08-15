@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The resumer package implements the API interface
-// used by the resumer worker.
 package resumer
 
 import (

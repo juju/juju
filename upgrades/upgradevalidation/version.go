@@ -27,8 +27,7 @@ func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (boo
 // MinMajorUpgradeVersion defines the minimum version all models
 // must be running before a major version upgrade.
 var MinMajorUpgradeVersion = map[int]version.Number{
-	// TODO: enable here once we fix the capped txn collection issue in juju3.
-	// 3: version.MustParse("2.9.33"),
+	3: version.MustParse("2.9.33"),
 }
 
 // UpgradeToAllowed returns true if a major version upgrade is allowed

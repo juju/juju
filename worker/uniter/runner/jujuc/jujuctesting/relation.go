@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
@@ -80,6 +81,14 @@ func (r *ContextRelation) Name() string {
 	_ = r.stub.NextErr()
 
 	return r.info.Name
+}
+
+// RelationTag implements jujuc.ContextRelation.
+func (r *ContextRelation) RelationTag() names.RelationTag {
+	r.stub.AddCall("RelationTag")
+	_ = r.stub.NextErr()
+
+	return names.NewRelationTag("wordpress:db mediawiki:db")
 }
 
 // FakeId implements jujuc.ContextRelation.

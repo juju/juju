@@ -130,10 +130,11 @@ type testContext struct {
 	application            *state.Application
 	unit                   *state.Unit
 	uniter                 *uniter.Uniter
-	relatedSvc             *state.Application
+	relatedApplication     *state.Application
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
+	createdSecretURI       string
 	updateStatusHookTicker *manualTicker
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
@@ -810,13 +811,14 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
-			url, err := ctx.unit.CharmURL()
-			if err != nil {
-				c.Fatalf("cannot refresh unit: %v", err)
-			}
-			if url == nil {
+			urlStr := ctx.unit.CharmURL()
+			if urlStr == nil {
 				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
 				continue
+			}
+			url, err := corecharm.ParseURL(*urlStr)
+			if err != nil {
+				c.Fatalf("cannot refresh unit: %v", err)
 			}
 			if *url != *curl(s.charm) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), url.String())
@@ -1045,7 +1047,9 @@ func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	url, err := ctx.unit.CharmURL()
+	urlStr := ctx.unit.CharmURL()
+	c.Assert(urlStr, gc.NotNil)
+	url, err := corecharm.ParseURL(*urlStr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
@@ -1154,8 +1158,8 @@ func (s addRelation) step(c *gc.C, ctx *testContext) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
-	if ctx.relatedSvc == nil {
-		ctx.relatedSvc = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
+	if ctx.relatedApplication == nil {
+		ctx.relatedApplication = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints(ctx.application.Name(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1189,7 +1193,7 @@ func (s addRelation) step(c *gc.C, ctx *testContext) {
 type addRelationUnit struct{}
 
 func (s addRelationUnit) step(c *gc.C, ctx *testContext) {
-	u, err := ctx.relatedSvc.AddUnit(state.AddUnitParams{})
+	u, err := ctx.relatedApplication.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1638,30 +1642,47 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *testContext) {
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 type createSecret struct {
-	secretPath string
+	applicationName string
 }
 
 func (s createSecret) step(c *gc.C, ctx *testContext) {
-	hr := time.Hour
-	active := secrets.StatusActive
-	_, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
-		Path:           s.secretPath,
-		RotateInterval: &hr,
-		Status:         &active,
-	}, secrets.TypeBlob, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	if s.applicationName == "" {
+		s.applicationName = "u"
+	}
+	uri, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
+		RotatePolicy: ptr(secrets.RotateDaily),
+	}, names.NewApplicationTag(s.applicationName), secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.createdSecretURI = uri
+}
+
+type changeSecret struct{}
+
+func (s changeSecret) step(c *gc.C, ctx *testContext) {
+	err := ctx.secretsFacade.Update(ctx.createdSecretURI, &secrets.SecretConfig{}, secrets.NewSecretValue(map[string]string{"foo": "bar2"}))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type rotateSecret struct {
-	secretURL string
+type getSecret struct{}
+
+func (s getSecret) step(c *gc.C, ctx *testContext) {
+	val, err := ctx.secretsFacade.GetValue(ctx.createdSecretURI, "foorbar", false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
 }
+
+type rotateSecret struct{}
 
 func (s rotateSecret) step(c *gc.C, ctx *testContext) {
 	select {
-	case ctx.secretsRotateCh <- []string{s.secretURL}:
+	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("sending rotate secret change for %q", s.secretURL)
+		c.Fatalf("sending rotate secret change for %q", ctx.createdSecretURI)
 	}
 }
 

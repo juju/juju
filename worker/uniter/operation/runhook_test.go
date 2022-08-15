@@ -884,10 +884,10 @@ func (s *RunHookSuite) TestRunningHookMessageForSecretsHooks(c *gc.C) {
 		"secret-rotate",
 		hook.Info{
 			Kind:      hooks.SecretRotate,
-			SecretURL: "secret://app/mariadb/password",
+			SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
 		},
 	)
-	c.Assert(msg, gc.Equals, `running secret-rotate hook for secret://app/mariadb/password`)
+	c.Assert(msg, gc.Equals, `running secret-rotate hook for secret:9m4e2mr0ui3e8a215n4g`)
 }
 
 func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
@@ -896,7 +896,7 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 	}
 	factory := newOpFactory(nil, callbacks)
 	op, err := factory.NewRunHook(hook.Info{
-		Kind: hooks.SecretRotate, SecretURL: "secret://app/mariadb/password",
+		Kind: hooks.SecretRotate, SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -909,7 +909,7 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 	newState, err := op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, expectState)
-	c.Assert(callbacks.rotatedSecretURL, gc.Equals, "secret://app/mariadb/password")
+	c.Assert(callbacks.rotatedSecretURI, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
 	c.Assert(callbacks.rotatedSecretTime.After(now), jc.IsTrue)
 }
 
@@ -927,7 +927,7 @@ func (s *RunHookSuite) TestPrepareHookError_SecretRotate_NotLeader(c *gc.C) {
 	factory := newOpFactory(runnerFactory, callbacks)
 
 	op, err := factory.NewRunHook(hook.Info{
-		Kind: hooks.SecretRotate, SecretURL: "secret://app/mariadb/password",
+		Kind: hooks.SecretRotate, SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

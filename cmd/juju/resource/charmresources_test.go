@@ -87,7 +87,6 @@ func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
 Resource  Revision
 music     1
 website   2
-
 `[1:])
 	c.Check(stderr, gc.Equals, "")
 	s.stub.CheckCallNames(c,
@@ -139,7 +138,6 @@ func (s *CharmResourcesSuite) TestOutputFormats(c *gc.C) {
 Resource  Revision
 music     1
 website   1
-
 `[1:],
 		"yaml": `
 - name: music

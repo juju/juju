@@ -193,7 +193,6 @@ ID  Status   Started  Finished             Task IDs  Summary
  3  running           2014-02-14T06:06:06  4         operation 3
  5  pending                                6         operation 5
 10  error                                            operation 10
-
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}
@@ -221,7 +220,6 @@ ID  Status   Started  Finished             Task IDs  Summary
  3  running           2014-02-14T06:06:06  4         operation 3
  5  pending                                6         operation 5
 10  error                                            operation 10
-
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}
@@ -286,7 +284,6 @@ func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
 		expected := `
 ID  Status     Started              Finished  Task IDs      Summary
  1  completed  2015-02-14T06:06:06            2,3,4,5,6...  operation 1
-
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}

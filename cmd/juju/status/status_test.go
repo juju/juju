@@ -74,13 +74,10 @@ func (s *MinimalStatusSuite) TestWatchUntilError(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Model  Controller  Cloud/Region  Version
 test   test        foo           
-
 Model  Controller  Cloud/Region  Version
 test   test        foo           
-
 Model  Controller  Cloud/Region  Version
 test   test        foo           
-
 `[1:])
 
 }
@@ -101,7 +98,6 @@ postgresql/0  db-dir/1100   block                             3.0MiB  attached
 transcode/0   db-dir/1000   block                                     pending   creating volume
 transcode/0   shared-fs/0   filesystem  radiance  /mnt/doom   1.0GiB  attached  
 transcode/1   shared-fs/0   filesystem  radiance  /mnt/huang  1.0GiB  attached  
-
 `[1:])
 }
 

@@ -173,7 +173,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	for _, m := range metrics {
 		table.AddRow(m.Unit, m.Timestamp.Format(time.RFC3339), m.Metric, m.Value, renderLabels(m.Labels))
 	}
-	_, err := fmt.Fprint(writer, table.String())
+	_, err := fmt.Fprintln(writer, table)
 	return errors.Trace(err)
 }
 

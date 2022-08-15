@@ -1496,7 +1496,7 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 	defer apiState.Close()
 
 	client := machineclient.NewClient(apiState)
-	_, err = client.RetryProvisioning(names.NewMachineTag("machine-0"))
+	_, err = client.RetryProvisioning(false, names.NewMachineTag("machine-0"))
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `facade "MachineManager" not supported for controller API connection`,
 		Code:    "not supported",

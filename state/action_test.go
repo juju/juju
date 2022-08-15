@@ -16,7 +16,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn/v2"
+	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/actions"
@@ -164,7 +164,10 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 		if t.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			curl, _ := t.whichUnit.CharmURL()
+			curlStr := t.whichUnit.CharmURL()
+			c.Assert(curlStr, gc.NotNil)
+			curl, err := charm.ParseURL(*curlStr)
+			c.Assert(err, jc.ErrorIsNil)
 			ch, _ := s.State.Charm(curl)
 			schema := ch.Actions()
 			c.Logf("Schema for unit %q:\n%#v", t.whichUnit.Name(), schema)
@@ -670,7 +673,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	killUnit := txn.TestHook{
+	killUnit := jujutxn.TestHook{
 		Before: func() {
 			c.Assert(unit.Destroy(), gc.IsNil)
 			c.Assert(unit.EnsureDead(), gc.IsNil)

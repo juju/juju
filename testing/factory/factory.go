@@ -317,7 +317,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return m
@@ -383,7 +383,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine, params.Password
@@ -679,14 +679,14 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		}}
 	}
 
-	chURL, err := params.Unit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
+	chURL := params.Unit.CharmURL()
+	c.Assert(chURL, gc.NotNil)
 
 	metric, err := factory.st.AddMetrics(
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  *params.Time,
-			CharmURL: chURL.String(),
+			CharmURL: *chURL,
 			Metrics:  params.Metrics,
 			Unit:     params.Unit.UnitTag(),
 		})

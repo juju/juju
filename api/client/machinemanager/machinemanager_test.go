@@ -126,10 +126,10 @@ func (s *MachinemanagerSuite) TestRetryProvisioning(c *gc.C) {
 			APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
 				c.Assert(request, gc.Equals, "RetryProvisioning")
 				c.Assert(version, gc.Equals, 7)
-				c.Assert(a, jc.DeepEquals, params.Entities{
-					Entities: []params.Entity{
-						{Tag: "machine-0"},
-						{Tag: "machine-1"},
+				c.Assert(a, jc.DeepEquals, params.RetryProvisioningArgs{
+					Machines: []string{
+						"machine-0",
+						"machine-1",
 					},
 				})
 				c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
@@ -140,7 +140,33 @@ func (s *MachinemanagerSuite) TestRetryProvisioning(c *gc.C) {
 				}
 				return nil
 			})})
-	result, err := client.RetryProvisioning(names.NewMachineTag("0"), names.NewMachineTag("1"))
+	result, err := client.RetryProvisioning(false, names.NewMachineTag("0"), names.NewMachineTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []params.ErrorResult{
+		{&params.Error{Code: "boom"}},
+		{},
+	})
+}
+
+func (s *MachinemanagerSuite) TestRetryProvisioningAll(c *gc.C) {
+	client := machinemanager.NewClient(
+		basetesting.BestVersionCaller{
+			BestVersion: 7,
+			APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "RetryProvisioning")
+				c.Assert(version, gc.Equals, 7)
+				c.Assert(a, jc.DeepEquals, params.RetryProvisioningArgs{
+					All: true,
+				})
+				c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
+				out := response.(*params.ErrorResults)
+				*out = params.ErrorResults{Results: []params.ErrorResult{
+					{Error: &params.Error{Code: "boom"}},
+					{}},
+				}
+				return nil
+			})})
+	result, err := client.RetryProvisioning(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []params.ErrorResult{
 		{&params.Error{Code: "boom"}},

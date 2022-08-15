@@ -113,7 +113,8 @@ func AllowedTargetVersion(
 	if curVersion.Major >= 2 && targetVersion.Major == 1 {
 		return false
 	}
-	return true
+	// Don't allow downgrading from higher major versions.
+	return curVersion.Major <= targetVersion.Major
 }
 
 func (u *Upgrader) loop() error {

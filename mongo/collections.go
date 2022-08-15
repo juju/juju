@@ -6,7 +6,7 @@ package mongo
 import (
 	"time"
 
-	"github.com/juju/mgo/v2"
+	"github.com/juju/mgo/v3"
 )
 
 // CollectionFromName returns a named collection on the specified database,

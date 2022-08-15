@@ -362,13 +362,13 @@ func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.
 	c.Assert(workloadName, gc.Equals, "")
 }
 
-func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURL string) {
-	URL, _ := ctx.SecretURL()
-	c.Assert(URL, gc.Equals, secretURL)
+func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI string) {
+	uri, _ := ctx.SecretURI()
+	c.Assert(uri, gc.Equals, secretURI)
 }
 
 func (s *HookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {
-	workloadName, err := ctx.SecretURL()
+	workloadName, err := ctx.SecretURI()
 	c.Assert(err, gc.NotNil)
 	c.Assert(workloadName, gc.Equals, "")
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	jujucmd "github.com/juju/juju/cmd"
@@ -93,17 +94,17 @@ type secretValueDetails struct {
 }
 
 type secretDisplayDetails struct {
-	ID             int                  `json:"ID" yaml:"ID"`
-	URL            string               `json:"URL" yaml:"URL"`
-	Revision       int                  `json:"revision" yaml:"revision"`
-	Path           string               `json:"path" yaml:"path"`
-	Status         secrets.SecretStatus `json:"status" yaml:"status"`
-	RotateInterval time.Duration        `json:"rotate-interval,omitempty" yaml:"rotate-interval,omitempty"`
+	URI            string               `json:"uri" yaml:"uri"`
 	Version        int                  `json:"version" yaml:"version"`
-	Description    string               `json:"description,omitempty" yaml:"description,omitempty"`
-	Tags           map[string]string    `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Owner          string               `json:"owner,omitempty" yaml:"owner,omitempty"`
 	Provider       string               `json:"backend" yaml:"backend"`
 	ProviderID     string               `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
+	Revision       int                  `json:"revision" yaml:"revision"`
+	Description    string               `json:"description,omitempty" yaml:"description,omitempty"`
+	Label          string               `json:"label,omitempty" yaml:"label,omitempty"`
+	RotatePolicy   secrets.RotatePolicy `json:"rotate-policy,omitempty" yaml:"rotate-policy,omitempty"`
+	NextRotateTime *time.Time           `json:"next-rotate-time,omitempty" yaml:"next-rotate-time,omitempty"`
+	ExpireTime     *time.Time           `json:"expire-time,omitempty" yaml:"expire-time,omitempty"`
 	CreateTime     time.Time            `json:"create-time" yaml:"create-time"`
 	UpdateTime     time.Time            `json:"update-time" yaml:"update-time"`
 	Error          string               `json:"error,omitempty" yaml:"error,omitempty"`
@@ -129,17 +130,21 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	}
 	details := make([]secretDisplayDetails, len(result))
 	for i, m := range result {
+		ownerId := ""
+		if owner, err := names.ParseTag(m.Metadata.OwnerTag); err == nil {
+			ownerId = owner.Id()
+		}
 		details[i] = secretDisplayDetails{
-			URL:            m.Metadata.URL.ShortString(),
-			Path:           m.Metadata.Path,
-			RotateInterval: m.Metadata.RotateInterval,
+			URI:            m.Metadata.URI.ShortString(),
 			Version:        m.Metadata.Version,
-			Status:         m.Metadata.Status,
-			Description:    m.Metadata.Description,
-			Tags:           m.Metadata.Tags,
-			ID:             m.Metadata.ID,
+			Owner:          ownerId,
 			Provider:       m.Metadata.Provider,
 			ProviderID:     m.Metadata.ProviderID,
+			Description:    m.Metadata.Description,
+			Label:          m.Metadata.Label,
+			RotatePolicy:   m.Metadata.RotatePolicy,
+			NextRotateTime: m.Metadata.NextRotateTime,
+			ExpireTime:     m.Metadata.ExpireTime,
 			Revision:       m.Metadata.Revision,
 			CreateTime:     m.Metadata.CreateTime,
 			UpdateTime:     m.Metadata.UpdateTime,
@@ -170,14 +175,14 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	w := output.Wrapper{tw}
 	w.SetColumnAlignRight(1)
 
-	w.Println("ID", "Revision", "Rotate", "Backend", "Path", "Age")
+	w.Println("URI", "Revision", "Rotate", "Backend", "Age")
 	sort.Slice(secrets, func(i, j int) bool {
-		return secrets[i].ID < secrets[j].ID
+		return secrets[i].URI < secrets[j].URI
 	})
 	now := time.Now()
 	for _, s := range secrets {
 		age := common.UserFriendlyDuration(s.UpdateTime, now)
-		w.Print(s.ID, s.Revision, common.HumaniseInterval(s.RotateInterval), s.Provider, s.Path, age)
+		w.Print(s.URI, s.Revision, s.RotatePolicy, s.Provider, age)
 		w.Println()
 	}
 	return tw.Flush()

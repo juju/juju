@@ -384,7 +384,7 @@ func registerCommands(r commandRegistry) {
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
-	r.Register(newSyncToolsCommand())
+	r.Register(newSyncAgentBinaryCommand())
 	r.Register(newUpgradeJujuCommand())
 	r.Register(newUpgradeControllerCommand())
 	r.Register(application.NewRefreshCommand())

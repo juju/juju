@@ -52,7 +52,7 @@ func QueryVerify(question string, scanner *bufio.Scanner, out, errOut io.Writer,
 
 		// invalid answer, inform user of problem and retry.
 		if msg != "" {
-			_, err := fmt.Fprint(errOut, msg+"\n")
+			_, err := fmt.Fprintln(errOut, msg)
 			if err != nil {
 				return "", err
 			}

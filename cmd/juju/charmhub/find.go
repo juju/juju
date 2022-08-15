@@ -132,12 +132,12 @@ func (c *findCommand) Init(args []string) error {
 // Run is the business logic of the find command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *findCommand) Run(cmdContext *cmd.Context) error {
-	config, err := charmhub.CharmHubConfigFromURL(c.charmHubURL, logger)
-	if err != nil {
-		return errors.Trace(err)
+	cfg := charmhub.Config{
+		URL:    c.charmHubURL,
+		Logger: logger,
 	}
 
-	client, err := c.CharmHubClientFunc(config, charmhub.DefaultFileSystem())
+	client, err := c.CharmHubClientFunc(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

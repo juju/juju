@@ -34,12 +34,14 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 
 	cl := s.newCharmHubClient()
 	curl, _ := charm.ParseURL("ch:postgresql")
+	rev := 42
 	result, err := cl.GetResource(resource.ResourceRequest{
 		CharmID: resource.CharmID{
 			URL: curl,
 			Origin: state.CharmOrigin{
-				ID:      "mycharmhubid",
-				Channel: &state.Channel{Risk: "stable"},
+				ID:       "mycharmhubid",
+				Channel:  &state.Channel{Risk: "stable"},
+				Revision: &rev,
 				Platform: &state.Platform{
 					Architecture: "amd64",
 					OS:           "ubuntu",
@@ -48,7 +50,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 			},
 		},
 		Name:     "wal-e",
-		Revision: 0,
+		Revision: 8,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -59,7 +61,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 			Type: 1,
 		},
 		Origin:      2,
-		Revision:    0,
+		Revision:    8,
 		Fingerprint: fp,
 		Size:        0,
 	})
@@ -90,7 +92,7 @@ func (s *CharmHubSuite) expectRefresh() {
 							Size:       0,
 							URL:        "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0"},
 						Name:     "wal-e",
-						Revision: 0,
+						Revision: 8,
 						Type:     "file",
 					},
 				},

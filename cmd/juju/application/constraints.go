@@ -111,7 +111,7 @@ func (c *applicationGetConstraintsCommand) Info() *cmd.Info {
 }
 
 func formatConstraints(writer io.Writer, value interface{}) error {
-	fmt.Fprint(writer, value.(constraints.Value).String())
+	fmt.Fprintln(writer, value.(constraints.Value).String())
 	return nil
 }
 

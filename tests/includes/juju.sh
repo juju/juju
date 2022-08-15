@@ -265,10 +265,20 @@ pre_bootstrap() {
 	else
 		# In CI tests, both Build and OfficialBuild are set.
 		# Juju confuses when it needs to decide the operator image tag to use.
-		# So we need to explicitely set the agent version for CI tests.
-		version=$(juju_version)
+		# So we need to explicitly set the agent version for CI tests.
+		if [[ -n ${JUJU_VERSION:-} ]]; then
+			version=${JUJU_VERSION}
+		else
+			version=$(juju_version)
+		fi
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
 	fi
+
+	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/"
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=build-${SHORT_GIT_COMMIT}"
+	fi
+
 	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }
 
@@ -292,18 +302,23 @@ post_add_model() {
 		add_images_for_vsphere
 		;;
 	esac
+
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		juju set-model-constraints "arch=${MODEL_ARCH}"
+	fi
 }
 
 # destroy_model takes a model name and destroys a model. It first checks if the
 # model is found before attempting to do so.
 #
 # ```
-# destroy_model <model name>
+# destroy_model <model name> [<timeout>]
 # ```
 destroy_model() {
-	local name
+	local name timeout
 
 	name=${1}
+	timeout=${2:-30m}
 	shift
 
 	# shellcheck disable=SC2034
@@ -316,7 +331,7 @@ destroy_model() {
 	output="${TEST_DIR}/${name}-destroy.log"
 
 	echo "====> Destroying juju model ${name}"
-	echo "${name}" | xargs -I % juju destroy-model -y --destroy-storage % >"${output}" 2>&1 || true
+	echo "${name}" | xargs -I % juju destroy-model -y --destroy-storage --timeout="$timeout" % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
@@ -374,7 +389,11 @@ destroy_controller() {
 	output="${TEST_DIR}/${name}-destroy-controller.log"
 
 	echo "====> Destroying juju ($(green "${name}"))"
-	echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
+		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+	else
+		echo "${name}" | xargs -I % juju kill-controller -t 0 -y % >"${output}" 2>&1
+	fi
 
 	set +e
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)

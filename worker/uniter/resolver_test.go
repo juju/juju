@@ -107,7 +107,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(logger),
-		Secrets:             secrets.NewSecretsResolver(func(_ string) {}),
+		Secrets:             secrets.NewSecretsResolver(logger, func(_ string) {}),
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
@@ -602,11 +602,11 @@ func (s *resolverSuite) TestRunsSecretRotated(c *gc.C) {
 		},
 	}
 	s.remoteState.Leader = true
-	s.remoteState.SecretRotations = []string{"secret://app/mariadb/password"}
+	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret://app/mariadb/password) hook")
+	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
 func (s *conflictedResolverSuite) TestNextOpConflicted(c *gc.C) {

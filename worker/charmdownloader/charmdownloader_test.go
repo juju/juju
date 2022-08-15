@@ -10,12 +10,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/worker/charmdownloader/mocks"
 )
 
 type charmDownloaderSuite struct {
-	logger  *MockLogger
-	api     *MockCharmDownloaderAPI
-	watcher *MockStringsWatcher
+	logger  *mocks.MockLogger
+	api     *mocks.MockCharmDownloaderAPI
+	watcher *mocks.MockStringsWatcher
 }
 
 var _ = gc.Suite(&charmDownloaderSuite{})
@@ -52,11 +53,11 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 
 func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.logger = NewMockLogger(ctrl)
+	s.logger = mocks.NewMockLogger(ctrl)
 	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.api = NewMockCharmDownloaderAPI(ctrl)
-	s.watcher = NewMockStringsWatcher(ctrl)
+	s.api = mocks.NewMockCharmDownloaderAPI(ctrl)
+	s.watcher = mocks.NewMockStringsWatcher(ctrl)
 	s.watcher.EXPECT().Wait().Return(nil).AnyTimes()
 	s.watcher.EXPECT().Kill().Return().AnyTimes()
 

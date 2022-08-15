@@ -9,6 +9,7 @@ import (
 	"net"
 	"path/filepath"
 
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -43,7 +44,7 @@ import (
 
 type bootstrapSuite struct {
 	testing.BaseSuite
-	mgoInst gitjujutesting.MgoInstance
+	mgoInst mgotesting.MgoInstance
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
@@ -145,7 +146,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version":  jujuversion.Current.String(),
-		"charmhub-url":   charmhub.CharmHubServerURL,
+		"charmhub-url":   charmhub.DefaultServerURL,
 		"not-for-hosted": "foo",
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
@@ -426,7 +427,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	})
 	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
-		"charmhub-url":  charmhub.CharmHubServerURL,
+		"charmhub-url":  charmhub.DefaultServerURL,
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)

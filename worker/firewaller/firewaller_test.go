@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"

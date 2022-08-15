@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v2/bson"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"

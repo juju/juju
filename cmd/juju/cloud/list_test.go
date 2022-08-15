@@ -204,7 +204,6 @@ func (s *listSuite) TestListEmbedded(c *gc.C) {
 Clouds available on the controller:
 Cloud    Regions  Default    Type
 beehive  1        regionone  openstack  
-
 `[1:])
 }
 
@@ -296,7 +295,6 @@ Clouds available on the controller:
 Cloud    Regions  Default  Type
 antnest  1        default  openstack  
 beehive  1        default  k8s        
-
 `[1:])
 }
 
@@ -308,7 +306,6 @@ Clouds available on the controller:
 Cloud    Regions  Default        Type
 antnest  1        anotherregion  openstack  
 beehive  1        default        k8s        
-
 `[1:])
 }
 

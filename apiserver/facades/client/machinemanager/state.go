@@ -37,13 +37,13 @@ type Backend interface {
 	// Application returns a application state by name.
 	Application(string) (Application, error)
 	Machine(string) (Machine, error)
+	AllMachines() ([]Machine, error)
 	Unit(string) (Unit, error)
 	Model() (Model, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error)
-	FindEntity(names.Tag) (state.Entity, error)
 	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
@@ -97,6 +97,8 @@ type Machine interface {
 	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
 	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus, string) error
 	ApplicationNames() ([]string, error)
+	InstanceStatus() (status.StatusInfo, error)
+	SetInstanceStatus(sInfo status.StatusInfo) error
 }
 
 type Application interface {
@@ -134,6 +136,18 @@ func (s stateShim) Machine(name string) (Machine, error) {
 	return machineShim{
 		Machine: m,
 	}, nil
+}
+
+func (s stateShim) AllMachines() ([]Machine, error) {
+	all, err := s.State.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]Machine, len(all))
+	for i, m := range all {
+		result[i] = machineShim{Machine: m}
+	}
+	return result, nil
 }
 
 func (s stateShim) Unit(name string) (Unit, error) {

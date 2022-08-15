@@ -42,7 +42,7 @@ func (f *fakeRetryProvisioningClient) Close() error {
 	return nil
 }
 
-func (f *fakeRetryProvisioningClient) RetryProvisioning(machines ...names.MachineTag) (
+func (f *fakeRetryProvisioningClient) RetryProvisioning(all bool, machines ...names.MachineTag) (
 	[]params.ErrorResult, error) {
 
 	if f.err != nil {
@@ -51,6 +51,9 @@ func (f *fakeRetryProvisioningClient) RetryProvisioning(machines ...names.Machin
 
 	results := make([]params.ErrorResult, len(machines))
 
+	if all {
+		machines = []names.MachineTag{names.NewMachineTag("0")}
+	}
 	// For each of the machines passed in, verify that we have the
 	// id and that the info string is "broken".
 	for i, machine := range machines {
@@ -103,10 +106,15 @@ var resolvedMachineTests = []struct {
 		args:   []string{"42"},
 		stdErr: `machine 42 not found`,
 	}, {
+		args: []string{"42", "--all"},
+		err:  `specify machines or --all but not both`,
+	}, {
 		args:   []string{"1"},
 		stdErr: `machine 1 is not in an error state`,
 	}, {
 		args: []string{"0"},
+	}, {
+		args: []string{"--all"},
 	}, {
 		args:   []string{"0", "1"},
 		stdErr: `machine 1 is not in an error state`,
@@ -133,7 +141,7 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 		output := cmdtesting.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
 		c.Check(stripped, gc.Equals, t.stdErr)
-		if t.args[0] == "0" {
+		if t.args[0] == "0" || t.args[0] == "all" {
 			m := s.fake.m["0"]
 			c.Check(m.info, gc.Equals, "broken")
 			c.Check(m.data["transient"], jc.IsTrue)

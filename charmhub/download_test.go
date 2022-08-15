@@ -9,9 +9,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	os "os"
+	"os"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -41,8 +41,8 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	fileSystem := NewMockFileSystem(ctrl)
 	fileSystem.EXPECT().Create(tmpFile.Name()).Return(tmpFile, nil)
 
-	transport := NewMockTransport(ctrl)
-	transport.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
+	httpClient := NewMockHTTPClient(ctrl)
+	httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
 		archiveBytes := s.createCharmArchieve(c)
 
 		return &http.Response{
@@ -54,8 +54,8 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
+	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -73,8 +73,8 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	fileSystem := NewMockFileSystem(ctrl)
 	fileSystem.EXPECT().Create(tmpFile.Name()).Return(tmpFile, nil)
 
-	transport := NewMockTransport(ctrl)
-	transport.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
+	httpClient := NewMockHTTPClient(ctrl)
+	httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 404,
 			Body:       ioutil.NopCloser(bytes.NewBufferString("")),
@@ -84,8 +84,8 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
+	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
 
@@ -103,8 +103,8 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	fileSystem := NewMockFileSystem(ctrl)
 	fileSystem.EXPECT().Create(tmpFile.Name()).Return(tmpFile, nil)
 
-	transport := NewMockTransport(ctrl)
-	transport.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
+	httpClient := NewMockHTTPClient(ctrl)
+	httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
 			Status:     http.StatusText(http.StatusInternalServerError),
 			StatusCode: http.StatusInternalServerError,
@@ -115,8 +115,8 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
+	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
 

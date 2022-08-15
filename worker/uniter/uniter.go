@@ -74,10 +74,7 @@ type RebootQuerier interface {
 // RemoteInitFunc is used to init remote state
 type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) error
 
-// Uniter implements the capabilities of the unit agent. It is not intended to
-// implement the actual *behaviour* of the unit agent; that responsibility is
-// delegated to Mode values, which are expected to react to events and direct
-// the uniter's responses to them.
+// Uniter implements the capabilities of the unit agent, for example running hooks.
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
@@ -390,6 +387,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
+				SecretsClient:                 u.secrets,
 				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
@@ -490,8 +488,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-			Secrets: secrets.NewSecretsResolver(watcher.RotateSecretCompleted),
-			Logger:  u.logger,
+			Secrets: secrets.NewSecretsResolver(
+				u.logger.Child("secrets"),
+				watcher.RotateSecretCompleted,
+			),
+			Logger: u.logger,
 		}
 		if u.modelType == model.CAAS && u.isRemoteUnit {
 			cfg.OptionalResolvers = append(cfg.OptionalResolvers, container.NewRemoteContainerInitResolver())
@@ -976,7 +977,8 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 		}
 	}
 	if hookInfo.Kind.IsSecret() {
-		statusData["secret-url"] = hookInfo.SecretURL
+		statusData["secret-uri"] = hookInfo.SecretURI
+		statusData["secret-label"] = hookInfo.SecretLabel
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)

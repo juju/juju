@@ -19,8 +19,8 @@ type CharmDownloaderConfig struct {
 	// The logger to use.
 	Logger loggo.Logger
 
-	// A transport that is injected when making charmhub API calls.
-	CharmhubTransport charmhub.Transport
+	// An HTTP client that is injected when making Charmhub API calls.
+	CharmhubHTTPClient charmhub.HTTPClient
 
 	// A factory for accessing model-scoped storage for charm blobs.
 	StorageFactory func(modelUUID string) Storage
@@ -40,10 +40,10 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 
 	repoFactory := repoFactoryShim{
 		factory: NewCharmRepoFactory(CharmRepoFactoryConfig{
-			Logger:            cfg.Logger.Child("charmrepofactory"),
-			CharmhubTransport: cfg.CharmhubTransport,
-			StateBackend:      cfg.StateBackend,
-			ModelBackend:      cfg.ModelBackend,
+			Logger:             cfg.Logger.Child("charmrepofactory"),
+			CharmhubHTTPClient: cfg.CharmhubHTTPClient,
+			StateBackend:       cfg.StateBackend,
+			ModelBackend:       cfg.ModelBackend,
 		}),
 	}
 

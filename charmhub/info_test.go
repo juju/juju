@@ -6,7 +6,7 @@ package charmhub
 import (
 	"context"
 	"encoding/json"
-	http "net/http"
+	"net/http"
 	"net/http/httptest"
 
 	"github.com/golang/mock/gomock"
@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	path "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 )
 
@@ -37,8 +37,8 @@ func (s *InfoSuite) TestInfoCharm(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectCharmGet(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient, &FakeLogger{})
-	response, err := client.Info(context.TODO(), name)
+	client := newInfoClient(path, restClient, &FakeLogger{})
+	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
 	c.Assert(response.DefaultRelease.Revision.MetadataYAML, gc.Equals, "YAML")
@@ -56,8 +56,8 @@ func (s *InfoSuite) TestInfoBundle(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectBundleGet(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient, &FakeLogger{})
-	response, err := client.Info(context.TODO(), name)
+	client := newInfoClient(path, restClient, &FakeLogger{})
+	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
 	c.Assert(response.DefaultRelease.Revision.BundleYAML, gc.Equals, "YAML")
@@ -75,8 +75,8 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(restClient)
 
-	client := NewInfoClient(path, restClient, &FakeLogger{})
-	_, err := client.Info(context.TODO(), name)
+	client := newInfoClient(path, restClient, &FakeLogger{})
+	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -92,8 +92,8 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetError(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient, &FakeLogger{})
-	_, err := client.Info(context.TODO(), name)
+	client := newInfoClient(path, restClient, &FakeLogger{})
+	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -111,7 +111,7 @@ func (s *InfoSuite) expectCharmGet(c *gc.C, client *MockRESTClient, p path.Path,
 				MetadataYAML: "YAML",
 			},
 		}
-	}).Return(RESTResponse{}, nil)
+	}).Return(restResponse{}, nil)
 }
 
 func (s *InfoSuite) expectBundleGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
@@ -128,11 +128,11 @@ func (s *InfoSuite) expectBundleGet(c *gc.C, client *MockRESTClient, p path.Path
 				BundleYAML: "YAML",
 			},
 		}
-	}).Return(RESTResponse{}, nil)
+	}).Return(restResponse{}, nil)
 }
 
 func (s *InfoSuite) expectGetFailure(client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(restResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path, name string) {
@@ -145,7 +145,7 @@ func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path,
 		response.ErrorList = []transport.APIError{{
 			Message: "not found",
 		}}
-	}).Return(RESTResponse{StatusCode: http.StatusNotFound}, nil)
+	}).Return(restResponse{StatusCode: http.StatusNotFound}, nil)
 }
 
 func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
@@ -243,20 +243,17 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	config := Config{
-		URL: server.URL,
-	}
-	basePath, err := config.BasePath()
+	basePath, err := basePath(server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport(&FakeLogger{}), &FakeLogger{})
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
+	restClient := newHTTPRESTClient(apiRequester)
 
-	client := NewInfoClient(infoPath, restClient, &FakeLogger{})
-	response, err := client.Info(context.TODO(), "wordpress")
+	client := newInfoClient(infoPath, restClient, &FakeLogger{})
+	response, err := client.Info(context.Background(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)
 }

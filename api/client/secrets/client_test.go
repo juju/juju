@@ -30,9 +30,14 @@ func (s *SecretsSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	now := time.Now()
+	uri := secrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Secrets")
 		c.Check(version, gc.Equals, 0)
@@ -44,16 +49,16 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
-				URL:            "secret://app/mariadb/password",
-				Path:           "app/password",
-				RotateInterval: time.Hour,
+				URI:            uri.String(),
 				Version:        1,
-				Status:         "active",
-				Description:    "shhh",
-				Tags:           map[string]string{"foo": "bar"},
-				ID:             1,
+				OwnerTag:       "application-mysql",
 				Provider:       "juju",
 				ProviderID:     "provider-id",
+				RotatePolicy:   string(secrets.RotateHourly),
+				ExpireTime:     ptr(now),
+				NextRotateTime: ptr(now.Add(time.Hour)),
+				Description:    "shhh",
+				Label:          "foobar",
 				Revision:       2,
 				CreateTime:     now,
 				UpdateTime:     now.Add(time.Second),
@@ -65,19 +70,18 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	client := apisecrets.NewClient(apiCaller)
 	result, err := client.ListSecrets(true)
 	c.Assert(err, jc.ErrorIsNil)
-	URL := secrets.NewSimpleURL("app/mariadb/password")
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
-			URL:            URL,
-			Path:           "app/password",
-			RotateInterval: time.Hour,
+			URI:            uri,
 			Version:        1,
-			Status:         secrets.StatusActive,
-			Description:    "shhh",
-			Tags:           map[string]string{"foo": "bar"},
-			ID:             1,
+			OwnerTag:       "application-mysql",
 			Provider:       "juju",
 			ProviderID:     "provider-id",
+			RotatePolicy:   secrets.RotateHourly,
+			ExpireTime:     ptr(now),
+			NextRotateTime: ptr(now.Add(time.Hour)),
+			Description:    "shhh",
+			Label:          "foobar",
 			Revision:       2,
 			CreateTime:     now,
 			UpdateTime:     now.Add(time.Second),
@@ -90,7 +94,7 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
-				URL: "secret://app/password",
+				URI: "secret:9m4e2mr0ui3e8a215n4g",
 				Value: &params.SecretValueResult{
 					Error: &params.Error{Message: "boom"},
 				},

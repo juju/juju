@@ -55,6 +55,10 @@ func (s *SecretsSuite) TestListSecretsShow(c *gc.C) {
 	s.assertListSecrets(c, true)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	defer s.setup(c).Finish()
 
@@ -71,22 +75,19 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now()
-	URL := &coresecrets.URL{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		Path:           "app/password",
-	}
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	metadata := []*coresecrets.SecretMetadata{{
-		URL:            URL,
-		Path:           "app/password",
-		RotateInterval: time.Hour,
+		URI:            uri,
 		Version:        1,
-		Status:         coresecrets.StatusActive,
-		Description:    "shhh",
-		Tags:           map[string]string{"foo": "bar"},
-		ID:             666,
+		OwnerTag:       "application-mysql",
 		Provider:       "juju",
 		ProviderID:     "abcd",
+		RotatePolicy:   coresecrets.RotateHourly,
+		ExpireTime:     ptr(now),
+		NextRotateTime: ptr(now.Add(time.Hour)),
+		Description:    "shhh",
+		Label:          "foobar",
 		Revision:       2,
 		CreateTime:     now,
 		UpdateTime:     now.Add(time.Second),
@@ -100,7 +101,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
-		s.secretsService.EXPECT().GetSecretValue(gomock.Any(), URL).Return(
+		s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 2).Return(
 			coresecrets.NewSecretValue(valueResult.Data), nil,
 		)
 	}
@@ -109,16 +110,16 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URL:            URL.String(),
-			Path:           "app/password",
-			RotateInterval: time.Hour,
+			URI:            uri.String(),
 			Version:        1,
-			Status:         "active",
-			Description:    "shhh",
-			Tags:           map[string]string{"foo": "bar"},
-			ID:             666,
+			OwnerTag:       "application-mysql",
 			Provider:       "juju",
 			ProviderID:     "abcd",
+			RotatePolicy:   string(coresecrets.RotateHourly),
+			ExpireTime:     ptr(now),
+			NextRotateTime: ptr(now.Add(time.Hour)),
+			Description:    "shhh",
+			Label:          "foobar",
 			Revision:       2,
 			CreateTime:     now,
 			UpdateTime:     now.Add(time.Second),

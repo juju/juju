@@ -195,7 +195,6 @@ website2  Bill User    2012-12-12T12:12
 [Updates Available]
 Resource  Revision
 openjdk   10
-
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
@@ -259,7 +258,6 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 	c.Check(stdout, gc.Equals, `
 Resource  Revision
 openjdk   -
-
 `[1:])
 	c.Check(stderr, gc.Equals, "")
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
@@ -341,7 +339,6 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 Resource  Revision
 rsc1234   15
 website2  2012-12-12T12:12
-
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
@@ -504,7 +501,6 @@ svc/5   charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
 svc/10  alpha     10                15 (fetching: 15%)
 svc/10  beta      -                 2012-12-12T12:12
 svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
-
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
@@ -636,7 +632,6 @@ Resource  Revision          Expected
 alpha     10                15
 beta      -                 2012-12-12T12:12
 charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 0%)
-
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})

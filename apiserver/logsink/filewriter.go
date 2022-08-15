@@ -6,7 +6,7 @@ package logsink
 import (
 	"io"
 
-	"github.com/juju/lumberjack"
+	"github.com/juju/lumberjack/v2"
 
 	"github.com/juju/juju/core/paths"
 )

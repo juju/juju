@@ -6,7 +6,7 @@ package mongometrics
 import (
 	"time"
 
-	"github.com/juju/mgo/v2/txn"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

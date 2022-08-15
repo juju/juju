@@ -9,7 +9,7 @@ import (
 	"crypto/x509"
 	"math/rand"
 
-	gitjujutesting "github.com/juju/testing"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	utilscert "github.com/juju/utils/v3/cert"
 )
 
@@ -70,9 +70,9 @@ func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.Privat
 	return cert, key
 }
 
-func serverCerts() *gitjujutesting.Certs {
+func serverCerts() *mgotesting.Certs {
 	serverCert, serverKey := mustParseCertAndKey(ServerCert, ServerKey)
-	return &gitjujutesting.Certs{
+	return &mgotesting.Certs{
 		CACert:     CACertX509,
 		ServerCert: serverCert,
 		ServerKey:  serverKey,

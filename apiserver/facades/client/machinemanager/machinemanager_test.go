@@ -629,7 +629,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	s.pool = mocks.NewMockPool(ctrl)
-	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil)
+	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil).AnyTimes()
 
 	s.model = mocks.NewMockModel(ctrl)
 	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
@@ -652,13 +652,14 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock.Controller) *mocks.MockMachine {
+func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock.Controller, arch *string) *mocks.MockMachine {
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Series().Return("focal").AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
-	arch := "amd64"
-	machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{Arch: &arch}, nil)
-	machine.EXPECT().SetPassword(gomock.Any()).Return(nil)
+	machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
+	if arch != nil {
+		machine.EXPECT().SetPassword(gomock.Any()).Return(nil)
+	}
 
 	return machine
 }
@@ -683,7 +684,8 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		"enable-os-refresh-update": true,
 	}))).Times(2)
 
-	machine0 := s.expectProvisioningMachine(ctrl)
+	arch := "amd64"
+	machine0 := s.expectProvisioningMachine(ctrl, &arch)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
@@ -710,6 +712,25 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 	}
 }
 
+func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+		"agent-version":            "2.6.6",
+		"enable-os-upgrade":        false,
+		"enable-os-refresh-update": false,
+	})))
+
+	machine0 := s.expectProvisioningMachine(ctrl, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	_, err := s.api.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: "0",
+		Nonce:     "nonce",
+	})
+	c.Assert(err, gc.ErrorMatches, `getting instance config: arch is not set for "machine-0"`)
+}
+
 func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -720,7 +741,8 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		"enable-os-refresh-update": false,
 	}))).Times(2)
 
-	machine0 := s.expectProvisioningMachine(ctrl)
+	arch := "amd64"
+	machine0 := s.expectProvisioningMachine(ctrl, &arch)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
@@ -738,6 +760,75 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get update")
 	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get upgrade")
+}
+
+type statusMatcher struct {
+	c        *gc.C
+	expected status.StatusInfo
+}
+
+func (m statusMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(status.StatusInfo)
+	m.c.Assert(ok, jc.IsTrue)
+	if !ok {
+		return false
+	}
+
+	m.c.Assert(obtained.Since, gc.NotNil)
+	obtained.Since = nil
+	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	return true
+}
+
+func (m statusMatcher) String() string {
+	return "Match the status.StatusInfo value"
+}
+
+func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
+
+	machine0 := mocks.NewMockMachine(ctrl)
+	machine0.EXPECT().Id().Return("0")
+	machine0.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "provisioning error"}, nil)
+	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
+		Status: status.ProvisioningError,
+		Data:   map[string]interface{}{"transient": true},
+	}}).Return(nil)
+	machine1 := mocks.NewMockMachine(ctrl)
+	machine1.EXPECT().Id().Return("1")
+	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)
+
+	results, err := s.api.RetryProvisioning(params.RetryProvisioningArgs{
+		Machines: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
+
+	machine0 := mocks.NewMockMachine(ctrl)
+	machine0.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "provisioning error"}, nil)
+	machine0.EXPECT().SetInstanceStatus(statusMatcher{c: c, expected: status.StatusInfo{
+		Status: status.ProvisioningError,
+		Data:   map[string]interface{}{"transient": true},
+	}}).Return(nil)
+	machine1 := mocks.NewMockMachine(ctrl)
+	machine1.EXPECT().InstanceStatus().Return(status.StatusInfo{Status: "pending"}, nil)
+	s.st.EXPECT().AllMachines().Return([]machinemanager.Machine{machine0, machine1}, nil)
+
+	results, err := s.api.RetryProvisioning(params.RetryProvisioningArgs{
+		All: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
 }
 
 type UpgradeSeriesMachineManagerSuite struct{}

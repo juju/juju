@@ -656,43 +656,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	// First attempt to interpret as a local path.
 	if h.isLocalCharm(chParams.Charm) {
-		// The charm path could contain the local schema prefix. If that's the
-		// case we should remove that before attempting to join with the bundle
-		// directory.
-		charmPath := chParams.Charm
-		if strings.HasPrefix(charmPath, "local:") {
-			path, err := charm.ParseURL(charmPath)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			charmPath = path.Name
-		}
-		if !filepath.IsAbs(charmPath) {
-			charmPath = filepath.Join(h.bundleDir, charmPath)
-		}
-
-		ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmPath, chSeries, h.force)
-		if err != nil {
-			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
-		}
-
-		if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{
-			Charm: ch,
-		}); err != nil && !h.force {
-			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
-		}
-		if curl, err = h.deployAPI.AddLocalCharm(curl, ch, h.force); err != nil {
-			return err
-		}
-		logger.Debugf("added charm %s", curl)
-		h.results[id] = curl.String()
-		// We know we're a local charm and local charms don't require an
-		// explicit tailored origin. Instead we can just use a placeholder
-		// to ensure correctness for later on in addApplication.
-		h.addOrigin(*curl, corecharm.DefaultRiskChannel, commoncharm.Origin{
-			Source: commoncharm.OriginLocal,
-		})
-		return nil
+		return h.addLocalCharm(chParams, chSeries, id)
 	}
 
 	// Not a local charm, so grab from the store.
@@ -742,12 +706,33 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, resolvedOrigin, _, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
+	url, resolvedOrigin, supportedSeries, err := h.bundleResolver.ResolveCharm(ch, origin, false) // no --switch possible.
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
-	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
+	switch {
+	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
+	case resolvedOrigin.Series == "":
+		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		selector := seriesSelector{
+			charmURLSeries:      url.Series,
+			seriesFlag:          change.Params.Series,
+			supportedSeries:     supportedSeries,
+			supportedJujuSeries: workloadSeries,
+			conf:                modelCfg,
+			fromBundle:          true,
+		}
+
+		// Get the series to use.
+		resolvedOrigin.Series, err = selector.charmSeries()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Tracef("Using series %s from %v to deploy %v", resolvedOrigin.Series, supportedSeries, url)
 	}
 
 	var macaroon *macaroon.Macaroon
@@ -764,6 +749,46 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	h.results[id] = charmAlias
 	h.macaroons[*url] = macaroon
 	h.addOrigin(*url, channel, charmOrigin)
+	return nil
+}
+
+func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chSeries, id string) error {
+	// The charm path could contain the local schema prefix. If that's the
+	// case we should remove that before attempting to join with the bundle
+	// directory.
+	charmPath := chParams.Charm
+	if strings.HasPrefix(charmPath, "local:") {
+		path, err := charm.ParseURL(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmPath = path.Name
+	}
+	if !filepath.IsAbs(charmPath) {
+		charmPath = filepath.Join(h.bundleDir, charmPath)
+	}
+
+	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmPath, chSeries, h.force)
+	if err != nil {
+		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+	}
+
+	if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{
+		Charm: ch,
+	}); err != nil && !h.force {
+		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+	}
+	if curl, err = h.deployAPI.AddLocalCharm(curl, ch, h.force); err != nil {
+		return err
+	}
+	logger.Debugf("added charm %s", curl)
+	h.results[id] = curl.String()
+	// We know we're a local charm and local charms don't require an
+	// explicit tailored origin. Instead we can just use a placeholder
+	// to ensure correctness for later on in addApplication.
+	h.addOrigin(*curl, corecharm.DefaultRiskChannel, commoncharm.Origin{
+		Source: commoncharm.OriginLocal,
+	})
 	return nil
 }
 

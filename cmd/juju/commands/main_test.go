@@ -66,7 +66,7 @@ func configHelpText() string {
 }
 
 func syncToolsHelpText() string {
-	return helpText(newSyncToolsCommand(), "juju sync-agent-binaries")
+	return helpText(newSyncAgentBinaryCommand(), "juju sync-agent-binary")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -147,20 +147,20 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    2,
 		out:     "ERROR option provided but not defined: --model\n",
 	}, {
-		summary: "juju sync-agent-binaries registered properly",
-		args:    []string{"sync-agent-binaries", "--help"},
+		summary: "juju sync-agent-binary registered properly",
+		args:    []string{"sync-agent-binary", "--help"},
 		code:    0,
 		out:     syncToolsHelpText(),
 	}, {
 		summary: "check version command returns a fully qualified version string",
 		args:    []string{"version"},
 		code:    0,
-		out:     testing.CurrentVersion(c).String() + "\n",
+		out:     testing.CurrentVersion().String() + "\n",
 	}, {
 		summary: "check --version command returns a fully qualified version string",
 		args:    []string{"--version"},
 		code:    0,
-		out:     testing.CurrentVersion(c).String() + "\n",
+		out:     testing.CurrentVersion().String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -263,7 +263,7 @@ func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
 }
 
 func checkVersionOutput(c *gc.C, output string) {
-	ver := testing.CurrentVersion(c)
+	ver := testing.CurrentVersion()
 	c.Check(output, gc.Equals, ver.String()+"\n")
 }
 
@@ -463,7 +463,7 @@ var commandNames = []string{
 	"subnets",
 	"suspend-relation",
 	"switch",
-	"sync-agent-binaries",
+	"sync-agent-binary",
 	"sync-tools",
 	"trust",
 	"unexpose",

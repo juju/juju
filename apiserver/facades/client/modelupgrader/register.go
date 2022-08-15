@@ -10,8 +10,10 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -45,6 +47,7 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool)
 
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
@@ -61,5 +64,7 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		common.NewBlockChecker(backend),
 		auth,
 		context.CallContext(st),
+		registry.New,
+		environscloudspecGetter,
 	)
 }

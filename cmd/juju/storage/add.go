@@ -78,8 +78,8 @@ Examples:
     # to unit ceph-osd/0 from the model's default storage pool
     juju add-storage ceph-osd/0 osd-devices=1T,10
 
-	# Add a storage instance from the (AWS-specific) ebs-ssd
-	# storage pool for "brick" storage to unit gluster/0:
+    # Add a storage instance from the (AWS-specific) ebs-ssd
+    # storage pool for "brick" storage to unit gluster/0:
     juju add-storage gluster/0 brick=ebs-ssd
 
 

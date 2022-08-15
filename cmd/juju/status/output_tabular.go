@@ -120,8 +120,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	return nil
 }
 
-func startSection(tw *ansiterm.TabWriter, top bool, headers ...interface{}) output.Wrapper {
-	w := output.Wrapper{TabWriter: tw}
+func startSection(tw *ansiterm.TabWriter, top bool, headers ...interface{}) *output.Wrapper {
+	w := &output.Wrapper{TabWriter: tw}
 	if !top {
 		w.Println()
 	}
@@ -143,7 +143,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 	metering := fs.Model.MeterStatus != nil
 	units := make(map[string]unitStatus)
-	var w output.Wrapper
+	var w *output.Wrapper
 	if fs.Model.Type == caasModelType {
 		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Channel", "Rev", "Address", "Exposed", "Message")
 	} else {
@@ -344,7 +344,13 @@ func (s sortablePorts) Swap(i, j int) {
 	s[j] = t
 }
 
-func printPorts(w output.Wrapper, ps []string) {
+type OutputWriter interface {
+	Print(values ...interface{})
+	PrintNoTab(values ...interface{})
+	PrintColorNoTab(ctx *ansiterm.Context, value interface{})
+}
+
+func printPorts(w OutputWriter, ps []string) {
 	sorted := append([]string(nil), ps...)
 	sort.Strings(sorted)
 
@@ -589,7 +595,7 @@ func printMachines(tw *ansiterm.TabWriter, standAlone bool, machines map[string]
 	endSection(tw)
 }
 
-func printMachine(w output.Wrapper, m machineStatus) {
+func printMachine(w *output.Wrapper, m machineStatus) {
 	// We want to display availability zone so extract from hardware info".
 	hw, err := instance.ParseHardware(m.Hardware)
 	if err != nil {
