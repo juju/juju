@@ -445,6 +445,15 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"jammy", "focal", "bionic", "xenial", "quantal",
+			), nil
+		},
+	)
+
 	err := s.runDeployForState(c, charmDir.Path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
@@ -455,6 +464,15 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
 	curl := charm.MustParseURL("local:quantal/lxd-profile-fail-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, true, 1, nil, nil)
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"jammy", "focal", "bionic", "xenial", "quantal",
+			), nil
+		},
+	)
 
 	err := s.runDeployForState(c, charmDir.Path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1445,6 +1463,15 @@ func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
 	curl := charm.MustParseURL("local:quantal/terms1-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, true, 1, nil, nil)
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"jammy", "focal", "bionic", "xenial", "quantal",
+			), nil
+		},
+	)
 
 	err := s.runDeployForState(c, charmDir.Path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)

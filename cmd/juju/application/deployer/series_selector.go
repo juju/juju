@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"strings"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -108,9 +110,8 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	if !s.force {
 		logger.Tracef("juju supported series %s", s.supportedJujuSeries.SortedValues())
 		logger.Tracef("charm supported series %s", s.supportedSeries)
-		if charm.IsMissingSeriesError(err) {
-			// TODO: rephrase charm.errMissingSeries!
-			return "", errors.NotValidf("the charm supported series (%v) are deprecated", s.supportedSeries)
+		if charm.IsMissingSeriesError(err) && len(s.supportedSeries) > 0 {
+			return "", errors.NotSupportedf("the charm supported series %q are deprecated", strings.Join(s.supportedSeries, ", "))
 		}
 
 		// We know err is not nil due to above, so return the error

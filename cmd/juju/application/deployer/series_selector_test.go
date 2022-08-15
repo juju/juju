@@ -137,7 +137,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				conf:                defaultSeries{},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			err: "series not specified and charm does not define any",
+			err: `the charm supported series "precise" are deprecated not supported`,
 		},
 		{
 			title: "juju deploy multiseries   # use charm defaults used if default series doesn't match, nothing specified",
@@ -165,16 +165,6 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
 			err: "series: disco not supported",
-		},
-		{
-			title: "juju deploy multiseries with force  # use model series defaults if supported by charm, force",
-			seriesSelector: seriesSelector{
-				supportedSeries:     []string{"bionic", "cosmic", "disco"},
-				conf:                defaultSeries{"disco", true},
-				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
-				force:               true,
-			},
-			expectedSeries: "disco",
 		},
 		{
 			title: "juju deploy multiseries --series=bionic   # use supported requested",
