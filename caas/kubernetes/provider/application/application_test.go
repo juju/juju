@@ -2694,9 +2694,13 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 			ps.NodeSelector = map[string]string{
 				"kubernetes.io/arch": "arm64",
 			}
-			ps.Containers[0].Resources.Requests = corev1.ResourceList{
+			resourceRequests := corev1.ResourceList{
 				corev1.ResourceCPU:    k8sresource.MustParse("1000m"),
 				corev1.ResourceMemory: k8sresource.MustParse("1024Mi"),
+			}
+			ps.Containers[0].Resources.Requests = resourceRequests
+			for i := range ps.Containers {
+				ps.Containers[i].Resources.Limits = resourceRequests
 			}
 
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})

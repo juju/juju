@@ -1240,9 +1240,6 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 
 	resourceRequests := corev1.ResourceList(nil)
 	millicores := 0
-	// TODO(allow resource limits to be applied to each container).
-	// For now we only do resource requests, one container is sufficient for
-	// scheduling purposes.
 	if config.Constraints.HasCpuPower() {
 		if resourceRequests == nil {
 			resourceRequests = corev1.ResourceList{}
@@ -1349,6 +1346,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		},
 		Resources: corev1.ResourceRequirements{
 			Requests: resourceRequests,
+			Limits:   resourceRequests,
 		},
 	}}
 
@@ -1422,6 +1420,9 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					MountPath: "/charm/container",
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Limits: resourceRequests,
 			},
 		}
 		if v.Image.Password != "" {
