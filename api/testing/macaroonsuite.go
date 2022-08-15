@@ -201,3 +201,11 @@ func MacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
 func NewMacaroon(id string) (*macaroon.Macaroon, error) {
 	return macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
 }
+
+func MustNewMacaroon(id string) *macaroon.Macaroon {
+	mac, err := NewMacaroon(id)
+	if err != nil {
+		panic(err)
+	}
+	return mac
+}
