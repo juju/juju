@@ -6813,6 +6813,197 @@ func (s *upgradesSuite) TestRemoveUseFloatingIPConfigFalse(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
+func (s *upgradesSuite) TestCharmOriginChannelMustHaveTrack(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	appColl, appCloser := s.state.db().GetRawCollection(applicationsC)
+	defer appCloser()
+
+	var err error
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"name":       "app1",
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("cs:test").String(),
+		"charm-origin": bson.M{
+			"source": "charmstore",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app2"),
+		"name":       "app2",
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("ch:amd64/focal/test").String(),
+		"charm-origin": bson.M{
+			"source":   "charm-hub",
+			"type":     "charm",
+			"id":       "yyyy",
+			"hash":     "xxxx",
+			"revision": 12,
+			"channel": bson.M{
+				"track": "latest",
+				"risk":  "edge",
+			},
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "20.04",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app3"),
+		"name":       "app3",
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("local:test2").String(),
+		"charm-origin": bson.M{
+			"source": "local",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app4"),
+		"name":       "app4",
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("ch:amd64/focal/testtwo").String(),
+		"charm-origin": bson.M{
+			"source":   "charm-hub",
+			"type":     "charm",
+			"id":       "yyyy",
+			"hash":     "xxxx",
+			"revision": 12,
+			"channel": bson.M{
+				"risk": "edge",
+			},
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "20.04",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app5"),
+		"name":       "app5",
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("ch:amd64/focal/test").String(),
+		"charm-origin": bson.M{
+			"source":   "charm-hub",
+			"type":     "charm",
+			"id":       "yyyy",
+			"hash":     "xxxx",
+			"revision": 12,
+			"channel": bson.M{
+				"track": "8.0",
+				"risk":  "stable",
+			},
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "20.04",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "app1"),
+			"model-uuid": uuid1,
+			"name":       "app1",
+			"charmurl":   "cs:test",
+			"charm-origin": bson.M{
+				"source": "charmstore",
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "app2"),
+			"model-uuid": uuid1,
+			"name":       "app2",
+			"charmurl":   "ch:amd64/focal/test",
+			"charm-origin": bson.M{
+				"source":   "charm-hub",
+				"type":     "charm",
+				"id":       "yyyy",
+				"hash":     "xxxx",
+				"revision": 12,
+				"channel": bson.M{
+					"track": "latest",
+					"risk":  "edge",
+				},
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "20.04",
+				},
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app3"),
+			"model-uuid": uuid2,
+			"name":       "app3",
+			"charmurl":   "local:test2",
+			"charm-origin": bson.M{
+				"source": "local",
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app4"),
+			"model-uuid": uuid2,
+			"name":       "app4",
+			"charmurl":   charm.MustParseURL("ch:amd64/focal/testtwo").String(),
+			"charm-origin": bson.M{
+				"source":   "charm-hub",
+				"type":     "charm",
+				"id":       "yyyy",
+				"hash":     "xxxx",
+				"revision": 12,
+				"channel": bson.M{
+					"track": "latest",
+					"risk":  "edge",
+				},
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "20.04",
+				},
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app5"),
+			"model-uuid": uuid2,
+			"name":       "app5",
+			"charmurl":   charm.MustParseURL("ch:amd64/focal/test").String(),
+			"charm-origin": bson.M{
+				"source":   "charm-hub",
+				"type":     "charm",
+				"id":       "yyyy",
+				"hash":     "xxxx",
+				"revision": 12,
+				"channel": bson.M{
+					"track": "8.0",
+					"risk":  "stable",
+				},
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "20.04",
+				},
+			},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, CharmOriginChannelMustHaveTrack,
+		upgradedData(appColl, expected),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

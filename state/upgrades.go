@@ -4454,7 +4454,7 @@ func RemoveLocalCharmOriginChannels(pool *StatePool) error {
 				return errors.Annotatef(err, "parsing charm url")
 			}
 
-			if charmURL.Schema != "local" {
+			if !charm.Local.Matches(charmURL.Schema) {
 				continue
 			}
 
@@ -4536,5 +4536,48 @@ func RemoveUseFloatingIPConfigFalse(pool *StatePool) error {
 			}
 		}
 		return changed, nil
+	}))
+}
+
+// CharmOriginChannelMustHaveTrack adds latest as a track for empty values
+// in channel for charmhub application's charm-origin.
+func CharmOriginChannelMustHaveTrack(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			// It is expected that every application should have a charm URL.
+			charmURL, err := charm.ParseURL(*doc.CharmURL)
+			if err != nil {
+				return errors.Annotatef(err, "parsing charm url")
+			}
+
+			if charm.Local.Matches(charmURL.Schema) || charm.CharmStore.Matches(charmURL.Schema) {
+				continue
+			}
+
+			origin := doc.CharmOrigin
+			if origin == nil || origin.Channel == nil || origin.Channel.Track != "" {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"charm-origin.channel.track", "latest"}}}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }
