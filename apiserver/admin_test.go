@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -1014,6 +1015,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
+	loginTime := s.Clock.Now()
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
@@ -1027,32 +1029,43 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
+	addMachinesTime := s.Clock.Now()
 	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
 
 	convo := log.Calls()[0].Args[0].(auditlog.Conversation)
-	c.Assert(convo.ConversationID, gc.HasLen, 16)
-	// Blank out unknown fields.
-	convo.ConversationID = "0123456789abcdef"
-	convo.ConnectionID = "something"
-	c.Assert(convo, gc.Equals, auditlog.Conversation{
-		Who:            user.Tag().Id(),
-		What:           "hey you guys",
-		When:           s.Clock.Now().Format(time.RFC3339),
-		ModelName:      s.Model.Name(),
-		ModelUUID:      s.Model.UUID(),
-		ConnectionID:   "something",
-		ConversationID: "0123456789abcdef",
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.ConversationID", gc.HasLen, 16)
+	mc.AddExpr("_.ConnectionID", jc.Ignore)
+	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return false
+		}
+		return math.Abs(t.Sub(loginTime).Seconds()) < 1.0
+	})
+	c.Assert(convo, mc, auditlog.Conversation{
+		Who:       user.Tag().Id(),
+		What:      "hey you guys",
+		ModelName: s.Model.Name(),
+		ModelUUID: s.Model.UUID(),
 	})
 
 	auditReq := log.Calls()[1].Args[0].(auditlog.Request)
-	auditReq.ConversationID = ""
-	auditReq.ConnectionID = ""
-	auditReq.RequestID = 0
-	c.Assert(auditReq, gc.Equals, auditlog.Request{
-		When:    s.Clock.Now().Format(time.RFC3339),
+	mc = jc.NewMultiChecker()
+	mc.AddExpr("_.ConversationID", jc.Ignore)
+	mc.AddExpr("_.ConnectionID", jc.Ignore)
+	mc.AddExpr("_.RequestID", jc.Ignore)
+	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return false
+		}
+		return math.Abs(t.Sub(addMachinesTime).Seconds()) < 1.0
+	})
+	c.Assert(auditReq, mc, auditlog.Request{
 		Facade:  "MachineManager",
 		Method:  "AddMachines",
 		Version: machineManagerFacadeVersion,
