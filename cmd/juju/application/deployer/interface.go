@@ -98,6 +98,7 @@ type ConsumeDetails interface {
 }
 
 // For testing.
+// TODO: unexport it if we don't need to patch it anymore.
 var SupportedJujuSeries = series.WorkloadSeries
 
 type DeployerAPI interface {

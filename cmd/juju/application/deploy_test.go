@@ -433,10 +433,32 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 	s.AssertApplication(c, "multi-series", curl, 1, 0)
 }
 
-func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
+func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
+	// Donot remove this because we want to test: series supported by the charm and series supported by Juju have overlap.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"jammy", "focal",
+			), nil
+		},
+	)
+
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--series", "quantal")
-	c.Assert(err, gc.ErrorMatches, `multi-series is not available on the following series: quantal not supported`)
+	c.Assert(err, gc.ErrorMatches, `series "quantal" is not supported, supported series are: focal,jammy`)
+}
+
+func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveNoOverlap(c *gc.C) {
+	// Donot remove this because we want to test: series supported by the charm and series supported by Juju have NO overlap.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings("kinetic"), nil
+		},
+	)
+
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
+	err := s.runDeploy(c, path, "--series", "quantal")
+	c.Assert(err, gc.ErrorMatches, `multi-series is not available on the following series: quantal`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {

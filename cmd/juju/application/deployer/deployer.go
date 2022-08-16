@@ -630,13 +630,10 @@ func (d *factory) validateCharmSeriesWithName(series, name string, imageStream s
 // to help provide better feedback to the user when somethings gone wrong around
 // validating a charm validation
 func charmValidationError(name string, err error) error {
-	if err != nil {
-		if errors.IsNotSupported(err) {
-			return errors.Errorf("%v is not available on the following %v", name, err)
-		}
-		return errors.Trace(err)
+	if errors.Is(err, errors.NotSupported) {
+		return errors.Errorf("%v is not available on the following %v", name, err)
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {

@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -112,7 +113,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 		logger.Tracef("juju supported series %s", s.supportedJujuSeries.SortedValues())
 		logger.Tracef("charm supported series %s", s.supportedSeries)
 		if corecharm.IsMissingSeriesError(err) && len(s.supportedSeries) > 0 {
-			return "", errors.NotSupportedf("the charm defined series %q", strings.Join(s.supportedSeries, ", "))
+			return "", errors.Errorf("the charm defined series %q not supported", strings.Join(s.supportedSeries, ", "))
 		}
 
 		// We know err is not nil due to above, so return the error
@@ -134,9 +135,14 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 		series = requestedSeries
 	} else if err != nil {
 		if corecharm.IsUnsupportedSeriesError(err) {
-			if !s.supportedJujuSeries.Contains(requestedSeries) {
-				return "", errors.NotSupportedf("series: %s", requestedSeries)
+			supported := s.supportedJujuSeries.Intersection(set.NewStrings(s.supportedSeries...))
+			if supported.IsEmpty() {
+				return "", errors.NewNotSupported(nil, fmt.Sprintf("series: %s", requestedSeries))
 			}
+			return "", errors.Errorf(
+				"series %q is not supported, supported series are: %s",
+				requestedSeries, strings.Join(supported.SortedValues(), ","),
+			)
 		}
 		return "", err
 	}
