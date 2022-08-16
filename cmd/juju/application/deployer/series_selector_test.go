@@ -244,7 +244,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				supportedSeries: []string{"bionic", "utopic", "vivid"},
 				conf:            defaultSeries{},
 			},
-			err: `series "cosmic" not supported by charm, the charm supported series are: bionic,utopic,vivid`,
+			err: `series: cosmic not supported`,
 		},
 		{
 			title: "juju deploy bionic/multiseries --series=cosmic  # unsupported series",
