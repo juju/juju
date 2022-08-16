@@ -63,6 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
+      fail-fast: false
       matrix:
         snap_version: ["2.8/stable"]
         model_type: ["localhost", "microk8s"]
