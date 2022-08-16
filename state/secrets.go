@@ -397,7 +397,9 @@ func secretConsumerKey(id, consumer string) string {
 func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
-	countOp, _, err := nsRefcounts.CurrentOp(refCountCollection, uri.ID)
+
+	key := fmt.Sprintf("%s#consumer", uri.ID)
+	countOp, _, err := nsRefcounts.CurrentOp(refCountCollection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -406,13 +408,13 @@ func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, err
 		return []txn.Op{countOp}, nil
 	}
 	if inc > 0 {
-		incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
+		incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, inc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return []txn.Op{countOp, incOp}, err
 	}
-	incOp := nsRefcounts.JustIncRefOp(refcountsC, uri.ID, inc)
+	incOp := nsRefcounts.JustIncRefOp(refcountsC, key, inc)
 	return []txn.Op{countOp, incOp}, err
 }
 
@@ -457,9 +459,6 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metada
 			return nil, errors.NotFoundf("secret %q", uri)
 		}
 		err = secretConsumersCollection.FindId(docID).One(&doc)
-		if err := errors.Cause(err); err != nil && err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
-		}
 		if err == nil {
 			return []txn.Op{{
 				C:      secretConsumersC,
@@ -470,6 +469,8 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metada
 					"current-revision": metadata.CurrentRevision,
 				}},
 			}}, nil
+		} else if err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
 		}
 		ops := []txn.Op{{
 			C:      secretConsumersC,
@@ -552,14 +553,188 @@ func (st *State) WatchConsumedSecretsChanges(consumer string) StringsWatcher {
 	})
 }
 
-// GrantSecret implements SecretsService.
-func (st *State) GrantSecret(uri *secrets.URI, scope, subject names.Tag, role secrets.SecretRole) error {
-	return errors.NotImplementedf("GrantSecret")
+type secretPermissionDoc struct {
+	DocID string `bson:"_id"`
+
+	Scope   string `bson:"scope-tag"`
+	Subject string `bson:"subject-tag"`
+	Role    string `bson:"role"`
 }
 
-// RevokeSecret implements SecretsService.
-func (st *State) RevokeSecret(uri *secrets.URI, scope, subject names.Tag) error {
-	return errors.NotImplementedf("RevokeSecret")
+func (st *State) findSecretAccessScopeEntity(tag names.Tag) (entity Lifer, collName, docID string, err error) {
+	id := tag.Id()
+	switch tag.(type) {
+	case names.RelationTag:
+		entity, err = st.KeyRelation(id)
+		collName = relationsC
+		docID = id
+	case names.UnitTag:
+		entity, err = st.Unit(id)
+		collName = unitsC
+		docID = id
+	case names.ApplicationTag:
+		entity, err = st.Application(id)
+		collName = applicationsC
+		docID = id
+	default:
+		err = errors.NotValidf("secret scope reference %q", tag.String())
+	}
+	return entity, collName, docID, err
+}
+
+// GrantSecretAccess saves the secret access role for the subject with the specified scope.
+func (st *State) GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject names.Tag, role secrets.SecretRole) (err error) {
+	if role == secrets.RoleNone || !role.IsValid() {
+		return errors.NotValidf("secret role %q", role)
+	}
+
+	entity, scopeCollName, scopeDocID, err := st.findSecretAccessScopeEntity(scope)
+	if err != nil {
+		return errors.Annotate(err, "invalid scope reference")
+	}
+	if entity.Life() != Alive {
+		return errors.Errorf("cannot grant access to secret in scope of %q which is not alive", scope)
+	}
+	isScopeAliveOp := txn.Op{
+		C:      scopeCollName,
+		Id:     scopeDocID,
+		Assert: isAliveDoc,
+	}
+
+	key := secretConsumerKey(uri.ID, subject.String())
+	docID := st.docID(key)
+
+	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	defer closer()
+	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
+	defer mCloser()
+
+	var doc secretPermissionDoc
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		n, err := secretMetadataCollection.FindId(uri.ID).Count()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n == 0 {
+			return nil, errors.NotFoundf("secret %q", uri)
+		}
+		err = secretPermissionsCollection.FindId(docID).One(&doc)
+		if err == mgo.ErrNotFound {
+			return []txn.Op{{
+				C:      secretPermissionsC,
+				Id:     docID,
+				Assert: txn.DocMissing,
+				Insert: secretPermissionDoc{
+					DocID:   docID,
+					Subject: subject.String(),
+					Scope:   scope.String(),
+					Role:    string(role),
+				},
+			}}, nil
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if doc.Scope != scope.String() {
+			return nil, errors.New("cannot change secret permission scope")
+		}
+		if doc.Subject != subject.String() {
+			return nil, errors.New("cannot change secret permission subject")
+		}
+		return []txn.Op{{
+			C:      secretPermissionsC,
+			Id:     docID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{
+				"role": role,
+			}},
+		}, isScopeAliveOp}, nil
+	}
+	return st.db().Run(buildTxn)
+}
+
+// RevokeSecretAccess removes any secret access role for the subject.
+func (st *State) RevokeSecretAccess(uri *secrets.URI, subject names.Tag) error {
+	key := secretConsumerKey(uri.ID, subject.String())
+	docID := st.docID(key)
+
+	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	defer closer()
+	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
+	defer mCloser()
+
+	var doc secretPermissionDoc
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		n, err := secretMetadataCollection.FindId(uri.ID).Count()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		err = secretPermissionsCollection.FindId(docID).One(&doc)
+		if err == mgo.ErrNotFound {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ops := []txn.Op{{
+			C:      secretPermissionsC,
+			Id:     docID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}
+		return ops, nil
+	}
+	return st.db().Run(buildTxn)
+}
+
+// SecretAccess returns the secret access role for the subject.
+func (st *State) SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error) {
+	key := secretConsumerKey(uri.ID, subject.String())
+	docID := st.docID(key)
+
+	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	defer closer()
+	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
+	defer mCloser()
+
+	n, err := secretMetadataCollection.FindId(uri.ID).Count()
+	if err != nil {
+		return secrets.RoleNone, errors.Trace(err)
+	}
+	if n == 0 {
+		return secrets.RoleNone, errors.NotFoundf("secret %q", uri)
+	}
+
+	var doc secretPermissionDoc
+	err = secretPermissionsCollection.FindId(docID).One(&doc)
+	if err := errors.Cause(err); err == mgo.ErrNotFound {
+		return secrets.RoleNone, nil
+	}
+	if err != nil {
+		return secrets.RoleNone, errors.Trace(err)
+	}
+	return secrets.SecretRole(doc.Role), nil
+}
+
+func (st *State) removeScopedSecretPermissionOps(scope names.Tag) ([]txn.Op, error) {
+	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	defer closer()
+
+	var (
+		doc secretPermissionDoc
+		ops []txn.Op
+	)
+	iter := secretPermissionsCollection.Find(bson.D{{"scope-tag", scope.String()}}).Select(bson.D{{"_id", 1}}).Iter()
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      secretPermissionsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return ops, iter.Close()
 }
 
 type secretRotationDoc struct {
@@ -591,27 +766,26 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateP
 
 	var doc secretRotationDoc
 	err := secretRotateCollection.FindId(secretKey).One(&doc)
-	if err := errors.Cause(err); err != nil && err != mgo.ErrNotFound {
-		return nil, errors.Trace(err)
-	}
-	if err == nil {
+	if err == mgo.ErrNotFound {
 		return []txn.Op{{
 			C:      secretRotateC,
 			Id:     secretKey,
-			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"rotate-time": nextRotateTime}},
+			Assert: txn.DocMissing,
+			Insert: secretRotationDoc{
+				DocID:          secretKey,
+				NextRotateTime: (*nextRotateTime).Round(time.Second).UTC(),
+				Owner:          owner,
+				LastRotateTime: s.st.nowToTheSecond().UTC(),
+			},
 		}}, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return []txn.Op{{
 		C:      secretRotateC,
 		Id:     secretKey,
-		Assert: txn.DocMissing,
-		Insert: secretRotationDoc{
-			DocID:          secretKey,
-			NextRotateTime: (*nextRotateTime).Round(time.Second).UTC(),
-			Owner:          owner,
-			LastRotateTime: s.st.nowToTheSecond().UTC(),
-		},
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": bson.M{"rotate-time": nextRotateTime}},
 	}}, nil
 }
 

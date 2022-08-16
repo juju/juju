@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -2020,6 +2021,33 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	newUS.SetCharmState(map[string]string{"foo": "bar"})
 	err = s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
+	store := state.NewSecretsStore(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit := s.Factory.MakeUnit(c, nil)
+	err = s.State.GrantSecretAccess(uri, unit.Tag(), unit.Tag(), secrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.SecretAccess(uri, unit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleView)
+
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	access, err = s.State.SecretAccess(uri, unit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleNone)
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {

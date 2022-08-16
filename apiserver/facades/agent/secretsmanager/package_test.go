@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/secrets"
@@ -33,8 +32,6 @@ func NewTestAPI(
 	service secrets.SecretsService,
 	consumer SecretsConsumer,
 	secretsRotation SecretsRotation,
-	manageSecret common.GetAuthFunc,
-	canRead canReadSecretFunc,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -50,8 +47,6 @@ func NewTestAPI(
 		secretsService:  service,
 		secretsConsumer: consumer,
 		secretsRotation: secretsRotation,
-		manageSecret:    manageSecret,
-		canRead:         canRead,
 		clock:           clock,
 	}, nil
 }
