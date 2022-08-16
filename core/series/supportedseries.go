@@ -82,16 +82,25 @@ func seriesForTypes(path string, now time.Time, requestedSeries, imageStream str
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	updateSeriesVersionsOnce()
+	all := getAllSeriesVersions()
 	if requestedSeries != "" && imageStream == Daily {
-		setSupported(allSeriesVersions, requestedSeries)
+		setSupported(all, requestedSeries)
 	}
 	source := series.NewDistroInfo(path)
-	supported := newSupportedInfo(source, allSeriesVersions)
+	supported := newSupportedInfo(source, all)
 	if err := supported.compile(now); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return supported, nil
+}
+
+func getAllSeriesVersions() map[SeriesName]seriesVersion {
+	copy := make(map[SeriesName]seriesVersion, len(allSeriesVersions))
+	for name, v := range allSeriesVersions {
+		copy[name] = v
+	}
+	return copy
 }
 
 // GetOSFromSeries will return the operating system based
