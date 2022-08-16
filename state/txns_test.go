@@ -442,34 +442,6 @@ func (s *MultiModelRunnerSuite) TestRunWithError(c *gc.C) {
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiModelRunnerSuite) TestResumeTransactions(c *gc.C) {
-	err := s.multiModelRunner.ResumeTransactions()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(s.testRunner.resumeTransactionsCalled, jc.IsTrue)
-}
-
-func (s *MultiModelRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
-	s.testRunner.resumeTransactionsErr = errors.New("boom")
-	err := s.multiModelRunner.ResumeTransactions()
-	c.Check(err, gc.ErrorMatches, "boom")
-}
-
-func (s *MultiModelRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
-	err := s.multiModelRunner.MaybePruneTransactions(jujutxn.PruneOptions{
-		PruneFactor: 2.0,
-	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
-}
-
-func (s *MultiModelRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
-	s.testRunner.pruneTransactionsErr = errors.New("boom")
-	err := s.multiModelRunner.MaybePruneTransactions(jujutxn.PruneOptions{
-		PruneFactor: 2.0,
-	})
-	c.Check(err, gc.ErrorMatches, "boom")
-}
-
 // recordingRunner is fake transaction running that implements the
 // jujutxn.Runner interface. Instead of doing anything with a database
 // it simply records the transaction operations passed to it for later
@@ -479,11 +451,7 @@ func (s *MultiModelRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
 // seenOps is overwritten for each call to RunTransaction and Run. A
 // fresh instance should be created for each test.
 type recordingRunner struct {
-	seenOps                  []txn.Op
-	resumeTransactionsCalled bool
-	resumeTransactionsErr    error
-	pruneTransactionsCalled  bool
-	pruneTransactionsErr     error
+	seenOps []txn.Op
 }
 
 func (r *recordingRunner) RunTransaction(tx *jujutxn.Transaction) error {
@@ -497,13 +465,11 @@ func (r *recordingRunner) Run(transactions jujutxn.TransactionSource) (err error
 }
 
 func (r *recordingRunner) ResumeTransactions() error {
-	r.resumeTransactionsCalled = true
-	return r.resumeTransactionsErr
+	panic("removed when moving to sstxns")
 }
 
 func (r *recordingRunner) MaybePruneTransactions(_ jujutxn.PruneOptions) error {
-	r.pruneTransactionsCalled = true
-	return r.pruneTransactionsErr
+	panic("removed when moving to sstxns")
 }
 
 func txFromOps(ops []txn.Op) *jujutxn.Transaction {

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -668,7 +667,6 @@ func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
 	// or time-out after processing all the changes.
 	for {
 		change := s.nextChange(c, changes)
-		spew.Dump(change)
 		if _, ok := change.(cache.RemoveBranch); ok {
 			mod, err := controller.Model(modUUID)
 			c.Assert(err, jc.ErrorIsNil)

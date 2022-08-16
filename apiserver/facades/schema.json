@@ -37972,22 +37972,6 @@
         }
     },
     {
-        "Name": "Resumer",
-        "Description": "ResumerAPI implements the API used by the resumer worker.",
-        "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "ResumeTransactions": {
-                    "type": "object"
-                }
-            }
-        }
-    },
-    {
         "Name": "RetryStrategy",
         "Description": "RetryStrategyAPI implements RetryStrategy",
         "Version": 1,

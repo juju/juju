@@ -6,7 +6,6 @@ package state
 import (
 	"runtime/debug"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
@@ -27,34 +26,6 @@ func readTxnRevno(db Database, collectionName string, id interface{}) (int64, er
 
 func (st *State) runRawTransaction(ops []txn.Op) error {
 	return st.database.RunRawTransaction(ops)
-}
-
-// ResumeTransactions resumes all pending transactions.
-func (st *State) ResumeTransactions() error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	return runner.ResumeTransactions()
-}
-
-// MaybePruneTransactions removes data for completed transactions.
-func (st *State) MaybePruneTransactions() error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	cfg, err := st.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Prune txns when txn count has increased by 10% since last prune.
-	return runner.MaybePruneTransactions(jujutxn.PruneOptions{
-		PruneFactor:                1.1,
-		MinNewTransactions:         1000,
-		MaxNewTransactions:         100000,
-		MaxTime:                    time.Now().Add(-time.Hour),
-		MaxBatchTransactions:       cfg.MaxPruneTxnBatchSize(),
-		MaxBatches:                 cfg.MaxPruneTxnPasses(),
-		SmallBatchTransactionCount: cfg.PruneTxnQueryCount(),
-		BatchTransactionSleepTime:  cfg.PruneTxnSleepTime(),
-	})
 }
 
 type multiModelRunner struct {
@@ -119,12 +90,12 @@ func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
 
 // ResumeTransactions is part of the jujutxn.Runner interface.
 func (r *multiModelRunner) ResumeTransactions() error {
-	return r.rawRunner.ResumeTransactions()
+	return nil
 }
 
 // MaybePruneTransactions is part of the jujutxn.Runner interface.
 func (r *multiModelRunner) MaybePruneTransactions(opts jujutxn.PruneOptions) error {
-	return r.rawRunner.MaybePruneTransactions(opts)
+	return nil
 }
 
 // updateOps modifies the Insert and Update fields in a slice of

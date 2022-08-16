@@ -688,7 +688,7 @@ var watchableCollections = []string{
 	annotationsC,
 	autocertCacheC,
 	assignUnitC,
-	bakeryStorageItemsC,
+	//bakeryStorageItemsC,
 	blockDevicesC,
 	blocksC,
 	charmsC,
