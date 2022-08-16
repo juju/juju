@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -427,9 +428,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
 	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
-	if charm.IsUnsupportedSeriesError(err) {
-		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-	} else if err != nil {
+	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.validateCharmFlags(); err != nil {
@@ -448,7 +447,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 	// Get the series to use.
 	series, err := selector.charmSeries()
-	logger.Tracef("Using series %s from %v to deploy %v", series, supportedSeries, userRequestedURL)
+	logger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
 	imageStream := modelCfg.ImageStream()
 	// Avoid deploying charm if it's not valid for the model.
@@ -459,7 +458,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	if charm.IsUnsupportedSeriesError(err) {
+	if corecharm.IsUnsupportedSeriesError(err) {
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
 	if validationErr := charmValidationError(storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
@@ -531,10 +530,7 @@ func isEmptyOrigin(origin commoncharm.Origin, source commoncharm.OriginSource) b
 		return true
 	}
 	other.Source = source
-	if origin == other {
-		return true
-	}
-	return false
+	return origin == other
 }
 
 func formatLocatedText(curl *charm.URL, origin commoncharm.Origin) string {

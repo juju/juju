@@ -280,12 +280,7 @@ func checkMongoVersionForControllerModel(modelUUID string, pool StatePool, st St
 // For testing.
 var NewServerFactory = lxd.NewServerFactory
 
-var minLXDVersion = version.Number{Major: 5, Minor: 2}
-
-func getCheckForLXDVersion(
-	cloudspec environscloudspec.CloudSpec,
-	minVer version.Number,
-) Validator {
+func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
 		if !lxdnames.IsDefaultCloud(cloudspec.Type) {
 			return nil, nil
@@ -297,18 +292,10 @@ func getCheckForLXDVersion(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		serverVersion := server.ServerVersion()
-		currentVer, err := lxd.ParseAPIVersion(serverVersion)
-		if err != nil {
-			return nil, errors.Trace(err)
+		err = lxd.ValidateAPIVersion(server.ServerVersion())
+		if errors.Is(err, errors.NotSupported) {
+			return NewBlocker(err.Error()), nil
 		}
-		logger.Debugf("current LXD version %q, min LXD version %q", currentVer, minVer)
-		if currentVer.Compare(minVer) < 0 {
-			return NewBlocker(
-				"LXD version has to be at least %q, but current version is only %q",
-				minVer, currentVer,
-			), nil
-		}
-		return nil, nil
+		return nil, errors.Trace(err)
 	}
 }

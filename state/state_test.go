@@ -4186,7 +4186,7 @@ func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
 	// other than the version, and make sure it retries
 	// and passes.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.changeEnviron(c, modelConfig, "default-series", "foo")
+		s.changeEnviron(c, modelConfig, "default-series", "focal")
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
@@ -4266,9 +4266,9 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
 	hooks := []jujutxn.TestHook{
-		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "1") }},
-		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "2") }},
-		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "3") }},
+		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "focal") }},
+		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "jammy") }},
+		{Asserted: func() { s.changeEnviron(c, modelConfig, "default-series", "focal") }},
 	}
 
 	altCtrl, err := state.OpenController(state.OpenParams{
