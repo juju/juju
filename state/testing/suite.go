@@ -39,7 +39,6 @@ type StateSuite struct {
 	AdminPassword             string
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
-	InitialTime               time.Time
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
 	ControllerModelType       state.ModelType
@@ -71,11 +70,10 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	initialTime := s.InitialTime
-	if initialTime.IsZero() {
-		initialTime = testing.NonZeroTime()
+
+	if s.Clock == nil {
+		s.Clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
 	}
-	s.Clock = testclock.NewDilatedWallClock(100 * time.Millisecond) //testclock.NewClock(initialTime)
 
 	s.AdminPassword = "admin-secret"
 	s.Controller = InitializeWithArgs(c, InitializeArgs{

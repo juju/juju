@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -102,6 +103,11 @@ type loginSuite struct {
 }
 
 var _ = gc.Suite(&loginSuite{})
+
+func (s *loginSuite) SetUpTest(c *gc.C) {
+	s.Clock = testclock.NewDilatedWallClock(time.Second)
+	s.baseSuite.SetUpTest(c)
+}
 
 func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	info := s.newServer(c)
@@ -423,7 +429,7 @@ func (s *loginSuite) TestRateLimitAgents(c *gc.C) {
 	// Second machine in the same second gets told to go away and try again.
 	machine2 := s.infoForNewMachine(c, info)
 	_, err = api.Open(machine2, fastDialOpts)
-	c.Assert(err.Error(), gc.Equals, "try again (try again)")
+	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
 
 	// If we wait a second and try again, it is fine.
 	s.Clock.Advance(time.Second)
@@ -434,7 +440,7 @@ func (s *loginSuite) TestRateLimitAgents(c *gc.C) {
 	// And the next one is limited.
 	machine3 := s.infoForNewMachine(c, info)
 	_, err = api.Open(machine3, fastDialOpts)
-	c.Assert(err.Error(), gc.Equals, "try again (try again)")
+	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
 }
 
 func (s *loginSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {

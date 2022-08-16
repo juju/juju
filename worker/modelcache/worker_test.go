@@ -5,6 +5,7 @@ package modelcache_test
 
 import (
 	"math"
+	"reflect"
 	"strings"
 	"time"
 
@@ -367,11 +368,17 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained = s.nextChange(c, changes)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.Life", gc.Equals, life.Value("dead"))
+	c.Assert(obtained, mc, modelChange)
+
+	obtained = s.nextChange(c, changes)
 	modelChange2, ok := obtained.(cache.ModelChange)
 	c.Assert(ok, jc.IsTrue)
 	// Check permissions dropped correctly.
-	mc := jc.NewMultiChecker()
+	mc = jc.NewMultiChecker()
 	mc.AddExpr("_.UserPermissions", gc.HasLen, 0)
+	mc.AddExpr("_.Life", gc.Equals, life.Value("dead"))
 	c.Assert(modelChange2, mc, modelChange)
 
 	obtained = s.nextChange(c, changes)
@@ -435,6 +442,7 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddMachine(c *gc.C) {
+	c.Log("A")
 	changes := s.captureEvents(c, cachetest.MachineEvents)
 	w := s.start(c)
 
@@ -455,6 +463,14 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 	cachedMachine, err := mod.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedMachine, gc.NotNil)
+
+	change = s.nextChange(c, changes)
+	obtained, ok = change.(cache.MachineChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.Id, gc.Equals, machine.Id())
+	c.Check(obtained.InstanceId, gc.Not(gc.Equals), "")
+
+	s.checkSuperfluousChanges(c, changes, change)
 }
 
 func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
@@ -572,6 +588,10 @@ func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 	cachedApp, err := mod.Application(unit.ApplicationName())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedApp, gc.NotNil)
+
+	// TODO(quiescence): this hack checks that any superfluous changes are the same
+	// as what we last received.
+	s.checkSuperfluousChanges(c, changes, obtained2)
 }
 
 func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
@@ -831,6 +851,33 @@ func (s *WorkerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{
 		c.Fatalf("no change")
 	}
 	return obtained
+}
+
+func (s *WorkerSuite) checkSuperfluousChanges(c *gc.C, changes <-chan interface{}, matches interface{}) {
+	done := time.After(testing.ShortWait)
+	for {
+		select {
+		case obtained := <-changes:
+			c.Assert(obtained, jc.DeepEquals, matches)
+		case <-done:
+			return
+		}
+	}
+}
+
+func (s *WorkerSuite) nextChangeSkipSuperfluous(c *gc.C, changes <-chan interface{}, ignore interface{}) interface{} {
+	done := time.After(testing.ShortWait)
+	for {
+		select {
+		case obtained := <-changes:
+			if reflect.DeepEqual(obtained, ignore) {
+				continue
+			}
+			return obtained
+		case <-done:
+			c.Fatalf("no change")
+		}
+	}
 }
 
 type noopRegisterer struct {

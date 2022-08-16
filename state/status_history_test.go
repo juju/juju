@@ -25,7 +25,6 @@ type StatusHistorySuite struct {
 var _ = gc.Suite(&StatusHistorySuite{})
 
 func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
-	s.InitialTime = time.Now()
 	s.StateSuite.SetUpTest(c)
 }
 
