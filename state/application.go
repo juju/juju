@@ -2061,7 +2061,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
+	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
 		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
 	}

@@ -1134,7 +1134,7 @@ func sidecarUpgradeSeries(modelConfig *environsconfig.Config, supported []string
 
 	// Use model default series, if explicitly set and supported by the charm.
 	if selected, explicit := modelConfig.DefaultSeries(); explicit {
-		if _, err := charm.SeriesForCharm(selected, supported); err == nil {
+		if _, err := corecharm.SeriesForCharm(selected, supported); err == nil {
 			// validate the series we get from the charm
 			if !supportedJuju.Contains(selected) {
 				return "", errors.NotSupportedf("series: %q", selected)
@@ -1153,7 +1153,7 @@ func sidecarUpgradeSeries(modelConfig *environsconfig.Config, supported []string
 			filtered = append(filtered, charmSeries)
 		}
 	}
-	selected, err := charm.SeriesForCharm("", filtered)
+	selected, err := corecharm.SeriesForCharm("", filtered)
 	if err == nil {
 		return selected, nil
 	}

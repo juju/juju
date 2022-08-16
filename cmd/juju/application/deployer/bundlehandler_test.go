@@ -199,7 +199,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 
-	c.Assert(err, gc.ErrorMatches, "series \"focal\" not supported by charm, supported series are: jammy")
+	c.Assert(err, gc.ErrorMatches, "series \"focal\" not supported by charm, the charm supported series are: jammy")
 }
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce(c *gc.C) {

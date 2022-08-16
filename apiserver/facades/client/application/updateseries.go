@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -141,7 +140,7 @@ func (s stateSeriesValidator) ValidateApplication(application Application, serie
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
+	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
 		// TODO (stickupkid): Once all commands are placed in this API, we
 		// should relocate these to the API server.

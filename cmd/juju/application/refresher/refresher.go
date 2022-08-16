@@ -273,7 +273,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 
-	_, seriesSupportedErr := charm.SeriesForCharm(r.deployedSeries, supportedSeries)
+	_, seriesSupportedErr := corecharm.SeriesForCharm(r.deployedSeries, supportedSeries)
 	if !r.forceSeries && r.deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
 		series := []string{"no series"}
 		if len(supportedSeries) > 0 {

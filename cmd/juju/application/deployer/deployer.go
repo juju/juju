@@ -371,9 +371,9 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
-	if charm.IsMissingSeriesError(err) {
+	if corecharm.IsMissingSeriesError(err) {
 		return nil, err
-	} else if charm.IsUnsupportedSeriesError(err) {
+	} else if corecharm.IsUnsupportedSeriesError(err) {
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
