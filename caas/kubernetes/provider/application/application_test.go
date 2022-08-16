@@ -2905,6 +2905,24 @@ func (s *applicationSuite) TestPVCNames(c *gc.C) {
 	})
 }
 
+func (s *applicationSuite) TestLimits(c *gc.C) {
+	limits := corev1.ResourceList{
+		corev1.ResourceCPU:    *k8sresource.NewMilliQuantity(1000, k8sresource.DecimalSI),
+		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
+	}
+
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, func() {
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			for _, ctr := range ss.Spec.Template.Spec.Containers {
+				c.Check(ctr.Resources.Limits, gc.DeepEquals, limits)
+			}
+		},
+	)
+}
+
 func int64Ptr(a int64) *int64 {
 	return &a
 }
