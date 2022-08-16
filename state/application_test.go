@@ -3710,6 +3710,8 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	// Make two changes, check one event.
 	err = application.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 
 	cfg := state.SetCharmConfig{
 		Charm:      s.charm,

@@ -441,7 +441,6 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddMachine(c *gc.C) {
-	c.Log("A")
 	changes := s.captureEvents(c, cachetest.MachineEvents)
 	w := s.start(c)
 
