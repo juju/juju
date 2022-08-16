@@ -964,7 +964,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	info := s.newServer(c)
 
-	now := s.Clock.Now().UTC().Round(time.Second)
+	now := s.Clock.Now().UTC()
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -982,14 +982,14 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	lastLogin, err := user.LastLogin()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lastLogin, gc.Equals, now)
+	c.Assert(lastLogin, jc.Almost, now)
 
 	// The model user is also updated.
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(when, gc.Equals, now)
+	c.Assert(when, jc.Almost, now)
 }
 
 func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
