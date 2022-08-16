@@ -7,21 +7,23 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/collections/set"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/machine/mocks"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type UpgradeSeriesSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 
 	statusExpectation   *statusExpectation
 	prepareExpectation  *upgradeSeriesPrepareExpectation
@@ -31,7 +33,7 @@ type UpgradeSeriesSuite struct {
 var _ = gc.Suite(&UpgradeSeriesSuite{})
 
 func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.statusExpectation = &statusExpectation{
 		status: &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
@@ -65,6 +67,16 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 	}
 	s.prepareExpectation = &upgradeSeriesPrepareExpectation{gomock.Any(), gomock.Any(), gomock.Any()}
 	s.completeExpectation = &upgradeSeriesCompleteExpectation{gomock.Any()}
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&machine.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 }
 
 const (

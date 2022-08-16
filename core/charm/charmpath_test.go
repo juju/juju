@@ -122,14 +122,14 @@ func (s *charmPathSuite) TestUnsupportedSeries(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "multi-series-charmpath")
 	s.cloneCharmDir(s.repoPath, "multi-series-charmpath")
 	_, _, err := corecharm.NewCharmAtPath(charmDir, "wily")
-	c.Assert(err, gc.ErrorMatches, `series "wily" not supported by charm, supported series are.*`)
+	c.Assert(err, gc.ErrorMatches, `series "wily" not supported by charm, the charm supported series are.*`)
 }
 
 func (s *charmPathSuite) TestUnsupportedSeriesNoForce(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "multi-series-charmpath")
 	s.cloneCharmDir(s.repoPath, "multi-series-charmpath")
 	_, _, err := corecharm.NewCharmAtPathForceSeries(charmDir, "wily", false)
-	c.Assert(err, gc.ErrorMatches, `series "wily" not supported by charm, supported series are.*`)
+	c.Assert(err, gc.ErrorMatches, `series "wily" not supported by charm, the charm supported series are.*`)
 }
 
 func (s *charmPathSuite) TestUnsupportedSeriesForce(c *gc.C) {

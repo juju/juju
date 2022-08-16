@@ -761,6 +761,7 @@ to create a new model to deploy %sworkloads.
 	if err != nil {
 		return errors.Annotate(err, "error reading supported bootstrap series")
 	}
+	logger.Tracef("supported bootstrap series %s", supportedBootstrapSeries.SortedValues())
 
 	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 

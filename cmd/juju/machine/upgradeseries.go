@@ -34,6 +34,9 @@ const (
 	CompleteCommand = "complete"
 )
 
+// For testing.
+var SupportedJujuSeries = series.WorkloadSeries
+
 var upgradeSeriesConfirmationMsg = `
 WARNING: This command will mark machine %q as being upgraded to series %q.
 This operation cannot be reverted or canceled once started.
@@ -206,7 +209,7 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 
 	if c.subCommand == PrepareCommand {
 		seriesArg := args[2]
-		workloadSeries, err := series.WorkloadSeries(time.Now(), seriesArg, "")
+		workloadSeries, err := SupportedJujuSeries(time.Now(), seriesArg, "")
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -216,7 +219,6 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 		}
 		c.series = s
 	}
-
 	return nil
 }
 

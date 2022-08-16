@@ -338,7 +338,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := supportedJujuSeries(d.clock.Now(), d.series, imageStream)
+		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -371,9 +371,9 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
-	if charm.IsMissingSeriesError(err) {
+	if corecharm.IsMissingSeriesError(err) {
 		return nil, err
-	} else if charm.IsUnsupportedSeriesError(err) {
+	} else if corecharm.IsUnsupportedSeriesError(err) {
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
@@ -584,7 +584,7 @@ func seriesSelectorRequirements(api ModelConfigGetter, cl jujuclock.Clock, chURL
 	}
 
 	imageStream := modelCfg.ImageStream()
-	workloadSeries, err := supportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
+	workloadSeries, err := SupportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -607,19 +607,12 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
-	workloadSeries, err := supportedJujuSeries(d.clock.Now(), seriesName, imageStream)
+	workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var found bool
-	for _, name := range workloadSeries.Values() {
-		if name == seriesName {
-			found = true
-			break
-		}
-	}
-	if !found && !d.force {
+	if !workloadSeries.Contains(seriesName) && !d.force {
 		return errors.NotSupportedf("series: %s", seriesName)
 	}
 	return nil
@@ -637,13 +630,10 @@ func (d *factory) validateCharmSeriesWithName(series, name string, imageStream s
 // to help provide better feedback to the user when somethings gone wrong around
 // validating a charm validation
 func charmValidationError(name string, err error) error {
-	if err != nil {
-		if errors.IsNotSupported(err) {
-			return errors.Errorf("%v is not available on the following %v", name, err)
-		}
-		return errors.Trace(err)
+	if errors.Is(err, errors.NotSupported) {
+		return errors.Errorf("%v is not available on the following %v", name, err)
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {
