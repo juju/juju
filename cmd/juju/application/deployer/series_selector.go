@@ -6,9 +6,10 @@ package deployer
 import (
 	"strings"
 
-	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/version"
 )
 
@@ -77,7 +78,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// No series explicitly requested by the user.
 	// Use model default series, if explicitly set and supported by the charm.
 	if defaultSeries, explicit := s.conf.DefaultSeries(); explicit {
-		if _, err := charm.SeriesForCharm(defaultSeries, s.supportedSeries); err == nil {
+		if _, err := corecharm.SeriesForCharm(defaultSeries, s.supportedSeries); err == nil {
 			// validate the series we get from the charm
 			if err := s.validateSeries(defaultSeries); err != nil {
 				return "", err
@@ -97,7 +98,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 			supportedSeries = append(supportedSeries, charmSeries)
 		}
 	}
-	defaultSeries, err := charm.SeriesForCharm("", supportedSeries)
+	defaultSeries, err := corecharm.SeriesForCharm("", supportedSeries)
 	if err == nil {
 		return defaultSeries, nil
 	}
@@ -110,8 +111,8 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	if !s.force {
 		logger.Tracef("juju supported series %s", s.supportedJujuSeries.SortedValues())
 		logger.Tracef("charm supported series %s", s.supportedSeries)
-		if charm.IsMissingSeriesError(err) && len(s.supportedSeries) > 0 {
-			return "", errors.NotSupportedf("the charm supported series %q are deprecated", strings.Join(s.supportedSeries, ", "))
+		if corecharm.IsMissingSeriesError(err) && len(s.supportedSeries) > 0 {
+			return "", errors.NotSupportedf("the charm defined series %q", strings.Join(s.supportedSeries, ", "))
 		}
 
 		// We know err is not nil due to above, so return the error
@@ -128,10 +129,15 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 // is supported, or if they used --force.
 func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 	// TODO(sidecar): handle computed series
-	series, err := charm.SeriesForCharm(requestedSeries, s.supportedSeries)
+	series, err := corecharm.SeriesForCharm(requestedSeries, s.supportedSeries)
 	if s.force {
 		series = requestedSeries
 	} else if err != nil {
+		if corecharm.IsUnsupportedSeriesError(err) {
+			if !s.supportedJujuSeries.Contains(requestedSeries) {
+				return "", errors.NotSupportedf("series: %s", requestedSeries)
+			}
+		}
 		return "", err
 	}
 
