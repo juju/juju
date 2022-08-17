@@ -181,7 +181,7 @@ def storage_pool_list(client):
 
 def create_storage_charm(charm_dir, name, summary, storage):
     """Manually create a temporary charm to test with storage."""
-    storage_charm = Charm(name, summary, storage=storage, series=['bionic'])
+    storage_charm = Charm(name, summary, storage=storage, series=['jammy'])
     # Valid charms require at least one hook.
     # Add a dummy install hook.
     install = '#!/bin/sh\necho install'
@@ -383,7 +383,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Storage Feature")
     add_basic_testing_arguments(parser)
-    parser.set_defaults(series='bionic')
+    parser.set_defaults(series='jammy')
     return parser.parse_args(argv)
 
 

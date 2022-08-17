@@ -574,7 +574,7 @@ def parse_args(argv):
                         help='Test under maas')
     parser.set_defaults(maas=False)
     parser.set_defaults(reboot=False)
-    parser.set_defaults(series='bionic')
+    parser.set_defaults(series='jammy')
     return parser.parse_args(argv)
 
 

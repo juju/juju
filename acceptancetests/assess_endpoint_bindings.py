@@ -221,21 +221,21 @@ def create_test_charms():
             "0": {
                 "constraints": "spaces={},^{}".format(
                     space_data, space_public),
-                "series": "bionic",
+                "series": "jammy",
             },
             "1": {
                 "constraints": "spaces={},{}".format(space_data, space_public),
-                "series": "bionic",
+                "series": "jammy",
             },
             "2": {
                 "constraints": "spaces={},{}".format(space_data, space_public),
-                "series": "bionic",
+                "series": "jammy",
             },
         },
         "services": {
             "datastore": {
-                "charm": "./bionic/datastore",
-                "series": "bionic",
+                "charm": "./jammy/datastore",
+                "series": "jammy",
                 "num_units": 1,
                 "to": ["0"],
                 "bindings": {
@@ -243,8 +243,8 @@ def create_test_charms():
                 },
             },
             "frontend": {
-                "charm": "./bionic/frontend",
-                "series": "bionic",
+                "charm": "./jammy/frontend",
+                "series": "jammy",
                 "num_units": 1,
                 "to": ["1"],
                 "bindings": {
@@ -253,8 +253,8 @@ def create_test_charms():
                 },
             },
             "monitor": {
-                "charm": "./bionic/datastore",
-                "series": "bionic",
+                "charm": "./jammy/datastore",
+                "series": "jammy",
                 "num_units": 1,
                 "to": ["2"],
                 "bindings": {

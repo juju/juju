@@ -111,7 +111,7 @@ def assert_keystone_is_responding(client):
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None, series='bionic', constraints=None):
+        client, model_name, resource_contents=None, series='jammy', constraints=None):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
@@ -138,7 +138,7 @@ def deploy_simple_server_to_new_model(
 
 
 def deploy_simple_resource_server(
-        client, resource_contents=None, series='bionic'):
+        client, resource_contents=None, series='jammy'):
     application_name = 'simple-resource-http'
     log.info('Deploying charm: {}'.format(application_name))
     charm_path = local_charm_path(
