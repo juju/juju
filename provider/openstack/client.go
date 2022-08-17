@@ -130,7 +130,7 @@ func (c *ClientFactory) Init() error {
 	return nil
 }
 
-// AuthClient returns an goose AuthenticatingClient.
+// AuthClient returns a goose AuthenticatingClient.
 func (c *ClientFactory) AuthClient() client.AuthenticatingClient {
 	return c.authClient
 }
@@ -158,10 +158,16 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
+	// TODO(benhoyt): I think what's happening is this is returning
+	// identity.AuthUserPass (because they're only providing username+password),
+	// and then the newClientV3.Authenticate() call in the "if" block below is
+	// return an error, so we silently fall back to the v2 client.
 	cred, authMode, err := newCredentials(c.spec)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create credential")
 	}
+	logger.Criticalf("TODO getClientState, iCV=%d cred=%#v, authMode=%v",
+		identityClientVersion, cred, authMode)
 
 	// Create a new fallback client using the existing authMode.
 	newClient, _ := c.getClientByAuthMode(authMode, cred, options...)
@@ -169,13 +175,14 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 	// Before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
 	if authMode == identity.AuthUserPass && (identityClientVersion == -1 || identityClientVersion == 3) {
+		logger.Criticalf("TODO trying v3 client")
 		authOptions, err := newClient.IdentityAuthOptions()
 		if err != nil {
 			logger.Errorf("cannot determine available auth versions %v", err)
 		}
 
 		// Walk over the options to verify if the AuthUserPassV3 exists, if it
-		// does exist use that to attempt authenticate.
+		// does exist use that to attempt authentication.
 		var authOption *identity.AuthOption
 		for _, option := range authOptions {
 			if option.Mode == identity.AuthUserPassV3 {
@@ -186,6 +193,8 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 
 		// No AuthUserPassV3 found, exit early as no additional work is
 		// required.
+		logger.Criticalf("TODO getClientState, authOptions=%v, authOption=%v",
+			authOptions, authOption)
 		if authOption == nil {
 			return newClient, nil
 		}
@@ -199,12 +208,17 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		logger.Criticalf("TODO got v3 client")
 
 		// If the AuthUserPassV3 client can authenticate, use it.
 		// Otherwise fallback to the v2 client.
 		if err = newClientV3.Authenticate(); err == nil {
+			logger.Criticalf("TODO authenticated v3 client")
 			return newClientV3, nil
 		}
+		logger.Criticalf("TODO didn't authenticate v3 client, falling back!")
+	} else {
+		logger.Criticalf("TODO not using v3 client")
 	}
 	return newClient, nil
 }

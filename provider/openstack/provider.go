@@ -220,7 +220,7 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking,
 // DetectRegions implements environs.CloudRegionDetector.
 func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	// If OS_REGION_NAME and OS_AUTH_URL are both set,
-	// return return a region using them.
+	// return a region using them.
 	creds, err := identity.CredentialsFromEnv()
 	if err != nil {
 		return nil, errors.Errorf("failed to retrieve credential from env : %v", err)
@@ -813,6 +813,7 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		TenantName: credAttrs[CredAttrTenantName],
 		TenantID:   credAttrs[CredAttrTenantID],
 	}
+	logger.Criticalf("TODO newCredentials, attrs = %v", credAttrs)
 
 	// AuthType is validated when the environment is opened, so it's known
 	// to be one of these values.
