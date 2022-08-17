@@ -13,7 +13,7 @@ import (
 )
 
 type SecretRevokeSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&SecretRevokeSuite{})
@@ -34,6 +34,9 @@ func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *gc.C) {
 		}, {
 			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--app", "0/foo"},
 			err:  `ERROR application "0/foo" not valid`,
+		}, {
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--app", "foo", "--unit", "foo/0"},
+			err:  `ERROR specify only one of application or unit`,
 		}, {
 			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--unit", "foo"},
 			err:  `ERROR unit "foo" not valid`,
@@ -59,34 +62,50 @@ func (s *SecretRevokeSuite) TestRevokeSecretForApp(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
-		"secret:9m4e2mr0ui3e8a215n4g", "--app", "foo",
+		"secret:9m4e2mr0ui3e8a215n4g", "--app", "mediawiki",
 	})
 
 	c.Assert(code, gc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
-		ApplicationName: ptr("foo"),
+		ApplicationName: ptr("mediawiki"),
 	}
 	s.Stub.CheckCallNames(c, "HookRelation", "RevokeSecret")
 	s.Stub.CheckCall(c, 1, "RevokeSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
 }
 
 func (s *SecretRevokeSuite) TestRevokeSecretForRelation(c *gc.C) {
-	hctx, info := s.ContextSuite.NewHookContext()
-	info.SetNewRelation(1, "db", s.Stub)
-	info.SetAsRelationHook(1, "mediawiki/0")
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-revoke")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
-		"secret:9m4e2mr0ui3e8a215n4g", "--relation", "1",
+		"secret:9m4e2mr0ui3e8a215n4g", "--relation", "db:1",
 	})
 
 	c.Assert(code, gc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: ptr("mediawiki"),
-		RelationKey:     ptr("wordpress:db mediawiki:db"),
 	}
-	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "RemoteApplicationName", "RemoteUnitName", "RevokeSecret")
-	s.Stub.CheckCall(c, 8, "RevokeSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
+	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RemoteApplicationName", "RevokeSecret")
+	s.Stub.CheckCall(c, 6, "RevokeSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
+}
+
+func (s *SecretRevokeSuite) TestRevokeSecretForRelationUnit(c *gc.C) {
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
+
+	com, err := jujuc.NewCommand(hctx, "secret-revoke")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
+		"secret:9m4e2mr0ui3e8a215n4g", "--relation", "db:1", "--unit", "mediawiki/0",
+	})
+
+	c.Assert(code, gc.Equals, 0)
+	args := &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: ptr("mediawiki"),
+		UnitName:        ptr("mediawiki/0"),
+	}
+	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RemoteApplicationName", "RevokeSecret")
+	s.Stub.CheckCall(c, 6, "RevokeSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
 }

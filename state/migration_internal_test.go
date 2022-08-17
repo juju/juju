@@ -43,7 +43,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
 		payloadsC,
-		"resources",
+		resourcesC,
 
 		// relation
 		relationsC,
@@ -220,6 +220,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		secretRevisionsC,
 		secretConsumersC,
 		secretRotateC,
+		secretPermissionsC,
 	)
 
 	modelCollections := set.NewStrings()

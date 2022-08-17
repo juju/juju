@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
@@ -63,22 +62,13 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsRotationService = mocks.NewMockSecretsRotation(ctrl)
 	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
 	s.authTag = names.NewUnitTag("mariadb/0")
-	accessSecret := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			appName, _ := names.UnitApplication(s.authTag.Id())
-			return tag.Id() == appName
-		}, nil
-	}
-	canRead := func(consumer names.Tag, uri *coresecrets.URI) bool {
-		return consumer.String() == s.authTag.String()
-	}
 	s.expectAuthUnitAgent()
 
 	s.clock = testclock.NewClock(time.Now())
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
 		s.authorizer, s.resources, s.secretsService, s.secretsConsumer, s.secretsRotationService,
-		accessSecret, canRead, s.authTag, s.clock)
+		s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -86,6 +76,23 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 func (s *SecretsManagerSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
+}
+
+func (s *SecretsManagerSuite) expectSecretAccessQuery(n int) {
+	s.secretsConsumer.EXPECT().SecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(uri *coresecrets.URI, entity names.Tag) (coresecrets.SecretRole, error) {
+			if entity.String() == s.authTag.String() {
+				return coresecrets.RoleView, nil
+			}
+			if s.authTag.Kind() == names.UnitTagKind {
+				appName, _ := names.UnitApplication(s.authTag.Id())
+				if entity.Id() == appName {
+					return coresecrets.RoleManage, nil
+				}
+			}
+			return coresecrets.RoleNone, errors.NotFoundf("role")
+		},
+	).Times(n)
 }
 
 func ptr[T any](v T) *T {
@@ -111,6 +118,8 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	var gotURI *coresecrets.URI
 	s.secretsService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
 		func(_ context.Context, uri *coresecrets.URI, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
+			ownerTag := names.NewApplicationTag("mariadb")
+			s.secretsConsumer.EXPECT().GrantSecretAccess(uri, ownerTag, ownerTag, coresecrets.RoleManage).Return(nil)
 			gotURI = uri
 			md := &coresecrets.SecretMetadata{
 				URI:      uri,
@@ -169,8 +178,6 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	expectURI.ControllerUUID = coretesting.ControllerTag.Id()
-	s.secretsService.EXPECT().GetSecret(gomock.Any(), &expectURI).Return(
-		&coresecrets.SecretMetadata{OwnerTag: "application-mariadb"}, nil)
 	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).DoAndReturn(
 		func(_ context.Context, uri *coresecrets.URI, p secrets.UpsertParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
@@ -180,6 +187,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 			return md, nil
 		},
 	)
+	s.expectSecretAccessQuery(1)
 	uri1 := *uri
 	uri1.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
 
@@ -228,6 +236,7 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 	uri2.ControllerUUID = coretesting.ControllerTag.Id()
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri2, "unit-mariadb-0").Return(
 		nil, errors.NotFoundf("secret"))
+	s.expectSecretAccessQuery(2)
 	s.secretsService.EXPECT().GetSecret(
 		gomock.Any(), uri2).Return(&coresecrets.SecretMetadata{Revision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
@@ -268,6 +277,7 @@ func (s *SecretsManagerSuite) TestGetSecretValuesExplicitUUIDs(c *gc.C) {
 	uri.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
 	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, "unit-mariadb-0").Return(
 		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666}, nil)
+	s.expectSecretAccessQuery(1)
 	s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(
 		val, nil,
 	)
@@ -390,6 +400,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSecretAccessQuery(2)
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	subjectTag := names.NewUnitTag("wordpress/0")
@@ -397,7 +408,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag: "application-mariadb",
 	}, nil).AnyTimes()
-	s.secretsConsumer.EXPECT().GrantSecret(uri, scopeTag, subjectTag, coresecrets.RoleView).Return(errors.New("boom"))
+	s.secretsConsumer.EXPECT().GrantSecretAccess(uri, scopeTag, subjectTag, coresecrets.RoleView).Return(errors.New("boom"))
 
 	result, err := s.facade.SecretsGrant(params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{
@@ -427,6 +438,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSecretAccessQuery(2)
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	subjectTag := names.NewUnitTag("wordpress/0")
@@ -434,7 +446,7 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag: "application-mariadb",
 	}, nil).AnyTimes()
-	s.secretsConsumer.EXPECT().RevokeSecret(uri, scopeTag, subjectTag).Return(errors.New("boom"))
+	s.secretsConsumer.EXPECT().RevokeSecretAccess(uri, subjectTag).Return(errors.New("boom"))
 
 	result, err := s.facade.SecretsRevoke(params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/secrets"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -3203,6 +3204,32 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 
 	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
 	assertLife(c, machine, state.Dying)
+}
+
+func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
+	store := state.NewSecretsStore(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.GrantSecretAccess(uri, s.mysql.Tag(), s.mysql.Tag(), secrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.SecretAccess(uri, s.mysql.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleView)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	access, err = s.State.SecretAccess(uri, s.mysql.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleNone)
 }
 
 func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {

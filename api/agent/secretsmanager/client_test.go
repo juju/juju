@@ -235,20 +235,26 @@ func (s *SecretsSuite) GetLatestSecretsRevisionInfo(c *gc.C) {
 		c.Check(request, gc.Equals, "GetLatestSecretsRevisionInfo")
 		c.Check(arg, jc.DeepEquals, params.GetSecretConsumerInfoArgs{
 			ConsumerTag: "unit-foo-0",
-			URIs:        []string{"secret:9m4e2mr0ui3e8a215n4g"},
+			URIs: []string{
+				"secret:9m4e2mr0ui3e8a215n4g", "secret:8n3e2mr0ui3e8a215n5h", "secret:7c5e2mr0ui3e8a2154r2"},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretConsumerInfoResults{})
 		*(result.(*params.SecretConsumerInfoResults)) = params.SecretConsumerInfoResults{
 			Results: []params.SecretConsumerInfoResult{{
 				Revision: 666,
 				Label:    "foobar",
+			}, {
+				Error: &params.Error{Code: params.CodeUnauthorized},
+			}, {
+				Error: &params.Error{Code: params.CodeNotFound},
 			}},
 		}
 		return nil
 	})
 	var info map[string]secretsmanager.SecretRevisionInfo
 	client := secretsmanager.NewClient(apiCaller)
-	info, err := client.GetLatestSecretsRevisionInfo("foo-0", []string{"secret:9m4e2mr0ui3e8a215n4g"})
+	info, err := client.GetLatestSecretsRevisionInfo("foo-0", []string{
+		"secret:9m4e2mr0ui3e8a215n4g", "secret:8n3e2mr0ui3e8a215n5h", "secret:7c5e2mr0ui3e8a2154r2"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{})
 }

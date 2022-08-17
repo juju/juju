@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -478,6 +479,91 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	md2, err := s.State.GetSecretConsumer(uri, "unit-mariadb-0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
+}
+
+func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
+	uri := secrets.NewURI()
+	subject := names.NewApplicationTag("wordpress")
+	rel := s.Factory.MakeRelation(c, nil)
+	err := s.State.GrantSecretAccess(uri, rel.Tag(), subject, secrets.RoleView)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.GrantSecretAccess(uri, rel.Tag(), subject, secrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.SecretAccess(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleView)
+}
+
+func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel := s.Factory.MakeRelation(c, nil)
+	// Ensure destroy only sets relation to dying.
+	wordpress, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = rel.DestroyWithForce(true, time.Second)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subject := names.NewApplicationTag("wordpress")
+	err = s.State.GrantSecretAccess(uri, rel.Tag(), subject, secrets.RoleView)
+	c.Assert(err, gc.ErrorMatches, `cannot grant access to secret in scope of "relation-wordpress.db#mysql.server" which is not alive`)
+}
+
+func (s *SecretsSuite) TestSecretRevokeAccess(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subject := names.NewApplicationTag("wordpress")
+	rel := s.Factory.MakeRelation(c, nil)
+	err = s.State.GrantSecretAccess(uri, rel.Tag(), subject, secrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.SecretAccess(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleView)
+
+	err = s.State.RevokeSecretAccess(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	access, err = s.State.SecretAccess(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleNone)
+
+	err = s.State.RevokeSecretAccess(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SecretsSuite) TestSecretRotated(c *gc.C) {

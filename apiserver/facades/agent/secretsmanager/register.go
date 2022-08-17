@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -29,14 +28,6 @@ func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	// Work out the app name associated with the agent since this is
-	// the secret owner for newly created secrets.
-	agentTag := context.Auth().GetAuthTag()
-	agentAppName := agentTag.Id()
-	if agentTag.Kind() == names.UnitTagKind {
-		agentAppName, _ = names.UnitApplication(agentAppName)
-	}
-
 	// For now we just support the Juju secrets provider.
 	service, err := provider.NewSecretProvider(juju.Provider, secrets.ProviderConfig{
 		juju.ParamBackend: context.State(),
@@ -52,8 +43,6 @@ func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		resources:       context.Resources(),
 		secretsRotation: context.State(),
 		secretsConsumer: context.State(),
-		manageSecret:    secretOwner(agentAppName),
-		canRead:         canReadSecret(context.Auth()),
 		clock:           clock.WallClock,
 	}, nil
 }

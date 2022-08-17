@@ -175,7 +175,11 @@ func (c *Client) GetLatestSecretsRevisionInfo(unitName string, uris []string) (m
 	}
 	info := make(map[string]SecretRevisionInfo)
 	for i, latest := range results.Results {
-		if err := results.Results[i].Error; err != nil && err.Code != params.CodeNotFound {
+		if err := results.Results[i].Error; err != nil {
+			// If deleted or now unauthorised, do not report any info for this url.
+			if err.Code == params.CodeNotFound || err.Code == params.CodeUnauthorized {
+				continue
+			}
 			return nil, errors.Annotatef(err, "finding latest info for secret %q", uris[i])
 		}
 		info[uris[i]] = SecretRevisionInfo{

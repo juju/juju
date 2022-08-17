@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -25,9 +24,6 @@ type SecretsManagerAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	manageSecret common.GetAuthFunc
-	canRead      canReadSecretFunc
-
 	secretsService  secrets.SecretsService
 	resources       facade.Resources
 	secretsRotation SecretsRotation
@@ -38,23 +34,19 @@ type SecretsManagerAPI struct {
 
 // CreateSecrets creates new secrets.
 func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringResults, error) {
-	canManage, err := s.manageSecret()
-	if err != nil {
-		return params.StringResults{}, err
-	}
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
 	ctx := context.Background()
 	for i, arg := range args.Args {
-		ID, err := s.createSecret(ctx, arg, canManage)
+		ID, err := s.createSecret(ctx, arg)
 		result.Results[i].Result = ID
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg, canManage common.AuthFunc) (string, error) {
+func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
 	if len(arg.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
@@ -63,7 +55,9 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if !canManage(secretOwner) {
+	// A unit can create a secret so long as the
+	// secret owner is that unit's app.
+	if authTagApp(s.authTag) != secretOwner.Id() {
 		return "", apiservererrors.ErrPerm
 	}
 	uri := coresecrets.NewURI()
@@ -74,6 +68,11 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	})
 	if err != nil {
 		return "", errors.Trace(err)
+	}
+	err = s.secretsConsumer.GrantSecretAccess(uri, secretOwner, secretOwner, coresecrets.RoleManage)
+	if err != nil {
+		// TODO(wallyworld) - remove secret when that is supported
+		return "", errors.Annotate(err, "granting secret owner permission to manage the secret")
 	}
 	return md.URI.ShortString(), nil
 }
@@ -99,22 +98,18 @@ func fromUpsertParams(clock clock.Clock, p params.UpsertSecretArg) secrets.Upser
 
 // UpdateSecrets updates the specified secrets.
 func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.ErrorResults, error) {
-	canManage, err := s.manageSecret()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	ctx := context.Background()
 	for i, arg := range args.Args {
-		err := s.updateSecret(ctx, arg, canManage)
+		err := s.updateSecret(ctx, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg, canManage common.AuthFunc) error {
+func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)
@@ -127,15 +122,7 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 		return errors.New("at least one attribute to update must be specified")
 	}
 	uri.ControllerUUID = s.controllerUUID
-	md, err := s.secretsService.GetSecret(ctx, uri)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	secretOwner, err := names.ParseTag(md.OwnerTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canManage(secretOwner) {
+	if !s.canManage(uri, s.authTag) {
 		return apiservererrors.ErrPerm
 	}
 	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(s.clock, arg.UpsertSecretArg))
@@ -173,7 +160,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if uri.ControllerUUID == "" {
 		uri.ControllerUUID = s.controllerUUID
 	}
-	if !s.canRead(consumerTag, uri) {
+	if !s.canRead(uri, consumerTag) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return s.secretsConsumer.GetSecretConsumer(uri, consumerTag.String())
@@ -201,7 +188,7 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 	if uri.ControllerUUID == "" {
 		uri.ControllerUUID = s.controllerUUID
 	}
-	if !s.canRead(s.authTag, uri) {
+	if !s.canRead(uri, s.authTag) {
 		return nil, apiservererrors.ErrPerm
 	}
 	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag.String())
@@ -279,17 +266,12 @@ func (s *SecretsManagerAPI) WatchSecretsChanges(args params.Entities) (params.St
 
 // WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config.
 func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (params.SecretRotationWatchResults, error) {
-	canAccess, err := s.manageSecret()
-	if err != nil {
-		return params.SecretRotationWatchResults{}, err
-	}
-
 	results := params.SecretRotationWatchResults{
 		Results: make([]params.SecretRotationWatchResult, len(args.Entities)),
 	}
 	one := func(arg params.Entity) (string, []params.SecretRotationChange, error) {
 		ownerTag, err := names.ParseTag(arg.Tag)
-		if err != nil || !canAccess(ownerTag) {
+		if err != nil || authTagApp(s.authTag) != ownerTag.Id() {
 			return "", nil, apiservererrors.ErrPerm
 		}
 		w := s.secretsRotation.WatchSecretsRotationChanges(ownerTag.String())
@@ -322,11 +304,6 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 
 // SecretsRotated records when secrets were last rotated.
 func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (params.ErrorResults, error) {
-	canAccess, err := s.manageSecret()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -345,7 +322,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !canAccess(owner) {
+		if authTagApp(s.authTag) != owner.Id() {
 			return apiservererrors.ErrPerm
 		}
 		return s.secretsRotation.SecretRotated(uri, arg.When)
@@ -362,46 +339,36 @@ type grantRevokeFunc func(*coresecrets.URI, names.Tag, names.Tag, coresecrets.Se
 
 // SecretsGrant grants access to a secret for the specified subjects.
 func (s *SecretsManagerAPI) SecretsGrant(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return s.secretsGrantRevoke(args, s.secretsConsumer.GrantSecret)
+	return s.secretsGrantRevoke(args, s.secretsConsumer.GrantSecretAccess)
 }
 
 // SecretsRevoke revokes access to a secret for the specified subjects.
 func (s *SecretsManagerAPI) SecretsRevoke(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return s.secretsGrantRevoke(args, func(uri *coresecrets.URI, scope, subject names.Tag, _ coresecrets.SecretRole) error {
-		return s.secretsConsumer.RevokeSecret(uri, scope, subject)
+	return s.secretsGrantRevoke(args, func(uri *coresecrets.URI, _, subject names.Tag, _ coresecrets.SecretRole) error {
+		return s.secretsConsumer.RevokeSecretAccess(uri, subject)
 	})
 }
 
 func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
-	canAccess, err := s.manageSecret()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	ctx := context.Background()
 	one := func(arg params.GrantRevokeSecretArg) error {
 		uri, err := coresecrets.ParseURI(arg.URI)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		uri.ControllerUUID = s.controllerUUID
-		md, err := s.secretsService.GetSecret(ctx, uri)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		owner, err := names.ParseTag(md.OwnerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !canAccess(owner) {
+		if !s.canManage(uri, s.authTag) {
 			return apiservererrors.ErrPerm
 		}
-		scopeTag, err := names.ParseTag(arg.ScopeTag)
-		if err != nil {
-			return errors.Trace(err)
+		var scopeTag names.Tag
+		if arg.ScopeTag != "" {
+			var err error
+			scopeTag, err = names.ParseTag(arg.ScopeTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		role := coresecrets.SecretRole(arg.Role)
 		if role != "" && !role.IsValid() {

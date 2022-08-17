@@ -565,6 +565,12 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
+		secretPermissionsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"subject-tag", "scope-tag"},
+			}},
+		},
+
 		secretRotateC: {
 			global: true,
 			indexes: []mgo.Index{{
@@ -682,8 +688,9 @@ const (
 	firewallRulesC       = "firewallRules"
 
 	// Secrets
-	secretMetadataC  = "secretMetadata"
-	secretRevisionsC = "secretRevisions"
-	secretConsumersC = "secretConsumers"
-	secretRotateC    = "secretRotate"
+	secretMetadataC    = "secretMetadata"
+	secretRevisionsC   = "secretRevisions"
+	secretConsumersC   = "secretConsumers"
+	secretPermissionsC = "secretPermissions"
+	secretRotateC      = "secretRotate"
 )
