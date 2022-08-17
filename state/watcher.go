@@ -2422,6 +2422,7 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 				return tomb.ErrDying
 			}
 			// TODO(quiescence): reimplement quiescence
+			// increment the number of notifications to send.
 			n++
 			out = w.out
 		case out <- struct{}{}:
