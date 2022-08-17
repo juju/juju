@@ -543,7 +543,7 @@ def deploy_job():
     series = args.series
     if not args.logs:
         args.logs = generate_default_clean_dir(args.temp_env_name)
-    if series is None:
+    if not series:
         series = 'jammy'
     charm_series = series
     # Don't need windows or centos state servers.
