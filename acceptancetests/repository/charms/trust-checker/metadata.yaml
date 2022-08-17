@@ -9,5 +9,6 @@ description: |
     juju trust trust-checker
     juju trust trust-checker --remove
 series:
+  - jammy
   - bionic
   - xenial

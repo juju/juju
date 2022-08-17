@@ -13,6 +13,7 @@ series:
   - bionic
   - eoan
   - focal
+  - jammy
 
 storage:
   single-fs:
