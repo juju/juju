@@ -25,11 +25,16 @@ type CreateParams struct {
 	ProviderLabel string
 	Version       int
 	Owner         string
+	Scope         string
 }
 
 // Validate returns an error if params are invalid.
 func (p *CreateParams) Validate() error {
 	_, err := names.ParseTag(p.Owner)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = names.ParseTag(p.Scope)
 	if err != nil {
 		return errors.Trace(err)
 	}

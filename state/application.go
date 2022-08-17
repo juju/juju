@@ -344,6 +344,9 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 			}
 			op.AddError(errors.Errorf("force erase application %q history proceeded despite encountering ERROR %v", op.app, err))
 		}
+		if err := op.deleteSecrets(); err != nil {
+			logger.Errorf("cannot delete secrets for application %q: %v", op.app, err)
+		}
 		return nil
 	}
 	connected, err2 := applicationHasConnectedOffers(op.app.st, op.app.Name())
@@ -375,6 +378,29 @@ func (op *DestroyApplicationOperation) eraseHistory() error {
 		one := errors.Annotate(err, "application")
 		if op.FatalError(one) {
 			return one
+		}
+	}
+	return nil
+}
+
+func (op *DestroyApplicationOperation) deleteSecrets() error {
+	scopedURIs, err := op.app.st.referencedSecrets(op.app.Tag(), "scope-tag")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	store := NewSecretsStore(op.app.st)
+	for _, uri := range scopedURIs {
+		if err := store.DeleteSecret(uri); err != nil {
+			return errors.Annotatef(err, "deleting referenced secret %q", uri.ShortString())
+		}
+	}
+	ownedURIs, err := op.app.st.referencedSecrets(op.app.Tag(), "owner-tag")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, uri := range ownedURIs {
+		if err := store.DeleteSecret(uri); err != nil {
+			return errors.Annotatef(err, "deleting owned secret %q", uri.ShortString())
 		}
 	}
 	return nil

@@ -161,6 +161,42 @@ func (s *SecretsSuite) TestUpdateSecretsError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *SecretsSuite) TestRemoveSecret(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "RemoveSecrets")
+		c.Check(arg, jc.DeepEquals, params.SecretURIArgs{
+			Args: []params.SecretURIArg{{
+				URI: "secret:9m4e2mr0ui3e8a215n4g",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Remove("secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestRemoveSecretsError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Remove("secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")

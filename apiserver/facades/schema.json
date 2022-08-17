@@ -38480,6 +38480,9 @@
                         "rotate-policy": {
                             "type": "string"
                         },
+                        "scope-tag": {
+                            "type": "string"
+                        },
                         "update-time": {
                             "type": "string",
                             "format": "date-time"
@@ -38499,6 +38502,7 @@
                         "uri",
                         "version",
                         "owner-tag",
+                        "scope-tag",
                         "provider",
                         "revision",
                         "create-time",
@@ -38600,6 +38604,18 @@
                         }
                     },
                     "description": "GetSecretValues returns the secret values for the specified secrets."
+                },
+                "RemoveSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretURIArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RemoveSecrets removes the specified secrets."
                 },
                 "SecretsGrant": {
                     "type": "object",
@@ -38713,12 +38729,16 @@
                         },
                         "rotate-policy": {
                             "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "UpsertSecretArg",
-                        "owner-tag"
+                        "owner-tag",
+                        "scope-tag"
                     ]
                 },
                 "CreateSecretArgs": {
@@ -39031,6 +39051,33 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SecretURIArg": {
+                    "type": "object",
+                    "properties": {
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "SecretURIArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretURIArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "SecretValueResult": {

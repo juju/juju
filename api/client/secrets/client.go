@@ -46,6 +46,7 @@ func (api *Client) ListSecrets(showSecrets bool) ([]SecretDetails, error) {
 			Metadata: secrets.SecretMetadata{
 				Version:        r.Version,
 				OwnerTag:       r.OwnerTag,
+				ScopeTag:       r.ScopeTag,
 				Provider:       r.Provider,
 				ProviderID:     r.ProviderID,
 				Description:    r.Description,

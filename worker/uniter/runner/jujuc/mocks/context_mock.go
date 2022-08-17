@@ -587,6 +587,20 @@ func (mr *MockContextMockRecorder) RemoteUnitName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteUnitName", reflect.TypeOf((*MockContext)(nil).RemoteUnitName))
 }
 
+// RemoveSecret mocks base method.
+func (m *MockContext) RemoveSecret(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveSecret", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveSecret indicates an expected call of RemoveSecret.
+func (mr *MockContextMockRecorder) RemoveSecret(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockContext)(nil).RemoveSecret), arg0)
+}
+
 // RequestReboot mocks base method.
 func (m *MockContext) RequestReboot(arg0 jujuc.RebootPriority) error {
 	m.ctrl.T.Helper()

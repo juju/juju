@@ -44,6 +44,7 @@ func (s secretsService) CreateSecret(ctx context.Context, uri *coresecrets.URI, 
 		ProviderLabel: Provider,
 		Version:       p.Version,
 		Owner:         p.Owner,
+		Scope:         p.Scope,
 		UpdateSecretParams: state.UpdateSecretParams{
 			RotatePolicy:   p.RotatePolicy,
 			NextRotateTime: p.NextRotateTime,
@@ -95,9 +96,7 @@ func (s secretsService) UpdateSecret(ctx context.Context, uri *coresecrets.URI, 
 	return metadata, nil
 }
 
-// TODO(wallyworld)
-
 // DeleteSecret implements SecretsService.
 func (s secretsService) DeleteSecret(ctx context.Context, uri *coresecrets.URI) error {
-	return errors.NotImplementedf("DeleteSecret")
+	return s.backend.DeleteSecret(uri)
 }

@@ -33,6 +33,12 @@ func (c *ContextSecrets) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) 
 	return nil
 }
 
+// RemoveSecret implements jujuc.ContextSecrets.
+func (c *ContextSecrets) RemoveSecret(uri string) error {
+	c.stub.AddCall("RemoveSecret", uri)
+	return nil
+}
+
 // GrantSecret implements jujuc.ContextSecrets.
 func (c *ContextSecrets) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
 	c.stub.AddCall("GrantSecret", uri, args)

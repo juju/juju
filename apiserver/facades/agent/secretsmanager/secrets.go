@@ -61,9 +61,14 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 		return "", apiservererrors.ErrPerm
 	}
 	uri := coresecrets.NewURI()
+	scope := arg.ScopeTag
+	if scope == "" {
+		scope = arg.OwnerTag
+	}
 	md, err := s.secretsService.CreateSecret(ctx, uri, secrets.CreateParams{
 		Version:      secrets.Version,
 		Owner:        arg.OwnerTag,
+		Scope:        scope,
 		UpsertParams: fromUpsertParams(s.clock, arg.UpsertSecretArg),
 	})
 	if err != nil {
@@ -127,6 +132,34 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	}
 	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(s.clock, arg.UpsertSecretArg))
 	return errors.Trace(err)
+}
+
+// RemoveSecrets removes the specified secrets.
+func (s *SecretsManagerAPI) RemoveSecrets(args params.SecretURIArgs) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	ctx := context.Background()
+	for i, arg := range args.Args {
+		err := s.removeSecret(ctx, arg)
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *SecretsManagerAPI) removeSecret(ctx context.Context, arg params.SecretURIArg) error {
+	uri, err := coresecrets.ParseURI(arg.URI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if uri.ControllerUUID != "" && uri.ControllerUUID != s.controllerUUID {
+		return errors.NotValidf("secret URI with controller UUID %q", uri.ControllerUUID)
+	}
+	uri.ControllerUUID = s.controllerUUID
+	if !s.canManage(uri, s.authTag) {
+		return apiservererrors.ErrPerm
+	}
+	return s.secretsService.DeleteSecret(ctx, uri)
 }
 
 // GetLatestSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
