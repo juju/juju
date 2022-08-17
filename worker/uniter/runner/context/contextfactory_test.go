@@ -518,7 +518,7 @@ func (s *ContextFactorySuite) TestHookContextCAASNilPodSpecNilRawPodSpecButUpgra
 	appTag := names.NewApplicationTag(appName)
 	w, err := cm.WatchPodSpec(appTag)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange() // initial event.
 
 	// No change for non upgrade-hook.

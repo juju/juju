@@ -52,7 +52,7 @@ func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 
 	w, err := s.facade.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.state.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

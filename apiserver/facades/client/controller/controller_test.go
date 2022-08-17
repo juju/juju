@@ -449,8 +449,6 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		st.ModelUUID():      "2.6.667",
 	}
 
-	s.State.StartSync()
-
 	for resultCount := 0; resultCount != 2; {
 		select {
 		case result := <-resultC:

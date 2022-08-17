@@ -639,7 +639,6 @@ func (s waitUniterDead) waitDead(c *gc.C, ctx *testContext) error {
 		wait <- u.Wait()
 	}()
 
-	ctx.s.BackingState.StartSync()
 	select {
 	case err := <-wait:
 		return err
@@ -799,7 +798,7 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 	}
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-time.After(coretesting.ShortWait):
 			err := ctx.unit.Refresh()
@@ -869,7 +868,7 @@ type waitHooks []string
 func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		ctx.s.BackingState.StartSync()
+
 		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
@@ -908,7 +907,6 @@ func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	}
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, cannotMatch, _ = ctx.matchHooks(c); match {
@@ -1282,7 +1280,7 @@ type waitSubordinateExists struct {
 func (s waitSubordinateExists) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not created")
@@ -1303,7 +1301,7 @@ type waitSubordinateDying struct{}
 func (waitSubordinateDying) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not made Dying")
@@ -1559,7 +1557,6 @@ func (s setLeaderSettings) step(c *gc.C, ctx *testContext) {
 	// about getting an API conn for whatever unit's meant to be leader.
 	err := ctx.application.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.s.BackingState.StartSync()
 }
 
 type successToken struct{}

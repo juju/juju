@@ -55,28 +55,22 @@ func (w *MockNotifyWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func NewNotifyWatcherC(c *gc.C, watcher watcher.NotifyWatcher, preAssert func()) NotifyWatcherC {
-	if preAssert == nil {
-		preAssert = func() {}
-	}
+func NewNotifyWatcherC(c *gc.C, watcher watcher.NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
-		C:         c,
-		Watcher:   watcher,
-		PreAssert: preAssert,
+		C:       c,
+		Watcher: watcher,
 	}
 }
 
 type NotifyWatcherC struct {
 	*gc.C
-	Watcher   watcher.NotifyWatcher
-	PreAssert func()
+	Watcher watcher.NotifyWatcher
 }
 
 // AssertOneChange fails if no change is sent before a long time has passed; or
 // if, subsequent to that, any further change is sent before a short time has
 // passed.
 func (c NotifyWatcherC) AssertOneChange() {
-	c.PreAssert()
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, jc.IsTrue)
@@ -89,7 +83,6 @@ func (c NotifyWatcherC) AssertOneChange() {
 // AssertNoChange fails if it manages to read a value from Changes before a
 // short time has passed.
 func (c NotifyWatcherC) AssertNoChange() {
-	c.PreAssert()
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -101,7 +94,6 @@ func (c NotifyWatcherC) assertStops(changesClosed bool) {
 	c.Watcher.Kill()
 	wait := make(chan error)
 	go func() {
-		c.PreAssert()
 		wait <- c.Watcher.Wait()
 	}()
 	select {
@@ -111,7 +103,6 @@ func (c NotifyWatcherC) assertStops(changesClosed bool) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.PreAssert()
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		if ok || !changesClosed {

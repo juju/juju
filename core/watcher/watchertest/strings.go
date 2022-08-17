@@ -56,28 +56,22 @@ func (w *MockStringsWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher, preAssert func()) StringsWatcherC {
-	if preAssert == nil {
-		preAssert = func() {}
-	}
+func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher) StringsWatcherC {
 	return StringsWatcherC{
-		C:         c,
-		Watcher:   watcher,
-		PreAssert: preAssert,
+		C:       c,
+		Watcher: watcher,
 	}
 }
 
 type StringsWatcherC struct {
 	*gc.C
-	Watcher   watcher.StringsWatcher
-	PreAssert func()
+	Watcher watcher.StringsWatcher
 }
 
 // AssertChanges fails if it cannot read a value from Changes despite waiting a
 // long time. It logs, but does not check, the received changes; but will fail
 // if the Changes chan is closed.
 func (c StringsWatcherC) AssertChanges() {
-	c.PreAssert()
 	select {
 	case change, ok := <-c.Watcher.Changes():
 		c.Logf("received change: %#v", change)
@@ -91,7 +85,6 @@ func (c StringsWatcherC) AssertChanges() {
 // AssertNoChange fails if it manages to read a value from Changes before a
 // short time has passed.
 func (c StringsWatcherC) AssertNoChange() {
-	c.PreAssert()
 	select {
 	case change, ok := <-c.Watcher.Changes():
 		if !ok {
@@ -110,7 +103,6 @@ func (c StringsWatcherC) AssertStops() {
 	c.Watcher.Kill()
 	wait := make(chan error)
 	go func() {
-		c.PreAssert()
 		wait <- c.Watcher.Wait()
 	}()
 	select {
@@ -120,7 +112,6 @@ func (c StringsWatcherC) AssertStops() {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.PreAssert()
 	select {
 	case change, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)
@@ -171,7 +162,6 @@ func (c StringsWatcherC) collectChanges(single bool, max int) []string {
 	gotOneChange := false
 loop:
 	for {
-		c.PreAssert()
 		select {
 		case changes, ok := <-c.Watcher.Changes():
 			c.Assert(ok, jc.IsTrue)

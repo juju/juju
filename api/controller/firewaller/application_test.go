@@ -49,7 +49,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 
 	w, err := s.apiApplication.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

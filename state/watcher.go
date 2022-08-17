@@ -572,9 +572,11 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 	defer func() { _ = docWatcher.Stop() }()
 
 	var (
-		timer           = w.clk.NewTimer(w.quiesceInterval)
-		timerArmed      = true
-		unprocessedDocs = make(set.Strings)
+		timer      = w.clk.NewTimer(w.quiesceInterval)
+		timerArmed = true
+		// unprocessedDocs is a list of document IDs that need to be processed
+		// with a deadline they must be sent by.
+		unprocessedDocs = make(map[string]time.Time)
 		outCh           chan []string
 		changeSet       []string
 	)
@@ -602,9 +604,14 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 			}
 			for _, docID := range changes {
 				// filter out doc IDs that correspond to containers
-				if !strings.ContainsRune(docID, '/') {
-					unprocessedDocs.Add(w.backend.docID(docID))
+				if strings.ContainsRune(docID, '/') {
+					continue
 				}
+				id := w.backend.docID(docID)
+				if _, ok := unprocessedDocs[id]; ok {
+					continue
+				}
+				unprocessedDocs[id] = w.clk.Now().Add(w.quiesceInterval)
 			}
 
 			// Restart the timer if currently stopped.
@@ -618,8 +625,27 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 				continue // nothing to process
 			}
 
-			changedIDs, err := w.processChanges(unprocessedDocs)
-			unprocessedDocs = make(set.Strings)
+			visible := make(set.Strings)
+			now := w.clk.Now()
+			var next time.Time
+			hasNext := false
+			for k, due := range unprocessedDocs {
+				if due.After(now) {
+					if !hasNext || due.Before(next) {
+						hasNext = true
+						next = due
+					}
+					continue
+				}
+				delete(unprocessedDocs, k)
+				visible.Add(k)
+			}
+			if hasNext {
+				_ = timer.Reset(next.Sub(now))
+				timerArmed = true
+			}
+
+			changedIDs, err := w.processChanges(visible)
 			if err != nil {
 				return err
 			} else if changedIDs.IsEmpty() {
@@ -2384,6 +2410,7 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 		return tomb.ErrDying
 	}
 	out := w.out
+	n := 1
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -2394,9 +2421,15 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
+			// TODO(quiescence): reimplement quiescence
+			// increment the number of notifications to send.
+			n++
 			out = w.out
 		case out <- struct{}{}:
-			out = nil
+			n--
+			if n == 0 {
+				out = nil
+			}
 		}
 	}
 }

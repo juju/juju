@@ -189,14 +189,6 @@ func (schema CollectionSchema) Create(
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
-			// We allow the max txn log collection size to be overridden by the user.
-			if name == txnLogC && settings != nil {
-				maxSize := settings.MaxTxnLogSizeMB()
-				if maxSize > 0 {
-					logger.Infof("overriding max txn log collection size: %dM", maxSize)
-					spec.MaxBytes = maxSize * 1024 * 1024
-				}
-			}
 			if err := createCollection(rawCollection, spec); err != nil {
 				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
 			}
@@ -394,7 +386,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			RunTransactionObserver:    observer,
 			Clock:                     db.clock,
 			TransactionCollectionName: "txns",
-			ChangeLogName:             "sstxns.log",
+			ChangeLogName:             "-",
 			ServerSideTransactions:    true,
 			MaxRetryAttempts:          db.maxTxnAttempts,
 		}

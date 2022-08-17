@@ -581,7 +581,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
@@ -633,7 +633,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("606cdac123d3d8d3031fe93db3d5afd9c95f709dfbc17e5eade1332b081ec6f9")
 
 	// Non-change is not reported.
@@ -707,7 +707,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w1)
 
-	wc1 := testing.NewStringsWatcherC(c, s.State, w1)
+	wc1 := testing.NewStringsWatcherC(c, w1)
 	wc1.AssertChange("2e1f49c3e8b53892b822558401af33589522094681276a98458595114e04c0c1")
 
 	newCharm := s.AddConfigCharm(c, "wordpress", wordpressConfig, 125)
@@ -723,7 +723,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w3)
 
-	wc3 := testing.NewStringsWatcherC(c, s.State, w3)
+	wc3 := testing.NewStringsWatcherC(c, w3)
 	wc3.AssertChange("35412457529c9e0b64b7642ad0f76137ee13b104c94136d0c18b2fe54ddf5d36")
 }
 
@@ -732,7 +732,7 @@ func (s *UnitSuite) TestWatchApplicationConfigSettingsHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("92652ce7679e295c6567a3891c562dcab727c71543f8c1c3a38c3626ce064019")
 
 	schema := environschema.Fields{
@@ -2404,7 +2404,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -2462,7 +2462,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(subUnits[0].Name())
 	wc.AssertNoChange()
 
@@ -2481,7 +2481,7 @@ func (s *UnitSuite) TestWatchUnits(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event for unit created in test setup.
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("wordpress/0")
 
 	u, err := s.application.AddUnit(state.AddUnitParams{})
@@ -2509,7 +2509,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -2538,7 +2538,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.unit.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
+	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
 func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
@@ -2800,13 +2800,12 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create watcher
-	s.State.StartSync()
 	w, err := unit.WatchMachineAndEndpointAddressesHash()
 	c.Assert(err, gc.IsNil)
 	defer func() { _ = w.Stop() }()
 
 	// The watcher will emit the original hash.
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("b1b30f7f8b818a0ef59e858ab0e409a33ebe9eefead686f7a0f1d1ef7a11cf0e")
 
 	// Adding a new machine address should trigger a change
@@ -3071,7 +3070,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := unit.WatchContainerAddresses()
 	defer w.Stop()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Change the container port: not reported.
@@ -3127,7 +3126,6 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	// returns an IsNotFound error.
 	err = unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, jc.IsFalse)
@@ -3143,7 +3141,7 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.application.WatchServiceAddressesHash()
 	defer w.Stop()
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange("")
 
 	// Set container addresses: not reported.
@@ -3200,7 +3198,6 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertCleanupCount(c, s.Model.State(), 2)
 
-	s.State.StartSync()
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, jc.IsFalse)

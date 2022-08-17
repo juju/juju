@@ -703,7 +703,7 @@ func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *gc.C, change
 		s.unitTag,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 	change()
 	wc.AssertOneChange()

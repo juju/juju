@@ -25,7 +25,7 @@ func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
 	ch1 <- struct{}{}
 
 	w := watcher.NewMultiNotifyWatcher(w0, w1)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertKilled()
 	wc.AssertOneChange()
 

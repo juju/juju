@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -102,6 +104,11 @@ type loginSuite struct {
 }
 
 var _ = gc.Suite(&loginSuite{})
+
+func (s *loginSuite) SetUpTest(c *gc.C) {
+	s.Clock = testclock.NewDilatedWallClock(time.Second)
+	s.baseSuite.SetUpTest(c)
+}
 
 func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	info := s.newServer(c)
@@ -423,7 +430,7 @@ func (s *loginSuite) TestRateLimitAgents(c *gc.C) {
 	// Second machine in the same second gets told to go away and try again.
 	machine2 := s.infoForNewMachine(c, info)
 	_, err = api.Open(machine2, fastDialOpts)
-	c.Assert(err.Error(), gc.Equals, "try again (try again)")
+	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
 
 	// If we wait a second and try again, it is fine.
 	s.Clock.Advance(time.Second)
@@ -434,7 +441,7 @@ func (s *loginSuite) TestRateLimitAgents(c *gc.C) {
 	// And the next one is limited.
 	machine3 := s.infoForNewMachine(c, info)
 	_, err = api.Open(machine3, fastDialOpts)
-	c.Assert(err.Error(), gc.Equals, "try again (try again)")
+	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
 }
 
 func (s *loginSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
@@ -957,7 +964,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	info := s.newServer(c)
 
-	now := s.Clock.Now().UTC().Round(time.Second)
+	now := s.Clock.Now().UTC()
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -975,14 +982,14 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	lastLogin, err := user.LastLogin()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lastLogin, gc.Equals, now)
+	c.Assert(lastLogin, jc.Almost, now)
 
 	// The model user is also updated.
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(when, gc.Equals, now)
+	c.Assert(when, jc.Almost, now)
 }
 
 func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
@@ -1008,6 +1015,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
+	loginTime := s.Clock.Now()
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
@@ -1021,32 +1029,43 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
+	addMachinesTime := s.Clock.Now()
 	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
 
 	convo := log.Calls()[0].Args[0].(auditlog.Conversation)
-	c.Assert(convo.ConversationID, gc.HasLen, 16)
-	// Blank out unknown fields.
-	convo.ConversationID = "0123456789abcdef"
-	convo.ConnectionID = "something"
-	c.Assert(convo, gc.Equals, auditlog.Conversation{
-		Who:            user.Tag().Id(),
-		What:           "hey you guys",
-		When:           s.Clock.Now().Format(time.RFC3339),
-		ModelName:      s.Model.Name(),
-		ModelUUID:      s.Model.UUID(),
-		ConnectionID:   "something",
-		ConversationID: "0123456789abcdef",
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.ConversationID", gc.HasLen, 16)
+	mc.AddExpr("_.ConnectionID", jc.Ignore)
+	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return false
+		}
+		return math.Abs(t.Sub(loginTime).Seconds()) < 1.0
+	})
+	c.Assert(convo, mc, auditlog.Conversation{
+		Who:       user.Tag().Id(),
+		What:      "hey you guys",
+		ModelName: s.Model.Name(),
+		ModelUUID: s.Model.UUID(),
 	})
 
 	auditReq := log.Calls()[1].Args[0].(auditlog.Request)
-	auditReq.ConversationID = ""
-	auditReq.ConnectionID = ""
-	auditReq.RequestID = 0
-	c.Assert(auditReq, gc.Equals, auditlog.Request{
-		When:    s.Clock.Now().Format(time.RFC3339),
+	mc = jc.NewMultiChecker()
+	mc.AddExpr("_.ConversationID", jc.Ignore)
+	mc.AddExpr("_.ConnectionID", jc.Ignore)
+	mc.AddExpr("_.RequestID", jc.Ignore)
+	mc.AddExpr("_.When", jc.Satisfies, func(s string) bool {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return false
+		}
+		return math.Abs(t.Sub(addMachinesTime).Seconds()) < 1.0
+	})
+	c.Assert(auditReq, mc, auditlog.Request{
 		Facade:  "MachineManager",
 		Method:  "AddMachines",
 		Version: machineManagerFacadeVersion,

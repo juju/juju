@@ -204,7 +204,7 @@ func (s *PodSpecSuite) TestRemoveApplicationRemovesPodSpec(c *gc.C) {
 func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 	w, err := s.Model.WatchPodSpec(s.application.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// No spec -> spec set.
@@ -236,7 +236,7 @@ func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 func (s *PodSpecSuite) TestWatchRawK8sSpec(c *gc.C) {
 	w, err := s.Model.WatchPodSpec(s.application.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// No spec -> spec set.

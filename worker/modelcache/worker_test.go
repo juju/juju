@@ -306,7 +306,6 @@ func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
 		"logging-config": expected,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 
 	// Wait for the change.
 	s.nextChange(c, changes)
@@ -325,7 +324,6 @@ func (s *WorkerSuite) TestNewModel(c *gc.C) {
 	s.nextChange(c, changes)
 
 	newState := s.Factory.MakeModel(c, nil)
-	s.State.StartSync()
 	defer func() { _ = newState.Close() }()
 
 	obtained := s.nextChange(c, changes)
@@ -345,7 +343,6 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 	s.nextChange(c, changes)
 
 	st := s.Factory.MakeModel(c, nil)
-	s.State.StartSync()
 	defer func() { _ = st.Close() }()
 
 	// grab and discard the event for the new model
@@ -355,7 +352,6 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 
 	// grab and discard the event for the new model
 	obtained := s.nextChange(c, changes)
@@ -365,18 +361,22 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 
 	err = st.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 
 	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
+
+	obtained = s.nextChange(c, changes)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.Life", gc.Equals, life.Value("dead"))
+	c.Assert(obtained, mc, modelChange)
 
 	obtained = s.nextChange(c, changes)
 	modelChange2, ok := obtained.(cache.ModelChange)
 	c.Assert(ok, jc.IsTrue)
 	// Check permissions dropped correctly.
-	mc := jc.NewMultiChecker()
+	mc = jc.NewMultiChecker()
 	mc.AddExpr("_.UserPermissions", gc.HasLen, 0)
+	mc.AddExpr("_.Life", gc.Equals, life.Value("dead"))
 	c.Assert(modelChange2, mc, modelChange)
 
 	obtained = s.nextChange(c, changes)
@@ -394,7 +394,6 @@ func (s *WorkerSuite) TestAddApplication(c *gc.C) {
 	w := s.start(c)
 
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
-	s.State.StartSync()
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.ApplicationChange)
@@ -418,14 +417,12 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 	w := s.start(c)
 
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
-	s.State.StartSync()
 	_ = s.nextChange(c, changes)
 
 	controller := s.getController(c, w)
 	modUUID := controller.ModelUUIDs()[0]
 
 	c.Assert(app.Destroy(), jc.ErrorIsNil)
-	s.State.StartSync()
 
 	// We will either get our application event,
 	// or time-out after processing all the changes.
@@ -447,7 +444,6 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 	w := s.start(c)
 
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	s.State.StartSync()
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.MachineChange)
@@ -464,6 +460,14 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 	cachedMachine, err := mod.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedMachine, gc.NotNil)
+
+	change = s.nextChange(c, changes)
+	obtained, ok = change.(cache.MachineChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.Id, gc.Equals, machine.Id())
+	c.Check(obtained.InstanceId, gc.Not(gc.Equals), "")
+
+	s.checkSuperfluousChanges(c, changes, change)
 }
 
 func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
@@ -471,7 +475,6 @@ func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
 	w := s.start(c)
 
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	s.State.StartSync()
 	_ = s.nextChange(c, changes)
 
 	controller := s.getController(c, w)
@@ -483,7 +486,6 @@ func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	// Remove will delete the machine from the database.
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
-	s.State.StartSync()
 
 	// We will either get our machine event,
 	// or time-out after processing all the changes.
@@ -505,7 +507,6 @@ func (s *WorkerSuite) TestAddCharm(c *gc.C) {
 	w := s.start(c)
 
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{})
-	s.State.StartSync()
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.CharmChange)
@@ -529,7 +530,6 @@ func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
 	w := s.start(c)
 
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{})
-	s.State.StartSync()
 	_ = s.nextChange(c, changes)
 
 	controller := s.getController(c, w)
@@ -539,7 +539,6 @@ func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
 	c.Assert(charm.Destroy(), jc.ErrorIsNil)
 	// Remove will delete the charm from the database.
 	c.Assert(charm.Remove(), jc.ErrorIsNil)
-	s.State.StartSync()
 
 	// We will either get our charm event,
 	// or time-out after processing all the changes.
@@ -561,13 +560,20 @@ func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 	w := s.start(c)
 
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{})
-	s.State.StartSync()
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.UnitChange)
 	c.Assert(ok, jc.IsTrue)
 	c.Check(obtained.Name, gc.Equals, unit.Name())
 	c.Check(obtained.Application, gc.Equals, unit.ApplicationName())
+
+	// Check the unit is assigned a machine.
+	change = s.nextChange(c, changes)
+	obtained2, ok := change.(cache.UnitChange)
+	c.Assert(ok, jc.IsTrue)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.MachineId", gc.Equals, "0")
+	c.Assert(obtained2, mc, obtained)
 
 	controller := s.getController(c, w)
 	modUUIDs := controller.ModelUUIDs()
@@ -579,6 +585,10 @@ func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 	cachedApp, err := mod.Application(unit.ApplicationName())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedApp, gc.NotNil)
+
+	// TODO(quiescence): this hack checks that any superfluous changes are the same
+	// as what we last received.
+	s.checkSuperfluousChanges(c, changes, obtained2)
 }
 
 func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
@@ -586,14 +596,12 @@ func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
 	w := s.start(c)
 
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{})
-	s.State.StartSync()
 	_ = s.nextChange(c, changes)
 
 	controller := s.getController(c, w)
 	modUUID := controller.ModelUUIDs()[0]
 
 	c.Assert(unit.Destroy(), jc.ErrorIsNil)
-	s.State.StartSync()
 
 	// We will either get our unit event,
 	// or time-out after processing all the changes.
@@ -616,7 +624,6 @@ func (s *WorkerSuite) TestAddBranch(c *gc.C) {
 
 	branchName := "test-branch"
 	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
-	s.State.StartSync()
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.BranchChange)
@@ -640,7 +647,6 @@ func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
 
 	branchName := "test-branch"
 	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
-	s.State.StartSync()
 	_ = s.nextChange(c, changes)
 
 	controller := s.getController(c, w)
@@ -654,8 +660,6 @@ func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
 	// a removal message to be emitted.
 	_, err = branch.Commit("test-user")
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
 
 	// We will either get our branch event,
 	// or time-out after processing all the changes.
@@ -712,14 +716,12 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 
 	changes := s.captureEvents(c, cachetest.ModelEvents, cachetest.ApplicationEvents)
 	w := s.start(c)
-	s.State.StartSync()
 
 	// Initial deltas will include the real model and our fake one.
 	_ = s.nextChange(c, changes)
 	_ = s.nextChange(c, changes)
 
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
-	s.State.StartSync()
 
 	// Watcher will restart and cache will refresh before we see this.
 	// These will be the real model and the application,
@@ -772,7 +774,6 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 
 	changes := s.captureEvents(c, cachetest.ModelEvents, cachetest.ApplicationEvents)
 	_ = s.start(c)
-	s.State.StartSync()
 
 	// Until the watcher returns without error, advance the clock by the exact
 	// duration we expect the restart delay to be based on our initial config.
@@ -791,7 +792,6 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 	maxErrors = 1
 	errCount = 0
 	_ = s.Factory.MakeApplication(c, &factory.ApplicationParams{})
-	s.State.StartSync()
 	c.Assert(clk.WaitAdvance(s.config.WatcherRestartDelayMin, time.Second, 1), jc.ErrorIsNil)
 
 	// After one error, the model and application will appear.
@@ -832,7 +832,7 @@ func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool)
 			select {
 			case events <- change:
 			case <-time.After(testing.LongWait):
-				c.Fatalf("change not processed by test")
+				c.Fatalf("change not processed by test: %#v", change)
 			}
 		}
 	}
@@ -847,6 +847,20 @@ func (s *WorkerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{
 		c.Fatalf("no change")
 	}
 	return obtained
+}
+
+// checkSuperfluousChanges pulls as many changes in testing.ShortWait duration and ensures they
+// match matches arg. This is useful until we have some watcher quiescence again.
+func (s *WorkerSuite) checkSuperfluousChanges(c *gc.C, changes <-chan interface{}, matches interface{}) {
+	done := time.After(testing.ShortWait)
+	for {
+		select {
+		case obtained := <-changes:
+			c.Assert(obtained, jc.DeepEquals, matches)
+		case <-done:
+			return
+		}
+	}
 }
 
 type noopRegisterer struct {

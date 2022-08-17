@@ -1272,7 +1272,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 
 	w := s.storageBackend.WatchStorageAttachments(u.UnitTag())
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.st, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("multi1to10/0", "multi1to10/1", "multi2up/2", "multi2up/3")
 	wc.AssertNoChange()
 
@@ -1296,7 +1296,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 
 	w := s.storageBackend.WatchStorageAttachment(storageTag, u.UnitTag())
 	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.st, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	err := u.Destroy()

@@ -159,7 +159,7 @@ func (s *externalControllerSuite) TestWatchController(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Update the alias, check for one change.
@@ -190,7 +190,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
 	wc.AssertNoChange()
 

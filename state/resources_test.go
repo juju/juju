@@ -291,6 +291,7 @@ func (s *ResourcesSuite) TestUnitResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	spam.Timestamp = resultRes.Resources[0].Timestamp
+	resultRes.UnitResources[0].Resources[0].Timestamp = spam.Timestamp
 	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
 		Resources: []resources.Resource{spam},
 		UnitResources: []resources.UnitResources{{
@@ -359,6 +360,8 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 	}
 	expected[0].Resource = spam.Resource
 	expected[0].Timestamp = resultRes.Resources[0].Timestamp
+
+	resultRes.UnitResources[0].Resources[0].Timestamp = spam.Timestamp
 
 	c.Assert(resultRes, jc.DeepEquals, resources.ApplicationResources{
 		Resources:           expected,

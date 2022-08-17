@@ -353,7 +353,10 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{&expected})
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`(*_[_]).CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`(*_[_]).UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{&expected})
 	expectedData := map[string]string{"foo": "bar"}
 	if update.Data != nil {
 		expectedData = update.Data
@@ -647,7 +650,7 @@ func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotati
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchSecretsRotationChanges("application-mariadb")
 
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	wc.AssertChange(watcher.SecretRotationChange{
 		URI:            md.URI.Raw(),
 		RotateInterval: time.Hour,
@@ -664,7 +667,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchInitialEvent(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -684,7 +687,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
@@ -701,7 +704,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -726,7 +729,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -749,7 +752,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, s.State, w)
+	wc := testing.NewSecretsRotationWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -811,7 +814,7 @@ func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secr
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchConsumedSecretsChanges("unit-mariadb-0")
 
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 
 	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", &secrets.SecretConsumerMetadata{CurrentRevision: 1})
@@ -828,7 +831,7 @@ func (s *SecretsWatcherSuite) TestWatcherStartStop(c *gc.C) {
 
 func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
@@ -842,7 +845,7 @@ func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 
 func (s *SecretsWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	uri2 := secrets.NewURI()

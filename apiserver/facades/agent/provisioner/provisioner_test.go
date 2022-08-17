@@ -720,9 +720,9 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0 := statetesting.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
 	wc0.AssertNoChange()
-	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1 := statetesting.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
 }
 
@@ -757,9 +757,9 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0 := statetesting.NewStringsWatcherC(c, m0Watcher.(state.StringsWatcher))
 	wc0.AssertNoChange()
-	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1 := statetesting.NewStringsWatcherC(c, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
 }
 
@@ -1428,7 +1428,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
 	// Make sure WatchModelMachines fails with a machine agent login.
@@ -1478,7 +1478,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	// We should now get a time triggered change.

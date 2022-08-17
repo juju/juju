@@ -128,13 +128,13 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRecordAgentStartInformation(c *gc.C) {
-	now := s.Clock.Now().Truncate(time.Millisecond)
+	now := s.Clock.Now().Truncate(time.Minute)
 	err := s.machine.RecordAgentStartInformation("thundering-herds")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.AgentStartTime(), gc.Equals, now)
+	c.Assert(s.machine.AgentStartTime().Truncate(time.Minute), gc.Equals, now)
 	c.Assert(s.machine.Hostname(), gc.Equals, "thundering-herds")
 
 	// Passing an empty hostname should be ignored
@@ -142,7 +142,7 @@ func (s *MachineSuite) TestRecordAgentStartInformation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.AgentStartTime(), gc.Equals, now)
+	c.Assert(s.machine.AgentStartTime().Truncate(time.Minute), gc.Equals, now)
 	c.Assert(s.machine.Hostname(), gc.Equals, "thundering-herds", gc.Commentf("expected the host name not be changed"))
 }
 
@@ -1268,7 +1268,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -1297,7 +1297,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = s.machine.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
+	testing.NewNotifyWatcherC(c, w).AssertOneChange()
 }
 
 func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
@@ -1329,7 +1329,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -1410,7 +1410,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql/0", "mysql/1")
 	wc.AssertNoChange()
 
@@ -1448,7 +1448,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -1534,7 +1534,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	c.Logf("starting new watcher")
 	w = s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql/0", "mysql/1", "logging/0")
 	wc.AssertNoChange()
 
@@ -1563,7 +1563,7 @@ func (s *MachineSuite) TestWatchUnitsHandlesDeletedEntries(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -1633,12 +1633,12 @@ func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
 	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	quiesceInterval := 500 * time.Millisecond
+	quiesceInterval := 10 * time.Second
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := s.State.WatchModelMachineStartTimes(quiesceInterval)
 
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 
 	// Get initial set of changes
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -2791,7 +2791,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := machine.WatchAddresses()
 	defer w.Stop()
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// Change the machine: not reported.
@@ -2838,7 +2838,6 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	// returns an IsNotFound error.
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, jc.IsFalse)

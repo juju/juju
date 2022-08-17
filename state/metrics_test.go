@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -248,7 +247,7 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	saved, err := s.State.MetricBatch(added.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	err = saved.SetSent(testing.NonZeroTime())
+	err = saved.SetSent(s.Clock.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Sent(), jc.IsTrue)
 	saved, err = s.State.MetricBatch(added.UUID())
@@ -257,8 +256,8 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 }
 
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
-	oldTime := testing.NonZeroTime().Add(-(time.Hour * 25))
-	now := testing.NonZeroTime()
+	oldTime := s.Clock.Now().Add(-(time.Hour * 25))
+	now := s.Clock.Now()
 	m := state.Metric{Key: "pings", Value: "5", Time: oldTime}
 	oldMetric1, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -270,7 +269,7 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	oldMetric1.SetSent(testing.NonZeroTime().Add(-25 * time.Hour))
+	oldMetric1.SetSent(s.Clock.Now().Add(-25 * time.Hour))
 
 	oldMetric2, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -282,7 +281,7 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	oldMetric2.SetSent(testing.NonZeroTime().Add(-25 * time.Hour))
+	oldMetric2.SetSent(s.Clock.Now().Add(-25 * time.Hour))
 
 	m = state.Metric{Key: "pings", Value: "5", Time: now}
 	newMetric, err := s.State.AddMetrics(
@@ -295,7 +294,7 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	newMetric.SetSent(testing.NonZeroTime())
+	newMetric.SetSent(s.Clock.Now())
 	err = s.State.CleanupOldMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -315,7 +314,7 @@ func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
 }
 
 func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
-	oldTime := testing.NonZeroTime().Add(-(time.Hour * 25))
+	oldTime := s.Clock.Now().Add(-(time.Hour * 25))
 	m := state.Metric{Key: "pings", Value: "5", Time: oldTime}
 	oldMetric, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -328,7 +327,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := testing.NonZeroTime()
+	now := s.Clock.Now()
 	m = state.Metric{Key: "pings", Value: "5", Time: now}
 	newMetric, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -340,7 +339,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	newMetric.SetSent(testing.NonZeroTime())
+	newMetric.SetSent(s.Clock.Now())
 	err = s.State.CleanupOldMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -422,7 +421,7 @@ func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
 // TestCountMetrics asserts the correct values are returned
 // by CountOfUnsentMetrics and CountOfSentMetrics.
 func (s *MetricSuite) TestCountMetrics(c *gc.C) {
-	now := testing.NonZeroTime()
+	now := s.Clock.Now()
 	m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
@@ -437,7 +436,7 @@ func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 }
 
 func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
-	now := testing.NonZeroTime()
+	now := s.Clock.Now()
 	metrics := make([]*state.MetricBatch, 3)
 	for i := range metrics {
 		m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
@@ -502,7 +501,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dyingUnit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	now := testing.NonZeroTime()
+	now := s.Clock.Now()
 	tests := []struct {
 		about   string
 		metrics []state.Metric
@@ -1118,9 +1117,9 @@ func (s *CrossModelMetricSuite) TestMetricsAcrossmodels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(toSend, gc.HasLen, 1)
 
-	err = m1.SetSent(testing.NonZeroTime().Add(-25 * time.Hour))
+	err = m1.SetSent(s.Clock.Now().Add(-25 * time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetSent(testing.NonZeroTime().Add(-25 * time.Hour))
+	err = m2.SetSent(s.Clock.Now().Add(-25 * time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
 
 	sent, err := s.models[0].state.CountOfSentMetrics()

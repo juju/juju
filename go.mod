@@ -47,10 +47,10 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
-	github.com/juju/blobstore/v3 v3.0.1
+	github.com/juju/blobstore/v3 v3.0.2
 	github.com/juju/charm/v9 v9.0.4
 	github.com/juju/charmrepo/v7 v7.0.1
-	github.com/juju/clock v1.0.0
+	github.com/juju/clock v1.0.2
 	github.com/juju/cmd/v3 v3.0.2
 	github.com/juju/collections v1.0.0
 	github.com/juju/description/v3 v3.0.1
@@ -65,7 +65,7 @@ require (
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
 	github.com/juju/lumberjack/v2 v2.0.2
-	github.com/juju/mgo/v3 v3.0.2
+	github.com/juju/mgo/v3 v3.0.3
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v4 v4.0.0
 	github.com/juju/naturalsort v1.0.0
@@ -82,7 +82,7 @@ require (
 	github.com/juju/rpcreflect v1.0.0
 	github.com/juju/schema v1.0.1
 	github.com/juju/terms-client/v2 v2.0.0
-	github.com/juju/testing v1.0.1
+	github.com/juju/testing v1.0.2
 	github.com/juju/txn/v3 v3.0.1
 	github.com/juju/utils/v3 v3.0.0
 	github.com/juju/version/v2 v2.0.1
@@ -103,7 +103,7 @@ require (
 	github.com/vishvananda/netlink v1.2.0-beta
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20220728211354-c7608f3a8462
+	golang.org/x/net v0.0.0-20220812174116-3211cb980234
 	golang.org/x/oauth2 v0.0.0-20220608161450-d0670ef3b1eb
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10

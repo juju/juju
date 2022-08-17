@@ -621,7 +621,6 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	model2, err := state2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.StartSync()
 	s.WaitForModelWatchersIdle(c, model2.UUID())
 
 	// Get API connection to hosted model.
@@ -1304,7 +1303,6 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinat
 }
 
 func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
-	s.State.StartSync()
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	ctx := &facadetest.Context{

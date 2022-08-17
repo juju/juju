@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
 
 type MeterStateSuite struct {
@@ -100,7 +99,7 @@ func (s *MeterStateSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 
 func (s *MeterStateSuite) TestMeterStatusWatcherRespondstoMeterStatus(c *gc.C) {
 	watcher := s.unit.WatchMeterStatus()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, watcher)
 	wc.AssertOneChange()
 	err := s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,9 +110,9 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, watcher)
 	wc.AssertOneChange()
-	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
+	err = mm.SetLastSuccessfulSend(s.Clock.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
@@ -128,9 +127,9 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatu
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	wc := statetesting.NewNotifyWatcherC(c, watcher)
 	wc.AssertOneChange()
-	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
+	err = mm.SetLastSuccessfulSend(s.Clock.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
@@ -138,33 +137,34 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatu
 	}
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterAmber)
+	wc.AssertOneChange()
 	err = s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
-func assertMetricsManagerAmberState(c *gc.C, metricsManager *state.MetricsManager) {
-	err := metricsManager.SetLastSuccessfulSend(testing.NonZeroTime())
+func (s *MeterStateSuite) assertMetricsManagerAmberState(c *gc.C, metricsManager *state.MetricsManager) {
+	err := metricsManager.SetLastSuccessfulSend(s.Clock.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := metricsManager.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	status := metricsManager.MeterStatus()
-	c.Assert(status.Code, gc.Equals, state.MeterAmber)
+	c.Assert(status.Code, gc.Equals, state.MeterAmber, gc.Commentf("got meter status %#v", status))
 }
 
 // TODO (mattyw) This function could be moved into a metricsmanager testing package.
-func assertMetricsManagerRedState(c *gc.C, metricsManager *state.MetricsManager) {
+func (s *MeterStateSuite) assertMetricsManagerRedState(c *gc.C, metricsManager *state.MetricsManager) {
 	// To enter the red state we need to set a last successful send as over 1 week ago
-	err := metricsManager.SetLastSuccessfulSend(testing.NonZeroTime().Add(-8 * 24 * time.Hour))
+	err := metricsManager.SetLastSuccessfulSend(s.Clock.Now().Add(-8 * 24 * time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := metricsManager.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	status := metricsManager.MeterStatus()
-	c.Assert(status.Code, gc.Equals, state.MeterRed)
+	c.Assert(status.Code, gc.Equals, state.MeterRed, gc.Commentf("got meter status %#v", status))
 }
 
 // TestMeterStatusMetricsManagerCombinations test every possible combination
@@ -172,10 +172,10 @@ func assertMetricsManagerRedState(c *gc.C, metricsManager *state.MetricsManager)
 func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombinations(c *gc.C) {
 	greenMetricsMangager := func() {}
 	amberMetricsManager := func() {
-		assertMetricsManagerAmberState(c, s.metricsManager)
+		s.assertMetricsManagerAmberState(c, s.metricsManager)
 	}
 	redMetricsManager := func() {
-		assertMetricsManagerRedState(c, s.metricsManager)
+		s.assertMetricsManagerRedState(c, s.metricsManager)
 	}
 	greenUnit := func() {
 		err := s.unit.SetMeterStatus("GREEN", "Unit")
@@ -259,7 +259,7 @@ func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombinations(c *gc.C) {
 		test.unit()
 		status, err := s.unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(status.Code, gc.Equals, test.expectedCode)
+		c.Check(status.Code, gc.Equals, test.expectedCode, gc.Commentf("got meter status %#v", status))
 	}
 }
 

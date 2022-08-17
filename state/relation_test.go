@@ -767,7 +767,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 
 	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	// Initial event.
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -796,7 +796,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatusDead(c *gc.C) {
 
 	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(rel.Tag().Id())
 
 	err = rel.Destroy()
@@ -1085,7 +1085,7 @@ func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	err = relation.UpdateApplicationSettings(
@@ -1119,7 +1119,7 @@ func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// No notify if the other application's settings are changed.

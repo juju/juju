@@ -863,7 +863,6 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 }
 
 func (s *RelationUnitSuite) assertScopeChange(c *gc.C, w *state.RelationScopeWatcher, entered, left []string) {
-	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
@@ -879,7 +878,6 @@ func (s *RelationUnitSuite) assertScopeChange(c *gc.C, w *state.RelationScopeWat
 }
 
 func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationScopeWatcher) {
-	s.State.StartSync()
 	for _, w := range ws {
 		select {
 		case ch, ok := <-w.Changes():
@@ -1198,7 +1196,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	// Start watching the relation from the perspective of the first unit.
 	w0 := ru0.Watch()
 	defer testing.AssertStop(c, w0)
-	w0c := testing.NewRelationUnitsWatcherC(c, s.State, w0)
+	w0c := testing.NewRelationUnitsWatcherC(c, w0)
 	w0c.AssertChange(nil, []string{"riak"}, nil)
 	w0c.AssertNoChange()
 
@@ -1234,7 +1232,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	// and check that it sees the right state.
 	w1 := ru1.Watch()
 	defer testing.AssertStop(c, w1)
-	w1c := testing.NewRelationUnitsWatcherC(c, s.State, w1)
+	w1c := testing.NewRelationUnitsWatcherC(c, w1)
 	expectChanged = []string{"riak/0"}
 	w1c.AssertChange(expectChanged, []string{"riak"}, nil)
 	w1c.AssertNoChange()
@@ -1244,7 +1242,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	// Whoa, it works. Ok, check the third unit's opinion of the state.
 	w2 := ru2.Watch()
 	defer testing.AssertStop(c, w2)
-	w2c := testing.NewRelationUnitsWatcherC(c, s.State, w2)
+	w2c := testing.NewRelationUnitsWatcherC(c, w2)
 	expectChanged = []string{"riak/0", "riak/1"}
 	w2c.AssertChange(expectChanged, []string{"riak"}, nil)
 	w2c.AssertNoChange()
@@ -1312,7 +1310,7 @@ func (s *WatchRelationUnitsSuite) TestWatchAppSettings(c *gc.C) {
 	// providing application is seen
 	watcher := prr.rru0.Watch()
 	defer testing.AssertStop(c, watcher)
-	w0c := testing.NewRelationUnitsWatcherC(c, s.State, watcher)
+	w0c := testing.NewRelationUnitsWatcherC(c, watcher)
 	w0c.AssertChange([]string{"mysql/0", "mysql/1"}, []string{"mysql"}, nil)
 	w0c.AssertNoChange()
 	updateAppSettings(c, s.State, prr.rel, prr.papp, prr.pu0.Name(), map[string]interface{}{"foo": "bar"})
@@ -1352,7 +1350,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// check initial event.
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
-	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
+	msw0c := testing.NewRelationUnitsWatcherC(c, msw0)
 	msw0c.AssertChange(nil, []string{"wordpress"}, nil)
 	msw0c.AssertNoChange()
 
@@ -1369,7 +1367,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
-	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
+	msw1c := testing.NewRelationUnitsWatcherC(c, msw1)
 	msw1c.AssertChange(nil, []string{"wordpress"}, nil)
 	msw1c.AssertNoChange()
 
@@ -1386,12 +1384,12 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	expectChanged := []string{"mysql/0", "mysql/1"}
 	wpw0 := wpru0.Watch()
 	defer testing.AssertStop(c, wpw0)
-	wpw0c := testing.NewRelationUnitsWatcherC(c, s.State, wpw0)
+	wpw0c := testing.NewRelationUnitsWatcherC(c, wpw0)
 	wpw0c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	wpw0c.AssertNoChange()
 	wpw1 := wpru1.Watch()
 	defer testing.AssertStop(c, wpw1)
-	wpw1c := testing.NewRelationUnitsWatcherC(c, s.State, wpw1)
+	wpw1c := testing.NewRelationUnitsWatcherC(c, wpw1)
 	wpw1c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	wpw1c.AssertNoChange()
 
@@ -1502,7 +1500,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// check the initial event.
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
-	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
+	msw0c := testing.NewRelationUnitsWatcherC(c, msw0)
 	msw0c.AssertChange(nil, []string{"logging"}, nil)
 	msw0c.AssertNoChange()
 
@@ -1517,7 +1515,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// check initial event.
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
-	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
+	msw1c := testing.NewRelationUnitsWatcherC(c, msw1)
 	msw1c.AssertChange(nil, []string{"logging"}, nil)
 	msw1c.AssertNoChange()
 
@@ -1539,7 +1537,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// only sees the first provider (with which it shares a container).
 	lgw0 := lgru0.Watch()
 	defer testing.AssertStop(c, lgw0)
-	lgw0c := testing.NewRelationUnitsWatcherC(c, s.State, lgw0)
+	lgw0c := testing.NewRelationUnitsWatcherC(c, lgw0)
 	expectChanged := []string{"mysql/0"}
 	lgw0c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	lgw0c.AssertNoChange()
@@ -1558,7 +1556,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// second provider.
 	lgw1 := lgru1.Watch()
 	defer testing.AssertStop(c, lgw1)
-	lgw1c := testing.NewRelationUnitsWatcherC(c, s.State, lgw1)
+	lgw1c := testing.NewRelationUnitsWatcherC(c, lgw1)
 	expectChanged = []string{"mysql/1"}
 	lgw1c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	lgw1c.AssertNoChange()
@@ -1648,7 +1646,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	wordpressWatcher, err := rel.WatchUnits("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, wordpressWatcher)
-	wordpressWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, wordpressWatcher)
+	wordpressWatcherC := testing.NewRelationUnitsWatcherC(c, wordpressWatcher)
 	wordpressWatcherC.AssertChange(nil, []string{"wordpress"}, nil)
 	wordpressWatcherC.AssertNoChange()
 
@@ -1663,7 +1661,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	mysqlWatcher, err := rel.WatchUnits("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, mysqlWatcher)
-	mysqlWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, mysqlWatcher)
+	mysqlWatcherC := testing.NewRelationUnitsWatcherC(c, mysqlWatcher)
 	mysqlWatcherC.AssertChange([]string{"mysql/0"}, []string{"mysql"}, nil)
 	mysqlWatcherC.AssertNoChange()
 	wordpressWatcherC.AssertNoChange()

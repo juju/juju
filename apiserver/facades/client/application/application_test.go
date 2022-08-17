@@ -2507,7 +2507,7 @@ func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w := rel.WatchRelationEgressNetworks()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange("192.168.0.0/16")
 	wc.AssertNoChange()
 }
