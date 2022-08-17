@@ -154,7 +154,11 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 2)
-	c.Assert(args[0], gc.Equals, s.stateTracker.pool.SystemState())
+
+	sysState, err := s.stateTracker.pool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(args[0], gc.Equals, sysState)
+
 	var logWriter raftleasestore.Logger
 	c.Assert(args[1], gc.Implements, &logWriter)
 

@@ -78,7 +78,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	notifyTarget := config.NewTarget(statePool.SystemState(), config.Logger)
+	sysState, err := statePool.SystemState()
+	if err != nil {
+		_ = stTracker.Done()
+		return nil, errors.Trace(err)
+	}
+
+	notifyTarget := config.NewTarget(sysState, config.Logger)
 
 	w, err := config.NewWorker(Config{
 		NotifyProxy:  notifyProxy,
