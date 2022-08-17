@@ -63,7 +63,7 @@ func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
 func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	watcher, err := s.keyupdater.WatchAuthorisedKeys(s.rawMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, watcher, nil)
+	wc := watchertest.NewNotifyWatcherC(c, watcher)
 	defer wc.AssertStops()
 
 	// Initial event

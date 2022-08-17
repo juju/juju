@@ -192,7 +192,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	w, err := machine.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

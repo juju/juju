@@ -16,13 +16,9 @@ import (
 
 // NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that
 // checks for aggressive event coalescence.
-func NewRelationUnitsWatcherC(c *gc.C, w watcher.RelationUnitsWatcher, preAssert func()) RelationUnitsWatcherC {
-	if preAssert == nil {
-		preAssert = func() {}
-	}
+func NewRelationUnitsWatcherC(c *gc.C, w watcher.RelationUnitsWatcher) RelationUnitsWatcherC {
 	return RelationUnitsWatcherC{
 		C:                   c,
-		PreAssert:           preAssert,
 		Watcher:             w,
 		settingsVersions:    make(map[string]int64),
 		appSettingsVersions: make(map[string]int64),
@@ -38,7 +34,6 @@ type RelationUnitsWatcherC struct {
 }
 
 func (c RelationUnitsWatcherC) AssertNoChange() {
-	c.PreAssert()
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%#v, %v)", actual, ok)
@@ -52,7 +47,6 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 	// Get all items in changed in a map for easy lookup.
 	changedNames := set.NewStrings(changed...)
 	appChangedNames := set.NewStrings(appChanged...)
-	c.PreAssert()
 	timeout := time.After(testing.LongWait)
 	select {
 	case actual, ok := <-c.Watcher.Changes():
@@ -100,7 +94,6 @@ func (c RelationUnitsWatcherC) AssertStops() {
 	c.Watcher.Kill()
 	wait := make(chan error)
 	go func() {
-		c.PreAssert()
 		wait <- c.Watcher.Wait()
 	}()
 	select {
@@ -110,7 +103,6 @@ func (c RelationUnitsWatcherC) AssertStops() {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	c.PreAssert()
 	select {
 	case change, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)

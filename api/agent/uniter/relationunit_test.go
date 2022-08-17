@@ -202,7 +202,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	w, err := client.WatchRelationUnits(tag, names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewRelationUnitsWatcherC(c, w, nil)
+	wc := watchertest.NewRelationUnitsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

@@ -50,7 +50,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	wc.AssertChangeInSingleEvent("mysql")

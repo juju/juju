@@ -91,7 +91,7 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 	wc.AssertOneChange()
 }
@@ -107,7 +107,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 
 	// params.NotifyWatcher conforms to the watcher.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertStops()
 }
 
@@ -143,7 +143,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	wc.AssertChange("mysql/0", "logging/0")
@@ -175,7 +175,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Create an application, deploy a unit of it on the machine.

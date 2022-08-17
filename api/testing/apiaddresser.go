@@ -84,7 +84,7 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	c.Logf("starting api host port watcher")
 	w, err := s.facade.WatchAPIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
