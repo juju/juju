@@ -1364,8 +1364,12 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		track := c.Track
+		if charm.CharmHub.Matches(co.Source()) && track == "" {
+			track = "latest"
+		}
 		channel = &Channel{
-			Track:  c.Track,
+			Track:  track,
 			Risk:   string(c.Risk),
 			Branch: c.Branch,
 		}
@@ -1457,6 +1461,10 @@ func getApplicationSourceChannel(a description.Application, url *charm.URL) (cor
 	norm, err := charm.ParseChannelNormalize(a.Channel())
 	if err != nil {
 		return source, nil
+	}
+
+	if norm.Track == "" {
+		norm.Track = "latest"
 	}
 
 	return source, &Channel{

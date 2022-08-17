@@ -122,7 +122,8 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Channel = &charm.Channel{
-		Risk: "stable",
+		Track: "latest",
+		Risk:  "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
@@ -156,7 +157,8 @@ func (s *charmHubRepositorySuite) TestResolveWithoutSeries(c *gc.C) {
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Channel = &charm.Channel{
-		Risk: "stable",
+		Track: "latest",
+		Risk:  "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 
@@ -188,7 +190,8 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 	origin.Type = "bundle"
 	origin.Revision = &curl.Revision
 	origin.Channel = &charm.Channel{
-		Risk: "stable",
+		Track: "latest",
+		Risk:  "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 
@@ -221,7 +224,8 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Channel = &charm.Channel{
-		Risk: "stable",
+		Track: "latest",
+		Risk:  "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
@@ -277,7 +281,8 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Channel = &charm.Channel{
-		Risk: "stable",
+		Track: "latest",
+		Risk:  "stable",
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
