@@ -40,8 +40,8 @@ type NotifyTarget interface {
 	// Claimed will be called when a new lease has been claimed.
 	Claimed(lease.Key, string) error
 
-	// Expiries will be called when a set of existing leases have expired.
-	Expiries([]Expired) error
+	// Expirations will be called when a set of existing leases have expired.
+	Expirations([]Expired) error
 }
 
 // TrapdoorFunc returns a trapdoor to be attached to lease details for

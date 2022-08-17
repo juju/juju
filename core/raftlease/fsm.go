@@ -403,7 +403,7 @@ func (r *response) Notify(target NotifyTarget) error {
 	}
 	// One call expiries when we have some expired keys.
 	if len(r.expired) > 0 {
-		if err := target.Expiries(r.expired); err != nil {
+		if err := target.Expirations(r.expired); err != nil {
 			errs = append(errs, errors.Annotatef(err, "expirying leases"))
 		}
 	}

@@ -113,8 +113,8 @@ type NotifyProxy interface {
 	// Claimed will be called when a new lease has been claimed.
 	Claimed(key lease.Key, holder string) error
 
-	// Expiries will be called when a set of existing leases have expired.
-	Expiries(expiries []raftlease.Expired) error
+	// Expirations will be called when a set of existing leases have expired.
+	Expirations(expirations []raftlease.Expired) error
 
 	// Notifications returns a channel of notifications from a given notify
 	// target.

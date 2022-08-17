@@ -120,19 +120,19 @@ func (s *NotifyProxySuite) TestExpiries(c *gc.C) {
 		Key:    lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"},
 		Holder: "meshuggah",
 	}}
-	err := proxy.Expiries(expected)
+	err := proxy.Expirations(expected)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
-		c.Assert(note.Type(), gc.Equals, Expiries)
-		expiry, ok := note.(ExpiriesNote)
+		c.Assert(note.Type(), gc.Equals, Expirations)
+		expiry, ok := note.(ExpirationsNote)
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(expiry.Expiries, jc.DeepEquals, expected)
+		c.Assert(expiry.Expirations, jc.DeepEquals, expected)
 	}
 }
 
-func (s *NotifyProxySuite) TestExpiriesWithBatch(c *gc.C) {
+func (s *NotifyProxySuite) TestExpirationsWithBatch(c *gc.C) {
 	proxy := NewBlocking(clock.WallClock)
 	defer proxy.Close()
 
@@ -153,15 +153,15 @@ func (s *NotifyProxySuite) TestExpiriesWithBatch(c *gc.C) {
 		Key:    lease.Key{Namespace: "ns", ModelUUID: "model2", Lease: "lease2"},
 		Holder: "nadir",
 	}}
-	err := proxy.Expiries(expected)
+	err := proxy.Expirations(expected)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
-		c.Assert(note.Type(), gc.Equals, Expiries)
-		expiry, ok := note.(ExpiriesNote)
+		c.Assert(note.Type(), gc.Equals, Expirations)
+		expiry, ok := note.(ExpirationsNote)
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(expiry.Expiries, jc.DeepEquals, expected)
+		c.Assert(expiry.Expirations, jc.DeepEquals, expected)
 	}
 }
 

@@ -22,10 +22,11 @@ const (
 	// ClaimedTimeout defines how long we should wait for a claimed timeout
 	// response.
 	ClaimedTimeout = time.Second * 15
-	// ExpiriesTimeout defines how long we should wait for a expiries timeout
-	// response. This is longer than a claimed timeout, because we're processing
-	// multiple records rather than ne.
-	ExpiriesTimeout = time.Second * 30
+
+	// ExpirationsTimeout defines how long we should wait for an expirations
+	// timeout response. This is longer than a claimed timeout, because we are
+	// processing multiple records rather than one.
+	ExpirationsTimeout = time.Second * 30
 )
 
 // NotifyType defines a notification type.
@@ -35,8 +36,8 @@ const (
 	// Claimed defines the claimed notification type.
 	Claimed NotifyType = "claimed"
 
-	// Expiries defines the expiries notification type.
-	Expiries NotifyType = "expiries"
+	// Expirations defines the expirations notification type.
+	Expirations NotifyType = "expirations"
 )
 
 // NotificationProxy allows notifications to be sent via a proxy, rather than
@@ -77,19 +78,20 @@ func (n ClaimedNote) ErrorResponse(err error) {
 	}
 }
 
-// ExpiriesNote returns the information associated with a expiries request.
-type ExpiriesNote struct {
-	Expiries []raftlease.Expired
-	response func(error)
+// ExpirationsNote returns the information
+// associated with an expirations request.
+type ExpirationsNote struct {
+	Expirations []raftlease.Expired
+	response    func(error)
 }
 
-func (ExpiriesNote) Type() NotifyType {
-	return Expiries
+func (ExpirationsNote) Type() NotifyType {
+	return Expirations
 }
 
 // ErrorResponse is used to notify the proxy call of any potential errors
 // when sending.
-func (n ExpiriesNote) ErrorResponse(err error) {
+func (n ExpirationsNote) ErrorResponse(err error) {
 	if n.response != nil {
 		n.response(err)
 	}
@@ -161,8 +163,8 @@ func (p *NotifyProxy) Claimed(key lease.Key, holder string) error {
 	}
 }
 
-// Expiries will be called when a set of existing leases have expired.
-func (p *NotifyProxy) Expiries(expiries []raftlease.Expired) error {
+// Expirations will be called when a set of existing leases have expired.
+func (p *NotifyProxy) Expirations(expirations []raftlease.Expired) error {
 	var (
 		response func(error)
 		err      = make(chan error, 1)
@@ -180,17 +182,17 @@ func (p *NotifyProxy) Expiries(expiries []raftlease.Expired) error {
 		return tomb.ErrDying
 	case <-p.tomb.Dead():
 		return p.tomb.Err()
-	case p.in <- ExpiriesNote{
-		Expiries: expiries,
-		response: response,
+	case p.in <- ExpirationsNote{
+		Expirations: expirations,
+		response:    response,
 	}:
 	}
 
 	select {
 	case e := <-err:
 		return errors.Trace(e)
-	case <-time.After(ExpiriesTimeout):
-		return errors.Errorf("expiries timed out")
+	case <-time.After(ExpirationsTimeout):
+		return errors.Errorf("expirations timed out")
 	}
 }
 

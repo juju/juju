@@ -183,9 +183,9 @@ type leaseDoc struct {
 	Holder string
 }
 
-// Expiries is part of raftlease.NotifyTarget.
-func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
-	if len(expiries) == 0 {
+// Expirations is part of raftlease.NotifyTarget.
+func (t *notifyTarget) Expirations(expirations []raftlease.Expired) error {
+	if len(expirations) == 0 {
 		return nil
 	}
 
@@ -195,7 +195,7 @@ func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
 	// Cache all the document idents up front, incase we have to retry the
 	// transaction again. Also this serves as a de-duping process.
 	leaseDocs := make(map[string]leaseDoc)
-	for _, expired := range expiries {
+	for _, expired := range expirations {
 		key := expired.Key
 		docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
 
@@ -265,7 +265,7 @@ func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
 				Id: doc.Id,
 				Assert: bson.M{
 					// Ensure that the lease holder is the same holder as the
-					// one we where told to expire. This should prevent the
+					// one we were told to expire. This should prevent the
 					// race of removing a lease that might have been changed to
 					// another holder, before the batch remove.
 					fieldHolder: leaseDoc.Holder,

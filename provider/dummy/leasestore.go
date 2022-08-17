@@ -96,7 +96,7 @@ func (s *leaseStore) RevokeLease(key lease.Key, holder string, stop <-chan struc
 		return lease.ErrInvalid
 	}
 	delete(s.entries, key)
-	_ = s.target.Expiries([]raftlease.Expired{{
+	_ = s.target.Expirations([]raftlease.Expired{{
 		Key:    key,
 		Holder: holder,
 	}})

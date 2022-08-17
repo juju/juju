@@ -117,9 +117,9 @@ func (w *Worker) loop() error {
 						return errors.Trace(err)
 					}
 
-				case notifyproxy.Expiries:
-					note := change.(notifyproxy.ExpiriesNote)
-					err := w.config.NotifyTarget.Expiries(note.Expiries)
+				case notifyproxy.Expirations:
+					note := change.(notifyproxy.ExpirationsNote)
+					err := w.config.NotifyTarget.Expirations(note.Expirations)
 
 					// We always want to sent the error response, so that the other
 					// end of the proxy can be notified if there was an error or

@@ -111,14 +111,14 @@ func (s *workerSuite) TestClaimedSuccess(c *gc.C) {
 	key := lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}
 	err := s.notifyProxy.Claimed(key, "meshuggah")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.target.Claims, gc.DeepEquals, []Claimed{{
+	c.Assert(s.target.claims, gc.DeepEquals, []Claimed{{
 		Key:    key,
 		Holder: "meshuggah",
 	}})
 }
 
 func (s *workerSuite) TestClaimedError(c *gc.C) {
-	s.target.Err = errors.Errorf("boom")
+	s.target.err = errors.Errorf("boom")
 
 	key := lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}
 	err := s.notifyProxy.Claimed(key, "meshuggah")
@@ -130,13 +130,13 @@ func (s *workerSuite) TestClaimedError(c *gc.C) {
 
 func (s *workerSuite) TestExpiriesSuccess(c *gc.C) {
 	key := lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}
-	err := s.notifyProxy.Expiries([]raftlease.Expired{{
+	err := s.notifyProxy.Expirations([]raftlease.Expired{{
 		Key:    key,
 		Holder: "meshuggah",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.target.Expires, gc.DeepEquals, []Expiries{{
-		Expiries: []raftlease.Expired{{
+	c.Assert(s.target.expirations, gc.DeepEquals, []Expirations{{
+		Expirations: []raftlease.Expired{{
 			Key:    key,
 			Holder: "meshuggah",
 		}},
@@ -144,10 +144,10 @@ func (s *workerSuite) TestExpiriesSuccess(c *gc.C) {
 }
 
 func (s *workerSuite) TestExpiriesError(c *gc.C) {
-	s.target.Err = errors.Errorf("boom")
+	s.target.err = errors.Errorf("boom")
 
 	key := lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}
-	err := s.notifyProxy.Expiries([]raftlease.Expired{{
+	err := s.notifyProxy.Expirations([]raftlease.Expired{{
 		Key:    key,
 		Holder: "meshuggah",
 	}})
@@ -162,29 +162,29 @@ type Claimed struct {
 	Holder string
 }
 
-type Expiries struct {
-	Expiries []raftlease.Expired
+type Expirations struct {
+	Expirations []raftlease.Expired
 }
 
 type fakeTarget struct {
-	Claims  []Claimed
-	Expires []Expiries
-	Err     error
+	claims      []Claimed
+	expirations []Expirations
+	err         error
 }
 
 // Claimed will be called when a new lease has been claimed.
 func (t *fakeTarget) Claimed(key lease.Key, holder string) error {
-	t.Claims = append(t.Claims, Claimed{
+	t.claims = append(t.claims, Claimed{
 		Key:    key,
 		Holder: holder,
 	})
-	return t.Err
+	return t.err
 }
 
-// Expiries will be called when a set of existing leases have expired.
-func (t *fakeTarget) Expiries(expires []raftlease.Expired) error {
-	t.Expires = append(t.Expires, Expiries{
-		Expiries: expires,
+// Expirations will be called when a set of existing leases have expired.
+func (t *fakeTarget) Expirations(expires []raftlease.Expired) error {
+	t.expirations = append(t.expirations, Expirations{
+		Expirations: expires,
 	})
-	return t.Err
+	return t.err
 }
