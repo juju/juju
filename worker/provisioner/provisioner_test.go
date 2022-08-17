@@ -141,9 +141,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 				}
 				received = append(received, newCfg.NumProvisionWorkers())
 			}
-
-		case <-time.After(coretesting.ShortWait):
-
 		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")

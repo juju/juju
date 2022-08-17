@@ -417,7 +417,7 @@ func (s *TxnWatcherSuite) TestFilterCollection(c *gc.C) {
 	s.newRunner(c)
 
 	_, hub := s.newWatcherWithError(c, 1, nil, watcher.TxnWatcherConfig{
-		WatchCollections: []string{"test"},
+		IgnoreCollections: []string{"filtered"},
 	})
 	s.insert(c, "filtered", "b")
 	revno2 := s.insert(c, "test", "a")

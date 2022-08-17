@@ -728,14 +728,6 @@ func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secr
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchConsumedSecretsChanges("unit-mariadb-0")
 
-	// now := s.Clock.Now().Round(time.Second).UTC()
-	// wc := testing.NewSecretsRotationWatcherC(c, w)
-	// wc.AssertChange(watcher.SecretRotationChange{
-	// 	ID:             md.ID,
-	// 	URL:            md.URL,
-	// 	RotateInterval: time.Hour,
-	// 	LastRotateTime: now,
-	// })
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 

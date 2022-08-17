@@ -572,8 +572,10 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 	defer func() { _ = docWatcher.Stop() }()
 
 	var (
-		timer           = w.clk.NewTimer(w.quiesceInterval)
-		timerArmed      = true
+		timer      = w.clk.NewTimer(w.quiesceInterval)
+		timerArmed = true
+		// unprocessedDocs is a list of document IDs that need to be processed
+		// with a deadline they must be sent by.
 		unprocessedDocs = make(map[string]time.Time)
 		outCh           chan []string
 		changeSet       []string

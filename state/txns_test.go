@@ -4,8 +4,7 @@
 package state
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
@@ -465,11 +464,11 @@ func (r *recordingRunner) Run(transactions jujutxn.TransactionSource) (err error
 }
 
 func (r *recordingRunner) ResumeTransactions() error {
-	panic("removed when moving to sstxns")
+	return errors.NotImplemented
 }
 
 func (r *recordingRunner) MaybePruneTransactions(_ jujutxn.PruneOptions) error {
-	panic("removed when moving to sstxns")
+	return errors.NotImplemented
 }
 
 func txFromOps(ops []txn.Op) *jujutxn.Transaction {

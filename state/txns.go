@@ -90,12 +90,12 @@ func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
 
 // ResumeTransactions is part of the jujutxn.Runner interface.
 func (r *multiModelRunner) ResumeTransactions() error {
-	return nil
+	return errors.NotImplemented
 }
 
 // MaybePruneTransactions is part of the jujutxn.Runner interface.
 func (r *multiModelRunner) MaybePruneTransactions(opts jujutxn.PruneOptions) error {
-	return nil
+	return errors.NotImplemented
 }
 
 // updateOps modifies the Insert and Update fields in a slice of

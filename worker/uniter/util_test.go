@@ -907,7 +907,6 @@ func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	}
 	timeout := time.After(worstCase)
 	for {
-
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, cannotMatch, _ = ctx.matchHooks(c); match {

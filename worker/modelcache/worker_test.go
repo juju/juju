@@ -5,7 +5,6 @@ package modelcache_test
 
 import (
 	"math"
-	"reflect"
 	"strings"
 	"time"
 
@@ -850,6 +849,8 @@ func (s *WorkerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{
 	return obtained
 }
 
+// checkSuperfluousChanges pulls as many changes in testing.ShortWait duration and ensures they
+// match matches arg. This is useful until we have some watcher quiescence again.
 func (s *WorkerSuite) checkSuperfluousChanges(c *gc.C, changes <-chan interface{}, matches interface{}) {
 	done := time.After(testing.ShortWait)
 	for {
@@ -858,21 +859,6 @@ func (s *WorkerSuite) checkSuperfluousChanges(c *gc.C, changes <-chan interface{
 			c.Assert(obtained, jc.DeepEquals, matches)
 		case <-done:
 			return
-		}
-	}
-}
-
-func (s *WorkerSuite) nextChangeSkipSuperfluous(c *gc.C, changes <-chan interface{}, ignore interface{}) interface{} {
-	done := time.After(testing.ShortWait)
-	for {
-		select {
-		case obtained := <-changes:
-			if reflect.DeepEqual(obtained, ignore) {
-				continue
-			}
-			return obtained
-		case <-done:
-			c.Fatalf("no change")
 		}
 	}
 }

@@ -145,12 +145,9 @@ func (s *StateSuite) WaitForNextSync(c *gc.C) {
 	}()
 	timeout := time.After(jujutesting.LongWait)
 	for {
-		//s.Clock.Advance(time.Second)
-		loop := time.After(10 * time.Millisecond)
 		select {
 		case <-done:
 			return
-		case <-loop:
 		case <-timeout:
 			c.Fatal("no sync event sent, is the watcher dead?")
 		}

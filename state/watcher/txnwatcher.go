@@ -101,10 +101,8 @@ type TxnWatcher struct {
 	// runCmd can be used to override the db.Run function, used for tests.
 	runCmd RunCmdFunc
 
-	// watchCollections when set the watcher will only
-	// publish events for inserts, updates, replaces and deletes for documents
-	// in one of these collections.
-	watchCollections []string
+	// ignoreCollections when set the watcher will ignore all changes for these collections.
+	ignoreCollections []string
 }
 
 // TxnWatcherConfig contains the configuration parameters required
@@ -126,10 +124,9 @@ type TxnWatcherConfig struct {
 	// RunCmd is called to run commands against an mgo.Database, used for
 	// testing.
 	RunCmd RunCmdFunc
-	// WatchCollections is optional, when provided the TxnWatcher will only
-	// publish events for inserts, updates, replaces and deletes for documents
-	// in one of these collections.
-	WatchCollections []string
+	// IgnoreCollections is optional, when provided the TxnWatcher will ignore changes
+	// to documents in these collections.
+	IgnoreCollections []string
 }
 
 // Validate ensures that all the values that have to be set are set.
@@ -159,17 +156,17 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 	}
 
 	w := &TxnWatcher{
-		hub:              config.Hub,
-		clock:            config.Clock,
-		logger:           config.Logger,
-		session:          config.Session,
-		jujuDBName:       config.JujuDBName,
-		notifySync:       TxnPollNotifyFunc,
-		reportRequest:    make(chan chan map[string]interface{}),
-		readyChan:        make(chan any),
-		pollInterval:     config.PollInterval,
-		runCmd:           config.RunCmd,
-		watchCollections: config.WatchCollections,
+		hub:               config.Hub,
+		clock:             config.Clock,
+		logger:            config.Logger,
+		session:           config.Session,
+		jujuDBName:        config.JujuDBName,
+		notifySync:        TxnPollNotifyFunc,
+		reportRequest:     make(chan chan map[string]interface{}),
+		readyChan:         make(chan any),
+		pollInterval:      config.PollInterval,
+		runCmd:            config.RunCmd,
+		ignoreCollections: config.IgnoreCollections,
 	}
 	if w.logger == nil {
 		w.logger = noOpLogger{}
@@ -397,8 +394,8 @@ func (w *TxnWatcher) init() (bool, error) {
 		}},
 	}
 
-	if len(w.watchCollections) > 0 {
-		match = append(match, bson.DocElem{"ns.coll", bson.D{{"$in", w.watchCollections}}})
+	if len(w.ignoreCollections) > 0 {
+		match = append(match, bson.DocElem{"ns.coll", bson.D{{"$not", bson.D{{"$in", w.ignoreCollections}}}}})
 	}
 
 	cmd := bson.D{
@@ -460,6 +457,16 @@ func (w *TxnWatcher) process(changes []bson.Raw) (bool, error) {
 				if err != nil {
 					return added, errors.Trace(err)
 				}
+				// If you get this message then a document was updated outside a mongo multi-doc transaction
+				// and wasn't involved in a jujutxn (incrementing txn-revno).
+				// If you were trying to modify a document from the mongo cli, you need to start a transaction
+				// then modify the document while also incrementing its txn-revno field. Then commit the transaction.
+				// This will correctly trigger the watcher.
+				// If you are seeing this otherwise, maybe the collection should not have been watched, so go update
+				// the watcherIgnoreList in state/allcollections.go
+				// If you want to receive watch notifications on your collection and get here, you need to make sure
+				// all mutations are done inside a jujutxn otherwise you have a programming error and the change will
+				// get skipped.
 				w.logger.Criticalf("update %s %v without revno %s", change.Ns.Collection, change.DocumentKey.Id, j)
 				w.resumeToken = change.Id
 				continue

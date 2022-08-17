@@ -405,7 +405,6 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for provisioning")
-		case <-time.After(coretesting.ShortWait):
 		case _, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
 			err := m.Refresh()
@@ -828,7 +827,6 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not created")
-			case <-time.After(coretesting.ShortWait):
 			case <-w.Changes():
 				units, err := app.AllUnits()
 				c.Assert(err, jc.ErrorIsNil)
@@ -1161,7 +1159,7 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, func() {})
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
@@ -1180,7 +1178,7 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, nil,
 		func(agent.Config, *state.State, *MachineAgent) {
-			agenttest.WaitMatch(c, matcher.Check, longerWait, func() {})
+			agenttest.WaitMatch(c, matcher.Check, longerWait)
 		},
 	)
 }
@@ -1209,7 +1207,7 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1254,7 +1252,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1304,7 +1302,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
 
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1349,7 +1347,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, migratingModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, func() {})
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
 	})
 }
 
@@ -1386,7 +1384,6 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 }
 
 func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
-
 	// Grab responsibility for the model on behalf of another machine.
 	uuid := s.BackingState.ModelUUID()
 	claimSingularRaftLease(c, s.DataDir(), uuid)
@@ -1399,7 +1396,7 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, longerWait, func() {})
+		agenttest.WaitMatch(c, matcher.Check, longerWait)
 	})
 }
 
