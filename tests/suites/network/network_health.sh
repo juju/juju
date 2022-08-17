@@ -5,28 +5,20 @@ run_network_health() {
 
 	ensure "network-health" "${file}"
 
-	# TODO Add xenial tests into 2.9 when xenial ubuntu is fixed.
-	#juju deploy ubuntu ubuntu-xenial --series xenial
-	juju deploy ubuntu ubuntu-bionic --series bionic
 	juju deploy ubuntu ubuntu-focal --series focal
 	juju deploy ubuntu ubuntu-jammy --series jammy
 
-	juju deploy 'juju-qa-network-health' network-health-bionic --series bionic
 	juju deploy 'juju-qa-network-health' network-health-focal --series focal
 	juju deploy 'juju-qa-network-health' network-health-jammy --series jammy
 
-	juju add-relation network-health-bionic ubuntu-bionic
 	juju add-relation network-health-focal ubuntu-focal
 	juju add-relation network-health-jammy ubuntu-jammy
 
-	juju expose network-health-bionic
 	juju expose network-health-focal
 	juju expose network-health-jammy
 
-	wait_for "ubuntu-bionic" "$(idle_condition "ubuntu-bionic" 3)"
 	wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 4)"
 	wait_for "ubuntu-jammy" "$(idle_condition "ubuntu-jammy" 5)"
-	wait_for "network-health-bionic" "$(idle_subordinate_condition "network-health-bionic" "ubuntu-bionic")"
 	wait_for "network-health-focal" "$(idle_subordinate_condition "network-health-focal" "ubuntu-focal")"
 	wait_for "network-health-jammy" "$(idle_subordinate_condition "network-health-jammy" "ubuntu-jammy")"
 
@@ -51,13 +43,13 @@ check_default_routes() {
 check_accessibility() {
 	echo "[+] checking neighbour connectivity and external access"
 
-	for net_health_unit in "network-health-bionic/0" "network-health-focal/0" "network-health-jammy/0"; do
+	for net_health_unit in "network-health-focal/0" "network-health-jammy/0"; do
 		ip="$(juju show-unit $net_health_unit --format json | jq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
 
 		curl_cmd="curl -s http://${ip}:8039"
 
 		# Check that each of the principles can access the subordinate.
-		for principle_unit in "ubuntu-bionic/0" "ubuntu-focal/0" "ubuntu-jammy/0"; do
+		for principle_unit in "ubuntu-focal/0" "ubuntu-jammy/0"; do
 			echo "checking network health unit ${net_health_unit} reachability from ${principle_unit} using ${ip}:8039"
 			check_contains "$(juju exec --unit $principle_unit "$curl_cmd")" "pass"
 		done

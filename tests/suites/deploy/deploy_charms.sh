@@ -18,12 +18,12 @@ run_deploy_specific_series() {
 
 	ensure "test-deploy-specific-series" "${file}"
 
-	juju deploy postgresql --series bionic
+	juju deploy postgresql --series focal
 	series=$(juju status --format=json | jq ".applications.postgresql.series")
 
 	destroy_model "test-deploy-specific-series"
 
-	echo "$series" | check "bionic"
+	echo "$series" | check "focal"
 }
 
 run_deploy_lxd_profile_charm() {
@@ -108,10 +108,10 @@ run_deploy_lxd_to_machine() {
 
 	ensure "${model_name}" "${file}"
 
-	juju add-machine -n 2 --series=bionic
+	juju add-machine -n 2 --series=jammy
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to 0 --series=bionic
+	juju deploy "${charm}" --to 0 --series=jammy
 
 	# Test the case where we wait for the machine to start
 	# before deploying the unit.

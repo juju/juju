@@ -15,7 +15,7 @@ run_deploy_manual_aws() {
 	add_clean_func "run_cleanup_deploy_manual_aws"
 
 	# Eventually we should use BOOTSTRAP_SERIES
-	series="bionic"
+	series="jammy"
 
 	# This creates a new VPC for this deployment. If one already exists it will
 	# get the existing setup and use that.

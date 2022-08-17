@@ -1,3 +1,4 @@
+series: jammy
 applications:
     trust-checker:
         charm: cs:~juju-qa/bionic/trust-checker-0

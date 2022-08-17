@@ -39,7 +39,7 @@ run_spaces_manual_aws() {
 	add_clean_func "run_cleanup_deploy_manual_aws"
 
 	# Eventually we should use BOOTSTRAP_SERIES.
-	series="bionic"
+	series="jammy"
 
 	OUT=$(aws ec2 describe-images \
 		--owners 099720109477 \

@@ -55,11 +55,11 @@ exec_simplestream_metadata() {
 
 	# 2.8 or older needs series based agent metadata.
 	if [ "${stable_version}" == "2.8" ]; then
-		local focal_version bionic_version
+		local focal_version jammy_version
 		focal_version=$(series_version "${version}" "focal")
-		bionic_version=$(series_version "${version}" "bionic")
+		jammy_version=$(series_version "${version}" "jammy")
 		add_upgrade_tools "${focal_version}"
-		add_upgrade_tools "${bionic_version}"
+		add_upgrade_tools "${jammy_version}"
 
 		/snap/bin/juju metadata generate-agents \
 			--clean \
