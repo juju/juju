@@ -73,7 +73,7 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["3.0/stable"]
+        snap_version: ["2.9/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
@@ -87,7 +87,7 @@ jobs:
       run: |
         set -ux
         set +e
-        OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
+        OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+" || echo "NOT FOUND")
         set -e
         if [ "$OUT" = "NOT FOUND" ]; then
           echo "RUN_TEST=NO_BASE_VERSION" >> $GITHUB_ENV
