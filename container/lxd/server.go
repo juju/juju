@@ -13,25 +13,7 @@ import (
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
-
-	"github.com/juju/juju/core/os"
 )
-
-// osSupport is the list of operating system types for which Juju supports
-// communicating with LXD via a local socket, by default.
-var osSupport = []os.OSType{os.Ubuntu}
-
-// HasSupport returns true if the current OS supports LXD containers by
-// default
-func HasSupport() bool {
-	t := os.HostOS()
-	for _, v := range osSupport {
-		if v == t {
-			return true
-		}
-	}
-	return false
-}
 
 // Server extends the upstream LXD container server.
 type Server struct {
