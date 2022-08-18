@@ -4,6 +4,8 @@
 package model
 
 import (
+	"strings"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -20,25 +22,33 @@ import (
 var usageGrantSummary = `
 Grants access level to a Juju user for a model, controller, or application offer.`[1:]
 
+func filterAccessLevels(accessLevels []permission.Access, filter func(permission.Access) error) []string {
+	ret := []string{}
+	for _, accessLevel := range accessLevels {
+		if filter(accessLevel) == nil {
+			ret = append(ret, string(accessLevel))
+		}
+	}
+	return ret
+}
+
+var validAccessLevels = `
+Valid access levels for models are:
+    `[1:] + strings.Join(filterAccessLevels(permission.AllAccessLevels, permission.ValidateModelAccess), "\n    ") + `
+
+Valid access levels for controllers are:
+    ` + strings.Join(filterAccessLevels(permission.AllAccessLevels, permission.ValidateControllerAccess), "\n    ") + `
+
+Valid access levels for application offers are:
+    ` + strings.Join(filterAccessLevels(permission.AllAccessLevels, permission.ValidateOfferAccess), "\n    ")
+
 var usageGrantDetails = `
 By default, the controller is the current controller.
 
 Users with read access are limited in what they can do with models:
 ` + "`juju models`, `juju machines`, and `juju status`" + `.
 
-Valid access levels for models are:
-    read
-    write
-    admin
-
-Valid access levels for controllers are:
-    login
-    superuser
-
-Valid access levels for application offers are:
-    read
-    consume
-    admin
+`[1:] + validAccessLevels + `
 
 Examples:
 Grant user 'joe' 'read' access to model 'mymodel':
@@ -67,7 +77,7 @@ Grant user 'sam' 'read' access to application offers 'fred/prod.hosted-mysql' an
 
 See also: 
     revoke
-    add-user`[1:]
+    add-user`
 
 var usageRevokeSummary = `
 Revokes access from a Juju user for a model, controller, or application offer.`[1:]
@@ -78,6 +88,8 @@ By default, the controller is the current controller.
 Revoking write access, from a user who has that permission, will leave
 that user with read access. Revoking read access, however, also revokes
 write access.
+
+`[1:] + validAccessLevels + `
 
 Examples:
 Revoke 'read' (and 'write') access from user 'joe' for model 'mymodel':
@@ -97,7 +109,7 @@ Revoke 'consume' access from user 'sam' for models 'fred/prod.hosted-mysql' and 
     juju revoke sam consume fred/prod.hosted-mysql mary/test.hosted-mysql
 
 See also: 
-    grant`[1:]
+    grant`
 
 type accessCommand struct {
 	modelcmd.ControllerCommandBase
