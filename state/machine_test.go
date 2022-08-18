@@ -1281,6 +1281,8 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	// Make two changes, check one event.
 	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

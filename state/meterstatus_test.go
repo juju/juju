@@ -114,6 +114,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 	wc.AssertOneChange()
 	err = mm.SetLastSuccessfulSend(s.Clock.Now())
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
@@ -131,6 +132,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatu
 	wc.AssertOneChange()
 	err = mm.SetLastSuccessfulSend(s.Clock.Now())
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)

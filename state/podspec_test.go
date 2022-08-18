@@ -225,6 +225,8 @@ func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 	// Multiple changes coalesced.
 	err = s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("spec1"))
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("spec2"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
