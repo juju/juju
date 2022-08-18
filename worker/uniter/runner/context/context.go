@@ -150,8 +150,8 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
-	// secretFacade allows the context to access the secrets backend.
-	secretFacade *secretsmanager.Client
+	// secrets allows the context to access the secrets backend.
+	secrets SecretsAccessor
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -314,6 +314,9 @@ type HookContext struct {
 
 	// secretLabel is the secret label to expose to the hook.
 	secretLabel string
+
+	// secretIDs are the secrets and their labels create by this charm.
+	secretIDs map[*coresecrets.URI]string
 
 	mu sync.Mutex
 }
@@ -735,7 +738,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 
 // GetSecret returns the value of the specified secret.
 func (ctx *HookContext) GetSecret(uri, label string, update, peek bool) (coresecrets.SecretValue, error) {
-	v, err := ctx.secretFacade.GetValue(uri, label, update, peek)
+	v, err := ctx.secrets.GetValue(uri, label, update, peek)
 	if err != nil {
 		return nil, err
 	}
@@ -754,7 +757,7 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, erro
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return ctx.secretFacade.Create(cfg, names.NewApplicationTag(appName), args.Value)
+	return ctx.secrets.Create(cfg, names.NewApplicationTag(appName), args.Value)
 }
 
 // UpdateSecret creates a secret with the specified data.
@@ -765,17 +768,22 @@ func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) e
 		Description:  args.Description,
 		Label:        args.Label,
 	}
-	return ctx.secretFacade.Update(uri, cfg, args.Value)
+	return ctx.secrets.Update(uri, cfg, args.Value)
 }
 
 // RemoveSecret removes a secret with the specified uri.
 func (ctx *HookContext) RemoveSecret(uri string) error {
-	return ctx.secretFacade.Remove(uri)
+	return ctx.secrets.Remove(uri)
+}
+
+// SecretIds gets the secret ids and their labels created by the charm.
+func (ctx *HookContext) SecretIds() (map[*coresecrets.URI]string, error) {
+	return ctx.secretIDs, nil
 }
 
 // GrantSecret grants access to a specified secret.
 func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
-	return ctx.secretFacade.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{
+	return ctx.secrets.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
 		RelationKey:     args.RelationKey,
@@ -785,7 +793,7 @@ func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArg
 
 // RevokeSecret revokes access to a specified secret.
 func (ctx *HookContext) RevokeSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
-	return ctx.secretFacade.Revoke(uri, &secretsmanager.SecretRevokeGrantArgs{
+	return ctx.secrets.Revoke(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
 		RelationKey:     args.RelationKey,
@@ -1421,4 +1429,18 @@ func (ctx *HookContext) SecretURI() (string, error) {
 		return "", errors.NotFoundf("secret URI")
 	}
 	return ctx.secretURI, nil
+}
+
+// SecretLabel returns the secret label for secret hooks.
+// This is not yet used by any hook commands - it is exported
+// for tests to use.
+func (ctx *HookContext) SecretLabel() string {
+	return ctx.secretLabel
+}
+
+// SecretIDs returns the secret IDs.
+// This is not yet used by any hook commands - it is exported
+// for tests to use.
+func (ctx *HookContext) SecretIDs() map[*coresecrets.URI]string {
+	return ctx.secretIDs
 }

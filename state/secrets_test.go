@@ -160,7 +160,17 @@ func (s *SecretsSuite) TestList(c *gc.C) {
 	_, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	list, err := s.store.ListSecrets(state.SecretsFilter{})
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	uri2.ControllerUUID = s.State.ControllerUUID()
+	p.Owner = "application-wordpress"
+	p.Scope = "application-wordpress"
+	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		OwnerTag: s.owner.Tag().String(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
 		URI:            uri,

@@ -253,11 +253,15 @@ func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
 		URI:      uri,
 		Revision: 2,
 	}}
-	s.secretsStore.EXPECT().ListSecrets(state.SecretsFilter{}).Return(
+	s.secretsStore.EXPECT().ListSecrets(state.SecretsFilter{
+		OwnerTag: "application-mariadb",
+	}).Return(
 		metadata, nil,
 	)
 
-	result, err := service.ListSecrets(context.Background(), secrets.Filter{})
+	result, err := service.ListSecrets(context.Background(), secrets.Filter{
+		OwnerTag: "application-mariadb",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, metadata)
 }

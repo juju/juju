@@ -12,8 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -140,4 +142,14 @@ func (ft *FakeTicket) Ready() <-chan struct{} {
 	c := make(chan struct{})
 	close(c)
 	return c
+}
+
+type SecretsContextAccessor struct {
+	context.SecretsAccessor
+}
+
+func (s SecretsContextAccessor) SecretIds() (map[*secrets.URI]string, error) {
+	return map[*secrets.URI]string{
+		{ID: "secret:9m4e2mr0ui3e8a215n4g"}: "label",
+	}, nil
 }

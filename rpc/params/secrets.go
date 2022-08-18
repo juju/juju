@@ -66,6 +66,17 @@ type SecretURIArg struct {
 	URI string `json:"uri"`
 }
 
+// SecretIdResult is the result of getting secret ID data.
+type SecretIdResult struct {
+	Label string `json:"label"`
+}
+
+// SecretIdResults holds results for getting secret IDs.
+type SecretIdResults struct {
+	Result map[string]SecretIdResult `json:"result"`
+	Error  *Error                    `json:"error,omitempty"`
+}
+
 // GetSecretConsumerInfoArgs holds the args for getting secret
 // consumer metadata.
 type GetSecretConsumerInfoArgs struct {

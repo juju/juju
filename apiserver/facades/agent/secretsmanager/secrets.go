@@ -199,6 +199,26 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	return s.secretsConsumer.GetSecretConsumer(uri, consumerTag.String())
 }
 
+// GetSecretIds returns the caller's secret ids and their labels.
+func (s *SecretsManagerAPI) GetSecretIds() (params.SecretIdResults, error) {
+	var result params.SecretIdResults
+	ctx := context.Background()
+	secrets, err := s.secretsService.ListSecrets(ctx, secrets.Filter{
+		OwnerTag: names.NewApplicationTag(authTagApp(s.authTag)).String(),
+	})
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	result.Result = make(map[string]params.SecretIdResult)
+	for _, md := range secrets {
+		result.Result[md.URI.ShortString()] = params.SecretIdResult{
+			Label: md.Label,
+		}
+	}
+	return result, nil
+}
+
 // GetSecretValues returns the secret values for the specified secrets.
 func (s *SecretsManagerAPI) GetSecretValues(args params.GetSecretValueArgs) (params.SecretValueResults, error) {
 	result := params.SecretValueResults{

@@ -43,6 +43,7 @@ type HookContextSuite struct {
 	relch       *state.Charm
 	relunits    map[int]*state.RelationUnit
 	storage     *runnertesting.StorageContextAccessor
+	secrets     *runnertesting.SecretsContextAccessor
 	clock       *testclock.Clock
 
 	st             api.Connection
@@ -122,6 +123,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.secrets = &runnertesting.SecretsContextAccessor{}
 
 	s.clock = testclock.NewClock(time.Time{})
 }
@@ -305,6 +307,14 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookCon
 	az, err := ctx.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(az, gc.Equals, "a-zone")
+
+	secretIds, err := ctx.SecretIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secretIds, gc.HasLen, 1)
+	for uri, label := range secretIds {
+		c.Assert(uri.ShortString(), gc.Equals, "secret:secret:9m4e2mr0ui3e8a215n4g")
+		c.Assert(label, gc.Equals, "label")
+	}
 }
 
 func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *runnercontext.HookContext) {
@@ -362,9 +372,10 @@ func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.
 	c.Assert(workloadName, gc.Equals, "")
 }
 
-func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI string) {
+func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI, label string) {
 	uri, _ := ctx.SecretURI()
 	c.Assert(uri, gc.Equals, secretURI)
+	c.Assert(ctx.SecretLabel(), gc.Equals, label)
 }
 
 func (s *HookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {

@@ -272,6 +272,10 @@ func (ctx *RestrictedContext) RemoveSecret(string) error {
 	return ErrRestrictedContext
 }
 
+func (ctx *RestrictedContext) SecretIds() (map[*secrets.URI]string, error) {
+	return nil, ErrRestrictedContext
+}
+
 // GrantSecret implements runner.Context.
 func (c *RestrictedContext) GrantSecret(string, *SecretGrantRevokeArgs) error {
 	return nil

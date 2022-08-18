@@ -137,6 +137,7 @@ var expectedCommands = []string{
 	"secret-add",
 	"secret-get",
 	"secret-grant",
+	"secret-ids",
 	"secret-remove",
 	"secret-revoke",
 	"secret-update",

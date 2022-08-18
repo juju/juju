@@ -629,6 +629,21 @@ func (mr *MockContextMockRecorder) RevokeSecret(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockContext)(nil).RevokeSecret), arg0, arg1)
 }
 
+// SecretIds mocks base method.
+func (m *MockContext) SecretIds() (map[*secrets.URI]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretIds")
+	ret0, _ := ret[0].(map[*secrets.URI]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SecretIds indicates an expected call of SecretIds.
+func (mr *MockContextMockRecorder) SecretIds() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretIds", reflect.TypeOf((*MockContext)(nil).SecretIds))
+}
+
 // SetActionFailed mocks base method.
 func (m *MockContext) SetActionFailed() error {
 	m.ctrl.T.Helper()

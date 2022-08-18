@@ -215,6 +215,27 @@ func (c *Client) GetLatestSecretsRevisionInfo(unitName string, uris []string) (m
 	return info, err
 }
 
+// SecretIds returns the caller's secret ids and their labels.
+func (c *Client) SecretIds() (map[*secrets.URI]string, error) {
+	var results params.SecretIdResults
+	err := c.facade.FacadeCall("GetSecretIds", nil, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[*secrets.URI]string)
+	if results.Error != nil {
+		return nil, apiservererrors.RestoreError(results.Error)
+	}
+	for id, info := range results.Result {
+		uri, err := secrets.ParseURI(id)
+		if err != nil {
+			return nil, errors.NotValidf("secret URI %q", id)
+		}
+		result[uri] = info.Label
+	}
+	return result, nil
+}
+
 // WatchSecretsRotationChanges returns a watcher which serves changes to
 // secrets rotation config for any secrets managed by the specified owner.
 func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRotationWatcher, error) {

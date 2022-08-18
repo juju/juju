@@ -246,6 +246,52 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestGetLatestSecretsRevisionInfo(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectSecretAccessQuery(1)
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, "application-mariadb").Return(
+		&coresecrets.SecretConsumerMetadata{
+			LatestRevision: 666,
+			Label:          "label",
+		}, nil)
+
+	results, err := s.facade.GetLatestSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "application-mariadb",
+		URIs:        []string{uri.ShortString()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+		Results: []params.SecretConsumerInfoResult{{
+			Label:    "label",
+			Revision: 666,
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetSecretIds(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsService.EXPECT().ListSecrets(
+		gomock.Any(), secrets.Filter{
+			OwnerTag: "application-mariadb",
+		}).Return([]*coresecrets.SecretMetadata{{URI: uri, Label: "label"}}, nil)
+
+	results, err := s.facade.GetSecretIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretIdResults{
+		Result: map[string]params.SecretIdResult{
+			uri.ShortString(): {
+				Label: "label",
+			},
+		},
+	})
+}
+
 func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 	defer s.setup(c).Finish()
 
