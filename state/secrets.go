@@ -16,6 +16,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/mongo/utils"
@@ -34,6 +35,7 @@ type CreateSecretParams struct {
 
 // UpdateSecretParams are used to update a secret.
 type UpdateSecretParams struct {
+	LeaderToken    leadership.Token
 	RotatePolicy   *secrets.RotatePolicy
 	NextRotateTime *time.Time
 	ExpireTime     *time.Time
@@ -273,7 +275,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		ops = append(ops, rotateOps...)
 		return ops, nil
 	}
-	err = s.st.db().Run(buildTxn)
+	err = s.st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -356,7 +358,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		return ops, nil
 	}
-	err := s.st.db().Run(buildTxn)
+	err := s.st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -764,18 +766,26 @@ func (st *State) referencedSecrets(ref names.Tag, attr string) ([]*secrets.URI, 
 
 }
 
+// SecretAccessParams are used to grant/revoke secret access.
+type SecretAccessParams struct {
+	LeaderToken leadership.Token
+	Scope       names.Tag
+	Subject     names.Tag
+	Role        secrets.SecretRole
+}
+
 // GrantSecretAccess saves the secret access role for the subject with the specified scope.
-func (st *State) GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject names.Tag, role secrets.SecretRole) (err error) {
-	if role == secrets.RoleNone || !role.IsValid() {
-		return errors.NotValidf("secret role %q", role)
+func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err error) {
+	if p.Role == secrets.RoleNone || !p.Role.IsValid() {
+		return errors.NotValidf("secret role %q", p.Role)
 	}
 
-	entity, scopeCollName, scopeDocID, err := st.findSecretEntity(scope)
+	entity, scopeCollName, scopeDocID, err := st.findSecretEntity(p.Scope)
 	if err != nil {
 		return errors.Annotate(err, "invalid scope reference")
 	}
 	if entity.Life() != Alive {
-		return errors.Errorf("cannot grant access to secret in scope of %q which is not alive", scope)
+		return errors.Errorf("cannot grant access to secret in scope of %q which is not alive", p.Scope)
 	}
 	isScopeAliveOp := txn.Op{
 		C:      scopeCollName,
@@ -783,7 +793,7 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject na
 		Assert: isAliveDoc,
 	}
 
-	key := secretConsumerKey(uri.ID, subject.String())
+	key := secretConsumerKey(uri.ID, p.Subject.String())
 	docID := st.docID(key)
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
@@ -802,18 +812,18 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject na
 				Assert: txn.DocMissing,
 				Insert: secretPermissionDoc{
 					DocID:   docID,
-					Subject: subject.String(),
-					Scope:   scope.String(),
-					Role:    string(role),
+					Subject: p.Subject.String(),
+					Scope:   p.Scope.String(),
+					Role:    string(p.Role),
 				},
 			}}, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if doc.Scope != scope.String() {
+		if doc.Scope != p.Scope.String() {
 			return nil, errors.New("cannot change secret permission scope")
 		}
-		if doc.Subject != subject.String() {
+		if doc.Subject != p.Subject.String() {
 			return nil, errors.New("cannot change secret permission subject")
 		}
 		return []txn.Op{{
@@ -821,16 +831,16 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject na
 			Id:     docID,
 			Assert: txn.DocExists,
 			Update: bson.M{"$set": bson.M{
-				"role": role,
+				"role": p.Role,
 			}},
 		}, isScopeAliveOp}, nil
 	}
-	return st.db().Run(buildTxn)
+	return st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
 }
 
 // RevokeSecretAccess removes any secret access role for the subject.
-func (st *State) RevokeSecretAccess(uri *secrets.URI, subject names.Tag) error {
-	key := secretConsumerKey(uri.ID, subject.String())
+func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) error {
+	key := secretConsumerKey(uri.ID, p.Subject.String())
 	docID := st.docID(key)
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
@@ -859,7 +869,7 @@ func (st *State) RevokeSecretAccess(uri *secrets.URI, subject names.Tag) error {
 		}}
 		return ops, nil
 	}
-	return st.db().Run(buildTxn)
+	return st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
 }
 
 // SecretAccess returns the secret access role for the subject.

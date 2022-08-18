@@ -35,14 +35,19 @@ func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "creating juju secrets service")
 	}
+	leadershipChecker, err := context.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &SecretsManagerAPI{
-		authTag:         context.Auth().GetAuthTag(),
-		controllerUUID:  context.State().ControllerUUID(),
-		modelUUID:       context.State().ModelUUID(),
-		secretsService:  service,
-		resources:       context.Resources(),
-		secretsRotation: context.State(),
-		secretsConsumer: context.State(),
-		clock:           clock.WallClock,
+		authTag:           context.Auth().GetAuthTag(),
+		controllerUUID:    context.State().ControllerUUID(),
+		modelUUID:         context.State().ModelUUID(),
+		leadershipChecker: leadershipChecker,
+		secretsService:    service,
+		resources:         context.Resources(),
+		secretsRotation:   context.State(),
+		secretsConsumer:   context.State(),
+		clock:             clock.WallClock,
 	}, nil
 }

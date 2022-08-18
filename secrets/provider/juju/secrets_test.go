@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -58,6 +59,10 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+type fakeToken struct {
+	leadership.Token
+}
+
 func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -70,6 +75,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		Owner:         "application-app",
 		Scope:         "unit-app-0",
 		UpsertParams: secrets.UpsertParams{
+			LeaderToken:    fakeToken{},
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
 			NextRotateTime: ptr(now.Add(time.Minute)),
 			ExpireTime:     ptr(now.Add(time.Hour)),
@@ -85,6 +91,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		Owner:         "application-app",
 		Scope:         "unit-app-0",
 		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    fakeToken{},
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
 			NextRotateTime: ptr(now.Add(time.Minute)),
 			ExpireTime:     ptr(now.Add(time.Hour)),
@@ -143,6 +150,7 @@ func (s *SecretsManagerSuite) TestUpdateSecret(c *gc.C) {
 
 	now := time.Now()
 	p := secrets.UpsertParams{
+		LeaderToken:    fakeToken{},
 		RotatePolicy:   ptr(coresecrets.RotateDaily),
 		NextRotateTime: ptr(now.Add(time.Minute)),
 		ExpireTime:     ptr(now.Add(time.Hour)),
@@ -152,6 +160,7 @@ func (s *SecretsManagerSuite) TestUpdateSecret(c *gc.C) {
 		Data:           map[string]string{"foo": "bar"},
 	}
 	expectedP := state.UpdateSecretParams{
+		LeaderToken:    fakeToken{},
 		RotatePolicy:   ptr(coresecrets.RotateDaily),
 		NextRotateTime: ptr(now.Add(time.Minute)),
 		ExpireTime:     ptr(now.Add(time.Hour)),

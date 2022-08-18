@@ -573,8 +573,9 @@ func (p *mockProcess) Pid() int {
 var _ = gc.Suite(&mockHookContextSuite{})
 
 type mockHookContextSuite struct {
-	mockUnit  *mocks.MockHookUnit
-	mockCache params.UnitStateResult
+	mockUnit       *mocks.MockHookUnit
+	mockLeadership *mocks.MockLeadershipContext
+	mockCache      params.UnitStateResult
 }
 
 func (s *mockHookContextSuite) TestDeleteCharmStateValue(c *gc.C) {
@@ -771,6 +772,7 @@ func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockUnit = mocks.NewMockHookUnit(ctrl)
+	s.mockLeadership = mocks.NewMockLeadershipContext(ctrl)
 	return ctrl
 }
 
@@ -888,7 +890,7 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	client := secretsmanager.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client, s.mockLeadership)
 	value, err := hookContext.GetSecret("secret:9m4e2mr0ui3e8a215n4g", "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
@@ -932,8 +934,9 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 		return nil
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	client := secretsmanager.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client, s.mockLeadership)
 	id, err := hookContext.CreateSecret(&jujuc.SecretUpsertArgs{
 		Value:        value,
 		RotatePolicy: ptr(secrets.RotateDaily),
@@ -977,8 +980,9 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		return nil
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	client := secretsmanager.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client, s.mockLeadership)
 	err := hookContext.UpdateSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretUpsertArgs{
 		Value:        value,
 		RotatePolicy: ptr(secrets.RotateDaily),
@@ -1011,8 +1015,9 @@ func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
 		return nil
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	client := secretsmanager.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client, s.mockLeadership)
 	err := hookContext.RemoveSecret("secret:9m4e2mr0ui3e8a215n4g")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -1042,8 +1047,9 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		return nil
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	client := secretsmanager.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client, s.mockLeadership)
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
 	err := hookContext.GrantSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretGrantRevokeArgs{
@@ -1077,8 +1083,9 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		return nil
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	client := secretsmanager.NewClient(apiCaller)
-	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client, s.mockLeadership)
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
 	err := hookContext.RevokeSecret("secret:9m4e2mr0ui3e8a215n4g", &jujuc.SecretGrantRevokeArgs{

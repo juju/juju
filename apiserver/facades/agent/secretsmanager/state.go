@@ -23,7 +23,7 @@ type SecretsConsumer interface {
 	GetSecretConsumer(*secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
 	SaveSecretConsumer(*secrets.URI, string, *secrets.SecretConsumerMetadata) error
 	WatchConsumedSecretsChanges(string) state.StringsWatcher
-	GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject names.Tag, role secrets.SecretRole) error
-	RevokeSecretAccess(uri *secrets.URI, subject names.Tag) error
+	GrantSecretAccess(*secrets.URI, state.SecretAccessParams) error
+	RevokeSecretAccess(*secrets.URI, state.SecretAccessParams) error
 	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 }

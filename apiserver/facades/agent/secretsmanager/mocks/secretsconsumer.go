@@ -52,21 +52,21 @@ func (mr *MockSecretsConsumerMockRecorder) GetSecretConsumer(arg0, arg1 interfac
 }
 
 // GrantSecretAccess mocks base method.
-func (m *MockSecretsConsumer) GrantSecretAccess(arg0 *secrets.URI, arg1, arg2 names.Tag, arg3 secrets.SecretRole) error {
+func (m *MockSecretsConsumer) GrantSecretAccess(arg0 *secrets.URI, arg1 state.SecretAccessParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GrantSecretAccess", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "GrantSecretAccess", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // GrantSecretAccess indicates an expected call of GrantSecretAccess.
-func (mr *MockSecretsConsumerMockRecorder) GrantSecretAccess(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockSecretsConsumerMockRecorder) GrantSecretAccess(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecretAccess", reflect.TypeOf((*MockSecretsConsumer)(nil).GrantSecretAccess), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecretAccess", reflect.TypeOf((*MockSecretsConsumer)(nil).GrantSecretAccess), arg0, arg1)
 }
 
 // RevokeSecretAccess mocks base method.
-func (m *MockSecretsConsumer) RevokeSecretAccess(arg0 *secrets.URI, arg1 names.Tag) error {
+func (m *MockSecretsConsumer) RevokeSecretAccess(arg0 *secrets.URI, arg1 state.SecretAccessParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RevokeSecretAccess", arg0, arg1)
 	ret0, _ := ret[0].(error)

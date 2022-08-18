@@ -46,6 +46,7 @@ func (s secretsService) CreateSecret(ctx context.Context, uri *coresecrets.URI, 
 		Owner:         p.Owner,
 		Scope:         p.Scope,
 		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    p.LeaderToken,
 			RotatePolicy:   p.RotatePolicy,
 			NextRotateTime: p.NextRotateTime,
 			ExpireTime:     p.ExpireTime,
@@ -85,6 +86,7 @@ func (s secretsService) UpdateSecret(ctx context.Context, uri *coresecrets.URI, 
 		return nil, errors.Trace(err)
 	}
 	metadata, err := s.backend.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:    p.LeaderToken,
 		RotatePolicy:   p.RotatePolicy,
 		NextRotateTime: p.NextRotateTime,
 		ExpireTime:     p.ExpireTime,

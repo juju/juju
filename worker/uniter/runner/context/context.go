@@ -116,8 +116,6 @@ type HookProcess interface {
 	Kill() error
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
-
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
 type HookUnit interface {
@@ -747,6 +745,13 @@ func (ctx *HookContext) GetSecret(uri, label string, update, peek bool) (coresec
 
 // CreateSecret creates a secret with the specified data.
 func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, error) {
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return "", ErrIsNotLeader
+	}
 	cfg := &coresecrets.SecretConfig{
 		ExpireTime:   args.ExpireTime,
 		RotatePolicy: args.RotatePolicy,
@@ -762,6 +767,13 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, erro
 
 // UpdateSecret creates a secret with the specified data.
 func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) error {
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return ErrIsNotLeader
+	}
 	cfg := &coresecrets.SecretConfig{
 		ExpireTime:   args.ExpireTime,
 		RotatePolicy: args.RotatePolicy,
@@ -773,6 +785,13 @@ func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) e
 
 // RemoveSecret removes a secret with the specified uri.
 func (ctx *HookContext) RemoveSecret(uri string) error {
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return ErrIsNotLeader
+	}
 	return ctx.secrets.Remove(uri)
 }
 
@@ -783,6 +802,13 @@ func (ctx *HookContext) SecretIds() (map[*coresecrets.URI]string, error) {
 
 // GrantSecret grants access to a specified secret.
 func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return ErrIsNotLeader
+	}
 	return ctx.secrets.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
@@ -793,6 +819,13 @@ func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArg
 
 // RevokeSecret revokes access to a specified secret.
 func (ctx *HookContext) RevokeSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		return ErrIsNotLeader
+	}
 	return ctx.secrets.Revoke(uri, &secretsmanager.SecretRevokeGrantArgs{
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,

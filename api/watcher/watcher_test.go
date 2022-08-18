@@ -521,6 +521,7 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 		Owner: "application-mysql",
 		Scope: "application-mysql",
 		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(time.Now()),
 		},
@@ -583,6 +584,12 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	return uri, assertChange, assertNoChange, stop
 }
 
+type fakeToken struct{}
+
+func (t *fakeToken) Check(int, interface{}) error {
+	return nil
+}
+
 func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 	uri, assertChange, assertNoChange, stop := s.setupSecretRotationWatcher(c)
 	defer stop()
@@ -590,6 +597,7 @@ func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 	store := state.NewSecretsStore(s.State)
 
 	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:    &fakeToken{},
 		RotatePolicy:   ptr(secrets.RotateDaily),
 		NextRotateTime: ptr(time.Now()),
 	})
