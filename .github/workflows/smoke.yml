@@ -79,21 +79,9 @@ jobs:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
       DOCKER_REGISTRY: 10.152.183.69
+      RUN_TEST: RUN
 
     steps:
-
-    - name: PreCheck
-      shell: bash
-      run: |
-        set -ux
-        set +e
-        OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
-        set -e
-        if [ "$OUT" = "NOT FOUND" ]; then
-          echo "RUN_TEST=NO_BASE_VERSION" >> $GITHUB_ENV
-        else
-          echo "RUN_TEST=RUN" >> $GITHUB_ENV
-        fi
 
     - name: Install Dependencies
       if: env.RUN_TEST == 'RUN'
