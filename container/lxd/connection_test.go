@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd"
@@ -22,7 +23,7 @@ var _ = gc.Suite(&connectionSuite{})
 
 func (s *connectionSuite) TestLxdSocketPathLxdDirSet(c *gc.C) {
 	c.Assert(os.Setenv("LXD_DIR", "foobar"), jc.ErrorIsNil)
-	path := lxd.SocketPath(nil)
+	path := lxd.SocketPath(shared.IsUnixSocket)
 	c.Check(path, gc.Equals, filepath.Join("foobar", "unix.socket"))
 }
 

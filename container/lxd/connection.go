@@ -11,9 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lxc/lxd/shared"
+
 	"github.com/juju/errors"
 	lxd "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
 )
 
 type Protocol string
@@ -141,8 +142,8 @@ func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 	return nil, fmt.Errorf("bad protocol supplied for connection: %v", remote.Protocol)
 }
 
-func connectLocal() (lxd.InstanceServer, error) {
-	client, err := lxd.ConnectLXDUnix(SocketPath(nil), nil)
+func connectLocal() (lxd.ContainerServer, error) {
+	client, err := lxd.ConnectLXDUnix(SocketPath(shared.IsUnixSocket), nil)
 	return client, errors.Trace(err)
 }
 
@@ -174,9 +175,6 @@ func SocketPath(isSocket func(path string) bool) string {
 		logger.Debugf("using environment LXD_DIR as socket path: %q", path)
 	} else {
 		path = filepath.FromSlash("/var/snap/lxd/common/lxd")
-		if isSocket == nil {
-			isSocket = shared.IsUnixSocket
-		}
 		if isSocket(filepath.Join(path, "unix.socket")) {
 			logger.Debugf("using LXD snap socket: %q", path)
 		} else {
