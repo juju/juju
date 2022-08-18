@@ -99,6 +99,31 @@ func (c *Client) Update(uri string, cfg *secrets.SecretConfig, value secrets.Sec
 	return results.OneError()
 }
 
+// Remove removes the specified secret.
+func (c *Client) Remove(uri string) error {
+	secretUri, err := secrets.ParseURI(uri)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	args := params.SecretURIArgs{
+		Args: []params.SecretURIArg{{URI: secretUri.String()}},
+	}
+	var results params.ErrorResults
+	err = c.facade.FacadeCall("RemoveSecrets", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 // GetValue returns the value of a secret.
 func (c *Client) GetValue(uri, label string, update, peek bool) (secrets.SecretValue, error) {
 	arg := params.GetSecretValueArg{

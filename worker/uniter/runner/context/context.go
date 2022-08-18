@@ -768,6 +768,11 @@ func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) e
 	return ctx.secretFacade.Update(uri, cfg, args.Value)
 }
 
+// RemoveSecret removes a secret with the specified uri.
+func (ctx *HookContext) RemoveSecret(uri string) error {
+	return ctx.secretFacade.Remove(uri)
+}
+
 // GrantSecret grants access to a specified secret.
 func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
 	return ctx.secretFacade.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{

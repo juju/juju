@@ -135,6 +135,8 @@ type SecretMetadata struct {
 
 	// OwnerTag is the entity which created the secret.
 	OwnerTag string
+	// ScopeTag is the entity to which the secret's life is scoped.
+	ScopeTag string
 	// Provider is the name of the backend secrets store.
 	Provider string
 	// ProviderID is the ID/URI used by the underlying secrets provider.

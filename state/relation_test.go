@@ -709,19 +709,22 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
 }
 
 func (s *RelationSuite) TestRemoveAlsoDeletesSecretPermissions(c *gc.C) {
+	relation := s.Factory.MakeRelation(c, nil)
+	app, err := s.State.Application(relation.Endpoints()[0].ApplicationName)
+	c.Assert(err, jc.ErrorIsNil)
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version:       1,
 		ProviderLabel: "juju",
+		Owner:         app.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			Data: map[string]string{"foo": "bar"},
 		},
 	}
-	_, err := store.CreateSecret(uri, cp)
+	_, err = store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	relation := s.Factory.MakeRelation(c, nil)
 	subject := names.NewApplicationTag("wordpress")
 	err = s.State.GrantSecretAccess(uri, relation.Tag(), subject, secrets.RoleView)
 	c.Assert(err, jc.ErrorIsNil)

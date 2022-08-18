@@ -268,6 +268,10 @@ func (ctx *RestrictedContext) UpdateSecret(string, *SecretUpsertArgs) error {
 	return ErrRestrictedContext
 }
 
+func (ctx *RestrictedContext) RemoveSecret(string) error {
+	return ErrRestrictedContext
+}
+
 // GrantSecret implements runner.Context.
 func (c *RestrictedContext) GrantSecret(string, *SecretGrantRevokeArgs) error {
 	return nil

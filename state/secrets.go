@@ -29,6 +29,7 @@ type CreateSecretParams struct {
 	ProviderLabel string
 	Version       int
 	Owner         string
+	Scope         string
 }
 
 // UpdateSecretParams are used to update a secret.
@@ -59,6 +60,7 @@ type SecretsFilter struct{}
 type SecretsStore interface {
 	CreateSecret(*secrets.URI, CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, UpdateSecretParams) (*secrets.SecretMetadata, error)
+	DeleteSecret(*secrets.URI) error
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
@@ -74,6 +76,7 @@ type secretMetadataDoc struct {
 
 	Version    int    `bson:"version"`
 	OwnerTag   string `bson:"owner-tag"`
+	ScopeTag   string `bson:"scope-tag"`
 	Provider   string `bson:"provider"`
 	ProviderID string `bson:"provider-id"`
 
@@ -134,12 +137,21 @@ func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams
 		DocID:      uri.ID,
 		Version:    p.Version,
 		OwnerTag:   p.Owner,
+		ScopeTag:   p.Scope,
 		Provider:   p.ProviderLabel,
 		ProviderID: "",
 		CreateTime: s.st.nowToTheSecond(),
 		UpdateTime: s.st.nowToTheSecond(),
 	}
-	err := s.updateSecretMetadataDoc(md, &p.UpdateSecretParams)
+	_, err := names.ParseTag(md.OwnerTag)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid owner tag")
+	}
+	_, err = names.ParseTag(md.ScopeTag)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid scope tag")
+	}
+	err = s.updateSecretMetadataDoc(md, &p.UpdateSecretParams)
 	return md, err
 }
 
@@ -189,15 +201,50 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, revision int, expireT
 
 // CreateSecret creates a new secret.
 func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*secrets.SecretMetadata, error) {
+	if p.Scope == "" {
+		p.Scope = p.Owner
+	}
 	metadataDoc, err := s.secretMetadataDoc(uri, &p)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	revision := 1
 	valueDoc := s.secretRevisionDoc(uri, revision, p.ExpireTime, p.Data)
+	// OwnerTag has already been validated.
+	owner, _ := names.ParseTag(metadataDoc.OwnerTag)
+	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid owner reference")
+	}
+	if entity.Life() != Alive {
+		return nil, errors.Errorf("cannot create secret for owner %q which is not alive", owner)
+	}
+	isOwnerAliveOp := txn.Op{
+		C:      scopeCollName,
+		Id:     scopeDocID,
+		Assert: isAliveDoc,
+	}
+
+	var isScopeAliveOp *txn.Op
+	if metadataDoc.OwnerTag != metadataDoc.ScopeTag {
+		// ScopeTag has already been validated.
+		scope, _ := names.ParseTag(metadataDoc.ScopeTag)
+		entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(scope)
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid scope reference")
+		}
+		if entity.Life() != Alive {
+			return nil, errors.Errorf("cannot grant access to secret in scope of %q which is not alive", scope)
+		}
+		isScopeAliveOp = &txn.Op{
+			C:      scopeCollName,
+			Id:     scopeDocID,
+			Assert: isAliveDoc,
+		}
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if _, err := s.GetSecretValue(uri, revision); err == nil {
+			if _, err := s.getSecretValue(uri, revision, false); err == nil {
 				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
 			}
 		}
@@ -212,7 +259,10 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 				Id:     valueDoc.DocID,
 				Assert: txn.DocMissing,
 				Insert: *valueDoc,
-			},
+			}, isOwnerAliveOp,
+		}
+		if isScopeAliveOp != nil {
+			ops = append(ops, *isScopeAliveOp)
 		}
 		rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
 		if err != nil {
@@ -226,6 +276,19 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		return nil, errors.Trace(err)
 	}
 	return s.toSecretMetadata(metadataDoc)
+}
+
+func (st *State) checkExists(uri *secrets.URI) error {
+	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
+	defer closer()
+	n, err := secretMetadataCollection.FindId(uri.ID).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if n == 0 {
+		return errors.NotFoundf("secret %q", uri.ShortString())
+	}
+	return nil
 }
 
 // UpdateSecret updates an existing secret.
@@ -259,7 +322,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 			},
 		}
 		if len(p.Data) > 0 {
-			if _, err := s.GetSecretValue(uri, metadataDoc.Revision); err == nil {
+			if _, err := s.getSecretValue(uri, metadataDoc.Revision, false); err == nil {
 				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
 			}
 			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.Revision, p.ExpireTime, p.Data)
@@ -313,6 +376,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 		Description:    doc.Description,
 		Label:          doc.Label,
 		OwnerTag:       doc.OwnerTag,
+		ScopeTag:       doc.ScopeTag,
 		Provider:       doc.Provider,
 		ProviderID:     doc.ProviderID,
 		Revision:       doc.Revision,
@@ -321,8 +385,102 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 	}, nil
 }
 
+// DeleteSecret deletes the specified secret.
+func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
+	// We will bulk delete the various artefacts, starting with the secret itself.
+	// Deleting the parent secret metadata first  will ensure that any consumers of
+	// the secret get notified and subsequent attempts to access any secret
+	// attributes (revision etc) return not found.
+	// It is not practical to do this record by record in a legacy client side mgo txn operation.
+	session := s.st.MongoSession()
+	err = session.StartTransaction()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		if err == nil {
+			err = session.CommitTransaction()
+			return
+		}
+		if err2 := session.AbortTransaction(); err2 != nil {
+			logger.Warningf("aborting failed delete select transaction: %v", err2)
+		}
+	}()
+	secretMetadataCollection, closer := s.st.db().GetRawCollection(secretMetadataC)
+	defer closer()
+	// We need to read something for the txn to work with RemoveAll.
+	var v interface{}
+	err = secretMetadataCollection.FindId(uri.ID).One(&v)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = secretMetadataCollection.RemoveAll(bson.D{{
+		"_id", uri.ID,
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
+	}
+
+	secretRotateCollection, closer := s.st.db().GetRawCollection(secretRotateC)
+	defer closer()
+	_, err = secretRotateCollection.RemoveAll(bson.D{{
+		"_id", uri.ID,
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
+	}
+
+	secretRevisionsCollection, closer := s.st.db().GetRawCollection(secretRevisionsC)
+	defer closer()
+	_, err = secretRevisionsCollection.RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("^%s/.*", uri.ID)}},
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
+	}
+
+	secretPermissionsCollection, closer := s.st.db().GetRawCollection(secretPermissionsC)
+	defer closer()
+	_, err = secretPermissionsCollection.RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("^%s#.*", s.st.docID(uri.ID))}},
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "deleting permissions for %s", uri.ShortString())
+	}
+
+	secretConsumersCollection, closer := s.st.db().GetRawCollection(secretConsumersC)
+	defer closer()
+	_, err = secretConsumersCollection.RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("^%s#.*", s.st.docID(uri.ID))}},
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "deleting consumer info for %s", uri.ShortString())
+	}
+	refCountsCollection, closer := s.st.db().GetRawCollection(refcountsC)
+	defer closer()
+	_, err = refCountsCollection.RemoveAll(bson.D{{
+		"_id", fmt.Sprintf("%s#%s", s.st.docID(uri.ID), "consumer"),
+	}})
+	if err != nil {
+		return errors.Annotatef(err, "deleting consumer info for %s", uri.ShortString())
+	}
+	return nil
+}
+
 // GetSecretValue gets the secret value for the specified URL.
 func (s *secretsStore) GetSecretValue(uri *secrets.URI, revision int) (secrets.SecretValue, error) {
+	return s.getSecretValue(uri, revision, true)
+}
+
+func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExists bool) (secrets.SecretValue, error) {
+	if checkExists {
+		if err := s.st.checkExists(uri); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	secretValuesCollection, closer := s.st.db().GetCollection(secretRevisionsC)
 	defer closer()
 
@@ -389,7 +547,7 @@ type secretConsumerDoc struct {
 }
 
 func secretConsumerKey(id, consumer string) string {
-	return fmt.Sprintf("secret#%s#%s", id, consumer)
+	return fmt.Sprintf("%s#%s", id, consumer)
 }
 
 // checkConsumerCountOps returns txn ops to ensure that no new secrets consumers
@@ -420,6 +578,10 @@ func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, err
 
 // GetSecretConsumer gets secret consumer metadata.
 func (st *State) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secrets.SecretConsumerMetadata, error) {
+	if err := st.checkExists(uri); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
@@ -446,19 +608,13 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metada
 	docID := st.docID(key)
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
-	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
-	defer mCloser()
 
 	var doc secretConsumerDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		n, err := secretMetadataCollection.FindId(uri.ID).Count()
-		if err != nil {
+		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if n == 0 {
-			return nil, errors.NotFoundf("secret %q", uri)
-		}
-		err = secretConsumersCollection.FindId(docID).One(&doc)
+		err := secretConsumersCollection.FindId(docID).One(&doc)
 		if err == nil {
 			return []txn.Op{{
 				C:      secretConsumersC,
@@ -544,10 +700,10 @@ func (st *State) WatchConsumedSecretsChanges(consumer string) StringsWatcher {
 		},
 		idconv: func(id string) string {
 			parts := strings.Split(id, "#")
-			if len(parts) < 2 {
+			if len(parts) < 1 {
 				return id
 			}
-			uri := secrets.URI{ID: parts[1]}
+			uri := secrets.URI{ID: parts[0]}
 			return uri.String()
 		},
 	})
@@ -561,7 +717,7 @@ type secretPermissionDoc struct {
 	Role    string `bson:"role"`
 }
 
-func (st *State) findSecretAccessScopeEntity(tag names.Tag) (entity Lifer, collName, docID string, err error) {
+func (st *State) findSecretEntity(tag names.Tag) (entity Lifer, collName, docID string, err error) {
 	id := tag.Id()
 	switch tag.(type) {
 	case names.RelationTag:
@@ -582,13 +738,34 @@ func (st *State) findSecretAccessScopeEntity(tag names.Tag) (entity Lifer, collN
 	return entity, collName, docID, err
 }
 
+func (st *State) referencedSecrets(ref names.Tag, attr string) ([]*secrets.URI, error) {
+	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
+	defer closer()
+
+	var (
+		doc    secretMetadataDoc
+		result []*secrets.URI
+	)
+	iter := secretMetadataCollection.Find(bson.D{{attr, ref.String()}}).Select(bson.D{{"_id", 1}}).Iter()
+	for iter.Next(&doc) {
+		uri, err := secrets.ParseURI(doc.DocID)
+		if err != nil {
+			_ = iter.Close()
+			return nil, errors.Trace(err)
+		}
+		result = append(result, uri)
+	}
+	return result, iter.Close()
+
+}
+
 // GrantSecretAccess saves the secret access role for the subject with the specified scope.
 func (st *State) GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject names.Tag, role secrets.SecretRole) (err error) {
 	if role == secrets.RoleNone || !role.IsValid() {
 		return errors.NotValidf("secret role %q", role)
 	}
 
-	entity, scopeCollName, scopeDocID, err := st.findSecretAccessScopeEntity(scope)
+	entity, scopeCollName, scopeDocID, err := st.findSecretEntity(scope)
 	if err != nil {
 		return errors.Annotate(err, "invalid scope reference")
 	}
@@ -606,17 +783,11 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, scope names.Tag, subject na
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
-	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
-	defer mCloser()
 
 	var doc secretPermissionDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		n, err := secretMetadataCollection.FindId(uri.ID).Count()
-		if err != nil {
+		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
-		}
-		if n == 0 {
-			return nil, errors.NotFoundf("secret %q", uri)
 		}
 		err = secretPermissionsCollection.FindId(docID).One(&doc)
 		if err == mgo.ErrNotFound {
@@ -659,19 +830,16 @@ func (st *State) RevokeSecretAccess(uri *secrets.URI, subject names.Tag) error {
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
-	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
-	defer mCloser()
 
 	var doc secretPermissionDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		n, err := secretMetadataCollection.FindId(uri.ID).Count()
-		if err != nil {
+		if err := st.checkExists(uri); err != nil {
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			}
 			return nil, errors.Trace(err)
 		}
-		if n == 0 {
-			return nil, jujutxn.ErrNoOperations
-		}
-		err = secretPermissionsCollection.FindId(docID).One(&doc)
+		err := secretPermissionsCollection.FindId(docID).One(&doc)
 		if err == mgo.ErrNotFound {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -696,20 +864,14 @@ func (st *State) SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.Secr
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
-	secretMetadataCollection, mCloser := st.db().GetCollection(secretMetadataC)
-	defer mCloser()
 
-	n, err := secretMetadataCollection.FindId(uri.ID).Count()
-	if err != nil {
+	if err := st.checkExists(uri); err != nil {
 		return secrets.RoleNone, errors.Trace(err)
-	}
-	if n == 0 {
-		return secrets.RoleNone, errors.NotFoundf("secret %q", uri)
 	}
 
 	var doc secretPermissionDoc
-	err = secretPermissionsCollection.FindId(docID).One(&doc)
-	if err := errors.Cause(err); err == mgo.ErrNotFound {
+	err := secretPermissionsCollection.FindId(docID).One(&doc)
+	if err == mgo.ErrNotFound {
 		return secrets.RoleNone, nil
 	}
 	if err != nil {
@@ -791,26 +953,18 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateP
 
 // SecretRotated records when the given secret was rotated.
 func (st *State) SecretRotated(uri *secrets.URI, when time.Time) error {
-	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
+	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
-
-	secretRotateCollection, closer2 := st.db().GetCollection(secretRotateC)
-	defer closer2()
 
 	when = when.Round(time.Second).UTC()
 	secretKey := uri.ID
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var metadataDoc secretMetadataDoc
-		err := secretMetadataCollection.FindId(secretKey).One(&metadataDoc)
-		if errors.Cause(err) == mgo.ErrNotFound {
-			return nil, errors.NotFoundf("secret %q", uri.String())
-		}
-		if err != nil {
+		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		var currentDoc secretRotationDoc
-		err = secretRotateCollection.FindId(secretKey).One(&currentDoc)
+		err := secretRotateCollection.FindId(secretKey).One(&currentDoc)
 		if errors.Cause(err) == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("rotation info for secret %q", uri.String())
 		}

@@ -3207,11 +3207,14 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.mysql})
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version:       1,
 		ProviderLabel: "juju",
+		Owner:         s.mysql.Tag().String(),
+		Scope:         unit.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			Data: map[string]string{"foo": "bar"},
 		},
@@ -3227,9 +3230,51 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	access, err = s.State.SecretAccess(uri, s.mysql.Tag())
+	_, err = s.State.SecretAccess(uri, s.mysql.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.mysql})
+	store := state.NewSecretsStore(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		Owner:         s.mysql.Tag().String(),
+		Scope:         unit.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleNone)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = store.GetSecret(uri)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestDestroyAlsoDeletesScopedSecrets(c *gc.C) {
+	store := state.NewSecretsStore(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		Owner:         s.mysql.Tag().String(),
+		Scope:         s.mysql.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			Data: map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = store.GetSecret(uri)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {

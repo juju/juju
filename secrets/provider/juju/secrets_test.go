@@ -68,6 +68,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		Version:       secrets.Version,
 		ProviderLabel: juju.Provider,
 		Owner:         "application-app",
+		Scope:         "unit-app-0",
 		UpsertParams: secrets.UpsertParams{
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
 			NextRotateTime: ptr(now.Add(time.Minute)),
@@ -82,6 +83,7 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		Version:       p.Version,
 		ProviderLabel: "juju",
 		Owner:         "application-app",
+		Scope:         "unit-app-0",
 		UpdateSecretParams: state.UpdateSecretParams{
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
 			NextRotateTime: ptr(now.Add(time.Minute)),
@@ -121,6 +123,7 @@ func (s *SecretsManagerSuite) TestCreateSecretMissingNextRotateTime(c *gc.C) {
 		Version:       secrets.Version,
 		ProviderLabel: juju.Provider,
 		Owner:         "application-app",
+		Scope:         "application-app",
 		UpsertParams: secrets.UpsertParams{
 			RotatePolicy: ptr(coresecrets.RotateDaily),
 			Data:         map[string]string{"foo": "bar"},
@@ -190,6 +193,18 @@ func (s *SecretsManagerSuite) TestUpdateSecretMissingNextRotateTime(c *gc.C) {
 
 	_, err := service.UpdateSecret(context.Background(), uri, p)
 	c.Assert(err, gc.ErrorMatches, "cannot specify a secret rotate policy without a next rotate time")
+}
+
+func (s *SecretsManagerSuite) TestDeleteSecret(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	s.secretsStore.EXPECT().DeleteSecret(uri).Return(nil)
+
+	err := service.DeleteSecret(context.Background(), uri)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SecretsManagerSuite) TestGetSecret(c *gc.C) {

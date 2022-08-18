@@ -514,10 +514,12 @@ func ptr[T any](v T) *T {
 func (s *watcherSuite) setupSecretRotationWatcher(
 	c *gc.C,
 ) (*secrets.URI, func(corewatcher.SecretRotationChange), func(), func()) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
 		Owner: "application-mysql",
+		Scope: "application-mysql",
 		UpdateSecretParams: state.UpdateSecretParams{
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(time.Now()),
@@ -527,7 +529,6 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
 	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
 		Application: app,
 	})

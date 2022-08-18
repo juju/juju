@@ -37,6 +37,9 @@ type CreateSecretArg struct {
 
 	// OwnerTag is the owner of the secret.
 	OwnerTag string `json:"owner-tag"`
+
+	// ScopeTag is defines the entity to which the secret life is scoped.
+	ScopeTag string `json:"scope-tag"`
 }
 
 // UpdateSecretArgs holds args for creating secrets.
@@ -52,6 +55,17 @@ type UpdateSecretArg struct {
 	URI string `json:"uri"`
 }
 
+// SecretURIArgs holds args for identifying secrets.
+type SecretURIArgs struct {
+	Args []SecretURIArg `json:"args"`
+}
+
+// SecretURIArg holds the args for identifying a secret.
+type SecretURIArg struct {
+	// URI identifies the secret.
+	URI string `json:"uri"`
+}
+
 // GetSecretConsumerInfoArgs holds the args for getting secret
 // consumer metadata.
 type GetSecretConsumerInfoArgs struct {
@@ -64,7 +78,7 @@ type SecretConsumerInfoResults struct {
 	Results []SecretConsumerInfoResult `json:"results"`
 }
 
-// SecretValueResult is the result of getting a secret value.
+// SecretConsumerInfoResult is the result of getting a secret value.
 type SecretConsumerInfoResult struct {
 	Revision int    `json:"revision"`
 	Label    string `json:"label"`
@@ -110,6 +124,7 @@ type ListSecretResult struct {
 	URI            string             `json:"uri"`
 	Version        int                `json:"version"`
 	OwnerTag       string             `json:"owner-tag"`
+	ScopeTag       string             `json:"scope-tag"`
 	Provider       string             `json:"provider"`
 	ProviderID     string             `json:"provider-id,omitempty"`
 	RotatePolicy   string             `json:"rotate-policy,omitempty"`

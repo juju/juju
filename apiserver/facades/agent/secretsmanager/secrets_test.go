@@ -105,6 +105,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	p := secrets.CreateParams{
 		Version: secrets.Version,
 		Owner:   "application-mariadb",
+		Scope:   "unit-mariadb-0",
 		UpsertParams: secrets.UpsertParams{
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
 			NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
@@ -132,6 +133,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			OwnerTag: "application-mariadb",
+			ScopeTag: "unit-mariadb-0",
 			UpsertSecretArg: params.UpsertSecretArg{
 				RotatePolicy: ptr(coresecrets.RotateDaily),
 				ExpireTime:   ptr(s.clock.Now()),
@@ -213,6 +215,32 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		Results: []params.ErrorResult{{}, {
 			Error: &params.Error{Message: `at least one attribute to update must be specified`},
 		}, {
+			Error: &params.Error{Code: params.CodeNotValid, Message: `secret URI with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	expectURI.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsService.EXPECT().DeleteSecret(gomock.Any(), &expectURI).Return(nil)
+	s.expectSecretAccessQuery(1)
+	uri1 := *uri
+	uri1.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
+
+	results, err := s.facade.RemoveSecrets(params.SecretURIArgs{
+		Args: []params.SecretURIArg{{
+			URI: expectURI.ShortString(),
+		}, {
+			URI: uri1.String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}, {
 			Error: &params.Error{Code: params.CodeNotValid, Message: `secret URI with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
 		}},
 	})

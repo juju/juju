@@ -198,6 +198,9 @@ type ContextSecrets interface {
 	// UpdateSecret creates a secret with the specified data.
 	UpdateSecret(string, *SecretUpsertArgs) error
 
+	// RemoveSecret removes a secret with the specified uri.
+	RemoveSecret(uri string) error
+
 	// GrantSecret grants access to the specified secret.
 	GrantSecret(string, *SecretGrantRevokeArgs) error
 

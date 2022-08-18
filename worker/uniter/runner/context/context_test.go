@@ -989,6 +989,34 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "SecretsManager")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "RemoveSecrets")
+		c.Check(arg, gc.DeepEquals, params.SecretURIArgs{
+			Args: []params.SecretURIArg{{
+				URI: "secret:9m4e2mr0ui3e8a215n4g",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	client := secretsmanager.NewClient(apiCaller)
+	hookContext := context.NewMockUnitHookContextWithSecrets(s.mockUnit, client)
+	err := hookContext.RemoveSecret("secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

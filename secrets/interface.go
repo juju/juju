@@ -25,6 +25,7 @@ type CreateParams struct {
 	ProviderLabel string
 	Version       int
 	Owner         string
+	Scope         string
 }
 
 // Validate returns an error if params are invalid.
@@ -32,6 +33,15 @@ func (p *CreateParams) Validate() error {
 	_, err := names.ParseTag(p.Owner)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	tag, err := names.ParseTag(p.Scope)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	switch tag.Kind() {
+	case names.ApplicationTagKind, names.UnitTagKind, names.RelationTagKind:
+	default:
+		return errors.NotValidf("secret scope kind %q", tag.Kind())
 	}
 	return p.UpsertParams.Validate()
 }
