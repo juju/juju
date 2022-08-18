@@ -241,6 +241,44 @@ func (s *SecretsSuite) TestGetSecretsError(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
+func (s *SecretsSuite) TestGetSecretIds(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretIds")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.SecretIdResults{})
+		*(result.(*params.SecretIdResults)) = params.SecretIdResults{
+			Result: map[string]params.SecretIdResult{
+				"secret:9m4e2mr0ui3e8a215n4g": {Label: "label"},
+			},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.SecretIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	for uri, label := range result {
+		c.Assert(uri.ShortString(), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+		c.Assert(label, gc.Equals, "label")
+	}
+}
+
+func (s *SecretsSuite) TestGetSecretIdsError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.SecretIdResults)) = params.SecretIdResults{
+			Error: &params.Error{Message: "boom"},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.SecretIds()
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(result, gc.IsNil)
+}
+
 func (s *SecretsSuite) TestWatchSecretsChanges(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")

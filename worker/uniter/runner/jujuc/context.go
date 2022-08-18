@@ -206,6 +206,9 @@ type ContextSecrets interface {
 
 	// RevokeSecret revokes access to the specified secret.
 	RevokeSecret(string, *SecretGrantRevokeArgs) error
+
+	// SecretIds gets the secret ids and their labels created by the charm.
+	SecretIds() (map[*secrets.URI]string, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

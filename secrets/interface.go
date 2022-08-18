@@ -73,7 +73,7 @@ func (p *UpsertParams) Validate() error {
 
 // Filter is used when querying secrets.
 type Filter struct {
-	// TODO(wallyworld)
+	OwnerTag string
 }
 
 // SecretsService instances provide a backend for storing secrets values.

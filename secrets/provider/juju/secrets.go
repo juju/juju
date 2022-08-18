@@ -73,7 +73,10 @@ func (s secretsService) GetSecret(ctx context.Context, uri *coresecrets.URI) (*c
 
 // ListSecrets implements SecretsService.
 func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) ([]*coresecrets.SecretMetadata, error) {
-	return s.backend.ListSecrets(state.SecretsFilter{})
+	f := state.SecretsFilter{
+		OwnerTag: filter.OwnerTag,
+	}
+	return s.backend.ListSecrets(f)
 }
 
 // UpdateSecret implements SecretsService.

@@ -53,8 +53,10 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 		len(u.Params) > 0
 }
 
-// TODO(wallyworld)
-type SecretsFilter struct{}
+// SecretsFilter holds attributes to match when liating secrets.
+type SecretsFilter struct {
+	OwnerTag string
+}
 
 // SecretsStore instances use mongo as a secrets store.
 type SecretsStore interface {
@@ -516,14 +518,17 @@ func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, err
 }
 
 // ListSecrets list the secrets using the specified filter.
-// TODO(wallywolrd) - implement filter
 func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetadata, error) {
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
 	var docs []secretMetadataDoc
-	// TODO(wallywolrd) - use filter
-	err := secretMetadataCollection.Find(nil).All(&docs)
+
+	q := bson.D{}
+	if filter.OwnerTag != "" {
+		q = append(q, bson.DocElem{"owner-tag", filter.OwnerTag})
+	}
+	err := secretMetadataCollection.Find(q).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

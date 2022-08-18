@@ -114,10 +114,10 @@ func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUn
 
 func NewMockUnitHookContextWithSecrets(mockUnit *mocks.MockHookUnit, client *secretsmanager.Client) *HookContext {
 	return &HookContext{
-		unitName:     mockUnit.Tag().Id(),
-		unit:         mockUnit,
-		secretFacade: client,
-		logger:       loggo.GetLogger("test"),
+		unitName: mockUnit.Tag().Id(),
+		unit:     mockUnit,
+		secrets:  client,
+		logger:   loggo.GetLogger("test"),
 	}
 }
 

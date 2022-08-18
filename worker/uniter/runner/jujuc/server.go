@@ -89,6 +89,7 @@ var secretCommands = map[string]creator{
 	"secret-get":    NewSecretGetCommand,
 	"secret-grant":  NewSecretGrantCommand,
 	"secret-revoke": NewSecretRevokeCommand,
+	"secret-ids":    NewSecretIdsCommand,
 }
 
 var storageCommands = map[string]creator{

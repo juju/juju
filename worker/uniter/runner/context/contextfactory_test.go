@@ -64,6 +64,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		Secrets:          s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -277,6 +278,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		Secrets:          s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -301,13 +303,14 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 
 func (s *ContextFactorySuite) TestSecretHookContext(c *gc.C) {
 	hi := hook.Info{
-		Kind:      hooks.SecretRotate,
-		SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
+		Kind:        hooks.SecretRotate,
+		SecretURI:   "secret:9m4e2mr0ui3e8a215n4g",
+		SecretLabel: "label",
 	}
 	ctx, err := s.factory.HookContext(hi)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
-	s.AssertSecretContext(c, ctx, hi.SecretURI)
+	s.AssertSecretContext(c, ctx, hi.SecretURI, hi.SecretLabel)
 	s.AssertNotWorkloadContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
@@ -369,6 +372,7 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 		},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		Secrets:          s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
@@ -578,6 +582,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 		},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		Secrets:          s.secrets,
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),

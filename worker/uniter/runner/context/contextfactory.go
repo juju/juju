@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
@@ -62,6 +63,16 @@ type StorageContextAccessor interface {
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
 
+type SecretsAccessor interface {
+	SecretIds() (map[*secrets.URI]string, error)
+	Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value secrets.SecretValue) (string, error)
+	Update(uri string, cfg *secrets.SecretConfig, value secrets.SecretValue) error
+	Remove(uri string) error
+	GetValue(uri, label string, update, peek bool) (secrets.SecretValue, error)
+	Grant(uri string, p *secretsmanager.SecretRevokeGrantArgs) error
+	Revoke(uri string, p *secretsmanager.SecretRevokeGrantArgs) error
+}
+
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
 type RelationsFunc func() map[int]*RelationInfo
@@ -72,7 +83,7 @@ type contextFactory struct {
 	state     *uniter.State
 	resources *uniter.ResourcesFacadeClient
 	payloads  *uniter.PayloadFacadeClient
-	secrets   *secretsmanager.Client
+	secrets   SecretsAccessor
 	tracker   leadership.Tracker
 
 	logger loggo.Logger
@@ -100,7 +111,7 @@ type contextFactory struct {
 // for the context factory.
 type FactoryConfig struct {
 	State            *uniter.State
-	Secrets          *secretsmanager.Client
+	Secrets          SecretsAccessor
 	Unit             *uniter.Unit
 	Resources        *uniter.ResourcesFacadeClient
 	Payloads         *uniter.PayloadFacadeClient
@@ -181,7 +192,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
-		secretFacade:       f.secrets,
+		secrets:            f.secrets,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
@@ -381,6 +392,11 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+	ctx.secretIDs, err = ctx.secrets.SecretIds()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

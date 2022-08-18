@@ -38577,6 +38577,15 @@
                     },
                     "description": "GetLatestSecretsRevisionInfo returns the latest secret revisions for the specified secrets."
                 },
+                "GetSecretIds": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SecretIdResults"
+                        }
+                    },
+                    "description": "GetSecretIds returns the caller's secret ids and their labels."
+                },
                 "GetSecretValues": {
                     "type": "object",
                     "properties": {
@@ -38945,6 +38954,38 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SecretIdResult": {
+                    "type": "object",
+                    "properties": {
+                        "label": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "label"
+                    ]
+                },
+                "SecretIdResults": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/SecretIdResult"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
                     ]
                 },
                 "SecretRotatedArg": {
