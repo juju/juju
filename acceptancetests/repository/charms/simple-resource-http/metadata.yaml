@@ -12,6 +12,7 @@ series:
   - xenial
   - bionic
   - focal
+  - jammy
 
 resources:
   index:

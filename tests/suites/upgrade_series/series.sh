@@ -2,8 +2,8 @@
 # upgrade the series, and that the charm still behaves correctly.
 run_upgrade_series_relation() {
 	local start_series end_series
-	start_series="bionic"
-	end_series="focal"
+	start_series="focal"
+	end_series="jammy"
 
 	# Setup
 	ensure "test-upgrade-series-relation" "${TEST_DIR}/test-upgrade-series-relation.log"

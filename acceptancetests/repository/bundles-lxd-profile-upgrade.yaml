@@ -1,4 +1,4 @@
-series: bionic
+series: jammy
 applications:
   lxd-profile:
     charm: juju-qa-lxd-profile-without-devices

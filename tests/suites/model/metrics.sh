@@ -8,14 +8,14 @@ run_model_metrics() {
 	file="${TEST_DIR}/test-${testname}.log"
 	ensure "${testname}" "${file}"
 
-	juju deploy ubuntu focal
+	juju deploy ubuntu ubuntu
 	juju deploy juju-qa-test
 	juju deploy ntp
-	juju relate ntp focal
+	juju relate ntp ubuntu
 
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
-	wait_for "focal" "$(idle_condition "focal" 0)"
-	wait_for "ntp" "$(idle_subordinate_condition "ntp" "focal" 0)"
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 0)"
+	wait_for "ntp" "$(idle_subordinate_condition "ntp" "ubuntu" 0)"
 
 	juju relate ntp:juju-info juju-qa-test:juju-info
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test" 1)"

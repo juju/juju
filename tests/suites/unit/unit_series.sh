@@ -6,16 +6,16 @@ run_unit_set_series() {
 	file="${TEST_DIR}/test-unit-series.log"
 	ensure "unit-series" "${file}"
 
-	juju deploy cs:ubuntu --series=bionic
+	juju deploy ubuntu --series=focal
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	juju set-series ubuntu focal
+	juju set-series ubuntu jammy
 	juju add-unit ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
 
-	juju status --format=json | jq -r '.machines | .["1"] | .series' | grep "focal"
+	juju status --format=json | jq -r '.machines | .["1"] | .series' | grep "jammy"
 
 	destroy_model "unit-series"
 }

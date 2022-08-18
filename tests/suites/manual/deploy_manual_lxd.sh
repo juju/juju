@@ -77,7 +77,7 @@ run_deploy_manual_lxd() {
 	create_privileged_profile
 	create_user_profile "${name}"
 
-	series="bionic"
+	series="jammy"
 
 	controller="${name}-controller"
 	model1="${name}-m1"

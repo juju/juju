@@ -543,13 +543,13 @@ def deploy_job():
     series = args.series
     if not args.logs:
         args.logs = generate_default_clean_dir(args.temp_env_name)
-    if series is None:
-        series = 'bionic'
+    if not series:
+        series = 'jammy'
     charm_series = series
     # Don't need windows or centos state servers.
     if series.startswith("win") or series.startswith("centos"):
-        logging.info('Setting default series to bionic for win and centos.')
-        series = 'bionic'
+        logging.info('Setting default series to jammy for win and centos.')
+        series = 'jammy'
     return _deploy_job(args, charm_series, series)
 
 
