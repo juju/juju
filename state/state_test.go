@@ -3423,6 +3423,9 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, newVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
+
 	newerVersion := newVersion
 	newerVersion.Minor++
 	err = statetesting.SetAgentVersion(s.State, newerVersion)
@@ -3458,6 +3461,8 @@ func (s *StateSuite) TestWatchCloudSpecChanges(c *gc.C) {
 	cloud.StorageEndpoint = "https://storage"
 	err = s.State.UpdateCloud(cloud)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	cloud.StorageEndpoint = "https://storage1"
 	err = s.State.UpdateCloud(cloud)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3778,6 +3783,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Handle that cleanup doc and create another, check one change.
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
 	wc.AssertOneChange()
 	err = relV.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

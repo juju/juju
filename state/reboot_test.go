@@ -123,8 +123,12 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 
 	err = s.machine.SetRebootFlag(true)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these three changes should be one event.
+	s.wc.AssertOneChange()
 	err = s.machine.SetRebootFlag(false)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	s.wc.AssertOneChange()
 	err = s.machine.SetRebootFlag(true)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -151,9 +151,10 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 // a model reference to a cloud credential.
 func (m *Model) WatchModelCredential() NotifyWatcher {
 	current := m.doc.CloudCredential
+	modelUUID := m.doc.UUID
 	filter := func(id interface{}) bool {
 		id, ok := id.(string)
-		if !ok || id != m.doc.UUID {
+		if !ok || id != modelUUID {
 			return false
 		}
 

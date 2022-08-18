@@ -111,7 +111,7 @@ func (s *loginSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	st := s.openAPIWithoutLogin(c, info)
 
 	request := &params.LoginRequest{
@@ -126,7 +126,7 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 }
 
 func (s *loginSuite) TestBadLogin(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	for i, t := range []struct {
 		tag      names.Tag
@@ -177,7 +177,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	st := s.openAPIWithoutLogin(c, info)
 	password := "password"
@@ -204,7 +204,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	st := s.openAPIWithoutLogin(c, info)
 	password := "password"
@@ -255,7 +255,7 @@ func (s *loginSuite) addController(c *gc.C) (state.ControllerNode, string) {
 func (s *loginSuite) TestControllerAgentLogin(c *gc.C) {
 	// The agent login tests also check the management space.
 	mgmtSpace := s.setupManagementSpace(c)
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	node, password := s.addController(c)
 	info.Tag = node.Tag()
@@ -269,7 +269,7 @@ func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 	// The agent login tests also check the management space.
 	mgmtSpace := s.setupManagementSpace(c)
 
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	machine := s.infoForNewMachine(c, info)
 
 	s.assertAgentLogin(c, machine, mgmtSpace)
@@ -336,7 +336,7 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.
 func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	mgmtSpace := s.setupManagementSpace(c)
 
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	info = s.infoForNewUser(c, info)
 
 	server1Addresses := network.SpaceAddresses{
@@ -385,7 +385,7 @@ func (s *loginSuite) setupRateLimiting(c *gc.C) {
 	err := s.State.UpdateControllerConfig(
 		map[string]interface{}{
 			corecontroller.AgentRateLimitMax:  1,
-			corecontroller.AgentRateLimitRate: time.Second,
+			corecontroller.AgentRateLimitRate: (60 * time.Second).String(),
 		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -420,20 +420,27 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 func (s *loginSuite) TestRateLimitAgents(c *gc.C) {
 	s.setupRateLimiting(c)
 
-	info := s.newServer(c)
+	server := s.newServer(c)
+	info := server.Info
+
+	c.Assert(server.APIServer.Report(), jc.DeepEquals, map[string]interface{}{
+		"agent-ratelimit-max":  1,
+		"agent-ratelimit-rate": 60 * time.Second,
+	})
+
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
 	conn1, err := api.Open(machine1, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn1.Close()
 
-	// Second machine in the same second gets told to go away and try again.
+	// Second machine in the same minute gets told to go away and try again.
 	machine2 := s.infoForNewMachine(c, info)
 	_, err = api.Open(machine2, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `try again \(try again\)`)
 
-	// If we wait a second and try again, it is fine.
-	s.Clock.Advance(time.Second)
+	// If we wait a minute and try again, it is fine.
+	s.Clock.Advance(time.Minute)
 	conn2, err := api.Open(machine2, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn2.Close()
@@ -446,7 +453,7 @@ func (s *loginSuite) TestRateLimitAgents(c *gc.C) {
 
 func (s *loginSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
 	s.setupRateLimiting(c)
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	// First agent connection is fine.
 	machine1 := s.infoForNewMachine(c, info)
@@ -467,7 +474,7 @@ func (s *loginSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
@@ -494,7 +501,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 }
 
 func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, check func(api.Connection)) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	st := s.openAPIWithoutLogin(c, info)
 	err := st.Login(s.Owner, s.AdminPassword, "", nil)
@@ -508,7 +515,7 @@ func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
 		// upgrade is in progress
 		return false
 	}
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	machine := s.infoForNewMachine(c, info)
 	_, err := api.Open(machine, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `login for machine \d+ blocked because upgrade is in progress`)
@@ -519,7 +526,7 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 		// upgrade is in progress
 		return false
 	}
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
@@ -538,7 +545,7 @@ func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
 		// upgrade is in progress
 		return false
 	}
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	node, password := s.addController(c)
 	info.Tag = node.Tag()
@@ -581,7 +588,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
 
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	info.ModelTag = model.ModelTag()
 
 	// Attempt to open an API connection to the migrated model as a user
@@ -617,7 +624,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	conn := s.openAPIWithoutLogin(c, info)
 
 	var result params.LoginResult
@@ -641,7 +648,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	// Zero the model tag so that we log into the controller
 	// not the model.
 	info.ModelTag = names.ModelTag{}
@@ -663,7 +670,7 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.Owner
@@ -674,7 +681,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.Owner
@@ -683,7 +690,7 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonExistentModel(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -699,7 +706,7 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestInvalidModel(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 	info.ModelTag = names.NewModelTag("rubbish")
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: invalid model UUID "rubbish" \(Bad Request\)`)
@@ -728,7 +735,7 @@ func (s *loginSuite) ensureCachedModel(c *gc.C, uuid string) {
 }
 
 func (s *loginSuite) TestOtherModel(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	modelOwner := s.Factory.MakeUser(c, nil)
 	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -756,7 +763,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// Machine credentials are checked against model specific
 	// machines, so this makes sure that the credential checking is
 	// using the correct state connection.
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	modelOwner := s.Factory.MakeUser(c, nil)
 	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -787,7 +794,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	modelOwner := s.Factory.MakeUser(c, nil)
 	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -820,7 +827,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
@@ -844,7 +851,7 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	managerMachine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
@@ -876,7 +883,7 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
 
@@ -917,7 +924,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 }
 
 func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
@@ -926,7 +933,7 @@ func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	setEveryoneAccess(c, s.State, s.Owner, permission.SuperuserAccess)
 
@@ -962,7 +969,7 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	now := s.Clock.Now().UTC()
 
@@ -1000,7 +1007,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 			Target:  log,
 		}
 	}
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -1081,7 +1088,7 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 			Target:  log,
 		}
 	}
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -1120,7 +1127,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 			Target:         log,
 		}
 	}
-	info := s.newServer(c)
+	info := s.newServer(c).Info
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{

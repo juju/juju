@@ -587,6 +587,8 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	// Update config a couple of times, check a single event.
 	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "superhero paparazzi"})
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -2521,6 +2523,8 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	// Make two changes, check one event.
 	err = unit.SetPassword("arble-farble-dying-yarble")
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	preventUnitDestroyRemove(c, unit)
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

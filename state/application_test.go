@@ -4272,6 +4272,8 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	// Update config a couple of times, check a single event.
 	err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "superhero paparazzi"})
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

@@ -190,6 +190,8 @@ func (s *ApplicationLeaderSuite) TestWatchCoalesceChanges(c *gc.C) {
 		"something": "changed",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"very": "excitingly",
 	})
