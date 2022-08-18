@@ -18,7 +18,7 @@ type secretRemoveCommand struct {
 	uri string
 }
 
-// NewSecretRemoveCommand returns a command to create a secret.
+// NewSecretRemoveCommand returns a command to remove a secret.
 func NewSecretRemoveCommand(ctx Context) (cmd.Command, error) {
 	return &secretRemoveCommand{ctx: ctx}, nil
 }

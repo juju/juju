@@ -34,9 +34,14 @@ func (p *CreateParams) Validate() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = names.ParseTag(p.Scope)
+	tag, err := names.ParseTag(p.Scope)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	switch tag.Kind() {
+	case names.ApplicationTagKind, names.UnitTagKind, names.RelationTagKind:
+	default:
+		return errors.NotValidf("secret scope kind %q", tag.Kind())
 	}
 	return p.UpsertParams.Validate()
 }

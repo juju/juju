@@ -386,15 +386,38 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 }
 
 // DeleteSecret deletes the specified secret.
-func (s *secretsStore) DeleteSecret(uri *secrets.URI) error {
+func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 	// We will bulk delete the various artefacts, starting with the secret itself.
 	// Deleting the parent secret metadata first  will ensure that any consumers of
 	// the secret get notified and subsequent attempts to access any secret
 	// attributes (revision etc) return not found.
-	// It is not practical to do this record by record in a mgo txn operation.
+	// It is not practical to do this record by record in a legacy client side mgo txn operation.
+	session := s.st.MongoSession()
+	err = session.StartTransaction()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		if err == nil {
+			err = session.CommitTransaction()
+			return
+		}
+		if err2 := session.AbortTransaction(); err2 != nil {
+			logger.Warningf("aborting failed delete select transaction: %v", err2)
+		}
+	}()
 	secretMetadataCollection, closer := s.st.db().GetRawCollection(secretMetadataC)
 	defer closer()
-	_, err := secretMetadataCollection.RemoveAll(bson.D{{
+	// We need to read something for the txn to work with RemoveAll.
+	var v interface{}
+	err = secretMetadataCollection.FindId(uri.ID).One(&v)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = secretMetadataCollection.RemoveAll(bson.D{{
 		"_id", uri.ID,
 	}})
 	if err != nil {

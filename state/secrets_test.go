@@ -667,6 +667,8 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.GetSecretValue(uri1, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = s.store.DeleteSecret(uri1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that other secret info remains intact.
 	secretRevisionsCollection, closer := state.GetRawCollection(s.State, "secretRevisions")
