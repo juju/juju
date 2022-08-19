@@ -1165,20 +1165,20 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("mysql") // initial
+	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()
 
 	db2, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "db2", SourceModel: s.Model.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("db2")
+	wc.AssertChange("db2")
 	wc.AssertNoChange()
 
 	err = db2.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = db2.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	wc.AssertChangeInSingleEvent("db2")
+	wc.AssertChange("db2")
 	wc.AssertNoChange()
 }
 
@@ -1186,7 +1186,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	w := s.State.WatchRemoteApplications()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("mysql") // initial
+	wc.AssertChange("mysql") // initial
 	wc.AssertNoChange()
 
 	ch := s.AddTestingCharm(c, "wordpress")
@@ -1212,7 +1212,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	err = s.application.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc.AssertChangeInSingleEvent("mysql")
+	wc.AssertChange("mysql")
 	wc.AssertNoChange()
 }
 

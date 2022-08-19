@@ -2515,7 +2515,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
+	wc.AssertChange(alive.UUID(), dying.UUID())
 
 	// Progress dying to dead, alive to dying; and see changes reported.
 	err = app.Destroy()
@@ -2526,7 +2526,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	c.Assert(alive.Refresh(), jc.ErrorIsNil)
 	c.Assert(alive.Life(), gc.Equals, state.Dying)
 	c.Assert(dying.Refresh(), jc.Satisfies, errors.IsNotFound)
-	wc.AssertChangeInSingleEvent(alive.UUID())
+	wc.AssertChange(alive.UUID())
 }
 
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {

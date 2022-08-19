@@ -2942,6 +2942,8 @@ func (w *collectionWatcher) loop() error {
 			}
 			if len(changes) > 0 {
 				out = w.sink
+			} else {
+				out = nil
 			}
 		case out <- changes:
 			changes = []string{}
