@@ -17,8 +17,11 @@ import (
 	"github.com/juju/juju/core/constraints"
 )
 
+// ConstraintApplier defines the function type for configuring constraint for a pod.
+type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value string) error
+
 // ApplyConstraints applies the specified constraints to the pod.
-func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value) error {
+func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value, configureConstraint ConstraintApplier) error {
 	// TODO(allow resource limits to be applied to each container).
 	// For now we only do resource requests, one container is sufficient for
 	// scheduling purposes.
@@ -262,12 +265,12 @@ func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, valu
 	if len(pod.Containers) == 0 {
 		return nil
 	}
-	pod.Containers[0].Resources.Requests, err = mergeConstraint(resourceName, value, pod.Containers[0].Resources.Requests)
+	pod.Containers[0].Resources.Requests, err = MergeConstraint(resourceName, value, pod.Containers[0].Resources.Requests)
 	if err != nil {
 		return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
 	}
 	for i := range pod.Containers {
-		pod.Containers[i].Resources.Limits, err = mergeConstraint(resourceName, value, pod.Containers[i].Resources.Limits)
+		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, pod.Containers[i].Resources.Limits)
 		if err != nil {
 			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
 		}
@@ -275,16 +278,17 @@ func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, valu
 	return nil
 }
 
-func mergeConstraint(resourceName core.ResourceName, value string, resourcesList core.ResourceList) (core.ResourceList, error) {
+// MergeConstraint merges constraint spec.
+func MergeConstraint(resourceName core.ResourceName, value string, resourcesList core.ResourceList) (core.ResourceList, error) {
 	if resourcesList == nil {
 		resourcesList = core.ResourceList{}
 	}
 	if v, ok := resourcesList[resourceName]; ok {
-		return nil, errors.NotValidf("resource list for %q has already been set to %v!", resourceName, v)
+		return nil, errors.NotValidf("resource list for %q has already been set to %v", resourceName, v)
 	}
 	parsedValue, err := resource.ParseQuantity(value)
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid constraint value %q for %v", value, resourceName)
+		return nil, errors.Annotatef(err, "invalid constraint value %q for %q", value, resourceName)
 	}
 	resourcesList[resourceName] = parsedValue
 	return resourcesList, nil
