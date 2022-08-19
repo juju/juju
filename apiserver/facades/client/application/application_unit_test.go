@@ -1501,7 +1501,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	results, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",

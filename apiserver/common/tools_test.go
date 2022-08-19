@@ -146,7 +146,7 @@ func (s *getToolsSuite) TestSeriesTools(c *gc.C) {
 		Number:       currentCopy.Number,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       currentCopy.Release,
+		OSType:       currentCopy.Release,
 		Arch:         currentCopy.Arch,
 	}).Return(params.FindToolsResult{List: coretools.List{{
 		Version: current,

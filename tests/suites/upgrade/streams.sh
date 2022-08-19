@@ -58,7 +58,6 @@ exec_simplestream_metadata() {
 		--prevent-fallback \
 		-d "./tests/suites/upgrade/streams/"
 
-
 	add_clean_func "kill_server"
 	start_server "./tests/suites/upgrade/streams/tools"
 
