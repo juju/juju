@@ -38,21 +38,6 @@ func (m *MockBacking) EXPECT() *MockBackingMockRecorder {
 	return m.recorder
 }
 
-// AddSubnet mocks base method.
-func (m *MockBacking) AddSubnet(arg0 networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSubnet", arg0)
-	ret0, _ := ret[0].(networkingcommon.BackingSubnet)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddSubnet indicates an expected call of AddSubnet.
-func (mr *MockBackingMockRecorder) AddSubnet(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubnet", reflect.TypeOf((*MockBacking)(nil).AddSubnet), arg0)
-}
-
 // AllSpaces mocks base method.
 func (m *MockBacking) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()
