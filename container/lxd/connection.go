@@ -11,10 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lxc/lxd/shared"
-
 	"github.com/juju/errors"
 	lxd "github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/shared"
 )
 
 type Protocol string
@@ -142,7 +141,7 @@ func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 	return nil, fmt.Errorf("bad protocol supplied for connection: %v", remote.Protocol)
 }
 
-func connectLocal() (lxd.ContainerServer, error) {
+func connectLocal() (lxd.InstanceServer, error) {
 	client, err := lxd.ConnectLXDUnix(SocketPath(shared.IsUnixSocket), nil)
 	return client, errors.Trace(err)
 }
