@@ -227,8 +227,9 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 func (s *SecretsManagerAPI) GetSecretIds() (params.SecretIdResults, error) {
 	var result params.SecretIdResults
 	ctx := context.Background()
-	secrets, err := s.secretsService.ListSecrets(ctx, secrets.Filter{
-		OwnerTag: names.NewApplicationTag(authTagApp(s.authTag)).String(),
+	owner := names.NewApplicationTag(authTagApp(s.authTag)).String()
+	secrets, _, err := s.secretsService.ListSecrets(ctx, secrets.Filter{
+		OwnerTag: &owner,
 	})
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
@@ -281,10 +282,10 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 		}
 		if consumer == nil {
 			consumer = &coresecrets.SecretConsumerMetadata{
-				LatestRevision: md.Revision,
+				LatestRevision: md.LatestRevision,
 			}
 		}
-		consumer.CurrentRevision = md.Revision
+		consumer.CurrentRevision = md.LatestRevision
 		if arg.Label != "" {
 			consumer.Label = arg.Label
 		}

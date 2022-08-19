@@ -51,7 +51,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 	s.assertListSecrets(c, false)
 }
 
-func (s *SecretsSuite) TestListSecretsShow(c *gc.C) {
+func (s *SecretsSuite) TestListSecretsReveal(c *gc.C) {
 	s.assertListSecrets(c, true)
 }
 
@@ -59,11 +59,11 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
+func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal bool) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	if show {
+	if reveal {
 		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
 			true, nil)
 	} else {
@@ -78,27 +78,40 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	metadata := []*coresecrets.SecretMetadata{{
-		URI:            uri,
-		Version:        1,
-		OwnerTag:       "application-mysql",
-		ScopeTag:       "unit-mysql-0",
-		Provider:       "juju",
-		ProviderID:     "abcd",
-		RotatePolicy:   coresecrets.RotateHourly,
-		ExpireTime:     ptr(now),
-		NextRotateTime: ptr(now.Add(time.Hour)),
-		Description:    "shhh",
-		Label:          "foobar",
-		Revision:       2,
-		CreateTime:     now,
-		UpdateTime:     now.Add(time.Second),
+		URI:              uri,
+		Version:          1,
+		OwnerTag:         "application-mysql",
+		ScopeTag:         "unit-mysql-0",
+		RotatePolicy:     coresecrets.RotateHourly,
+		LatestRevision:   2,
+		LatestExpireTime: ptr(now),
+		NextRotateTime:   ptr(now.Add(time.Hour)),
+		Description:      "shhh",
+		Label:            "foobar",
+		Provider:         "juju",
+		ProviderID:       "abcd",
+		CreateTime:       now,
+		UpdateTime:       now.Add(time.Second),
 	}}
+	revisions := map[string][]*coresecrets.SecretRevisionMetadata{
+		uri.ID: {{
+			Revision:   666,
+			CreateTime: now,
+			UpdateTime: now.Add(time.Second),
+			ExpireTime: ptr(now.Add(time.Hour)),
+		}, {
+			Revision:   667,
+			CreateTime: now,
+			UpdateTime: now.Add(2 * time.Second),
+			ExpireTime: ptr(now.Add(2 * time.Hour)),
+		}},
+	}
 	s.secretsService.EXPECT().ListSecrets(gomock.Any(), secrets.Filter{}).Return(
-		metadata, nil,
+		metadata, revisions, nil,
 	)
 
 	var valueResult *params.SecretValueResult
-	if show {
+	if reveal {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
@@ -107,25 +120,36 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, show bool) {
 		)
 	}
 
-	results, err := facade.ListSecrets(params.ListSecretsArgs{ShowSecrets: show})
+	results, err := facade.ListSecrets(params.ListSecretsArgs{ShowSecrets: reveal})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URI:            uri.String(),
-			Version:        1,
-			OwnerTag:       "application-mysql",
-			ScopeTag:       "unit-mysql-0",
-			Provider:       "juju",
-			ProviderID:     "abcd",
-			RotatePolicy:   string(coresecrets.RotateHourly),
-			ExpireTime:     ptr(now),
-			NextRotateTime: ptr(now.Add(time.Hour)),
-			Description:    "shhh",
-			Label:          "foobar",
-			Revision:       2,
-			CreateTime:     now,
-			UpdateTime:     now.Add(time.Second),
-			Value:          valueResult,
+			URI:              uri.String(),
+			Version:          1,
+			OwnerTag:         "application-mysql",
+			ScopeTag:         "unit-mysql-0",
+			Provider:         "juju",
+			ProviderID:       "abcd",
+			RotatePolicy:     string(coresecrets.RotateHourly),
+			LatestExpireTime: ptr(now),
+			NextRotateTime:   ptr(now.Add(time.Hour)),
+			Description:      "shhh",
+			Label:            "foobar",
+			LatestRevision:   2,
+			CreateTime:       now,
+			UpdateTime:       now.Add(time.Second),
+			Value:            valueResult,
+			Revisions: []params.SecretRevision{{
+				Revision:   666,
+				CreateTime: now,
+				UpdateTime: now.Add(time.Second),
+				ExpireTime: ptr(now.Add(time.Hour)),
+			}, {
+				Revision:   667,
+				CreateTime: now,
+				UpdateTime: now.Add(2 * time.Second),
+				ExpireTime: ptr(now.Add(2 * time.Hour)),
+			}},
 		}},
 	})
 }

@@ -75,7 +75,9 @@ func (p *UpsertParams) Validate() error {
 
 // Filter is used when querying secrets.
 type Filter struct {
-	OwnerTag string
+	URI      *secrets.URI
+	Revision *int
+	OwnerTag *string
 }
 
 // SecretsService instances provide a backend for storing secrets values.
@@ -96,7 +98,7 @@ type SecretsService interface {
 	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, error)
 
 	// ListSecrets returns secret metadata using the specified filter.
-	ListSecrets(context.Context, Filter) ([]*secrets.SecretMetadata, error)
+	ListSecrets(context.Context, Filter) ([]*secrets.SecretMetadata, map[string][]*secrets.SecretRevisionMetadata, error)
 }
 
 // ProviderConfig is used when constructing a secrets provider.

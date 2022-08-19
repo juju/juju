@@ -571,6 +571,7 @@ func registerCommands(r commandRegistry) {
 	// Secrets.
 	if featureflag.Enabled(feature.Secrets) {
 		r.Register(secrets.NewListSecretsCommand())
+		r.Register(secrets.NewShowSecretsCommand())
 	}
 
 	// Payload commands.

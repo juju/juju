@@ -223,8 +223,8 @@ func (s *SecretsManagerSuite) TestGetSecret(c *gc.C) {
 
 	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	md := &coresecrets.SecretMetadata{
-		URI:      uri,
-		Revision: 2,
+		URI:            uri,
+		LatestRevision: 2,
 	}
 	s.secretsStore.EXPECT().GetSecret(uri).Return(
 		md, nil,
@@ -259,18 +259,31 @@ func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
 
 	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	metadata := []*coresecrets.SecretMetadata{{
-		URI:      uri,
-		Revision: 2,
+		URI:            uri,
+		LatestRevision: 667,
 	}}
+	revisions := map[string][]*coresecrets.SecretRevisionMetadata{
+		uri.ID: {{
+			Revision: 666,
+		}},
+	}
 	s.secretsStore.EXPECT().ListSecrets(state.SecretsFilter{
-		OwnerTag: "application-mariadb",
+		OwnerTag: ptr("application-mariadb"),
 	}).Return(
 		metadata, nil,
 	)
+	s.secretsStore.EXPECT().ListSecretRevisions(uri).Return(
+		[]*coresecrets.SecretRevisionMetadata{
+			{Revision: 666},
+			{Revision: 667},
+		}, nil,
+	)
 
-	result, err := service.ListSecrets(context.Background(), secrets.Filter{
-		OwnerTag: "application-mariadb",
+	result, r, err := service.ListSecrets(context.Background(), secrets.Filter{
+		Revision: ptr(666),
+		OwnerTag: ptr("application-mariadb"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, metadata)
+	c.Assert(r, gc.DeepEquals, revisions)
 }

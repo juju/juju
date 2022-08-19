@@ -129,7 +129,6 @@ type SecretMetadata struct {
 	Description  string
 	Label        string
 	RotatePolicy RotatePolicy
-	ExpireTime   *time.Time
 
 	// Set by service on creation/update.
 
@@ -141,13 +140,22 @@ type SecretMetadata struct {
 	Provider string
 	// ProviderID is the ID/URI used by the underlying secrets provider.
 	ProviderID string
-	// Revision is incremented each time the corresponding
-	// secret value is changed.
-	Revision int
+	// LatestRevision is the most recent secret revision.
+	LatestRevision int
+	// LatestExpireTime is the expire time of the most recent revision.
+	LatestExpireTime *time.Time
 
 	NextRotateTime *time.Time
 	CreateTime     time.Time
 	UpdateTime     time.Time
+}
+
+// SecretRevisionMetadata holds metadata about a secret revision.
+type SecretRevisionMetadata struct {
+	Revision   int
+	CreateTime time.Time
+	UpdateTime time.Time
+	ExpireTime *time.Time
 }
 
 // SecretConsumerMetadata holds metadata about a secret

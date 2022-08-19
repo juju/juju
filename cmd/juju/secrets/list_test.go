@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/jujuclient"
+	secretsservice "github.com/juju/juju/secrets"
 )
 
 type ListSuite struct {
@@ -48,15 +49,15 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false).Return(
+	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
-				Revision: 2, Provider: "juju"},
+				LatestRevision: 2, OwnerTag: "application-mysql"},
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URI:      uri2,
-				Revision: 1, Provider: "juju"},
+				URI:            uri2,
+				LatestRevision: 1, OwnerTag: "application-mariadb"},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -64,10 +65,10 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-URI                          Revision  Rotate  Backend  Age
-%s         2  hourly  juju     0001-01-01  
-%s         1  never   juju     0001-01-01  
-`[1:], uri.ShortString(), uri2.ShortString()))
+ID                    Owner    Rotation  Latest  Last updated
+%s  mariadb  never          1  0001-01-01  
+%s  mysql    hourly         2  0001-01-01  
+`[1:], uri2.ID, uri.ID))
 }
 
 func (s *ListSuite) TestListYAML(c *gc.C) {
@@ -75,11 +76,11 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(true).Return(
+	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
-				Version: 1, Revision: 2, Provider: "juju",
+				Version: 1, LatestRevision: 2, Provider: "juju",
 				Description: "my secret",
 				OwnerTag:    "application-mysql",
 				Label:       "foobar",
@@ -87,56 +88,51 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri2, Version: 1, Revision: 1, Provider: "juju",
+				URI: uri2, Version: 1, LatestRevision: 1, OwnerTag: "application-mariadb",
 			},
 			Error: "boom",
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml", "--show-secrets")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-- uri: %s
-  version: 1
+%s:
+  latest: 2
+  rotate-policy: hourly
   owner: mysql
-  backend: juju
-  revision: 2
   description: my secret
   label: foobar
-  rotate-policy: hourly
   create-time: 0001-01-01T00:00:00Z
   update-time: 0001-01-01T00:00:00Z
-  value:
-    foo: bar
-- uri: %s
-  version: 1
-  backend: juju
-  revision: 1
+%s:
+  latest: 1
+  owner: mariadb
   create-time: 0001-01-01T00:00:00Z
   update-time: 0001-01-01T00:00:00Z
   error: boom
-`[1:], uri.ShortString(), uri2.ShortString()))
+`[1:], uri.ID, uri2.ID))
 }
 
 func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(true).Return(
+	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI:     uri,
-				Version: 1, Revision: 2, Provider: "juju",
+				Version: 1, LatestRevision: 2, OwnerTag: "application-mariadb",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "json", "--show-secrets")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-[{"uri":"%s","version":1,"backend":"juju","revision":2,"create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z","value":{"Data":{"foo":"bar"}}}]
-`[1:], uri.ShortString()))
+{"%s":{"latest":2,"owner":"mariadb","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z"}}
+`[1:], uri.ID))
 }

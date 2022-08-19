@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 )
@@ -60,31 +61,55 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			return result, errors.Trace(err)
 		}
 	}
+	var uri *coresecrets.URI
+	if arg.Filter.URI != nil {
+		var err error
+		uri, err = coresecrets.ParseURI(*arg.Filter.URI)
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+	}
 	ctx := context.Background()
-	metadata, err := s.secretsService.ListSecrets(ctx, secrets.Filter{})
+	metadata, revisionMetadata, err := s.secretsService.ListSecrets(ctx, secrets.Filter{
+		URI:      uri,
+		OwnerTag: arg.Filter.OwnerTag,
+		Revision: arg.Filter.Revision,
+	})
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
 		secretResult := params.ListSecretResult{
-			URI:            m.URI.String(),
-			Version:        m.Version,
-			OwnerTag:       m.OwnerTag,
-			ScopeTag:       m.ScopeTag,
-			Provider:       m.Provider,
-			ProviderID:     m.ProviderID,
-			Description:    m.Description,
-			Label:          m.Label,
-			RotatePolicy:   string(m.RotatePolicy),
-			NextRotateTime: m.NextRotateTime,
-			ExpireTime:     m.ExpireTime,
-			Revision:       m.Revision,
-			CreateTime:     m.CreateTime,
-			UpdateTime:     m.UpdateTime,
+			URI:              m.URI.String(),
+			Version:          m.Version,
+			OwnerTag:         m.OwnerTag,
+			ScopeTag:         m.ScopeTag,
+			Provider:         m.Provider,
+			ProviderID:       m.ProviderID,
+			Description:      m.Description,
+			Label:            m.Label,
+			RotatePolicy:     string(m.RotatePolicy),
+			NextRotateTime:   m.NextRotateTime,
+			LatestRevision:   m.LatestRevision,
+			LatestExpireTime: m.LatestExpireTime,
+			CreateTime:       m.CreateTime,
+			UpdateTime:       m.UpdateTime,
+		}
+		for _, r := range revisionMetadata[m.URI.ID] {
+			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
+				Revision:   r.Revision,
+				CreateTime: r.CreateTime,
+				UpdateTime: r.UpdateTime,
+				ExpireTime: r.ExpireTime,
+			})
 		}
 		if arg.ShowSecrets {
-			val, err := s.secretsService.GetSecretValue(ctx, m.URI, m.Revision)
+			rev := m.LatestRevision
+			if arg.Filter.Revision != nil {
+				rev = *arg.Filter.Revision
+			}
+			val, err := s.secretsService.GetSecretValue(ctx, m.URI, rev)
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}

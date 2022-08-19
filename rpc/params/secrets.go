@@ -120,9 +120,17 @@ type SecretValueResult struct {
 	Error *Error            `json:"error,omitempty"`
 }
 
+// SecretsFilter is used when querying secrets.
+type SecretsFilter struct {
+	URI      *string `json:"uri,omitempty"`
+	Revision *int    `json:"revision,omitempty"`
+	OwnerTag *string `json:"owner-tag,omitempty"`
+}
+
 // ListSecretsArgs holds the args for listing secrets.
 type ListSecretsArgs struct {
-	ShowSecrets bool `json:"show-secrets"`
+	ShowSecrets bool          `json:"show-secrets"`
+	Filter      SecretsFilter `json:"filter"`
 }
 
 // ListSecretResults holds secret metadata results.
@@ -130,23 +138,31 @@ type ListSecretResults struct {
 	Results []ListSecretResult `json:"results"`
 }
 
+type SecretRevision struct {
+	Revision   int        `json:"revision"`
+	CreateTime time.Time  `json:"create-time"`
+	UpdateTime time.Time  `json:"update-time"`
+	ExpireTime *time.Time `json:"expire-time,omitempty"`
+}
+
 // ListSecretResult is the result of getting secret metadata.
 type ListSecretResult struct {
-	URI            string             `json:"uri"`
-	Version        int                `json:"version"`
-	OwnerTag       string             `json:"owner-tag"`
-	ScopeTag       string             `json:"scope-tag"`
-	Provider       string             `json:"provider"`
-	ProviderID     string             `json:"provider-id,omitempty"`
-	RotatePolicy   string             `json:"rotate-policy,omitempty"`
-	NextRotateTime *time.Time         `json:"next-rotate-time,omitempty"`
-	ExpireTime     *time.Time         `json:"expire-time,omitempty"`
-	Description    string             `json:"description,omitempty"`
-	Label          string             `json:"label,omitempty"`
-	Revision       int                `json:"revision"`
-	CreateTime     time.Time          `json:"create-time"`
-	UpdateTime     time.Time          `json:"update-time"`
-	Value          *SecretValueResult `json:"value,omitempty"`
+	URI              string             `json:"uri"`
+	Version          int                `json:"version"`
+	OwnerTag         string             `json:"owner-tag"`
+	ScopeTag         string             `json:"scope-tag"`
+	Provider         string             `json:"provider"`
+	ProviderID       string             `json:"provider-id,omitempty"`
+	RotatePolicy     string             `json:"rotate-policy,omitempty"`
+	NextRotateTime   *time.Time         `json:"next-rotate-time,omitempty"`
+	Description      string             `json:"description,omitempty"`
+	Label            string             `json:"label,omitempty"`
+	LatestRevision   int                `json:"latest-revision"`
+	LatestExpireTime *time.Time         `json:"latest-expire-time,omitempty"`
+	CreateTime       time.Time          `json:"create-time"`
+	UpdateTime       time.Time          `json:"update-time"`
+	Revisions        []SecretRevision   `json:"revisions"`
+	Value            *SecretValueResult `json:"value,omitempty"`
 }
 
 // SecretRotationChange describes a change to a secret rotation config.
