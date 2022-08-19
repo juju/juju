@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/v3/arch"
+	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -172,9 +173,9 @@ func (m *containerManager) ensureInitialized() error {
 }
 
 // IsInitialized implements container.Manager.
-// It returns true if this host is running an OS that supports LXD by default.
+// It returns true if we can find a LXD socket on this host.
 func (m *containerManager) IsInitialized() bool {
-	return HasSupport()
+	return SocketPath(shared.IsUnixSocket) != ""
 }
 
 // getContainerSpec generates a spec for creating a new container.
