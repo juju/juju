@@ -295,7 +295,6 @@ var commandNames = []string{
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
-	"add-subnet",
 	"add-unit",
 	"add-user",
 	"agree",
