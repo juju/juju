@@ -125,7 +125,7 @@ def parse_args(argv):
 
 def main(argv=None):
     args = parse_args(argv)
-    series = args.series if args.series else 'xenial'
+    series = args.series if args.series else 'jammy'
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):

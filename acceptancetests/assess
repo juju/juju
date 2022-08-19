@@ -23,7 +23,7 @@ if __name__ != "__main__":
 LOG = logging.getLogger("run-ci-test")
 logging.basicConfig(level=logging.DEBUG)
 
-SERIES = "bionic"
+SERIES = "jammy"
 ENVIRONMENT_TEMPLATE = """\
 environments:
   lxd:
@@ -173,8 +173,8 @@ def parse_args():
     pass_through.add_argument("--charm-bundle", "--bundle", metavar="BUNDLE", dest="charm_bundle",
                               help="Overwrite default bundle (Relevant only for deploy_lxd_profile_bundle, deploy_webscale tests)")
     pass_through.add_argument("--charm-series", metavar="SERIES",
-                              help="Series for charms. (Relevant for recovery test only) [default: xenial]",
-                              default="xenial")
+                              help="Series for charms. (Relevant for recovery test only) [default: jammy]",
+                              default="jammy")
     pass_through.add_argument("--charm-devel-series", "--devel-series", dest="devel_series", metavar="SERIES",
                               help="The series to use when testing series in development (Relevant for multi_series_charms only)")
     pass_through.add_argument("--agent-file",
@@ -195,8 +195,8 @@ def parse_args():
     pass_through.add_argument("--cloud-test", help="Sub-test to run (Relevant for cloud test only)",
                               choices={"combined", "provisioning", "kill-controller"})
     pass_through.add_argument("--machine-series", metavar="SERIES", action="append",
-                              help="Series for machine, use multiple times for multiple machines. (Only relevant for provisioning sub-test of cloud test) [default: xenial]",
-                              default="xenial")
+                              help="Series for machine, use multiple times for multiple machines. (Only relevant for provisioning sub-test of cloud test) [default: jammy]",
+                              default="jammy")
     pass_through.add_argument("--machine-type", "--virt", dest="machine_type",
                               help="Virtualisation technology for machine (only relevant for container_networking, constraints tests) [default: lxd]",
                               choices=["lxc", "lxd", "kvm"], default="lxd")
@@ -258,9 +258,9 @@ def parse_args():
                               help="Clean up a the environments between runs, rather than creating one from scratch ("
                                    "Only relevant for spaces_subnets test)",
                               action="store_true")
-    pass_through.add_argument('--from-series', default="xenial",
+    pass_through.add_argument('--from-series', default="jammy",
                               help='Series to start machine and units with')
-    pass_through.add_argument('--to-series', default="bionic",
+    pass_through.add_argument('--to-series', default="jammy",
                               help='Series to upgrade machine and units to')
 
     caas_opts = arg_parser.add_argument_group("options common to CaaS acceptance tests")

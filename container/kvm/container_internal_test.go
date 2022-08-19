@@ -10,7 +10,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 )
 
-// gocheck boilerplate.
 type containerInternalSuite struct {
 	testing.IsolationSuite
 }

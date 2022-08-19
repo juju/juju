@@ -10,14 +10,13 @@ import (
 const (
 	// DefaultChannelString represents the default track and risk if nothing
 	// is found.
-	DefaultChannelString = "latest/stable"
+	DefaultChannelString = "stable"
 )
 
 var (
 	// DefaultChannel represents the default track and risk.
 	DefaultChannel = charm.Channel{
-		Track: "latest",
-		Risk:  charm.Stable,
+		Risk: charm.Stable,
 	}
 	// DefaultRiskChannel represents the default only risk channel.
 	DefaultRiskChannel = charm.Channel{

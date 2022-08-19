@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -362,18 +361,6 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	}
 	e.hw, e.series = &hw, series
 	return e.hw, e.series, nil
-}
-
-func (e *manualEnviron) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	return nil
-}
-
-func (e *manualEnviron) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	return nil
-}
-
-func (e *manualEnviron) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
-	return nil, nil
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {

@@ -39,6 +39,8 @@ const (
 	SuperuserAccess Access = "superuser"
 )
 
+var AllAccessLevels = []Access{NoAccess, ReadAccess, WriteAccess, ConsumeAccess, AdminAccess, LoginAccess, AddModelAccess, SuperuserAccess}
+
 // Validate returns error if the current is not a valid access level.
 func (a Access) Validate() error {
 	switch a {
