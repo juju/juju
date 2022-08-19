@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 )
 
@@ -48,6 +49,7 @@ func (p *CreateParams) Validate() error {
 
 // UpsertParams are used to update a secret.
 type UpsertParams struct {
+	LeaderToken    leadership.Token
 	Description    *string
 	Label          *string
 	RotatePolicy   *secrets.RotatePolicy

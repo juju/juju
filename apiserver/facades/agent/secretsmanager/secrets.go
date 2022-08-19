@@ -13,9 +13,11 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -24,12 +26,13 @@ type SecretsManagerAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	secretsService  secrets.SecretsService
-	resources       facade.Resources
-	secretsRotation SecretsRotation
-	secretsConsumer SecretsConsumer
-	authTag         names.Tag
-	clock           clock.Clock
+	leadershipChecker leadership.Checker
+	secretsService    secrets.SecretsService
+	resources         facade.Resources
+	secretsRotation   SecretsRotation
+	secretsConsumer   SecretsConsumer
+	authTag           names.Tag
+	clock             clock.Clock
 }
 
 // CreateSecrets creates new secrets.
@@ -57,8 +60,13 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	}
 	// A unit can create a secret so long as the
 	// secret owner is that unit's app.
-	if authTagApp(s.authTag) != secretOwner.Id() {
+	appName := authTagApp(s.authTag)
+	if appName != secretOwner.Id() {
 		return "", apiservererrors.ErrPerm
+	}
+	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+	if err := token.Check(0, nil); err != nil {
+		return "", errors.Trace(err)
 	}
 	uri := coresecrets.NewURI()
 	scope := arg.ScopeTag
@@ -69,12 +77,17 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 		Version:      secrets.Version,
 		Owner:        arg.OwnerTag,
 		Scope:        scope,
-		UpsertParams: fromUpsertParams(s.clock, arg.UpsertSecretArg),
+		UpsertParams: fromUpsertParams(s.clock, arg.UpsertSecretArg, token),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	err = s.secretsConsumer.GrantSecretAccess(uri, secretOwner, secretOwner, coresecrets.RoleManage)
+	err = s.secretsConsumer.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: token,
+		Scope:       secretOwner,
+		Subject:     secretOwner,
+		Role:        coresecrets.RoleManage,
+	})
 	if err != nil {
 		// TODO(wallyworld) - remove secret when that is supported
 		return "", errors.Annotate(err, "granting secret owner permission to manage the secret")
@@ -82,7 +95,7 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	return md.URI.ShortString(), nil
 }
 
-func fromUpsertParams(clock clock.Clock, p params.UpsertSecretArg) secrets.UpsertParams {
+func fromUpsertParams(clock clock.Clock, p params.UpsertSecretArg, token leadership.Token) secrets.UpsertParams {
 	var nextRotateTime *time.Time
 	if p.RotatePolicy != nil {
 		// TODO(wallyworld) - we need to take into account last rotate time
@@ -91,6 +104,7 @@ func fromUpsertParams(clock clock.Clock, p params.UpsertSecretArg) secrets.Upser
 		nextRotateTime = p.RotatePolicy.NextRotateTime(&now)
 	}
 	return secrets.UpsertParams{
+		LeaderToken:    token,
 		RotatePolicy:   p.RotatePolicy,
 		NextRotateTime: nextRotateTime,
 		ExpireTime:     p.ExpireTime,
@@ -130,7 +144,12 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	if !s.canManage(uri, s.authTag) {
 		return apiservererrors.ErrPerm
 	}
-	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(s.clock, arg.UpsertSecretArg))
+	appName := authTagApp(s.authTag)
+	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+	if err := token.Check(0, nil); err != nil {
+		return errors.Trace(err)
+	}
+	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(s.clock, arg.UpsertSecretArg, token))
 	return errors.Trace(err)
 }
 
@@ -158,6 +177,11 @@ func (s *SecretsManagerAPI) removeSecret(ctx context.Context, arg params.SecretU
 	uri.ControllerUUID = s.controllerUUID
 	if !s.canManage(uri, s.authTag) {
 		return apiservererrors.ErrPerm
+	}
+	appName := authTagApp(s.authTag)
+	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+	if err := token.Check(0, nil); err != nil {
+		return errors.Trace(err)
 	}
 	return s.secretsService.DeleteSecret(ctx, uri)
 }
@@ -388,7 +412,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 	return results, nil
 }
 
-type grantRevokeFunc func(*coresecrets.URI, names.Tag, names.Tag, coresecrets.SecretRole) error
+type grantRevokeFunc func(*coresecrets.URI, state.SecretAccessParams) error
 
 // SecretsGrant grants access to a secret for the specified subjects.
 func (s *SecretsManagerAPI) SecretsGrant(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
@@ -397,14 +421,17 @@ func (s *SecretsManagerAPI) SecretsGrant(args params.GrantRevokeSecretArgs) (par
 
 // SecretsRevoke revokes access to a secret for the specified subjects.
 func (s *SecretsManagerAPI) SecretsRevoke(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return s.secretsGrantRevoke(args, func(uri *coresecrets.URI, _, subject names.Tag, _ coresecrets.SecretRole) error {
-		return s.secretsConsumer.RevokeSecretAccess(uri, subject)
-	})
+	return s.secretsGrantRevoke(args, s.secretsConsumer.RevokeSecretAccess)
 }
 
 func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	appName := authTagApp(s.authTag)
+	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+	if err := token.Check(0, nil); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	one := func(arg params.GrantRevokeSecretArg) error {
 		uri, err := coresecrets.ParseURI(arg.URI)
@@ -432,7 +459,12 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := op(uri, scopeTag, subjectTag, role); err != nil {
+			if err := op(uri, state.SecretAccessParams{
+				LeaderToken: token,
+				Scope:       scopeTag,
+				Subject:     subjectTag,
+				Role:        role,
+			}); err != nil {
 				return errors.Annotatef(err, "cannot change access to %q for %q", uri, tagStr)
 			}
 		}

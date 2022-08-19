@@ -719,14 +719,20 @@ func (s *RelationSuite) TestRemoveAlsoDeletesSecretPermissions(c *gc.C) {
 		ProviderLabel: "juju",
 		Owner:         app.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
-			Data: map[string]string{"foo": "bar"},
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
 		},
 	}
 	_, err = store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subject := names.NewApplicationTag("wordpress")
-	err = s.State.GrantSecretAccess(uri, relation.Tag(), subject, secrets.RoleView)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := s.State.SecretAccess(uri, subject)
 	c.Assert(err, jc.ErrorIsNil)

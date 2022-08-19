@@ -24,6 +24,7 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -33,6 +34,8 @@ type SecretsManagerSuite struct {
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
 
+	leadership             *mocks.MockChecker
+	token                  *mocks.MockToken
 	secretsService         *mocks.MockSecretsService
 	secretsConsumer        *mocks.MockSecretsConsumer
 	secretsWatcher         *mocks.MockStringsWatcher
@@ -56,6 +59,8 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.resources = facademocks.NewMockResources(ctrl)
 
+	s.leadership = mocks.NewMockChecker(ctrl)
+	s.token = mocks.NewMockToken(ctrl)
 	s.secretsService = mocks.NewMockSecretsService(ctrl)
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
@@ -67,7 +72,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Now())
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.secretsService, s.secretsConsumer, s.secretsRotationService,
+		s.authorizer, s.resources, s.leadership, s.secretsService, s.secretsConsumer, s.secretsRotationService,
 		s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -107,6 +112,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		Owner:   "application-mariadb",
 		Scope:   "unit-mariadb-0",
 		UpsertParams: secrets.UpsertParams{
+			LeaderToken:    s.token,
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
 			NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
 			ExpireTime:     ptr(s.clock.Now()),
@@ -117,10 +123,17 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		},
 	}
 	var gotURI *coresecrets.URI
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
 	s.secretsService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
 		func(_ context.Context, uri *coresecrets.URI, p secrets.CreateParams) (*coresecrets.SecretMetadata, error) {
 			ownerTag := names.NewApplicationTag("mariadb")
-			s.secretsConsumer.EXPECT().GrantSecretAccess(uri, ownerTag, ownerTag, coresecrets.RoleManage).Return(nil)
+			s.secretsConsumer.EXPECT().GrantSecretAccess(uri, state.SecretAccessParams{
+				LeaderToken: s.token,
+				Scope:       ownerTag,
+				Subject:     ownerTag,
+				Role:        coresecrets.RoleManage,
+			}).Return(nil)
 			gotURI = uri
 			md := &coresecrets.SecretMetadata{
 				URI:      uri,
@@ -169,6 +182,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	p := secrets.UpsertParams{
+		LeaderToken:    s.token,
 		RotatePolicy:   ptr(coresecrets.RotateDaily),
 		NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
 		ExpireTime:     ptr(s.clock.Now()),
@@ -189,6 +203,8 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 			return md, nil
 		},
 	)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
 	s.expectSecretAccessQuery(1)
 	uri1 := *uri
 	uri1.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
@@ -227,6 +243,8 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	expectURI := *uri
 	expectURI.ControllerUUID = coretesting.ControllerTag.Id()
 	s.secretsService.EXPECT().DeleteSecret(gomock.Any(), &expectURI).Return(nil)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
 	s.expectSecretAccessQuery(1)
 	uri1 := *uri
 	uri1.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
@@ -482,7 +500,14 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag: "application-mariadb",
 	}, nil).AnyTimes()
-	s.secretsConsumer.EXPECT().GrantSecretAccess(uri, scopeTag, subjectTag, coresecrets.RoleView).Return(errors.New("boom"))
+	s.secretsConsumer.EXPECT().GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: s.token,
+		Scope:       scopeTag,
+		Subject:     subjectTag,
+		Role:        coresecrets.RoleView,
+	}).Return(errors.New("boom"))
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
 
 	result, err := s.facade.SecretsGrant(params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{
@@ -520,7 +545,14 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag: "application-mariadb",
 	}, nil).AnyTimes()
-	s.secretsConsumer.EXPECT().RevokeSecretAccess(uri, subjectTag).Return(errors.New("boom"))
+	s.secretsConsumer.EXPECT().RevokeSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: s.token,
+		Scope:       scopeTag,
+		Subject:     subjectTag,
+		Role:        coresecrets.RoleView,
+	}).Return(errors.New("boom"))
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
 
 	result, err := s.facade.SecretsRevoke(params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{

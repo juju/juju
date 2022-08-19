@@ -12,6 +12,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -24,11 +25,13 @@ func TestPackage(t *testing.T) {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationservice.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsRotation
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationwatcher.go github.com/juju/juju/state SecretsRotationWatcher
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
+	leadership leadership.Checker,
 	service secrets.SecretsService,
 	consumer SecretsConsumer,
 	secretsRotation SecretsRotation,
@@ -40,13 +43,14 @@ func NewTestAPI(
 	}
 
 	return &SecretsManagerAPI{
-		authTag:         authTag,
-		controllerUUID:  coretesting.ControllerTag.Id(),
-		modelUUID:       coretesting.ModelTag.Id(),
-		resources:       resources,
-		secretsService:  service,
-		secretsConsumer: consumer,
-		secretsRotation: secretsRotation,
-		clock:           clock,
+		authTag:           authTag,
+		controllerUUID:    coretesting.ControllerTag.Id(),
+		modelUUID:         coretesting.ModelTag.Id(),
+		resources:         resources,
+		leadershipChecker: leadership,
+		secretsService:    service,
+		secretsConsumer:   consumer,
+		secretsRotation:   secretsRotation,
+		clock:             clock,
 	}, nil
 }

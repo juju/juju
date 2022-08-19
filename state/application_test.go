@@ -3216,13 +3216,19 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 		Owner:         s.mysql.Tag().String(),
 		Scope:         unit.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
-			Data: map[string]string{"foo": "bar"},
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
 		},
 	}
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.GrantSecretAccess(uri, s.mysql.Tag(), s.mysql.Tag(), secrets.RoleView)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.mysql.Tag(),
+		Subject:     s.mysql.Tag(),
+		Role:        secrets.RoleView,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := s.State.SecretAccess(uri, s.mysql.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3244,7 +3250,8 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 		Owner:         s.mysql.Tag().String(),
 		Scope:         unit.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
-			Data: map[string]string{"foo": "bar"},
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
 		},
 	}
 	_, err := store.CreateSecret(uri, cp)
@@ -3265,7 +3272,8 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesScopedSecrets(c *gc.C) {
 		Owner:         s.mysql.Tag().String(),
 		Scope:         s.mysql.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
-			Data: map[string]string{"foo": "bar"},
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
 		},
 	}
 	_, err := store.CreateSecret(uri, cp)

@@ -2033,14 +2033,20 @@ func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 		ProviderLabel: "juju",
 		Owner:         s.application.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
-			Data: map[string]string{"foo": "bar"},
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
 		},
 	}
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unit := s.Factory.MakeUnit(c, nil)
-	err = s.State.GrantSecretAccess(uri, unit.Tag(), unit.Tag(), secrets.RoleView)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       unit.Tag(),
+		Subject:     unit.Tag(),
+		Role:        secrets.RoleView,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := s.State.SecretAccess(uri, unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
