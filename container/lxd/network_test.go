@@ -557,7 +557,7 @@ func (s *networkSuite) TestEnableHTTPSListener(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := &lxdapi.Server{}
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
@@ -580,7 +580,7 @@ func (s *networkSuite) TestEnableHTTPSListenerWithFallbackToIPv4(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := &lxdapi.Server{}
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
@@ -609,7 +609,7 @@ func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := &lxdapi.Server{}
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil)
 

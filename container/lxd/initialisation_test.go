@@ -114,7 +114,7 @@ func getMockRunCommandWithRetry(calledCmds *[]string) func(string, manager.Retry
 	}
 }
 
-func (s *initialiserTestSuite) containerInitialiser(svr lxd.ContainerServer, lxdIsRunning bool) *containerInitialiser {
+func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdIsRunning bool) *containerInitialiser {
 	result := NewContainerInitialiser(lxdSnapChannel).(*containerInitialiser)
 	result.configureLxdBridge = func() error { return nil }
 	result.configureLxdProxies = func(proxy.Settings, func() (bool, error), func() (*Server, error)) error { return nil }
@@ -282,7 +282,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	s.PatchEnvironment("http_proxy", "http://test.local/http/proxy")
 	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
@@ -307,7 +307,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	s.PatchEnvironment("http_proxy", "http://test.local/http/proxy")
 	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
@@ -593,7 +593,7 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	mgr := mocks.NewMockSnapManager(ctrl)
 	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
@@ -642,7 +642,7 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANew
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	mgr := mocks.NewMockSnapManager(ctrl)
 	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")

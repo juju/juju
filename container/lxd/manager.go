@@ -131,7 +131,7 @@ func (m *containerManager) CreateContainer(
 	}
 	_ = callback(status.Running, "Container started", nil)
 
-	return &lxdInstance{c.Name, m.server.ContainerServer},
+	return &lxdInstance{c.Name, m.server.InstanceServer},
 		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil
 }
 
@@ -148,7 +148,7 @@ func (m *containerManager) ListContainers() ([]instances.Instance, error) {
 
 	var result []instances.Instance
 	for _, i := range containers {
-		result = append(result, &lxdInstance{i.Name, m.server.ContainerServer})
+		result = append(result, &lxdInstance{i.Name, m.server.InstanceServer})
 	}
 	return result, nil
 }

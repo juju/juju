@@ -83,8 +83,8 @@ type Server interface {
 	HasExtension(extension string) (exists bool)
 	GetNetworks() ([]lxdapi.Network, error)
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
-	GetContainer(name string) (*lxdapi.Container, string, error)
-	GetContainerState(name string) (*lxdapi.ContainerState, string, error)
+	GetInstance(name string) (*lxdapi.Instance, string, error)
+	GetInstanceState(name string) (*lxdapi.InstanceState, string, error)
 
 	// UseProject ensures that this server will use the input project.
 	// See: https://linuxcontainers.org/lxd/docs/master/projects.

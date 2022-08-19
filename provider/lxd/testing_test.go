@@ -245,13 +245,14 @@ func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *containerlxd.Co
 	}
 
 	return &containerlxd.Container{
-		Container: api.Container{
+		Instance: api.Instance{
 			Name:       name,
 			StatusCode: api.Running,
 			Status:     api.Running.String(),
-			ContainerPut: api.ContainerPut{
+			InstancePut: api.InstancePut{
 				Config: metadata,
 			},
+			Type: "container",
 		},
 	}
 }
@@ -694,11 +695,11 @@ func (*StubClient) GetNetworkState(string) (*api.NetworkState, error) {
 	panic("this stub is deprecated; use mocks instead")
 }
 
-func (*StubClient) GetContainer(string) (*api.Container, string, error) {
+func (*StubClient) GetInstance(string) (*api.Instance, string, error) {
 	panic("this stub is deprecated; use mocks instead")
 }
 
-func (*StubClient) GetContainerState(string) (*api.ContainerState, string, error) {
+func (*StubClient) GetInstanceState(string) (*api.InstanceState, string, error) {
 	panic("this stub is deprecated; use mocks instead")
 }
 

@@ -238,7 +238,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	target := lxdtesting.NewMockContainerServer(ctrl)
+	target := lxdtesting.NewMockInstanceServer(ctrl)
 	tExp := target.EXPECT()
 	serverRet := &api.Server{}
 	image := &api.Image{Filename: "container-image"}
@@ -280,9 +280,9 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 
 	// CreateContainerFromSpec is tested in container/lxd.
 	// we don't bother with detailed parameter assertions here.
-	tExp.CreateContainerFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(createOp, nil)
-	tExp.UpdateContainerState(gomock.Any(), gomock.Any(), "").Return(startOp, nil)
-	tExp.GetContainer(gomock.Any()).Return(&api.Container{}, lxdtesting.ETag, nil)
+	tExp.CreateInstanceFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(createOp, nil)
+	tExp.UpdateInstanceState(gomock.Any(), gomock.Any(), "").Return(startOp, nil)
+	tExp.GetInstance(gomock.Any()).Return(&api.Instance{Type: "container"}, lxdtesting.ETag, nil)
 
 	env := s.NewEnviron(c, svr, nil)
 

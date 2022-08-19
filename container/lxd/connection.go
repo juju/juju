@@ -141,13 +141,13 @@ func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 	return nil, fmt.Errorf("bad protocol supplied for connection: %v", remote.Protocol)
 }
 
-func connectLocal() (lxd.ContainerServer, error) {
+func connectLocal() (lxd.InstanceServer, error) {
 	client, err := lxd.ConnectLXDUnix(SocketPath(nil), nil)
 	return client, errors.Trace(err)
 }
 
 // ConnectRemote connects to LXD on a remote socket.
-func ConnectRemote(spec ServerSpec) (lxd.ContainerServer, error) {
+func ConnectRemote(spec ServerSpec) (lxd.InstanceServer, error) {
 	// Ensure the Port on the Host, if we get an error it is reasonable to
 	// assume that the address in the spec is invalid.
 	uri, err := EnsureHostPort(spec.Host)

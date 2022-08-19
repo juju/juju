@@ -37,7 +37,7 @@ func HasSupport() bool {
 
 // Server extends the upstream LXD container server.
 type Server struct {
-	lxd.ContainerServer
+	lxd.InstanceServer
 
 	name              string
 	clustered         bool
@@ -84,7 +84,7 @@ func NewRemoteServer(spec ServerSpec) (*Server, error) {
 
 // NewServer builds and returns a Server for high-level interaction with the
 // input LXD container server.
-func NewServer(svr lxd.ContainerServer) (*Server, error) {
+func NewServer(svr lxd.InstanceServer) (*Server, error) {
 	info, _, err := svr.GetServer()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -113,7 +113,7 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	}
 
 	return &Server{
-		ContainerServer:   svr,
+		InstanceServer:    svr,
 		name:              name,
 		clustered:         clustered,
 		serverCertificate: serverCertificate,
@@ -154,7 +154,7 @@ func (s *Server) UpdateServerConfig(cfg map[string]string) error {
 // UpdateContainerConfig updates the configuration for the container with the
 // input name, using the input values.
 func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error {
-	container, eTag, err := s.GetContainer(name)
+	container, eTag, err := s.GetInstance(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -165,7 +165,7 @@ func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error
 		container.Config[k] = v
 	}
 
-	resp, err := s.UpdateContainer(name, container.Writable(), eTag)
+	resp, err := s.UpdateInstance(name, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -175,7 +175,7 @@ func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error
 // GetContainerProfiles returns the list of profiles that are associated with a
 // container.
 func (s *Server) GetContainerProfiles(name string) ([]string, error) {
-	container, _, err := s.GetContainer(name)
+	container, _, err := s.GetInstance(name)
 	if err != nil {
 		return []string{}, errors.Trace(err)
 	}
@@ -185,7 +185,7 @@ func (s *Server) GetContainerProfiles(name string) ([]string, error) {
 // UseProject ensures that this server will use the input project.
 // See: https://linuxcontainers.org/lxd/docs/master/projects.
 func (s *Server) UseProject(project string) {
-	s.ContainerServer = s.ContainerServer.UseProject(project)
+	s.InstanceServer = s.InstanceServer.UseProject(project)
 }
 
 // ReplaceOrAddContainerProfile updates the profiles for the container with the
@@ -194,14 +194,14 @@ func (s *Server) UseProject(project string) {
 // remove when provisioner_task processProfileChanges() is
 // removed.
 func (s *Server) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
-	container, eTag, err := s.GetContainer(name)
+	container, eTag, err := s.GetInstance(name)
 	if err != nil {
 		return errors.Trace(errors.Annotatef(err, "failed to get container %q", name))
 	}
 	profiles := addRemoveReplaceProfileName(container.Profiles, oldProfile, newProfile)
 
 	container.Profiles = profiles
-	resp, err := s.UpdateContainer(name, container.Writable(), eTag)
+	resp, err := s.UpdateInstance(name, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(errors.Annotatef(err, "failed to updated container %q", name))
 	}
@@ -240,13 +240,13 @@ func addRemoveReplaceProfileName(profiles []string, oldProfile, newProfile strin
 // named container.  It is assumed the profiles have all been added to
 // the server before hand.
 func (s *Server) UpdateContainerProfiles(name string, profiles []string) error {
-	container, eTag, err := s.GetContainer(name)
+	container, eTag, err := s.GetInstance(name)
 	if err != nil {
 		return errors.Trace(errors.Annotatef(err, "failed to get %q", name))
 	}
 
 	container.Profiles = profiles
-	resp, err := s.UpdateContainer(name, container.Writable(), eTag)
+	resp, err := s.UpdateInstance(name, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(errors.Annotatef(err, "failed to update %q with profiles", name))
 	}
