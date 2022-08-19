@@ -5,14 +5,12 @@ package subnets
 
 import (
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -253,115 +251,6 @@ func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) erro
 	if len(cache.allSubnets) == 0 {
 		// Cached an empty list.
 		return errors.Errorf("no subnets defined")
-	}
-	return nil
-}
-
-// TODO (hml) 2019-08-27
-// This logic needs to be updated when auditing add-subnet and the
-// subnet cache.  You need a providerId or cidr if there is only
-// one of that cidr in the network.  If there are duplicate cidrs
-// in the network, the providerId will be required.
-//
-// validateSubnet ensures either cidr or providerId is valid (not both),
-// then uses the cache to validate and lookup the provider SubnetInfo for the
-// subnet, if found.
-func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, cidr, providerId string) (*network.SubnetInfo, error) {
-	haveCidr := cidr != ""
-	haveProviderId := providerId != ""
-
-	if !haveCidr && !haveProviderId {
-		return nil, errors.Errorf("either CIDR or SubnetProviderId is required")
-	} else if haveCidr && haveProviderId {
-		return nil, errors.Errorf("CIDR and SubnetProviderId cannot be both set")
-	}
-	if haveCidr {
-		if !network.IsValidCIDR(cidr) {
-			return nil, errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
-		}
-	}
-
-	// Otherwise we need the cache to validate.
-	if err := cache.cacheSubnets(ctx); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if haveCidr {
-		providerIds, ok := cache.providerIdsByCIDR[cidr]
-		if !ok || providerIds.IsEmpty() {
-			return nil, errors.NotFoundf("subnet with CIDR %q", cidr)
-		}
-		if providerIds.Size() > 1 {
-			ids := `"` + strings.Join(providerIds.SortedValues(), `", "`) + `"`
-			return nil, errors.Errorf(
-				"multiple subnets with CIDR %q: retry using ProviderId from: %s",
-				cidr, ids,
-			)
-		}
-		// A single CIDR matched.
-		providerId = providerIds.Values()[0]
-	}
-
-	info, ok := cache.subnetsByProviderId[providerId]
-	if !ok || info == nil {
-		return nil, errors.NotFoundf(
-			"subnet with CIDR %q and ProviderId %q",
-			cidr, providerId,
-		)
-	}
-	// Do last-call validation.
-	if !network.IsValidCIDR(info.CIDR) {
-		_, ipnet, err := net.ParseCIDR(info.CIDR)
-		if err != nil && info.CIDR != "" {
-			// The underlying error is not important here, just that
-			// the CIDR is invalid.
-			return nil, errors.Errorf(
-				"subnet with CIDR %q and ProviderId %q: invalid CIDR",
-				info.CIDR, providerId,
-			)
-		}
-		if info.CIDR == "" {
-			return nil, errors.Errorf(
-				"subnet with ProviderId %q: empty CIDR", providerId,
-			)
-		}
-		return nil, errors.Errorf(
-			"subnet with ProviderId %q: incorrect CIDR format %q, expected %q",
-			providerId, info.CIDR, ipnet.String(),
-		)
-	}
-	return info, nil
-}
-
-// addOneSubnet validates the given arguments, using cache for lookups
-// (initialized on first use), then adds it to the backing store, if successful.
-func addOneSubnet(
-	ctx context.ProviderCallContext, api Backing, args params.AddSubnetParams, cache *addSubnetsCache,
-) error {
-	subnetInfo, err := cache.validateSubnet(ctx, args.CIDR, args.SubnetProviderId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	spaceID, err := cache.validateSpace(api, args.SpaceTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	zones, err := cache.validateZones(ctx, subnetInfo.AvailabilityZones, args.Zones)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Try adding the subnet.
-	backingInfo := networkingcommon.BackingSubnetInfo{
-		ProviderId:        subnetInfo.ProviderId,
-		ProviderNetworkId: subnetInfo.ProviderNetworkId,
-		CIDR:              subnetInfo.CIDR,
-		VLANTag:           subnetInfo.VLANTag,
-		AvailabilityZones: zones,
-		SpaceID:           spaceID,
-	}
-	if _, err := api.AddSubnet(backingInfo); err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }
