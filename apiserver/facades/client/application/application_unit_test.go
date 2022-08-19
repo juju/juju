@@ -925,6 +925,9 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
+
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
 	unit0.EXPECT().IsPrincipal().Return(true)
@@ -979,6 +982,9 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
@@ -1536,7 +1542,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	app.EXPECT().AddUnit(state.AddUnitParams{
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
 	}).Return(newUnit, nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -1547,7 +1553,12 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	currentCh := s.expectCharm(ctrl, &charm.Meta{Name: "charm-foo"}, &charm.Manifest{Bases: []charm.Base{{}}}, nil)
+	app := s.expectApplicationWithCharm(ctrl, currentCh, "foo")
+	s.backend.EXPECT().Application("foo").AnyTimes().Return(app, nil)
 
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "foo",
@@ -1558,7 +1569,12 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	currentCh := s.expectCharm(ctrl, &charm.Meta{Name: "charm-foo"}, &charm.Manifest{Bases: []charm.Base{{}}}, nil)
+	app := s.expectApplicationWithCharm(ctrl, currentCh, "foo")
+	s.backend.EXPECT().Application("foo").AnyTimes().Return(app, nil)
 
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "foo",
