@@ -534,7 +534,6 @@ func fetchNStatusResults(col mongo.Collection, clock clock.Clock,
 	baseQuery := bson.M{"globalkey": key}
 	if filter.Delta != nil {
 		delta := *filter.Delta
-		// TODO(perrito666) 2016-10-06 lp:1558657
 		updated := clock.Now().Add(-delta)
 		baseQuery["updated"] = bson.M{"$gt": updated.UnixNano()}
 	}

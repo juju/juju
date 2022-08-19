@@ -191,7 +191,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 
 	// Initial event.
 	wc := statetesting.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertChange(testing.ControllerTag.Id())
 	wc.AssertNoChange()
 
 	// Update the controller, expect no change. We only get
@@ -204,7 +204,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	// Remove the controller, we should get a change.
 	err = s.externalControllers.Remove(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertChange(testing.ControllerTag.Id())
 	wc.AssertNoChange()
 
 	// Removing a non-existent controller shouldn't trigger
@@ -216,7 +216,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	// Add the controller again, and we should see a change.
 	_, err = s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertChange(testing.ControllerTag.Id())
 	wc.AssertNoChange()
 }
 

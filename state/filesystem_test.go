@@ -423,11 +423,11 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 	w := s.storageBackend.WatchModelFilesystems()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0", "1") // initial
+	wc.AssertChange("0", "1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("4", "5")
+	wc.AssertChange("4", "5")
 	wc.AssertNoChange()
 
 	err := u.Destroy()
@@ -437,7 +437,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 
 	err = s.storageBackend.DestroyFilesystem(filesystemTag, false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0")
+	wc.AssertChange("0")
 	wc.AssertNoChange()
 
 	machineTag := names.NewMachineTag("0")
@@ -447,7 +447,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 
 	err = s.storageBackend.RemoveFilesystemAttachment(machineTag, filesystemTag, false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0") // last attachment removed
+	wc.AssertChange("0") // last attachment removed
 	wc.AssertNoChange()
 }
 
@@ -467,11 +467,11 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) 
 	w := s.storageBackend.WatchModelFilesystemAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
+	wc.AssertChange("0:0", "0:1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("1:4", "1:5")
+	wc.AssertChange("1:4", "1:5")
 	wc.AssertNoChange()
 
 	err := u.Destroy()
@@ -486,12 +486,12 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) 
 	machineTag := names.NewMachineTag("0")
 	err = s.storageBackend.DetachFilesystem(machineTag, filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0")
+	wc.AssertChange("0:0")
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveFilesystemAttachment(machineTag, filesystemTag, false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0")
+	wc.AssertChange("0:0")
 	wc.AssertNoChange()
 }
 
@@ -511,7 +511,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 	w := s.storageBackend.WatchMachineFilesystems(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0/2", "0/3") // initial
+	wc.AssertChange("0/2", "0/3") // initial
 	wc.AssertNoChange()
 
 	addUnit()
@@ -525,7 +525,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 
 	err = s.storageBackend.DestroyFilesystem(filesystemTag, false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0/2")
+	wc.AssertChange("0/2")
 	wc.AssertNoChange()
 
 	attachments, err := s.storageBackend.FilesystemAttachments(filesystemTag)
@@ -536,7 +536,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 		err = s.storageBackend.RemoveFilesystemAttachment(a.Host(), filesystemTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	wc.AssertChangeInSingleEvent("0/2") // Dying -> Dead
+	wc.AssertChange("0/2") // Dying -> Dead
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveFilesystem(filesystemTag)
@@ -568,7 +568,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 	w := s.storageBackend.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
+	wc.AssertChange("0:0/0", "0:0/1") // initial
 	wc.AssertNoChange()
 
 	addUnit(nil)
@@ -584,16 +584,16 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 	removeFilesystemStorageInstance(c, s.storageBackend, names.NewFilesystemTag("0/0"))
 	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/0") // dying
+	wc.AssertChange("0:0/0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/0") // removed
+	wc.AssertChange("0:0/0") // removed
 	wc.AssertNoChange()
 
 	addUnit(m0)
-	wc.AssertChangeInSingleEvent("0:0/8", "0:0/9")
+	wc.AssertChange("0:0/8", "0:0/9")
 	wc.AssertNoChange()
 }
 
@@ -619,7 +619,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 	w := s.storageBackend.WatchUnitFilesystems(app.ApplicationTag())
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("mariadb/0/0") // initial
+	wc.AssertChange("mariadb/0/0") // initial
 	wc.AssertNoChange()
 
 	app2, err := s.st.AddApplication(state.AddApplicationArgs{Name: "another", Charm: ch, Storage: storage})
@@ -635,7 +635,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 
 	err = s.storageBackend.DestroyFilesystem(filesystemTag, false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("mariadb/0/0")
+	wc.AssertChange("mariadb/0/0")
 	wc.AssertNoChange()
 
 	attachments, err := s.storageBackend.FilesystemAttachments(filesystemTag)
@@ -646,7 +646,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 		err = s.storageBackend.RemoveFilesystemAttachment(a.Host(), filesystemTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	wc.AssertChangeInSingleEvent("mariadb/0/0") // Dying -> Dead
+	wc.AssertChange("mariadb/0/0") // Dying -> Dead
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveFilesystem(filesystemTag)
@@ -678,7 +678,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
 
-	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/0") // initial
+	wc.AssertChange("mariadb/0:mariadb/0/0") // initial
 	wc.AssertNoChange()
 
 	app2, err := s.st.AddApplication(state.AddApplicationArgs{Name: "another", Charm: ch, Storage: storage})
@@ -696,12 +696,12 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	removeFilesystemStorageInstance(c, s.storageBackend, names.NewFilesystemTag("mariadb/0/0"))
 	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("mariadb/0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/0") // dying
+	wc.AssertChange("mariadb/0:mariadb/0/0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveFilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("mariadb/0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/0") // removed
+	wc.AssertChange("mariadb/0:mariadb/0/0") // removed
 	wc.AssertNoChange()
 }
 

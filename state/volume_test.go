@@ -293,11 +293,11 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	w := s.storageBackend.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0", "1") // initial
+	wc.AssertChange("0", "1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("4", "5")
+	wc.AssertChange("4", "5")
 	wc.AssertNoChange()
 
 	volume, err := s.storageBackend.Volume(names.NewVolumeTag("0"))
@@ -307,7 +307,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0") // dying
+	wc.AssertChange("0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
@@ -317,7 +317,7 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 
 	err = s.storageBackend.RemoveVolume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0") // removed
+	wc.AssertChange("0") // removed
 	wc.AssertNoChange()
 }
 
@@ -334,21 +334,21 @@ func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 	w := s.storageBackend.WatchModelVolumeAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
+	wc.AssertChange("0:0", "0:1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("1:4", "1:5")
+	wc.AssertChange("1:4", "1:5")
 	wc.AssertNoChange()
 
 	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0") // dying
+	wc.AssertChange("0:0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0") // removed
+	wc.AssertChange("0:0") // removed
 	wc.AssertNoChange()
 }
 
@@ -365,7 +365,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	w := s.storageBackend.WatchMachineVolumes(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0/0", "0/1") // initial
+	wc.AssertChange("0/0", "0/1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
@@ -379,7 +379,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0/0") // dying
+	wc.AssertChange("0/0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
@@ -388,7 +388,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.RemoveVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0/0") // removed
+	wc.AssertChange("0/0") // removed
 	wc.AssertNoChange()
 }
 
@@ -413,7 +413,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	w := s.storageBackend.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, w)
-	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
+	wc.AssertChange("0:0/0", "0:0/1") // initial
 	wc.AssertNoChange()
 
 	addUnit(nil)
@@ -429,16 +429,16 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	removeVolumeStorageInstance(c, s.storageBackend, names.NewVolumeTag("0/0"))
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/0") // dying
+	wc.AssertChange("0:0/0") // dying
 	wc.AssertNoChange()
 
 	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/0") // removed
+	wc.AssertChange("0:0/0") // removed
 	wc.AssertNoChange()
 
 	addUnit(m0)
-	wc.AssertChangeInSingleEvent("0:0/8", "0:0/9") // added
+	wc.AssertChange("0:0/8", "0:0/9") // added
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
