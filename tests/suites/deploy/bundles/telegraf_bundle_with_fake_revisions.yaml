@@ -1,4 +1,4 @@
-series: bionic
+series: focal  # charms do not support jammy. 
 applications:
   influxdb:
     charm: influxdb

@@ -193,7 +193,7 @@ setup_vsphere_simplestreams() {
 	local dir series
 
 	dir=${1}
-	series=${2:-"focal"}
+	series=${2:-"jammy"}
 
 	if [[ ! -f ${dir} ]]; then
 		mkdir "${dir}" || true

@@ -11,7 +11,7 @@ export BOOTSTRAP_SERIES="${BOOTSTRAP_SERIES:-}"
 export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
-export CURRENT_LTS="focal"
+export CURRENT_LTS="jammy"
 
 current_pwd=$(pwd)
 export CURRENT_DIR="${current_pwd}"

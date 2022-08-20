@@ -1,14 +1,14 @@
-series: bionic
+series: focal
 applications:
   influxdb:
-    charm: cs:influxdb-22
+    charm: influxdb
     num_units: 1
     to:
     - "0"
   telegraf:
-    charm: cs:telegraf-29
+    charm: telegraf
   ubuntu:
-    charm: cs:ubuntu-12
+    charm: ubuntu
     num_units: 1
     to:
     - "1"
