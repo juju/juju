@@ -4,6 +4,7 @@
 package broker
 
 import (
+	"io"
 	"os"
 	"time"
 
@@ -121,10 +122,25 @@ func prepareHost(config Config) PrepareHostFunc {
 	}
 }
 
-// defaultBridger will prefer to use netplan if there is an /etc/netplan
-// directory, falling back to ENI if the directory doesn't exist.
+func isDirectoryEmpty(directory string) (bool, error) {
+	f, err := os.Open(directory)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true, nil
+	}
+
+	return false, err
+}
+
+// defaultBridger will prefer to use netplan if there is an /etc/netplan directory
+// and it is not empty, falling back to ENI if the directory doesn't exist or is empty.
 func defaultBridger() (network.Bridger, error) {
-	if _, err := os.Stat(systemNetplanDirectory); err == nil {
+	if empty, err := isDirectoryEmpty(systemNetplanDirectory); (err == nil) && !empty {
 		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
 	} else {
 		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
