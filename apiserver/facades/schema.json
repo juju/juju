@@ -45459,7 +45459,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "AddUnitStorage validates and creates additional storage instances for units.\nFailures on an individual storage instance do not block remaining\ninstances from being processed."
+                    "description": "AddUnitStorage validates and creates additional storage instances for units.\nFailures on an individual storage instance do not block remaining\ninstances from being processed.\nTODO(juju3) - remove"
                 },
                 "AllMachinePorts": {
                     "type": "object",
@@ -45591,7 +45591,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "ClosePorts sets the policy of the port range with protocol to be\nclosed, for all given units."
+                    "description": "ClosePorts sets the policy of the port range with protocol to be\nclosed, for all given units.\nTODO(juju3) - remove"
                 },
                 "CloudAPIVersion": {
                     "type": "object",
@@ -45898,7 +45898,8 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    }
+                    },
+                    "description": "TODO(juju3) - remove"
                 },
                 "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
