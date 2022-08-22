@@ -577,7 +577,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestListRevisions(c *gc.C) {
+func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	uri := secrets.NewURI()
 	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -614,6 +614,37 @@ func (s *SecretsSuite) TestListRevisions(c *gc.C) {
 			CreateTime: updateTime,
 			UpdateTime: updateTime,
 		},
+	})
+}
+
+func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		ProviderLabel: "juju",
+		Version:       1,
+		Owner:         s.owner.Tag().String(),
+		Scope:         s.ownerUnit.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	newData := map[string]string{"foo": "bar", "hello": "world"}
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        newData,
+	})
+	r, err := s.store.GetSecretRevision(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	updateTime := now.Add(time.Hour)
+	c.Assert(r, jc.DeepEquals, &secrets.SecretRevisionMetadata{
+		Revision:   2,
+		CreateTime: updateTime,
+		UpdateTime: updateTime,
 	})
 }
 

@@ -70,6 +70,7 @@ type SecretsStore interface {
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 }
 
 // NewSecretsStore creates a new mongo backed secrets store.
@@ -145,6 +146,7 @@ func toValue[T any](v *T) T {
 }
 
 func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams) (*secretMetadataDoc, error) {
+	now := s.st.nowToTheSecond()
 	md := &secretMetadataDoc{
 		DocID:      uri.ID,
 		Version:    p.Version,
@@ -152,8 +154,8 @@ func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams
 		ScopeTag:   p.Scope,
 		Provider:   p.ProviderLabel,
 		ProviderID: "",
-		CreateTime: s.st.nowToTheSecond(),
-		UpdateTime: s.st.nowToTheSecond(),
+		CreateTime: now,
+		UpdateTime: now,
 	}
 	_, err := names.ParseTag(md.OwnerTag)
 	if err != nil {
@@ -199,11 +201,12 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, revision int, expireT
 	for k, v := range data {
 		dataCopy[k] = v
 	}
+	now := s.st.nowToTheSecond()
 	doc := &secretRevisionDoc{
 		DocID:      secretRevisionKey(uri, revision),
 		Revision:   revision,
-		CreateTime: s.st.nowToTheSecond(),
-		UpdateTime: s.st.nowToTheSecond(),
+		CreateTime: now,
+		UpdateTime: now,
 		Data:       dataCopy,
 	}
 	if expireTime != nil {
@@ -574,13 +577,36 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 
 // ListSecretRevisions returns the revision metadata for the given secret.
 func (s *secretsStore) ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {
+	return s.listSecretRevisions(uri, nil)
+}
+
+// GetSecretRevision returns the specified revision metadata for the given secret.
+func (s *secretsStore) GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error) {
+	rev, err := s.listSecretRevisions(uri, &revision)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(rev) == 0 {
+		return nil, errors.NotFoundf("revison %d for secret %q", revision, uri)
+	}
+	return rev[0], nil
+}
+
+func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*secrets.SecretRevisionMetadata, error) {
 	secretRevisionCollection, closer := s.st.db().GetCollection(secretRevisionsC)
 	defer closer()
 
-	var docs []secretRevisionDoc
+	var (
+		docs []secretRevisionDoc
+		q    interface{}
+	)
 
-	id := "^" + uri.ID + "/.*"
-	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
+	if revision == nil {
+		id := "^" + uri.ID + "/.*"
+		q = bson.D{{"_id", bson.D{{"$regex", id}}}}
+	} else {
+		q = bson.D{{"_id", secretRevisionKey(uri, *revision)}}
+	}
 	err := secretRevisionCollection.Find(q).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)

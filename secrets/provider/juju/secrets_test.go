@@ -265,6 +265,8 @@ func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
 	revisions := map[string][]*coresecrets.SecretRevisionMetadata{
 		uri.ID: {{
 			Revision: 666,
+		}, {
+			Revision: 667,
 		}},
 	}
 	s.secretsStore.EXPECT().ListSecrets(state.SecretsFilter{
@@ -276,6 +278,40 @@ func (s *SecretsManagerSuite) TestListSecrets(c *gc.C) {
 		[]*coresecrets.SecretRevisionMetadata{
 			{Revision: 666},
 			{Revision: 667},
+		}, nil,
+	)
+
+	result, r, err := service.ListSecrets(context.Background(), secrets.Filter{
+		OwnerTag: ptr("application-mariadb"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, metadata)
+	c.Assert(r, gc.DeepEquals, revisions)
+}
+
+func (s *SecretsManagerSuite) TestListSecretsSpecifiedRevision(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	service := juju.NewTestService(s.secretsStore)
+
+	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	metadata := []*coresecrets.SecretMetadata{{
+		URI:            uri,
+		LatestRevision: 667,
+	}}
+	revisions := map[string][]*coresecrets.SecretRevisionMetadata{
+		uri.ID: {{
+			Revision: 666,
+		}},
+	}
+	s.secretsStore.EXPECT().ListSecrets(state.SecretsFilter{
+		OwnerTag: ptr("application-mariadb"),
+	}).Return(
+		metadata, nil,
+	)
+	s.secretsStore.EXPECT().GetSecretRevision(uri, 666).Return(
+		&coresecrets.SecretRevisionMetadata{
+			Revision: 666,
 		}, nil,
 	)
 

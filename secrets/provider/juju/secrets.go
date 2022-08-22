@@ -86,23 +86,19 @@ func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) 
 	}
 	revisons := make(map[string][]*coresecrets.SecretRevisionMetadata)
 	for _, md := range result {
-		revs, err := s.backend.ListSecretRevisions(md.URI)
+		if filter.Revision == nil {
+			revs, err := s.backend.ListSecretRevisions(md.URI)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			revisons[md.URI.ID] = revs
+			continue
+		}
+		rev, err := s.backend.GetSecretRevision(md.URI, *filter.Revision)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		var filtered []*coresecrets.SecretRevisionMetadata
-		if filter.Revision == nil {
-			filtered = revs
-		} else {
-			for _, r := range revs {
-				if r.Revision != *filter.Revision {
-					continue
-				}
-				filtered = append(filtered, r)
-				break
-			}
-		}
-		revisons[md.URI.ID] = filtered
+		revisons[md.URI.ID] = []*coresecrets.SecretRevisionMetadata{rev}
 	}
 	return result, revisons, nil
 }
