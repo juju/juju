@@ -117,14 +117,14 @@ def deploy_simple_server_to_new_model(
     new_model = client.add_model(client.env.clone(model_name))
     if constraints is not None:
         new_model.set_model_constraints(constraints)
-    new_model.deploy('cs:nrpe', series=series)
-    new_model.deploy('cs:nagios', series=series)
+    new_model.deploy('cs:nrpe', series=series, force=True)
+    new_model.deploy('cs:nagios', series=series, force=True)
     new_model.juju('add-relation', ('nrpe:monitors', 'nagios:monitors'))
 
     application = deploy_simple_resource_server(
         new_model, resource_contents, series,
     )
-    _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
+    _, deploy_complete = new_model.deploy('ubuntu', series=series)
     new_model.wait_for(deploy_complete)
     new_model.juju('add-relation', ('nrpe', application))
     new_model.juju('add-relation', ('nrpe', 'ubuntu'))

@@ -10,7 +10,7 @@ run_hook_dispatching_script() {
 	# log level is WARNING.
 	juju model-config logging-config="<root>=INFO"
 
-	juju deploy cs:~juju-qa/bionic/ubuntu-plus-0
+	juju deploy cs:~juju-qa/ubuntu-plus-0 --series focal
 	wait_for "ubuntu-plus" "$(idle_condition "ubuntu-plus")"
 
 	juju debug-log --include unit-ubuntu-plus-0 | grep -q "via hook dispatching script: dispatch" || true
