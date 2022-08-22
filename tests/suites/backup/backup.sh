@@ -31,8 +31,8 @@ run_basic_backup_restore() {
 	ensure "test-basic-backup-restore" "${file}"
 
 	echo "Deploy a workload (1 machine)"
-	juju deploy cs:~jameinel/ubuntu-lite-7
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	juju deploy ubuntu
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 	juju status --format json | jq '.machines | length' | check 1
 	id0=$(juju status --format json | jq -r '.machines["0"]["instance-id"]')
 
@@ -42,7 +42,7 @@ run_basic_backup_restore() {
 
 	echo "Add another machine (after the backup)"
 	juju switch test-basic-backup-restore
-	juju add-unit ubuntu-lite
+	juju add-unit ubuntu
 	wait_for_machine_agent_status "1" "started"
 	juju status --format json | jq '.machines | length' | check 2
 	id1=$(juju status --format json | jq -r '.machines["1"]["instance-id"]')
@@ -55,7 +55,7 @@ run_basic_backup_restore() {
 
 	echo "Ensure there's only one machine (state before the backup)"
 	juju switch test-basic-backup-restore
-	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 	juju status --format json | jq '.machines | length' | check 1
 
 	# Only do this check if provider is LXD (too hard to do for all providers)
