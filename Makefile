@@ -1,8 +1,6 @@
 # Export this first, incase we want to change it in the included makefiles.
 export CGO_ENABLED=0
 
-include scripts/dqlite/Makefile
-
 #
 # Makefile for juju-core.
 #
@@ -194,12 +192,49 @@ define run_go_build
 	@env GOOS=${OS} GOARCH=${BUILD_ARCH} go build -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v  ${PACKAGE}
 endef
 
+define run_cgo_build
+	$(eval OS = $(word 1,$(subst _, ,$*)))
+	$(eval ARCH = $(word 2,$(subst _, ,$*)))
+	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
+	$(call go_arch_zig_target,${ARCH})
+	@@mkdir -p ${BBIN_DIR}
+	@echo "Building ${PACKAGE} for ${OS}/${ARCH} with CGO"
+	@env GOOS=${OS} \
+		 GOARCH=${BUILD_ARCH} \
+		 CGO_ENABLED=1 \
+		 CC="zig cc -target ${ZIG_TARGET_ARCH}-${OS}-musl" \
+		 CGO_CFLAGS="-I/Users/tlm/projects/canonical/juju/_build/linux_arm64/dep/juju-dqlite-static-lib-deps/include" \
+		 CGO_LDFLAGS="-L/Users/tlm/projects/canonical/juju/_build/linux_arm64/dep/juju-dqlite-static-lib-deps/lib -luv -lraft -ldqlite -llz4 -lsqlite3" \
+		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
+		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+		go build \
+			-mod=$(JUJU_GOMOD_MODE) \
+			-o ${BBIN_DIR} \
+			-tags "$(BUILD_TAGS)" \
+			$(COMPILE_FLAGS) \
+			-ldflags "-s -w -linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
+			-v ${PACKAGE}
+endef
+
+# go_arch_zig_target is a canned command sequence for transforming a go style
+# architecture to that of one that can be used in place for a zig target.
+define go_arch_zig_target
+	$(eval ZIG_TARGET_ARCH = $1)
+
+	$(eval ZIG_TARGET_ARCH = $(subst arm64,aarch64,${ZIG_TARGET_ARCH}))
+	$(eval ZIG_TARGET_ARCH = $(subst amd64,x86_64,${ZIG_TARGET_ARCH}))
+	$(eval ZIG_TARGET_ARCH = $(subst ppc64le,powerpc64le,${ZIG_TARGET_ARCH}))
+endef
+
 define run_go_install
 	@echo "Installing ${PACKAGE}"
 	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v ${PACKAGE}
 endef
 
 default: build
+
+include scripts/dqlite/Makefile
 
 .PHONY: help
 help:
@@ -222,7 +257,8 @@ jujuc:
 jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 jujud:
 ## jujud: Install jujud without updating dependencies
-	${run_go_install}
+	$(cgo-go-build)
+#${run_go_install}
 
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
@@ -258,9 +294,9 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-${BUILD_DIR}/%/bin/jujud: phony_explicit
+${BUILD_DIR}/%/bin/jujud: cgo-checks ${BUILD_DIR}/%/dep/${DQLITE_UNPACKED_ARCHIVE_NAME}
 # build for jujud
-	$(cgo-go-build)
+	${run_cgo_build}
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit
@@ -287,13 +323,22 @@ simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
 	@juju metadata generate-agent-binaries -d ${JUJU_METADATA_SOURCE} --clean --prevent-fallback ;
 	@echo "\nRun export JUJU_METADATA_SOURCE=\"${JUJU_METADATA_SOURCE}\" if not defined in your env"
 
+.PHONY: zig-chehck
+zig-check:
+ifeq (, $(shell which zig))
+$(error Zig is not installed! Install with "snap install zig --classic --channel=beta" or "brew install zig" zig is required for CGO builds)
+endif
+
+.PHONY: cgo-checks
+cgo-checks: zig-check
+
 .PHONY: build
 build: rebuild-schema go-build
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
 ## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
 
 .PHONY: go-agent-build
-go-agent-build: cgo-go-build $(BUILD_AGENT_TARGETS)
+go-agent-build: $(BUILD_AGENT_TARGETS)
 
 .PHONY: go-build
 go-build: go-agent-build $(BUILD_CLIENT_TARGETS)
@@ -345,7 +390,7 @@ install: rebuild-schema go-install
 ## install: Install Juju binaries with a rebuilt schema
 
 .PHONY: go-install
-go-install: cgo-go-install $(INSTALL_TARGETS)
+go-install: $(INSTALL_TARGETS)
 ## go-install: Install Juju binaries
 
 .PHONY: clean
@@ -502,12 +547,10 @@ push-operator-image-undefined:
 push-operator-image: $(push_operator_image_prereq)
 ## push-operator-image: Push up the newly built operator image via docker
 
-
 .PHONY: push-release-operator-image
 push-release-operator-image: PUSH_IMAGE=true
 push-release-operator-image: operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
-
 
 .PHONY: host-install
 host-install:
@@ -544,27 +587,3 @@ STATIC_ANALYSIS_JOB ?=
 static-analysis:
 ## static-analysis: Check the go code using static-analysis
 	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
-
-
-cgo-go-op: musl-install-if-missing dqlite-deps-check
-	PATH=${PATH}:/usr/local/musl/bin \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
-		CGO_ENABLED=1 \
-		go $o $d \
-			-mod=${JUJU_GOMOD_MODE} \
-			-tags "libsqlite3 ${BUILD_TAGS}" \
-			${COMPILE_FLAGS} \
-			-ldflags "-s -w -linkmode 'external' -extldflags '-static' -X ${PROJECT}/version.GitCommit=${GIT_COMMIT} -X ${PROJECT}/version.GitTreeState=${GIT_TREE_STATE} -X ${PROJECT}/version.build=${JUJU_BUILD_NUMBER}" \
-			-v $(strip $(INSTALL_CGO_TARGETS))
-
-cgo-go-install:
-## go-install: Install Juju binaries without updating dependencies
-	$(MAKE) cgo-go-op o=install d=
-
-cgo-go-build:
-## go-build: Build Juju binaries without updating dependencies
-	$(MAKE) cgo-go-op o=build d="-o ${BIN_DIR}/jujud"
