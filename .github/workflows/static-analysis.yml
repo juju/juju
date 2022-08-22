@@ -51,6 +51,8 @@ jobs:
 
     - name: "Static Analysis: Go Check"
       run: |
+        # Explicitly set GOROOT to avoid golangci-lint/issues/3107
+        export "GOROOT=$(go env GOROOT)"
         STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
       shell: bash
 
