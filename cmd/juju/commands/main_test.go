@@ -493,7 +493,7 @@ var optionalFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"list-secrets", "secrets",
+	"list-secrets", "secrets", "show-secret",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

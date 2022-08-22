@@ -38438,12 +38438,15 @@
                         "description": {
                             "type": "string"
                         },
-                        "expire-time": {
+                        "label": {
+                            "type": "string"
+                        },
+                        "latest-expire-time": {
                             "type": "string",
                             "format": "date-time"
                         },
-                        "label": {
-                            "type": "string"
+                        "latest-revision": {
+                            "type": "integer"
                         },
                         "next-rotate-time": {
                             "type": "string",
@@ -38458,8 +38461,11 @@
                         "provider-id": {
                             "type": "string"
                         },
-                        "revision": {
-                            "type": "integer"
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevision"
+                            }
                         },
                         "rotate-policy": {
                             "type": "string"
@@ -38488,9 +38494,10 @@
                         "owner-tag",
                         "scope-tag",
                         "provider",
-                        "revision",
+                        "latest-revision",
                         "create-time",
-                        "update-time"
+                        "update-time",
+                        "revisions"
                     ]
                 },
                 "ListSecretResults": {
@@ -38511,13 +38518,43 @@
                 "ListSecretsArgs": {
                     "type": "object",
                     "properties": {
+                        "filter": {
+                            "$ref": "#/definitions/SecretsFilter"
+                        },
                         "show-secrets": {
                             "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "show-secrets"
+                        "show-secrets",
+                        "filter"
+                    ]
+                },
+                "SecretRevision": {
+                    "type": "object",
+                    "properties": {
+                        "create-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "update-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "revision",
+                        "create-time",
+                        "update-time"
                     ]
                 },
                 "SecretValueResult": {
@@ -38533,6 +38570,21 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "SecretsFilter": {
+                    "type": "object",
+                    "properties": {
+                        "owner-tag": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "uri": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false

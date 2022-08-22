@@ -96,12 +96,13 @@ func (mr *MockSecretsServiceMockRecorder) GetSecretValue(arg0, arg1, arg2 interf
 }
 
 // ListSecrets mocks base method.
-func (m *MockSecretsService) ListSecrets(arg0 context.Context, arg1 secrets0.Filter) ([]*secrets.SecretMetadata, error) {
+func (m *MockSecretsService) ListSecrets(arg0 context.Context, arg1 secrets0.Filter) ([]*secrets.SecretMetadata, map[string][]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1)
 	ret0, _ := ret[0].([]*secrets.SecretMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(map[string][]*secrets.SecretRevisionMetadata)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListSecrets indicates an expected call of ListSecrets.

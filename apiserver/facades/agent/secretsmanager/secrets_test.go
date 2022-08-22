@@ -136,8 +136,8 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 			}).Return(nil)
 			gotURI = uri
 			md := &coresecrets.SecretMetadata{
-				URI:      uri,
-				Revision: 1,
+				URI:            uri,
+				LatestRevision: 1,
 			}
 			return md, nil
 		},
@@ -197,8 +197,8 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).DoAndReturn(
 		func(_ context.Context, uri *coresecrets.URI, p secrets.UpsertParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
-				URI:      uri,
-				Revision: 2,
+				URI:            uri,
+				LatestRevision: 2,
 			}
 			return md, nil
 		},
@@ -296,8 +296,8 @@ func (s *SecretsManagerSuite) TestGetSecretIds(c *gc.C) {
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	s.secretsService.EXPECT().ListSecrets(
 		gomock.Any(), secrets.Filter{
-			OwnerTag: "application-mariadb",
-		}).Return([]*coresecrets.SecretMetadata{{URI: uri, Label: "label"}}, nil)
+			OwnerTag: ptr("application-mariadb"),
+		}).Return([]*coresecrets.SecretMetadata{{URI: uri, Label: "label"}}, nil, nil)
 
 	results, err := s.facade.GetSecretIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -330,7 +330,7 @@ func (s *SecretsManagerSuite) TestGetSecretValues(c *gc.C) {
 		nil, errors.NotFoundf("secret"))
 	s.expectSecretAccessQuery(2)
 	s.secretsService.EXPECT().GetSecret(
-		gomock.Any(), uri2).Return(&coresecrets.SecretMetadata{Revision: 668}, nil)
+		gomock.Any(), uri2).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
 		uri2, "unit-mariadb-0", &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: 668,

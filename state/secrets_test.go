@@ -75,18 +75,18 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	c.Assert(md.URI.String(), gc.Equals, uri.String())
 	md.URI = nil
 	c.Assert(md, jc.DeepEquals, &secrets.SecretMetadata{
-		Version:        1,
-		Description:    "my secret",
-		Label:          "foobar",
-		RotatePolicy:   secrets.RotateDaily,
-		NextRotateTime: ptr(now.Add(time.Minute)),
-		ExpireTime:     ptr(now.Add(time.Hour)),
-		OwnerTag:       s.owner.Tag().String(),
-		ScopeTag:       s.ownerUnit.Tag().String(),
-		ProviderID:     "",
-		Revision:       1,
-		CreateTime:     now,
-		UpdateTime:     now,
+		Version:          1,
+		Description:      "my secret",
+		Label:            "foobar",
+		RotatePolicy:     secrets.RotateDaily,
+		NextRotateTime:   ptr(now.Add(time.Minute)),
+		LatestRevision:   1,
+		LatestExpireTime: ptr(now.Add(time.Hour)),
+		OwnerTag:         s.owner.Tag().String(),
+		ScopeTag:         s.ownerUnit.Tag().String(),
+		ProviderID:       "",
+		CreateTime:       now,
+		UpdateTime:       now,
 	})
 
 	_, err = s.store.CreateSecret(uri, p)
@@ -141,7 +141,61 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestList(c *gc.C) {
+func (s *SecretsSuite) TestListByOwner(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		Owner:         s.owner.Tag().String(),
+		Scope:         s.ownerUnit.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(now.Add(time.Hour)),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	uri2.ControllerUUID = s.State.ControllerUUID()
+	p.Owner = "application-wordpress"
+	p.Scope = "application-wordpress"
+	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner := s.owner.Tag().String()
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		OwnerTag: &owner,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+		URI:              uri,
+		RotatePolicy:     secrets.RotateDaily,
+		NextRotateTime:   ptr(now.Add(time.Minute)),
+		LatestRevision:   1,
+		LatestExpireTime: ptr(now.Add(time.Hour)),
+		Version:          1,
+		OwnerTag:         s.owner.Tag().String(),
+		ScopeTag:         s.ownerUnit.Tag().String(),
+		Description:      "my secret",
+		Label:            "foobar",
+		Provider:         "juju",
+		ProviderID:       "",
+		CreateTime:       now,
+		UpdateTime:       now,
+	}})
+}
+
+func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	uri := secrets.NewURI()
 	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -173,24 +227,24 @@ func (s *SecretsSuite) TestList(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{
-		OwnerTag: s.owner.Tag().String(),
+		URI: uri,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
-		URI:            uri,
-		RotatePolicy:   secrets.RotateDaily,
-		NextRotateTime: ptr(now.Add(time.Minute)),
-		ExpireTime:     ptr(now.Add(time.Hour)),
-		Version:        1,
-		OwnerTag:       s.owner.Tag().String(),
-		ScopeTag:       s.ownerUnit.Tag().String(),
-		Description:    "my secret",
-		Label:          "foobar",
-		Provider:       "juju",
-		ProviderID:     "",
-		Revision:       1,
-		CreateTime:     now,
-		UpdateTime:     now,
+		URI:              uri,
+		RotatePolicy:     secrets.RotateDaily,
+		NextRotateTime:   ptr(now.Add(time.Minute)),
+		LatestRevision:   1,
+		LatestExpireTime: ptr(now.Add(time.Hour)),
+		Version:          1,
+		OwnerTag:         s.owner.Tag().String(),
+		ScopeTag:         s.ownerUnit.Tag().String(),
+		Description:      "my secret",
+		Label:            "foobar",
+		Provider:         "juju",
+		ProviderID:       "",
+		CreateTime:       now,
+		UpdateTime:       now,
 	}})
 }
 
@@ -254,6 +308,30 @@ func (s *SecretsSuite) TestUpdateRotateInterval(c *gc.C) {
 		LeaderToken:    &fakeToken{},
 		RotatePolicy:   ptr(secrets.RotateHourly),
 		NextRotateTime: ptr(now.Add(time.Minute)),
+	})
+}
+
+func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version:       1,
+		ProviderLabel: "juju",
+		Owner:         s.owner.Tag().String(),
+		Scope:         s.ownerUnit.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(now.Add(time.Minute)),
 	})
 }
 
@@ -414,7 +492,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 
 func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMetadata, expectedRevision int, update state.UpdateSecretParams) {
 	expected := *original
-	expected.Revision = expectedRevision
+	expected.LatestRevision = expectedRevision
 	if update.RotatePolicy != nil {
 		expected.RotatePolicy = *update.RotatePolicy
 		expected.NextRotateTime = update.NextRotateTime
@@ -424,6 +502,9 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	}
 	if update.Label != nil {
 		expected.Label = *update.Label
+	}
+	if update.ExpireTime != nil {
+		expected.LatestExpireTime = update.ExpireTime
 	}
 
 	s.Clock.Advance(time.Hour)
@@ -445,6 +526,16 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	val, err := s.store.GetSecretValue(md.URI, expectedRevision)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
+	if update.ExpireTime != nil {
+		revs, err := s.store.ListSecretRevisions(md.URI)
+		c.Assert(err, jc.ErrorIsNil)
+		for _, r := range revs {
+			if r.ExpireTime != nil && r.ExpireTime.Equal(update.ExpireTime.Round(time.Second).UTC()) {
+				return
+			}
+		}
+		c.Fatalf("expire time not set for secret revision %d", expectedRevision)
+	}
 }
 
 func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
@@ -483,6 +574,77 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 		RotatePolicy:   ptr(secrets.RotateHourly),
 		NextRotateTime: ptr(now.Add(time.Minute)),
 		Data:           newData,
+	})
+}
+
+func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		ProviderLabel: "juju",
+		Version:       1,
+		Owner:         s.owner.Tag().String(),
+		Scope:         s.ownerUnit.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	newData := map[string]string{"foo": "bar", "hello": "world"}
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        newData,
+	})
+	r, err := s.store.ListSecretRevisions(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	updateTime := now.Add(time.Hour)
+	c.Assert(r, jc.DeepEquals, []*secrets.SecretRevisionMetadata{
+		{
+			Revision:   1,
+			CreateTime: now,
+			UpdateTime: now,
+		},
+		{
+			Revision:   2,
+			CreateTime: updateTime,
+			UpdateTime: updateTime,
+		},
+	})
+}
+
+func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		ProviderLabel: "juju",
+		Version:       1,
+		Owner:         s.owner.Tag().String(),
+		Scope:         s.ownerUnit.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	newData := map[string]string{"foo": "bar", "hello": "world"}
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        newData,
+	})
+	r, err := s.store.GetSecretRevision(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	updateTime := now.Add(time.Hour)
+	c.Assert(r, jc.DeepEquals, &secrets.SecretRevisionMetadata{
+		Revision:   2,
+		CreateTime: updateTime,
+		UpdateTime: updateTime,
 	})
 }
 

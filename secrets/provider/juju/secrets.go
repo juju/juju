@@ -73,11 +73,34 @@ func (s secretsService) GetSecret(ctx context.Context, uri *coresecrets.URI) (*c
 }
 
 // ListSecrets implements SecretsService.
-func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) ([]*coresecrets.SecretMetadata, error) {
+func (s secretsService) ListSecrets(ctx context.Context, filter secrets.Filter) (
+	[]*coresecrets.SecretMetadata, map[string][]*coresecrets.SecretRevisionMetadata, error,
+) {
 	f := state.SecretsFilter{
+		URI:      filter.URI,
 		OwnerTag: filter.OwnerTag,
 	}
-	return s.backend.ListSecrets(f)
+	result, err := s.backend.ListSecrets(f)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	revisons := make(map[string][]*coresecrets.SecretRevisionMetadata)
+	for _, md := range result {
+		if filter.Revision == nil {
+			revs, err := s.backend.ListSecretRevisions(md.URI)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			revisons[md.URI.ID] = revs
+			continue
+		}
+		rev, err := s.backend.GetSecretRevision(md.URI, *filter.Revision)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		revisons[md.URI.ID] = []*coresecrets.SecretRevisionMetadata{rev}
+	}
+	return result, revisons, nil
 }
 
 // UpdateSecret implements SecretsService.
