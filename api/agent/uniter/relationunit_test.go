@@ -88,24 +88,6 @@ func (s *relationUnitSuite) getRelationUnit(c *gc.C) *uniter.RelationUnit {
 					"baz": "1",
 				},
 			}
-		case "UpdateSettings":
-			c.Assert(arg, gc.DeepEquals, params.RelationUnitsSettings{
-				RelationUnits: []params.RelationUnitSettings{{
-					Relation: "relation-wordpress.db#mysql.server",
-					Unit:     "unit-mysql-0",
-					Settings: params.Settings{
-						"some":  "settings",
-						"other": "things",
-					},
-					ApplicationSettings: params.Settings{
-						"foo": "bar",
-						"baz": "1",
-					}},
-				}})
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			*(result.(*params.ErrorResults)) = params.ErrorResults{
-				Results: []params.ErrorResult{{Error: &params.Error{Message: "pow"}}},
-			}
 		default:
 			c.Fatalf("unexpected api call %q", request)
 		}
@@ -207,18 +189,4 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 
 	// Initial event.
 	wc.AssertChange([]string{"mysql/0"}, []string{"mysql"}, []string{"666"})
-}
-
-func (s *relationUnitSuite) TestUpdateRelationSettings(c *gc.C) {
-	relUnit := s.getRelationUnit(c)
-	err := relUnit.UpdateRelationSettings(
-		params.Settings{
-			"some":  "settings",
-			"other": "things",
-		},
-		params.Settings{
-			"foo": "bar",
-			"baz": "1",
-		})
-	c.Assert(err, gc.ErrorMatches, "pow")
 }

@@ -46276,7 +46276,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "UpdateSettings persists all changes made to the local settings of\nall given pairs of relation and unit. Keys with empty values are\nconsidered a signal to delete these values."
+                    "description": "UpdateSettings persists all changes made to the local settings of\nall given pairs of relation and unit. Keys with empty values are\nconsidered a signal to delete these values.\nTODO(juju3) - remove"
                 },
                 "UpgradeSeriesUnitStatus": {
                     "type": "object",
