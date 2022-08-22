@@ -5,11 +5,11 @@ package state_test
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"time"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -865,17 +865,37 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 }
 
 func (s *RelationUnitSuite) assertScopeChange(c *gc.C, w *state.RelationScopeWatcher, entered, left []string) {
-	select {
-	case ch, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		sort.Strings(entered)
-		sort.Strings(ch.Entered)
-		c.Assert(ch.Entered, gc.DeepEquals, entered)
-		sort.Strings(left)
-		sort.Strings(ch.Left)
-		c.Assert(ch.Left, gc.DeepEquals, left)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("no change")
+	timeout := time.After(coretesting.LongWait)
+	// Initial event special case.
+	if len(entered) == 0 && len(left) == 0 {
+		select {
+		case ch, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(ch.Entered, gc.HasLen, 0)
+			c.Assert(ch.Left, gc.HasLen, 0)
+		case <-timeout:
+			c.Fatalf("no change")
+		}
+		return
+	}
+	enteredSet := set.NewStrings(entered...)
+	leftSet := set.NewStrings(left...)
+	for enteredSet.Size() > 0 || leftSet.Size() > 0 {
+		select {
+		case ch, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			for _, v := range ch.Entered {
+				c.Check(enteredSet.Contains(v), jc.IsTrue, gc.Commentf("unexpected enter scope change %s", v))
+				enteredSet.Remove(v)
+			}
+			for _, v := range ch.Left {
+				c.Check(leftSet.Contains(v), jc.IsTrue, gc.Commentf("unexpected leave scope change %s", v))
+				leftSet.Remove(v)
+			}
+		case <-timeout:
+			c.Fatalf("missing changes for enter scope %v and leave scope %v",
+				enteredSet.SortedValues(), leftSet.SortedValues())
+		}
 	}
 }
 
