@@ -259,11 +259,6 @@ type RelationUnit interface {
 	// Settings returns a Settings which allows access to the unit's settings
 	// within the relation.
 	Settings() (*uniter.Settings, error)
-
-	// UpdateRelationSettings is used to record any changes to settings for
-	// this unit and application. It is only valid to update application
-	// settings if this unit is the leader.
-	UpdateRelationSettings(unit, application params.Settings) error
 }
 
 // Relationer encapsulates the methods from relationer required by a stateTracker.
