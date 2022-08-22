@@ -349,46 +349,6 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 	return err
 }
 
-// AddUnitStorage validates and creates additional storage instances for units.
-// Failures on an individual storage instance do not block remaining
-// instances from being processed.
-// TODO(juju3) - remove
-func (s *StorageAPI) AddUnitStorage(
-	args params.StoragesAddParams,
-) (params.ErrorResults, error) {
-	canAccess, err := s.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	if len(args.Storages) == 0 {
-		return params.ErrorResults{}, nil
-	}
-
-	serverErr := func(err error) params.ErrorResult {
-		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
-	}
-
-	result := make([]params.ErrorResult, len(args.Storages))
-	for i, one := range args.Storages {
-		unitTag, err := accessUnitTag(one.UnitTag, canAccess)
-		if err != nil {
-			result[i] = serverErr(err)
-			continue
-		}
-
-		curCons, err := unitStorageConstraints(s.backend, unitTag)
-		if err != nil {
-			result[i] = serverErr(err)
-			continue
-		}
-
-		if err = s.addStorageToOneUnit(unitTag, one, curCons); err != nil {
-			result[i] = serverErr(err)
-		}
-	}
-	return params.ErrorResults{Results: result}, nil
-}
-
 func (s *StorageAPI) addStorageToOneUnit(unitTag names.UnitTag, addParams params.StorageAddParams, curCons map[string]state.StorageConstraints) error {
 	modelOp, err := s.addStorageToOneUnitOperation(unitTag, addParams, curCons)
 	if err != nil {
