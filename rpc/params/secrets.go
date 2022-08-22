@@ -37,9 +37,6 @@ type CreateSecretArg struct {
 
 	// OwnerTag is the owner of the secret.
 	OwnerTag string `json:"owner-tag"`
-
-	// ScopeTag is defines the entity to which the secret life is scoped.
-	ScopeTag string `json:"scope-tag"`
 }
 
 // UpdateSecretArgs holds args for creating secrets.
@@ -150,7 +147,6 @@ type ListSecretResult struct {
 	URI              string             `json:"uri"`
 	Version          int                `json:"version"`
 	OwnerTag         string             `json:"owner-tag"`
-	ScopeTag         string             `json:"scope-tag"`
 	Provider         string             `json:"provider"`
 	ProviderID       string             `json:"provider-id,omitempty"`
 	RotatePolicy     string             `json:"rotate-policy,omitempty"`

@@ -56,7 +56,6 @@ func (api *Client) ListSecrets(reveal bool, filter secretsservice.Filter) ([]Sec
 			Metadata: secrets.SecretMetadata{
 				Version:          r.Version,
 				OwnerTag:         r.OwnerTag,
-				ScopeTag:         r.ScopeTag,
 				RotatePolicy:     secrets.RotatePolicy(r.RotatePolicy),
 				NextRotateTime:   r.NextRotateTime,
 				LatestRevision:   r.LatestRevision,

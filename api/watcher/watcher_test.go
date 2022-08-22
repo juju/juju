@@ -519,7 +519,6 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	uri := secrets.NewURI()
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
 		Owner: "application-mysql",
-		Scope: "application-mysql",
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),

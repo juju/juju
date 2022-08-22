@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -40,6 +41,15 @@ type HookContextParams struct {
 	Clock               Clock
 }
 
+type stubLeadershipContext struct {
+	LeadershipContext
+	isLeader bool
+}
+
+func (stub *stubLeadershipContext) IsLeader() (bool, error) {
+	return stub.isLeader, nil
+}
+
 func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:                hcParams.Unit,
@@ -60,6 +70,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		storageTag:          hcParams.StorageTag,
 		clock:               hcParams.Clock,
 		logger:              loggo.GetLogger("test"),
+		LeadershipContext:   &stubLeadershipContext{isLeader: true},
 	}
 	// Get and cache the addresses.
 	var err error
@@ -80,6 +91,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		return nil, errors.Trace(err)
 	}
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, hcParams.Unit.Tag(), machPorts)
+	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 
 	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
 	if err != nil {
@@ -98,6 +110,7 @@ func NewMockUnitHookContext(unitName string, mockUnit *mocks.MockHookUnit) *Hook
 		unit:             mockUnit,
 		logger:           logger,
 		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
+		secretChanges:    newSecretsChangeRecorder(logger),
 	}
 }
 
@@ -113,12 +126,14 @@ func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUn
 }
 
 func NewMockUnitHookContextWithSecrets(mockUnit *mocks.MockHookUnit, client *secretsmanager.Client, leadership LeadershipContext) *HookContext {
+	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:          mockUnit.Tag().Id(),
 		unit:              mockUnit,
 		secrets:           client,
 		LeadershipContext: leadership,
 		logger:            loggo.GetLogger("test"),
+		secretChanges:     newSecretsChangeRecorder(logger),
 	}
 }
 
@@ -274,4 +289,20 @@ func CachedAppSettings(cf0 ContextFactory, relId int, appName string) (params.Se
 
 func (ctx *HookContext) SLALevel() string {
 	return ctx.slaLevel
+}
+
+func (ctx *HookContext) PendingSecretRemoves() []*secrets.URI {
+	return ctx.secretChanges.pendingDeletes
+}
+
+func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpdateArg {
+	return ctx.secretChanges.pendingUpdates
+}
+
+func (ctx *HookContext) PendingSecretGrants() []uniter.SecretGrantRevokeArgs {
+	return ctx.secretChanges.pendingGrants
+}
+
+func (ctx *HookContext) PendingSecretRevokes() []uniter.SecretGrantRevokeArgs {
+	return ctx.secretChanges.pendingRevokes
 }

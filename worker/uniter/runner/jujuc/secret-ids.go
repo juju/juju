@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -14,7 +15,8 @@ type secretIdsCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	out cmd.Output
+	out    cmd.Output
+	labels set.Strings
 }
 
 // NewSecretIdsCommand returns a command to list the IDs and labels of secrets.
@@ -30,9 +32,11 @@ Returns the secret ids and labels for secrets owned by the application.
 
 Examples:
     secret-ids
+    secret-ids label1 label2
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "secret-ids",
+		Args:    "[<label> ]...",
 		Purpose: "print secret ids and their labels",
 		Doc:     doc,
 	})
@@ -48,7 +52,8 @@ func (c *secretIdsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements cmd.Command.
 func (c *secretIdsCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
+	c.labels = set.NewStrings(args...)
+	return nil
 }
 
 // Run implements cmd.Command.
@@ -59,7 +64,9 @@ func (c *secretIdsCommand) Run(ctx *cmd.Context) error {
 	}
 	out := make(map[string]string)
 	for uri, label := range result {
-		out[uri.ShortString()] = label
+		if c.labels.IsEmpty() || c.labels.Contains(label) {
+			out[uri.ShortString()] = label
+		}
 	}
 	return c.out.Write(ctx, out)
 }

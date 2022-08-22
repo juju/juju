@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"time"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -928,6 +931,110 @@ func (b *CommitHookParamsBuilder) SetRawK8sSpec(appTag names.ApplicationTag, spe
 	}
 }
 
+// SecretUpdateArg holds parameters for updating a secret.
+type SecretUpdateArg struct {
+	URI          *secrets.URI
+	RotatePolicy *secrets.RotatePolicy
+	ExpireTime   *time.Time
+	Description  *string
+	Label        *string
+	Value        secrets.SecretValue
+}
+
+// AddSecretUpdates records requests to update secrets.
+func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpdateArg) {
+	if len(updates) == 0 {
+		return
+	}
+	b.arg.SecretUpdates = make([]params.UpdateSecretArg, len(updates))
+	for i, u := range updates {
+
+		var data secrets.SecretData
+		if u.Value != nil {
+			data = u.Value.EncodedValues()
+		}
+		if len(data) == 0 {
+			data = nil
+		}
+
+		b.arg.SecretUpdates[i] = params.UpdateSecretArg{
+			UpsertSecretArg: params.UpsertSecretArg{
+				RotatePolicy: u.RotatePolicy,
+				ExpireTime:   u.ExpireTime,
+				Description:  u.Description,
+				Label:        u.Label,
+				Data:         data,
+			},
+			URI: u.URI.String(),
+		}
+	}
+}
+
+// SecretGrantRevokeArgs holds parameters for updating a secret's access.
+type SecretGrantRevokeArgs struct {
+	URI             *secrets.URI
+	ApplicationName *string
+	UnitName        *string
+	RelationKey     *string
+	Role            secrets.SecretRole
+}
+
+// AddSecretGrants records requests to grant secret access.
+func (b *CommitHookParamsBuilder) AddSecretGrants(grants []SecretGrantRevokeArgs) {
+	if len(grants) == 0 {
+		return
+	}
+	b.arg.SecretGrants = make([]params.GrantRevokeSecretArg, len(grants))
+	for i, g := range grants {
+		b.arg.SecretGrants[i] = grantRevokeArgsToParams(&g)
+	}
+}
+
+// AddSecretRevokes records requests to revoke secret access.
+func (b *CommitHookParamsBuilder) AddSecretRevokes(revokes []SecretGrantRevokeArgs) {
+	if len(revokes) == 0 {
+		return
+	}
+	b.arg.SecretRevokes = make([]params.GrantRevokeSecretArg, len(revokes))
+	for i, g := range revokes {
+		b.arg.SecretRevokes[i] = grantRevokeArgsToParams(&g)
+	}
+}
+
+func grantRevokeArgsToParams(p *SecretGrantRevokeArgs) params.GrantRevokeSecretArg {
+	var subjectTag, scopeTag string
+	if p.ApplicationName != nil {
+		subjectTag = names.NewApplicationTag(*p.ApplicationName).String()
+	}
+	if p.UnitName != nil {
+		subjectTag = names.NewUnitTag(*p.UnitName).String()
+	}
+	if p.RelationKey != nil {
+		scopeTag = names.NewRelationTag(*p.RelationKey).String()
+	} else {
+		scopeTag = subjectTag
+	}
+	return params.GrantRevokeSecretArg{
+		URI:         p.URI.String(),
+		ScopeTag:    scopeTag,
+		SubjectTags: []string{subjectTag},
+		Role:        string(p.Role),
+	}
+}
+
+// AddSecretDeletes records requests to delete secrets.
+func (b *CommitHookParamsBuilder) AddSecretDeletes(deletes []*secrets.URI) {
+	if len(deletes) == 0 {
+		return
+	}
+	b.arg.SecretDeletes = make([]params.SecretURIArg, len(deletes))
+	for i, u := range deletes {
+		b.arg.SecretDeletes[i] = params.SecretURIArg{
+			URI: u.String(),
+		}
+	}
+}
+
 // Build assembles the recorded change requests into a CommitHookChangesArgs
 // instance that can be passed as an argument to the CommitHookChanges API
 // call.
@@ -959,6 +1066,10 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	count += len(b.arg.OpenPorts)
 	count += len(b.arg.ClosePorts)
 	count += len(b.arg.AddStorage)
+	count += len(b.arg.SecretUpdates)
+	count += len(b.arg.SecretDeletes)
+	count += len(b.arg.SecretGrants)
+	count += len(b.arg.SecretRevokes)
 	return count
 }
 

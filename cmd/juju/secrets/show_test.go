@@ -81,14 +81,14 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 %s:
-  latest: 2
-  latest-expire-time: 1970-01-01T00:00:00.000000001Z
-  rotate-policy: hourly
+  revision: 2
+  expires: 1970-01-01T00:00:00.000000001Z
+  rotation: hourly
   owner: mysql
   description: my secret
   label: foobar
-  create-time: 0001-01-01T00:00:00Z
-  update-time: 0001-01-01T00:00:00Z
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
 `[1:], uri.ID))
 }
 
@@ -116,13 +116,13 @@ func (s *ShowSuite) TestShowReveal(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 %s:
-  latest: 2
-  rotate-policy: hourly
+  revision: 2
+  rotation: hourly
   owner: mysql
   description: my secret
   label: foobar
-  create-time: 0001-01-01T00:00:00Z
-  update-time: 0001-01-01T00:00:00Z
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
   content:
     foo: bar
 `[1:], uri.ID))
@@ -155,16 +155,16 @@ func (s *ShowSuite) TestShowRevisions(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 %s:
-  latest: 2
-  rotate-policy: hourly
+  revision: 2
+  rotation: hourly
   owner: mysql
   description: my secret
   label: foobar
-  create-time: 0001-01-01T00:00:00Z
-  update-time: 0001-01-01T00:00:00Z
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
   revisions:
   - revision: 666
-    create-time: 0001-01-01T00:00:00Z
-    update-time: 0001-01-01T00:00:00Z
+    created: 0001-01-01T00:00:00Z
+    updated: 0001-01-01T00:00:00Z
 `[1:], uri.ID))
 }

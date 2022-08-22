@@ -15,7 +15,7 @@ type secretRemoveCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	uri string
+	secretURI *secrets.URI
 }
 
 // NewSecretRemoveCommand returns a command to remove a secret.
@@ -44,8 +44,8 @@ func (c *secretRemoveCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret URI")
 	}
-	c.uri = args[0]
-	if _, err := secrets.ParseURI(c.uri); err != nil {
+	var err error
+	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
 		return errors.Trace(err)
 	}
 	return cmd.CheckEmpty(args[1:])
@@ -53,5 +53,5 @@ func (c *secretRemoveCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *secretRemoveCommand) Run(ctx *cmd.Context) error {
-	return c.ctx.RemoveSecret(c.uri)
+	return c.ctx.RemoveSecret(c.secretURI)
 }

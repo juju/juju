@@ -17,9 +17,9 @@ type secretRevokeCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	uri  string
-	app  string
-	unit string
+	secretURL *secrets.URI
+	app       string
+	unit      string
 
 	relationId      int
 	relationIdProxy gnuflag.Value
@@ -74,8 +74,8 @@ func (c *secretRevokeCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret URI")
 	}
-	c.uri = args[0]
-	if _, err := secrets.ParseURI(c.uri); err != nil {
+	var err error
+	if c.secretURL, err = secrets.ParseURI(args[0]); err != nil {
 		return errors.Trace(err)
 	}
 	if c.app != "" {
@@ -117,5 +117,5 @@ func (c *secretRevokeCommand) Run(_ *cmd.Context) error {
 		args.UnitName = &c.unit
 	}
 
-	return c.ctx.RevokeSecret(c.uri, args)
+	return c.ctx.RevokeSecret(c.secretURL, args)
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -315,6 +314,9 @@ type HookContext struct {
 
 	// secretIDs are the secrets and their labels create by this charm.
 	secretIDs map[*coresecrets.URI]string
+
+	// secretChangesrecords changes to secrets during a hook execution.
+	secretChanges *secretsChangeRecorder
 
 	mu sync.Mutex
 }
@@ -735,7 +737,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 }
 
 // GetSecret returns the value of the specified secret.
-func (ctx *HookContext) GetSecret(uri, label string, update, peek bool) (coresecrets.SecretValue, error) {
+func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
 	v, err := ctx.secrets.GetValue(uri, label, update, peek)
 	if err != nil {
 		return nil, err
@@ -744,13 +746,13 @@ func (ctx *HookContext) GetSecret(uri, label string, update, peek bool) (coresec
 }
 
 // CreateSecret creates a secret with the specified data.
-func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, error) {
+func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (*coresecrets.URI, error) {
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
-		return "", errors.Annotatef(err, "cannot determine leadership")
+		return nil, errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		return "", ErrIsNotLeader
+		return nil, ErrIsNotLeader
 	}
 	cfg := &coresecrets.SecretConfig{
 		ExpireTime:   args.ExpireTime,
@@ -760,13 +762,13 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (string, erro
 	}
 	appName, err := names.UnitApplication(ctx.unitName)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	return ctx.secrets.Create(cfg, names.NewApplicationTag(appName), args.Value)
 }
 
 // UpdateSecret creates a secret with the specified data.
-func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) error {
+func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpsertArgs) error {
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -774,17 +776,19 @@ func (ctx *HookContext) UpdateSecret(uri string, args *jujuc.SecretUpsertArgs) e
 	if !isLeader {
 		return ErrIsNotLeader
 	}
-	cfg := &coresecrets.SecretConfig{
-		ExpireTime:   args.ExpireTime,
+	ctx.secretChanges.update(uniter.SecretUpdateArg{
+		URI:          uri,
 		RotatePolicy: args.RotatePolicy,
+		ExpireTime:   args.ExpireTime,
 		Description:  args.Description,
 		Label:        args.Label,
-	}
-	return ctx.secrets.Update(uri, cfg, args.Value)
+		Value:        args.Value,
+	})
+	return nil
 }
 
 // RemoveSecret removes a secret with the specified uri.
-func (ctx *HookContext) RemoveSecret(uri string) error {
+func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI) error {
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -792,16 +796,26 @@ func (ctx *HookContext) RemoveSecret(uri string) error {
 	if !isLeader {
 		return ErrIsNotLeader
 	}
-	return ctx.secrets.Remove(uri)
+	ctx.secretChanges.remove(uri)
+	return nil
 }
 
 // SecretIds gets the secret ids and their labels created by the charm.
 func (ctx *HookContext) SecretIds() (map[*coresecrets.URI]string, error) {
-	return ctx.secretIDs, nil
+	result := make(map[*coresecrets.URI]string)
+	for uri, v := range ctx.secretIDs {
+		result[uri] = v
+	}
+	for _, u := range ctx.secretChanges.pendingUpdates {
+		if u.Label != nil {
+			result[u.URI] = *u.Label
+		}
+	}
+	return result, nil
 }
 
 // GrantSecret grants access to a specified secret.
-func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -809,16 +823,18 @@ func (ctx *HookContext) GrantSecret(uri string, args *jujuc.SecretGrantRevokeArg
 	if !isLeader {
 		return ErrIsNotLeader
 	}
-	return ctx.secrets.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{
+	ctx.secretChanges.grant(uniter.SecretGrantRevokeArgs{
+		URI:             uri,
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
 		RelationKey:     args.RelationKey,
 		Role:            coresecrets.RoleView,
 	})
+	return nil
 }
 
 // RevokeSecret revokes access to a specified secret.
-func (ctx *HookContext) RevokeSecret(uri string, args *jujuc.SecretGrantRevokeArgs) error {
+func (ctx *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -826,11 +842,13 @@ func (ctx *HookContext) RevokeSecret(uri string, args *jujuc.SecretGrantRevokeAr
 	if !isLeader {
 		return ErrIsNotLeader
 	}
-	return ctx.secrets.Revoke(uri, &secretsmanager.SecretRevokeGrantArgs{
+	ctx.secretChanges.revoke(uniter.SecretGrantRevokeArgs{
+		URI:             uri,
 		ApplicationName: args.ApplicationName,
 		UnitName:        args.UnitName,
 		RelationKey:     args.RelationKey,
 	})
+	return nil
 }
 
 // GoalState returns the goal state for the current unit.
@@ -1252,6 +1270,11 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.AddStorage(ctx.storageAddConstraints)
 	}
 
+	b.AddSecretUpdates(ctx.secretChanges.pendingUpdates)
+	b.AddSecretDeletes(ctx.secretChanges.pendingDeletes)
+	b.AddSecretGrants(ctx.secretChanges.pendingGrants)
+	b.AddSecretRevokes(ctx.secretChanges.pendingRevokes)
+
 	if ctx.modelType == model.CAAS {
 		if err := ctx.addCommitHookChangesForCAAS(b, process); err != nil {
 			return err
@@ -1469,11 +1492,4 @@ func (ctx *HookContext) SecretURI() (string, error) {
 // for tests to use.
 func (ctx *HookContext) SecretLabel() string {
 	return ctx.secretLabel
-}
-
-// SecretIDs returns the secret IDs.
-// This is not yet used by any hook commands - it is exported
-// for tests to use.
-func (ctx *HookContext) SecretIDs() map[*coresecrets.URI]string {
-	return ctx.secretIDs
 }

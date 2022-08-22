@@ -254,21 +254,21 @@ func (*RestrictedContext) WorkloadName() (string, error) {
 }
 
 // GetSecret implements runner.Context.
-func (ctx *RestrictedContext) GetSecret(string, string, bool, bool) (secrets.SecretValue, error) {
+func (ctx *RestrictedContext) GetSecret(*secrets.URI, string, bool, bool) (secrets.SecretValue, error) {
 	return nil, ErrRestrictedContext
 }
 
 // CreateSecret implements runner.Context.
-func (ctx *RestrictedContext) CreateSecret(*SecretUpsertArgs) (string, error) {
-	return "", ErrRestrictedContext
+func (ctx *RestrictedContext) CreateSecret(*SecretUpsertArgs) (*secrets.URI, error) {
+	return nil, ErrRestrictedContext
 }
 
 // UpdateSecret implements runner.Context.
-func (ctx *RestrictedContext) UpdateSecret(string, *SecretUpsertArgs) error {
+func (ctx *RestrictedContext) UpdateSecret(*secrets.URI, *SecretUpsertArgs) error {
 	return ErrRestrictedContext
 }
 
-func (ctx *RestrictedContext) RemoveSecret(string) error {
+func (ctx *RestrictedContext) RemoveSecret(*secrets.URI) error {
 	return ErrRestrictedContext
 }
 
@@ -277,11 +277,11 @@ func (ctx *RestrictedContext) SecretIds() (map[*secrets.URI]string, error) {
 }
 
 // GrantSecret implements runner.Context.
-func (c *RestrictedContext) GrantSecret(string, *SecretGrantRevokeArgs) error {
-	return nil
+func (c *RestrictedContext) GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error {
+	return ErrRestrictedContext
 }
 
 // RevokeSecret implements runner.Context.
-func (c *RestrictedContext) RevokeSecret(string, *SecretGrantRevokeArgs) error {
-	return nil
+func (c *RestrictedContext) RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error {
+	return ErrRestrictedContext
 }

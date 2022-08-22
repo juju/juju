@@ -30,7 +30,6 @@ type CreateSecretParams struct {
 	ProviderLabel string
 	Version       int
 	Owner         string
-	Scope         string
 }
 
 // UpdateSecretParams are used to update a secret.
@@ -83,7 +82,6 @@ type secretMetadataDoc struct {
 
 	Version    int    `bson:"version"`
 	OwnerTag   string `bson:"owner-tag"`
-	ScopeTag   string `bson:"scope-tag"`
 	Provider   string `bson:"provider"`
 	ProviderID string `bson:"provider-id"`
 
@@ -151,7 +149,6 @@ func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams
 		DocID:      uri.ID,
 		Version:    p.Version,
 		OwnerTag:   p.Owner,
-		ScopeTag:   p.Scope,
 		Provider:   p.ProviderLabel,
 		ProviderID: "",
 		CreateTime: now,
@@ -160,10 +157,6 @@ func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams
 	_, err := names.ParseTag(md.OwnerTag)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid owner tag")
-	}
-	_, err = names.ParseTag(md.ScopeTag)
-	if err != nil {
-		return nil, errors.Annotate(err, "invalid scope tag")
 	}
 	err = s.updateSecretMetadataDoc(md, &p.UpdateSecretParams)
 	return md, err
@@ -218,9 +211,6 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, revision int, expireT
 
 // CreateSecret creates a new secret.
 func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*secrets.SecretMetadata, error) {
-	if p.Scope == "" {
-		p.Scope = p.Owner
-	}
 	metadataDoc, err := s.secretMetadataDoc(uri, &p)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -242,23 +232,6 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		Assert: isAliveDoc,
 	}
 
-	var isScopeAliveOp *txn.Op
-	if metadataDoc.OwnerTag != metadataDoc.ScopeTag {
-		// ScopeTag has already been validated.
-		scope, _ := names.ParseTag(metadataDoc.ScopeTag)
-		entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(scope)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid scope reference")
-		}
-		if entity.Life() != Alive {
-			return nil, errors.Errorf("cannot grant access to secret in scope of %q which is not alive", scope)
-		}
-		isScopeAliveOp = &txn.Op{
-			C:      scopeCollName,
-			Id:     scopeDocID,
-			Assert: isAliveDoc,
-		}
-	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if _, err := s.getSecretValue(uri, revision, false); err == nil {
@@ -277,9 +250,6 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 				Assert: txn.DocMissing,
 				Insert: *valueDoc,
 			}, isOwnerAliveOp,
-		}
-		if isScopeAliveOp != nil {
-			ops = append(ops, *isScopeAliveOp)
 		}
 		rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
 		if err != nil {
@@ -409,7 +379,6 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 		Description:      doc.Description,
 		Label:            doc.Label,
 		OwnerTag:         doc.OwnerTag,
-		ScopeTag:         doc.ScopeTag,
 		Provider:         doc.Provider,
 		ProviderID:       doc.ProviderID,
 		CreateTime:       doc.CreateTime,

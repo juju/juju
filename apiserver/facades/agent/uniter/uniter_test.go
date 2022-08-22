@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -4563,6 +4564,114 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 			{Error: &params.Error{Message: `prerequisites failed: "wordpress/1" is not leader of "wordpress"`}},
 		},
 	})
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
+	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	s.leadershipChecker.isLeader = true
+	store := state.NewSecretsStore(s.State)
+	uri := secrets.NewURI()
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &token{isLeader: true},
+			Data:        map[string]string{"foo": "bar"},
+		},
+		Owner: s.wordpress.Tag().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &token{isLeader: true},
+		Scope:       s.wordpress.Tag(),
+		Subject:     s.wordpress.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	uri2 := secrets.NewURI()
+	_, err = store.CreateSecret(uri2, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &token{isLeader: true},
+			Data:        map[string]string{"foo2": "bar"},
+		},
+		Owner: s.wordpress.Tag().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri2, state.SecretAccessParams{
+		LeaderToken: &token{isLeader: true},
+		Scope:       s.wordpress.Tag(),
+		Subject:     s.wordpress.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	uri3 := secrets.NewURI()
+	_, err = store.CreateSecret(uri3, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &token{isLeader: true},
+			Data:        map[string]string{"foo3": "bar"},
+		},
+		Owner: s.wordpress.Tag().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri3, state.SecretAccessParams{
+		LeaderToken: &token{isLeader: true},
+		Scope:       s.wordpress.Tag(),
+		Subject:     s.wordpress.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.AddSecretUpdates([]apiuniter.SecretUpdateArg{{
+		URI:          uri,
+		RotatePolicy: ptr(secrets.RotateDaily),
+		Description:  ptr("a secret"),
+		Label:        ptr("foobar"),
+		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
+	}})
+	b.AddSecretDeletes([]*secrets.URI{uri3})
+	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
+		URI:             uri,
+		ApplicationName: ptr(s.mysql.Name()),
+		Role:            secrets.RoleView,
+	}, {
+		URI:             uri2,
+		ApplicationName: ptr(s.mysql.Name()),
+		Role:            secrets.RoleView,
+	}})
+	b.AddSecretRevokes([]apiuniter.SecretGrantRevokeArgs{{
+		URI:             uri2,
+		ApplicationName: ptr(s.mysql.Name()),
+	}})
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Verify state
+	_, err = store.GetSecret(uri3)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	md, err := store.GetSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.Description, gc.Equals, "a secret")
+	c.Assert(md.Label, gc.Equals, "foobar")
+	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
+	val, err := store.GetSecretValue(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
+	access, err := s.State.SecretAccess(uri, s.mysql.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleView)
+	access, err = s.State.SecretAccess(uri2, s.mysql.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleNone)
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {

@@ -175,10 +175,10 @@ func (mr *MockContextMockRecorder) ConfigSettings() *gomock.Call {
 }
 
 // CreateSecret mocks base method.
-func (m *MockContext) CreateSecret(arg0 *jujuc.SecretUpsertArgs) (string, error) {
+func (m *MockContext) CreateSecret(arg0 *jujuc.SecretUpsertArgs) (*secrets.URI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecret", arg0)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(*secrets.URI)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -322,7 +322,7 @@ func (mr *MockContextMockRecorder) GetRawK8sSpec() *gomock.Call {
 }
 
 // GetSecret mocks base method.
-func (m *MockContext) GetSecret(arg0, arg1 string, arg2, arg3 bool) (secrets.SecretValue, error) {
+func (m *MockContext) GetSecret(arg0 *secrets.URI, arg1 string, arg2, arg3 bool) (secrets.SecretValue, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecret", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(secrets.SecretValue)
@@ -352,7 +352,7 @@ func (mr *MockContextMockRecorder) GoalState() *gomock.Call {
 }
 
 // GrantSecret mocks base method.
-func (m *MockContext) GrantSecret(arg0 string, arg1 *jujuc.SecretGrantRevokeArgs) error {
+func (m *MockContext) GrantSecret(arg0 *secrets.URI, arg1 *jujuc.SecretGrantRevokeArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -588,7 +588,7 @@ func (mr *MockContextMockRecorder) RemoteUnitName() *gomock.Call {
 }
 
 // RemoveSecret mocks base method.
-func (m *MockContext) RemoveSecret(arg0 string) error {
+func (m *MockContext) RemoveSecret(arg0 *secrets.URI) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSecret", arg0)
 	ret0, _ := ret[0].(error)
@@ -616,7 +616,7 @@ func (mr *MockContextMockRecorder) RequestReboot(arg0 interface{}) *gomock.Call 
 }
 
 // RevokeSecret mocks base method.
-func (m *MockContext) RevokeSecret(arg0 string, arg1 *jujuc.SecretGrantRevokeArgs) error {
+func (m *MockContext) RevokeSecret(arg0 *secrets.URI, arg1 *jujuc.SecretGrantRevokeArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -887,7 +887,7 @@ func (mr *MockContextMockRecorder) UpdateActionResults(arg0, arg1 interface{}) *
 }
 
 // UpdateSecret mocks base method.
-func (m *MockContext) UpdateSecret(arg0 string, arg1 *jujuc.SecretUpsertArgs) error {
+func (m *MockContext) UpdateSecret(arg0 *secrets.URI, arg1 *jujuc.SecretUpsertArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
 	ret0, _ := ret[0].(error)
