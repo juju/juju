@@ -452,44 +452,6 @@ func (u *Unit) AvailabilityZone() (string, error) {
 	return result.Result, nil
 }
 
-// OpenPorts sets the policy of the port range with protocol to be
-// opened.
-func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPortRanges{
-		Entities: []params.EntityPortRange{{
-			Tag:      u.tag.String(),
-			Protocol: protocol,
-			FromPort: fromPort,
-			ToPort:   toPort,
-		}},
-	}
-	err := u.st.facade.FacadeCall("OpenPorts", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// ClosePorts sets the policy of the port range with protocol to be
-// closed.
-func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPortRanges{
-		Entities: []params.EntityPortRange{{
-			Tag:      u.tag.String(),
-			Protocol: protocol,
-			FromPort: fromPort,
-			ToPort:   toPort,
-		}},
-	}
-	err := u.st.facade.FacadeCall("ClosePorts", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 var ErrNoCharmURLSet = errors.New("unit has no charm url set")
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -821,29 +783,6 @@ func (u *Unit) CanApplyLXDProfile() (bool, error) {
 		return false, result.Error
 	}
 	return result.Result, nil
-}
-
-// AddStorage adds desired storage instances to a unit.
-func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) error {
-	all := make([]params.StorageAddParams, 0, len(constraints))
-	for storage, cons := range constraints {
-		for _, one := range cons {
-			all = append(all, params.StorageAddParams{
-				UnitTag:     u.Tag().String(),
-				StorageName: storage,
-				Constraints: one,
-			})
-		}
-	}
-
-	args := params.StoragesAddParams{Storages: all}
-	var results params.ErrorResults
-	err := u.st.facade.FacadeCall("AddUnitStorage", args, &results)
-	if err != nil {
-		return err
-	}
-
-	return results.Combine()
 }
 
 // NetworkInfo returns network interfaces/addresses for specified bindings.

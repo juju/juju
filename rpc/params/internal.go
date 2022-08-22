@@ -374,6 +374,7 @@ type RelationUnitPairs struct {
 
 // RelationUnitSettings holds a relation tag, a unit tag and local
 // unit and app-level settings.
+// TODO(juju3) - remove
 type RelationUnitSettings struct {
 	Relation            string   `json:"relation"`
 	Unit                string   `json:"unit"`
@@ -383,6 +384,7 @@ type RelationUnitSettings struct {
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
 // or UpdateRelationSettings API calls.
+// TODO(juju3) - remove
 type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }

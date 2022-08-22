@@ -20,7 +20,7 @@ import (
 
 type lxdInstance struct {
 	id     string
-	server lxd.ContainerServer
+	server lxd.InstanceServer
 }
 
 var _ instances.Instance = (*lxdInstance)(nil)
@@ -40,7 +40,7 @@ func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.
 
 // Status implements instances.Instance.Status.
 func (lxd *lxdInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	instStatus, _, err := lxd.server.GetContainerState(lxd.id)
+	instStatus, _, err := lxd.server.GetInstanceState(lxd.id)
 	if err != nil {
 		return instance.Status{
 			Status:  status.Empty,

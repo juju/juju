@@ -170,27 +170,3 @@ func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
 	}
 	return result.Settings, nil
 }
-
-// UpdateRelationSettings is used to record any changes to settings for this unit and application.
-// It is only valid to update application settings if this unit is the leader, otherwise
-// it is a NotLeader error. Note that either unit or application is allowed to be nil.
-func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings) error {
-	var result params.ErrorResults
-	args := params.RelationUnitsSettings{
-		RelationUnits: []params.RelationUnitSettings{{
-			Relation:            ru.relation.tag.String(),
-			Unit:                ru.unitTag.String(),
-			Settings:            unit,
-			ApplicationSettings: application,
-		}},
-	}
-	err := ru.st.facade.FacadeCall("UpdateSettings", args, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = result.OneError()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}

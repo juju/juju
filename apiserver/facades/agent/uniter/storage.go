@@ -352,6 +352,7 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 // AddUnitStorage validates and creates additional storage instances for units.
 // Failures on an individual storage instance do not block remaining
 // instances from being processed.
+// TODO(juju3) - remove
 func (s *StorageAPI) AddUnitStorage(
 	args params.StoragesAddParams,
 ) (params.ErrorResults, error) {

@@ -231,9 +231,9 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	// When instance.UnknownID is passed to Subnets, juju will pick the
 	// first juju-* container and introspect its bridged devices.
 	srv.EXPECT().AliveContainers("juju-").Return([]jujulxd.Container{
-		{Container: lxdapi.Container{Name: "juju-badn1c"}},
+		{Instance: lxdapi.Instance{Name: "juju-badn1c", Type: "container"}},
 	}, nil)
-	srv.EXPECT().GetContainer("juju-badn1c").Return(&lxdapi.Container{
+	srv.EXPECT().GetInstance("juju-badn1c").Return(&lxdapi.Instance{
 		ExpandedDevices: map[string]map[string]string{
 			"eth0": {
 				"name":    "eth0",
@@ -242,14 +242,14 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 			},
 		},
 	}, "etag", nil)
-	srv.EXPECT().GetContainerState("juju-badn1c").Return(&lxdapi.ContainerState{
-		Network: map[string]lxdapi.ContainerStateNetwork{
+	srv.EXPECT().GetInstanceState("juju-badn1c").Return(&lxdapi.InstanceState{
+		Network: map[string]lxdapi.InstanceStateNetwork{
 			"eth0": {
 				Type:   "broadcast",
 				State:  "up",
 				Mtu:    1500,
 				Hwaddr: "00:16:3e:19:29:cb",
-				Addresses: []lxdapi.ContainerStateNetworkAddress{
+				Addresses: []lxdapi.InstanceStateNetworkAddress{
 					{
 						Family:  "inet",
 						Address: "10.55.158.99",
@@ -269,7 +269,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 				State:  "up",
 				Mtu:    1500,
 				Hwaddr: "00:16:3e:19:39:39",
-				Addresses: []lxdapi.ContainerStateNetworkAddress{
+				Addresses: []lxdapi.InstanceStateNetworkAddress{
 					{
 						Family:  "inet",
 						Address: "127.0.0.1",
@@ -310,7 +310,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
+	srv.EXPECT().GetInstance("woot").Return(&lxdapi.Instance{
 		ExpandedDevices: map[string]map[string]string{
 			"eth0": {
 				"name":    "eth0",
@@ -324,14 +324,14 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 			},
 		},
 	}, "etag", nil)
-	srv.EXPECT().GetContainerState("woot").Return(&lxdapi.ContainerState{
-		Network: map[string]lxdapi.ContainerStateNetwork{
+	srv.EXPECT().GetInstanceState("woot").Return(&lxdapi.InstanceState{
+		Network: map[string]lxdapi.InstanceStateNetwork{
 			"eth0": {
 				Type:   "broadcast",
 				State:  "up",
 				Mtu:    1500,
 				Hwaddr: "00:16:3e:19:29:cb",
-				Addresses: []lxdapi.ContainerStateNetworkAddress{
+				Addresses: []lxdapi.InstanceStateNetworkAddress{
 					{
 						Family:  "inet",
 						Address: "10.55.158.99",
@@ -351,7 +351,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 				State:  "up",
 				Mtu:    1500,
 				Hwaddr: "00:16:3e:19:39:39",
-				Addresses: []lxdapi.ContainerStateNetworkAddress{
+				Addresses: []lxdapi.InstanceStateNetworkAddress{
 					{
 						Family:  "inet",
 						Address: "127.0.0.1",
@@ -365,7 +365,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 				State:  "up",
 				Mtu:    1500,
 				Hwaddr: "00:16:3e:fe:fe:fe",
-				Addresses: []lxdapi.ContainerStateNetworkAddress{
+				Addresses: []lxdapi.InstanceStateNetworkAddress{
 					{
 						Family:  "inet",
 						Address: "10.42.42.99",
@@ -424,7 +424,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
+	srv.EXPECT().GetInstance("woot").Return(&lxdapi.Instance{
 		ExpandedDevices: map[string]map[string]string{
 			"eth0": {
 				"name":    "eth0",
@@ -433,15 +433,15 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 			},
 		},
 	}, "etag", nil)
-	srv.EXPECT().GetContainer("unknown").Return(nil, "", errors.New("not found"))
-	srv.EXPECT().GetContainerState("woot").Return(&lxdapi.ContainerState{
-		Network: map[string]lxdapi.ContainerStateNetwork{
+	srv.EXPECT().GetInstance("unknown").Return(nil, "", errors.New("not found"))
+	srv.EXPECT().GetInstanceState("woot").Return(&lxdapi.InstanceState{
+		Network: map[string]lxdapi.InstanceStateNetwork{
 			"eth0": {
 				Type:   "broadcast",
 				State:  "up",
 				Mtu:    1500,
 				Hwaddr: "00:16:3e:19:29:cb",
-				Addresses: []lxdapi.ContainerStateNetworkAddress{
+				Addresses: []lxdapi.InstanceStateNetworkAddress{
 					{
 						Family:  "inet",
 						Address: "10.55.158.99",
@@ -486,8 +486,8 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetContainer("unknown1").Return(nil, "", errors.New("not found"))
-	srv.EXPECT().GetContainer("unknown2").Return(nil, "", errors.New("not found"))
+	srv.EXPECT().GetInstance("unknown1").Return(nil, "", errors.New("not found"))
+	srv.EXPECT().GetInstance("unknown2").Return(nil, "", errors.New("not found"))
 
 	env := s.NewEnviron(c, srv, nil).(environs.Networking)
 

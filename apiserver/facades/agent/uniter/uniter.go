@@ -668,6 +668,7 @@ func (u *UniterAPI) SetWorkloadVersion(args params.EntityWorkloadVersions) (para
 	return result, nil
 }
 
+// TODO(juju3) - remove
 func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -717,6 +718,7 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 
 // ClosePorts sets the policy of the port range with protocol to be
 // closed, for all given units.
+// TODO(juju3) - remove
 func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -1445,6 +1447,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 // UpdateSettings persists all changes made to the local settings of
 // all given pairs of relation and unit. Keys with empty values are
 // considered a signal to delete these values.
+// TODO(juju3) - remove
 func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),

@@ -28,7 +28,8 @@ run_charmstore_deploy() {
 
 	ensure "test-charmstore-deploy" "${file}"
 
-	juju deploy cs:ubuntu-19 ubuntu
+	juju deploy ubuntu --revision 19 --series focal --channel stable
+
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	juju refresh ubuntu
