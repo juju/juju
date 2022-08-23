@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	caasoperatorapi "github.com/juju/juju/api/agent/caasoperator"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/status"
@@ -62,10 +61,6 @@ func (c *fakeAgentConfig) Model() names.ModelTag {
 
 func (c *fakeAgentConfig) DataDir() string {
 	return c.dataDir
-}
-
-type fakeAPICaller struct {
-	base.APICaller
 }
 
 type fakeClient struct {

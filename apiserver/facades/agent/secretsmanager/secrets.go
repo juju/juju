@@ -311,19 +311,17 @@ func (s *SecretsManagerAPI) WatchSecretsChanges(args params.Entities) (params.St
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
 	one := func(arg params.Entity) (string, []string, error) {
-		_, err := names.ParseTag(arg.Tag)
+		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		if s.authTag.String() != arg.Tag {
+		if !s.isSameApplication(tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
 		w := s.secretsConsumer.WatchConsumedSecretsChanges(arg.Tag)
 		if secretChanges, ok := <-w.Changes(); ok {
 			changes := make([]string, len(secretChanges))
-			for i, c := range secretChanges {
-				changes[i] = c
-			}
+			copy(changes, secretChanges)
 			return s.resources.Register(w), changes, nil
 		}
 		return "", nil, watcher.EnsureErr(w)
