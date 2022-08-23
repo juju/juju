@@ -40,4 +40,3 @@ func TestDefaultBridger(t *testing.T) {
 		t.Fail()
 	}
 }
-
