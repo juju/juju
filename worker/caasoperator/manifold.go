@@ -199,12 +199,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					return c
 				}
 			}
-
+			secretsmanagerAPI := secretsmanager.NewClient(apiCaller)
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
-				client := secretsmanager.NewClient(apiCaller)
 				appName, _ := names.UnitApplication(unitTag.Id())
 				return secretrotate.New(secretrotate.Config{
-					SecretManagerFacade: client,
+					SecretManagerFacade: secretsmanagerAPI,
 					Clock:               clock,
 					Logger:              config.Logger.Child("secretsrotate"),
 					SecretOwner:         names.NewApplicationTag(appName),
@@ -259,6 +258,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
 				HookRetryStrategy:       hookRetryStrategy,
 				TranslateResolverErr:    config.TranslateResolverErr,
+				SecretsFacade:           secretsmanagerAPI,
 				SecretRotateWatcherFunc: secretRotateWatcherFunc,
 				Logger:                  wCfg.Logger.Child("uniter"),
 			}

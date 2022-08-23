@@ -21,6 +21,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -36,9 +37,8 @@ type ManifoldSuite struct {
 	testing.IsolationSuite
 
 	manifold        dependency.Manifold
-	context         dependency.Context
 	agent           fakeAgent
-	apiCaller       fakeAPICaller
+	apiCaller       *mocks.MockAPICaller
 	charmDownloader fakeDownloader
 	client          fakeClient
 	clock           *testclock.Clock
@@ -63,8 +63,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.clock = testclock.NewClock(time.Time{})
 	s.stub.ResetCalls()
-
-	s.context = s.newContext(nil)
 }
 
 func (s *ManifoldSuite) TearDownTest(c *gc.C) {
@@ -76,6 +74,8 @@ func (s *ManifoldSuite) TearDownTest(c *gc.C) {
 
 func (s *ManifoldSuite) setupManifold(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.apiCaller = mocks.NewMockAPICaller(ctrl)
+
 	s.manifold = caasoperator.Manifold(caasoperator.ManifoldConfig{
 		AgentName:             "agent",
 		APICallerName:         "api-caller",
@@ -106,7 +106,7 @@ func (s *ManifoldSuite) setupManifold(c *gc.C) *gomock.Controller {
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
 		"agent":               &s.agent,
-		"api-caller":          &s.apiCaller,
+		"api-caller":          s.apiCaller,
 		"clock":               s.clock,
 		"charm-dir":           &mockCharmDirGuard{},
 		"hook-retry-strategy": params.RetryStrategy{},
@@ -164,8 +164,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewClient", "NewCharmDownloader", "NewWorker")
-	s.stub.CheckCall(c, 0, "NewClient", &s.apiCaller)
-	s.stub.CheckCall(c, 1, "NewCharmDownloader", &s.apiCaller)
+	s.stub.CheckCall(c, 0, "NewClient", s.apiCaller)
+	s.stub.CheckCall(c, 1, "NewCharmDownloader", s.apiCaller)
 
 	args := s.stub.Calls()[2].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -220,6 +220,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		UniterParams: &uniter.UniterParams{
 			DataDir:       s.dataDir,
 			MachineLock:   &fakemachinelock{},
+			SecretsFacade: secretsmanager.NewClient(s.apiCaller),
 			CharmDirGuard: &mockCharmDirGuard{},
 			Clock:         s.clock,
 			SocketConfig: &uniter.SocketConfig{
@@ -240,7 +241,9 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	ctrl := s.setupManifold(c)
 	defer ctrl.Finish()
 
-	w, err := s.manifold.Start(s.context)
+	s.apiCaller.EXPECT().BestFacadeVersion("SecretsManager").AnyTimes().Return(1)
+
+	w, err := s.manifold.Start(s.newContext(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

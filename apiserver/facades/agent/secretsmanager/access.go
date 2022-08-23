@@ -55,3 +55,7 @@ func (s *SecretsManagerAPI) canRead(uri *coresecrets.URI, entity names.Tag) bool
 	hasRole, _ = s.secretsConsumer.SecretAccess(uri, app)
 	return hasRole.Allowed(coresecrets.RoleView)
 }
+
+func (s *SecretsManagerAPI) isSameApplication(tag names.Tag) bool {
+	return authTagApp(s.authTag) == authTagApp(tag)
+}
