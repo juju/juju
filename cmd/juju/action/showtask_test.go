@@ -349,24 +349,6 @@ timing:
 				t.withAPIError,
 			)
 
-			numExpectedTimers := 0
-			// Ensure the api timeout timer is registered.
-			if t.withAPITimeout > 0 {
-				numExpectedTimers++
-			}
-			// And the api delay timer.
-			if t.withAPIDelay > 0 {
-				numExpectedTimers++
-			}
-			err := s.clock.WaitAdvance(0*time.Second, testing.ShortWait, numExpectedTimers)
-			c.Assert(err, jc.ErrorIsNil)
-
-			// Ensure the cmd max wait timer is registered. But this only happens
-			// during Run() so check for it later.
-			if t.withClientWait != "" {
-				numExpectedTimers++
-			}
-
 			fakeClient.logMessageCh = make(chan []string, len(t.expectedLogs))
 			if len(t.expectedLogs) > 0 {
 				fakeClient.waitForResults = make(chan bool)
@@ -381,8 +363,6 @@ timing:
 				t.withClientQueryID,
 				modelFlag,
 				t.watch,
-				t.withTicks,
-				numExpectedTimers,
 				t.expectedLogs,
 			)
 		}
@@ -391,10 +371,7 @@ timing:
 
 func (s *ShowTaskSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, format, wait, query, modelFlag string,
-	watch bool,
-	numTicks int,
-	numExpectedTimers int,
-	expectedLogs []string,
+	watch bool, expectedLogs []string,
 ) {
 	unpatch := s.patchAPIClient(client)
 	defer unpatch()
@@ -450,14 +427,6 @@ func (s *ShowTaskSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
 	}()
 
-	if numTicks > 0 {
-		numExpectedTimers += 1
-	}
-	for t := 0; t < numTicks; t++ {
-		err2 := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, numExpectedTimers)
-		c.Assert(err2, jc.ErrorIsNil)
-		numExpectedTimers--
-	}
 	wg.Wait()
 
 	if len(expectedLogMessages) > 0 {

@@ -66,7 +66,6 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		withTicks            int
 		expectWait           time.Duration
 		expectUnits          []string
 		expectAction         string
@@ -249,7 +248,6 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		clientSetup            func(client *fakeAPIClient)
 		withArgs               []string
 		withAPIErr             error
-		withTicks              int
 		withActionResults      []actionapi.ActionResult
 		expectedActionEnqueued []actionapi.Action
 		expectedOutput         string
@@ -432,10 +430,8 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0`[1:],
 	}, {
-		should:    "run a basic action with progress logs",
-		withArgs:  []string{validUnitId, "some-action", "--utc"},
-		withTicks: 1,
-
+		should:   "run a basic action with progress logs",
+		withArgs: []string{validUnitId, "some-action", "--utc"},
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -472,10 +468,8 @@ result-map:
 hello
 world`[1:],
 	}, {
-		should:    "run a basic action with progress logs with yaml output",
-		withArgs:  []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
-		withTicks: 1,
-
+		should:   "run a basic action with progress logs with yaml output",
+		withArgs: []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -533,9 +527,8 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0`[1:],
 	}, {
-		should:    "run action on multiple units with stdout for each action",
-		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
-		withTicks: 1,
+		should:   "run action on multiple units with stdout for each action",
+		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -604,9 +597,8 @@ mysql/1:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/1`[1:],
 	}, {
-		should:    "run action on multiple units with plain output selected",
-		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
-		withTicks: 1,
+		should:   "run action on multiple units with plain output selected",
+		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
 		withActionResults: []actionapi.ActionResult{{
 			Action: &actionapi.Action{
 				ID:       validActionId,
@@ -792,14 +784,6 @@ mysql/1:
 				logMessageCh:  make(chan []string, len(t.expectedLogs)),
 			}
 
-			numExpectedTimers := 0
-			// Max wait timer.
-			if t.withTicks > 0 {
-				numExpectedTimers = 1
-			}
-			// One poll timer per unit.
-			numExpectedTimers += len(t.expectedActionEnqueued)
-
 			if len(t.expectedLogs) > 0 {
 				fakeClient.waitForResults = make(chan bool)
 			}
@@ -815,8 +799,6 @@ mysql/1:
 				t.expectedOutput,
 				modelFlag,
 				t.withArgs,
-				t.withTicks,
-				numExpectedTimers,
 				t.expectedActionEnqueued,
 				t.expectedLogs)
 		}
@@ -898,7 +880,6 @@ hello
 
 func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, modelFlag string, withArgs []string,
-	numTicks int, numExpectedTimers int,
 	expectedActionEnqueued []actionapi.Action,
 	expectedLogs []string,
 ) {
@@ -945,10 +926,6 @@ func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
 	}()
 
-	for t := 0; t < numTicks; t++ {
-		err2 := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, numExpectedTimers)
-		c.Assert(err2, jc.ErrorIsNil)
-	}
 	wg.Wait()
 
 	if len(expectedLogs) > 0 {
