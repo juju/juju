@@ -668,102 +668,6 @@ func (u *UniterAPI) SetWorkloadVersion(args params.EntityWorkloadVersions) (para
 	return result, nil
 }
 
-func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitPortRanges, err := unit.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply open the requested port range for all endpoints.
-		unitPortRanges.Open("", network.PortRange{
-			FromPort: entity.FromPort,
-			ToPort:   entity.ToPort,
-			Protocol: entity.Protocol,
-		})
-
-		err = u.st.ApplyOperation(unitPortRanges.Changes())
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-// ClosePorts sets the policy of the port range with protocol to be
-// closed, for all given units.
-func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitPortRanges, err := unit.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply close the requested port range for all endpoints.
-		unitPortRanges.Close("", network.PortRange{
-			FromPort: entity.FromPort,
-			ToPort:   entity.ToPort,
-			Protocol: entity.Protocol,
-		})
-
-		err = u.st.ApplyOperation(unitPortRanges.Changes())
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // ModelUUID returns the model UUID that this unit resides in.
 // It is implemented here directly as a result of removing it from
 // embedded APIAddresser *without* bumping the facade version.
@@ -1442,36 +1346,6 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 	return result, nil
 }
 
-// UpdateSettings persists all changes made to the local settings of
-// all given pairs of relation and unit. Keys with empty values are
-// considered a signal to delete these values.
-func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.RelationUnits)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-
-	for i, arg := range args.RelationUnits {
-		updateOp, err := u.updateUnitAndApplicationSettingsOp(arg, canAccess)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		if err = u.st.ApplyOperation(updateOp); err != nil {
-			if leadership.IsNotLeaderError(err) {
-				err = apiservererrors.ErrPerm
-			}
-
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
-}
-
 func (u *UniterAPI) updateUnitAndApplicationSettingsOp(arg params.RelationUnitSettings, canAccess common.AuthFunc) (state.ModelOperation, error) {
 	unitTag, err := names.ParseUnitTag(arg.Unit)
 	if err != nil {
@@ -1637,15 +1511,6 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
-}
-
-func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
-	unit, err := u.cacheModel.Unit(tag.Id())
-	return unit, errors.Trace(err)
-}
-
-func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
-	return u.st.Application(tag.Id())
 }
 
 func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
@@ -2109,14 +1974,6 @@ func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
 		}
 		return false
 	}
-}
-
-func (u *UniterAPI) setPodSpec(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) error {
-	modelOp, err := u.setPodSpecOperation(appTag, spec, unitTag, canAccessApp)
-	if err != nil {
-		return err
-	}
-	return u.st.ApplyOperation(modelOp)
 }
 
 func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {

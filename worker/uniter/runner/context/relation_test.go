@@ -143,39 +143,6 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 	c.Assert(m, gc.DeepEquals, expectSettings)
 }
 
-func (s *ContextRelationSuite) TestLocalSettings(c *gc.C) {
-	ctx := context.NewContextRelation(s.relUnit, nil)
-
-	// Change Settings...
-	node, err := ctx.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	expectSettings := node.Map()
-	expectOldMap := convertSettings(expectSettings)
-	node.Set("change", "exciting")
-
-	// ...and check it's not written to state.
-	settings, err := s.ru.ReadSettings("u/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expectOldMap)
-
-	// Write settings...
-	err = ctx.WriteSettings()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// ...and check it was written to state.
-	settings, err = s.ru.ReadSettings("u/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, map[string]interface{}{"change": "exciting"})
-}
-
-func convertSettings(settings params.Settings) map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range settings {
-		result[k] = v
-	}
-	return result
-}
-
 func convertMap(settingsMap map[string]interface{}) params.Settings {
 	result := make(params.Settings)
 	for k, v := range settingsMap {

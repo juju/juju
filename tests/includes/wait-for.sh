@@ -251,7 +251,7 @@ wait_for_model() {
 # wait_for_systemd_service_files_to_appear <unit_name>
 #
 # example:
-# wait_for_systemd_service_files_to_appear "ubuntu-lite/0"
+# wait_for_systemd_service_files_to_appear "ubuntu/0"
 # ```
 wait_for_systemd_service_files_to_appear() {
 	local unit

@@ -43917,18 +43917,6 @@
                     },
                     "description": "AddMetricBatches adds the metrics for the specified unit."
                 },
-                "AddUnitStorage": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/StoragesAddParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "AddUnitStorage validates and creates additional storage instances for units.\nFailures on an individual storage instance do not block remaining\ninstances from being processed."
-                },
                 "ApplicationStatus": {
                     "type": "object",
                     "properties": {
@@ -44036,18 +44024,6 @@
                         }
                     },
                     "description": "ClearResolved removes any resolved setting from each given unit."
-                },
-                "ClosePorts": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/EntitiesPortRanges"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "ClosePorts sets the policy of the port range with protocol to be\nclosed, for all given units."
                 },
                 "CloudAPIVersion": {
                     "type": "object",
@@ -44344,17 +44320,6 @@
                         }
                     },
                     "description": "NetworkInfo returns network interfaces/addresses for specified bindings."
-                },
-                "OpenPorts": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/EntitiesPortRanges"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
                 },
                 "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
@@ -44721,18 +44686,6 @@
                         }
                     },
                     "description": "UpdateNetworkInfo refreshes the network settings for a unit's bound\nendpoints."
-                },
-                "UpdateSettings": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/RelationUnitsSettings"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "UpdateSettings persists all changes made to the local settings of\nall given pairs of relation and unit. Keys with empty values are\nconsidered a signal to delete these values."
                 },
                 "UpgradeSeriesUnitStatus": {
                     "type": "object",
@@ -45497,21 +45450,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/EntityCharmURL"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "EntitiesPortRanges": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/EntityPortRange"
                             }
                         }
                     },
@@ -46637,21 +46575,6 @@
                         "changed"
                     ]
                 },
-                "RelationUnitsSettings": {
-                    "type": "object",
-                    "properties": {
-                        "relation-units": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RelationUnitSettings"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation-units"
-                    ]
-                },
                 "RelationUnitsWatchResult": {
                     "type": "object",
                     "properties": {
@@ -47026,21 +46949,6 @@
                         }
                     },
                     "additionalProperties": false
-                },
-                "StoragesAddParams": {
-                    "type": "object",
-                    "properties": {
-                        "storages": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StorageAddParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "storages"
-                    ]
                 },
                 "StringBoolResult": {
                     "type": "object",

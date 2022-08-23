@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/v3/arch"
+	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -131,7 +132,7 @@ func (m *containerManager) CreateContainer(
 	}
 	_ = callback(status.Running, "Container started", nil)
 
-	return &lxdInstance{c.Name, m.server.ContainerServer},
+	return &lxdInstance{c.Name, m.server.InstanceServer},
 		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil
 }
 
@@ -148,7 +149,7 @@ func (m *containerManager) ListContainers() ([]instances.Instance, error) {
 
 	var result []instances.Instance
 	for _, i := range containers {
-		result = append(result, &lxdInstance{i.Name, m.server.ContainerServer})
+		result = append(result, &lxdInstance{i.Name, m.server.InstanceServer})
 	}
 	return result, nil
 }
@@ -172,9 +173,9 @@ func (m *containerManager) ensureInitialized() error {
 }
 
 // IsInitialized implements container.Manager.
-// It returns true if this host is running an OS that supports LXD by default.
+// It returns true if we can find a LXD socket on this host.
 func (m *containerManager) IsInitialized() bool {
-	return HasSupport()
+	return SocketPath(shared.IsUnixSocket) != ""
 }
 
 // getContainerSpec generates a spec for creating a new container.

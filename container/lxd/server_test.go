@@ -22,7 +22,7 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestUpdateServerConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	updateReq := api.ServerPut{Config: map[string]interface{}{"key1": "val1"}}
 	gomock.InOrder(
@@ -40,16 +40,16 @@ func (s *serverSuite) TestUpdateServerConfig(c *gc.C) {
 func (s *serverSuite) TestUpdateContainerConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	cName := "juju-lxd-1"
 	newConfig := map[string]string{"key1": "val1"}
-	updateReq := api.ContainerPut{Config: newConfig}
+	updateReq := api.InstancePut{Config: newConfig}
 	op := lxdtesting.NewMockOperation(ctrl)
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil),
-		cSvr.EXPECT().GetContainer(cName).Return(&api.Container{}, lxdtesting.ETag, nil),
-		cSvr.EXPECT().UpdateContainer(cName, updateReq, lxdtesting.ETag).Return(op, nil),
+		cSvr.EXPECT().GetInstance(cName).Return(&api.Instance{}, lxdtesting.ETag, nil),
+		cSvr.EXPECT().UpdateInstance(cName, updateReq, lxdtesting.ETag).Return(op, nil),
 		op.EXPECT().Wait().Return(nil),
 	)
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -158,13 +158,13 @@ func (s *serverSuite) TestReplaceOrAddContainerProfile(c *gc.C) {
 	old := "old-profile"
 	oldProfiles := []string{"default", "juju-default", old}
 	new := "new-profile"
-	cSvr.EXPECT().GetContainer(instId).Return(
-		&api.Container{
-			ContainerPut: api.ContainerPut{
+	cSvr.EXPECT().GetInstance(instId).Return(
+		&api.Instance{
+			InstancePut: api.InstancePut{
 				Profiles: oldProfiles,
 			},
 		}, "", nil)
-	cSvr.EXPECT().UpdateContainer(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil)
+	cSvr.EXPECT().UpdateInstance(instId, gomock.Any(), gomock.Any()).Return(updateOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)

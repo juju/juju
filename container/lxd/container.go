@@ -105,7 +105,7 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 
 // Container extends the upstream LXD container type.
 type Container struct {
-	api.Container
+	api.Instance
 }
 
 // Metadata returns the value from container config for the input key.
@@ -200,7 +200,7 @@ func (s *Server) AliveContainers(prefix string) ([]Container, error) {
 // FilterContainers retrieves the list of containers from the server and filters
 // them based on the input namespace prefix and any supplied statuses.
 func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Container, error) {
-	containers, err := s.GetContainers()
+	containers, err := s.GetInstances(api.InstanceTypeContainer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -221,7 +221,7 @@ func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Containe
 // ContainerAddresses gets usable network addresses for the container
 // identified by the input name.
 func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress, error) {
-	state, _, err := s.GetContainerState(name)
+	state, _, err := s.GetInstanceState(name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -256,10 +256,10 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	logger.Infof("starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
 	logger.Debugf("new container has profiles %v", spec.Profiles)
 	ephemeral := false
-	req := api.ContainersPost{
+	req := api.InstancesPost{
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
-		ContainerPut: api.ContainerPut{
+		InstancePut: api.InstancePut{
 			Architecture: spec.Architecture,
 			Profiles:     spec.Profiles,
 			Devices:      spec.Devices,
@@ -267,7 +267,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 			Ephemeral:    ephemeral,
 		},
 	}
-	op, err := s.CreateContainerFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
+	op, err := s.CreateInstanceFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
 	if err != nil {
 		return s.handleAlreadyExistsError(err, spec, ephemeral)
 	}
@@ -292,7 +292,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 		return nil, errors.Trace(err)
 	}
 
-	container, _, err := s.GetContainer(spec.Name)
+	container, _, err := s.GetInstance(spec.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -316,12 +316,12 @@ func (s *Server) handleAlreadyExistsError(err error, spec ContainerSpec, ephemer
 	return nil, errors.Trace(err)
 }
 
-func (s *Server) waitForRunningContainer(spec ContainerSpec, ephemeral bool) (*api.Container, error) {
-	var container *api.Container
+func (s *Server) waitForRunningContainer(spec ContainerSpec, ephemeral bool) (*api.Instance, error) {
+	var container *api.Instance
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
 			var err error
-			container, _, err = s.GetContainer(spec.Name)
+			container, _, err = s.GetInstance(spec.Name)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -350,7 +350,7 @@ func (s *Server) waitForRunningContainer(spec ContainerSpec, ephemeral bool) (*a
 	return nil, errors.Errorf("container %q does not match container spec", spec.Name)
 }
 
-func matchesContainerSpec(container *api.Container, spec ContainerSpec, ephemeral bool) bool {
+func matchesContainerSpec(container *api.Instance, spec ContainerSpec, ephemeral bool) bool {
 	// If we don't match the spec from the container, then we're not
 	// sure what we've got here. Return the original error message.
 	return container.Architecture == spec.Architecture &&
@@ -362,13 +362,13 @@ func matchesContainerSpec(container *api.Container, spec ContainerSpec, ephemera
 
 // StartContainer starts the extant container identified by the input name.
 func (s *Server) StartContainer(name string) error {
-	req := api.ContainerStatePut{
+	req := api.InstanceStatePut{
 		Action:   "start",
 		Timeout:  -1,
 		Force:    false,
 		Stateful: false,
 	}
-	op, err := s.UpdateContainerState(name, req, "")
+	op, err := s.UpdateInstanceState(name, req, "")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -399,19 +399,19 @@ func (s *Server) RemoveContainers(names []string) error {
 // Remove container first ensures that the container is stopped,
 // then deletes it.
 func (s *Server) RemoveContainer(name string) error {
-	state, eTag, err := s.GetContainerState(name)
+	state, eTag, err := s.GetInstanceState(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if state.StatusCode != api.Stopped {
-		req := api.ContainerStatePut{
+		req := api.InstanceStatePut{
 			Action:   "stop",
 			Timeout:  -1,
 			Force:    true,
 			Stateful: false,
 		}
-		op, err := s.UpdateContainerState(name, req, eTag)
+		op, err := s.UpdateInstanceState(name, req, eTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -437,7 +437,7 @@ func (s *Server) RemoveContainer(name string) error {
 			return errors.IsBadRequest(err)
 		},
 		Func: func() error {
-			op, err := s.DeleteContainer(name)
+			op, err := s.DeleteInstance(name)
 			if err != nil {
 				// sigh, LXD not found container - it's been deleted so, we
 				// just need to return nil.
@@ -460,7 +460,7 @@ func (s *Server) RemoveContainer(name string) error {
 // WriteContainer writes the current representation of the input container to
 // the server.
 func (s *Server) WriteContainer(c *Container) error {
-	resp, err := s.UpdateContainer(c.Name, c.Writable(), "")
+	resp, err := s.UpdateInstance(c.Name, c.Writable(), "")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -479,7 +479,7 @@ func (s *Server) Clock() clock.Clock {
 
 // containerHasStatus returns true if the input container has a status
 // matching one from the input list.
-func containerHasStatus(container api.Container, statuses []string) bool {
+func containerHasStatus(container api.Instance, statuses []string) bool {
 	for _, status := range statuses {
 		if container.StatusCode.String() == status {
 			return true

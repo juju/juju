@@ -66,7 +66,7 @@ func NetworkDevicesFromConfig(mgr container.Manager, netConfig *container.Networ
 	return cMgr.networkDevicesFromConfig(netConfig)
 }
 
-func NewTestingServer(svr lxdclient.ContainerServer, clock clock.Clock) (*Server, error) {
+func NewTestingServer(svr lxdclient.InstanceServer, clock clock.Clock) (*Server, error) {
 	server, err := NewServer(svr)
 	if err != nil {
 		return nil, err

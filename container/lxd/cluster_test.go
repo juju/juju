@@ -41,7 +41,7 @@ func (s *imageSuite) TestUseTargetBadNode(c *gc.C) {
 	defer ctrl.Finish()
 
 	c1Svr := s.NewMockServerClustered(ctrl, "cluster-1")
-	c2Svr := lxdtesting.NewMockContainerServer(ctrl)
+	c2Svr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	c1Svr.EXPECT().UseTarget("cluster-2").Return(c2Svr)
 	c2Svr.EXPECT().GetServer().Return(nil, "", errors.New("not a cluster member"))
