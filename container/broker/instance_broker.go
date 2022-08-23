@@ -122,14 +122,22 @@ func prepareHost(config Config) PrepareHostFunc {
 	}
 }
 
+var openFunc = os.Open
+
+func Readdirnames(f *os.File, n int) (names []string, err error) {
+	return f.Readdirnames(n)
+}
+
+var readDirFunc = Readdirnames
+
 func isDirectoryEmpty(directory string) (bool, error) {
-	f, err := os.Open(directory)
+	f, err := openFunc(directory)
 	if err != nil {
 		return false, err
 	}
 	defer f.Close()
 
-	_, err = f.Readdirnames(1)
+	_, err = readDirFunc(f, 1)
 	if err == io.EOF {
 		return true, nil
 	}
