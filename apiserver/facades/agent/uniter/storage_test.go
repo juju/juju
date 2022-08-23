@@ -311,10 +311,6 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 	})
 }
 
-const (
-	addStorageCall = "mockAdd"
-)
-
 type mockUnit struct {
 	assignedMachine    string
 	storageConstraints map[string]state.StorageConstraints

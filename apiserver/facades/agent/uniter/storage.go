@@ -349,15 +349,6 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 	return err
 }
 
-func (s *StorageAPI) addStorageToOneUnit(unitTag names.UnitTag, addParams params.StorageAddParams, curCons map[string]state.StorageConstraints) error {
-	modelOp, err := s.addStorageToOneUnitOperation(unitTag, addParams, curCons)
-	if err != nil {
-		return err
-	}
-
-	return s.backend.ApplyOperation(modelOp)
-}
-
 // addStorageToOneUnitOperation returns a ModelOperation for adding storage to
 // the specified unit.
 func (s *StorageAPI) addStorageToOneUnitOperation(unitTag names.UnitTag, addParams params.StorageAddParams, curCons map[string]state.StorageConstraints) (state.ModelOperation, error) {
@@ -396,17 +387,6 @@ func validConstraints(
 
 	result.Count = *p.Constraints.Count
 	return result, nil
-}
-
-func accessUnitTag(tag string, canAccess func(names.Tag) bool) (names.UnitTag, error) {
-	u, err := names.ParseUnitTag(tag)
-	if err != nil {
-		return names.UnitTag{}, errors.Annotatef(err, "parsing unit tag %v", tag)
-	}
-	if !canAccess(u) {
-		return names.UnitTag{}, apiservererrors.ErrPerm
-	}
-	return u, nil
 }
 
 // watchStorageAttachment returns a state.NotifyWatcher that reacts to changes
