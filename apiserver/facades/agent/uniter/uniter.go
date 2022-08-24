@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
@@ -51,6 +52,7 @@ type UniterAPI struct {
 	*common.UpgradeSeriesAPI
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
+	*secretsmanager.SecretsManagerAPI
 	meterstatus.MeterStatus
 	lxdProfileAPI       *LXDProfileAPIv2
 	m                   *state.Model
@@ -2716,6 +2718,44 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return errors.Trace(err)
 		}
 		modelOps = append(modelOps, modelOp)
+	}
+
+	// TODO - do in txn once we have support for that
+	if len(changes.SecretDeletes) > 0 {
+		result, err := u.SecretsManagerAPI.RemoveSecrets(params.SecretURIArgs{Args: changes.SecretDeletes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "removing secrets")
+		}
+	}
+	if len(changes.SecretUpdates) > 0 {
+		result, err := u.SecretsManagerAPI.UpdateSecrets(params.UpdateSecretArgs{Args: changes.SecretUpdates})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "updating secrets")
+		}
+	}
+	if len(changes.SecretGrants) > 0 {
+		result, err := u.SecretsManagerAPI.SecretsGrant(params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "granting secrets access")
+		}
+	}
+	if len(changes.SecretRevokes) > 0 {
+		result, err := u.SecretsManagerAPI.SecretsRevoke(params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "revoking secrets access")
+		}
 	}
 
 	// Apply all changes in a single transaction.

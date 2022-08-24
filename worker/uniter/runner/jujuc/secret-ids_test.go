@@ -28,4 +28,5 @@ func (s *SecretIdsSuite) TestSecretIds(c *gc.C) {
 
 	c.Assert(code, gc.Equals, 0)
 	s.Stub.CheckCallNames(c, "SecretIds")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g: label\n")
 }

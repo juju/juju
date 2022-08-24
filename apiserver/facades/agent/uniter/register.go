@@ -7,12 +7,14 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -83,6 +85,10 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	secretsAPI, err := secretsmanager.NewSecretManagerAPI(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
@@ -92,6 +98,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
+		SecretsManagerAPI:          secretsAPI,
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),

@@ -69,14 +69,9 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 		return "", errors.Trace(err)
 	}
 	uri := coresecrets.NewURI()
-	scope := arg.ScopeTag
-	if scope == "" {
-		scope = arg.OwnerTag
-	}
 	md, err := s.secretsService.CreateSecret(ctx, uri, secrets.CreateParams{
 		Version:      secrets.Version,
 		Owner:        arg.OwnerTag,
-		Scope:        scope,
 		UpsertParams: fromUpsertParams(s.clock, arg.UpsertSecretArg, token),
 	})
 	if err != nil {

@@ -91,24 +91,24 @@ type secretValueDetails struct {
 
 type secretRevisionDetails struct {
 	Revision   int        `json:"revision" yaml:"revision"`
-	CreateTime time.Time  `json:"create-time" yaml:"create-time"`
-	UpdateTime time.Time  `json:"update-time" yaml:"update-time"`
-	ExpireTime *time.Time `json:"expire-time,omitempty" yaml:"expire-time,omitempty"`
+	CreateTime time.Time  `json:"created" yaml:"created"`
+	UpdateTime time.Time  `json:"updated" yaml:"updated"`
+	ExpireTime *time.Time `json:"expires,omitempty" yaml:"expires,omitempty"`
 }
 
 type secretDetailsByID map[string]secretDisplayDetails
 
 type secretDisplayDetails struct {
 	URI              *secrets.URI            `json:"-" yaml:"-"`
-	LatestRevision   int                     `json:"latest" yaml:"latest"`
-	LatestExpireTime *time.Time              `json:"latest-expire-time,omitempty" yaml:"latest-expire-time,omitempty"`
-	RotatePolicy     secrets.RotatePolicy    `json:"rotate-policy,omitempty" yaml:"rotate-policy,omitempty"`
-	NextRotateTime   *time.Time              `json:"next-rotate-time,omitempty" yaml:"next-rotate-time,omitempty"`
+	LatestRevision   int                     `json:"revision" yaml:"revision"`
+	LatestExpireTime *time.Time              `json:"expires,omitempty" yaml:"expires,omitempty"`
+	RotatePolicy     secrets.RotatePolicy    `json:"rotation,omitempty" yaml:"rotation,omitempty"`
+	NextRotateTime   *time.Time              `json:"rotates,omitempty" yaml:"rotates,omitempty"`
 	Owner            string                  `json:"owner,omitempty" yaml:"owner,omitempty"`
 	Description      string                  `json:"description,omitempty" yaml:"description,omitempty"`
 	Label            string                  `json:"label,omitempty" yaml:"label,omitempty"`
-	CreateTime       time.Time               `json:"create-time" yaml:"create-time"`
-	UpdateTime       time.Time               `json:"update-time" yaml:"update-time"`
+	CreateTime       time.Time               `json:"created" yaml:"created"`
+	UpdateTime       time.Time               `json:"updated" yaml:"updated"`
 	ProviderID       string                  `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
 	Error            string                  `json:"error,omitempty" yaml:"error,omitempty"`
 	Value            *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
@@ -204,7 +204,7 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	w := output.Wrapper{tw}
 	w.SetColumnAlignRight(3)
 
-	w.Println("ID", "Owner", "Rotation", "Latest", "Last updated")
+	w.Println("ID", "Owner", "Rotation", "Revision", "Last updated")
 	sort.Slice(secrets, func(i, j int) bool {
 		if secrets[i].Owner != secrets[j].Owner {
 			return secrets[i].Owner < secrets[j].Owner

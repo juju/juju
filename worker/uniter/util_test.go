@@ -134,7 +134,7 @@ type testContext struct {
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
-	createdSecretURI       string
+	createdSecretURI       *secrets.URI
 	updateStatusHookTicker *manualTicker
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
@@ -1658,10 +1658,20 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 	ctx.createdSecretURI = uri
 }
 
+type fakeToken struct{}
+
+func (t *fakeToken) Check(int, interface{}) error {
+	return nil
+}
+
 type changeSecret struct{}
 
 func (s changeSecret) step(c *gc.C, ctx *testContext) {
-	err := ctx.secretsFacade.Update(ctx.createdSecretURI, &secrets.SecretConfig{}, secrets.NewSecretValue(map[string]string{"foo": "bar2"}))
+	store := state.NewSecretsStore(ctx.st)
+	_, err := store.UpdateSecret(ctx.createdSecretURI, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1677,7 +1687,7 @@ type rotateSecret struct{}
 
 func (s rotateSecret) step(c *gc.C, ctx *testContext) {
 	select {
-	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI}:
+	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI.String()}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("sending rotate secret change for %q", ctx.createdSecretURI)
 	}

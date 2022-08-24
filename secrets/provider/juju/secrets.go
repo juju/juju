@@ -44,7 +44,6 @@ func (s secretsService) CreateSecret(ctx context.Context, uri *coresecrets.URI, 
 		ProviderLabel: Provider,
 		Version:       p.Version,
 		Owner:         p.Owner,
-		Scope:         p.Scope,
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    p.LeaderToken,
 			RotatePolicy:   p.RotatePolicy,

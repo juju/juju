@@ -19,12 +19,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsManager", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newSecretManagerAPI(ctx)
+		return NewSecretManagerAPI(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
 
-// newSecretManagerAPI creates a SecretsManagerAPI.
-func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
+// NewSecretManagerAPI creates a SecretsManagerAPI.
+func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
