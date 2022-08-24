@@ -639,8 +639,8 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 	mock := s.setupMockAPI()
 	mock.setMachinesAlive("0")
 	mockResponse := mockResponse{
-		stdout:     "stdout\n",
-		stderr:     "stderr\n",
+		stdout:     "stdout",
+		stderr:     "stderr",
 		code:       "42",
 		machineTag: "machine-0",
 	}
@@ -673,7 +673,7 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 	}{{
 		message:    "smart (default)",
 		stdout:     "stdout\n",
-		stderr:     "stderr\n",
+		stderr:     "stderr",
 		errorMatch: "subprocess encountered error code 42",
 	}, {
 		message: "yaml output",

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -838,8 +839,7 @@ func (u *Unit) CommitHookChanges(req params.CommitHookChangesArgs) error {
 	if err != nil {
 		return err
 	}
-	// Make sure we correctly decode quota-related errors.
-	return maybeRestoreQuotaLimitError(results.OneError())
+	return apiservererrors.RestoreError(results.OneError())
 }
 
 // CommitHookParamsBuilder is a helper type for populating the set of
@@ -975,16 +975,4 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	count += len(b.arg.ClosePorts)
 	count += len(b.arg.AddStorage)
 	return count
-}
-
-// maybeRestoreQuotaLimitError checks if the server emitted a quota limit
-// exceeded error and restores it back to a typed error from juju/errors.
-// Ideally, we would use apiserver/common.RestoreError but apparently, that
-// package imports worker/uniter/{operation, remotestate} causing an import
-// cycle.
-func maybeRestoreQuotaLimitError(err error) error {
-	if params.IsCodeQuotaLimitExceeded(err) {
-		return errors.NewQuotaLimitExceeded(nil, err.Error())
-	}
-	return err
 }
