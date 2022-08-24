@@ -17,6 +17,7 @@ import (
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/testing"
 )
 
 type ShowOperationSuite struct {
@@ -85,7 +86,6 @@ func (s *ShowOperationSuite) TestRun(c *gc.C) {
 		should:            "timeout if result never comes",
 		withClientWait:    "2s",
 		withAPIDelay:      3 * time.Second,
-		withAPITimeout:    5 * time.Second,
 		withClientQueryID: operationId,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
@@ -103,18 +103,15 @@ timing:
 	}, {
 		should:            "pass api error through properly",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIError:      "api call error",
 		expectedErr:       "api call error",
 	}, {
 		should:            "fail with id not found",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		expectedErr:       `operation "` + operationId + `" not found`,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -129,31 +126,8 @@ status: failed
 error: an apiserver error
 `[1:],
 	}, {
-		should:            "only return once status is no longer running or pending",
-		withAPIDelay:      1 * time.Second,
-		withClientWait:    "10s",
-		withClientQueryID: operationId,
-		withAPITimeout:    3 * time.Second,
-		withAPIResponse: actionapi.Operations{
-			Operations: []actionapi.Operation{{
-				ID:     operationId,
-				Status: "running",
-				Actions: []actionapi.ActionResult{{
-					Output: map[string]interface{}{
-						"foo": map[string]interface{}{
-							"bar": "baz",
-						},
-					},
-				}},
-				Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-				Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-			}},
-		},
-		expectedErr: "test timed out before wait time",
-	}, {
 		should:            "pretty-print operation output",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -203,7 +177,6 @@ tasks:
 		should:            "pretty-print action output with no completed time",
 		withClientQueryID: operationId,
 		withClientWait:    "1s",
-		withAPITimeout:    2 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -251,7 +224,6 @@ tasks:
 	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: operationId,
-		withAPITimeout:    5 * time.Second,
 		withClientWait:    "3s",
 		withAPIDelay:      1 * time.Second,
 		withAPIResponse: actionapi.Operations{
@@ -390,9 +362,12 @@ func (s *ShowOperationSuite) makeFakeClient(
 	if delay != 0 {
 		delayTimer = s.clock.NewTimer(delay)
 	}
+	if timeout == 0 {
+		timeout = testing.LongWait
+	}
 	client := &fakeAPIClient{
 		delay:            delayTimer,
-		timeout:          s.clock.NewTimer(timeout),
+		timeout:          clock.WallClock.NewTimer(timeout),
 		operationResults: response,
 	}
 	if errStr != "" {

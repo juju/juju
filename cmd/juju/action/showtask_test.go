@@ -74,7 +74,6 @@ func (s *ShowTaskSuite) TestRun(c *gc.C) {
 		withClientQueryID string
 		withAPIDelay      time.Duration
 		withAPITimeout    time.Duration
-		withTicks         int
 		withAPIResponse   []actionapi.ActionResult
 		withAPIError      string
 		withFormat        string
@@ -86,8 +85,6 @@ func (s *ShowTaskSuite) TestRun(c *gc.C) {
 		should:            "timeout if result never comes",
 		withClientWait:    "2s",
 		withAPIDelay:      3 * time.Second,
-		withAPITimeout:    5 * time.Second,
-		withTicks:         1,
 		withClientQueryID: validActionId,
 		withAPIResponse:   []actionapi.ActionResult{{Status: "pending"}},
 		expectedErr:       "maximum wait time reached",
@@ -100,50 +97,27 @@ timing:
 	}, {
 		should:            "pass api error through properly",
 		withClientQueryID: validActionId,
-		withAPITimeout:    1 * time.Second,
 		withAPIError:      "api call error",
 		expectedErr:       "api call error",
 	}, {
 		should:            "fail with no results",
 		withClientQueryID: validActionId,
-		withAPITimeout:    1 * time.Second,
 		expectedErr:       "task " + validActionId + " not found",
 	}, {
 		should:            "error correctly with multiple results",
 		withClientQueryID: validActionId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse:   []actionapi.ActionResult{{}, {}},
 		expectedErr:       "too many results for task " + validActionId,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: validActionId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: []actionapi.ActionResult{{
 			Error: errors.New("an apiserver error"),
 		}},
 		expectedErr: "an apiserver error",
 	}, {
-		should:            "only return once status is no longer running or pending",
-		withAPIDelay:      1 * time.Second,
-		withClientWait:    "10s",
-		withTicks:         2,
-		withClientQueryID: validActionId,
-		withAPITimeout:    3 * time.Second,
-		withAPIResponse: []actionapi.ActionResult{{
-			Status: "running",
-			Output: map[string]interface{}{
-				"foo": map[string]interface{}{
-					"bar": "baz",
-				},
-			},
-			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-		}},
-		expectedErr: "test timed out before wait time",
-	}, {
 		should:            "pretty-print action output",
 		withClientQueryID: validActionId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
@@ -172,8 +146,6 @@ timing:
 		should:            "pretty-print action output with no completed time",
 		withClientQueryID: validActionId,
 		withClientWait:    "1s",
-		withAPITimeout:    2 * time.Second,
-		withTicks:         1,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
@@ -198,8 +170,6 @@ timing:
 		should:            "pretty-print action output with no enqueued time",
 		withClientQueryID: validActionId,
 		withClientWait:    "1s",
-		withAPITimeout:    2 * time.Second,
-		withTicks:         1,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
@@ -225,8 +195,6 @@ timing:
 		should:            "pretty-print action output with no started time",
 		withClientQueryID: validActionId,
 		withClientWait:    "1s",
-		withAPITimeout:    2 * time.Second,
-		withTicks:         1,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
@@ -252,7 +220,6 @@ timing:
 		should:            "plain format action output",
 		withClientQueryID: validActionId,
 		withClientWait:    "1s",
-		withAPITimeout:    2 * time.Second,
 		withFormat:        "plain",
 		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
@@ -276,10 +243,8 @@ hello
 	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: validActionId,
-		withAPITimeout:    5 * time.Second,
 		withClientWait:    "3s",
 		withAPIDelay:      1 * time.Second,
-		withTicks:         1,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "completed",
 			Output: map[string]interface{}{
@@ -319,11 +284,9 @@ timing:
 	}, {
 		should:            "print log messages when watching",
 		withClientQueryID: validActionId,
-		withAPITimeout:    5 * time.Second,
 		withAPIDelay:      1 * time.Second,
 		watch:             true,
 		expectedLogs:      []string{"log line 1", "log line 2"},
-		withTicks:         1,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status:    "completed",
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
@@ -454,9 +417,12 @@ func (s *ShowTaskSuite) makeFakeClient(
 	if delay != 0 {
 		delayTimer = s.clock.NewTimer(delay)
 	}
+	if timeout == 0 {
+		timeout = testing.LongWait
+	}
 	client := &fakeAPIClient{
 		delay:         delayTimer,
-		timeout:       s.clock.NewTimer(timeout),
+		timeout:       clock.WallClock.NewTimer(timeout),
 		actionResults: response,
 	}
 	if errStr != "" {
