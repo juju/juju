@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	payload "github.com/juju/juju/core/payloads"
+	payloads "github.com/juju/juju/core/payloads"
 )
 
 // MockPayloadAPIClient is a mock of PayloadAPIClient interface.
@@ -35,14 +35,14 @@ func (m *MockPayloadAPIClient) EXPECT() *MockPayloadAPIClientMockRecorder {
 }
 
 // List mocks base method.
-func (m *MockPayloadAPIClient) List(arg0 ...string) ([]payload.Result, error) {
+func (m *MockPayloadAPIClient) List(arg0 ...string) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "List", varargs...)
-	ret0, _ := ret[0].([]payload.Result)
+	ret0, _ := ret[0].([]payloads.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -54,14 +54,14 @@ func (mr *MockPayloadAPIClientMockRecorder) List(arg0 ...interface{}) *gomock.Ca
 }
 
 // SetStatus mocks base method.
-func (m *MockPayloadAPIClient) SetStatus(arg0 string, arg1 ...string) ([]payload.Result, error) {
+func (m *MockPayloadAPIClient) SetStatus(arg0 string, arg1 ...string) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "SetStatus", varargs...)
-	ret0, _ := ret[0].([]payload.Result)
+	ret0, _ := ret[0].([]payloads.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -74,14 +74,14 @@ func (mr *MockPayloadAPIClientMockRecorder) SetStatus(arg0 interface{}, arg1 ...
 }
 
 // Track mocks base method.
-func (m *MockPayloadAPIClient) Track(arg0 ...payload.Payload) ([]payload.Result, error) {
+func (m *MockPayloadAPIClient) Track(arg0 ...payloads.Payload) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Track", varargs...)
-	ret0, _ := ret[0].([]payload.Result)
+	ret0, _ := ret[0].([]payloads.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -93,14 +93,14 @@ func (mr *MockPayloadAPIClientMockRecorder) Track(arg0 ...interface{}) *gomock.C
 }
 
 // Untrack mocks base method.
-func (m *MockPayloadAPIClient) Untrack(arg0 ...string) ([]payload.Result, error) {
+func (m *MockPayloadAPIClient) Untrack(arg0 ...string) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Untrack", varargs...)
-	ret0, _ := ret[0].([]payload.Result)
+	ret0, _ := ret[0].([]payloads.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
