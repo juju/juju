@@ -187,6 +187,16 @@ type SecretGrantRevokeArgs struct {
 	Role            *secrets.SecretRole
 }
 
+// SecretMetadata holds a secret's metadata.
+type SecretMetadata struct {
+	Description      string
+	Label            string
+	RotatePolicy     secrets.RotatePolicy
+	LatestRevision   int
+	LatestExpireTime *time.Time
+	NextRotateTime   *time.Time
+}
+
 // ContextSecrets is the part of a hook context related to secrets.
 type ContextSecrets interface {
 	// GetSecret returns the value of the specified secret.
@@ -207,8 +217,8 @@ type ContextSecrets interface {
 	// RevokeSecret revokes access to the specified secret.
 	RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error
 
-	// SecretIds gets the secret ids and their labels created by the charm.
-	SecretIds() (map[*secrets.URI]string, error)
+	// SecretMetadata gets the secret metadata for secrets created by the charm.
+	SecretMetadata() (map[string]SecretMetadata, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

@@ -63,17 +63,6 @@ type SecretURIArg struct {
 	URI string `json:"uri"`
 }
 
-// SecretIdResult is the result of getting secret ID data.
-type SecretIdResult struct {
-	Label string `json:"label"`
-}
-
-// SecretIdResults holds results for getting secret IDs.
-type SecretIdResults struct {
-	Result map[string]SecretIdResult `json:"result"`
-	Error  *Error                    `json:"error,omitempty"`
-}
-
 // GetSecretConsumerInfoArgs holds the args for getting secret
 // consumer metadata.
 type GetSecretConsumerInfoArgs struct {
@@ -161,24 +150,23 @@ type ListSecretResult struct {
 	Value            *SecretValueResult `json:"value,omitempty"`
 }
 
-// SecretRotationChange describes a change to a secret rotation config.
-type SecretRotationChange struct {
-	URI            string        `json:"uri"`
-	RotateInterval time.Duration `json:"rotate-interval"`
-	LastRotateTime time.Time     `json:"last-rotate-time"`
+// SecretTriggerChange describes a change to a secret trigger.
+type SecretTriggerChange struct {
+	URI             string    `json:"uri"`
+	NextTriggerTime time.Time `json:"next-trugger-time"`
 }
 
-// SecretRotationWatchResult holds secret rotation change events.
-type SecretRotationWatchResult struct {
-	SecretRotationWatcherId string                 `json:"watcher-id"`
-	Changes                 []SecretRotationChange `json:"changes"`
-	Error                   *Error                 `json:"error,omitempty"`
+// SecretTriggerWatchResult holds secret trigger change events.
+type SecretTriggerWatchResult struct {
+	WatcherId string                `json:"watcher-id"`
+	Changes   []SecretTriggerChange `json:"changes"`
+	Error     *Error                `json:"error,omitempty"`
 }
 
-// SecretRotationWatchResults holds the results for any API call which ends up
-// returning a list of SecretRotationWatchResult.
-type SecretRotationWatchResults struct {
-	Results []SecretRotationWatchResult `json:"results"`
+// SecretTriggerWatchResults holds the results for any API call which ends up
+// returning a list of SecretTriggerWatchResult.
+type SecretTriggerWatchResults struct {
+	Results []SecretTriggerWatchResult `json:"results"`
 }
 
 // SecretRotatedArgs holds the args for updating rotated secret info.
@@ -188,8 +176,9 @@ type SecretRotatedArgs struct {
 
 // SecretRotatedArg holds the args for updating rotated secret info.
 type SecretRotatedArg struct {
-	URI  string    `json:"uri"`
-	When time.Time `json:"when"`
+	URI              string `json:"uri"`
+	OriginalRevision int    `json:"original-revision"`
+	Skip             bool   `json:"skip"`
 }
 
 // GrantRevokeSecretArgs holds args for changing access to secrets.

@@ -513,16 +513,17 @@ func ptr[T any](v T) *T {
 
 func (s *watcherSuite) setupSecretRotationWatcher(
 	c *gc.C,
-) (*secrets.URI, func(corewatcher.SecretRotationChange), func(), func()) {
+) (*secrets.URI, func(corewatcher.SecretTriggerChange), func(), func()) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
+	nexRotateTime := time.Now().Add(time.Hour)
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
 		Owner: "application-mysql",
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
-			NextRotateTime: ptr(time.Now()),
+			NextRotateTime: ptr(nexRotateTime),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -559,15 +560,11 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 		}
 	}
 
-	assertChange := func(change corewatcher.SecretRotationChange) {
+	assertChange := func(change corewatcher.SecretTriggerChange) {
 		select {
 		case changes, ok := <-w.Changes():
 			c.Check(ok, jc.IsTrue)
 			c.Assert(changes, gc.HasLen, 1)
-			c.Assert(changes[0].LastRotateTime.Before(time.Now()), jc.IsTrue)
-			changes[0].LastRotateTime = time.Time{}
-			// TODO(wallyworld) - fix rotation to work with rotate policy
-			change.RotateInterval = 0
 			c.Assert(changes[0], jc.DeepEquals, change)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
@@ -575,10 +572,9 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	}
 
 	// Initial event.
-	assertChange(corewatcher.SecretRotationChange{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: time.Time{},
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime.Round(time.Second).UTC(),
 	})
 	return uri, assertChange, assertNoChange, stop
 }
@@ -595,17 +591,28 @@ func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 
 	store := state.NewSecretsStore(s.State)
 
+	nexRotateTime := time.Now().Add(24 * time.Hour).Round(time.Second)
 	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken:    &fakeToken{},
-		RotatePolicy:   ptr(secrets.RotateDaily),
-		NextRotateTime: ptr(time.Now()),
+		NextRotateTime: ptr(nexRotateTime),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertChange(corewatcher.SecretRotationChange{
-		URI:            uri,
-		RotateInterval: time.Minute,
-		LastRotateTime: time.Time{},
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime,
+	})
+	assertNoChange()
+
+	_, err = store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:  &fakeToken{},
+		RotatePolicy: ptr(secrets.RotateNever),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: time.Time{},
 	})
 	assertNoChange()
 }

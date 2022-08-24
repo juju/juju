@@ -1320,9 +1320,9 @@ func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
 // Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvSecretRotationWatcher.
-func (w *srvSecretRotationWatcher) Next() (params.SecretRotationWatchResult, error) {
+func (w *srvSecretRotationWatcher) Next() (params.SecretTriggerWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
-		return params.SecretRotationWatchResult{
+		return params.SecretTriggerWatchResult{
 			Changes: w.translateChanges(changes),
 		}, nil
 	}
@@ -1330,19 +1330,18 @@ func (w *srvSecretRotationWatcher) Next() (params.SecretRotationWatchResult, err
 	if err == nil {
 		err = apiservererrors.ErrStoppedWatcher
 	}
-	return params.SecretRotationWatchResult{}, err
+	return params.SecretTriggerWatchResult{}, err
 }
 
-func (w *srvSecretRotationWatcher) translateChanges(changes []corewatcher.SecretRotationChange) []params.SecretRotationChange {
+func (w *srvSecretRotationWatcher) translateChanges(changes []corewatcher.SecretTriggerChange) []params.SecretTriggerChange {
 	if changes == nil {
 		return nil
 	}
-	result := make([]params.SecretRotationChange, len(changes))
+	result := make([]params.SecretTriggerChange, len(changes))
 	for i, c := range changes {
-		result[i] = params.SecretRotationChange{
-			URI:            c.URI.String(),
-			RotateInterval: c.RotateInterval,
-			LastRotateTime: c.LastRotateTime,
+		result[i] = params.SecretTriggerChange{
+			URI:             c.URI.String(),
+			NextTriggerTime: c.NextTriggerTime,
 		}
 	}
 	return result

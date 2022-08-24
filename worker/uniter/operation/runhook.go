@@ -5,13 +5,13 @@ package operation
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -294,7 +294,17 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
 		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
 	case hooks.SecretRotate:
-		err = rh.callbacks.SetSecretRotated(rh.info.SecretURI, time.Now())
+		var info map[string]jujuc.SecretMetadata
+		info, err = rh.runner.Context().SecretMetadata()
+		if err == nil {
+			originalRevision := 0
+			uri, _ := secrets.ParseURI(rh.info.SecretURI)
+			if m, ok := info[uri.ID]; ok {
+				originalRevision = m.LatestRevision
+			}
+			rh.logger.Debugf("set secret rotated for %q, original rev %v", rh.info.SecretURI, originalRevision)
+			err = rh.callbacks.SetSecretRotated(rh.info.SecretURI, originalRevision)
+		}
 	}
 	if err != nil {
 		return nil, err

@@ -31,7 +31,7 @@ type Logger interface {
 
 // SecretManagerFacade instances provide a watcher for secret rotation changes.
 type SecretManagerFacade interface {
-	WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRotationWatcher, error)
+	WatchSecretsRotationChanges(ownerTag string) (watcher.SecretTriggerWatcher, error)
 }
 
 // Config defines the operation of the Worker.
@@ -93,8 +93,7 @@ type Worker struct {
 
 	secrets map[string]secretRotateInfo
 
-	nextTimeout time.Time
-	timer       clock.Timer
+	timer clock.Timer
 }
 
 // Kill is defined on worker.Worker.
@@ -139,7 +138,9 @@ func (w *Worker) rotate(now time.Time) {
 
 	var toRotate []string
 	for id, info := range w.secrets {
-		if !info.rotateTime.After(now) {
+		w.config.Logger.Debugf("rotate %s at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
+		// A one minute granularity is acceptable for secret rotation.
+		if info.rotateTime.Truncate(time.Minute).Before(now) {
 			toRotate = append(toRotate, info.URI.ShortString())
 			// Once secret has been queued for rotation, delete it here since
 			// it will re-appear via the watcher after the rotation is actually
@@ -155,25 +156,26 @@ func (w *Worker) rotate(now time.Time) {
 		case w.config.RotateSecrets <- toRotate:
 		}
 	}
-	w.nextTimeout = time.Time{}
 	w.computeNextRotateTime()
 }
 
-func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretRotationChange) {
+func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange) {
 	w.config.Logger.Tracef("got rotate secret changes: %# v", pretty.Formatter(changes))
 	if len(changes) == 0 {
 		return
 	}
 
+	zero := time.Time{}
 	for _, ch := range changes {
-		// Rotate interval of 0 means the rotation has been deleted.
-		if ch.RotateInterval == 0 {
-			delete(w.secrets, ch.URI.ShortString())
+		// Next rotate time of 0 means the rotation has been deleted.
+		if ch.NextTriggerTime == zero {
+			w.config.Logger.Debugf("secret no longer rotated: %v", ch.URI.ShortString())
+			delete(w.secrets, ch.URI.ID)
 			continue
 		}
-		w.secrets[ch.URI.ShortString()] = secretRotateInfo{
+		w.secrets[ch.URI.ID] = secretRotateInfo{
 			URI:        ch.URI,
-			rotateTime: ch.LastRotateTime.Add(ch.RotateInterval),
+			rotateTime: ch.NextTriggerTime,
 		}
 	}
 	w.computeNextRotateTime()
@@ -188,32 +190,23 @@ func (w *Worker) computeNextRotateTime() {
 	}
 
 	// Find the minimum (next) rotateTime from all the secrets.
-	var nextTick time.Time
+	var soonestRotateTime time.Time
 	for _, info := range w.secrets {
-		if !nextTick.IsZero() && info.rotateTime.After(nextTick) {
+		if !soonestRotateTime.IsZero() && info.rotateTime.After(soonestRotateTime) {
 			continue
 		}
-		nextTick = info.rotateTime
+		soonestRotateTime = info.rotateTime
 	}
 
 	// Account for the worker not running when a secret
 	// should have been rotated.
 	now := w.config.Clock.Now()
-	if !nextTick.After(now) {
-		nextTick = now
+	if soonestRotateTime.Before(w.config.Clock.Now()) {
+		soonestRotateTime = now
 	}
 
-	// If the next secret rotation time is after or equal to the existing
-	// timeout, retain the existing timeout.
-	if !w.nextTimeout.IsZero() && !nextTick.Before(w.nextTimeout) {
-		w.config.Logger.Tracef("retaining rotate time for next secret for %q: will rotate at %s", w.config.SecretOwner, w.nextTimeout)
-		return
-	}
-
-	w.nextTimeout = nextTick
-	// A one minute granularity is acceptable for secret rotation.
-	nextDuration := w.nextTimeout.Sub(now).Round(time.Minute)
-	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwner, nextDuration, w.nextTimeout)
+	nextDuration := soonestRotateTime.Sub(now)
+	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwner, nextDuration, soonestRotateTime)
 
 	if w.timer == nil {
 		w.timer = w.config.Clock.NewTimer(nextDuration)

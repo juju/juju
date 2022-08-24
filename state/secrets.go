@@ -95,8 +95,7 @@ type secretMetadataDoc struct {
 	// expire time of the latest revision doc,
 	LatestExpireTime *time.Time `bson:"latest-expire-time"`
 
-	RotatePolicy   string     `bson:"rotate-policy"`
-	NextRotateTime *time.Time `bson:"next-rotate-time"`
+	RotatePolicy string `bson:"rotate-policy"`
 
 	CreateTime time.Time `bson:"create-time"`
 	UpdateTime time.Time `bson:"update-time"`
@@ -171,9 +170,6 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 	}
 	if p.RotatePolicy != nil {
 		doc.RotatePolicy = string(toValue(p.RotatePolicy))
-	}
-	if p.NextRotateTime != nil {
-		doc.NextRotateTime = ptr(toValue(p.NextRotateTime).Round(time.Second).UTC())
 	}
 	if p.ExpireTime != nil {
 		doc.LatestExpireTime = ptr(toValue(p.ExpireTime).Round(time.Second).UTC())
@@ -251,18 +247,20 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 				Insert: *valueDoc,
 			}, isOwnerAliveOp,
 		}
-		rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
-		if err != nil {
-			return nil, errors.Trace(err)
+		if p.NextRotateTime != nil {
+			rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, rotateOps...)
 		}
-		ops = append(ops, rotateOps...)
 		return ops, nil
 	}
 	err = s.st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.toSecretMetadata(metadataDoc)
+	return s.toSecretMetadata(metadataDoc, p.NextRotateTime)
 }
 
 func (st *State) checkExists(uri *secrets.URI) error {
@@ -283,6 +281,12 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 	if !p.hasUpdate() {
 		return nil, errors.New("must specify a new value or metadata to update a secret")
 	}
+	// Used later but look up early and return if it fails.
+	nextRotateTime, err := s.st.nextRotateTime(uri.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
@@ -347,7 +351,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 				Update: bson.M{"$set": bson.M{"expire-time": p.ExpireTime}},
 			})
 		}
-		if p.RotatePolicy != nil {
+		if p.RotatePolicy != nil || p.NextRotateTime != nil {
 			rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -356,14 +360,29 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		return ops, nil
 	}
-	err := s.st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
+	err = s.st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.toSecretMetadata(&metadataDoc)
+	return s.toSecretMetadata(&metadataDoc, nextRotateTime)
 }
 
-func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.SecretMetadata, error) {
+func (st *State) nextRotateTime(docID string) (*time.Time, error) {
+	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+	defer closer()
+
+	var rotateDoc secretRotationDoc
+	err := secretRotateCollection.FindId(docID).One(&rotateDoc)
+	if err == mgo.ErrNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &rotateDoc.NextRotateTime, nil
+}
+
+func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *time.Time) (*secrets.SecretMetadata, error) {
 	uri, err := secrets.ParseURI(doc.DocID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -373,7 +392,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc) (*secrets.Secret
 		URI:              uri,
 		Version:          doc.Version,
 		RotatePolicy:     secrets.RotatePolicy(doc.RotatePolicy),
-		NextRotateTime:   doc.NextRotateTime,
+		NextRotateTime:   nextRotateTime,
 		LatestRevision:   doc.LatestRevision,
 		LatestExpireTime: doc.LatestExpireTime,
 		Description:      doc.Description,
@@ -487,7 +506,7 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 
 	var doc secretRevisionDoc
 	err := secretValuesCollection.FindId(secretRevisionKey(uri, revision)).One(&doc)
-	if errors.Cause(err) == mgo.ErrNotFound {
+	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret %q", uri.String())
 	}
 	if err != nil {
@@ -507,13 +526,17 @@ func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, err
 
 	var doc secretMetadataDoc
 	err := secretMetadataCollection.FindId(uri.ID).One(&doc)
-	if errors.Cause(err) == mgo.ErrNotFound {
+	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret %q", uri.String())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.toSecretMetadata(&doc)
+	nextRotateTime, err := s.st.nextRotateTime(uri.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.toSecretMetadata(&doc, nextRotateTime)
 }
 
 // ListSecrets list the secrets using the specified filter.
@@ -536,7 +559,11 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	}
 	result := make([]*secrets.SecretMetadata, len(docs))
 	for i, doc := range docs {
-		result[i], err = s.toSecretMetadata(&doc)
+		nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result[i], err = s.toSecretMetadata(&doc, nextRotateTime)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -966,8 +993,6 @@ type secretRotationDoc struct {
 	DocID    string `bson:"_id"`
 	TxnRevno int64  `bson:"txn-revno"`
 
-	LastRotateTime time.Time `bson:"last-rotate-time"`
-
 	// These fields are denormalised here so that the watcher
 	// only needs to access this collection.
 	NextRotateTime time.Time `bson:"next-rotate-time"`
@@ -976,7 +1001,7 @@ type secretRotationDoc struct {
 
 func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotatePolicy *secrets.RotatePolicy, nextRotateTime *time.Time) ([]txn.Op, error) {
 	secretKey := uri.ID
-	if p := toValue(rotatePolicy); p == "" || p == secrets.RotateNever {
+	if rotatePolicy != nil && !rotatePolicy.WillRotate() {
 		return []txn.Op{{
 			C:      secretRotateC,
 			Id:     secretKey,
@@ -1000,7 +1025,6 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateP
 				DocID:          secretKey,
 				NextRotateTime: (*nextRotateTime).Round(time.Second).UTC(),
 				Owner:          owner,
-				LastRotateTime: s.st.nowToTheSecond().UTC(),
 			},
 		}}, nil
 	} else if err != nil {
@@ -1010,16 +1034,15 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateP
 		C:      secretRotateC,
 		Id:     secretKey,
 		Assert: txn.DocExists,
-		Update: bson.M{"$set": bson.M{"rotate-time": nextRotateTime}},
+		Update: bson.M{"$set": bson.M{"next-rotate-time": nextRotateTime.Round(time.Second).UTC()}},
 	}}, nil
 }
 
 // SecretRotated records when the given secret was rotated.
-func (st *State) SecretRotated(uri *secrets.URI, when time.Time) error {
+func (st *State) SecretRotated(uri *secrets.URI, next time.Time) error {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
 
-	when = when.Round(time.Second).UTC()
 	secretKey := uri.ID
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if err := st.checkExists(uri); err != nil {
@@ -1034,16 +1057,17 @@ func (st *State) SecretRotated(uri *secrets.URI, when time.Time) error {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// If the secret has already been rotated for a time after what we
-		// are trying to set here, keep the newer time.
-		if attempt > 0 && currentDoc.LastRotateTime.After(when) {
+		// If next rotate time is sooner than our proposed time, keep the existing value.
+		if attempt > 0 && currentDoc.NextRotateTime.Before(next) {
 			return nil, jujutxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
 			C:      secretRotateC,
 			Id:     secretKey,
 			Assert: bson.D{{"txn-revno", currentDoc.TxnRevno}},
-			Update: bson.M{"$set": bson.M{"last-rotate-time": when}},
+			Update: bson.M{"$set": bson.M{
+				"next-rotate-time": next,
+			}},
 		}}
 		return ops, nil
 	}
@@ -1059,7 +1083,7 @@ func (st *State) WatchSecretsRotationChanges(owner string) SecretsRotationWatche
 // SecretsRotationWatcher defines a watcher for secret rotation config.
 type SecretsRotationWatcher interface {
 	Watcher
-	Changes() corewatcher.SecretRotationChannel
+	Changes() corewatcher.SecretTriggerChannel
 }
 
 type rotateWatcherDetails struct {
@@ -1069,7 +1093,7 @@ type rotateWatcherDetails struct {
 
 type secretsRotationWatcher struct {
 	commonWatcher
-	out chan []corewatcher.SecretRotationChange
+	out chan []corewatcher.SecretTriggerChange
 
 	owner string
 	known map[string]rotateWatcherDetails
@@ -1078,7 +1102,7 @@ type secretsRotationWatcher struct {
 func newSecretsRotationWatcher(backend modelBackend, owner string) *secretsRotationWatcher {
 	w := &secretsRotationWatcher{
 		commonWatcher: newCommonWatcher(backend),
-		out:           make(chan []corewatcher.SecretRotationChange),
+		out:           make(chan []corewatcher.SecretTriggerChange),
 		known:         make(map[string]rotateWatcherDetails),
 		owner:         owner,
 	}
@@ -1089,15 +1113,14 @@ func newSecretsRotationWatcher(backend modelBackend, owner string) *secretsRotat
 	return w
 }
 
-// Changes returns a channel that will receive changes when units enter and
-// leave a relation scope. The Entered field in the first event on the channel
-// holds the initial state.
-func (w *secretsRotationWatcher) Changes() corewatcher.SecretRotationChannel {
+// Changes returns a channel that will receive changes when the next rotate time
+// for a secret changes.
+func (w *secretsRotationWatcher) Changes() corewatcher.SecretTriggerChannel {
 	return w.out
 }
 
-func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretRotationChange, error) {
-	var details []corewatcher.SecretRotationChange
+func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretTriggerChange, error) {
+	var details []corewatcher.SecretTriggerChange
 
 	var doc secretRotationDoc
 	secretRotateCollection, closer := w.db.GetCollection(secretRotateC)
@@ -1115,42 +1138,44 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretRotationChange, 
 			txnRevNo: doc.TxnRevno,
 			URI:      uri,
 		}
-		details = append(details, corewatcher.SecretRotationChange{
-			URI: uri,
-			// TODO(wallyworld) - fix rotation to work with rotate policy
-			RotateInterval: 0,
-			LastRotateTime: doc.LastRotateTime.UTC(),
+		details = append(details, corewatcher.SecretTriggerChange{
+			URI:             uri,
+			NextTriggerTime: doc.NextRotateTime.UTC(),
 		})
 	}
 	return details, errors.Trace(iter.Close())
 }
 
-func (w *secretsRotationWatcher) merge(details []corewatcher.SecretRotationChange, change watcher.Change) ([]corewatcher.SecretRotationChange, error) {
+func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange, change watcher.Change) ([]corewatcher.SecretTriggerChange, error) {
 	changeID := change.Id.(string)
 	knownDetails, known := w.known[changeID]
 
 	doc := secretRotationDoc{}
 	if change.Revno >= 0 {
+		// Record added or updated.
 		secretsRotationColl, closer := w.db.GetCollection(secretRotateC)
 		defer closer()
 		err := secretsRotationColl.Find(bson.D{{"_id", change.Id}, {"owner-tag", w.owner}}).One(&doc)
-		if err != nil && errors.Cause(err) != mgo.ErrNotFound {
+		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
+		// Chenged but no longer in the collection so ignore.
 		if err != nil {
 			return details, nil
 		}
 	} else if known {
+		// Record deleted.
+		delete(w.known, changeID)
+		deletedDetails := corewatcher.SecretTriggerChange{
+			URI: knownDetails.URI,
+		}
 		for i, detail := range details {
 			if detail.URI.ID == changeID {
-				details[i].RotateInterval = 0
+				details[i] = deletedDetails
 				return details, nil
 			}
 		}
-		details = append(details, corewatcher.SecretRotationChange{
-			URI:            knownDetails.URI,
-			RotateInterval: 0,
-		})
+		details = append(details, deletedDetails)
 		return details, nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
@@ -1163,11 +1188,9 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretRotationChang
 			txnRevNo: doc.TxnRevno,
 			URI:      uri,
 		}
-		details = append(details, corewatcher.SecretRotationChange{
-			URI: uri,
-			// TODO(wallyworld) - fix rotation to work with rotate policy
-			RotateInterval: 0,
-			LastRotateTime: doc.LastRotateTime.UTC(),
+		details = append(details, corewatcher.SecretTriggerChange{
+			URI:             uri,
+			NextTriggerTime: doc.NextRotateTime.UTC(),
 		})
 	}
 	return details, nil

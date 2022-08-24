@@ -192,6 +192,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	expectURI.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsService.EXPECT().GetSecret(gomock.Any(), &expectURI).Return(&coresecrets.SecretMetadata{}, nil)
 	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).DoAndReturn(
 		func(_ context.Context, uri *coresecrets.URI, p secrets.UpsertParams) (*coresecrets.SecretMetadata, error) {
 			md := &coresecrets.SecretMetadata{
@@ -287,24 +288,37 @@ func (s *SecretsManagerSuite) TestGetLatestSecretsRevisionInfo(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestGetSecretIds(c *gc.C) {
+func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	now := time.Now()
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	s.secretsService.EXPECT().ListSecrets(
 		gomock.Any(), secrets.Filter{
 			OwnerTag: ptr("application-mariadb"),
-		}).Return([]*coresecrets.SecretMetadata{{URI: uri, Label: "label"}}, nil, nil)
+		}).Return([]*coresecrets.SecretMetadata{{
+		URI:              uri,
+		Description:      "description",
+		Label:            "label",
+		RotatePolicy:     coresecrets.RotateHourly,
+		LatestRevision:   666,
+		LatestExpireTime: &now,
+		NextRotateTime:   &now,
+	}}, nil, nil)
 
-	results, err := s.facade.GetSecretIds()
+	results, err := s.facade.GetSecretMetadata()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretIdResults{
-		Result: map[string]params.SecretIdResult{
-			uri.ShortString(): {
-				Label: "label",
-			},
-		},
+	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
+		Results: []params.ListSecretResult{{
+			URI:              uri.ShortString(),
+			Description:      "description",
+			Label:            "label",
+			RotatePolicy:     coresecrets.RotateHourly.String(),
+			LatestRevision:   666,
+			LatestExpireTime: &now,
+			NextRotateTime:   &now,
+		}},
 	})
 }
 
@@ -424,12 +438,12 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	)
 	s.resources.EXPECT().Register(s.secretsRotationWatcher).Return("1")
 
+	next := time.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()
-	rotateChan := make(chan []corewatcher.SecretRotationChange, 1)
-	rotateChan <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: time.Time{},
+	rotateChan := make(chan []corewatcher.SecretTriggerChange, 1)
+	rotateChan <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: next,
 	}}
 	s.secretsRotationWatcher.EXPECT().Changes().Return(rotateChan)
 
@@ -441,13 +455,12 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretRotationWatchResults{
-		Results: []params.SecretRotationWatchResult{{
-			SecretRotationWatcherId: "1",
-			Changes: []params.SecretRotationChange{{
-				URI:            uri.String(),
-				RotateInterval: time.Hour,
-				LastRotateTime: time.Time{},
+	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResults{
+		Results: []params.SecretTriggerWatchResult{{
+			WatcherId: "1",
+			Changes: []params.SecretTriggerChange{{
+				URI:             uri.String(),
+				NextTriggerTime: next,
 			}},
 		}, {
 			Error: &params.Error{Code: "unauthorized access", Message: "permission denied"},
@@ -460,16 +473,18 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri.ControllerUUID = coretesting.ControllerTag.Id()
-	now := time.Now()
-	s.secretsRotationService.EXPECT().SecretRotated(uri, now).Return(errors.New("boom"))
+	nextRotateTime := s.clock.Now().Add(time.Hour)
+	s.secretsRotationService.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
 	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		OwnerTag: "application-mariadb",
+		OwnerTag:       "application-mariadb",
+		RotatePolicy:   coresecrets.RotateHourly,
+		LatestRevision: 667,
 	}, nil)
 
 	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:  uri.ShortString(),
-			When: now,
+			URI:              uri.ShortString(),
+			OriginalRevision: 666,
 		}, {
 			URI: "bad",
 		}},
@@ -484,6 +499,58 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 				Error: &params.Error{Code: params.CodeNotValid, Message: `secret URI "bad" not valid`},
 			},
 		},
+	})
+}
+
+func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+	nextRotateTime := s.clock.Now().Add(coresecrets.RotateRetryDelay)
+	s.secretsRotationService.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
+	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
+		OwnerTag:       "application-mariadb",
+		RotatePolicy:   coresecrets.RotateHourly,
+		LatestRevision: 666,
+	}, nil)
+
+	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+		Args: []params.SecretRotatedArg{{
+			URI:              uri.ShortString(),
+			OriginalRevision: 666,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Code: "", Message: `boom`},
+			},
+		},
+	})
+}
+
+func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	uri.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsService.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
+		OwnerTag:       "application-mariadb",
+		RotatePolicy:   coresecrets.RotateNever,
+		LatestRevision: 667,
+	}, nil)
+
+	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+		Args: []params.SecretRotatedArg{{
+			URI:              uri.ShortString(),
+			OriginalRevision: 666,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
 	})
 }
 

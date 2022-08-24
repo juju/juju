@@ -4,8 +4,6 @@
 package secretsmanager
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -117,8 +115,8 @@ func (c *Client) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, e
 
 // SecretRevisionInfo holds info used to read a secret vale.
 type SecretRevisionInfo struct {
-	Revision int
-	Label    string
+	LatestRevision int
+	Label          string
 }
 
 // GetLatestSecretsRevisionInfo returns the current revision and labels for secrets consumed
@@ -147,38 +145,43 @@ func (c *Client) GetLatestSecretsRevisionInfo(unitName string, uris []string) (m
 			return nil, errors.Annotatef(err, "finding latest info for secret %q", uris[i])
 		}
 		info[uris[i]] = SecretRevisionInfo{
-			Revision: latest.Revision,
-			Label:    latest.Label,
+			LatestRevision: latest.Revision,
+			Label:          latest.Label,
 		}
 	}
 	return info, err
 }
 
-// SecretIds returns the caller's secret ids and their labels.
-func (c *Client) SecretIds() (map[*secrets.URI]string, error) {
-	var results params.SecretIdResults
-	err := c.facade.FacadeCall("GetSecretIds", nil, &results)
+// SecretMetadata returns metadata for the caller's secrets.
+func (c *Client) SecretMetadata() ([]secrets.SecretMetadata, error) {
+	var results params.ListSecretResults
+	err := c.facade.FacadeCall("GetSecretMetadata", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make(map[*secrets.URI]string)
-	if results.Error != nil {
-		return nil, apiservererrors.RestoreError(results.Error)
-	}
-	for id, info := range results.Result {
-		uri, err := secrets.ParseURI(id)
+	var result []secrets.SecretMetadata
+	for _, info := range results.Results {
+		uri, err := secrets.ParseURI(info.URI)
 		if err != nil {
-			return nil, errors.NotValidf("secret URI %q", id)
+			return nil, errors.NotValidf("secret URI %q", info.URI)
 		}
-		result[uri] = info.Label
+		result = append(result, secrets.SecretMetadata{
+			URI:              uri,
+			Description:      info.Description,
+			Label:            info.Label,
+			RotatePolicy:     secrets.RotatePolicy(info.RotatePolicy),
+			LatestRevision:   info.LatestRevision,
+			LatestExpireTime: info.LatestExpireTime,
+			NextRotateTime:   info.NextRotateTime,
+		})
 	}
 	return result, nil
 }
 
 // WatchSecretsRotationChanges returns a watcher which serves changes to
 // secrets rotation config for any secrets managed by the specified owner.
-func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRotationWatcher, error) {
-	var results params.SecretRotationWatchResults
+func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretTriggerWatcher, error) {
+	var results params.SecretTriggerWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: ownerTag}},
 	}
@@ -197,8 +200,8 @@ func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRot
 	return w, nil
 }
 
-// SecretRotated records when a secret was last rotated.
-func (c *Client) SecretRotated(uri string, when time.Time) error {
+// SecretRotated records the outcome of rotating a secret.
+func (c *Client) SecretRotated(uri string, oldRevision int) error {
 	secretUri, err := secrets.ParseURI(uri)
 	if err != nil {
 		return errors.Trace(err)
@@ -207,8 +210,8 @@ func (c *Client) SecretRotated(uri string, when time.Time) error {
 	var results params.ErrorResults
 	args := params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:  secretUri.String(),
-			When: when,
+			URI:              secretUri.String(),
+			OriginalRevision: oldRevision,
 		}},
 	}
 	err = c.facade.FacadeCall("SecretsRotated", args, &results)

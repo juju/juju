@@ -147,42 +147,38 @@ func (s *SecretsSuite) TestGetSecretsError(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
-func (s *SecretsSuite) TestGetSecretIds(c *gc.C) {
+func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
+	uri := secrets.NewURI()
+	now := time.Now()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetSecretIds")
+		c.Check(request, gc.Equals, "GetSecretMetadata")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.SecretIdResults{})
-		*(result.(*params.SecretIdResults)) = params.SecretIdResults{
-			Result: map[string]params.SecretIdResult{
-				"secret:9m4e2mr0ui3e8a215n4g": {Label: "label"},
-			},
+		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
+		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
+			Results: []params.ListSecretResult{{
+				URI:              uri.String(),
+				Label:            "label",
+				LatestRevision:   666,
+				NextRotateTime:   &now,
+				LatestExpireTime: &now,
+			}},
 		}
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.SecretIds()
+	result, err := client.SecretMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	for uri, label := range result {
-		c.Assert(uri.ShortString(), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-		c.Assert(label, gc.Equals, "label")
+	for _, info := range result {
+		c.Assert(info.URI.String(), gc.Equals, uri.String())
+		c.Assert(info.Label, gc.Equals, "label")
+		c.Assert(info.LatestRevision, gc.Equals, 666)
+		c.Assert(info.LatestExpireTime, gc.Equals, &now)
+		c.Assert(info.NextRotateTime, gc.Equals, &now)
 	}
-}
-
-func (s *SecretsSuite) TestGetSecretIdsError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.SecretIdResults)) = params.SecretIdResults{
-			Error: &params.Error{Message: "boom"},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.SecretIds()
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(result, gc.IsNil)
 }
 
 func (s *SecretsSuite) TestWatchSecretsChanges(c *gc.C) {
@@ -248,9 +244,9 @@ func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-app"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretRotationWatchResults{})
-		*(result.(*params.SecretRotationWatchResults)) = params.SecretRotationWatchResults{
-			[]params.SecretRotationWatchResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.SecretTriggerWatchResults{})
+		*(result.(*params.SecretTriggerWatchResults)) = params.SecretTriggerWatchResults{
+			[]params.SecretTriggerWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -262,7 +258,6 @@ func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
-	now := time.Now()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
@@ -270,8 +265,8 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 		c.Check(request, gc.Equals, "SecretsRotated")
 		c.Check(arg, jc.DeepEquals, params.SecretRotatedArgs{
 			Args: []params.SecretRotatedArg{{
-				URI:  "secret:9m4e2mr0ui3e8a215n4g",
-				When: now,
+				URI:              "secret:9m4e2mr0ui3e8a215n4g",
+				OriginalRevision: 666,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
@@ -283,6 +278,6 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	err := client.SecretRotated("secret:9m4e2mr0ui3e8a215n4g", now)
+	err := client.SecretRotated("secret:9m4e2mr0ui3e8a215n4g", 666)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

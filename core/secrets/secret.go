@@ -138,14 +138,18 @@ type SecretMetadata struct {
 	Provider string
 	// ProviderID is the ID/URI used by the underlying secrets provider.
 	ProviderID string
+
+	CreateTime time.Time
+	UpdateTime time.Time
+
+	// These are denormalised here for ease of access.
+
 	// LatestRevision is the most recent secret revision.
 	LatestRevision int
 	// LatestExpireTime is the expire time of the most recent revision.
 	LatestExpireTime *time.Time
-
+	// NextRotateTime is when the secret should be rotated.
 	NextRotateTime *time.Time
-	CreateTime     time.Time
-	UpdateTime     time.Time
 }
 
 // SecretRevisionMetadata holds metadata about a secret revision.
