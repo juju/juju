@@ -55,3 +55,14 @@ Then cd in to testcharms/charm-hub/charms/juju-qa-test and run
 charmcraft pack
 juju deploy juju-qa-test.charm
 ```
+
+## Releasing
+
+When releasing, use `juju charm-resources` as above to make sure you affiliate the charm with the correct resource.
+You can then do something like:
+
+```bash
+charmcraft release juju-qa-test --revision 19 --channel latest/stable --resource foo-file:2
+charmcraft release juju-qa-test --revision 20 --channel latest/candidate --resource foo-file:4
+charmcraft release juju-qa-test --revision 21 --channel latest/edge --resource foo-file:4
+```
