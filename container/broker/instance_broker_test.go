@@ -1,42 +1,50 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package broker
 
 import (
 	"io"
 	"os"
 	"reflect"
-	"testing"
+
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 )
+
+type instanceBrokerSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&instanceBrokerSuite{})
 
 func mockOpen(name string) (*os.File, error) {
 	return os.Open(".")
 }
 
-func mockReaddirnamesInterfaces(f *os.File, n int) (names []string, err error) {
+func mockReadDirNamesInterfaces(f *os.File, n int) (names []string, err error) {
 	return nil, io.EOF
 }
 
-func mockReaddirnamesNetplan(f *os.File, n int) (names []string, err error) {
+func mockReadDirNamesNetplan(f *os.File, n int) (names []string, err error) {
 	return nil, nil
 }
 
-func TestDefaultBridger(t *testing.T) {
-	openFunc = mockOpen
+func (s *instanceBrokerSuite) TestDefaultBridgerNetplan(c *gc.C) {
+	s.PatchValue(&openFunc, mockOpen)
+	s.PatchValue(&readDirFunc, mockReadDirNamesNetplan)
 
-	readDirFunc = mockReaddirnamesNetplan
 	bridger, err := defaultBridger()
-	if err != nil {
-		t.Fail()
-	}
-	if reflect.TypeOf(bridger).Elem().Name() != "netplanBridger" {
-		t.Fail()
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reflect.TypeOf(bridger).Elem().Name(), gc.Equals, "netplanBridger")
+}
 
-	readDirFunc = mockReaddirnamesInterfaces
-	bridger, err = defaultBridger()
-	if err != nil {
-		t.Fail()
-	}
-	if reflect.TypeOf(bridger).Elem().Name() != "etcNetworkInterfacesBridger" {
-		t.Fail()
-	}
+func (s *instanceBrokerSuite) TestDefaultBridgerInterfaces(c *gc.C) {
+	s.PatchValue(&openFunc, mockOpen)
+	s.PatchValue(&readDirFunc, mockReadDirNamesInterfaces)
+
+	bridger, err := defaultBridger()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reflect.TypeOf(bridger).Elem().Name(), gc.Equals, "etcNetworkInterfacesBridger")
 }
