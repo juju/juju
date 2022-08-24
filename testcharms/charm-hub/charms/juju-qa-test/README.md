@@ -20,8 +20,8 @@ Get your fortune
 | Version    | Revision | Channel          | Series                               |
 | ---------- | -------- | ---------------- | ------------------------------------ |
 | 1.1-stable | 19       | latest/stable    | focal, bionic, xenial                |
-| 1.4-cand   | 14       | latest/candidate | jammy, focal, bionic, xenial         |
-| 2.0-edge   | 20       | latest/edge      | groovy, jammy, focal, bionic, xenial |
+| 1.4-cand   | 20       | latest/candidate | jammy, focal, bionic, xenial         |
+| 2.0-edge   | 21       | latest/edge      | groovy, jammy, focal, bionic, xenial |
 | 8          | 8        | 2.0/stable       | disco, bionic, xenial, trusty        |
 | 10         | 10       | 2.0/edge         | disco, bionic, xenial, trusty        |
 
