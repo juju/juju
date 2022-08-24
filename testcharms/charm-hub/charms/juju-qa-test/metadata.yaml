@@ -16,5 +16,3 @@ resources:
     type: file
     filename: foo.txt
     description: "foo resource."
-
-
