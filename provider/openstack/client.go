@@ -130,7 +130,7 @@ func (c *ClientFactory) Init() error {
 	return nil
 }
 
-// AuthClient returns an goose AuthenticatingClient.
+// AuthClient returns a goose AuthenticatingClient.
 func (c *ClientFactory) AuthClient() client.AuthenticatingClient {
 	return c.authClient
 }
@@ -175,7 +175,7 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 		}
 
 		// Walk over the options to verify if the AuthUserPassV3 exists, if it
-		// does exist use that to attempt authenticate.
+		// does exist use that to attempt authentication.
 		var authOption *identity.AuthOption
 		for _, option := range authOptions {
 			if option.Mode == identity.AuthUserPassV3 {
@@ -201,9 +201,13 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 		}
 
 		// If the AuthUserPassV3 client can authenticate, use it.
-		// Otherwise fallback to the v2 client.
+		// Otherwise, fall back to the v2 client.
 		if err = newClientV3.Authenticate(); err == nil {
 			return newClientV3, nil
+		}
+		if identityClientVersion == 3 {
+			// We know it's a v3 server, so we can't fall back to v2.
+			return nil, errors.Trace(err)
 		}
 	}
 	return newClient, nil
