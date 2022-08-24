@@ -634,7 +634,7 @@ func (a *appWorker) refreshApplicationStatus(app caas.Application, appLife life.
 		// Only set status to waiting for scale up.
 		// When the application gets scaled down, the desired units will be kept running and
 		// the application should be active always.
-		return a.setApplicationStatus(status.Waiting, "waiting for units settled down", nil)
+		return a.setApplicationStatus(status.Waiting, "waiting for units to settle down", nil)
 	}
 	return a.setApplicationStatus(status.Active, "", nil)
 }
