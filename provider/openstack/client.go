@@ -201,7 +201,6 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 		}
 
 		// If the AuthUserPassV3 client can authenticate, use it.
-		// Otherwise, fall back to the v2 client.
 		if err = newClientV3.Authenticate(); err == nil {
 			return newClientV3, nil
 		}
@@ -209,6 +208,7 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 			// We know it's a v3 server, so we can't fall back to v2.
 			return nil, errors.Trace(err)
 		}
+		// Otherwise, fall back to the v2 client.
 	}
 	return newClient, nil
 }
