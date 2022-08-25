@@ -92,9 +92,9 @@ func (o *mergeMachineLinkLayerOp) Build(attempt int) ([]txn.Op, error) {
 // If we locate multiple existing devices with the hardware address,
 // such as will be the case for bridged NICs, fallback through the
 // following options.
-// - If there is a device that already has a provider ID, use that name.
-// - If the devices are of different types, choose an ethernet device over
-//   a bridge (as observed for MAAS).
+//   - If there is a device that already has a provider ID, use that name.
+//   - If the devices are of different types, choose an ethernet device over
+//     a bridge (as observed for MAAS).
 func (o *mergeMachineLinkLayerOp) normaliseIncoming() {
 	incoming := o.Incoming()
 

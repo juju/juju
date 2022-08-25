@@ -1081,12 +1081,12 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCa
 // createAvailabilitySet creates the availability set for a machine to use
 // if it doesn't already exist, and returns the availability set's ID. The
 // algorithm used for choosing the availability set is:
-//  - if the machine is a controller, use the availability set name
-//    "juju-controller";
-//  - if the machine has units assigned, create an availability
-//    name with a name based on the value of the tags.JujuUnitsDeployed tag
-//    in vmTags, if it exists;
-//  - otherwise, do not assign the machine to an availability set
+//   - if the machine is a controller, use the availability set name
+//     "juju-controller";
+//   - if the machine has units assigned, create an availability
+//     name with a name based on the value of the tags.JujuUnitsDeployed tag
+//     in vmTags, if it exists;
+//   - otherwise, do not assign the machine to an availability set
 func availabilitySetName(
 	vmName string,
 	vmTags map[string]string,

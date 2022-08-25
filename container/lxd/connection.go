@@ -163,6 +163,7 @@ func ConnectRemote(spec ServerSpec) (lxd.InstanceServer, error) {
 //   - LXD_DIR environment variable.
 //   - Snap socket.
 //   - Debian socket.
+//
 // An empty string is returned if no socket path can be determined.
 func SocketPath(isSocket func(path string) bool) string {
 	for _, maybePath := range []string{

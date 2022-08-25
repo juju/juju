@@ -12,8 +12,9 @@ import (
 // If called with an argument, d is set to the result of
 // time.ParseDuration().
 // eg:
-//   --wait
-//   --wait=10s
+//
+//	--wait
+//	--wait=10s
 type waitFlag struct {
 	forever bool
 	d       time.Duration

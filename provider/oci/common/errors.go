@@ -55,7 +55,8 @@ func IsAuthorisationFailure(err error) bool {
 }
 
 // HandleCredentialError marks the current credentials as invalid internally
-//  if Oracle believes that they are expired
+//
+//	if Oracle believes that they are expired
 func HandleCredentialError(err error, ctx context.ProviderCallContext) {
 	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 }

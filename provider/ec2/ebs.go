@@ -102,7 +102,8 @@ const (
 )
 
 // Limits for volume parameters. See:
-//   http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html
+//
+//	http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html
 const (
 	// minMagneticVolumeSizeGiB is the minimum size for magnetic volumes in GiB.
 	minMagneticVolumeSizeGiB = 1

@@ -16,6 +16,7 @@ import (
 // Machine is an indirection for use in container provisioning.
 // It is an indirection for both containerizer.Machine and
 // containerizer.Container as well as state.Machine locally.
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy,Unit,Application,Charm
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice
 type Machine interface {

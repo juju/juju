@@ -20,7 +20,7 @@ import (
 	storageprovider "github.com/juju/juju/storage/provider"
 )
 
-//ValidateStorageProvider returns an error if the storage type and config is not valid
+// ValidateStorageProvider returns an error if the storage type and config is not valid
 // for a Kubernetes deployment.
 func ValidateStorageProvider(providerType jujustorage.ProviderType, attributes map[string]interface{}) error {
 	switch providerType {

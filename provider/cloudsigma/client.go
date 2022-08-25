@@ -107,7 +107,7 @@ func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 	return m, nil
 }
 
-//getControllerIds get list of ids for all controller instances
+// getControllerIds get list of ids for all controller instances
 func (c *environClient) getControllerIds() (ids []instance.Id, err error) {
 	logger.Tracef("query state...")
 
@@ -130,7 +130,7 @@ func (c *environClient) getControllerIds() (ids []instance.Id, err error) {
 	return ids, nil
 }
 
-//stopInstance stops the CloudSigma server corresponding to the given instance ID.
+// stopInstance stops the CloudSigma server corresponding to the given instance ID.
 func (c *environClient) stopInstance(id instance.Id) error {
 	uuid := string(id)
 	if uuid == "" {
@@ -151,7 +151,7 @@ func (c *environClient) stopInstance(id instance.Id) error {
 	return nil
 }
 
-//newInstance creates and starts new instance.
+// newInstance creates and starts new instance.
 func (c *environClient) newInstance(
 	args environs.StartInstanceParams,
 	img *imagemetadata.ImageMetadata,

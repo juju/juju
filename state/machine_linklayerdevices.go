@@ -561,13 +561,13 @@ func (a *LinkLayerDeviceAddress) addressAndSubnet() (string, string, error) {
 // transaction. ProviderID field can be empty if not supported by the provider,
 // but when set must be unique within the model. Errors are returned in the
 // following cases:
-// - Machine is no longer alive or is missing;
-// - Subnet inferred from any CIDRAddress field in args is known but no longer
-//   alive (no error reported if the CIDRAddress does not match a known subnet);
-// - Model no longer alive;
-// - errors.NotValidError, when any of the fields in args contain invalid values;
-// - errors.NotFoundError, when any DeviceName in args refers to unknown device;
-// - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
+//   - Machine is no longer alive or is missing;
+//   - Subnet inferred from any CIDRAddress field in args is known but no longer
+//     alive (no error reported if the CIDRAddress does not match a known subnet);
+//   - Model no longer alive;
+//   - errors.NotValidError, when any of the fields in args contain invalid values;
+//   - errors.NotFoundError, when any DeviceName in args refers to unknown device;
+//   - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
 //
 // Deprecated: (manadart 2021-05-04) This method is only used by tests and is in
 // the process of removal. Do not add new usages of it.

@@ -13,8 +13,8 @@ import (
 
 // Schedule provides a schedule for storage operations, with the following
 // properties:
-//  - fast to add and remove items by key: O(log(n)); n is the total number of items
-//  - fast to identify/remove the next scheduled item: O(log(n))
+//   - fast to add and remove items by key: O(log(n)); n is the total number of items
+//   - fast to identify/remove the next scheduled item: O(log(n))
 type Schedule struct {
 	time  clock.Clock
 	items scheduleItems

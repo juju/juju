@@ -19,6 +19,7 @@ feature. The place for that is in unit tests within Juju Core.
 
 To run tests excluding the functional tests in this package, specify
 the "--featuretests=false" option:
+
 	go test github.com/juju/juju/... --featuretests=false
 */
 package featuretests

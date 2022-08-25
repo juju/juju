@@ -400,23 +400,25 @@ func ParseOneCloud(data []byte) (Cloud, error) {
 // The expected regular yaml formal is:
 //
 // clouds:
-//   garage-maas:
-//     type: maas
-//     auth-types: [oauth1]
-//     endpoint: "http://garagemaas"
-//     skip-tls-verify: true`
-//   ...
+//
+//	garage-maas:
+//	  type: maas
+//	  auth-types: [oauth1]
+//	  endpoint: "http://garagemaas"
+//	  skip-tls-verify: true`
+//	...
 //
 // It also accepts a yaml format without the 'clouds' key at the top,
 // e.g.
 //
 // garage-maas:
-//   type: maas
-//   auth-types: [oauth1]
-//   endpoint: "http://garagemaas"
-//   skip-tls-verify: true`
-// ...
 //
+//	type: maas
+//	auth-types: [oauth1]
+//	endpoint: "http://garagemaas"
+//	skip-tls-verify: true`
+//
+// ...
 func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	var metadata cloudSet
 

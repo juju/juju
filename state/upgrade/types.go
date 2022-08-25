@@ -20,9 +20,9 @@ var logger = loggo.GetLogger("juju.state.upgrade")
 // OldAddress27 represents the address stored prior to version 2.7 in the
 // collections: machines, cloudservices and cloudcontainers.
 // Note that we can reuse this type for the new form because:
-// - `omitempty` on SpaceName means we can set it as "" to remove.
-// - The bson field `spaceid` is the same for the old SpaceProviderId.
-//   and the new SpaceID.
+//   - `omitempty` on SpaceName means we can set it as "" to remove.
+//   - The bson field `spaceid` is the same for the old SpaceProviderId.
+//     and the new SpaceID.
 type OldAddress27 struct {
 	Value       string `bson:"value"`
 	AddressType string `bson:"addresstype"`

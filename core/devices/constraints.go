@@ -39,12 +39,12 @@ type Constraints struct {
 // The acceptable format for device constraints is a comma separated
 // sequence of: COUNT, TYPE, and ATTRIBUTES with format like
 //
-//    <device-name>=[<count>,]<device-class>|<vendor/type>[,<attributes>]
+//	<device-name>=[<count>,]<device-class>|<vendor/type>[,<attributes>]
 //
 // where
 //
-//    COUNT is the number of devices that the user has asked for - count min and max are the
-//    number of devices the charm requires. If unspecified, COUNT defaults to 1.
+//	COUNT is the number of devices that the user has asked for - count min and max are the
+//	number of devices the charm requires. If unspecified, COUNT defaults to 1.
 func ParseConstraints(s string) (Constraints, error) {
 	var cons Constraints
 

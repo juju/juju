@@ -27,7 +27,7 @@ type MemStore struct {
 	ImmutableAccount      bool
 }
 
-//NewMemStore returns a new MemStore.
+// NewMemStore returns a new MemStore.
 func NewMemStore() *MemStore {
 	return &MemStore{
 		Controllers:     make(map[string]ControllerDetails),
@@ -39,7 +39,7 @@ func NewMemStore() *MemStore {
 	}
 }
 
-//NewEmbeddedMemStore returns a new MemStore used with the embedded CLI.
+// NewEmbeddedMemStore returns a new MemStore used with the embedded CLI.
 // The account details are immutable once set.
 func NewEmbeddedMemStore() *MemStore {
 	s := NewMemStore()

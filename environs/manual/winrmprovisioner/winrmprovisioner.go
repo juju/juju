@@ -43,20 +43,19 @@ const detectJujudProcess = `
 `
 
 // detectHardware is a powershell script that determines the following:
-//  - the processor architecture
-//		will try to determine the size of a int ptr, we know that any ptr on a x64 is
-//		always 8 bytes and on x32 4 bytes always
-//	- get the amount of ram the machine has
-//		Use a WMI call to fetch the amount of RAM on the system. See:
-//		https://msdn.microsoft.com/en-us/library/aa394347%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
-//		for more details
-//  - get the operating system name
-//      compare the values we find in the registry with the version information
-//		juju knows about. Once we find a match, we return the series
-//  - get number of cores that the machine has
-//		the process is using the Wmi windows Api to interrogate the os for
-//		the physical number of cores that the machine has.
-//
+//   - the processor architecture
+//     will try to determine the size of a int ptr, we know that any ptr on a x64 is
+//     always 8 bytes and on x32 4 bytes always
+//   - get the amount of ram the machine has
+//     Use a WMI call to fetch the amount of RAM on the system. See:
+//     https://msdn.microsoft.com/en-us/library/aa394347%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
+//     for more details
+//   - get the operating system name
+//     compare the values we find in the registry with the version information
+//     juju knows about. Once we find a match, we return the series
+//   - get number of cores that the machine has
+//     the process is using the Wmi windows Api to interrogate the os for
+//     the physical number of cores that the machine has.
 const detectHardware = `
 function Get-Arch {
 	$arch = (Get-ItemProperty "HKLM:\system\CurrentControlSet\Control\Session Manager\Environment").PROCESSOR_ARCHITECTURE
@@ -414,10 +413,11 @@ func DetectSeriesAndHardwareCharacteristics(host string, cli manual.WinrmClientA
 // initHC it will initialize the hardware characteristics struct with the
 // parsed and checked info slice string
 // info description :
-//  - info[0] the arch of the machine
-//  - info[1] the amount of memory that the machine has
-//  - info[2] the series of the machine
-//  - info[3] the number of cores that the machine has
+//   - info[0] the arch of the machine
+//   - info[1] the amount of memory that the machine has
+//   - info[2] the series of the machine
+//   - info[3] the number of cores that the machine has
+//
 // It returns nil if it parsed successfully.
 func initHC(hc *instance.HardwareCharacteristics, info []string) error {
 	// add arch

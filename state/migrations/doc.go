@@ -13,12 +13,12 @@
 // wise.
 //
 // Concept:
-//  The key concept is to remove code (complexities) from the state package that
-//  could be easily modelled somewhere else.
+//
+//	The key concept is to remove code (complexities) from the state package that
+//	could be easily modelled somewhere else.
 //
 // Steps:
-//  - Create a new Migration that can perform the execution.
-//  - Create a source (src) and destination (dst) point of use interface
-//  - Migrate from source to destination models.
-//
+//   - Create a new Migration that can perform the execution.
+//   - Create a source (src) and destination (dst) point of use interface
+//   - Migrate from source to destination models.
 package migrations

@@ -16,8 +16,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-//ValidationWarning are JSON schema validation errors used to warn users about
-//potential schema violations
+// ValidationWarning are JSON schema validation errors used to warn users about
+// potential schema violations
 type ValidationWarning struct {
 	Messages []string
 }

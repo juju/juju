@@ -66,7 +66,6 @@ type History []DetailedStatus
 
 // HistoryKind represents the possible types of
 // status history entries.
-//
 type HistoryKind string
 
 // IMPORTANT DEV NOTE: when changing this HistoryKind list in any way, these may need to be revised:

@@ -44,7 +44,7 @@ func (s *RestoreInfoSuite) TestSetBadStatus(c *gc.C) {
 	s.checkStatus(c, state.RestoreNotActive)
 }
 
-//--------------------------------------
+// --------------------------------------
 // Whitebox race tests to trigger different paths through the SetStatus
 // code; use arbitrary sample transitions, full set of valid transitions
 // are checked further down.
@@ -109,7 +109,7 @@ func (s *RestoreInfoSuite) TestUpdateRaceExhaustion(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "setting status \"RESTORING\": state changing too quickly; try again soon")
 }
 
-//--------------------------------------
+// --------------------------------------
 // Test NotActive -> ? transitions
 func (s *RestoreInfoSuite) TestNotActiveSetNotActive(c *gc.C) {
 	s.checkSetStatus(c, state.RestoreNotActive)
@@ -131,7 +131,7 @@ func (s *RestoreInfoSuite) TestNotActiveSetFailed(c *gc.C) {
 	s.checkBadSetStatus(c, state.RestoreFailed)
 }
 
-//--------------------------------------
+// --------------------------------------
 // Test Pending -> ? transitions
 func (s *RestoreInfoSuite) setupPending(c *gc.C) {
 	s.checkSetStatus(c, state.RestorePending)
@@ -162,7 +162,7 @@ func (s *RestoreInfoSuite) TestPendingSetFailed(c *gc.C) {
 	s.checkSetStatus(c, state.RestoreFailed)
 }
 
-//--------------------------------------
+// --------------------------------------
 // Test InProgress -> ? transitions
 func (s *RestoreInfoSuite) setupInProgress(c *gc.C) {
 	s.checkSetStatus(c, state.RestorePending)
@@ -199,7 +199,7 @@ func (s *RestoreInfoSuite) TestInProgressSetFailed(c *gc.C) {
 	s.checkSetStatus(c, state.RestoreFailed)
 }
 
-//--------------------------------------
+// --------------------------------------
 // Test Finished -> ? transitions
 func (s *RestoreInfoSuite) setupFinished(c *gc.C) {
 	s.checkSetStatus(c, state.RestorePending)
@@ -237,7 +237,7 @@ func (s *RestoreInfoSuite) TestFinishedSetFailed(c *gc.C) {
 	s.checkSetStatus(c, state.RestoreFailed)
 }
 
-//--------------------------------------
+// --------------------------------------
 // Test Checked -> ? transitions
 func (s *RestoreInfoSuite) setupChecked(c *gc.C) {
 	s.checkSetStatus(c, state.RestorePending)
@@ -271,7 +271,7 @@ func (s *RestoreInfoSuite) TestCheckedSetFailed(c *gc.C) {
 	s.checkBadSetStatus(c, state.RestoreFailed)
 }
 
-//--------------------------------------
+// --------------------------------------
 // Test Failed -> ? transitions
 func (s *RestoreInfoSuite) setupFailed(c *gc.C) {
 	s.checkSetStatus(c, state.RestorePending)

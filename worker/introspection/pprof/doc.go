@@ -4,11 +4,11 @@
 // Package pprof is a fork of net/http/pprof modified to communicate
 // over a unix socket.
 //
-// Changes from the original version
+// # Changes from the original version
 //
-// - This fork does not automatically register itself with the default
-//   net/http ServeMux.
-// - To start the pprof handler, see the Start method in socket.go.
+//   - This fork does not automatically register itself with the default
+//     net/http ServeMux.
+//   - To start the pprof handler, see the Start method in socket.go.
 //
 // ---------------------------------------------------------------
 //
@@ -22,15 +22,16 @@
 // The handled paths all begin with /debug/pprof/.
 //
 // To use pprof, link this package into your program:
+//
 //	import _ "net/http/pprof"
 //
 // If your application is not already running an http server, you
 // need to start one.  Add "net/http" and "log" to your imports and
 // the following code to your main function:
 //
-// 	go func() {
-// 		log.Println(http.ListenAndServe("localhost:6060", nil))
-// 	}()
+//	go func() {
+//		log.Println(http.ListenAndServe("localhost:6060", nil))
+//	}()
 //
 // Then use the pprof tool to look at the heap profile:
 //
@@ -54,5 +55,4 @@
 // For a study of the facility in action, visit
 //
 //	https://blog.golang.org/2011/06/profiling-go-programs.html
-//
 package pprof

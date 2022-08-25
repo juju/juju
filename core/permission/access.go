@@ -81,7 +81,7 @@ func ValidateCloudAccess(access Access) error {
 	return errors.NotValidf("%q cloud access", access)
 }
 
-//ValidateControllerAccess returns error if the passed access is not a valid
+// ValidateControllerAccess returns error if the passed access is not a valid
 // controller access level.
 func ValidateControllerAccess(access Access) error {
 	switch access {
