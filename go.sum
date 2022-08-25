@@ -271,8 +271,8 @@ github.com/go-logr/logr v0.4.0/go.mod h1:z6/tIYblkpsD+a4lm/fGIIU9mZ+XfAiaFtq7xTg
 github.com/go-logr/logr v1.2.0/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.2.2 h1:ahHml/yUpnlb96Rp8HCvtYVPY8ZYpxq3g7UYchIYwbs=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
-github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20220204130128-afeebcc9521d h1:qe4cql36BGR0CEt5C2fn8DXskZCHbC8PX36e+y13yF0=
-github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20220204130128-afeebcc9521d/go.mod h1:H59IYeChwvD1po3dhGUPvq5na+4NVD7SJlbhGKvslr0=
+github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1 h1:uvQJoKTHrFFu8zxoaopNKedRzwdy3+8H72we4T/5cGs=
+github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1/go.mod h1:H59IYeChwvD1po3dhGUPvq5na+4NVD7SJlbhGKvslr0=
 github.com/go-macaroon-bakery/macaroonpb v1.0.0 h1:It9exBaRMZ9iix1iJ6gwzfwsDE6ExNuwtAJ9e09v6XE=
 github.com/go-macaroon-bakery/macaroonpb v1.0.0/go.mod h1:UzrGOcbiwTXISFP2XDLDPjfhMINZa+fX/7A2lMd31zc=
 github.com/go-openapi/jsonpointer v0.19.2/go.mod h1:3akKfEdA7DF1sugOqz1dVQHBcuDBPKZGEoHC/NkiQRg=

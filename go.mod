@@ -35,7 +35,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4
 	github.com/go-logr/logr v1.2.2
-	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.0-20220204130128-afeebcc9521d
+	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
 	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/go-querystring v1.0.0
