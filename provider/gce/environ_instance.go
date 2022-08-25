@@ -175,7 +175,7 @@ func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement st
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
-// checkInstanceType is used to ensure the the provided constraints
+// checkInstanceType is used to ensure the provided constraints
 // specify a recognized instance type.
 func (env *environ) checkInstanceType(ctx context.ProviderCallContext, cons constraints.Value) bool {
 	if cons.InstanceType == nil || *cons.InstanceType == "" {

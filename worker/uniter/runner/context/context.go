@@ -1335,7 +1335,7 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 // finalizeAction passes back the final status of an Action hook to state.
 // It wraps any errors which occurred in normal behavior of the Action run;
 // only errors passed in unhandledErr will be returned.
-func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
+func (ctx *HookContext) finalizeAction(err, flushErr error) error {
 	// TODO (binary132): synchronize with gsamfira's reboot logic
 	ctx.actionDataMu.Lock()
 	defer ctx.actionDataMu.Unlock()
@@ -1352,14 +1352,6 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		}
 	}
 
-	// If the action completed without an error but we failed to flush the
-	// charm state changes due to a quota limit, we should attach the error
-	// to the action.
-	if err == nil && errors.IsQuotaLimitExceeded(unhandledErr) {
-		err = unhandledErr
-		unhandledErr = nil
-	}
-
 	// If we had an action error, we'll simply encapsulate it in the response
 	// and discard the error state.  Actions should not error the uniter.
 	if err != nil {
@@ -1374,6 +1366,23 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 			actionStatus = params.ActionFailed
 		}
 	}
+	if flushErr != nil {
+		if results == nil {
+			results = map[string]interface{}{}
+		}
+		if stderr, ok := results["stderr"].(string); ok {
+			results["stderr"] = stderr + "\n" + flushErr.Error()
+		} else {
+			results["stderr"] = flushErr.Error()
+		}
+		if code, ok := results["return-code"]; !ok || code == "0" {
+			results["return-code"] = "1"
+		}
+		actionStatus = params.ActionFailed
+		if message == "" {
+			message = "committing requested changes failed"
+		}
+	}
 
 	callErr := ctx.state.ActionFinish(tag, actionStatus, results, message)
 	// Prevent the unit agent from looping if it's impossible to finalise the action.
@@ -1381,10 +1390,7 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		ctx.logger.Warningf("error finalising action %v: %v", tag.Id(), callErr)
 		callErr = nil
 	}
-	if callErr != nil {
-		unhandledErr = errors.Wrap(unhandledErr, callErr)
-	}
-	return unhandledErr
+	return errors.Trace(callErr)
 }
 
 // killCharmHook tries to kill the current running charm hook.

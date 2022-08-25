@@ -177,7 +177,7 @@ func (s *actionsSuite) TestNextActionBlockedRemoteInitSkipHook(c *gc.C) {
 
 func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
 	actionResolver := s.newResolver()
-	var actionA string = "actionA"
+	actionA := "actionA"
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -191,12 +191,12 @@ func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
+	c.Assert(op, jc.DeepEquals, mockOp(actionA))
 }
 
 func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *gc.C) {
 	actionResolver := s.newResolver()
-	var actionA string = "actionA"
+	actionA := "actionA"
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -216,7 +216,7 @@ func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *gc.C) {
 
 func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
 	actionResolver := s.newResolver()
-	var actionA string = "actionA"
+	actionA := "actionA"
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -226,11 +226,31 @@ func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
 		CompletedActions: map[string]struct{}{},
 	}
 	remoteState := remotestate.Snapshot{
-		ActionsPending: []string{"actionA", "actionB"},
+		ActionsPending: []string{actionA, "actionB"},
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction("actionA"))
+	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
+}
+
+func (s *actionsSuite) TestPendingActionNotAvailable(c *gc.C) {
+	actionResolver := s.newResolver()
+	actionA := "666"
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:     operation.RunAction,
+			Step:     operation.Pending,
+			ActionId: &actionA,
+		},
+		CompletedActions: map[string]struct{}{},
+	}
+	remoteState := remotestate.Snapshot{
+		ActionsPending: []string{"666"},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
 }
 
 type mockOperations struct {
@@ -241,6 +261,9 @@ type mockOperations struct {
 func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
 	if m.err != nil {
 		return nil, errors.Annotate(m.err, "action error")
+	}
+	if id == "666" {
+		return nil, charmrunner.ErrActionNotAvailable
 	}
 	return mockOp(id), nil
 }
