@@ -845,6 +845,54 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 	}
 }
 
+func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
+	mocks := s.setupMocks(c)
+	defer mocks.Finish()
+
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "FinishActions")
+		c.Assert(arg, gc.DeepEquals, params.ActionExecutionResults{
+			Results: []params.ActionExecutionResult{{
+				ActionTag: "action-2",
+				Status:    "failed",
+				Message:   "committing requested changes failed",
+				Results: map[string]interface{}{
+					"Stderr": "cannot apply changes: flush failed",
+					"Code":   "1",
+				},
+			}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
+	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{{
+			Tag: "unit-wordpress-0",
+			OpenPorts: []params.EntityPortRange{{
+				Tag:      "unit-wordpress-0",
+				Protocol: "tcp",
+				FromPort: 666,
+				ToPort:   666,
+				Endpoint: "ep",
+			}},
+		}},
+	}).Return(errors.New("flush failed"))
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	hookContext := context.NewMockUnitHookContextWithState("wordpress/0", s.mockUnit, st)
+	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
+	c.Assert(err, jc.ErrorIsNil)
+	cancel := make(chan struct{})
+	context.WithActionContext(hookContext, nil, cancel)
+	err = hookContext.Flush("", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

@@ -412,6 +412,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		}
 		_, _ = ctx.Stdout.Write(formatOutput(result, stdoutKey, c.compat))
 		_, _ = ctx.Stderr.Write(formatOutput(result, stderrKey, c.compat))
+		_, _ = ctx.Stdout.Write([]byte("\n"))
 		if code, ok := result[codeKey].(int); ok && code != 0 {
 			return cmd.NewRcPassthroughError(code)
 		}
@@ -422,6 +423,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		}
 		if res, ok := result[messageKey].(string); ok && res != "" {
 			_, _ = ctx.Stderr.Write([]byte(res))
+			_, _ = ctx.Stdout.Write([]byte("\n"))
 		}
 
 		return nil
