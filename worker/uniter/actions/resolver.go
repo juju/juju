@@ -80,7 +80,7 @@ func (r *actionsResolver) NextOp(
 
 	defer func() {
 		if errors.Cause(err) == charmrunner.ErrActionNotAvailable {
-			if localState.Step == operation.Pending {
+			if localState.Step == operation.Pending && localState.ActionId != nil {
 				r.logger.Infof("found missing action %v; ignoring", *localState.ActionId)
 				op, err = opFactory.NewFailAction(*localState.ActionId)
 			} else {
