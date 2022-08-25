@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
@@ -104,43 +103,35 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(unitName string, mockUnit *mocks.MockHookUnit) *HookContext {
+func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit, leadership LeadershipContext) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unit:             mockUnit,
-		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
-		secretChanges:    newSecretsChangeRecorder(logger),
+		unit:              mockUnit,
+		unitName:          mockUnit.Tag().Id(),
+		logger:            logger,
+		LeadershipContext: leadership,
+		portRangeChanges:  newPortRangeChangeRecorder(logger, mockUnit.Tag(), nil),
+		secretChanges:     newSecretsChangeRecorder(logger),
 	}
 }
 
-func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
+func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
 		unitName:         mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:             mockUnit,
 		state:            state,
 		logger:           logger,
-		portRangeChanges: newPortRangeChangeRecorder(logger, names.NewUnitTag(unitName), nil),
-	}
-}
-
-func NewMockUnitHookContextWithSecrets(mockUnit *mocks.MockHookUnit, client *secretsmanager.Client, leadership LeadershipContext) *HookContext {
-	logger := loggo.GetLogger("test")
-	return &HookContext{
-		unitName:          mockUnit.Tag().Id(),
-		unit:              mockUnit,
-		secrets:           client,
-		LeadershipContext: leadership,
-		logger:            loggo.GetLogger("test"),
-		secretChanges:     newSecretsChangeRecorder(logger),
+		portRangeChanges: newPortRangeChangeRecorder(logger, mockUnit.Tag(), nil),
+		secretChanges:    newSecretsChangeRecorder(logger),
 	}
 }
 
 // SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
-func SetEnvironmentHookContextSecret(context *HookContext, secretURI string) {
+func SetEnvironmentHookContextSecret(context *HookContext, secretURI string, client SecretsAccessor) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
+	context.secrets = client
 }
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
