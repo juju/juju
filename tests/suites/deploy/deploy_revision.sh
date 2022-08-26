@@ -81,9 +81,9 @@ run_deploy_revision_upgrade() {
 
 	# Ensure that refresh gets the revision from the channel
 	# listed at deploy.
-	# revision 15 is in channel latest/edge
+	# revision 21 is in channel latest/edge
 	juju refresh juju-qa-test
-	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 15)"
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
 
 	destroy_model "${model_name}"
 }
