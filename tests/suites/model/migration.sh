@@ -57,16 +57,13 @@ run_model_migration_version() {
 	# Reset JUJU_VERSION and SHORT_GIT_COMMIT for stable bootstrap
 	unset SHORT_GIT_COMMIT
 	export JUJU_VERSION=$(echo $JUJU_VERSION | sed "s/.$JUJU_BUILD_NUMBER//")
-	echo "JUJU_VERSION ==> $JUJU_VERSION"
 	major_minor=$(echo $JUJU_VERSION |  cut -d'-' -f1 | cut -d'.' -f1,2)
-	echo "major_minor ==> $major_minor"
 	
 	# test against beta channel for devel
 	# TODO: change back to stable once 3.0 released.
 	# channel="$major_minor/beta"  # 3.0
 	channel="$major_minor/stable"  # 2.9
 	
-	echo "channel ==> $channel"
 	stable_version=$(snap info juju | yq ".channels[\"$channel\"]" | cut -d' ' -f1)
 	echo "stable_version ==> $stable_version"
 	if [[ $stable_version == "--" || $stable_version == null ]]; then
@@ -336,11 +333,11 @@ test_model_migration() {
 
 		cd .. || exit
 
-		# run "run_model_migration"
+		run "run_model_migration"
 		run "run_model_migration_version"
-		# run "run_model_migration_saas_common"
-		# run "run_model_migration_saas_external"
-		# run "run_model_migration_saas_consumer"
+		run "run_model_migration_saas_common"
+		run "run_model_migration_saas_external"
+		run "run_model_migration_saas_consumer"
 	)
 }
 
