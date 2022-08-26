@@ -101,6 +101,107 @@ func (s *SecretsSuite) TestCreateSecretsError(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
+func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	data := map[string]string{"foo": "bar"}
+	expiry := time.Now()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "UpdateSecrets")
+		c.Check(arg, jc.DeepEquals, params.UpdateSecretArgs{
+			Args: []params.UpdateSecretArg{{
+				URI: uri.String(),
+				UpsertSecretArg: params.UpsertSecretArg{
+					RotatePolicy: ptr(secrets.RotateDaily),
+					ExpireTime:   ptr(expiry),
+					Description:  ptr("my secret"),
+					Label:        ptr("foo"),
+					Params: map[string]interface{}{
+						"password-length":        10,
+						"password-special-chars": true,
+					},
+					Data: data,
+				},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	value := secrets.NewSecretValue(data)
+	cfg := &secrets.SecretConfig{
+		RotatePolicy: ptr(secrets.RotateDaily),
+		ExpireTime:   ptr(expiry),
+		Description:  ptr("my secret"),
+		Label:        ptr("foo"),
+		Params: map[string]interface{}{
+			"password-length":        10,
+			"password-special-chars": true,
+		},
+	}
+	err := client.Update(uri, cfg, value)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestUpdateSecretsError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	uri := secrets.NewURI()
+	value := secrets.NewSecretValue(nil)
+	err := client.Update(uri, &secrets.SecretConfig{}, value)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *SecretsSuite) TestRemoveSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "RemoveSecrets")
+		c.Check(arg, jc.DeepEquals, params.SecretURIArgs{
+			Args: []params.SecretURIArg{{
+				URI: uri.String(),
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Remove(uri)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestRemoveSecretsError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			[]params.ErrorResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	uri := secrets.NewURI()
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Remove(uri)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 	uri := secrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -280,4 +381,68 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	err := client.SecretRotated("secret:9m4e2mr0ui3e8a215n4g", 666)
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *SecretsSuite) TestGrant(c *gc.C) {
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SecretsGrant")
+		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
+			Args: []params.GrantRevokeSecretArg{{
+				URI:         uri.String(),
+				ScopeTag:    "relation-wordpress.db#mysql.server",
+				SubjectTags: []string{"unit-wordpress-0"},
+				Role:        "view",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Grant(uri, &secretsmanager.SecretRevokeGrantArgs{
+		UnitName:    ptr("wordpress/0"),
+		RelationKey: ptr("wordpress:db mysql:server"),
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *SecretsSuite) TestRevoke(c *gc.C) {
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SecretsRevoke")
+		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
+			Args: []params.GrantRevokeSecretArg{{
+				URI:         uri.String(),
+				ScopeTag:    "relation-wordpress.db#mysql.server",
+				SubjectTags: []string{"application-wordpress"},
+				Role:        "view",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	err := client.Revoke(uri, &secretsmanager.SecretRevokeGrantArgs{
+		ApplicationName: ptr("wordpress"),
+		RelationKey:     ptr("wordpress:db mysql:server"),
+		Role:            secrets.RoleView,
+	})
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

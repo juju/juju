@@ -296,15 +296,16 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	case hooks.SecretRotate:
 		var info map[string]jujuc.SecretMetadata
 		info, err = rh.runner.Context().SecretMetadata()
-		if err == nil {
-			originalRevision := 0
-			uri, _ := secrets.ParseURI(rh.info.SecretURI)
-			if m, ok := info[uri.ID]; ok {
-				originalRevision = m.LatestRevision
-			}
-			rh.logger.Debugf("set secret rotated for %q, original rev %v", rh.info.SecretURI, originalRevision)
-			err = rh.callbacks.SetSecretRotated(rh.info.SecretURI, originalRevision)
+		if err != nil {
+			break
 		}
+		originalRevision := 0
+		uri, _ := secrets.ParseURI(rh.info.SecretURI)
+		if m, ok := info[uri.ID]; ok {
+			originalRevision = m.LatestRevision
+		}
+		rh.logger.Debugf("set secret rotated for %q, original rev %v", rh.info.SecretURI, originalRevision)
+		err = rh.callbacks.SetSecretRotated(rh.info.SecretURI, originalRevision)
 	}
 	if err != nil {
 		return nil, err

@@ -38455,9 +38455,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "provider": {
-                            "type": "string"
-                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -38489,7 +38486,6 @@
                         "uri",
                         "version",
                         "owner-tag",
-                        "provider",
                         "latest-revision",
                         "create-time",
                         "update-time",
@@ -38993,9 +38989,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "provider": {
-                            "type": "string"
-                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -39027,7 +39020,6 @@
                         "uri",
                         "version",
                         "owner-tag",
-                        "provider",
                         "latest-revision",
                         "create-time",
                         "update-time",
@@ -46279,9 +46271,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "provider": {
-                            "type": "string"
-                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -46313,7 +46302,6 @@
                         "uri",
                         "version",
                         "owner-tag",
-                        "provider",
                         "latest-revision",
                         "create-time",
                         "update-time",

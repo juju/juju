@@ -23,9 +23,8 @@ const (
 type CreateParams struct {
 	UpsertParams
 
-	ProviderLabel string
-	Version       int
-	Owner         string
+	Version int
+	Owner   string
 }
 
 // Validate returns an error if params are invalid.

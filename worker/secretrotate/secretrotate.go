@@ -165,10 +165,9 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 		return
 	}
 
-	zero := time.Time{}
 	for _, ch := range changes {
 		// Next rotate time of 0 means the rotation has been deleted.
-		if ch.NextTriggerTime == zero {
+		if ch.NextTriggerTime.IsZero() {
 			w.config.Logger.Debugf("secret no longer rotated: %v", ch.URI.ShortString())
 			delete(w.secrets, ch.URI.ID)
 			continue

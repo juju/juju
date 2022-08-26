@@ -27,9 +27,8 @@ import (
 type CreateSecretParams struct {
 	UpdateSecretParams
 
-	ProviderLabel string
-	Version       int
-	Owner         string
+	Version int
+	Owner   string
 }
 
 // UpdateSecretParams are used to update a secret.
@@ -82,7 +81,6 @@ type secretMetadataDoc struct {
 
 	Version    int    `bson:"version"`
 	OwnerTag   string `bson:"owner-tag"`
-	Provider   string `bson:"provider"`
 	ProviderID string `bson:"provider-id"`
 
 	Description string `bson:"description"`
@@ -148,7 +146,6 @@ func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams
 		DocID:      uri.ID,
 		Version:    p.Version,
 		OwnerTag:   p.Owner,
-		Provider:   p.ProviderLabel,
 		ProviderID: "",
 		CreateTime: now,
 		UpdateTime: now,
@@ -398,7 +395,6 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *
 		Description:      doc.Description,
 		Label:            doc.Label,
 		OwnerTag:         doc.OwnerTag,
-		Provider:         doc.Provider,
 		ProviderID:       doc.ProviderID,
 		CreateTime:       doc.CreateTime,
 		UpdateTime:       doc.UpdateTime,

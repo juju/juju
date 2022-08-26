@@ -3210,9 +3210,8 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
-		Version:       1,
-		ProviderLabel: "juju",
-		Owner:         s.mysql.Tag().String(),
+		Version: 1,
+		Owner:   s.mysql.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -3242,9 +3241,8 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
-		Version:       1,
-		ProviderLabel: "juju",
-		Owner:         s.mysql.Tag().String(),
+		Version: 1,
+		Owner:   s.mysql.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},

@@ -136,7 +136,6 @@ type ListSecretResult struct {
 	URI              string             `json:"uri"`
 	Version          int                `json:"version"`
 	OwnerTag         string             `json:"owner-tag"`
-	Provider         string             `json:"provider"`
 	ProviderID       string             `json:"provider-id,omitempty"`
 	RotatePolicy     string             `json:"rotate-policy,omitempty"`
 	NextRotateTime   *time.Time         `json:"next-rotate-time,omitempty"`
