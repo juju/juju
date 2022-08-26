@@ -36,6 +36,7 @@ type HookContextParams struct {
 	AssignedMachineTag  names.MachineTag
 	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
+	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
 	Clock               Clock
 }
@@ -67,6 +68,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		assignedMachineTag:  hcParams.AssignedMachineTag,
 		storage:             hcParams.Storage,
 		storageTag:          hcParams.StorageTag,
+		secretMetadata:      hcParams.SecretMetadata,
 		clock:               hcParams.Clock,
 		logger:              loggo.GetLogger("test"),
 		LeadershipContext:   &stubLeadershipContext{isLeader: true},

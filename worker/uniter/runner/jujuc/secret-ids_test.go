@@ -27,6 +27,6 @@ func (s *SecretIdsSuite) TestSecretIds(c *gc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
 
 	c.Assert(code, gc.Equals, 0)
-	s.Stub.CheckCallNames(c, "SecretIds")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g: label\n")
+	s.Stub.CheckCallNames(c, "SecretMetadata")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "9m4e2mr0ui3e8a215n4g\n")
 }

@@ -1002,15 +1002,15 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 
 // rotateSecretURIs adds the specified URLs to those that need
 // to be rotated.
-func (w *RemoteStateWatcher) rotateSecretURIs(urls []string) {
+func (w *RemoteStateWatcher) rotateSecretURIs(uris []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	pending := set.NewStrings(w.current.SecretRotations...)
-	for _, url := range urls {
-		if !pending.Contains(url) {
-			pending.Add(url)
-			w.current.SecretRotations = append(w.current.SecretRotations, url)
+	for _, uri := range uris {
+		if !pending.Contains(uri) {
+			pending.Add(uri)
+			w.current.SecretRotations = append(w.current.SecretRotations, uri)
 		}
 	}
 }

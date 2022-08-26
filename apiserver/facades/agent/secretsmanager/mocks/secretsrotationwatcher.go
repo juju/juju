@@ -35,10 +35,10 @@ func (m *MockSecretsRotationWatcher) EXPECT() *MockSecretsRotationWatcherMockRec
 }
 
 // Changes mocks base method.
-func (m *MockSecretsRotationWatcher) Changes() watcher.SecretRotationChannel {
+func (m *MockSecretsRotationWatcher) Changes() watcher.SecretTriggerChannel {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
-	ret0, _ := ret[0].(watcher.SecretRotationChannel)
+	ret0, _ := ret[0].(watcher.SecretTriggerChannel)
 	return ret0
 }
 

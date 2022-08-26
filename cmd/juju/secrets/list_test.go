@@ -80,7 +80,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
-				Version: 1, LatestRevision: 2, Provider: "juju",
+				Version: 1, LatestRevision: 2,
 				Description: "my secret",
 				OwnerTag:    "application-mysql",
 				Label:       "foobar",

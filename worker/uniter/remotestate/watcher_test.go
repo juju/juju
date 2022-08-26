@@ -491,12 +491,12 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {
-			Revision: 666,
-			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
+			LatestRevision: 666,
+			Label:          "label-secret:9m4e2mr0ui3e8a215n4g",
 		},
 		"secret:8b4e2mr1wi3e8a215n5h": {
-			Revision: 667,
-			Label:    "label-secret:8b4e2mr1wi3e8a215n5h",
+			LatestRevision: 667,
+			Label:          "label-secret:8b4e2mr1wi3e8a215n5h",
 		},
 	})
 
@@ -1063,12 +1063,12 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {
-			Revision: 666,
-			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
+			LatestRevision: 666,
+			Label:          "label-secret:9m4e2mr0ui3e8a215n4g",
 		},
 		"secret:8b4e2mr1wi3e8a215n5h": {
-			Revision: 667,
-			Label:    "label-secret:8b4e2mr1wi3e8a215n5h",
+			LatestRevision: 667,
+			Label:          "label-secret:8b4e2mr1wi3e8a215n5h",
 		},
 	})
 

@@ -38455,9 +38455,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "provider": {
-                            "type": "string"
-                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -38489,7 +38486,6 @@
                         "uri",
                         "version",
                         "owner-tag",
-                        "provider",
                         "latest-revision",
                         "create-time",
                         "update-time",
@@ -38625,14 +38621,14 @@
                     },
                     "description": "GetLatestSecretsRevisionInfo returns the latest secret revisions for the specified secrets."
                 },
-                "GetSecretIds": {
+                "GetSecretMetadata": {
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretIdResults"
+                            "$ref": "#/definitions/ListSecretResults"
                         }
                     },
-                    "description": "GetSecretIds returns the caller's secret ids and their labels."
+                    "description": "GetSecretMetadata returns metadata for the caller's secrets."
                 },
                 "GetSecretValues": {
                     "type": "object",
@@ -38725,7 +38721,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretRotationWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResults"
                         }
                     },
                     "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
@@ -38966,6 +38962,85 @@
                         "args"
                     ]
                 },
+                "ListSecretResult": {
+                    "type": "object",
+                    "properties": {
+                        "create-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "latest-expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "latest-revision": {
+                            "type": "integer"
+                        },
+                        "next-rotate-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "owner-tag": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevision"
+                            }
+                        },
+                        "rotate-policy": {
+                            "type": "string"
+                        },
+                        "update-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "uri": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/SecretValueResult"
+                        },
+                        "version": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "version",
+                        "owner-tag",
+                        "latest-revision",
+                        "create-time",
+                        "update-time",
+                        "revisions"
+                    ]
+                },
+                "ListSecretResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ListSecretResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "SecretConsumerInfoResult": {
                     "type": "object",
                     "properties": {
@@ -39000,53 +39075,50 @@
                         "results"
                     ]
                 },
-                "SecretIdResult": {
+                "SecretRevision": {
                     "type": "object",
                     "properties": {
-                        "label": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "label"
-                    ]
-                },
-                "SecretIdResults": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
+                        "create-time": {
+                            "type": "string",
+                            "format": "date-time"
                         },
-                        "result": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/SecretIdResult"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "SecretRotatedArg": {
-                    "type": "object",
-                    "properties": {
-                        "uri": {
-                            "type": "string"
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
                         },
-                        "when": {
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "update-time": {
                             "type": "string",
                             "format": "date-time"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "revision",
+                        "create-time",
+                        "update-time"
+                    ]
+                },
+                "SecretRotatedArg": {
+                    "type": "object",
+                    "properties": {
+                        "original-revision": {
+                            "type": "integer"
+                        },
+                        "skip": {
+                            "type": "boolean"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
                         "uri",
-                        "when"
+                        "original-revision",
+                        "skip"
                     ]
                 },
                 "SecretRotatedArgs": {
@@ -39064,15 +39136,12 @@
                         "args"
                     ]
                 },
-                "SecretRotationChange": {
+                "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "last-rotate-time": {
+                        "next-trugger-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "rotate-interval": {
-                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -39081,17 +39150,16 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "rotate-interval",
-                        "last-rotate-time"
+                        "next-trugger-time"
                     ]
                 },
-                "SecretRotationWatchResult": {
+                "SecretTriggerWatchResult": {
                     "type": "object",
                     "properties": {
                         "changes": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretRotationChange"
+                                "$ref": "#/definitions/SecretTriggerChange"
                             }
                         },
                         "error": {
@@ -39107,13 +39175,13 @@
                         "changes"
                     ]
                 },
-                "SecretRotationWatchResults": {
+                "SecretTriggerWatchResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretRotationWatchResult"
+                                "$ref": "#/definitions/SecretTriggerWatchResult"
                             }
                         }
                     },
@@ -39364,7 +39432,7 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretRotationWatchResult"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
                     "description": "Next returns when a change has occurred to an entity of the\ncollection being watched since the most recent call to Next\nor the Watch call that created the srvSecretRotationWatcher."
@@ -39400,15 +39468,12 @@
                         "code"
                     ]
                 },
-                "SecretRotationChange": {
+                "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "last-rotate-time": {
+                        "next-trugger-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "rotate-interval": {
-                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -39417,17 +39482,16 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "rotate-interval",
-                        "last-rotate-time"
+                        "next-trugger-time"
                     ]
                 },
-                "SecretRotationWatchResult": {
+                "SecretTriggerWatchResult": {
                     "type": "object",
                     "properties": {
                         "changes": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretRotationChange"
+                                "$ref": "#/definitions/SecretTriggerChange"
                             }
                         },
                         "error": {
@@ -44211,14 +44275,14 @@
                     },
                     "description": "GetRawK8sSpec gets the raw k8s specs for a set of applications."
                 },
-                "GetSecretIds": {
+                "GetSecretMetadata": {
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/SecretIdResults"
+                            "$ref": "#/definitions/ListSecretResults"
                         }
                     },
-                    "description": "GetSecretIds returns the caller's secret ids and their labels."
+                    "description": "GetSecretMetadata returns metadata for the caller's secrets."
                 },
                 "GetSecretValues": {
                     "type": "object",
@@ -44916,7 +44980,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretRotationWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResults"
                         }
                     },
                     "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
@@ -46180,6 +46244,85 @@
                         "results"
                     ]
                 },
+                "ListSecretResult": {
+                    "type": "object",
+                    "properties": {
+                        "create-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "latest-expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "latest-revision": {
+                            "type": "integer"
+                        },
+                        "next-rotate-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "owner-tag": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevision"
+                            }
+                        },
+                        "rotate-policy": {
+                            "type": "string"
+                        },
+                        "update-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "uri": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/SecretValueResult"
+                        },
+                        "version": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "version",
+                        "owner-tag",
+                        "latest-revision",
+                        "create-time",
+                        "update-time",
+                        "revisions"
+                    ]
+                },
+                "ListSecretResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ListSecretResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "MergeLeadershipSettingsBulkParams": {
                     "type": "object",
                     "properties": {
@@ -46976,53 +47119,50 @@
                         "results"
                     ]
                 },
-                "SecretIdResult": {
+                "SecretRevision": {
                     "type": "object",
                     "properties": {
-                        "label": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "label"
-                    ]
-                },
-                "SecretIdResults": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
+                        "create-time": {
+                            "type": "string",
+                            "format": "date-time"
                         },
-                        "result": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/SecretIdResult"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
-                    ]
-                },
-                "SecretRotatedArg": {
-                    "type": "object",
-                    "properties": {
-                        "uri": {
-                            "type": "string"
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
                         },
-                        "when": {
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "update-time": {
                             "type": "string",
                             "format": "date-time"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "revision",
+                        "create-time",
+                        "update-time"
+                    ]
+                },
+                "SecretRotatedArg": {
+                    "type": "object",
+                    "properties": {
+                        "original-revision": {
+                            "type": "integer"
+                        },
+                        "skip": {
+                            "type": "boolean"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
                         "uri",
-                        "when"
+                        "original-revision",
+                        "skip"
                     ]
                 },
                 "SecretRotatedArgs": {
@@ -47040,15 +47180,12 @@
                         "args"
                     ]
                 },
-                "SecretRotationChange": {
+                "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "last-rotate-time": {
+                        "next-trugger-time": {
                             "type": "string",
                             "format": "date-time"
-                        },
-                        "rotate-interval": {
-                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -47057,17 +47194,16 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "rotate-interval",
-                        "last-rotate-time"
+                        "next-trugger-time"
                     ]
                 },
-                "SecretRotationWatchResult": {
+                "SecretTriggerWatchResult": {
                     "type": "object",
                     "properties": {
                         "changes": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretRotationChange"
+                                "$ref": "#/definitions/SecretTriggerChange"
                             }
                         },
                         "error": {
@@ -47083,13 +47219,13 @@
                         "changes"
                     ]
                 },
-                "SecretRotationWatchResults": {
+                "SecretTriggerWatchResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretRotationWatchResult"
+                                "$ref": "#/definitions/SecretTriggerWatchResult"
                             }
                         }
                     },

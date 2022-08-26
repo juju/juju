@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -20,6 +21,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.secretsmanager")
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
@@ -69,10 +72,14 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 		return "", errors.Trace(err)
 	}
 	uri := coresecrets.NewURI()
+	var nextRotateTime *time.Time
+	if arg.RotatePolicy.WillRotate() {
+		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
+	}
 	md, err := s.secretsService.CreateSecret(ctx, uri, secrets.CreateParams{
 		Version:      secrets.Version,
 		Owner:        arg.OwnerTag,
-		UpsertParams: fromUpsertParams(s.clock, arg.UpsertSecretArg, token),
+		UpsertParams: fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -90,14 +97,7 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	return md.URI.ShortString(), nil
 }
 
-func fromUpsertParams(clock clock.Clock, p params.UpsertSecretArg, token leadership.Token) secrets.UpsertParams {
-	var nextRotateTime *time.Time
-	if p.RotatePolicy != nil {
-		// TODO(wallyworld) - we need to take into account last rotate time
-		// This approximate will do for now.
-		now := clock.Now()
-		nextRotateTime = p.RotatePolicy.NextRotateTime(&now)
-	}
+func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRotateTime *time.Time) secrets.UpsertParams {
 	return secrets.UpsertParams{
 		LeaderToken:    token,
 		RotatePolicy:   p.RotatePolicy,
@@ -144,7 +144,15 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	if err := token.Check(0, nil); err != nil {
 		return errors.Trace(err)
 	}
-	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(s.clock, arg.UpsertSecretArg, token))
+	md, err := s.secretsService.GetSecret(ctx, uri)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var nextRotateTime *time.Time
+	if !md.RotatePolicy.WillRotate() && arg.RotatePolicy.WillRotate() {
+		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
+	}
+	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime))
 	return errors.Trace(err)
 }
 
@@ -218,22 +226,30 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	return s.secretsConsumer.GetSecretConsumer(uri, consumerTag.String())
 }
 
-// GetSecretIds returns the caller's secret ids and their labels.
-func (s *SecretsManagerAPI) GetSecretIds() (params.SecretIdResults, error) {
-	var result params.SecretIdResults
+// GetSecretMetadata returns metadata for the caller's secrets.
+func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
+	var result params.ListSecretResults
 	ctx := context.Background()
 	owner := names.NewApplicationTag(authTagApp(s.authTag)).String()
 	secrets, _, err := s.secretsService.ListSecrets(ctx, secrets.Filter{
 		OwnerTag: &owner,
 	})
 	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
+		return result, errors.Trace(err)
 	}
-	result.Result = make(map[string]params.SecretIdResult)
-	for _, md := range secrets {
-		result.Result[md.URI.ShortString()] = params.SecretIdResult{
-			Label: md.Label,
+	result.Results = make([]params.ListSecretResult, len(secrets))
+	for i, md := range secrets {
+		result.Results[i] = params.ListSecretResult{
+			URI:              md.URI.ShortString(),
+			Version:          md.Version,
+			RotatePolicy:     md.RotatePolicy.String(),
+			NextRotateTime:   md.NextRotateTime,
+			Description:      md.Description,
+			Label:            md.Label,
+			LatestRevision:   md.LatestRevision,
+			LatestExpireTime: md.LatestExpireTime,
+			CreateTime:       md.CreateTime,
+			UpdateTime:       md.UpdateTime,
 		}
 	}
 	return result, nil
@@ -336,23 +352,22 @@ func (s *SecretsManagerAPI) WatchSecretsChanges(args params.Entities) (params.St
 }
 
 // WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config.
-func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (params.SecretRotationWatchResults, error) {
-	results := params.SecretRotationWatchResults{
-		Results: make([]params.SecretRotationWatchResult, len(args.Entities)),
+func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (params.SecretTriggerWatchResults, error) {
+	results := params.SecretTriggerWatchResults{
+		Results: make([]params.SecretTriggerWatchResult, len(args.Entities)),
 	}
-	one := func(arg params.Entity) (string, []params.SecretRotationChange, error) {
+	one := func(arg params.Entity) (string, []params.SecretTriggerChange, error) {
 		ownerTag, err := names.ParseTag(arg.Tag)
 		if err != nil || authTagApp(s.authTag) != ownerTag.Id() {
 			return "", nil, apiservererrors.ErrPerm
 		}
 		w := s.secretsRotation.WatchSecretsRotationChanges(ownerTag.String())
 		if secretChanges, ok := <-w.Changes(); ok {
-			changes := make([]params.SecretRotationChange, len(secretChanges))
+			changes := make([]params.SecretTriggerChange, len(secretChanges))
 			for i, c := range secretChanges {
-				changes[i] = params.SecretRotationChange{
-					URI:            c.URI.String(),
-					RotateInterval: c.RotateInterval,
-					LastRotateTime: c.LastRotateTime,
+				changes[i] = params.SecretTriggerChange{
+					URI:             c.URI.String(),
+					NextTriggerTime: c.NextTriggerTime,
 				}
 			}
 			return s.resources.Register(w), changes, nil
@@ -360,12 +375,12 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 		return "", nil, watcher.EnsureErr(w)
 	}
 	for i, arg := range args.Entities {
-		var result params.SecretRotationWatchResult
+		var result params.SecretTriggerWatchResult
 		id, changes, err := one(arg)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 		} else {
-			result.SecretRotationWatcherId = id
+			result.WatcherId = id
 			result.Changes = changes
 		}
 		results.Results[i] = result
@@ -396,7 +411,24 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		if authTagApp(s.authTag) != owner.Id() {
 			return apiservererrors.ErrPerm
 		}
-		return s.secretsRotation.SecretRotated(uri, arg.When)
+		if !md.RotatePolicy.WillRotate() {
+			logger.Debugf("secret %q was rotated but now is set to not rotate")
+			return nil
+		}
+		lastRotateTime := md.NextRotateTime
+		if lastRotateTime == nil {
+			now := s.clock.Now()
+			lastRotateTime = &now
+		}
+		var nextRotateTime time.Time
+		logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ShortString(), arg.OriginalRevision, md.LatestRevision)
+		if arg.Skip || md.LatestRevision > arg.OriginalRevision {
+			nextRotateTime = *md.RotatePolicy.NextRotateTime(*lastRotateTime)
+		} else {
+			nextRotateTime = lastRotateTime.Add(coresecrets.RotateRetryDelay)
+		}
+		logger.Debugf("secret %q next rotate time is now: %s", uri.ShortString(), nextRotateTime.UTC().Format(time.RFC3339))
+		return s.secretsRotation.SecretRotated(uri, nextRotateTime)
 	}
 	for i, arg := range args.Args {
 		var result params.ErrorResult

@@ -28,8 +28,8 @@ type workerSuite struct {
 	config secretrotate.Config
 
 	facade              *mocks.MockSecretManagerFacade
-	rotateWatcher       *mocks.MockSecretRotationWatcher
-	rotateConfigChanges chan []corewatcher.SecretRotationChange
+	rotateWatcher       *mocks.MockSecretTriggerWatcher
+	rotateConfigChanges chan []corewatcher.SecretTriggerChange
 	rotatedSecrets      chan []string
 }
 
@@ -48,8 +48,8 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.clock = testclock.NewClock(time.Now())
 	s.facade = mocks.NewMockSecretManagerFacade(ctrl)
-	s.rotateWatcher = mocks.NewMockSecretRotationWatcher(ctrl)
-	s.rotateConfigChanges = make(chan []corewatcher.SecretRotationChange)
+	s.rotateWatcher = mocks.NewMockSecretTriggerWatcher(ctrl)
+	s.rotateConfigChanges = make(chan []corewatcher.SecretTriggerChange)
 	s.rotatedSecrets = make(chan []string, 5)
 	s.config = secretrotate.Config{
 		Clock:               s.clock,
@@ -118,17 +118,17 @@ func (s *workerSuite) advanceClock(c *gc.C, d time.Duration) {
 
 func (s *workerSuite) expectNoRotates(c *gc.C) {
 	select {
-	case urls := <-s.rotatedSecrets:
-		c.Fatalf("got unexpected secret rotation %q", urls)
+	case uris := <-s.rotatedSecrets:
+		c.Fatalf("got unexpected secret rotation %q", uris)
 	case <-time.After(testing.ShortWait):
 	}
 }
 
 func (s *workerSuite) expectRotated(c *gc.C, expected ...string) {
 	select {
-	case urls, ok := <-s.rotatedSecrets:
+	case uris, ok := <-s.rotatedSecrets:
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(urls, jc.SameContents, expected)
+		c.Assert(uris, jc.SameContents, expected)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for secrets to be rotated")
 	}
@@ -144,11 +144,12 @@ func (s *workerSuite) TestFirstSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
+	now := s.clock.Now()
+	next := now.Add(time.Hour)
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: s.clock.Now(),
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: next,
 	}}
 	s.advanceClock(c, time.Hour)
 	s.expectRotated(c, uri.ShortString())
@@ -166,20 +167,18 @@ func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
 
 	now := s.clock.Now()
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: 2 * time.Hour,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: now.Add(2 * time.Hour),
 	}}
 	s.advanceClock(c, time.Hour)
 	s.expectNoRotates(c)
 
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: 3 * time.Hour,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: now.Add(3 * time.Hour),
 	}}
-	s.advanceClock(c, 2*time.Hour)
+	s.advanceClock(c, 2*time.Hour+time.Minute)
 	s.expectRotated(c, uri.ShortString())
 }
 
@@ -195,20 +194,18 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
 
 	now := s.clock.Now()
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: now.Add(time.Hour),
 	}}
 	s.advanceClock(c, 30*time.Minute)
 	s.expectNoRotates(c)
 
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: 2 * time.Hour,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: now.Add(2 * time.Hour),
 	}}
-	s.advanceClock(c, 30*time.Minute)
+	s.advanceClock(c, 29*time.Minute)
 	s.expectNoRotates(c)
 
 	// Final sanity check.
@@ -228,20 +225,18 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 
 	now := s.clock.Now()
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: now.Add(time.Hour),
 	}}
 	s.advanceClock(c, 15*time.Minute)
 	s.expectNoRotates(c)
 
 	// New secret with earlier rotate time triggers first.
 	uri2 := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri2,
-		RotateInterval: 30 * time.Minute,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri2,
+		NextTriggerTime: now.Add(30 * time.Minute),
 	}}
 	time.Sleep(testing.ShortWait) // ensure advanceClock happens after timer is updated
 	s.advanceClock(c, 15*time.Minute)
@@ -262,19 +257,18 @@ func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
+	next := now.Add(time.Hour)
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: next,
 	}}
 	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
 
 	uri2 := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri2,
-		RotateInterval: time.Hour,
-		LastRotateTime: now.Add(30 * time.Minute),
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri2,
+		NextTriggerTime: next,
 	}}
 
 	s.advanceClock(c, 90*time.Minute)
@@ -291,18 +285,17 @@ func (s *workerSuite) TestDeleteSecretRotation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
+	now := s.clock.Now()
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: s.clock.Now(),
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: now.Add(time.Hour),
 	}}
 	s.advanceClock(c, 30*time.Minute)
 	s.expectNoRotates(c)
 
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: 0,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI: uri,
 	}}
 	s.advanceClock(c, 30*time.Hour)
 	s.expectNoRotates(c)
@@ -319,26 +312,24 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
+	next := now.Add(time.Hour)
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: time.Hour,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: next,
 	}}
 	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
 
 	uri2 := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri2,
-		RotateInterval: time.Hour,
-		LastRotateTime: now.Add(-30 * time.Minute),
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri2,
+		NextTriggerTime: next,
 	}}
 	s.advanceClock(c, 15*time.Minute)
 	s.expectNoRotates(c)
 
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri2,
-		RotateInterval: 0,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI: uri2,
 	}}
 	s.advanceClock(c, 15*time.Minute)
 	// Secret 2 would have rotated here.
@@ -360,26 +351,20 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 
 	now := s.clock.Now()
 	uri := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri,
-		RotateInterval: 45 * time.Second,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		NextTriggerTime: now.Add(25 * time.Second),
 	}}
 	err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1) // ensure some fake time has elapsed
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri2 := secrets.NewURI()
-	s.rotateConfigChanges <- []corewatcher.SecretRotationChange{{
-		URI:            uri2,
-		RotateInterval: 50 * time.Second,
-		LastRotateTime: now,
+	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
+		URI:             uri2,
+		NextTriggerTime: now.Add(39 * time.Second),
 	}}
 	// First secret won't rotate before the one minute granularity.
 	err = s.clock.WaitAdvance(46*time.Second, testing.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	s.expectNoRotates(c)
-
-	err = s.clock.WaitAdvance(14*time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectRotated(c, uri.ShortString(), uri2.ShortString())
 }

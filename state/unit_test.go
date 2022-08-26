@@ -2029,9 +2029,8 @@ func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	store := state.NewSecretsStore(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
-		Version:       1,
-		ProviderLabel: "juju",
-		Owner:         s.application.Tag().String(),
+		Version: 1,
+		Owner:   s.application.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},

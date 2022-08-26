@@ -92,7 +92,7 @@ func (s *ResolverOpFactorySuite) TestSecretChanged(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 
 	f.RemoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
+		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
 	}
 
 	op, err := f.NewRunHook(hook.Info{

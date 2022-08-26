@@ -9,19 +9,19 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-// SecretRotationChange describes changes to secret rotation config.
-type SecretRotationChange struct {
-	URI            *secrets.URI
-	RotateInterval time.Duration
-	LastRotateTime time.Time
+// SecretTriggerChange describes changes to a secret trigger.
+// eg rotation or expiry.
+type SecretTriggerChange struct {
+	URI             *secrets.URI
+	NextTriggerTime time.Time
 }
 
-// SecretRotationChannel is a change channel as described in the CoreWatcher docs.
-type SecretRotationChannel <-chan []SecretRotationChange
+// SecretTriggerChannel is a change channel as described in the CoreWatcher docs.
+type SecretTriggerChannel <-chan []SecretTriggerChange
 
-// SecretRotationWatcher conveniently ties a SecretRotationChannel to the
+// SecretTriggerWatcher conveniently ties a SecretTriggerChannel to the
 // worker.Worker that represents its validity.
-type SecretRotationWatcher interface {
+type SecretTriggerWatcher interface {
 	CoreWatcher
-	Changes() SecretRotationChannel
+	Changes() SecretTriggerChannel
 }
