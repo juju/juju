@@ -57,7 +57,7 @@ type CharmsAPI interface {
 // needs to both embed a *<package>.Client and provide the
 // api.Connection Client method.
 //
-// Once we pair down DeployAPI, this will not longer be a problem.
+// Once we pair down DeployAPI, this will no longer be a problem.
 
 // TODO(juju3) - remove when methods are migrated away
 type apiClient struct {
@@ -695,7 +695,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DeployCommand) Init(args []string) error {
 	// NOTE: For deploying a charm with the revision flag, a channel is
 	// also required. It's required to ensure that juju knows which channel
-	// should be used for refreshing/upgrading the charm in the future.However
+	// should be used for refreshing/upgrading the charm in the future. However,
 	// a bundle does not require a channel, today you cannot refresh/upgrade
 	// a bundle, only the components. These flags will be verified in the
 	// GetDeployer instead.

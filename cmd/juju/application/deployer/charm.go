@@ -423,7 +423,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(err)
 	}
 
-	// Charm or bundle has been supplied as a URL so we resolve and
+	// Charm or bundle has been supplied as a URL, so we resolve and
 	// deploy using the store but pass in the origin command line
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
@@ -468,7 +468,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// Ensure we save the origin.
 	origin = origin.WithSeries(series)
 
-	// In-order for the url to represent the following updates to the the origin
+	// In-order for the url to represent the following updates to the origin
 	// and machine, we need to ensure that the series is actually correct as
 	// well in the url.
 	deployableURL := storeCharmOrBundleURL

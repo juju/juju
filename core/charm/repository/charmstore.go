@@ -160,7 +160,7 @@ func (c *CharmStoreRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRe
 		channel := csparams.Channel(req.Origin.Channel.Risk)
 		client, err := c.clientFactory(c.charmstoreURL, channel, req.Macaroons)
 		if err != nil {
-			return nil, errors.Annotatef(err, "obain charmstore client for %q", req.CharmURL)
+			return nil, errors.Annotatef(err, "obtain charmstore client for %q", req.CharmURL)
 		}
 
 		var csMetaRes csMetadataResponse

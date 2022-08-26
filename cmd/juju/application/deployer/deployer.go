@@ -501,9 +501,6 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 		if userRequestedURL.Revision != -1 {
 			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 		}
-		//if d.revision != -1 && d.channel.Empty() {
-		//	return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
-		//}
 	} else if charm.CharmStore.Matches(userRequestedURL.Schema) {
 		if userRequestedURL.Revision != -1 && d.revision != -1 && userRequestedURL.Revision != d.revision {
 			return nil, errors.Errorf("two different revisions to deploy: specified %d and %d, please choose one.", userRequestedURL.Revision, d.revision)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -419,6 +420,56 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 	c.Assert(got[0].Manifest.Bases, gc.HasLen, 1)
 	c.Assert(got[0].ResolvedOrigin.ID, gc.Equals, "", gc.Commentf("ID is only added after charm download"))
 	c.Assert(got[0].ResolvedOrigin.Hash, gc.Equals, "", gc.Commentf("Hash is only added after charm download"))
+}
+
+func (s *charmHubRepositorySuite) TestValidateCharmhubResponse(c *gc.C) {
+	// Ensure a charm with no resources returns no error.
+	err := validateCharmhubResponse(transport.RefreshResponse{
+		Entity: transport.RefreshEntity{
+			Type:      "charm",
+			Name:      "foo",
+			Resources: []transport.ResourceRevision{},
+		},
+	}, &charm.Meta{
+		Name:      "foo",
+		Resources: map[string]resource.Meta{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure a valid response returns no error.
+	err = validateCharmhubResponse(transport.RefreshResponse{
+		Entity: transport.RefreshEntity{
+			Type: "charm",
+			Name: "prometheus2",
+			Resources: []transport.ResourceRevision{
+				{Name: "core"},
+				{Name: "prometheus"},
+			},
+		},
+	}, &charm.Meta{
+		Name: "prometheus2",
+		Resources: map[string]resource.Meta{
+			"core":       {Name: "core"},
+			"prometheus": {Name: "prometheus"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure missing resources returns the correct error.
+	err = validateCharmhubResponse(transport.RefreshResponse{
+		Entity: transport.RefreshEntity{
+			Type:      "charm",
+			Name:      "prometheus2",
+			Resources: []transport.ResourceRevision{},
+		},
+	}, &charm.Meta{
+		Name: "prometheus2",
+		Resources: map[string]resource.Meta{
+			"core":       {Name: "core"},
+			"prometheus": {Name: "prometheus"},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "missing resources: core, prometheus")
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannel(c *gc.C) {

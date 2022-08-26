@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
@@ -345,7 +346,7 @@ func (c *CharmHubRepository) ListResources(charmURL *charm.URL, origin corecharm
 	return results, nil
 }
 
-// GetEssentialMetadata resolves each provided MetadataRequest and returns back
+// GetEssentialMetadata resolves each provided MetadataRequest and returns
 // a slice with the results. The results include the minimum set of metadata
 // that is required for deploying each charm.
 func (c *CharmHubRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRequest) ([]corecharm.EssentialMetadata, error) {
@@ -433,6 +434,12 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 			return nil, errors.Annotatef(err, "parsing metadata.yaml for %q", reqs[resIdx].CharmURL)
 		}
 
+		err = validateCharmhubResponse(refreshResult, chMeta)
+		if err != nil {
+			return nil, errors.Annotatef(err, "validating Charmhub API response for %q, revision %d",
+				reqs[resIdx].CharmURL, refreshResult.Entity.Revision)
+		}
+
 		// It's okay for a charm not to have a config.yaml. But the CharmHub
 		// API currently returns "{}\n" for charms that have no config.yaml,
 		// so handle that as no config as well.
@@ -468,6 +475,26 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 	}
 
 	return metaRes, nil
+}
+
+// validateCharmhubResponse ensures the CharmHub API response matches the
+// charm's metadata (from its metadata.yaml).
+func validateCharmhubResponse(response transport.RefreshResponse, meta *charm.Meta) error {
+	// Ensure all the resources in the metadata are present in the entity
+	// returned by the Charmhub API.
+	metaResources := set.NewStrings()
+	for name := range meta.Resources {
+		metaResources.Add(name)
+	}
+	responseResources := set.NewStrings()
+	for _, res := range response.Entity.Resources {
+		responseResources.Add(res.Name)
+	}
+	missing := metaResources.Difference(responseResources)
+	if missing.Size() > 0 {
+		return errors.Errorf("missing resources: %s", strings.Join(missing.SortedValues(), ", "))
+	}
+	return nil
 }
 
 func (c *CharmHubRepository) refreshOne(charmURL *charm.URL, origin corecharm.Origin, _ macaroon.Slice) (transport.RefreshResponse, error) {

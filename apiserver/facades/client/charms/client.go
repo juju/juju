@@ -344,7 +344,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 
 	// Check if a charm doc already exists for this charm URL. If so, the
 	// charm has already been queued for download so this is a no-op. We
-	// still need to resolve and return back a suitable origin as charmhub
+	// still need to resolve and return a suitable origin, as Charmhub
 	// may refer to the same blob using the same revision in different
 	// channels.
 	//
