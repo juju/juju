@@ -28,7 +28,7 @@ type workerSuite struct {
 	config secretrotate.Config
 
 	facade              *mocks.MockSecretManagerFacade
-	rotateWatcher       *mocks.MockSecretRotationWatcher
+	rotateWatcher       *mocks.MockSecretTriggerWatcher
 	rotateConfigChanges chan []corewatcher.SecretTriggerChange
 	rotatedSecrets      chan []string
 }
@@ -48,7 +48,7 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.clock = testclock.NewClock(time.Now())
 	s.facade = mocks.NewMockSecretManagerFacade(ctrl)
-	s.rotateWatcher = mocks.NewMockSecretRotationWatcher(ctrl)
+	s.rotateWatcher = mocks.NewMockSecretTriggerWatcher(ctrl)
 	s.rotateConfigChanges = make(chan []corewatcher.SecretTriggerChange)
 	s.rotatedSecrets = make(chan []string, 5)
 	s.config = secretrotate.Config{
@@ -178,7 +178,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
 		URI:             uri,
 		NextTriggerTime: now.Add(3 * time.Hour),
 	}}
-	s.advanceClock(c, 2*time.Hour)
+	s.advanceClock(c, 2*time.Hour+time.Minute)
 	s.expectRotated(c, uri.ShortString())
 }
 
@@ -205,7 +205,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
 		URI:             uri,
 		NextTriggerTime: now.Add(2 * time.Hour),
 	}}
-	s.advanceClock(c, 30*time.Minute)
+	s.advanceClock(c, 29*time.Minute)
 	s.expectNoRotates(c)
 
 	// Final sanity check.
@@ -353,7 +353,7 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 	uri := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
 		URI:             uri,
-		NextTriggerTime: now.Add(45 * time.Second),
+		NextTriggerTime: now.Add(25 * time.Second),
 	}}
 	err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1) // ensure some fake time has elapsed
 	c.Assert(err, jc.ErrorIsNil)
@@ -361,7 +361,7 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 	uri2 := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
 		URI:             uri2,
-		NextTriggerTime: now.Add(59 * time.Second),
+		NextTriggerTime: now.Add(39 * time.Second),
 	}}
 	// First secret won't rotate before the one minute granularity.
 	err = s.clock.WaitAdvance(46*time.Second, testing.LongWait, 1)
