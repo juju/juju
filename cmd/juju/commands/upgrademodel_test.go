@@ -64,7 +64,6 @@ func (s *upgradeNewSuite) upgradeJujuCommand(c *gc.C, isCAAS bool) (*gomock.Cont
 	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
 	s.store = mocks.NewMockClientStore(ctrl)
 
-	s.modelUpgrader.EXPECT().BestAPIVersion().AnyTimes().Return(2)
 	s.modelConfigAPI.EXPECT().Close().AnyTimes()
 	s.modelUpgrader.EXPECT().Close().AnyTimes()
 	s.controllerAPI.EXPECT().Close().AnyTimes()

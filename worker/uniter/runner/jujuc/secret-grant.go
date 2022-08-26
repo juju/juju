@@ -17,10 +17,10 @@ type secretGrantCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	uri      string
-	app      string
-	unit     string
-	relation string
+	secretURI *secrets.URI
+	app       string
+	unit      string
+	relation  string
 
 	relationId      int
 	relationIdProxy gnuflag.Value
@@ -71,8 +71,8 @@ func (c *secretGrantCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret URI")
 	}
-	c.uri = args[0]
-	if _, err := secrets.ParseURI(c.uri); err != nil {
+	var err error
+	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
 		return errors.Trace(err)
 	}
 	if c.relationId == -1 {
@@ -108,5 +108,5 @@ func (c *secretGrantCommand) Run(_ *cmd.Context) error {
 		args.ApplicationName = &c.app
 	}
 
-	return c.ctx.GrantSecret(c.uri, args)
+	return c.ctx.GrantSecret(c.secretURI, args)
 }

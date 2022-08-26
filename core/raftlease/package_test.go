@@ -13,7 +13,6 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package raftlease -destination writer_mock_test.go io Writer
-//go:generate go run github.com/golang/mock/mockgen -package raftlease -destination logger_mock_test.go github.com/juju/juju/core/raftlease ErrorLogger
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

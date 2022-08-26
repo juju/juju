@@ -65,9 +65,9 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-ID                    Owner    Rotation  Latest  Last updated
-%s  mariadb  never          1  0001-01-01  
-%s  mysql    hourly         2  0001-01-01  
+ID                    Owner    Rotation  Revision  Last updated
+%s  mariadb  never            1  0001-01-01  
+%s  mysql    hourly           2  0001-01-01  
 `[1:], uri2.ID, uri.ID))
 }
 
@@ -99,18 +99,18 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 %s:
-  latest: 2
-  rotate-policy: hourly
+  revision: 2
+  rotation: hourly
   owner: mysql
   description: my secret
   label: foobar
-  create-time: 0001-01-01T00:00:00Z
-  update-time: 0001-01-01T00:00:00Z
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
 %s:
-  latest: 1
+  revision: 1
   owner: mariadb
-  create-time: 0001-01-01T00:00:00Z
-  update-time: 0001-01-01T00:00:00Z
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
   error: boom
 `[1:], uri.ID, uri2.ID))
 }
@@ -133,6 +133,6 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-{"%s":{"latest":2,"owner":"mariadb","create-time":"0001-01-01T00:00:00Z","update-time":"0001-01-01T00:00:00Z"}}
+{"%s":{"revision":2,"owner":"mariadb","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}}
 `[1:], uri.ID))
 }

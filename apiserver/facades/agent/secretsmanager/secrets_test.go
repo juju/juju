@@ -110,7 +110,6 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	p := secrets.CreateParams{
 		Version: secrets.Version,
 		Owner:   "application-mariadb",
-		Scope:   "unit-mariadb-0",
 		UpsertParams: secrets.UpsertParams{
 			LeaderToken:    s.token,
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
@@ -146,7 +145,6 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			OwnerTag: "application-mariadb",
-			ScopeTag: "unit-mariadb-0",
 			UpsertSecretArg: params.UpsertSecretArg{
 				RotatePolicy: ptr(coresecrets.RotateDaily),
 				ExpireTime:   ptr(s.clock.Now()),

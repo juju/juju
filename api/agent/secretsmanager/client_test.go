@@ -38,6 +38,7 @@ func ptr[T any](v T) *T {
 func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	expiry := time.Now()
+	uri := secrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
@@ -62,7 +63,7 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			[]params.StringResult{{
-				Result: "secret:9m4e2mr0ui3e8a215n4g",
+				Result: uri.String(),
 			}},
 		}
 		return nil
@@ -81,7 +82,7 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	}
 	result, err := client.Create(cfg, names.NewApplicationTag("mysql"), value)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(result.ID, gc.Equals, uri.ID)
 }
 
 func (s *SecretsSuite) TestCreateSecretsError(c *gc.C) {
@@ -97,107 +98,11 @@ func (s *SecretsSuite) TestCreateSecretsError(c *gc.C) {
 	value := secrets.NewSecretValue(nil)
 	result, err := client.Create(&secrets.SecretConfig{}, names.NewApplicationTag("mysql"), value)
 	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(result, gc.Equals, "")
-}
-
-func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
-	data := map[string]string{"foo": "bar"}
-	expiry := time.Now()
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "UpdateSecrets")
-		c.Check(arg, jc.DeepEquals, params.UpdateSecretArgs{
-			Args: []params.UpdateSecretArg{{
-				URI: "secret:9m4e2mr0ui3e8a215n4g",
-				UpsertSecretArg: params.UpsertSecretArg{
-					RotatePolicy: ptr(secrets.RotateDaily),
-					ExpireTime:   ptr(expiry),
-					Description:  ptr("my secret"),
-					Label:        ptr("foo"),
-					Params: map[string]interface{}{
-						"password-length":        10,
-						"password-special-chars": true,
-					},
-					Data: data,
-				},
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	value := secrets.NewSecretValue(data)
-	cfg := &secrets.SecretConfig{
-		RotatePolicy: ptr(secrets.RotateDaily),
-		ExpireTime:   ptr(expiry),
-		Description:  ptr("my secret"),
-		Label:        ptr("foo"),
-		Params: map[string]interface{}{
-			"password-length":        10,
-			"password-special-chars": true,
-		},
-	}
-	err := client.Update("secret:9m4e2mr0ui3e8a215n4g", cfg, value)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SecretsSuite) TestUpdateSecretsError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{
-				Error: &params.Error{Message: "boom"},
-			}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	value := secrets.NewSecretValue(nil)
-	err := client.Update("secret:9m4e2mr0ui3e8a215n4g", &secrets.SecretConfig{}, value)
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *SecretsSuite) TestRemoveSecret(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "RemoveSecrets")
-		c.Check(arg, jc.DeepEquals, params.SecretURIArgs{
-			Args: []params.SecretURIArg{{
-				URI: "secret:9m4e2mr0ui3e8a215n4g",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	err := client.Remove("secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SecretsSuite) TestRemoveSecretsError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{
-				Error: &params.Error{Message: "boom"},
-			}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	err := client.Remove("secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(result, gc.IsNil)
 }
 
 func (s *SecretsSuite) TestGetSecret(c *gc.C) {
+	uri := secrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
@@ -205,7 +110,7 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 		c.Check(request, gc.Equals, "GetSecretValues")
 		c.Check(arg, jc.DeepEquals, params.GetSecretValueArgs{
 			Args: []params.GetSecretValueArg{{
-				URI:    "secret:9m4e2mr0ui3e8a215n4g",
+				URI:    uri.String(),
 				Label:  "label",
 				Update: true,
 				Peek:   true,
@@ -220,7 +125,7 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetValue("secret:9m4e2mr0ui3e8a215n4g", "label", true, true)
+	result, err := client.GetValue(uri, "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	value := secrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(result, jc.DeepEquals, value)
@@ -235,8 +140,9 @@ func (s *SecretsSuite) TestGetSecretsError(c *gc.C) {
 		}
 		return nil
 	})
+	uri := secrets.NewURI()
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetValue("secret:9m4e2mr0ui3e8a215n4g", "", true, true)
+	result, err := client.GetValue(uri, "", true, true)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, gc.IsNil)
 }
@@ -379,66 +285,4 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	client := secretsmanager.NewClient(apiCaller)
 	err := client.SecretRotated("secret:9m4e2mr0ui3e8a215n4g", now)
 	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *SecretsSuite) TestGrant(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "SecretsGrant")
-		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
-			Args: []params.GrantRevokeSecretArg{{
-				URI:         "secret:9m4e2mr0ui3e8a215n4g",
-				ScopeTag:    "relation-wordpress.db#mysql.server",
-				SubjectTags: []string{"unit-wordpress-0"},
-				Role:        "view",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	err := client.Grant("secret:9m4e2mr0ui3e8a215n4g", &secretsmanager.SecretRevokeGrantArgs{
-		UnitName:    ptr("wordpress/0"),
-		RelationKey: ptr("wordpress:db mysql:server"),
-		Role:        secrets.RoleView,
-	})
-	c.Assert(err, gc.ErrorMatches, "FAIL")
-}
-
-func (s *SecretsSuite) TestRevoke(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "SecretsRevoke")
-		c.Check(arg, jc.DeepEquals, params.GrantRevokeSecretArgs{
-			Args: []params.GrantRevokeSecretArg{{
-				URI:         "secret:9m4e2mr0ui3e8a215n4g",
-				ScopeTag:    "relation-wordpress.db#mysql.server",
-				SubjectTags: []string{"application-wordpress"},
-				Role:        "view",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	err := client.Revoke("secret:9m4e2mr0ui3e8a215n4g", &secretsmanager.SecretRevokeGrantArgs{
-		ApplicationName: ptr("wordpress"),
-		RelationKey:     ptr("wordpress:db mysql:server"),
-		Role:            secrets.RoleView,
-	})
-	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

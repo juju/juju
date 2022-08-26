@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -65,12 +64,8 @@ type StorageContextAccessor interface {
 
 type SecretsAccessor interface {
 	SecretIds() (map[*secrets.URI]string, error)
-	Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value secrets.SecretValue) (string, error)
-	Update(uri string, cfg *secrets.SecretConfig, value secrets.SecretValue) error
-	Remove(uri string) error
-	GetValue(uri, label string, update, peek bool) (secrets.SecretValue, error)
-	Grant(uri string, p *secretsmanager.SecretRevokeGrantArgs) error
-	Revoke(uri string, p *secretsmanager.SecretRevokeGrantArgs) error
+	Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value secrets.SecretValue) (*secrets.URI, error)
+	GetValue(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context
@@ -392,6 +387,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 	ctx.secretIDs, err = ctx.secrets.SecretIds()
 	if err != nil {
 		return err
