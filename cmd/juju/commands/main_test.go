@@ -600,7 +600,7 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *gc.C) {
 	stubRegistry := &stubRegistry{stub: &jujutesting.Stub{}}
 	registry := jujuCommandRegistry{
 		commandRegistry: stubRegistry,
-		whitelist:       set.NewStrings("show-status"),
+		whitelist:       set.NewStrings("status"),
 		excluded:        set.NewStrings(),
 	}
 	registerCommands(registry)
