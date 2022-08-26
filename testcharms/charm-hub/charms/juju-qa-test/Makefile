@@ -20,3 +20,13 @@ stable:
 	@echo Creating the 'latest/stable' version of juju-qa-test
 	cp -r stable/* .
 	charmcraft pack
+
+20stable:
+	@echo Creating the '2.0/stable' version of juju-qa-test
+	cp -r 2-0-stable/* .
+	charmcraft pack
+
+20edge:
+	@echo Creating the '2.0/edge' version of juju-qa-test
+	cp -r 2-0-edge/* .
+	charmcraft pack

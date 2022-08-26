@@ -4,3 +4,10 @@
 charmcraft.yaml
 build
 foo-file.txt
+edge/
+edge/version
+edge/charmcraft.yaml
+candidate/
+stable/
+2-0-stable/
+2-0-edge/

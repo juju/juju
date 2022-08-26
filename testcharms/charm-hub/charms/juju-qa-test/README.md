@@ -52,7 +52,8 @@ It is expected that you have charmcraft installed via
 Then cd in to testcharms/charm-hub/charms/juju-qa-test and run
 
 ```bash
-charmcraft pack
+charmcraft clean
+make stable
 juju deploy juju-qa-test.charm
 ```
 
