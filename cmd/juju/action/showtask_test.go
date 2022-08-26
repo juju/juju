@@ -84,7 +84,7 @@ func (s *ShowTaskSuite) TestRun(c *gc.C) {
 	}{{
 		should:            "timeout if result never comes",
 		withClientWait:    "2s",
-		withAPIDelay:      3 * time.Second,
+		withAPIDelay:      10 * time.Second,
 		withClientQueryID: validActionId,
 		withAPIResponse:   []actionapi.ActionResult{{Status: "pending"}},
 		expectedErr:       "maximum wait time reached",
@@ -243,7 +243,7 @@ hello
 	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: validActionId,
-		withClientWait:    "3s",
+		withClientWait:    "10s",
 		withAPIDelay:      1 * time.Second,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "completed",
