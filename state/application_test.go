@@ -3245,6 +3245,7 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 		Owner:   s.mysql.Tag().String(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
+			Label:       ptr("label"),
 			Data:        map[string]string{"foo": "bar"},
 		},
 	}
@@ -3253,8 +3254,10 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.GetSecret(uri)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	// Create again, no label clash.
+	s.AddTestingApplication(c, "mysql", s.charm)
+	_, err = store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {

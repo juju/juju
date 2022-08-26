@@ -894,7 +894,7 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 				Status:    "failed",
 				Message:   "committing requested changes failed",
 				Results: map[string]interface{}{
-					"stderr":      "cannot apply changes: flush failed",
+					"stderr":      "flush failed",
 					"return-code": "1",
 				},
 			}}})

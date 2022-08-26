@@ -23,6 +23,9 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// LabelExists is returned when a duplicate label is used.
+const LabelExists = errors.ConstError("label exists")
+
 // CreateSecretParams are used to create a secret.
 type CreateSecretParams struct {
 	UpdateSecretParams
@@ -84,7 +87,7 @@ type secretMetadataDoc struct {
 	ProviderID string `bson:"provider-id"`
 
 	Description string `bson:"description"`
-	Label       string `bson:"tags"`
+	Label       string `bson:"label"`
 
 	// LatestRevision is denormalised here - it is the
 	// revision of the latest revision doc,
@@ -226,12 +229,20 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var ops []txn.Op
+		if p.Label != nil {
+			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, uniqueLabelOps...)
+		}
 		if attempt > 0 {
 			if _, err := s.getSecretValue(uri, revision, false); err == nil {
 				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
 			}
 		}
-		ops := []txn.Op{
+		ops = append(ops, []txn.Op{
 			{
 				C:      secretMetadataC,
 				Id:     metadataDoc.DocID,
@@ -243,7 +254,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 				Assert: txn.DocMissing,
 				Insert: *valueDoc,
 			}, isOwnerAliveOp,
-		}
+		}...)
 		if p.NextRotateTime != nil {
 			rotateOps, err := s.secretRotationOps(uri, metadataDoc.OwnerTag, p.RotatePolicy, p.NextRotateTime)
 			if err != nil {
@@ -290,25 +301,33 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 	var metadataDoc secretMetadataDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		err := secretMetadataCollection.FindId(uri.ID).One(&metadataDoc)
-		if errors.Cause(err) == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("secret %q", uri.String())
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		var ops []txn.Op
+		if p.Label != nil && *p.Label != metadataDoc.Label {
+			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, uniqueLabelOps...)
 		}
 		if err := s.updateSecretMetadataDoc(&metadataDoc, &p); err != nil {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		ops := []txn.Op{
+		ops = append(ops, []txn.Op{
 			{
 				C:      secretMetadataC,
 				Id:     metadataDoc.DocID,
 				Assert: txn.DocExists,
 				Update: bson.M{"$set": metadataDoc},
 			},
-		}
+		}...)
 		_, err = s.getSecretValue(uri, metadataDoc.LatestRevision, false)
 		revisionExists := err == nil
 		if !revisionExists && !errors.IsNotFound(err) {
@@ -316,7 +335,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		if len(p.Data) > 0 {
 			if revisionExists {
-				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
+				return nil, errors.AlreadyExistsf("secret value with revision %d for %q", metadataDoc.LatestRevision, uri.String())
 			}
 			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.LatestRevision, p.ExpireTime, p.Data)
 			ops = append(ops, txn.Op{
@@ -380,7 +399,7 @@ func (st *State) nextRotateTime(docID string) (*time.Time, error) {
 }
 
 func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *time.Time) (*secrets.SecretMetadata, error) {
-	uri, err := secrets.ParseURI(doc.DocID)
+	uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -422,7 +441,7 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 			logger.Warningf("aborting failed delete select transaction: %v", err2)
 		}
 	}()
-	secretMetadataCollection, closer := s.st.db().GetRawCollection(secretMetadataC)
+	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 	// We need to read something for the txn to work with RemoveAll.
 	var v interface{}
@@ -433,52 +452,52 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = secretMetadataCollection.RemoveAll(bson.D{{
+	_, err = secretMetadataCollection.Writeable().RemoveAll(bson.D{{
 		"_id", uri.ID,
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
 	}
 
-	secretRotateCollection, closer := s.st.db().GetRawCollection(secretRotateC)
+	secretRotateCollection, closer := s.st.db().GetCollection(secretRotateC)
 	defer closer()
-	_, err = secretRotateCollection.RemoveAll(bson.D{{
+	_, err = secretRotateCollection.Writeable().RemoveAll(bson.D{{
 		"_id", uri.ID,
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
 	}
 
-	secretRevisionsCollection, closer := s.st.db().GetRawCollection(secretRevisionsC)
+	secretRevisionsCollection, closer := s.st.db().GetCollection(secretRevisionsC)
 	defer closer()
-	_, err = secretRevisionsCollection.RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", fmt.Sprintf("^%s/.*", uri.ID)}},
+	_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}},
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
 	}
 
-	secretPermissionsCollection, closer := s.st.db().GetRawCollection(secretPermissionsC)
+	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
 	defer closer()
-	_, err = secretPermissionsCollection.RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", fmt.Sprintf("^%s#.*", s.st.docID(uri.ID))}},
+	_, err = secretPermissionsCollection.Writeable().RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "deleting permissions for %s", uri.ShortString())
 	}
 
-	secretConsumersCollection, closer := s.st.db().GetRawCollection(secretConsumersC)
+	secretConsumersCollection, closer := s.st.db().GetCollection(secretConsumersC)
 	defer closer()
-	_, err = secretConsumersCollection.RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", fmt.Sprintf("^%s#.*", s.st.docID(uri.ID))}},
+	_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
+		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "deleting consumer info for %s", uri.ShortString())
 	}
-	refCountsCollection, closer := s.st.db().GetRawCollection(refcountsC)
+	refCountsCollection, closer := s.st.db().GetCollection(refcountsC)
 	defer closer()
-	_, err = refCountsCollection.RemoveAll(bson.D{{
-		"_id", fmt.Sprintf("%s#%s", s.st.docID(uri.ID), "consumer"),
+	_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+		"_id", fmt.Sprintf("%s#%s", uri.ID, "consumer"),
 	}})
 	if err != nil {
 		return errors.Annotatef(err, "deleting consumer info for %s", uri.ShortString())
@@ -594,8 +613,7 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	)
 
 	if revision == nil {
-		id := "^" + uri.ID + "/.*"
-		q = bson.D{{"_id", bson.D{{"$regex", id}}}}
+		q = bson.D{{"_id", bson.D{{"$regex", uri.ID + "/.*"}}}}
 	} else {
 		q = bson.D{{"_id", secretRevisionKey(uri, *revision)}}
 	}
@@ -648,10 +666,57 @@ func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, err
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return []txn.Op{countOp, incOp}, err
+		return []txn.Op{countOp, incOp}, nil
 	}
 	incOp := nsRefcounts.JustIncRefOp(refcountsC, key, inc)
-	return []txn.Op{countOp, incOp}, err
+	return []txn.Op{countOp, incOp}, nil
+}
+
+func secretOwnerLabelKey(ownerTag string, label string) string {
+	return fmt.Sprintf("secretlabel#%s#%s", ownerTag, label)
+}
+
+func (st *State) uniqueSecretLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+
+	key := secretOwnerLabelKey(ownerTag, label)
+	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count > 0 {
+		return nil, errors.WithType(
+			errors.Errorf("secret label %q owned by %s already exists", label, ownerTag), LabelExists)
+	}
+	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []txn.Op{countOp, incOp}, nil
+}
+
+func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
+	refCountsCollection, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+
+	var (
+		doc bson.M
+		ops []txn.Op
+	)
+	id := secretOwnerLabelKey(ownerTag.String(), ".*")
+	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
+	iter := refCountsCollection.Find(q).Iter()
+	for iter.Next(&doc) {
+		id, ok := doc["_id"].(string)
+		if !ok {
+			continue
+		}
+		count, _ := doc["refcount"].(int)
+		op := nsRefcounts.JustRemoveOp(refcountsC, id, count)
+		ops = append(ops, op)
+	}
+	return ops, iter.Close()
 }
 
 // GetSecretConsumer gets secret consumer metadata.
@@ -664,9 +729,8 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secre
 	defer closer()
 
 	key := secretConsumerKey(uri.ID, consumerTag)
-	docID := st.docID(key)
 	var doc secretConsumerDoc
-	err := secretConsumersCollection.FindId(docID).One(&doc)
+	err := secretConsumersCollection.FindId(key).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("consumer %q metadata for secret %q", consumerTag, uri.String())
 	}
@@ -683,7 +747,6 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secre
 // SaveSecretConsumer saves or updates secret consumer metadata.
 func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metadata *secrets.SecretConsumerMetadata) error {
 	key := secretConsumerKey(uri.ID, consumerTag)
-	docID := st.docID(key)
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
@@ -692,11 +755,11 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metada
 		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
-		err := secretConsumersCollection.FindId(docID).One(&doc)
+		err := secretConsumersCollection.FindId(key).One(&doc)
 		if err == nil {
 			return []txn.Op{{
 				C:      secretConsumersC,
-				Id:     docID,
+				Id:     key,
 				Assert: txn.DocExists,
 				Update: bson.M{"$set": bson.M{
 					"label":            metadata.Label,
@@ -708,10 +771,10 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metada
 		}
 		ops := []txn.Op{{
 			C:      secretConsumersC,
-			Id:     docID,
+			Id:     key,
 			Assert: txn.DocMissing,
 			Insert: secretConsumerDoc{
-				DocID:           docID,
+				DocID:           key,
 				ConsumerTag:     consumerTag,
 				Label:           metadata.Label,
 				CurrentRevision: metadata.CurrentRevision,
@@ -741,7 +804,7 @@ func (st *State) secretUpdateConsumersOps(uri *secrets.URI, newRevision int) ([]
 		doc secretConsumerDoc
 		ops []txn.Op
 	)
-	id := st.docID(secretConsumerKey(uri.ID, ".*"))
+	id := secretConsumerKey(uri.ID, ".*")
 	q := bson.D{{"_id", bson.D{{"$regex", id}}}}
 	iter := secretConsumersCollection.Find(q).Iter()
 	for iter.Next(&doc) {
@@ -826,7 +889,7 @@ func (st *State) referencedSecrets(ref names.Tag, attr string) ([]*secrets.URI, 
 	)
 	iter := secretMetadataCollection.Find(bson.D{{attr, ref.String()}}).Select(bson.D{{"_id", 1}}).Iter()
 	for iter.Next(&doc) {
-		uri, err := secrets.ParseURI(doc.DocID)
+		uri, err := secrets.ParseURI(st.localID(doc.DocID))
 		if err != nil {
 			_ = iter.Close()
 			return nil, errors.Trace(err)
@@ -865,7 +928,6 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 	}
 
 	key := secretConsumerKey(uri.ID, p.Subject.String())
-	docID := st.docID(key)
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
@@ -875,14 +937,14 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
-		err = secretPermissionsCollection.FindId(docID).One(&doc)
+		err = secretPermissionsCollection.FindId(key).One(&doc)
 		if err == mgo.ErrNotFound {
 			return []txn.Op{{
 				C:      secretPermissionsC,
-				Id:     docID,
+				Id:     key,
 				Assert: txn.DocMissing,
 				Insert: secretPermissionDoc{
-					DocID:   docID,
+					DocID:   key,
 					Subject: p.Subject.String(),
 					Scope:   p.Scope.String(),
 					Role:    string(p.Role),
@@ -899,7 +961,7 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 		}
 		return []txn.Op{{
 			C:      secretPermissionsC,
-			Id:     docID,
+			Id:     key,
 			Assert: txn.DocExists,
 			Update: bson.M{"$set": bson.M{
 				"role": p.Role,
@@ -912,7 +974,6 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 // RevokeSecretAccess removes any secret access role for the subject.
 func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) error {
 	key := secretConsumerKey(uri.ID, p.Subject.String())
-	docID := st.docID(key)
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
@@ -925,7 +986,7 @@ func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) erro
 			}
 			return nil, errors.Trace(err)
 		}
-		err := secretPermissionsCollection.FindId(docID).One(&doc)
+		err := secretPermissionsCollection.FindId(key).One(&doc)
 		if err == mgo.ErrNotFound {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -934,7 +995,7 @@ func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) erro
 
 		ops := []txn.Op{{
 			C:      secretPermissionsC,
-			Id:     docID,
+			Id:     key,
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
@@ -946,7 +1007,6 @@ func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) erro
 // SecretAccess returns the secret access role for the subject.
 func (st *State) SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error) {
 	key := secretConsumerKey(uri.ID, subject.String())
-	docID := st.docID(key)
 
 	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
 	defer closer()
@@ -956,7 +1016,7 @@ func (st *State) SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.Secr
 	}
 
 	var doc secretPermissionDoc
-	err := secretPermissionsCollection.FindId(docID).One(&doc)
+	err := secretPermissionsCollection.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return secrets.RoleNone, nil
 	}
@@ -1124,7 +1184,7 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretTriggerChange, e
 
 	iter := secretRotateCollection.Find(bson.D{{"owner-tag", w.owner}}).Iter()
 	for iter.Next(&doc) {
-		uriStr := doc.DocID
+		uriStr := w.backend.localID(doc.DocID)
 		uri, err := secrets.ParseURI(uriStr)
 		if err != nil {
 			_ = iter.Close()
@@ -1175,7 +1235,7 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		return details, nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
-		uriStr := doc.DocID
+		uriStr := w.backend.localID(doc.DocID)
 		uri, err := secrets.ParseURI(uriStr)
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid secret URI %q", uriStr)
