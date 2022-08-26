@@ -548,11 +548,11 @@ func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance)
 }
 
 // filterAndQueueRemovalOfDeadMachines scans the list of dead machines and:
-// - Sets the deferred stop flag for machines that are still online
-// - Filters out any machines that are either stopping or have the deferred
-//   stop flag set.
-// - Marks the remaining machines as stopping and queues a request for them to
-//   be cleaned up.
+//   - Sets the deferred stop flag for machines that are still online
+//   - Filters out any machines that are either stopping or have the deferred
+//     stop flag set.
+//   - Marks the remaining machines as stopping and queues a request for them to
+//     be cleaned up.
 func (task *provisionerTask) filterAndQueueRemovalOfDeadMachines(ctx context.ProviderCallContext, dead []apiprovisioner.MachineProvisioner) error {
 	// Flag any machines in the dead list that are still being started so
 	// they will be stopped once they come online.

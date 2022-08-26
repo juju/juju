@@ -416,8 +416,8 @@ const (
 // "ca-cert" and "ca-private-key" values.  If not specified, CA details
 // will be read from:
 //
-//     ~/.local/share/juju/<name>-cert.pem
-//     ~/.local/share/juju/<name>-private-key.pem
+//	~/.local/share/juju/<name>-cert.pem
+//	~/.local/share/juju/<name>-private-key.pem
 //
 // if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {

@@ -253,9 +253,7 @@ func endpoint() apiuniter.Endpoint {
 		}}
 }
 
-//
 // RelationUnit
-//
 func (s *relationerSuite) expectEndpoint(ep apiuniter.Endpoint) {
 	s.relationUnit.EXPECT().Endpoint().Return(ep)
 }
@@ -272,16 +270,12 @@ func (s *relationerSuite) expectRelationUnitRelation() {
 	s.relationUnit.EXPECT().Relation().Return(s.relation)
 }
 
-//
 // Relation
-//
 func (s *relationerSuite) expectRelationId() {
 	s.relation.EXPECT().Id().Return(1)
 }
 
-//
 // StateManager
-//
 func (s *relationerSuite) expectRemoveRelation() {
 	s.stateManager.EXPECT().RemoveRelation(1, s.unitGetter, map[string]bool{}).Return(nil)
 }

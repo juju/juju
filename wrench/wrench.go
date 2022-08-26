@@ -42,8 +42,8 @@ var logger = loggo.GetLogger("juju.wrench")
 //
 // For example, /var/lib/juju/wrench/machine-agent could contain:
 //
-//   refuse-upgrade
-//   fail-api-server-start
+//	refuse-upgrade
+//	fail-api-server-start
 //
 // The caller need not worry about errors. Any errors that occur will
 // be logged and false will be returned.

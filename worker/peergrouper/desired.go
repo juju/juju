@@ -214,10 +214,10 @@ func (p *peerGroupChanges) initNewReplicaSet() map[string]*replicaset.Member {
 // peerGroupInfo, a nil member map is returned along with the correct voters
 // map.
 // An error is returned if:
-//   1) There are members unrecognised by controller node association,
-//      and any of these are set as voters.
-//   2) There is no HA space configured and any nodes have multiple
-//      cloud-local addresses.
+//  1. There are members unrecognised by controller node association,
+//     and any of these are set as voters.
+//  2. There is no HA space configured and any nodes have multiple
+//     cloud-local addresses.
 func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
 	logger.Debugf(info.getLogMessage())
 
@@ -537,6 +537,7 @@ const multiAddressMessage = "multiple usable addresses found" +
 // If there are multiple addresses, then a check is made to ensure that:
 //   - the member was previously in the replica-set and;
 //   - the previous address used for replication is still available.
+//
 // If the check is satisfied, then a warning is logged and no change is made.
 // Otherwise an error is returned to indicate that a HA space must be
 // configured in order to proceed. Such nodes have their status set to

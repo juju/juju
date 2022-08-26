@@ -22,14 +22,14 @@ import (
 // populated before an upload (whether local or from the charm store).
 // In that case the following fields are not set:
 //
-//   Timestamp
-//   Username
+//	Timestamp
+//	Username
 //
 // For "upload" placeholders, the following additional fields are
 // not set:
 //
-//   Fingerprint
-//   Size
+//	Fingerprint
+//	Size
 //
 // A resource may also be added to the model as "pending", meaning it
 // is queued up to be used as a resource for the application. Until it is

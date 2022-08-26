@@ -31,8 +31,9 @@ type LogStreamRecord struct {
 // streaming connection to the API endpoint for reading log records.
 //
 // The field tags relate to the following 2 libraries:
-//   github.com/google/go-querystring/query (encoding)
-//   github.com/gorilla/schema (decoding)
+//
+//	github.com/google/go-querystring/query (encoding)
+//	github.com/gorilla/schema (decoding)
 //
 // See apiserver/debuglog.go:debugLogParams for additional things we
 // may consider supporting here.

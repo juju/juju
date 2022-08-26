@@ -269,8 +269,8 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 	}
 }
 
-/// XXX(jam): 2017-01-25 do we need these functions anymore? We don't really
-//support ssh'ing to V1 anymore
+// / XXX(jam): 2017-01-25 do we need these functions anymore? We don't really
+// support ssh'ing to V1 anymore
 func (s *SSHSuite) TestSSHCommandHostAddressRetryAPIv1(c *gc.C) {
 	// Start with nothing valid to connect to.
 	s.setHostChecker(validAddresses())

@@ -22,12 +22,14 @@ import (
 // newHTTPFixture creates and returns an HTTP fixture to be used in order to
 // mock controller HTTP requests to the given controller address.
 // Use it like in the following example:
-//   fix := newHTTPFixture("/my/controller/path", func(w http.ResponseWriter, req *http.Request) {
-//       // Simulate what's returned by the server.
-//   })
-//   stub := fix.run(c, func(ac base.APICallCloser) {
-//       // Do something with the API caller.
-//   })
+//
+//	fix := newHTTPFixture("/my/controller/path", func(w http.ResponseWriter, req *http.Request) {
+//	    // Simulate what's returned by the server.
+//	})
+//	stub := fix.run(c, func(ac base.APICallCloser) {
+//	    // Do something with the API caller.
+//	})
+//
 // At this point the stub, if the handler has been called, includes one call
 // with the HTTP method requested while running the test function.
 func newHTTPFixture(address string, handle func(http.ResponseWriter, *http.Request)) *httpFixture {

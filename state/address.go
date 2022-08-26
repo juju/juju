@@ -102,9 +102,10 @@ type apiHostPortsDoc struct {
 }
 
 // SetAPIHostPorts sets the addresses, if changed, of two collections:
-// - The list of *all* addresses at which the API is accessible.
-// - The list of addresses at which the API can be accessed by agents according
-//   to the controller management space configuration.
+//   - The list of *all* addresses at which the API is accessible.
+//   - The list of addresses at which the API can be accessed by agents according
+//     to the controller management space configuration.
+//
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(newHostPorts []network.SpaceHostPorts) error {
 	controllers, closer := st.db().GetCollection(controllersC)

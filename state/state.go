@@ -384,9 +384,9 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 }
 
 // start makes a *State functional post-creation, by:
-//   * setting controllerTag and cloudName
-//   * starting watcher backends
-//   * creating cloud metadata storage
+//   - setting controllerTag and cloudName
+//   - starting watcher backends
+//   - creating cloud metadata storage
 //
 // start will close the *State if it fails.
 func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub) (err error) {

@@ -94,13 +94,13 @@ type configAttrs map[string]interface{}
 // to the more simple type. This is because the output of this command outputs
 // in the following format:
 //
-//     resource-name:
-//        value: foo
-//        source: default
+//	resource-name:
+//	   value: foo
+//	   source: default
 //
 // Where the consuming side of the command expects it in the following format:
 //
-//     resource-name: foo
+//	resource-name: foo
 //
 // CoerceFormat attempts to diagnose this and attempt to do this correctly.
 func (a configAttrs) CoerceFormat() (configAttrs, error) {

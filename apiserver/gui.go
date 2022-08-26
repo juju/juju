@@ -54,25 +54,25 @@ type router struct {
 
 // guiEndpoints serves the Juju GUI routes.
 // Serving the Juju GUI is done with the following assumptions:
-// - the archive is compressed in tar.bz2 format;
-// - the archive includes a top directory named "jujugui-{version}" where
-//   version is semver (like "2.0.1"). This directory includes another
-//   "jujugui" directory where the actual Juju GUI files live;
-// - the "jujugui" directory includes a "static" subdirectory with the Juju
-//   GUI assets to be served statically;
-// - the "jujugui" directory specifically includes a
-//   "static/gui/build/app/assets/stack/svg/sprite.css.svg" file, which is
-//   required to render the Juju GUI index file;
-// - the "jujugui" directory includes a "templates/index.html.go" file which is
-//   used to render the Juju GUI index. The template receives at least the
-//   following variables in its context: "staticURL", comboURL", "configURL",
-//   "debug" and "spriteContent". It might receive more variables but cannot
-//   assume them to be always provided;
-// - the "jujugui" directory includes a "templates/config.js.go" file which is
-//   used to render the Juju GUI configuration file. The template receives at
-//   least the following variables in its context: "base", "host", "socket",
-//   "controllerSocket", "staticURL" and "version". It might receive more
-//   variables but cannot assume them to be always provided.
+//   - the archive is compressed in tar.bz2 format;
+//   - the archive includes a top directory named "jujugui-{version}" where
+//     version is semver (like "2.0.1"). This directory includes another
+//     "jujugui" directory where the actual Juju GUI files live;
+//   - the "jujugui" directory includes a "static" subdirectory with the Juju
+//     GUI assets to be served statically;
+//   - the "jujugui" directory specifically includes a
+//     "static/gui/build/app/assets/stack/svg/sprite.css.svg" file, which is
+//     required to render the Juju GUI index file;
+//   - the "jujugui" directory includes a "templates/index.html.go" file which is
+//     used to render the Juju GUI index. The template receives at least the
+//     following variables in its context: "staticURL", comboURL", "configURL",
+//     "debug" and "spriteContent". It might receive more variables but cannot
+//     assume them to be always provided;
+//   - the "jujugui" directory includes a "templates/config.js.go" file which is
+//     used to render the Juju GUI configuration file. The template receives at
+//     least the following variables in its context: "base", "host", "socket",
+//     "controllerSocket", "staticURL" and "version". It might receive more
+//     variables but cannot assume them to be always provided.
 func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint {
 	r := &router{
 		name:    "GUI",
@@ -117,14 +117,14 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 
 // dashboardRouter serves the Juju Dashboard routes.
 // Serving the Juju Dashboard is done with the following assumptions:
-// - the archive is compressed in tar.bz2 format;
-// - the archive includes a file version.json where
-//   version is semver (like "2.0.1").
-// - there's a "static" subdirectory with the Juju GUI assets to be served statically;
-// - there's a "index.html" file which is used to render the Juju GUI index.
-// - there's a "config.js.go" file which is used to render the Juju GUI configuration file. The template receives at
-//   least the following variables in its context: "baseAppURL", "identityProviderAvailable",. It might receive more
-//   variables but cannot assume them to be always provided.
+//   - the archive is compressed in tar.bz2 format;
+//   - the archive includes a file version.json where
+//     version is semver (like "2.0.1").
+//   - there's a "static" subdirectory with the Juju GUI assets to be served statically;
+//   - there's a "index.html" file which is used to render the Juju GUI index.
+//   - there's a "config.js.go" file which is used to render the Juju GUI configuration file. The template receives at
+//     least the following variables in its context: "baseAppURL", "identityProviderAvailable",. It might receive more
+//     variables but cannot assume them to be always provided.
 func dashboardEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint {
 	r := &router{
 		name:    "Dashboard",

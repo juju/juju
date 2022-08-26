@@ -25,6 +25,7 @@ import (
 
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/worker/uniter/runner/jujuc Context
 type Context interface {
 	HookContext
@@ -302,6 +303,7 @@ type ContextRelations interface {
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_relation_mock.go github.com/juju/juju/worker/uniter/runner/jujuc ContextRelation
 type ContextRelation interface {
 

@@ -31,7 +31,7 @@ type sshHostKeysDoc struct {
 }
 
 // GetSSHHostKeys retrieves the SSH host keys stored for an entity.
-///
+// /
 // NOTE: Currently only machines are supported. This can be
 // generalised to take other tag types later, if and when we need it.
 func (st *State) GetSSHHostKeys(tag names.MachineTag) (SSHHostKeys, error) {

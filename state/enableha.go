@@ -234,7 +234,8 @@ type enableHAIntent struct {
 // enableHAIntentions returns what we would like
 // to do to maintain the availability of the existing servers
 // mentioned in the given info, including:
-//   gathering available, non-voting machines that may be promoted;
+//
+//	gathering available, non-voting machines that may be promoted;
 func (st *State) enableHAIntentions(controllerIds []string, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {

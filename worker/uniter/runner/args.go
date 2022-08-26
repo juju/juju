@@ -39,7 +39,7 @@ func lookPath(hook string) (string, error) {
 // in windowsSuffixOrder. As windows cares about extensions to determine
 // how to execute a file, we will allow several suffixes, with powershell
 // being default.  For non windows machines, verify a file exists with the
-//same name as the hook.  Both verify the script is executable.
+// same name as the hook.  Both verify the script is executable.
 func discoverHookScript(charmDir, hook string) (string, error) {
 	hookFile := filepath.Join(charmDir, hook)
 	if jujuos.HostOS() != jujuos.Windows {

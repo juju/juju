@@ -51,8 +51,9 @@ func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
 // ServeHTTP will serve up connections as a websocket for the logstream API.
 //
 // Args for the HTTP request are as follows:
-//   all -> string - one of [true, false], if true, include records from all models
-//   sink -> string - the name of the the log forwarding target
+//
+//	all -> string - one of [true, false], if true, include records from all models
+//	sink -> string - the name of the the log forwarding target
 func (h *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger.Infof("log stream request handler starting")
 	handler := func(conn *websocket.Conn) {

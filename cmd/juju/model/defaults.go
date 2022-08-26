@@ -111,16 +111,16 @@ type defaultAttrs map[string]interface{}
 // type to the more simple type. This is because the output of this command
 // outputs in the following format:
 //
-//     resource-name:
-//        default: foo
-//        controller: baz
-//        regions:
-//        - name: cloud-region-name
-//          value: bar
+//	resource-name:
+//	   default: foo
+//	   controller: baz
+//	   regions:
+//	   - name: cloud-region-name
+//	     value: bar
 //
 // Where the consuming side of the command expects it in the following format:
 //
-//     resource-name: bar
+//	resource-name: bar
 //
 // CoerceFormat attempts to diagnose this and attempt to do this correctly.
 func (a defaultAttrs) CoerceFormat(region string) (defaultAttrs, error) {
@@ -312,35 +312,41 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 // the examples.
 //
 // This sets foo=baz and unsets bar in aws/us-east-1
-//     juju model-defaults aws/us-east-1 foo=baz --reset bar
+//
+//	juju model-defaults aws/us-east-1 foo=baz --reset bar
 //
 // If aws is the cloud of the current or specified controller -- specified by
 // -c somecontroller -- then the following would also be equivalent.
-//     juju model-defaults --reset bar us-east-1 foo=baz
+//
+//	juju model-defaults --reset bar us-east-1 foo=baz
 //
 // If one doesn't specify a cloud or region the command is still valid but for
 // setting the default on the controller:
-//     juju model-defaults foo=baz --reset bar
+//
+//	juju model-defaults foo=baz --reset bar
 //
 // Of course one can specify multiple keys to reset --reset a,b,c and one can
 // also specify multiple values to set a=b c=d e=f. I.e. comma separated for
 // resetting and space separated for setting. One may also only set or reset as
 // a singular action.
-//     juju model-defaults --reset foo
-//     juju model-defaults a=b c=d e=f
-//     juju model-defaults a=b c=d --reset e,f
+//
+//	juju model-defaults --reset foo
+//	juju model-defaults a=b c=d e=f
+//	juju model-defaults a=b c=d --reset e,f
 //
 // cloud/region may also be specified so above examples with that option might
 // be like the following invocation.
-//     juju model-defaults us-east-1 a=b c=d --reset e,f
+//
+//	juju model-defaults us-east-1 a=b c=d --reset e,f
 //
 // Finally one can also ask for the all the defaults or the defaults for one
 // specific setting. In this case specifying a region is not valid as
 // model-defaults shows the settings for a value at all locations that it has a
 // default set -- or at a minimum the default and  "-" for a controller with no
 // value set.
-//     juju model-defaults
-//     juju model-defaults no-proxy
+//
+//	juju model-defaults
+//	juju model-defaults no-proxy
 //
 // It is not valid to reset and get or to set and get values. It is also
 // neither valid to reset and set the same key, nor to set the same key to

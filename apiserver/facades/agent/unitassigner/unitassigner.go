@@ -32,8 +32,8 @@ type API struct {
 	statusSetter statusSetter
 }
 
-//  AssignUnits assigns the units with the given ids to the correct machine. The
-//  error results are returned in the same order as the given entities.
+// AssignUnits assigns the units with the given ids to the correct machine. The
+// error results are returned in the same order as the given entities.
 func (a *API) AssignUnits(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
