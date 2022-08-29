@@ -6,9 +6,9 @@ run_deploy_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	# revision 9 is in channel 2.0/edge
-	juju deploy juju-qa-test --revision 9 --channel 2.0/stable
-	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
+	# revision 23 is in channel 2.0/edge
+	juju deploy juju-qa-test --revision 23 --channel 2.0/stable
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 
 	# check resource revision per channel specified.
 	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "1"')
@@ -33,9 +33,9 @@ run_deploy_revision_resource() {
 
 	ensure "${model_name}" "${file}"
 
-	# revision 9 is in channel 2.0/edge
-	juju deploy juju-qa-test --revision 9 --channel 2.0/stable --resource foo-file=4
-	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
+	# revision 23 is in channel 2.0/edge
+	juju deploy juju-qa-test --revision 23 --channel 2.0/stable --resource foo-file=4
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 
 	# check resource revision as specified in command.
 	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "4"')
@@ -75,14 +75,28 @@ run_deploy_revision_upgrade() {
 
 	ensure "${model_name}" "${file}"
 
-	# revision 9 is in channel 2.0/edge
-	juju deploy juju-qa-test --revision 9 --channel latest/edge
-	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 9)"
+	# revision 23 is in channel 2.0/edge
+	juju deploy juju-qa-test --revision 23 --channel latest/edge
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 
-	# Ensure that refresh gets the revision from the channel
-	# listed at deploy.
-	# revision 21 is in channel latest/edge
-	juju refresh juju-qa-test
+	attempt=0
+	while true; do
+		# Ensure that refresh gets the revision from the channel
+		# listed at deploy.
+		# revision 21 is in channel latest/edge
+		OUT=$(juju refresh juju-qa-test 2>&1 || true)
+		if echo "${OUT}" | grep -E -q "Added"; then
+			break
+		fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "timeout: waiting for charm download to complete 50sec")
+			exit 5
+		fi
+		sleep 5
+	done
+
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
 
 	destroy_model "${model_name}"
