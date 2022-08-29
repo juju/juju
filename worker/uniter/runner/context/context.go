@@ -1308,8 +1308,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
-			err = errors.Annotatef(err, "cannot apply changes")
-			ctx.logger.Errorf("%v", err)
+			ctx.logger.Errorf("cannot apply changes: %v", err)
 			return errors.Trace(err)
 		}
 	}

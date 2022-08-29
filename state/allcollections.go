@@ -541,32 +541,32 @@ func allCollections() CollectionSchema {
 		cloudServicesC: {},
 
 		secretMetadataC: {
-			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"controller-uuid", "model-uuid", "_id"},
+				Key: []string{"model-uuid", "_id"},
 			}},
 		},
 
 		secretRevisionsC: {
-			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"revision", "_id"},
+			}},
 		},
 
 		secretConsumersC: {
 			indexes: []mgo.Index{{
-				Key: []string{"consumer-tag"},
+				Key: []string{"consumer-tag", "model-uuid"},
 			}},
 		},
 
 		secretPermissionsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"subject-tag", "scope-tag"},
+				Key: []string{"subject-tag", "scope-tag", "model-uuid"},
 			}},
 		},
 
 		secretRotateC: {
-			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"owner-tag"},
+				Key: []string{"owner-tag", "model-uuid"},
 			}},
 		},
 

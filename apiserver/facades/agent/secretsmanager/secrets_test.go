@@ -176,6 +176,41 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	p := secrets.CreateParams{
+		Version: secrets.Version,
+		Owner:   "application-mariadb",
+		UpsertParams: secrets.UpsertParams{
+			LeaderToken: s.token,
+			Label:       ptr("foobar"),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.secretsService.EXPECT().CreateSecret(gomock.Any(), gomock.Any(), p).Return(
+		nil, fmt.Errorf("dup label %w", state.LabelExists),
+	)
+
+	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
+		Args: []params.CreateSecretArg{{
+			OwnerTag: "application-mariadb",
+			UpsertSecretArg: params.UpsertSecretArg{
+				Label: ptr("foobar"),
+				Data:  map[string]string{"foo": "bar"},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{
+			Error: &params.Error{Message: `secret with label "foobar" already exists`, Code: params.CodeAlreadyExists},
+		}},
+	})
+}
+
 func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -231,6 +266,42 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 			Error: &params.Error{Message: `at least one attribute to update must be specified`},
 		}, {
 			Error: &params.Error{Code: params.CodeNotValid, Message: `secret URI with controller UUID "deadbeef-1bad-500d-9000-4b1d0d061111" not valid`},
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	p := secrets.UpsertParams{
+		LeaderToken: s.token,
+		Label:       ptr("foobar"),
+	}
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	expectURI.ControllerUUID = coretesting.ControllerTag.Id()
+	s.secretsService.EXPECT().GetSecret(gomock.Any(), &expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsService.EXPECT().UpdateSecret(gomock.Any(), &expectURI, p).Return(
+		nil, fmt.Errorf("dup label %w", state.LabelExists),
+	)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.expectSecretAccessQuery(1)
+	uri1 := *uri
+	uri1.ControllerUUID = "deadbeef-1bad-500d-9000-4b1d0d061111"
+
+	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
+		Args: []params.UpdateSecretArg{{
+			URI: uri.ShortString(),
+			UpsertSecretArg: params.UpsertSecretArg{
+				Label: ptr("foobar"),
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{Message: `secret with label "foobar" already exists`, Code: params.CodeAlreadyExists},
 		}},
 	})
 }

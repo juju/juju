@@ -691,6 +691,11 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, secretPermissionsOps...)
+	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(a.ApplicationTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretLabelOps...)
 
 	// Note that appCharmDecRefOps might not catch the final decref
 	// when run in a transaction that decrefs more than once. So we
@@ -2717,6 +2722,10 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
+	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -2743,6 +2752,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
 	ops = append(ops, secretPermissionsOps...)
+	ops = append(ops, secretLabelOps...)
 
 	m, err := a.st.Model()
 	if err != nil {

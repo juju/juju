@@ -87,8 +87,35 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 		UpdateTime:       now,
 	})
 
+	p.Label = nil
 	_, err = s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+}
+
+func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(now.Add(time.Minute)),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(now.Add(time.Hour)),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	uri2 := secrets.NewURI()
+	uri2.ControllerUUID = s.State.ControllerUUID()
+	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
 }
 
 func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
@@ -311,6 +338,39 @@ func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		ExpireTime:  ptr(now.Add(time.Minute)),
 	})
+}
+
+func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Label:       ptr("label"),
+			Description: ptr("description"),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	uri2 := secrets.NewURI()
+	uri2.ControllerUUID = s.State.ControllerUUID()
+	cp.Label = ptr("label2")
+	_, err = s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("label2"),
+	})
+	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("label"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SecretsSuite) TestUpdateData(c *gc.C) {
@@ -861,7 +921,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that other secret info remains intact.
-	secretRevisionsCollection, closer := state.GetRawCollection(s.State, "secretRevisions")
+	secretRevisionsCollection, closer := state.GetCollection(s.State, "secretRevisions")
 	defer closer()
 	n, err := secretRevisionsCollection.FindId(uri2.ID + "/1").Count()
 	c.Assert(err, jc.ErrorIsNil)
@@ -870,7 +930,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
-	secretRotateCollection, closer := state.GetRawCollection(s.State, "secretRotate")
+	secretRotateCollection, closer := state.GetCollection(s.State, "secretRotate")
 	defer closer()
 	n, err = secretRotateCollection.FindId(uri2.ID).Count()
 	c.Assert(err, jc.ErrorIsNil)
@@ -879,30 +939,30 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
-	secretConsumersCollection, closer := state.GetRawCollection(s.State, "secretConsumers")
+	secretConsumersCollection, closer := state.GetCollection(s.State, "secretConsumers")
 	defer closer()
-	n, err = secretConsumersCollection.FindId(state.DocID(s.State, uri2.ID) + "#unit-mariadb-0").Count()
+	n, err = secretConsumersCollection.FindId(uri2.ID + "#unit-mariadb-0").Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 	n, err = secretConsumersCollection.Find(nil).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
-	secretPermissionsCollection, closer := state.GetRawCollection(s.State, "secretPermissions")
+	secretPermissionsCollection, closer := state.GetCollection(s.State, "secretPermissions")
 	defer closer()
-	n, err = secretPermissionsCollection.FindId(state.DocID(s.State, uri2.ID) + "#application-wordpress").Count()
+	n, err = secretPermissionsCollection.FindId(uri2.ID + "#application-wordpress").Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 	n, err = secretPermissionsCollection.Find(nil).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
-	refCountsCollection, closer := state.GetRawCollection(s.State, "refcounts")
+	refCountsCollection, closer := state.GetCollection(s.State, "refcounts")
 	defer closer()
-	n, err = refCountsCollection.FindId(state.DocID(s.State, uri2.ID) + "#consumer").Count()
+	n, err = refCountsCollection.FindId(uri2.ID + "#consumer").Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
-	n, err = refCountsCollection.FindId(state.DocID(s.State, uri1.ID) + "#consumer").Count()
+	n, err = refCountsCollection.FindId(uri1.ID + "#consumer").Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 0)
 }
