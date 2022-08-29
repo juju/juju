@@ -758,7 +758,7 @@ mysql/0:
 }
 
 func testClock() testclock.AdvanceableClock {
-	return testclock.NewDilatedWallClock(10 * time.Millisecond)
+	return testclock.NewDilatedWallClock(100 * time.Millisecond)
 }
 
 func (s *ExecSuite) TestBlockAllMachines(c *gc.C) {

@@ -609,7 +609,10 @@ func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 	r, err := s.store.GetSecretRevision(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	updateTime := now.Add(time.Hour)
-	c.Assert(r, jc.DeepEquals, &secrets.SecretRevisionMetadata{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(r, mc, &secrets.SecretRevisionMetadata{
 		Revision:   2,
 		CreateTime: updateTime,
 		UpdateTime: updateTime,
