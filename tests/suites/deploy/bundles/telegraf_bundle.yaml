@@ -1,9 +1,9 @@
-series: focal  # charms do not support jammy. 
+series: focal
 applications:
   influxdb:
     charm: influxdb
     channel: stable
-    revision: 22
+    revision: 24
     num_units: 1
     to:
     - "0"
@@ -11,11 +11,11 @@ applications:
   telegraf:
     charm: telegraf
     channel: stable
-    revision: 29
+    revision: 53
   ubuntu:
     charm: ubuntu
     channel: stable
-    revision: 12
+    revision: 20
     num_units: 1
     to:
     - "1"

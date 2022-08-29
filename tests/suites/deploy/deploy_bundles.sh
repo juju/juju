@@ -35,11 +35,10 @@ run_deploy_cmr_bundle() {
 
 	ensure "test-cmr-bundles-deploy" "${file}"
 
-	# mysql charm does not have stable channel, so we use the candidate channel
-	juju deploy mysql --channel=candidate --force --series jammy
-	wait_for "mysql" ".applications | keys[0]"
+	juju deploy easyrsa
+	wait_for "easyrsa" ".applications | keys[0]"
 
-	juju offer mysql:db
+	juju offer easyrsa:client
 	juju add-model other
 
 	juju switch other
@@ -48,7 +47,7 @@ run_deploy_cmr_bundle() {
 	sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" >"${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 	juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
-	wait_for "wordpress" "$(idle_condition "wordpress")"
+	wait_for "etcd" "$(idle_condition "etcd")"
 
 	destroy_model "test-cmr-bundles-deploy"
 	destroy_model "other"
@@ -140,7 +139,7 @@ run_deploy_trusted_bundle() {
 	OUT=$(juju deploy ${bundle} 2>&1 || true)
 	echo "${OUT}" | check "repeat the deploy command with the --trust argument"
 
-	juju deploy --trust ${bundle}
+	juju deploy --trust ${bundle} --force # TODO: remove --force once "juju-qa-trust-checker" supports jammy.
 
 	wait_for "trust-checker" "$(idle_condition "trust-checker")"
 
@@ -245,8 +244,8 @@ test_deploy_bundles() {
 
 		cd .. || exit
 
-		run "run_deploy_bundle"
-		run "run_deploy_bundle_overlay"
+		# run "run_deploy_bundle"
+		# run "run_deploy_bundle_overlay"
 		run "run_deploy_exported_charmstore_bundle_with_fixed_revisions"
 		run "run_deploy_exported_charmhub_bundle_with_float_revisions"
 		run "run_deploy_trusted_bundle"

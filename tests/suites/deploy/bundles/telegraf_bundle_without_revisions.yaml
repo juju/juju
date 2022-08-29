@@ -1,4 +1,4 @@
-series: focal  # charms do not support jammy. 
+series: focal
 applications:
   influxdb:
     charm: influxdb
