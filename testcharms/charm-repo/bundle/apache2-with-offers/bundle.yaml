@@ -1,9 +1,9 @@
-series: bionic
+series: focal
 applications:
   apache2:
-    charm: cs:apache2-26
+    charm: apache2
 ---
-series: bionic
+series: focal
 applications:
   apache2:
     offers:
