@@ -23,9 +23,8 @@ const (
 type CreateParams struct {
 	UpsertParams
 
-	ProviderLabel string
-	Version       int
-	Owner         string
+	Version int
+	Owner   string
 }
 
 // Validate returns an error if params are invalid.
@@ -59,10 +58,10 @@ func (p *UpsertParams) Validate() error {
 	if p.RotatePolicy != nil && !p.RotatePolicy.IsValid() {
 		return errors.NotValidf("secret rotate policy %q", p.RotatePolicy)
 	}
-	if p.RotatePolicy != nil && p.NextRotateTime == nil {
+	if p.RotatePolicy.WillRotate() && p.NextRotateTime == nil {
 		return errors.New("cannot specify a secret rotate policy without a next rotate time")
 	}
-	if p.RotatePolicy == nil && p.NextRotateTime != nil {
+	if !p.RotatePolicy.WillRotate() && p.NextRotateTime != nil {
 		return errors.New("cannot specify a secret rotate time without a rotate policy")
 	}
 	return nil

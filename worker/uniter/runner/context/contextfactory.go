@@ -63,7 +63,7 @@ type StorageContextAccessor interface {
 }
 
 type SecretsAccessor interface {
-	SecretIds() (map[*secrets.URI]string, error)
+	SecretMetadata() ([]secrets.SecretMetadata, error)
 	Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value secrets.SecretValue) (*secrets.URI, error)
 	GetValue(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
 }
@@ -388,9 +388,20 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-	ctx.secretIDs, err = ctx.secrets.SecretIds()
+	info, err := ctx.secrets.SecretMetadata()
 	if err != nil {
 		return err
+	}
+	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
+	for _, v := range info {
+		ctx.secretMetadata[v.URI.ID] = jujuc.SecretMetadata{
+			Description:      v.Description,
+			Label:            v.Label,
+			RotatePolicy:     v.RotatePolicy,
+			LatestRevision:   v.LatestRevision,
+			LatestExpireTime: v.LatestExpireTime,
+			NextRotateTime:   v.NextRotateTime,
+		}
 	}
 
 	return nil

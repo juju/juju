@@ -177,7 +177,7 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 				if state.SecretRevisions == nil {
 					state.SecretRevisions = make(map[string]int)
 				}
-				state.SecretRevisions[info.SecretURI] = latest.Revision
+				state.SecretRevisions[info.SecretURI] = latest.LatestRevision
 			}
 		}}
 	case hooks.LeaderSettingsChanged:

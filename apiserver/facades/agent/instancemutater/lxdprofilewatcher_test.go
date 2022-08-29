@@ -197,7 +197,6 @@ func (s *lxdProfileWatcherSuite) assertAddSubordinate() {
 	s.unitChanges <- []string{"foo/0"}
 }
 
-//
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfileUpdateUnit(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()

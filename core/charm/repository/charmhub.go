@@ -50,19 +50,19 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // There are a few things to note in the attempt to resolve the charm and it's
 // supporting series.
 //
-//    1. The algorithm for this is terrible. For charmstore lookups, only one
-//       request is required, unfortunately for Charmhub the worst case for this
-//       will be 2.
-//       Most of the initial requests from the client will hit this first time
-//       around (think `juju deploy foo`) without a series (client can then
-//       determine what to call the real request with) will be default of 2
-//       requests.
-//    2. Attempting to find the default series will require 2 requests so that
-//       we can find the correct charm ID ensure that the default series exists
-//       along with the revision.
-//    3. In theory we could just return most of this information without the
-//       re-request, but we end up with missing data and potential incorrect
-//       charm downloads later.
+//  1. The algorithm for this is terrible. For charmstore lookups, only one
+//     request is required, unfortunately for Charmhub the worst case for this
+//     will be 2.
+//     Most of the initial requests from the client will hit this first time
+//     around (think `juju deploy foo`) without a series (client can then
+//     determine what to call the real request with) will be default of 2
+//     requests.
+//  2. Attempting to find the default series will require 2 requests so that
+//     we can find the correct charm ID ensure that the default series exists
+//     along with the revision.
+//  3. In theory we could just return most of this information without the
+//     re-request, but we end up with missing data and potential incorrect
+//     charm downloads later.
 //
 // When charmstore goes, we could potentially rework how the client requests
 // the store.
@@ -623,8 +623,10 @@ const (
 
 // refreshConfig creates a RefreshConfig for the given input.
 // If the origin.ID is not set, an install refresh config is returned. For
-//   install. Channel and Revision are mutually exclusive in the api, only
-//   one will be used.
+//
+//	install. Channel and Revision are mutually exclusive in the api, only
+//	one will be used.
+//
 // If the origin.ID is set, a refresh config is returned.
 //
 // NOTE: There is one idiosyncrasy of this method.  The charm URL and

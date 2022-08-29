@@ -435,8 +435,8 @@ func (m *mockSecretsClient) GetLatestSecretsRevisionInfo(unitName string, uris [
 	result := make(map[string]secretsmanager.SecretRevisionInfo)
 	for i, uri := range uris {
 		result[uri] = secretsmanager.SecretRevisionInfo{
-			Revision: 666 + i,
-			Label:    "label-" + uri,
+			LatestRevision: 666 + i,
+			Label:          "label-" + uri,
 		}
 	}
 	return result, nil

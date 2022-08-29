@@ -84,7 +84,6 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			URI:              m.URI.String(),
 			Version:          m.Version,
 			OwnerTag:         m.OwnerTag,
-			Provider:         m.Provider,
 			ProviderID:       m.ProviderID,
 			Description:      m.Description,
 			Label:            m.Label,

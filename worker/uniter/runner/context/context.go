@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -312,10 +313,10 @@ type HookContext struct {
 	// secretLabel is the secret label to expose to the hook.
 	secretLabel string
 
-	// secretIDs are the secrets and their labels create by this charm.
-	secretIDs map[*coresecrets.URI]string
+	// secretMetadata contains the metadata for secrets created by this charm.
+	secretMetadata map[string]jujuc.SecretMetadata
 
-	// secretChangesrecords changes to secrets during a hook execution.
+	// secretChanges records changes to secrets during a hook execution.
 	secretChanges *secretsChangeRecorder
 
 	mu sync.Mutex
@@ -800,16 +801,38 @@ func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI) error {
 	return nil
 }
 
-// SecretIds gets the secret ids and their labels created by the charm.
-func (ctx *HookContext) SecretIds() (map[*coresecrets.URI]string, error) {
-	result := make(map[*coresecrets.URI]string)
-	for uri, v := range ctx.secretIDs {
-		result[uri] = v
-	}
+// SecretMetadata gets the secret ids and their labels and latest revisions created by the charm.
+// The result includes any pending updates.
+func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+	pendingUpdatesByID := make(map[string]uniter.SecretUpdateArg)
 	for _, u := range ctx.secretChanges.pendingUpdates {
-		if u.Label != nil {
-			result[u.URI] = *u.Label
+		pendingUpdatesByID[u.URI.ID] = u
+	}
+	pendingDeletes := set.NewStrings()
+	for _, r := range ctx.secretChanges.pendingDeletes {
+		pendingDeletes.Add(r.ID)
+	}
+
+	result := make(map[string]jujuc.SecretMetadata)
+	for id, v := range ctx.secretMetadata {
+		if pendingDeletes.Contains(id) {
+			continue
 		}
+		if u, ok := pendingUpdatesByID[id]; ok {
+			if u.Label != nil {
+				v.Label = *u.Label
+			}
+			if u.Description != nil {
+				v.Description = *u.Description
+			}
+			if u.RotatePolicy != nil {
+				v.RotatePolicy = *u.RotatePolicy
+			}
+			if u.ExpireTime != nil {
+				v.LatestExpireTime = u.ExpireTime
+			}
+		}
+		result[id] = v
 	}
 	return result, nil
 }
@@ -1285,8 +1308,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
-			err = errors.Annotatef(err, "cannot apply changes")
-			ctx.logger.Errorf("%v", err)
+			ctx.logger.Errorf("cannot apply changes: %v", err)
 			return errors.Trace(err)
 		}
 	}

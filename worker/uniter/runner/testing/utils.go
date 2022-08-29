@@ -148,8 +148,13 @@ type SecretsContextAccessor struct {
 	context.SecretsAccessor
 }
 
-func (s SecretsContextAccessor) SecretIds() (map[*secrets.URI]string, error) {
-	return map[*secrets.URI]string{
-		{ID: "secret:9m4e2mr0ui3e8a215n4g"}: "label",
-	}, nil
+func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretMetadata, error) {
+	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	return []secrets.SecretMetadata{{
+		URI:            uri,
+		LatestRevision: 666,
+		Description:    "description",
+		RotatePolicy:   secrets.RotateHourly,
+		Label:          "label",
+	}}, nil
 }

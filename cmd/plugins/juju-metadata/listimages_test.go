@@ -84,9 +84,9 @@ custom  jammy   i386   europe  im-21     released  kvm        ebs
 custom  focal   amd64  asia    im-21     released  kvm        ebs
 custom  focal   amd64  europe  im-21     released  kvm        ebs
 custom  focal   amd64  us      im-21     released  kvm        ebs
-public  jammy   i386   europe  im-42     devel                ebs
 public  jammy   i386   europe  im-21     released  kvm        ebs
 public  jammy   i386   europe  im-42     devel     kvm        ebs
+public  jammy   i386   europe  im-42     devel                ebs
 public  jammy   i386   europe  im-42     devel     kvm        
 public  jammy   i386   europe  im-42     devel                
 public  focal   amd64  europe  im-21     released  kvm        ebs

@@ -387,8 +387,9 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 }
 
 // startWorkers starts the worker backends on the *State
-//   * txn log watcher
-//   * txn log pruner
+//   - txn log watcher
+//   - txn log pruner
+//
 // startWorkers will close the *State if it fails.
 func (st *State) startWorkers(hub *pubsub.SimpleHub) (err error) {
 	defer func() {

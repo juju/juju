@@ -22,7 +22,7 @@ func dataOrFile(data []byte, fileName string) ([]byte, error) {
 	return ioutil.ReadFile(fileName)
 }
 
-//PickCOntextByClusterName finds the first available context in the supplied
+// PickCOntextByClusterName finds the first available context in the supplied
 // kube config that is using the clusterName. If not context's are found then
 // a not found error is return with an empty context name.
 func PickContextByClusterName(

@@ -156,6 +156,7 @@ func validateArgs(arch, release, stream, ftype string) error {
 //   - OS release
 //   - Simplestreams stream
 //   - File image type.
+//
 // src exists to pass in a data source for testing.
 func One(fetcher imagemetadata.SimplestreamsFetcher, arch, release, stream, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
 	if err := validateArgs(arch, release, stream, ftype); err != nil {

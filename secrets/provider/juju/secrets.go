@@ -41,9 +41,8 @@ func (s secretsService) CreateSecret(ctx context.Context, uri *coresecrets.URI, 
 		return nil, errors.Trace(err)
 	}
 	metadata, err := s.backend.CreateSecret(uri, state.CreateSecretParams{
-		ProviderLabel: Provider,
-		Version:       p.Version,
-		Owner:         p.Owner,
+		Version: p.Version,
+		Owner:   p.Owner,
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    p.LeaderToken,
 			RotatePolicy:   p.RotatePolicy,

@@ -140,7 +140,7 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 }
 
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
-//and origin.
+// and origin.
 func (a *API) GetDownloadInfos(args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
 	logger.Tracef("GetDownloadInfos %+v", args)
 

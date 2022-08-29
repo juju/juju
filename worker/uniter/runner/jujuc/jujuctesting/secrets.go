@@ -40,10 +40,17 @@ func (c *ContextSecrets) RemoveSecret(uri *secrets.URI) error {
 	return nil
 }
 
-func (c *ContextSecrets) SecretIds() (map[*secrets.URI]string, error) {
-	c.stub.AddCall("SecretIds")
-	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
-	return map[*secrets.URI]string{uri: "label"}, nil
+// SecretMetadata gets the metadata for secrets created by the charm.
+func (c *ContextSecrets) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
+	c.stub.AddCall("SecretMetadata")
+	return map[string]jujuc.SecretMetadata{
+		"9m4e2mr0ui3e8a215n4g": {
+			LatestRevision: 666,
+			Label:          "label",
+			Description:    "description",
+			RotatePolicy:   secrets.RotateHourly,
+		},
+	}, nil
 }
 
 // GrantSecret implements jujuc.ContextSecrets.

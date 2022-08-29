@@ -112,8 +112,9 @@ func loopDevices(run runFunc) ([]loopDeviceInfo, error) {
 }
 
 // e.g. "/dev/loop0: [0021]:7504142 (/tmp/test.dat)"
-//      "/dev/loop0: [002f]:7504142 (/tmp/test.dat (deleted))"
-//      "/dev/loop0: []: (/var/lib/lxc-btrfs.img)"
+//
+//	"/dev/loop0: [002f]:7504142 (/tmp/test.dat (deleted))"
+//	"/dev/loop0: []: (/var/lib/lxc-btrfs.img)"
 var loopDeviceInfoRegexp = regexp.MustCompile(`^([^ ]+): \[[[:xdigit:]]*\]:(\d*) \((.*?)(?: \(.*\))?\)$`)
 
 func parseLoopDeviceInfo(line string) (loopDeviceInfo, error) {

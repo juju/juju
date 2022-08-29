@@ -29,5 +29,4 @@
 //     an upgrade of the charm or the complete removal of the charm. Either way,
 //     the removal of the charms from the LXC profile list is to prevent orphan
 //     profiles from being left dangling.
-//
 package lxdprofile

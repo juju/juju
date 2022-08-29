@@ -35,7 +35,7 @@ type storageProvider struct {
 
 var _ jujustorage.Provider = (*storageProvider)(nil)
 
-//ValidateStorageProvider returns an error if the storage type and config is not valid
+// ValidateStorageProvider returns an error if the storage type and config is not valid
 // for a Kubernetes deployment.
 func (g *storageProvider) ValidateForK8s(attributes map[string]any) error {
 

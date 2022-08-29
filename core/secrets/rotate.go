@@ -19,11 +19,22 @@ const (
 	RotateYearly    = RotatePolicy("yearly")
 )
 
+const (
+	// RotateRetryDelay is how long to wait to re-run the rotate hook
+	// if the secret was not updated.
+	RotateRetryDelay = 5 * time.Minute
+)
+
 func (p RotatePolicy) String() string {
 	if p == "" {
 		return string(RotateNever)
 	}
 	return string(p)
+}
+
+// WillRotate returns true if the policy is not RotateNever.
+func (p *RotatePolicy) WillRotate() bool {
+	return p != nil && *p != "" && *p != RotateNever
 }
 
 // IsValid returns true if p is a valid rotate policy.
@@ -38,12 +49,7 @@ func (p RotatePolicy) IsValid() bool {
 
 // NextRotateTime returns when the policy dictates a secret should be next
 // rotated given the last rotation time.
-func (p RotatePolicy) NextRotateTime(lastRotateTime *time.Time) *time.Time {
-	now := time.Now()
-	var lastRotated = now
-	if lastRotateTime != nil {
-		lastRotated = *lastRotateTime
-	}
+func (p RotatePolicy) NextRotateTime(lastRotated time.Time) *time.Time {
 	var result time.Time
 	switch p {
 	case RotateNever:
@@ -60,9 +66,6 @@ func (p RotatePolicy) NextRotateTime(lastRotateTime *time.Time) *time.Time {
 		result = lastRotated.AddDate(0, 3, 0)
 	case RotateYearly:
 		result = lastRotated.AddDate(1, 0, 0)
-	}
-	if result.Before(now) {
-		result = now
 	}
 	return &result
 }

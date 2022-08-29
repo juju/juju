@@ -2,7 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 /*
-
 Package globalclock provides clients for updating and reading the
 global virtual time, stored in the MongoDB database.
 
@@ -18,6 +17,5 @@ We maintain a single collection, with a single document containing
 the current global time. Whenever time is to be advanced, we update
 the document while ensuring that the global time has not advanced by
 any other updater.
-
 */
 package globalclock

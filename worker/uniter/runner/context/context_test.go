@@ -558,6 +558,50 @@ func assertStorageAddInContext(c *gc.C,
 	}
 }
 
+func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
+	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	uri2 := secrets.NewURI()
+	s.secretMetadata = map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Label:        "label",
+			Description:  "description",
+			RotatePolicy: secrets.RotateHourly,
+		},
+		uri2.ID: {
+			Description: "will be removed",
+		},
+	}
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
+	md, err := ctx.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Label:        "label",
+			Description:  "description",
+			RotatePolicy: secrets.RotateHourly,
+		},
+		uri2.ID: {
+			Description: "will be removed",
+		},
+	})
+	err = ctx.UpdateSecret(uri, &jujuc.SecretUpsertArgs{
+		Description: ptr("another"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctx.RemoveSecret(uri2)
+	c.Assert(err, jc.ErrorIsNil)
+	md, err = ctx.SecretMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Label:        "label",
+			Description:  "another",
+			RotatePolicy: secrets.RotateHourly,
+		},
+	})
+}
+
 type mockProcess struct {
 	kill func() error
 }
@@ -850,7 +894,7 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 				Status:    "failed",
 				Message:   "committing requested changes failed",
 				Results: map[string]interface{}{
-					"stderr":      "cannot apply changes: flush failed",
+					"stderr":      "flush failed",
 					"return-code": "1",
 				},
 			}}})

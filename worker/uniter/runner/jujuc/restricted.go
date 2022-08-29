@@ -272,7 +272,7 @@ func (ctx *RestrictedContext) RemoveSecret(*secrets.URI) error {
 	return ErrRestrictedContext
 }
 
-func (ctx *RestrictedContext) SecretIds() (map[*secrets.URI]string, error) {
+func (ctx *RestrictedContext) SecretMetadata() (map[string]SecretMetadata, error) {
 	return nil, ErrRestrictedContext
 }
 

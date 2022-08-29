@@ -70,9 +70,8 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 
 	now := time.Now()
 	p := secrets.CreateParams{
-		Version:       secrets.Version,
-		ProviderLabel: juju.Provider,
-		Owner:         "application-app",
+		Version: secrets.Version,
+		Owner:   "application-app",
 		UpsertParams: secrets.UpsertParams{
 			LeaderToken:    fakeToken{},
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
@@ -85,9 +84,8 @@ func (s *SecretsManagerSuite) TestCreateSecret(c *gc.C) {
 		},
 	}
 	expectedP := state.CreateSecretParams{
-		Version:       p.Version,
-		ProviderLabel: "juju",
-		Owner:         "application-app",
+		Version: p.Version,
+		Owner:   "application-app",
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    fakeToken{},
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
@@ -125,9 +123,8 @@ func (s *SecretsManagerSuite) TestCreateSecretMissingNextRotateTime(c *gc.C) {
 	service := juju.NewTestService(s.secretsStore)
 
 	p := secrets.CreateParams{
-		Version:       secrets.Version,
-		ProviderLabel: juju.Provider,
-		Owner:         "application-app",
+		Version: secrets.Version,
+		Owner:   "application-app",
 		UpsertParams: secrets.UpsertParams{
 			RotatePolicy: ptr(coresecrets.RotateDaily),
 			Data:         map[string]string{"foo": "bar"},

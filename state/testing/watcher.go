@@ -340,7 +340,7 @@ func (c RelationUnitsWatcherC) AssertClosed() {
 
 // SecretsRotationWatcherC embeds a gocheck.C and adds methods to help
 // verify the behaviour of any watcher that uses a
-// <-chan []SecretRotationChange
+// <-chan []SecretTriggerChange
 type SecretsRotationWatcherC struct {
 	*gc.C
 	Watcher SecretsRotationWatcher
@@ -357,7 +357,7 @@ func NewSecretsRotationWatcherC(c *gc.C, w SecretsRotationWatcher) SecretsRotati
 
 type SecretsRotationWatcher interface {
 	Stop() error
-	Changes() watcher.SecretRotationChannel
+	Changes() watcher.SecretTriggerChannel
 }
 
 func (c SecretsRotationWatcherC) AssertNoChange() {
@@ -370,8 +370,8 @@ func (c SecretsRotationWatcherC) AssertNoChange() {
 
 // AssertChange asserts the given changes was reported by the watcher,
 // but does not assume there are no following changes.
-func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretRotationChange) {
-	var received []watcher.SecretRotationChange
+func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretTriggerChange) {
+	var received []watcher.SecretTriggerChange
 	timeout := time.After(testing.LongWait)
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		select {
@@ -381,7 +381,7 @@ func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretRotationCh
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
 				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_[_].LastRotateTime`, jc.Almost, jc.ExpectedValue)
+				mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
 				c.Assert(received, mc, expect)
 				return
 			}
