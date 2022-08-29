@@ -434,10 +434,15 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 			return nil, errors.Annotatef(err, "parsing metadata.yaml for %q", reqs[resIdx].CharmURL)
 		}
 
-		err = validateCharmhubResponse(refreshResult, chMeta)
-		if err != nil {
-			return nil, errors.Annotatef(err, "validating Charmhub API response for %q, revision %d",
-				reqs[resIdx].CharmURL, refreshResult.Entity.Revision)
+		// The Charmhub API only returns resources when requesting by channel,
+		// not revision (a resource is specific to a channel), so only
+		// validate resources in that case.
+		if reqs[resIdx].Origin.Revision == nil {
+			err = validateCharmhubResources(refreshResult.Entity.Resources, chMeta.Resources)
+			if err != nil {
+				return nil, errors.Annotatef(err, "validating resources in Charmhub API response for %q, revision %d",
+					reqs[resIdx].CharmURL, refreshResult.Entity.Revision)
+			}
 		}
 
 		// It's okay for a charm not to have a config.yaml. But the CharmHub
@@ -477,22 +482,20 @@ func (c *CharmHubRepository) getEssentialMetadataForBatch(reqs []corecharm.Metad
 	return metaRes, nil
 }
 
-// validateCharmhubResponse ensures the CharmHub API response matches the
-// charm's metadata (from its metadata.yaml).
-func validateCharmhubResponse(response transport.RefreshResponse, meta *charm.Meta) error {
-	// Ensure all the resources in the metadata are present in the entity
-	// returned by the Charmhub API.
-	metaResources := set.NewStrings()
-	for name := range meta.Resources {
-		metaResources.Add(name)
+// validateCharmhubResources ensures all the resources in the metadata are
+// present in the entity returned by the Charmhub API.
+func validateCharmhubResources(responseResources []transport.ResourceRevision, metaResources map[string]charmresource.Meta) error {
+	metaRes := set.NewStrings()
+	for name := range metaResources {
+		metaRes.Add(name)
 	}
-	responseResources := set.NewStrings()
-	for _, res := range response.Entity.Resources {
-		responseResources.Add(res.Name)
+	responseRes := set.NewStrings()
+	for _, res := range responseResources {
+		responseRes.Add(res.Name)
 	}
-	missing := metaResources.Difference(responseResources)
+	missing := metaRes.Difference(responseRes)
 	if missing.Size() > 0 {
-		return errors.Errorf("missing resources: %s", strings.Join(missing.SortedValues(), ", "))
+		return errors.Errorf("missing %s", strings.Join(missing.SortedValues(), ", "))
 	}
 	return nil
 }
@@ -619,12 +622,12 @@ const (
 )
 
 // refreshConfig creates a RefreshConfig for the given input.
-// If the origin.ID is not set, a install refresh config is returned. For
+// If the origin.ID is not set, an install refresh config is returned. For
 //   install. Channel and Revision are mutually exclusive in the api, only
 //   one will be used.
 // If the origin.ID is set, a refresh config is returned.
 //
-// NOTE: There is one idiosyncrasy of this method.  The charm URL and and
+// NOTE: There is one idiosyncrasy of this method.  The charm URL and
 // origin have a revision number in them when called by GetDownloadURL
 // to install a charm. Potentially causing an unexpected install by revision.
 // This is okay as all of the data is ready and correct in the origin.
