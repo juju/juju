@@ -6,8 +6,8 @@ run_expose_app_ec2() {
 	ensure "expose-app" "${file}"
 
 	# Deploy test charm
-	juju deploy ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy jameinel-ubuntu-lite
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Open ports and verify hook tool behavior
 	assert_opened_ports_output
@@ -24,13 +24,13 @@ run_expose_app_ec2() {
 assert_opened_ports_output() {
 	echo "==> Checking open/opened-ports hook tools work as expected"
 
-	juju exec --unit ubuntu/0 "open-port 1337-1339/tcp"
-	juju exec --unit ubuntu/0 "open-port 1234/tcp --endpoints ubuntu"
+	juju exec --unit ubuntu-lite/0 "open-port 1337-1339/tcp"
+	juju exec --unit ubuntu-lite/0 "open-port 1234/tcp --endpoints ubuntu"
 
 	# Test the backwards-compatible version of opened-ports where the output
 	# includes the unique set of opened ports for all endpoints.
 	exp="1234/tcp 1337-1339/tcp"
-	got=$(juju exec --unit ubuntu/0 "opened-ports" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
+	got=$(juju exec --unit ubuntu-lite/0 "opened-ports" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
 	if [ "$got" != "$exp" ]; then
 		# shellcheck disable=SC2046
 		echo $(red "expected opened-ports output to be:\n${exp}\nGOT:\n${got}")
@@ -39,7 +39,7 @@ assert_opened_ports_output() {
 
 	# Try the new version where we group by endpoint.
 	exp="1234/tcp (ubuntu) 1337-1339/tcp (*)"
-	got=$(juju exec --unit ubuntu/0 "opened-ports --endpoints" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
+	got=$(juju exec --unit ubuntu-lite/0 "opened-ports --endpoints" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
 	if [ "$got" != "$exp" ]; then
 		# shellcheck disable=SC2046
 		echo $(red "expected opened-ports output when using --endpoints to be:\n${exp}\nGOT:\n${got}")
@@ -50,10 +50,10 @@ assert_opened_ports_output() {
 assert_ingress_cidrs_for_exposed_app() {
 	echo "==> Checking that expose --to-cidrs works as expected"
 
-	juju expose ubuntu --to-cidrs 10.0.0.0/24,192.168.0.0/24
-	juju expose ubuntu --endpoints ubuntu # expose to the world
+	juju expose ubuntu-lite --to-cidrs 10.0.0.0/24,192.168.0.0/24
+	juju expose ubuntu-lite --endpoints ubuntu # expose to the world
 	# overwrite previous command
-	juju expose ubuntu --endpoints ubuntu --to-cidrs 10.42.0.0/16,2002:0:0:1234::/64
+	juju expose ubuntu-lite --endpoints ubuntu --to-cidrs 10.42.0.0/16,2002:0:0:1234::/64
 	sleep 2 # wait for firewall worker to detect and apply the changes
 
 	# Range 1337-1339 is opened for all endpoints. We expect it to be reachable
@@ -108,7 +108,7 @@ assert_export_bundle_output_includes_exposed_endpoints() {
 		cat <<-EOF
 			--- # overlay.yaml
 			applications:
-			  ubuntu:
+			  ubuntu-lite:
 			    exposed-endpoints:
 			      "":
 			        expose-to-cidrs:
