@@ -72,10 +72,11 @@ func (config Config) Validate() error {
 
 // upgradeSeriesWorker is responsible for machine and unit agent requirements
 // during upgrade-series:
-// 		copying the agent binary directory and renaming;
-// 		rewriting the machine and unit(s) systemd files if necessary;
-//		ensuring unit agents are started post-upgrade;
-//		moving the status of the upgrade-series steps along.
+//
+//	copying the agent binary directory and renaming;
+//	rewriting the machine and unit(s) systemd files if necessary;
+//	ensuring unit agents are started post-upgrade;
+//	moving the status of the upgrade-series steps along.
 type upgradeSeriesWorker struct {
 	Facade
 

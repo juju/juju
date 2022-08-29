@@ -152,10 +152,10 @@ type Pinger interface {
 //
 // TODO(mjs) - this only exists for checking State instances in the
 // machine agent and won't be necessary once either:
-// 1. State grows a Broken() channel like api.Connection (which is
-//    actually quite a nice idea).
-// 2. The dependency engine conversion is completed for the machine
-//    agent.
+//  1. State grows a Broken() channel like api.Connection (which is
+//     actually quite a nice idea).
+//  2. The dependency engine conversion is completed for the machine
+//     agent.
 func PingerIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {

@@ -9,41 +9,41 @@ but that'd be quite needlessly confusing, so "core" it is.
 This is a necessarily broad brush; if anything, it's most important to be aware
 what should *not* go here. In particular:
 
-  * if it makes any reference to MongoDB, it should not be in here.
-  * if it's in any way concerned with API transport, or serialization, it should
+  - if it makes any reference to MongoDB, it should not be in here.
+  - if it's in any way concerned with API transport, or serialization, it should
     not be in here.
-  * if it has to do with the *specifics* of any resource *substrate* (compute,
+  - if it has to do with the *specifics* of any resource *substrate* (compute,
     storage, networking, ...) it should not be in here.
 
 ...and more generally, when adding to core:
 
-  * it's fine to import from any subpackage of "github.com/juju/juju/core"
-  * but *never* import from any *other* subpackage of "github.com/juju/juju"
-  * don't you *dare* introduce mutable global state or I will hunt you down
-  * like a dog
+  - it's fine to import from any subpackage of "github.com/juju/juju/core"
+  - but *never* import from any *other* subpackage of "github.com/juju/juju"
+  - don't you *dare* introduce mutable global state or I will hunt you down
+  - like a dog
 
 ...although, of course, *moving* code into core is great, so long as you don't
 drag in forbidden concerns as you do so. At first glance, the following packages
 are good candidates for near-term corification:
 
-  * constraints (only dependency is instance)
-  * instance (only dependency is network)
-  * network (already core-safe)
-  * watcher-excluding-legacy (only depends on worker[/catacomb])
-  * worker-excluding-other-subpackages
+  - constraints (only dependency is instance)
+  - instance (only dependency is network)
+  - network (already core-safe)
+  - watcher-excluding-legacy (only depends on worker[/catacomb])
+  - worker-excluding-other-subpackages
 
 ...and these have significant core-worthy content, but will be harder to extract:
 
-  * environs[/config]-excluding-registry
-  * storage-excluding-registry (depends only on instance and environs/config)
-  * workload
+  - environs[/config]-excluding-registry
+  - storage-excluding-registry (depends only on instance and environs/config)
+  - workload
 
 ...and, last but most, state, which deserves especially detailed consideration,
 because:
 
-  * it is by *far* the largest repository of business logic.
-  * much of the business logic is horribly entangled with mgo concerns
-  * plenty of bits -- pure model validation bits, status stuff, unit/machine
+  - it is by *far* the largest repository of business logic.
+  - much of the business logic is horribly entangled with mgo concerns
+  - plenty of bits -- pure model validation bits, status stuff, unit/machine
     assignment rules, probably a thousand more -- will be easy to extract
 
 ...but plenty of other bits will *not* be easy: in particular, all the business

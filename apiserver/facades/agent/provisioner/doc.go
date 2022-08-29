@@ -10,5 +10,4 @@
 //
 // Version 10+ will consider all supplied positive space constraints when
 // making this determination.
-//
 package provisioner

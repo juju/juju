@@ -70,7 +70,7 @@ type VolumeAttachment struct {
 	// TODO(axw) add machine volume attachment status when we have it
 }
 
-//generateListVolumeOutput returns a map of volume info
+// generateListVolumeOutput returns a map of volume info
 func generateListVolumeOutput(ctx *cmd.Context, api StorageListAPI, ids []string) (map[string]VolumeInfo, error) {
 
 	results, err := api.ListVolumes(ids)

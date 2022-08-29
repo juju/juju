@@ -171,9 +171,10 @@ func (st *State) SwitchBlockOff(t BlockType) error {
 
 // GetBlockForType returns the Block of the specified type for the current model
 // where
-//     not found -> nil, false, nil
-//     found -> block, true, nil
-//     error -> nil, false, err
+//
+//	not found -> nil, false, nil
+//	found -> block, true, nil
+//	error -> nil, false, err
 func (st *State) GetBlockForType(t BlockType) (Block, bool, error) {
 	return getBlockForType(st, t)
 }

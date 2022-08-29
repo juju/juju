@@ -98,7 +98,7 @@ func (m *stateManager) KnownIDs() []int {
 
 // SetRelation persists the given state, overwriting the previous
 // state for a given id or creating state at a new id. The change to
-//the manager is only made when the data is successfully saved.
+// the manager is only made when the data is successfully saved.
 func (m *stateManager) SetRelation(st *State) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

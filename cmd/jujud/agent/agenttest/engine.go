@@ -117,7 +117,7 @@ func (tracker *EngineTracker) Workers(id string) set.Strings {
 // only work if you hack up the relevant engine-starting code to
 // include:
 //
-//    manifolds["self"] = dependency.SelfManifold(engine)
+//	manifolds["self"] = dependency.SelfManifold(engine)
 //
 // or otherwise inject a suitable "self" manifold.
 func (tracker *EngineTracker) Report(id string) map[string]interface{} {

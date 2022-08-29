@@ -26,8 +26,7 @@ func MakePath(base *url.URL) Path {
 // Join will sum path names onto a base URL and ensure it constructs a URL
 // that is valid.
 // Example:
-//  - http://baseurl/name0/name1/
-//
+//   - http://baseurl/name0/name1/
 func (u Path) Join(names ...string) (Path, error) {
 	baseURL := u.String()
 	if !strings.HasSuffix(baseURL, "/") {
@@ -44,8 +43,7 @@ func (u Path) Join(names ...string) (Path, error) {
 
 // Query adds additional query parameters to the Path.
 // Example:
-//  - http://baseurl/name0/name1?q=value
-//
+//   - http://baseurl/name0/name1?q=value
 func (u Path) Query(key string, value string) (Path, error) {
 	// If value is empty, nothing to change and return back the original
 	// path.

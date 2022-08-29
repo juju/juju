@@ -24,12 +24,12 @@ type DNSConfig struct {
 // appear in the order found, including duplicates.
 // Parsing errors will be returned in these cases:
 //
-// 1. if a 'nameserver' or 'search' without a value is found;
-// 2. 'nameserver' with more than one value (trailing comments starting with
-//    '#' or ';' after the value are allowed).
-// 3. if any value containing '#' or ';' (e.g. 'nameserver 8.8.8.8#bad'),
-//    because values and comments following them must be separated by
-//    whitespace.
+//  1. if a 'nameserver' or 'search' without a value is found;
+//  2. 'nameserver' with more than one value (trailing comments starting with
+//     '#' or ';' after the value are allowed).
+//  3. if any value containing '#' or ';' (e.g. 'nameserver 8.8.8.8#bad'),
+//     because values and comments following them must be separated by
+//     whitespace.
 //
 // No error is returned if the file is missing.
 // See resolv.conf(5) man page for details.

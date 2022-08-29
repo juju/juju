@@ -142,16 +142,16 @@ type defaultAttrs map[string]interface{}
 // type to the more simple type. This is because the output of this command
 // outputs in the following format:
 //
-//     resource-name:
-//        default: foo
-//        controller: baz
-//        regions:
-//        - name: cloud-region-name
-//          value: bar
+//	resource-name:
+//	   default: foo
+//	   controller: baz
+//	   regions:
+//	   - name: cloud-region-name
+//	     value: bar
 //
 // Where the consuming side of the command expects it in the following format:
 //
-//     resource-name: bar
+//	resource-name: bar
 //
 // CoerceFormat attempts to diagnose this and attempt to do this correctly.
 func (a defaultAttrs) CoerceFormat(region string) (defaultAttrs, error) {
