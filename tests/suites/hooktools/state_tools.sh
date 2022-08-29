@@ -42,7 +42,7 @@ run_state_set_clash_uniter_state() {
 	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
 
 	# force a hook
-	juju exec --unit ubuntu-lite/0 hooks/update-status
+	juju exec --unit ubuntu-lite/0 hooks/install
 
 	# verify charm set values
 	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
