@@ -3,7 +3,7 @@
 # parameters in its overlay section
 series: jammy
 applications:
-  ubuntu:
+  ubuntu-lite:
     charm: ubuntu
     num_units: 1
     to:
@@ -13,7 +13,7 @@ machines:
   "0": {}
 --- # overlay.yaml
 applications:
-  ubuntu:
+  ubuntu-lite:
     exposed-endpoints:
       "":
         expose-to-cidrs:
