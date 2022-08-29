@@ -5,10 +5,8 @@ package status
 
 import (
 	"fmt"
-	"github.com/juju/viddy"
 	"io"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/viddy"
 
 	storageapi "github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
@@ -145,9 +144,8 @@ Examples:
     # Provide output as valid JSON
     juju status --format=json
 
-    # Watch the status of the mysql application every five seconds
-    # Only available for unix-based systems.
-    juju status --watch 5s mysql
+    # Watch the status every five seconds
+    juju status --watch 5s
 
     # Show only applications/units in active status
     juju status active
@@ -186,12 +184,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
 
-	if runtime.GOOS != "windows" {
-		// The watch flag is only available for unix-based systems.
-		f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
-	}
-
-	f.DurationVar(&c.viddy, "viddy", 0, "Watch the status every period of time with viddy tool")
+	f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
 
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(
@@ -240,10 +233,6 @@ func (c *statusCommand) Init(args []string) error {
 
 	if c.color && c.noColor {
 		return errors.Errorf("cannot mix --no-color and --color")
-	}
-
-	if c.watch != 0 && c.viddy != 0 {
-		return errors.Errorf("cannot mix --watch and --viddy")
 	}
 
 	return nil
@@ -422,47 +411,34 @@ func clearScreen() {
 	fmt.Printf("\u001Bc")
 }
 
-// statusArgsWithoutViddyFlag returns all args cut off '--viddy' flag of status commands
+// statusArgsWithoutWatchFlag returns all args cut off '--viddy' flag of status commands
 // and the value of '--viddy' flag
-func (c *statusCommand) statusArgsWithoutViddyFlag(args []string) ([]string, string) {
-	var jujuStatusArgsWithoutViddyFlag []string
-	var viddyFlagValue string
+func (c *statusCommand) statusArgsWithoutWatchFlag(args []string) ([]string, string) {
+	var jujuStatusArgsWithoutWatchFlag []string
+	var watchFlagValue string
 
 	for i := range args {
-		if args[i] == "--viddy" {
-			viddyFlagValue = args[i+1]
-			jujuStatusArgsWithoutViddyFlag = append(args[:i], args[i+2:]...)
+		if args[i] == "--watch" {
+			watchFlagValue = args[i+1]
+			jujuStatusArgsWithoutWatchFlag = append(args[:i], args[i+2:]...)
 			if !c.noColor {
-				jujuStatusArgsWithoutViddyFlag = append(jujuStatusArgsWithoutViddyFlag, "--color")
+				jujuStatusArgsWithoutWatchFlag = append(jujuStatusArgsWithoutWatchFlag, "--color")
 			}
 			break
 		}
 	}
 
-	return jujuStatusArgsWithoutViddyFlag, viddyFlagValue
+	return jujuStatusArgsWithoutWatchFlag, watchFlagValue
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		clearScreen()
-
-		// repeat the call using a ticker
-		ticker := time.NewTicker(c.watch)
-
-		for range ticker.C {
-			clearScreen()
-			err := c.runStatus(ctx)
-			if err != nil {
-				return err
-			}
-		}
-	} else if c.viddy != 0 {
-		jujuStatusArgs, viddyFlagValue := c.statusArgsWithoutViddyFlag(os.Args)
+		jujuStatusArgs, viddyFlagValue := c.statusArgsWithoutWatchFlag(os.Args)
 
 		// Prepare Viddy args
-		viddyArgs := append([]string{"--no-title", "--differences", "--interval", viddyFlagValue}, jujuStatusArgs...)
+		viddyArgs := append([]string{"--no-title", "--interval", viddyFlagValue}, jujuStatusArgs...)
 
 		// Define tview styles and launch preconfiged Viddy watcher
 		app := viddy.NewPreconfigedViddy(viddyArgs)
