@@ -112,7 +112,7 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *workerSuite) advanceClock(c *gc.C, d time.Duration) {
-	err := s.clock.WaitAdvance(d+time.Minute, testing.LongWait, 1)
+	err := s.clock.WaitAdvance(d, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -176,9 +176,9 @@ func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
 
 	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
 		URI:             uri,
-		NextTriggerTime: now.Add(3 * time.Hour),
+		NextTriggerTime: now.Add(time.Hour),
 	}}
-	s.advanceClock(c, 2*time.Hour+time.Minute)
+	s.advanceClock(c, 2*time.Hour)
 	s.expectRotated(c, uri.ShortString())
 }
 
@@ -205,7 +205,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
 		URI:             uri,
 		NextTriggerTime: now.Add(2 * time.Hour),
 	}}
-	s.advanceClock(c, 29*time.Minute)
+	s.advanceClock(c, 30*time.Minute)
 	s.expectNoRotates(c)
 
 	// Final sanity check.
@@ -355,8 +355,7 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 		URI:             uri,
 		NextTriggerTime: now.Add(25 * time.Second),
 	}}
-	err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1) // ensure some fake time has elapsed
-	c.Assert(err, jc.ErrorIsNil)
+	s.advanceClock(c, time.Second) // ensure some fake time has elapsed
 
 	uri2 := secrets.NewURI()
 	s.rotateConfigChanges <- []corewatcher.SecretTriggerChange{{
@@ -364,7 +363,6 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 		NextTriggerTime: now.Add(39 * time.Second),
 	}}
 	// First secret won't rotate before the one minute granularity.
-	err = s.clock.WaitAdvance(46*time.Second, testing.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	s.advanceClock(c, 46*time.Second)
 	s.expectRotated(c, uri.ShortString(), uri2.ShortString())
 }
