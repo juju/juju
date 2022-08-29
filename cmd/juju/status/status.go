@@ -5,6 +5,7 @@ package status
 
 import (
 	"fmt"
+	"github.com/juju/viddy"
 	"io"
 	"os"
 	"runtime"
@@ -75,6 +76,9 @@ type statusCommand struct {
 
 	// watch indicates the time to wait between consecutive status queries
 	watch time.Duration
+
+	// viddy indicates the time to wait between consecutive status queries (with viddy tool)
+	viddy time.Duration
 }
 
 var usageSummary = `
@@ -187,6 +191,8 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
 	}
 
+	f.DurationVar(&c.viddy, "viddy", 0, "Watch the status every period of time with viddy tool")
+
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(
 			"relations",
@@ -234,6 +240,10 @@ func (c *statusCommand) Init(args []string) error {
 
 	if c.color && c.noColor {
 		return errors.Errorf("cannot mix --no-color and --color")
+	}
+
+	if c.watch != 0 && c.viddy != 0 {
+		return errors.Errorf("cannot mix --watch and --viddy")
 	}
 
 	return nil
@@ -412,23 +422,54 @@ func clearScreen() {
 	fmt.Printf("\u001Bc")
 }
 
+// statusArgsWithoutViddyFlag returns all args cut off '--viddy' flag of status commands
+// and the value of '--viddy' flag
+func (c *statusCommand) statusArgsWithoutViddyFlag(args []string) ([]string, string) {
+	var jujuStatusArgsWithoutViddyFlag []string
+	var viddyFlagValue string
+
+	for i := range args {
+		if args[i] == "--viddy" {
+			viddyFlagValue = args[i+1]
+			jujuStatusArgsWithoutViddyFlag = append(args[:i], args[i+2:]...)
+			if !c.noColor {
+				jujuStatusArgsWithoutViddyFlag = append(jujuStatusArgsWithoutViddyFlag, "--color")
+			}
+			break
+		}
+	}
+
+	return jujuStatusArgsWithoutViddyFlag, viddyFlagValue
+}
+
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
 		clearScreen()
-	}
 
-	err := c.runStatus(ctx)
-	if err != nil || c.watch == 0 {
-		return err
-	}
+		// repeat the call using a ticker
+		ticker := time.NewTicker(c.watch)
 
-	// repeat the call using a ticker
-	ticker := time.NewTicker(c.watch)
+		for range ticker.C {
+			clearScreen()
+			err := c.runStatus(ctx)
+			if err != nil {
+				return err
+			}
+		}
+	} else if c.viddy != 0 {
+		jujuStatusArgs, viddyFlagValue := c.statusArgsWithoutViddyFlag(os.Args)
 
-	for range ticker.C {
-		clearScreen()
+		// Prepare Viddy args
+		viddyArgs := append([]string{"--no-title", "--differences", "--interval", viddyFlagValue}, jujuStatusArgs...)
+
+		// Define tview styles and launch preconfiged Viddy watcher
+		app := viddy.NewPreconfigedViddy(viddyArgs)
+		if err := app.Run(); err != nil {
+			return errors.Annotate(err, "unable to run Viddy (watcher for status command)")
+		}
+	} else {
 		err := c.runStatus(ctx)
 		if err != nil {
 			return err
