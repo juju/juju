@@ -27,6 +27,9 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
+	jujusecrets "github.com/juju/juju/secrets/provider/juju"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/caasoperator/mocks"
@@ -202,6 +205,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.UniterParams.SocketConfig.TLSConfig, gc.NotNil)
 	config.UniterParams.SocketConfig.TLSConfig = nil
 
+	jujuSecretsAPI := secretsmanager.NewClient(s.apiCaller)
+	secretsClient, err := secrets.NewClient(jujuSecretsAPI, jujusecrets.Store, provider.StoreConfig{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
 		ModelUUID:             coretesting.ModelTag.Id(),
 		ModelName:             "gitlab-model",
@@ -220,7 +226,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		UniterParams: &uniter.UniterParams{
 			DataDir:       s.dataDir,
 			MachineLock:   &fakemachinelock{},
-			SecretsFacade: secretsmanager.NewClient(s.apiCaller),
+			SecretsClient: secretsClient,
 			CharmDirGuard: &mockCharmDirGuard{},
 			Clock:         s.clock,
 			SocketConfig: &uniter.SocketConfig{

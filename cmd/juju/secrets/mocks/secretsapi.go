@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/api/client/secrets"
-	secrets0 "github.com/juju/juju/secrets"
+	secrets0 "github.com/juju/juju/core/secrets"
 )
 
 // MockListSecretsAPI is a mock of ListSecretsAPI interface.

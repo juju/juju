@@ -739,7 +739,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 
 // GetSecret returns the value of the specified secret.
 func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
-	v, err := ctx.secrets.GetValue(uri, label, update, peek)
+	v, err := ctx.secrets.GetContent(uri, label, update, peek)
 	if err != nil {
 		return nil, err
 	}
@@ -755,17 +755,26 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (*coresecrets
 	if !isLeader {
 		return nil, ErrIsNotLeader
 	}
-	cfg := &coresecrets.SecretConfig{
-		ExpireTime:   args.ExpireTime,
-		RotatePolicy: args.RotatePolicy,
-		Description:  args.Description,
-		Label:        args.Label,
+	uris, err := ctx.secrets.CreateSecretURIs(1)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	appName, err := names.UnitApplication(ctx.unitName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return ctx.secrets.Create(cfg, names.NewApplicationTag(appName), args.Value)
+	ctx.secretChanges.create(uniter.SecretCreateArg{
+		SecretUpsertArg: uniter.SecretUpsertArg{
+			URI:          uris[0],
+			RotatePolicy: args.RotatePolicy,
+			ExpireTime:   args.ExpireTime,
+			Description:  args.Description,
+			Label:        args.Label,
+			Value:        args.Value,
+		},
+		OwnerTag: names.NewApplicationTag(appName),
+	})
+	return uris[0], nil
 }
 
 // UpdateSecret creates a secret with the specified data.
@@ -777,7 +786,7 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUps
 	if !isLeader {
 		return ErrIsNotLeader
 	}
-	ctx.secretChanges.update(uniter.SecretUpdateArg{
+	ctx.secretChanges.update(uniter.SecretUpsertArg{
 		URI:          uri,
 		RotatePolicy: args.RotatePolicy,
 		ExpireTime:   args.ExpireTime,
@@ -804,7 +813,7 @@ func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI) error {
 // SecretMetadata gets the secret ids and their labels and latest revisions created by the charm.
 // The result includes any pending updates.
 func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
-	pendingUpdatesByID := make(map[string]uniter.SecretUpdateArg)
+	pendingUpdatesByID := make(map[string]uniter.SecretUpsertArg)
 	for _, u := range ctx.secretChanges.pendingUpdates {
 		pendingUpdatesByID[u.URI.ID] = u
 	}
@@ -1293,6 +1302,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.AddStorage(ctx.storageAddConstraints)
 	}
 
+	b.AddSecretCreates(ctx.secretChanges.pendingCreates)
 	b.AddSecretUpdates(ctx.secretChanges.pendingUpdates)
 	b.AddSecretDeletes(ctx.secretChanges.pendingDeletes)
 	b.AddSecretGrants(ctx.secretChanges.pendingGrants)

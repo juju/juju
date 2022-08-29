@@ -712,7 +712,7 @@ func (s *RelationSuite) TestRemoveAlsoDeletesSecretPermissions(c *gc.C) {
 	relation := s.Factory.MakeRelation(c, nil)
 	app, err := s.State.Application(relation.Endpoints()[0].ApplicationName)
 	c.Assert(err, jc.ErrorIsNil)
-	store := state.NewSecretsStore(s.State)
+	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,

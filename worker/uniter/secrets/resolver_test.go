@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/life"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -205,8 +204,8 @@ func (s *changeSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 			Kind: operation.Continue,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
@@ -222,8 +221,8 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,8 +242,8 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
 			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -264,8 +263,8 @@ func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
-		"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 666},
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)

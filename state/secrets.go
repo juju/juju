@@ -74,8 +74,8 @@ type SecretsStore interface {
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 }
 
-// NewSecretsStore creates a new mongo backed secrets store.
-func NewSecretsStore(st *State) *secretsStore {
+// NewSecrets creates a new mongo backed secrets store.
+func NewSecrets(st *State) *secretsStore {
 	return &secretsStore{st: st}
 }
 

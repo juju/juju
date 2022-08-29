@@ -27,3 +27,12 @@ type SecretsConsumer interface {
 	RevokeSecretAccess(*secrets.URI, state.SecretAccessParams) error
 	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 }
+
+type SecretsStore interface {
+	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
+	UpdateSecret(*secrets.URI, state.UpdateSecretParams) (*secrets.SecretMetadata, error)
+	DeleteSecret(*secrets.URI) error
+	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, error)
+	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
+}

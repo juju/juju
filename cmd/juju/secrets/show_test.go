@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/jujuclient"
-	secretsservice "github.com/juju/juju/secrets"
 	"github.com/juju/juju/testing"
 )
 
@@ -60,7 +59,7 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 
 	expire := testing.NonZeroTime().UTC()
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{
 		URI: uri,
 	}).Return(
 		[]apisecrets.SecretDetails{{
@@ -96,7 +95,7 @@ func (s *ShowSuite) TestShowReveal(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(true, secretsservice.Filter{
+	s.secretsAPI.EXPECT().ListSecrets(true, coresecrets.Filter{
 		URI: uri,
 	}).Return(
 		[]apisecrets.SecretDetails{{
@@ -132,7 +131,7 @@ func (s *ShowSuite) TestShowRevisions(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{
 		URI: uri,
 	}).Return(
 		[]apisecrets.SecretDetails{{

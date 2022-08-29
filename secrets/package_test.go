@@ -1,7 +1,7 @@
-// Copyright 2021 Canonical Ltd.
+// Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package secrets
 
 import (
 	"testing"

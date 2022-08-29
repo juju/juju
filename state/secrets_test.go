@@ -31,7 +31,7 @@ var _ = gc.Suite(&SecretsSuite{})
 
 func (s *SecretsSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.store = state.NewSecretsStore(s.State)
+	s.store = state.NewSecrets(s.State)
 	s.owner = s.Factory.MakeApplication(c, nil)
 	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.owner})
 	app2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -1035,7 +1035,7 @@ var _ = gc.Suite(&SecretsRotationWatcherSuite{})
 
 func (s *SecretsRotationWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.store = state.NewSecretsStore(s.State)
+	s.store = state.NewSecrets(s.State)
 	s.owner = s.Factory.MakeApplication(c, nil)
 }
 
@@ -1212,7 +1212,7 @@ var _ = gc.Suite(&SecretsWatcherSuite{})
 
 func (s *SecretsWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.store = state.NewSecretsStore(s.State)
+	s.store = state.NewSecrets(s.State)
 	s.owner = s.Factory.MakeApplication(c, nil)
 }
 

@@ -12,7 +12,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	coresecrets "github.com/juju/juju/core/secrets"
-	secretsservice "github.com/juju/juju/secrets"
 )
 
 type showSecretsCommand struct {
@@ -120,7 +119,7 @@ func (c *showSecretsCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer api.Close()
 
-	filter := secretsservice.Filter{
+	filter := coresecrets.Filter{
 		URI: c.uri,
 	}
 	if c.revision > 0 {

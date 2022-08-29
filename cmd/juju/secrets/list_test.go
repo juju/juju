@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/jujuclient"
-	secretsservice "github.com/juju/juju/secrets"
 )
 
 type ListSuite struct {
@@ -49,7 +48,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{}).Return(
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
@@ -76,7 +75,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{}).Return(
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
@@ -119,7 +118,7 @@ func (s *ListSuite) TestListJSON(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().ListSecrets(false, secretsservice.Filter{}).Return(
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
 				URI:     uri,

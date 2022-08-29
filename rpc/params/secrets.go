@@ -9,6 +9,14 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
+// SecretContentParams holds params for representing the content of a secret.
+type SecretContentParams struct {
+	// Data is the key values of the secret value itself.
+	Data map[string]string `json:"data,omitempty"`
+	// ProviderId is the content id for when a secret store like vault is used.
+	ProviderId *string `json:"provider-id,omitempty"`
+}
+
 // UpsertSecretArg holds the args for creating or updating a secret.
 type UpsertSecretArg struct {
 	// RotatePolicy is how often a secret should be rotated.
@@ -23,7 +31,12 @@ type UpsertSecretArg struct {
 	// See core/secrets/secret.go.
 	Params map[string]interface{} `json:"params,omitempty"`
 	// Data is the key values of the secret value itself.
-	Data map[string]string `json:"data,omitempty"`
+	Content SecretContentParams `json:"content,omitempty"`
+}
+
+// CreateSecretURIsArg holds args for creating secret URIs.
+type CreateSecretURIsArg struct {
+	Count int `json:"count"`
 }
 
 // CreateSecretArgs holds args for creating secrets.
@@ -35,16 +48,19 @@ type CreateSecretArgs struct {
 type CreateSecretArg struct {
 	UpsertSecretArg
 
+	// URI identifies the secret to create.
+	// If empty, the controller generates a URI.
+	URI *string `json:"uri,omitempty"`
 	// OwnerTag is the owner of the secret.
 	OwnerTag string `json:"owner-tag"`
 }
 
-// UpdateSecretArgs holds args for creating secrets.
+// UpdateSecretArgs holds args for updating secrets.
 type UpdateSecretArgs struct {
 	Args []UpdateSecretArg `json:"args"`
 }
 
-// UpdateSecretArg holds the args for creating a secret.
+// UpdateSecretArg holds the args for updating a secret.
 type UpdateSecretArg struct {
 	UpsertSecretArg
 
@@ -82,22 +98,28 @@ type SecretConsumerInfoResult struct {
 	Error    *Error `json:"error,omitempty"`
 }
 
-// GetSecretValueArgs holds the args for getting secret values.
-type GetSecretValueArgs struct {
-	Args []GetSecretValueArg `json:"args"`
+// GetSecretContentArgs holds the args for getting secret values.
+type GetSecretContentArgs struct {
+	Args []GetSecretContentArg `json:"args"`
 }
 
-// GetSecretValueArg holds the args for getting a secret value.
-type GetSecretValueArg struct {
+// GetSecretContentArg holds the args for getting a secret value.
+type GetSecretContentArg struct {
 	URI    string `json:"uri"`
 	Label  string `json:"label,omitempty"`
 	Update bool   `json:"update,omitempty"`
 	Peek   bool   `json:"peek,omitempty"`
 }
 
-// SecretValueResults holds secret value results.
-type SecretValueResults struct {
-	Results []SecretValueResult `json:"results"`
+// SecretContentResults holds secret value results.
+type SecretContentResults struct {
+	Results []SecretContentResult `json:"results"`
+}
+
+// SecretContentResult is the result of getting secret content.
+type SecretContentResult struct {
+	Content SecretContentParams `json:"content"`
+	Error   *Error              `json:"error,omitempty"`
 }
 
 // SecretValueResult is the result of getting a secret value.

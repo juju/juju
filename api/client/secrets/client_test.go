@@ -13,7 +13,6 @@ import (
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
-	secretsservice "github.com/juju/juju/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -79,7 +78,7 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		return nil
 	})
 	client := apisecrets.NewClient(apiCaller)
-	result, err := client.ListSecrets(true, secretsservice.Filter{
+	result, err := client.ListSecrets(true, secrets.Filter{
 		URI: uri, OwnerTag: ptr("application-mysql"), Revision: ptr(666)})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
@@ -120,7 +119,7 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 		return nil
 	})
 	client := apisecrets.NewClient(apiCaller)
-	result, err := client.ListSecrets(true, secretsservice.Filter{})
+	result, err := client.ListSecrets(true, secrets.Filter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Error, gc.Equals, "boom")
