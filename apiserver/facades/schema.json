@@ -43736,7 +43736,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "AssignUnits assigns the units with the given ids to the correct machine. The\n error results are returned in the same order as the given entities."
+                    "description": "AssignUnits assigns the units with the given ids to the correct machine. The\nerror results are returned in the same order as the given entities."
                 },
                 "SetAgentStatus": {
                     "type": "object",

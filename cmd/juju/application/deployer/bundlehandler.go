@@ -325,13 +325,13 @@ func (h *bundleHandler) updateChannelsModelStatus(status *params.FullStatus) (*p
 // resolve the charm URLs. From the model the charm names are
 // fully qualified, meaning they have a source and revision id.
 // Effectively the logic this method follows is:
-//   * if the bundle specifies a local charm, and the application
+//   - if the bundle specifies a local charm, and the application
 //     exists already, then override the charm URL in the bundle
 //     spec to match the charm name from the model. We don't
 //     upgrade local charms as part of a bundle deploy.
-//   * the charm URL is resolved and the bundle spec is replaced
+//   - the charm URL is resolved and the bundle spec is replaced
 //     with the fully resolved charm URL - i.e.: with rev id.
-//   * check all endpoints, and if any of them have implicit endpoints,
+//   - check all endpoints, and if any of them have implicit endpoints,
 //     and if they do, resolve the implicitness in order to compare
 //     with relations in the model.
 func (h *bundleHandler) resolveCharmsAndEndpoints() error {

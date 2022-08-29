@@ -472,14 +472,16 @@ func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
 
 // BridgeNameForDevice returns a name to use for a new device that bridges the
 // device with the input name. The policy is to:
-// 1.  Add br- to device name (to keep current behaviour),
+//  1. Add br- to device name (to keep current behaviour),
 //     if it does not fit in 15 characters then:
-// 2.  Add b- to device name, if it doesn't fit in 15 characters then:
+//  2. Add b- to device name, if it doesn't fit in 15 characters then:
+//
 // 3a. For devices starting in 'en' remove 'en' and add 'b-'
 // 3b. For all other devices
-//     'b-' + 6-char hash of name + '-' + last 6 chars of name
-// 4.  If using the device name directly always replace '.' with '-'
-//     to make sure that bridges from VLANs won't break
+//
+//		'b-' + 6-char hash of name + '-' + last 6 chars of name
+//	 4. If using the device name directly always replace '.' with '-'
+//	    to make sure that bridges from VLANs won't break
 func BridgeNameForDevice(device string) string {
 	device = strings.Replace(device, ".", "-", -1)
 	switch {

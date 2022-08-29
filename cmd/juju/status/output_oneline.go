@@ -84,7 +84,7 @@ func formatOneline(writer io.Writer, forceColor bool, value interface{}, printf 
 	return nil
 }
 
-//colorVal appends ansi color codes to the given value
+// colorVal appends ansi color codes to the given value
 func colorVal(ctx *ansiterm.Context, val interface{}) string {
 	buff := &bytes.Buffer{}
 	coloredWriter := output.Writer(buff)

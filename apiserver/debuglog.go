@@ -69,22 +69,23 @@ func newDebugLogHandler(
 // on the apiclient.
 //
 // Args for the HTTP request are as follows:
-//   includeEntity -> []string - lists entity tags to include in the response
-//      - tags may finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2
-//      - if none are set, then all lines are considered included
-//   includeModule -> []string - lists logging modules to include in the response
-//      - if none are set, then all lines are considered included
-//   excludeEntity -> []string - lists entity tags to exclude from the response
-//      - as with include, it may finish with a '*'
-//   excludeModule -> []string - lists logging modules to exclude from the response
-//   limit -> uint - show *at most* this many lines
-//   backlog -> uint
-//      - go back this many lines from the end before starting to filter
-//      - has no meaning if 'replay' is true
-//   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
-//   replay -> string - one of [true, false], if true, start the file from the start
-//   noTail -> string - one of [true, false], if true, existing logs are sent back,
-//      - but the command does not wait for new ones.
+//
+//	includeEntity -> []string - lists entity tags to include in the response
+//	   - tags may finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2
+//	   - if none are set, then all lines are considered included
+//	includeModule -> []string - lists logging modules to include in the response
+//	   - if none are set, then all lines are considered included
+//	excludeEntity -> []string - lists entity tags to exclude from the response
+//	   - as with include, it may finish with a '*'
+//	excludeModule -> []string - lists logging modules to exclude from the response
+//	limit -> uint - show *at most* this many lines
+//	backlog -> uint
+//	   - go back this many lines from the end before starting to filter
+//	   - has no meaning if 'replay' is true
+//	level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
+//	replay -> string - one of [true, false], if true, start the file from the start
+//	noTail -> string - one of [true, false], if true, existing logs are sent back,
+//	   - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(conn *websocket.Conn) {
 		socket := &debugLogSocketImpl{conn}

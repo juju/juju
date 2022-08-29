@@ -91,7 +91,7 @@ func MustParsePlatform(s string) Platform {
 //
 //  1. Architecture is mandatory.
 //  2. OS is optional and can be dropped. Release is mandatory if OS wants
-//  to be displayed.
+//     to be displayed.
 //  3. Release is also optional.
 //
 // To indicate something is missing `unknown` can be used in place.
@@ -102,7 +102,6 @@ func MustParsePlatform(s string) Platform {
 //  2. `<arch>`
 //  3. `<arch>/<series>`
 //  4. `<arch>/unknown/<series>`
-//
 func ParsePlatform(s string) (Platform, error) {
 	if s == "" {
 		return Platform{}, errors.Errorf("platform cannot be empty")

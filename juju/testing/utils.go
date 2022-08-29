@@ -41,31 +41,33 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 //
 // Example:
 //
-// AddSubnetsWithTemplate(c, st, 2, state.SubnetInfo{
-//     CIDR: "10.10.{{.}}.0/24",
-//     ProviderId: "subnet-{{.}}",
-//     SpaceName: "space1",
-//     AvailabilityZone: "zone-{{.}}",
-//     VLANTag: 42,
-// })
+//	AddSubnetsWithTemplate(c, st, 2, state.SubnetInfo{
+//	    CIDR: "10.10.{{.}}.0/24",
+//	    ProviderId: "subnet-{{.}}",
+//	    SpaceName: "space1",
+//	    AvailabilityZone: "zone-{{.}}",
+//	    VLANTag: 42,
+//	})
 //
 // This is equivalent to the following calls:
 //
-// _, err := st.AddSubnet(state.SubnetInfo{
-//     CIDR: "10.10.0.0/24",
-//     ProviderId: "subnet-0",
-//     SpaceName: "space1",
-//     AvailabilityZone: "zone-0",
-//     VLANTag: 42,
-// })
+//	_, err := st.AddSubnet(state.SubnetInfo{
+//	    CIDR: "10.10.0.0/24",
+//	    ProviderId: "subnet-0",
+//	    SpaceName: "space1",
+//	    AvailabilityZone: "zone-0",
+//	    VLANTag: 42,
+//	})
+//
 // c.Assert(err, jc.ErrorIsNil)
-// _, err = st.AddSubnet(state.SubnetInfo{
-//     CIDR: "10.10.1.0/24",
-//     ProviderId: "subnet-1",
-//     SpaceName: "space1",
-//     AvailabilityZone: "zone-1",
-//     VLANTag: 42,
-// })
+//
+//	_, err = st.AddSubnet(state.SubnetInfo{
+//	    CIDR: "10.10.1.0/24",
+//	    ProviderId: "subnet-1",
+//	    SpaceName: "space1",
+//	    AvailabilityZone: "zone-1",
+//	    VLANTag: 42,
+//	})
 func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate network.SubnetInfo) {
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int {

@@ -624,8 +624,8 @@ func printMachine(w *output.Wrapper, m machineStatus) {
 
 // Apply some rules around what we show in the tabular format
 // Rules:
-//  - if the modification-status is in error mode, then show that over the
-//    juju status and machine status message
+//   - if the modification-status is in error mode, then show that over the
+//     juju status and machine status message
 func getStatusAndMessageFromMachineStatus(m machineStatus) (status.Status, string) {
 	currentStatus := m.JujuStatus.Current
 	currentMessage := m.MachineStatus.Message

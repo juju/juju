@@ -297,9 +297,9 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spa
 // ensureBindingsIntegrity checks that moving subnets to the new space does
 // not result in inconsistent application endpoint bindings.
 // Consistency is considered maintained if:
-//   1. Bound spaces remain unchanged by subnet relocation.
-//   2. We successfully change affected bindings to a new space that
-//      preserves consistency across all units of an application.
+//  1. Bound spaces remain unchanged by subnet relocation.
+//  2. We successfully change affected bindings to a new space that
+//     preserves consistency across all units of an application.
 func (n *affectedNetworks) ensureBindingsIntegrity(allBindings map[string]Bindings) error {
 	for appName, bindings := range allBindings {
 		if err := n.ensureApplicationBindingsIntegrity(appName, bindings); err != nil {
