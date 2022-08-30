@@ -1,0 +1,22 @@
+test_storage() {
+	if [ "$(skip 'test_storage')" ]; then
+		echo "==> TEST SKIPPED: storage tests"
+		return
+	fi
+
+	set_verbosity
+
+	echo "==> Checking for dependencies"
+	check_dependencies juju
+
+	file="${TEST_DIR}/test-storage.log"
+
+	bootstrap "test-storage" "${file}"
+
+  test_block_storage
+  test_rootfs_storage
+  test_tmpfs_storage
+  test_fs_storage
+
+	destroy_controller "test-storage"
+}

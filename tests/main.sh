@@ -63,6 +63,7 @@ TEST_NAMES="agents \
             smoke \
             spaces_ec2 \
             static_analysis \
+            storage \
             unit \
             upgrade"
 
