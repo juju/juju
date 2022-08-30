@@ -836,7 +836,7 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 	ending := []string{
 		`rm $bin/tools.tar.gz && rm $bin/juju2.3.4-ubuntu-amd64.sha256`, // last line of juju specified cmds
 		`mkdir /tmp/postruncmd`,
-		`mkdir /tmp/postruncmd2`,
+		`mkdir "/tmp/postruncmd 2"`,
 	}
 	c.Assert(len(cmds), jc.GreaterThan, 6)
 	c.Assert(cmds[:3], gc.DeepEquals, beginning)
@@ -862,10 +862,10 @@ packages:
   - 'python-glanceclient'
 preruncmd:
   - mkdir /tmp/preruncmd
-  - mkdir /tmp/preruncmd2
+  - ["mkdir", "/tmp/preruncmd2"]
 postruncmd:
   - mkdir /tmp/postruncmd
-  - mkdir /tmp/postruncmd2
+  - ["mkdir", "/tmp/postruncmd 2"]
 package_upgrade: false
 test-key:
   - test line one
@@ -896,6 +896,42 @@ func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 		}
 	}
 	return scripts
+}
+
+func (s *cloudinitSuite) TestCloudInitPreruncmdError(c *gc.C) {
+	environConfig := minimalModelConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		config.CloudInitUserDataKey: `
+preruncmd:
+  - 42
+`,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	instanceCfg := s.createInstanceConfig(c, environConfig)
+	cloudcfg, err := cloudinit.New("xenial")
+	c.Assert(err, jc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, gc.ErrorMatches, `invalid preruncmd: .* got int`)
+}
+
+func (s *cloudinitSuite) TestCloudInitPostruncmdError(c *gc.C) {
+	environConfig := minimalModelConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		config.CloudInitUserDataKey: `
+postruncmd:
+  - ["foo", 3.14]
+`,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	instanceCfg := s.createInstanceConfig(c, environConfig)
+	cloudcfg, err := cloudinit.New("xenial")
+	c.Assert(err, jc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, gc.ErrorMatches, `invalid postruncmd: .* got list containing float64`)
 }
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
