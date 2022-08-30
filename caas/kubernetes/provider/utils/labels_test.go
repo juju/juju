@@ -77,6 +77,26 @@ func (l *LabelSuite) TestIsLegacyModelLabels(c *gc.C) {
 				},
 			},
 		},
+		{
+			IsLegacy: false,
+			Model:    "legacy-model-label-test-2",
+			Namespace: &core.Namespace{
+				ObjectMeta: meta.ObjectMeta{
+					Name:   "legacy-model-label-test-2",
+					Labels: map[string]string{},
+				},
+			},
+		},
+		{
+			IsLegacy: true,
+			Model:    "legacy-model-label-test-3",
+			Namespace: &core.Namespace{
+				ObjectMeta: meta.ObjectMeta{
+					Name:   "legacy-model-label-test-3",
+					Labels: map[string]string{"juju-model": "legacy-model-label-test-3"},
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {

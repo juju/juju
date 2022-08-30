@@ -49,7 +49,11 @@ func IsLegacyModelLabels(namespace, model string, namespaceI core.NamespaceInter
 		return true, errors.Annotatef(err, "unable to determine legacy status for namespace %s", namespace)
 	}
 
-	return !HasLabels(ns.Labels, LabelsForModel(model, false)), nil
+	if !HasLabels(ns.Labels, LabelsForModel(model, false)) &&
+		HasLabels(ns.Labels, LabelsForModel(model, true)) {
+		return true, nil
+	}
+	return false, nil
 }
 
 // LabelsForApp returns the labels that should be on a k8s object for a given
