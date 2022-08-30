@@ -10,8 +10,8 @@ run_start_hook_fires_after_reboot() {
 	# log level is WARNING.
 	juju model-config -m "${model_name}" logging-config="<root>=INFO;unit=DEBUG"
 
-	juju deploy ubuntu --revision 19 --series focal --channel stable
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy jameinel-ubuntu-lite --revision 9 --channel stable
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Ensure that the implicit start hook after reboot detection does not
 	# fire for the initial charm deployment
@@ -28,9 +28,9 @@ run_start_hook_fires_after_reboot() {
 	# does not fire. In juju 2.9+, we use a unified agent so we need to restart
 	# the machine agent.
 	echo "[+] ensuring that implicit start hook does not fire after restarting the (unified) unit agent"
-	juju ssh ubuntu/0 'sudo service jujud-machine-0 restart'
+	juju ssh ubuntu-lite/0 'sudo service jujud-machine-0 restart'
 	echo
-	wait_for "ubuntu" "$(charm_rev "ubuntu" 19)"
+	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 9)"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
 	echo "$logs" | sed 's/^/    | /g'
 	if [ -n "$logs" ]; then
@@ -39,13 +39,13 @@ run_start_hook_fires_after_reboot() {
 		exit 1
 	fi
 	sleep 1
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Ensure that the implicit start hook does not fire after upgrading the unit
-	juju upgrade-charm ubuntu --revision 20
+	juju upgrade-charm ubuntu-lite --revision 10
 	echo
 	sleep 1
-	wait_for "ubuntu" "$(charm_rev "ubuntu" 20)"
+	wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 10)"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
 	echo "$logs" | sed 's/^/    | /g'
 	if [ -n "$logs" ]; then
@@ -55,13 +55,13 @@ run_start_hook_fires_after_reboot() {
 	fi
 
 	sleep 1
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Trigger a reboot and verify that the implicit start hook fires
 	echo "[+] ensuring that implicit start hook fires after a machine reboot"
-	juju ssh ubuntu/0 'sudo reboot now' || true
+	juju ssh ubuntu-lite/0 'sudo reboot now' || true
 	sleep 1
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 	echo
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
 	echo "$logs" | sed 's/^/    | /g'
