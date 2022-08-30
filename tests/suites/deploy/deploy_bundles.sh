@@ -37,6 +37,7 @@ run_deploy_cmr_bundle() {
 
 	juju deploy easyrsa
 	wait_for "easyrsa" ".applications | keys[0]"
+	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
 
 	juju offer easyrsa:client
 	juju add-model other
@@ -47,10 +48,15 @@ run_deploy_cmr_bundle() {
 	sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" >"${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 	juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
+	wait_for "active" '.applications["etcd"] | ."application-status".current'
 	wait_for "etcd" "$(idle_condition "etcd")"
+	wait_for "active" "$(workload_status "etcd" 0).current"
 
-	destroy_model "test-cmr-bundles-deploy"
+	# TODO: no need to remove-relation before destroying model once we fixed(lp:1952221).
+	juju remove-relation etcd easyrsa
+
 	destroy_model "other"
+	destroy_model "test-cmr-bundles-deploy"
 }
 
 # run_deploy_exported_charmstore_bundle_with_fixed_revisions tests how juju deploys
