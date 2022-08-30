@@ -6,18 +6,18 @@ run_state_delete_get_set() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy jameinel-ubuntu-lite
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-	juju exec --unit ubuntu/0 'state-get | grep -q "{}"'
-	juju exec --unit ubuntu/0 'state-set one=two'
-	juju exec --unit ubuntu/0 'state-get | grep -q "one: two"'
-	juju exec --unit ubuntu/0 'state-set three=four'
-	juju exec --unit ubuntu/0 'state-get three | grep -q "four"'
-	juju exec --unit ubuntu/0 'state-delete one'
-	juju exec --unit ubuntu/0 'state-get | grep -q "three: four"'
-	juju exec --unit ubuntu/0 'state-get one --strict | grep -q "ERROR \"one\" not found" || true'
-	juju exec --unit ubuntu/0 'state-get one'
+	juju exec --unit ubuntu-lite/0 'state-get | grep -q "{}"'
+	juju exec --unit ubuntu-lite/0 'state-set one=two'
+	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
+	juju exec --unit ubuntu-lite/0 'state-set three=four'
+	juju exec --unit ubuntu-lite/0 'state-get three | grep -q "four"'
+	juju exec --unit ubuntu-lite/0 'state-delete one'
+	juju exec --unit ubuntu-lite/0 'state-get | grep -q "three: four"'
+	juju exec --unit ubuntu-lite/0 'state-get one --strict | grep -q "ERROR \"one\" not found" || true'
+	juju exec --unit ubuntu-lite/0 'state-get one'
 
 	destroy_model "${model_name}"
 }
@@ -34,18 +34,18 @@ run_state_set_clash_uniter_state() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy jameinel-ubuntu-lite
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-	juju exec --unit ubuntu/0 'state-get | grep -q "{}"'
-	juju exec --unit ubuntu/0 'state-set one=two'
-	juju exec --unit ubuntu/0 'state-get | grep -q "one: two"'
+	juju exec --unit ubuntu-lite/0 'state-get | grep -q "{}"'
+	juju exec --unit ubuntu-lite/0 'state-set one=two'
+	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
 
 	# force a hook
-	juju exec --unit ubuntu/0 hooks/install
+	juju exec --unit ubuntu-lite/0 hooks/install
 
 	# verify charm set values
-	juju exec --unit ubuntu/0 'state-get | grep -q "one: two"'
+	juju exec --unit ubuntu-lite/0 'state-get | grep -q "one: two"'
 
 	destroy_model "${model_name}"
 }

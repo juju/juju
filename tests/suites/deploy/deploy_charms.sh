@@ -5,8 +5,8 @@ run_deploy_charm() {
 
 	ensure "test-deploy-charm" "${file}"
 
-	juju deploy ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	juju deploy jameinel-ubuntu-lite
+	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	destroy_model "test-deploy-charm"
 }
