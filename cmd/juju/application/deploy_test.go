@@ -945,7 +945,7 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
 
 	deploy := s.deployCommand()
-	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers")
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers-legacy")
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2130,14 +2130,6 @@ func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name string, series ...s
 		)
 		s.fakeAPI.Call("GetBundle", bundleResolveURL).Returns(bundleDir, error(nil))
 	}
-}
-
-func (s *FakeStoreStateSuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
-	result := ch.Config().DefaultSettings()
-	for name, value := range inSettings {
-		result[name] = value
-	}
-	return result
 }
 
 // assertCharmsUploaded checks that the given charm ids have been uploaded.
