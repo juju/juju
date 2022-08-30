@@ -243,7 +243,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(typoBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	expectedError := errors.New("unmarshal document 0: yaml: unmarshal errors:\n  line 1: field sries not found in bundle\n  line 18: field constrai not found in machines")
+	expectedError := errors.New(`document 0:\n  line 1: unrecognized field "sries"\n  line 18: unrecognized field "constrai"`)
 	s.expectParts(&charm.BundleDataPart{
 		Data:            bundleData,
 		UnmarshallError: expectedError,

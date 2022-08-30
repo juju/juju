@@ -231,7 +231,9 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 }
 
 // ComposeAndVerifyBundle merges base and overlays then verifies the
-// combined bundle data.
+// combined bundle data. Returns a slice of errors encountered while
+// processing the bundle. They are for informational purposes and do
+// not require failing the bundle deployment.
 func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*charm.BundleData, []error, error) {
 	var dsList []charm.BundleDataSource
 	unMarshallErrors := make([]error, 0)

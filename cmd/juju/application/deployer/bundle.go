@@ -195,7 +195,7 @@ func (d *deployBundle) printDryRunUnmarshalErrors(ctx *cmd.Context, unmarshalErr
 	if msg == "" {
 		return
 	}
-	ctx.Warningf("Fields failing unmarshal will be ignored at deployment.%s\n", msg)
+	ctx.Warningf("These fields%swill be ignored during deployment\n", msg)
 }
 
 func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAPI) (bundleDeploySpec, error) {
