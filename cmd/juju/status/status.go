@@ -405,14 +405,8 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	return nil
 }
 
-// clearScreen removes any character from the terminal
-// using ANSI scape characters.
-func clearScreen() {
-	fmt.Printf("\u001Bc")
-}
-
-// statusArgsWithoutWatchFlag returns all args cut off '--viddy' flag of status commands
-// and the value of '--viddy' flag
+// statusArgsWithoutWatchFlag returns all args cut off '--watch' flag of status commands
+// and the value of '--watch' flag
 func (c *statusCommand) statusArgsWithoutWatchFlag(args []string) ([]string, string) {
 	var jujuStatusArgsWithoutWatchFlag []string
 	var watchFlagValue string
