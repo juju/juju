@@ -12,8 +12,15 @@ const (
 	Store = "juju"
 )
 
-// NewSecretStore returns a nil store since the Juju store saves
+func init() {
+	provider.Register(Store, jujuProvider{})
+}
+
+type jujuProvider struct {
+}
+
+// NewStore returns a nil store since the Juju store saves
 // secret content to the Juju database.
-func NewSecretStore(cfg provider.StoreConfig) (provider.SecretsStore, error) {
+func (jujuProvider) NewStore(cfg provider.StoreConfig) (provider.SecretsStore, error) {
 	return nil, nil
 }

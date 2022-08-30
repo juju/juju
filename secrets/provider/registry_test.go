@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secrets_test
+package provider_test
 
 import (
 	"github.com/juju/errors"
@@ -9,7 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
+	_ "github.com/juju/juju/secrets/provider/juju"
 )
 
 type registrySuite struct {
@@ -19,9 +20,9 @@ type registrySuite struct {
 var _ = gc.Suite(&registrySuite{})
 
 func (*registrySuite) TestStore(c *gc.C) {
-	_, err := secrets.Store("bad")
+	_, err := provider.Provider("bad")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	_, err = secrets.Store("juju")
+	_, err = provider.Provider("juju")
 	c.Assert(err, jc.ErrorIsNil)
 }

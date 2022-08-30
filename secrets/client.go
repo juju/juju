@@ -22,11 +22,11 @@ type secretsClient struct {
 // NewClient returns a new secret client configured to use the specified
 // secret store as a content backend.
 func NewClient(jujuAPI jujuAPIClient, storeType string, cfg provider.StoreConfig) (*secretsClient, error) {
-	storeFunc, err := Store(storeType)
+	p, err := provider.Provider(storeType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	store, err := storeFunc(cfg)
+	store, err := p.NewStore(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

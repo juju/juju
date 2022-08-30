@@ -46,25 +46,26 @@ func (s *secretsChangeRecorder) update(arg uniter.SecretUpsertArg) {
 		}
 	}
 	for i, c := range s.pendingCreates {
-		if c.URI.ID == arg.URI.ID {
-			if arg.Label != nil {
-				c.Label = arg.Label
-			}
-			if arg.Description != nil {
-				c.Description = arg.Description
-			}
-			if arg.Value != nil {
-				c.Value = arg.Value
-			}
-			if arg.RotatePolicy != nil {
-				c.RotatePolicy = arg.RotatePolicy
-			}
-			if arg.ExpireTime != nil {
-				c.ExpireTime = arg.ExpireTime
-			}
-			s.pendingCreates[i] = c
-			return
+		if c.URI.ID != arg.URI.ID {
+			continue
 		}
+		if arg.Label != nil {
+			c.Label = arg.Label
+		}
+		if arg.Description != nil {
+			c.Description = arg.Description
+		}
+		if arg.Value != nil {
+			c.Value = arg.Value
+		}
+		if arg.RotatePolicy != nil {
+			c.RotatePolicy = arg.RotatePolicy
+		}
+		if arg.ExpireTime != nil {
+			c.ExpireTime = arg.ExpireTime
+		}
+		s.pendingCreates[i] = c
+		return
 	}
 	s.pendingUpdates = append(s.pendingUpdates, arg)
 }
