@@ -60,8 +60,8 @@ func (s *secretsResolver) NextOp(
 	}
 	for uri, info := range remoteState.SecretInfo {
 		existing, ok := localState.SecretRevisions[uri]
-		s.logger.Debugf("%s: current=%d, new=%d", uri, existing, info.LatestRevision)
-		if !ok || existing != info.LatestRevision {
+		s.logger.Debugf("%s: current=%d, new=%d", uri, existing, info.Revision)
+		if !ok || existing != info.Revision {
 			op, err := opFactory.NewRunHook(hook.Info{
 				Kind:        hooks.SecretChanged,
 				SecretURI:   uri,
@@ -74,7 +74,7 @@ func (s *secretsResolver) NextOp(
 }
 
 func (s *secretsResolver) rotateOp(
-	localState resolver.LocalState,
+	_ resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {

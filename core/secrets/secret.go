@@ -16,11 +16,26 @@ import (
 
 // SecretConfig is used when creating a secret.
 type SecretConfig struct {
-	RotatePolicy *RotatePolicy
-	ExpireTime   *time.Time
-	Description  *string
-	Label        *string
-	Params       map[string]interface{}
+	RotatePolicy   *RotatePolicy
+	NextRotateTime *time.Time
+	ExpireTime     *time.Time
+	Description    *string
+	Label          *string
+	Params         map[string]interface{}
+}
+
+// Validate returns an error if params are invalid.
+func (c *SecretConfig) Validate() error {
+	if c.RotatePolicy != nil && !c.RotatePolicy.IsValid() {
+		return errors.NotValidf("secret rotate policy %q", c.RotatePolicy)
+	}
+	if c.RotatePolicy.WillRotate() && c.NextRotateTime == nil {
+		return errors.New("cannot specify a secret rotate policy without a next rotate time")
+	}
+	if !c.RotatePolicy.WillRotate() && c.NextRotateTime != nil {
+		return errors.New("cannot specify a secret rotate time without a rotate policy")
+	}
+	return nil
 }
 
 // URI represents a reference to a secret.
@@ -169,4 +184,17 @@ type SecretConsumerMetadata struct {
 	CurrentRevision int
 	// LatestRevision is the latest secret revision.
 	LatestRevision int
+}
+
+// SecretRevisionInfo holds info used to read a secret vale.
+type SecretRevisionInfo struct {
+	Revision int
+	Label    string
+}
+
+// Filter is used when querying secrets.
+type Filter struct {
+	URI      *URI
+	Revision *int
+	OwnerTag *string
 }

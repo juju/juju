@@ -4,7 +4,6 @@
 package secretsmanager
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -30,7 +29,7 @@ type SecretsManagerAPI struct {
 	modelUUID      string
 
 	leadershipChecker leadership.Checker
-	secretsService    secrets.SecretsService
+	secretsStore      SecretsStore
 	resources         facade.Resources
 	secretsRotation   SecretsRotation
 	secretsConsumer   SecretsConsumer
@@ -38,14 +37,27 @@ type SecretsManagerAPI struct {
 	clock             clock.Clock
 }
 
+// CreateSecretURIs creates new secret URIs.
+func (s *SecretsManagerAPI) CreateSecretURIs(arg params.CreateSecretURIsArg) (params.StringResults, error) {
+	if arg.Count <= 0 {
+		return params.StringResults{}, errors.NotValidf("secret URi count %d", arg.Count)
+	}
+	result := params.StringResults{
+		Results: make([]params.StringResult, arg.Count),
+	}
+	for i := 0; i < arg.Count; i++ {
+		result.Results[i] = params.StringResult{Result: coresecrets.NewURI().String()}
+	}
+	return result, nil
+}
+
 // CreateSecrets creates new secrets.
 func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
-	ctx := context.Background()
 	for i, arg := range args.Args {
-		ID, err := s.createSecret(ctx, arg)
+		ID, err := s.createSecret(arg)
 		result.Results[i].Result = ID
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
@@ -55,8 +67,8 @@ func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
-	if len(arg.Data) == 0 {
+func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, error) {
+	if len(arg.Content.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
 	// A unit can only create secrets owned by its app.
@@ -74,15 +86,23 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	if err := token.Check(0, nil); err != nil {
 		return "", errors.Trace(err)
 	}
-	uri := coresecrets.NewURI()
+	var uri *coresecrets.URI
+	if arg.URI != nil {
+		uri, err = coresecrets.ParseURI(*arg.URI)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	} else {
+		uri = coresecrets.NewURI()
+	}
 	var nextRotateTime *time.Time
 	if arg.RotatePolicy.WillRotate() {
 		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
 	}
-	md, err := s.secretsService.CreateSecret(ctx, uri, secrets.CreateParams{
-		Version:      secrets.Version,
-		Owner:        arg.OwnerTag,
-		UpsertParams: fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime),
+	md, err := s.secretsStore.CreateSecret(uri, state.CreateSecretParams{
+		Version:            secrets.Version,
+		Owner:              arg.OwnerTag,
+		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -100,8 +120,8 @@ func (s *SecretsManagerAPI) createSecret(ctx context.Context, arg params.CreateS
 	return md.URI.ShortString(), nil
 }
 
-func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRotateTime *time.Time) secrets.UpsertParams {
-	return secrets.UpsertParams{
+func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRotateTime *time.Time) state.UpdateSecretParams {
+	return state.UpdateSecretParams{
 		LeaderToken:    token,
 		RotatePolicy:   p.RotatePolicy,
 		NextRotateTime: nextRotateTime,
@@ -109,7 +129,7 @@ func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRota
 		Description:    p.Description,
 		Label:          p.Label,
 		Params:         p.Params,
-		Data:           p.Data,
+		Data:           p.Content.Data,
 	}
 }
 
@@ -118,9 +138,8 @@ func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	ctx := context.Background()
 	for i, arg := range args.Args {
-		err := s.updateSecret(ctx, arg)
+		err := s.updateSecret(arg)
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}
@@ -129,7 +148,7 @@ func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
+func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)
@@ -138,7 +157,7 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 		return errors.NotValidf("secret URI with controller UUID %q", uri.ControllerUUID)
 	}
 	if arg.RotatePolicy == nil && arg.Description == nil && arg.ExpireTime == nil &&
-		arg.Label == nil && len(arg.Params) == 0 && len(arg.Data) == 0 {
+		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 {
 		return errors.New("at least one attribute to update must be specified")
 	}
 	uri.ControllerUUID = s.controllerUUID
@@ -150,7 +169,7 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	if err := token.Check(0, nil); err != nil {
 		return errors.Trace(err)
 	}
-	md, err := s.secretsService.GetSecret(ctx, uri)
+	md, err := s.secretsStore.GetSecret(uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -158,7 +177,7 @@ func (s *SecretsManagerAPI) updateSecret(ctx context.Context, arg params.UpdateS
 	if !md.RotatePolicy.WillRotate() && arg.RotatePolicy.WillRotate() {
 		nextRotateTime = arg.RotatePolicy.NextRotateTime(s.clock.Now())
 	}
-	_, err = s.secretsService.UpdateSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime))
+	_, err = s.secretsStore.UpdateSecret(uri, fromUpsertParams(arg.UpsertSecretArg, token, nextRotateTime))
 	return errors.Trace(err)
 }
 
@@ -167,15 +186,14 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.SecretURIArgs) (params.Err
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	ctx := context.Background()
 	for i, arg := range args.Args {
-		err := s.removeSecret(ctx, arg)
+		err := s.removeSecret(arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) removeSecret(ctx context.Context, arg params.SecretURIArg) error {
+func (s *SecretsManagerAPI) removeSecret(arg params.SecretURIArg) error {
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)
@@ -192,11 +210,11 @@ func (s *SecretsManagerAPI) removeSecret(ctx context.Context, arg params.SecretU
 	if err := token.Check(0, nil); err != nil {
 		return errors.Trace(err)
 	}
-	return s.secretsService.DeleteSecret(ctx, uri)
+	return s.secretsStore.DeleteSecret(uri)
 }
 
-// GetLatestSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
-func (s *SecretsManagerAPI) GetLatestSecretsRevisionInfo(args params.GetSecretConsumerInfoArgs) (params.SecretConsumerInfoResults, error) {
+// GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
+func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(args params.GetSecretConsumerInfoArgs) (params.SecretConsumerInfoResults, error) {
 	result := params.SecretConsumerInfoResults{
 		Results: make([]params.SecretConsumerInfoResult, len(args.URIs)),
 	}
@@ -235,9 +253,8 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 // GetSecretMetadata returns metadata for the caller's secrets.
 func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
 	var result params.ListSecretResults
-	ctx := context.Background()
 	owner := names.NewApplicationTag(authTagApp(s.authTag)).String()
-	secrets, _, err := s.secretsService.ListSecrets(ctx, secrets.Filter{
+	secrets, err := s.secretsStore.ListSecrets(state.SecretsFilter{
 		OwnerTag: &owner,
 	})
 	if err != nil {
@@ -261,21 +278,26 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 	return result, nil
 }
 
-// GetSecretValues returns the secret values for the specified secrets.
-func (s *SecretsManagerAPI) GetSecretValues(args params.GetSecretValueArgs) (params.SecretValueResults, error) {
-	result := params.SecretValueResults{
-		Results: make([]params.SecretValueResult, len(args.Args)),
+// GetSecretContentInfo returns the secret values for the specified secrets.
+func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
+	result := params.SecretContentResults{
+		Results: make([]params.SecretContentResult, len(args.Args)),
 	}
-	ctx := context.Background()
 	for i, arg := range args.Args {
-		data, err := s.getSecretValue(ctx, arg)
-		result.Results[i].Data = data
+		content, err := s.getSecretContent(arg)
+		contentParams := params.SecretContentParams{
+			ProviderId: content.ProviderId,
+		}
+		if content.SecretValue != nil {
+			contentParams.Data = content.SecretValue.EncodedValues()
+		}
+		result.Results[i].Content = contentParams
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSecretValueArg) (coresecrets.SecretData, error) {
+func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*secrets.ContentParams, error) {
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -293,7 +315,7 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 	update := arg.Update || err != nil
 	peek := arg.Peek
 	if update || peek {
-		md, err := s.secretsService.GetSecret(ctx, uri)
+		md, err := s.secretsStore.GetSecret(uri)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -315,11 +337,11 @@ func (s *SecretsManagerAPI) getSecretValue(ctx context.Context, arg params.GetSe
 		}
 	}
 
-	val, err := s.secretsService.GetSecretValue(ctx, uri, consumer.CurrentRevision)
+	val, err := s.secretsStore.GetSecretValue(uri, consumer.CurrentRevision)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return val.EncodedValues(), nil
+	return &secrets.ContentParams{SecretValue: val}, nil
 }
 
 // WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
@@ -399,14 +421,13 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	ctx := context.Background()
 	one := func(arg params.SecretRotatedArg) error {
 		uri, err := coresecrets.ParseURI(arg.URI)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		uri.ControllerUUID = s.controllerUUID
-		md, err := s.secretsService.GetSecret(ctx, uri)
+		md, err := s.secretsStore.GetSecret(uri)
 		if err != nil {
 			return errors.Trace(err)
 		}

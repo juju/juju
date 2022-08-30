@@ -312,6 +312,7 @@ type CommitHookChangesArg struct {
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 	SetPodSpec           *PodSpec               `json:"pod-spec,omitempty"`
 	SetRawK8sSpec        *PodSpec               `json:"set-raw-k8s-spec,omitempty"`
+	SecretCreates        []CreateSecretArg      `json:"secret-creates,omitempty"`
 	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
 	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
 	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`

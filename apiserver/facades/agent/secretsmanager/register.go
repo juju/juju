@@ -11,9 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	"github.com/juju/juju/secrets/provider/juju"
+	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -28,13 +26,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	// For now we just support the Juju secrets provider.
-	service, err := provider.NewSecretProvider(juju.Provider, secrets.ProviderConfig{
-		juju.ParamBackend: context.State(),
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "creating juju secrets service")
-	}
+	secretsStore := state.NewSecrets(context.State())
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -44,7 +36,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		controllerUUID:    context.State().ControllerUUID(),
 		modelUUID:         context.State().ModelUUID(),
 		leadershipChecker: leadershipChecker,
-		secretsService:    service,
+		secretsStore:      secretsStore,
 		resources:         context.Resources(),
 		secretsRotation:   context.State(),
 		secretsConsumer:   context.State(),

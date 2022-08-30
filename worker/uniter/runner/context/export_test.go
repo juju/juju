@@ -288,7 +288,11 @@ func (ctx *HookContext) PendingSecretRemoves() []*secrets.URI {
 	return ctx.secretChanges.pendingDeletes
 }
 
-func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpdateArg {
+func (ctx *HookContext) PendingSecretCreates() []uniter.SecretCreateArg {
+	return ctx.secretChanges.pendingCreates
+}
+
+func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpsertArg {
 	return ctx.secretChanges.pendingUpdates
 }
 

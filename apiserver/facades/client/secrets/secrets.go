@@ -4,8 +4,6 @@
 package secrets
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -15,7 +13,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/state"
 )
 
 // SecretsAPI is the backend for the Secrets facade.
@@ -24,7 +22,7 @@ type SecretsAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	secretsService secrets.SecretsService
+	backend state.SecretsStore
 }
 
 func (s *SecretsAPI) checkCanRead() error {
@@ -69,14 +67,28 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
 	}
-	ctx := context.Background()
-	metadata, revisionMetadata, err := s.secretsService.ListSecrets(ctx, secrets.Filter{
+	metadata, err := s.backend.ListSecrets(state.SecretsFilter{
 		URI:      uri,
 		OwnerTag: arg.Filter.OwnerTag,
-		Revision: arg.Filter.Revision,
 	})
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.ListSecretResults{}, errors.Trace(err)
+	}
+	revisionMetadata := make(map[string][]*coresecrets.SecretRevisionMetadata)
+	for _, md := range metadata {
+		if arg.Filter.Revision == nil {
+			revs, err := s.backend.ListSecretRevisions(md.URI)
+			if err != nil {
+				return params.ListSecretResults{}, errors.Trace(err)
+			}
+			revisionMetadata[md.URI.ID] = revs
+			continue
+		}
+		rev, err := s.backend.GetSecretRevision(md.URI, *arg.Filter.Revision)
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+		revisionMetadata[md.URI.ID] = []*coresecrets.SecretRevisionMetadata{rev}
 	}
 	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
@@ -107,7 +119,8 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			if arg.Filter.Revision != nil {
 				rev = *arg.Filter.Revision
 			}
-			val, err := s.secretsService.GetSecretValue(ctx, m.URI, rev)
+			// TODO(wallyworld) - use external secrets content store if configured
+			val, err := s.backend.GetSecretValue(m.URI, rev)
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}

@@ -15,7 +15,8 @@ import (
 type secretsChangeRecorder struct {
 	logger loggo.Logger
 
-	pendingUpdates []uniter.SecretUpdateArg
+	pendingCreates []uniter.SecretCreateArg
+	pendingUpdates []uniter.SecretUpsertArg
 	pendingDeletes []*secrets.URI
 	pendingGrants  []uniter.SecretGrantRevokeArgs
 	pendingRevokes []uniter.SecretGrantRevokeArgs
@@ -27,7 +28,45 @@ func newSecretsChangeRecorder(logger loggo.Logger) *secretsChangeRecorder {
 	}
 }
 
-func (s *secretsChangeRecorder) update(arg uniter.SecretUpdateArg) {
+func (s *secretsChangeRecorder) create(arg uniter.SecretCreateArg) {
+	for i, d := range s.pendingDeletes {
+		if d.ID == arg.URI.ID {
+			s.pendingDeletes = append(s.pendingDeletes[:i], s.pendingDeletes[i+1:]...)
+			break
+		}
+	}
+	s.pendingCreates = append(s.pendingCreates, arg)
+}
+
+func (s *secretsChangeRecorder) update(arg uniter.SecretUpsertArg) {
+	for i, d := range s.pendingDeletes {
+		if d.ID == arg.URI.ID {
+			s.pendingDeletes = append(s.pendingDeletes[:i], s.pendingDeletes[i+1:]...)
+			break
+		}
+	}
+	for i, c := range s.pendingCreates {
+		if c.URI.ID != arg.URI.ID {
+			continue
+		}
+		if arg.Label != nil {
+			c.Label = arg.Label
+		}
+		if arg.Description != nil {
+			c.Description = arg.Description
+		}
+		if arg.Value != nil {
+			c.Value = arg.Value
+		}
+		if arg.RotatePolicy != nil {
+			c.RotatePolicy = arg.RotatePolicy
+		}
+		if arg.ExpireTime != nil {
+			c.ExpireTime = arg.ExpireTime
+		}
+		s.pendingCreates[i] = c
+		return
+	}
 	s.pendingUpdates = append(s.pendingUpdates, arg)
 }
 

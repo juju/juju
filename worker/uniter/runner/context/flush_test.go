@@ -322,7 +322,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	err = claimer.Claim(s.application.Tag().Id(), s.unit.Tag().Id(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
-	store := state.NewSecretsStore(s.State)
+	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	_, err = store.CreateSecret(uri, state.CreateSecretParams{
 		UpdateSecretParams: state.UpdateSecretParams{

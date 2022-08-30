@@ -2026,7 +2026,7 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
-	store := state.NewSecretsStore(s.State)
+	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,

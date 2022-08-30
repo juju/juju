@@ -15,10 +15,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
@@ -42,7 +42,7 @@ type SecretRotateWatcherFunc func(names.UnitTag, chan []string) (worker.Worker, 
 // SecretsClient provides access to the secrets manager facade.
 type SecretsClient interface {
 	WatchSecretsChanges(string) (watcher.StringsWatcher, error)
-	GetLatestSecretsRevisionInfo(string, []string) (map[string]secretsmanager.SecretRevisionInfo, error)
+	GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error)
 }
 
 // RemoteStateWatcher collects unit, application, and application config information
@@ -172,7 +172,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionChanged:       make(map[string]int),
 			UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 			WorkloadEvents:      config.InitialWorkloadEventIDs,
-			SecretInfo:          make(map[string]secretsmanager.SecretRevisionInfo),
+			SecretInfo:          make(map[string]secrets.SecretRevisionInfo),
 		},
 		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
@@ -241,7 +241,7 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	}
 	snapshot.SecretRotations = make([]string, len(w.current.SecretRotations))
 	copy(snapshot.SecretRotations, w.current.SecretRotations)
-	snapshot.SecretInfo = make(map[string]secretsmanager.SecretRevisionInfo)
+	snapshot.SecretInfo = make(map[string]secrets.SecretRevisionInfo)
 	for u, r := range w.current.SecretInfo {
 		snapshot.SecretInfo[u] = r
 	}
@@ -916,7 +916,7 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	info, err := w.secretsClient.GetLatestSecretsRevisionInfo(w.unit.Tag().Id(), secretURIs)
+	info, err := w.secretsClient.GetConsumerSecretsRevisionInfo(w.unit.Tag().Id(), secretURIs)
 	if err != nil {
 		return errors.Trace(err)
 	}

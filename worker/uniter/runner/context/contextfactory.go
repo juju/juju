@@ -62,10 +62,19 @@ type StorageContextAccessor interface {
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
 
+// SecretsAccessor is used by the hook context to access the secrets backend.
 type SecretsAccessor interface {
-	SecretMetadata() ([]secrets.SecretMetadata, error)
-	Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value secrets.SecretValue) (*secrets.URI, error)
-	GetValue(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
+	// CreateSecretURIs is used by secret-add to get URIs
+	// for added secrets.
+	CreateSecretURIs(int) ([]*secrets.URI, error)
+
+	// SecretMetadata is used by secrets-get to fetch
+	// metadata for secrets.
+	SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error)
+
+	// GetContent is used by secrets-get to fetch the
+	// content of a secret.
+	GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context
@@ -388,7 +397,10 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-	info, err := ctx.secrets.SecretMetadata()
+	owner := f.unit.ApplicationTag().String()
+	info, err := ctx.secrets.SecretMetadata(secrets.Filter{
+		OwnerTag: &owner,
+	})
 	if err != nil {
 		return err
 	}

@@ -1471,7 +1471,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		combinedConfig[k] = v
 	}
 
-	// Provider specific attributes are either already specified in model
+	// Store specific attributes are either already specified in model
 	// config (but may have been coerced), or were not present. Either way,
 	// copy them in.
 	logger.Debugf("provider attrs: %v", providerAttrs)

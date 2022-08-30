@@ -2730,6 +2730,23 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return errors.Annotate(err, "removing secrets")
 		}
 	}
+	if len(changes.SecretCreates) > 0 {
+		result, err := u.SecretsManagerAPI.CreateSecrets(params.CreateSecretArgs{Args: changes.SecretCreates})
+		if err == nil {
+			var errorStrings []string
+			for _, r := range result.Results {
+				if r.Error != nil {
+					errorStrings = append(errorStrings, r.Error.Error())
+				}
+			}
+			if errorStrings != nil {
+				err = errors.New(strings.Join(errorStrings, "\n"))
+			}
+		}
+		if err != nil {
+			return errors.Annotate(err, "creating secrets")
+		}
+	}
 	if len(changes.SecretUpdates) > 0 {
 		result, err := u.SecretsManagerAPI.UpdateSecrets(params.UpdateSecretArgs{Args: changes.SecretUpdates})
 		if err == nil {

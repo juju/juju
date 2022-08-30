@@ -148,7 +148,7 @@ type SecretsContextAccessor struct {
 	context.SecretsAccessor
 }
 
-func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretMetadata, error) {
+func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	return []secrets.SecretMetadata{{
 		URI:            uri,

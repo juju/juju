@@ -3207,7 +3207,7 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
-	store := state.NewSecretsStore(s.State)
+	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -3238,7 +3238,7 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
-	store := state.NewSecretsStore(s.State)
+	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,

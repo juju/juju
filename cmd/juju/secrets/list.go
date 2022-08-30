@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/secrets"
-	secretsservice "github.com/juju/juju/secrets"
 )
 
 type listSecretsCommand struct {
@@ -41,7 +40,7 @@ Examples:
 
 // ListSecretsAPI is the secrets client API.
 type ListSecretsAPI interface {
-	ListSecrets(bool, secretsservice.Filter) ([]apisecrets.SecretDetails, error)
+	ListSecrets(bool, secrets.Filter) ([]apisecrets.SecretDetails, error)
 	Close() error
 }
 
@@ -128,7 +127,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer api.Close()
 
-	filter := secretsservice.Filter{}
+	filter := secrets.Filter{}
 	if c.owner != "" {
 		owner := names.NewApplicationTag(c.owner).String()
 		filter.OwnerTag = &owner

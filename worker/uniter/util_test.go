@@ -46,6 +46,9 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
+	jujusecrets "github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
+	jujusecretsprovider "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -139,7 +142,7 @@ type testContext struct {
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
 	secretsRotateCh        chan []string
-	secretsFacade          *secretsmanager.Client
+	secretsClient          jujusecrets.Client
 	err                    string
 
 	wg             sync.WaitGroup
@@ -217,7 +220,9 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
-	ctx.secretsFacade = secretsmanager.NewClient(apiConn)
+	jujuSecretsAPI := secretsmanager.NewClient(apiConn)
+	ctx.secretsClient, err = jujusecrets.NewClient(jujuSecretsAPI, jujusecretsprovider.Store, provider.StoreConfig{})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ctx *testContext) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
@@ -594,7 +599,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			ctx.secretsRotateCh = secretsChanged
 			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
 		},
-		SecretsFacade: ctx.secretsFacade,
+		SecretsClient: ctx.secretsClient,
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1651,9 +1656,15 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 	if s.applicationName == "" {
 		s.applicationName = "u"
 	}
-	uri, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
-		RotatePolicy: ptr(secrets.RotateDaily),
-	}, names.NewApplicationTag(s.applicationName), secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+
+	uri, err := ctx.secretsClient.Create(nil, jujusecrets.CreateParams{
+		SecretConfig: secrets.SecretConfig{
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(time.Now().Add(time.Hour)),
+		},
+		Owner:   names.NewApplicationTag(s.applicationName),
+		Content: jujusecrets.ContentParams{SecretValue: secrets.NewSecretValue(map[string]string{"foo": "bar"})},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.createdSecretURI = uri
 }
@@ -1667,7 +1678,7 @@ func (t *fakeToken) Check(int, interface{}) error {
 type changeSecret struct{}
 
 func (s changeSecret) step(c *gc.C, ctx *testContext) {
-	store := state.NewSecretsStore(ctx.st)
+	store := state.NewSecrets(ctx.st)
 	_, err := store.UpdateSecret(ctx.createdSecretURI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar2"},
@@ -1678,7 +1689,7 @@ func (s changeSecret) step(c *gc.C, ctx *testContext) {
 type getSecret struct{}
 
 func (s getSecret) step(c *gc.C, ctx *testContext) {
-	val, err := ctx.secretsFacade.GetValue(ctx.createdSecretURI, "foorbar", false, false)
+	val, err := ctx.secretsClient.GetContent(ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
 }

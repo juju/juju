@@ -931,8 +931,8 @@ func (b *CommitHookParamsBuilder) SetRawK8sSpec(appTag names.ApplicationTag, spe
 	}
 }
 
-// SecretUpdateArg holds parameters for updating a secret.
-type SecretUpdateArg struct {
+// SecretUpsertArg holds parameters for creating or updating a secret.
+type SecretUpsertArg struct {
 	URI          *secrets.URI
 	RotatePolicy *secrets.RotatePolicy
 	ExpireTime   *time.Time
@@ -941,8 +941,45 @@ type SecretUpdateArg struct {
 	Value        secrets.SecretValue
 }
 
+// SecretCreateArg holds parameters for creating a secret.
+type SecretCreateArg struct {
+	SecretUpsertArg
+	OwnerTag names.Tag
+}
+
+// AddSecretCreates records requests to create secrets.
+func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
+	if len(creates) == 0 {
+		return
+	}
+	b.arg.SecretCreates = make([]params.CreateSecretArg, len(creates))
+	for i, c := range creates {
+
+		var data secrets.SecretData
+		if c.Value != nil {
+			data = c.Value.EncodedValues()
+		}
+		if len(data) == 0 {
+			data = nil
+		}
+
+		uriStr := c.URI.String()
+		b.arg.SecretCreates[i] = params.CreateSecretArg{
+			UpsertSecretArg: params.UpsertSecretArg{
+				RotatePolicy: c.RotatePolicy,
+				ExpireTime:   c.ExpireTime,
+				Description:  c.Description,
+				Label:        c.Label,
+				Content:      params.SecretContentParams{Data: data},
+			},
+			URI:      &uriStr,
+			OwnerTag: c.OwnerTag.String(),
+		}
+	}
+}
+
 // AddSecretUpdates records requests to update secrets.
-func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpdateArg) {
+func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 	if len(updates) == 0 {
 		return
 	}
@@ -963,7 +1000,7 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpdateArg) {
 				ExpireTime:   u.ExpireTime,
 				Description:  u.Description,
 				Label:        u.Label,
-				Data:         data,
+				Content:      params.SecretContentParams{Data: data},
 			},
 			URI: u.URI.String(),
 		}
@@ -1066,6 +1103,7 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	count += len(b.arg.OpenPorts)
 	count += len(b.arg.ClosePorts)
 	count += len(b.arg.AddStorage)
+	count += len(b.arg.SecretCreates)
 	count += len(b.arg.SecretUpdates)
 	count += len(b.arg.SecretDeletes)
 	count += len(b.arg.SecretGrants)

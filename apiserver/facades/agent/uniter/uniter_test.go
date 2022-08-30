@@ -4573,25 +4573,9 @@ func ptr[T any](v T) *T {
 func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 	s.leadershipChecker.isLeader = true
-	store := state.NewSecretsStore(s.State)
-	uri := secrets.NewURI()
-	_, err := store.CreateSecret(uri, state.CreateSecretParams{
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &token{isLeader: true},
-			Data:        map[string]string{"foo": "bar"},
-		},
-		Owner: s.wordpress.Tag().String(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
-		LeaderToken: &token{isLeader: true},
-		Scope:       s.wordpress.Tag(),
-		Subject:     s.wordpress.Tag(),
-		Role:        secrets.RoleManage,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	store := state.NewSecrets(s.State)
 	uri2 := secrets.NewURI()
-	_, err = store.CreateSecret(uri2, state.CreateSecretParams{
+	_, err := store.CreateSecret(uri2, state.CreateSecretParams{
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &token{isLeader: true},
 			Data:        map[string]string{"foo2": "bar"},
@@ -4624,7 +4608,16 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
-	b.AddSecretUpdates([]apiuniter.SecretUpdateArg{{
+	uri := secrets.NewURI()
+	b.AddSecretCreates([]apiuniter.SecretCreateArg{{
+		SecretUpsertArg: apiuniter.SecretUpsertArg{
+			URI:   uri,
+			Label: ptr("foobar"),
+			Value: secrets.NewSecretValue(map[string]string{"foo": "bar"}),
+		},
+		OwnerTag: s.wordpress.Tag(),
+	}})
+	b.AddSecretUpdates([]apiuniter.SecretUpsertArg{{
 		URI:          uri,
 		RotatePolicy: ptr(secrets.RotateDaily),
 		Description:  ptr("a secret"),

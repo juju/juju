@@ -384,7 +384,7 @@ func (op *DestroyApplicationOperation) eraseHistory() error {
 }
 
 func (op *DestroyApplicationOperation) deleteSecrets() error {
-	store := NewSecretsStore(op.app.st)
+	store := NewSecrets(op.app.st)
 	ownedURIs, err := op.app.st.referencedSecrets(op.app.Tag(), "owner-tag")
 	if err != nil {
 		return errors.Trace(err)

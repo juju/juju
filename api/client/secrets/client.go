@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
-	secretsservice "github.com/juju/juju/secrets"
 )
 
 // Client is the api client for the Secrets facade.
@@ -33,7 +32,7 @@ type SecretDetails struct {
 }
 
 // ListSecrets lists the available secrets.
-func (api *Client) ListSecrets(reveal bool, filter secretsservice.Filter) ([]SecretDetails, error) {
+func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDetails, error) {
 	arg := params.ListSecretsArgs{
 		ShowSecrets: reveal,
 		Filter: params.SecretsFilter{

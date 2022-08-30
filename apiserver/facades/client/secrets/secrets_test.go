@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -25,7 +25,7 @@ type SecretsSuite struct {
 	testing.IsolationSuite
 
 	authorizer     *facademocks.MockAuthorizer
-	secretsService *mocks.MockSecretsService
+	secretsService *mocks.MockSecretsStore
 }
 
 var _ = gc.Suite(&SecretsSuite{})
@@ -38,7 +38,7 @@ func (s *SecretsSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.secretsService = mocks.NewMockSecretsService(ctrl)
+	s.secretsService = mocks.NewMockSecretsStore(ctrl)
 
 	return ctrl
 }
@@ -91,21 +91,22 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal bool) {
 		CreateTime:       now,
 		UpdateTime:       now.Add(time.Second),
 	}}
-	revisions := map[string][]*coresecrets.SecretRevisionMetadata{
-		uri.ID: {{
-			Revision:   666,
-			CreateTime: now,
-			UpdateTime: now.Add(time.Second),
-			ExpireTime: ptr(now.Add(time.Hour)),
-		}, {
-			Revision:   667,
-			CreateTime: now,
-			UpdateTime: now.Add(2 * time.Second),
-			ExpireTime: ptr(now.Add(2 * time.Hour)),
-		}},
-	}
-	s.secretsService.EXPECT().ListSecrets(gomock.Any(), secrets.Filter{}).Return(
-		metadata, revisions, nil,
+	revisions := []*coresecrets.SecretRevisionMetadata{{
+		Revision:   666,
+		CreateTime: now,
+		UpdateTime: now.Add(time.Second),
+		ExpireTime: ptr(now.Add(time.Hour)),
+	}, {
+		Revision:   667,
+		CreateTime: now,
+		UpdateTime: now.Add(2 * time.Second),
+		ExpireTime: ptr(now.Add(2 * time.Hour)),
+	}}
+	s.secretsService.EXPECT().ListSecrets(state.SecretsFilter{}).Return(
+		metadata, nil,
+	)
+	s.secretsService.EXPECT().ListSecretRevisions(uri).Return(
+		revisions, nil,
 	)
 
 	var valueResult *params.SecretValueResult
@@ -113,7 +114,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal bool) {
 		valueResult = &params.SecretValueResult{
 			Data: map[string]string{"foo": "bar"},
 		}
-		s.secretsService.EXPECT().GetSecretValue(gomock.Any(), uri, 2).Return(
+		s.secretsService.EXPECT().GetSecretValue(uri, 2).Return(
 			coresecrets.NewSecretValue(valueResult.Data), nil,
 		)
 	}
