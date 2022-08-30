@@ -227,7 +227,7 @@ fi
 echo ""
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq yq shellcheck
+check_dependencies curl jq yq shellcheck expect
 
 if [[ ${USER:-'root'} == "root" ]]; then
 	echo "The testsuite must not be run as root." >&2
