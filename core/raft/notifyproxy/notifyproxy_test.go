@@ -18,27 +18,30 @@ import (
 
 type NotifyProxySuite struct {
 	testing.IsolationSuite
+
+	proxy *NotifyProxy
 }
 
 var _ = gc.Suite(&NotifyProxySuite{})
 
-func (s *NotifyProxySuite) TestSendingWithNoWaiting(c *gc.C) {
-	proxy := NewNonBlocking(clock.WallClock)
-	defer proxy.Close()
+func (s *NotifyProxySuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 
+	s.proxy = NewNonBlocking(clock.WallClock)
+	s.AddCleanup(func(*gc.C) { _ = s.proxy.Close() })
+}
+
+func (s *NotifyProxySuite) TestSendingWithNoWaiting(c *gc.C) {
 	key := lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}
-	err := proxy.Claimed(key, "meshuggah")
+	err := s.proxy.Claimed(key, "meshuggah")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *NotifyProxySuite) TestSendingWithNoWaitingOverflowsBuffer(c *gc.C) {
-	proxy := NewNonBlocking(clock.WallClock)
-	defer proxy.Close()
-
 	// Issue the claimed commands,
 	for i := 0; i < BufferSize+2; i++ {
 		key := lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}
-		err := proxy.Claimed(key, fmt.Sprintf("meshuggah%d", i))
+		err := s.proxy.Claimed(key, fmt.Sprintf("meshuggah%d", i))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -48,7 +51,7 @@ func (s *NotifyProxySuite) TestSendingWithNoWaitingOverflowsBuffer(c *gc.C) {
 	go func() {
 		defer close(done)
 
-		for notes := range proxy.Notifications() {
+		for notes := range s.proxy.Notifications() {
 			for _, note := range notes {
 				note.ErrorResponse(nil)
 				results = append(results, note)
@@ -76,22 +79,29 @@ func (s *NotifyProxySuite) TestSendingWithNoWaitingOverflowsBuffer(c *gc.C) {
 }
 
 func (s *NotifyProxySuite) TestClaimed(c *gc.C) {
-	proxy := NewBlocking(clock.WallClock)
-	defer proxy.Close()
-
+	done := make(chan struct{})
 	results := make([]Notification, 0)
 	go func() {
-		for notes := range proxy.Notifications() {
+		for notes := range s.proxy.Notifications() {
 			for _, note := range notes {
 				note.ErrorResponse(nil)
 				results = append(results, note)
 			}
 		}
+		close(done)
 	}()
 
 	key := lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}
-	err := proxy.Claimed(key, "meshuggah")
+	err := s.proxy.Claimed(key, "meshuggah")
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.proxy.Close(), jc.ErrorIsNil)
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting")
+	}
+
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
@@ -102,26 +112,33 @@ func (s *NotifyProxySuite) TestClaimed(c *gc.C) {
 	}
 }
 
-func (s *NotifyProxySuite) TestExpiries(c *gc.C) {
-	proxy := NewBlocking(clock.WallClock)
-	defer proxy.Close()
-
+func (s *NotifyProxySuite) TestExpirations(c *gc.C) {
+	done := make(chan struct{})
 	results := make([]Notification, 0)
 	go func() {
-		for notes := range proxy.Notifications() {
+		for notes := range s.proxy.Notifications() {
 			for _, note := range notes {
 				note.ErrorResponse(nil)
 				results = append(results, note)
 			}
 		}
+		close(done)
 	}()
 
 	expected := []raftlease.Expired{{
 		Key:    lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"},
 		Holder: "meshuggah",
 	}}
-	err := proxy.Expirations(expected)
+	err := s.proxy.Expirations(expected)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.proxy.Close(), jc.ErrorIsNil)
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting")
+	}
+
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
@@ -133,17 +150,16 @@ func (s *NotifyProxySuite) TestExpiries(c *gc.C) {
 }
 
 func (s *NotifyProxySuite) TestExpirationsWithBatch(c *gc.C) {
-	proxy := NewBlocking(clock.WallClock)
-	defer proxy.Close()
-
+	done := make(chan struct{})
 	results := make([]Notification, 0)
 	go func() {
-		for notes := range proxy.Notifications() {
+		for notes := range s.proxy.Notifications() {
 			for _, note := range notes {
 				note.ErrorResponse(nil)
 				results = append(results, note)
 			}
 		}
+		close(done)
 	}()
 
 	expected := []raftlease.Expired{{
@@ -153,8 +169,16 @@ func (s *NotifyProxySuite) TestExpirationsWithBatch(c *gc.C) {
 		Key:    lease.Key{Namespace: "ns", ModelUUID: "model2", Lease: "lease2"},
 		Holder: "nadir",
 	}}
-	err := proxy.Expirations(expected)
+	err := s.proxy.Expirations(expected)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.proxy.Close(), jc.ErrorIsNil)
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting")
+	}
+
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
@@ -163,10 +187,4 @@ func (s *NotifyProxySuite) TestExpirationsWithBatch(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(expiry.Expirations, jc.DeepEquals, expected)
 	}
-}
-
-func (s *NotifyProxySuite) TestClose(c *gc.C) {
-	proxy := NewBlocking(clock.WallClock)
-	err := proxy.Close()
-	c.Assert(err, jc.ErrorIsNil)
 }
