@@ -27,16 +27,16 @@ func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
-charm-id: charmCHARMcharmCHARMcharmCHARM01
-summary: WordPress is a full featured web blogging tool, this charm deploys it.
 publisher: Wordress Charmers
-supports: bionic, xenial
-tags: app, seven
-subordinate: true
+summary: WordPress is a full featured web blogging tool, this charm deploys it.
 description: |-
   This will install and setup WordPress optimized to run in the cloud.
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
+charm-id: charmCHARMcharmCHARMcharmCHARM01
+supports: bionic, xenial
+tags: app, seven
+subordinate: true
 relations:
   provides:
     one: two
@@ -61,16 +61,16 @@ func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
-charm-id: charmCHARMcharmCHARMcharmCHARM01
-summary: WordPress is a full featured web blogging tool, this charm deploys it.
 publisher: Wordress Charmers
-supports: bionic, xenial
-tags: app, seven
-subordinate: true
+summary: WordPress is a full featured web blogging tool, this charm deploys it.
 description: |-
   This will install and setup WordPress optimized to run in the cloud.
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
+charm-id: charmCHARMcharmCHARMcharmCHARM01
+supports: bionic, xenial
+tags: app, seven
+subordinate: true
 relations:
   provides:
     one: two
@@ -149,11 +149,11 @@ func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: osm
-bundle-id: bundleBUNDLEbundleBUNDLEbundle01
-summary: A bundle by charmed-osm.
 publisher: charmed-osm
-tags: networking
+summary: A bundle by charmed-osm.
 description: Single instance OSM bundle.
+bundle-id: bundleBUNDLEbundleBUNDLEbundle01
+tags: networking
 channels: |
   latest/stable:     1.0.3  2019-12-16  (16)  12MB
   latest/candidate:  1.0.3  2019-12-16  (17)  12MB
