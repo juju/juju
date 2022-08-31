@@ -5,10 +5,7 @@ package upgrades
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/replicaset/v3"
-
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -16,12 +13,6 @@ import (
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
-	ControllerUUID() (string, error)
-	StateServingInfo() (controller.StateServingInfo, error)
-	ControllerConfig() (controller.Config, error)
-	ReplicaSetMembers() ([]replicaset.Member, error)
-
-	// 2.9.x related functions
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
 	UpdateDHCPAddressConfigs() error
 	KubernetesInClusterCredentialSpec() (environscloudspec.CloudSpec, *config.Config, string, error)
@@ -58,23 +49,6 @@ func NewStateBackend(pool *state.StatePool) StateBackend {
 
 type stateBackend struct {
 	pool *state.StatePool
-}
-
-func (s stateBackend) ControllerUUID() (string, error) {
-	systemState, err := s.pool.SystemState()
-	return systemState.ControllerUUID(), err
-}
-
-func (s stateBackend) StateServingInfo() (controller.StateServingInfo, error) {
-	systemState, err := s.pool.SystemState()
-	if err != nil {
-		return controller.StateServingInfo{}, errors.Trace(err)
-	}
-	ssi, errS := systemState.StateServingInfo()
-	if errS != nil {
-		return controller.StateServingInfo{}, errors.Trace(err)
-	}
-	return ssi, err
 }
 
 func (s stateBackend) StripLocalUserDomain() error {
@@ -119,18 +93,6 @@ func (s stateBackend) AddStatusHistoryPruneSettings() error {
 
 func (s stateBackend) AddActionPruneSettings() error {
 	return state.AddActionPruneSettings(s.pool)
-}
-
-func (s stateBackend) ReplicaSetMembers() ([]replicaset.Member, error) {
-	return state.ReplicaSetMembers(s.pool)
-}
-
-func (s stateBackend) ControllerConfig() (controller.Config, error) {
-	systemState, err := s.pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return systemState.ControllerConfig()
 }
 
 func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
