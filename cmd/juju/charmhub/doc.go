@@ -2,5 +2,5 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package charmhub implements the Charmhub-related CLI commands, such as
-// "juju info", "juju find", and so on.
+// "juju download", "juju find", and "juju info".
 package charmhub
