@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	mgotesting "github.com/juju/mgo/v2/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/raft/raftnotifier"
@@ -29,6 +31,7 @@ import (
 
 type manifoldSuite struct {
 	testing.IsolationSuite
+	statetesting.StateSuite
 
 	context  dependency.Context
 	manifold dependency.Manifold
@@ -46,12 +49,29 @@ type manifoldSuite struct {
 
 var _ = gc.Suite(&manifoldSuite{})
 
+func (s *manifoldSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+
+	err := mgotesting.MgoServer.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.IsolationSuite.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
+
+	s.StateSuite.SetUpSuite(c)
+}
+
+func (s *manifoldSuite) TearDownSuite(c *gc.C) {
+	s.StateSuite.TearDownSuite(c)
+	s.IsolationSuite.TearDownSuite(c)
+}
+
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.stub.ResetCalls()
 
 	s.stateTracker = &stubStateTracker{
+		pool: s.StatePool,
 		done: make(chan struct{}),
 	}
 
@@ -71,6 +91,11 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 		NewTarget: s.newTarget,
 	}
 	s.manifold = raftnotifier.Manifold(s.config)
+}
+
+func (s *manifoldSuite) TearDownTest(c *gc.C) {
+	s.StateSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
@@ -195,13 +220,13 @@ func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool state.StatePool
+	pool *state.StatePool
 	done chan struct{}
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
+	return s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {
