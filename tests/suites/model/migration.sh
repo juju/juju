@@ -127,8 +127,8 @@ run_model_migration_version() {
 	wait_for "active" "$(workload_status "etcd" 3).current"
 	wait_for "active" "$(workload_status "etcd" 4).current"
 
-	# juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=50m health  # 3.0
-	juju --show-log run-action etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=50m health # 2.9
+	# juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health  # 3.0
+	juju --show-log run-action etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health # 2.9
 
 	# Clean up.
 	destroy_controller "alt-model-migration-version-stable"
