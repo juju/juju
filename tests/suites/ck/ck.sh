@@ -29,7 +29,7 @@ run_deploy_ck() {
 	storage_path="./tests/suites/ck/storage/${BOOTSTRAP_PROVIDER}.yaml"
 	kubectl create -f "${storage_path}"
 	kubectl get sc -o yaml
-	
+
 	# The model teardown could take too long time, so we decided to kill controller to speed up test run time.
 	# But this will not give the chance for integrator charm to do proper cleanup:
 	# - https://github.com/juju-solutions/charm-aws-integrator/blob/master/lib/charms/layer/aws.py#L616
@@ -38,7 +38,7 @@ run_deploy_ck() {
 	# And on AWS, the maximum number of tags per resource is 50.
 	# Then we will get `Error while granting requests (TagLimitExceeded); check credentials and debug-log` error in next test run.
 	# So we purge the subnet tags here in advance as a workaround.
-	integrator_app_name=$(cat $overlay_path | yq '.applications | keys | .[] | select(.== "*integrator")')
+	integrator_app_name=$(cat "$overlay_path" | yq '.applications | keys | .[] | select(.== "*integrator")')
 	juju --show-log run-action "$integrator_app_name/leader" --wait=10m purge-subnet-tags
 	# juju --show-log run "$integrator_app_name/leader"--wait=10m purge-subnet-tags  # 3.0
 }
