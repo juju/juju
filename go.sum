@@ -885,10 +885,6 @@ github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23/go.mod h1:Ljlbryh9
 github.com/juju/version/v2 v2.0.0/go.mod h1:ZeFjNy+UFEWJDDPdzW7Cm9NeU6dsViGaFYhXzycLQrw=
 github.com/juju/version/v2 v2.0.1 h1:4psP9XDv8qIbSdv3llCmcmBXe+wvm57BvYp2sG/i6zc=
 github.com/juju/version/v2 v2.0.1/go.mod h1:OK+DKO9ve3fFCVUZGT8ZbUWU2TnZh914S6gMhiM2hXg=
-github.com/juju/viddy v0.0.0-beta3 h1:B25EFvCvlsscsugscgKRv4KcbFVakHB5matgXNZMz6E=
-github.com/juju/viddy v0.0.0-beta3/go.mod h1:5Yvv+opdIEDt15Tt0++8YvccVykcGJeVXxqVnGqUXVE=
-github.com/juju/viddy v0.0.0-beta4 h1:4OUCe//ait3vYK7nmHWzwTo1MaNazZjCLd6ijQq1CcQ=
-github.com/juju/viddy v0.0.0-beta4/go.mod h1:5Yvv+opdIEDt15Tt0++8YvccVykcGJeVXxqVnGqUXVE=
 github.com/juju/viddy v0.0.0-beta5 h1:aMSljAcSEWoWC+KGDOd2cEUyIB/EzSDbWxa5lchTWfU=
 github.com/juju/viddy v0.0.0-beta5/go.mod h1:5Yvv+opdIEDt15Tt0++8YvccVykcGJeVXxqVnGqUXVE=
 github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
