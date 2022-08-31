@@ -21,6 +21,9 @@ run_unregister() {
 	echo "Check controller is not known"
 	juju controllers --format=json | jq -r ".\"controllers\".\"${controller_name}\"" | check null
 
+	echo "Check the default controller is not equal to unregistered one"
+	check_not_contains "$(juju controllers --format=json | jq -r '."current-controller"')" "${controller_name}"
+
 	echo "Restore controller info after unregister"
 	mv ~/.local/share/juju/controllers.yaml.bak ~/.local/share/juju/controllers.yaml
 	mv ~/.local/share/juju/accounts.yaml.bak ~/.local/share/juju/accounts.yaml
