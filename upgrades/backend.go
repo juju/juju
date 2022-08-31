@@ -4,19 +4,14 @@
 package upgrades
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	raftleasestore "github.com/juju/juju/state/raftlease"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
@@ -24,10 +19,7 @@ type StateBackend interface {
 	ControllerUUID() (string, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 	ControllerConfig() (controller.Config, error)
-	LeaseNotifyTarget(raftleasestore.Logger) (raftlease.NotifyTarget, error)
-	// Raft related functions
 	ReplicaSetMembers() ([]replicaset.Member, error)
-	LegacyLeases(time.Time) (map[lease.Key]lease.Info, error)
 
 	// 2.9.x related functions
 	RemoveUnusedLinkLayerDeviceProviderIDs() error
@@ -139,18 +131,6 @@ func (s stateBackend) ControllerConfig() (controller.Config, error) {
 		return nil, errors.Trace(err)
 	}
 	return systemState.ControllerConfig()
-}
-
-func (s stateBackend) LeaseNotifyTarget(logger raftleasestore.Logger) (raftlease.NotifyTarget, error) {
-	systemState, err := s.pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return systemState.LeaseNotifyTarget(logger), nil
-}
-
-func (s stateBackend) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
-	return state.LegacyLeases(s.pool, localTime)
 }
 
 func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
