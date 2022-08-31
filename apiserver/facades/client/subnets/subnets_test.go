@@ -392,7 +392,7 @@ func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces apiserver
 		apiservertesting.WithSubnets,
 	)
 
-	api := &subnets.APIv3{API: s.facade}
+	api := &subnets.APIv3{APIv4: &subnets.APIv4{API: s.facade}}
 	results, err := api.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllSpacesResult(c, results, apiservertesting.BackingInstance.Spaces)
@@ -405,7 +405,7 @@ func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces apiserver
 func (s *SubnetsSuite) TestAllSpacesFailure(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(errors.NotFoundf("boom"))
 
-	api := &subnets.APIv3{API: s.facade}
+	api := &subnets.APIv3{APIv4: &subnets.APIv4{API: s.facade}}
 	results, err := api.AllSpaces()
 	c.Assert(err, gc.ErrorMatches, "boom not found")
 	// Verify the cause is not obscured.
@@ -484,7 +484,7 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 			copy(apiservertesting.ProviderInstance.Zones, originalZones)
 		}()
 
-		// updateZones tries to constructs a ZonedEnviron with these calls.
+		// updateZones tries to construct a ZonedEnviron with these calls.
 		zoneCalls := append([]apiservertesting.StubMethodCall{},
 			apiservertesting.BackingCall("ModelConfig"),
 			apiservertesting.BackingCall("CloudSpec"),
@@ -531,7 +531,8 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 			Zones:            []string{"zone3"},
 		}},
 	}
-	results, err := s.facade.AddSubnets(args)
+	api := &subnets.APIv4{API: s.facade}
+	results, err := api.AddSubnets(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Subnets))
 	for _, result := range results.Results {
@@ -588,7 +589,8 @@ func (s *SubnetsSuite) TestAddSubnetsWhenNetworkingEnvironNotSupported(c *gc.C) 
 func (s *SubnetsSuite) TestAddSubnetAPI(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName,
 		apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
-	results, err := s.facade.AddSubnets(params.AddSubnetsParams{
+	api := &subnets.APIv4{API: s.facade}
+	results, err := api.AddSubnets(params.AddSubnetsParams{
 		Subnets: []params.AddSubnetParams{
 			{
 				SpaceTag: "space-dmz",
@@ -605,7 +607,7 @@ func (s *SubnetsSuite) TestAddSubnetAPI(c *gc.C) {
 func (s *SubnetsSuite) TestAddSubnetAPIv2(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName,
 		apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
-	apiV2 := &subnets.APIv2{APIv3: &subnets.APIv3{API: s.facade}}
+	apiV2 := &subnets.APIv2{APIv3: &subnets.APIv3{APIv4: &subnets.APIv4{API: s.facade}}}
 	results, err := apiV2.AddSubnets(params.AddSubnetsParamsV2{
 		Subnets: []params.AddSubnetParamsV2{
 			{
@@ -925,7 +927,8 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	}}
 	c.Check(expectedErrors, gc.HasLen, len(args.Subnets))
 
-	results, err := s.facade.AddSubnets(args)
+	api := &subnets.APIv4{API: s.facade}
+	results, err := api.AddSubnets(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Results), gc.Equals, len(args.Subnets))
 	for i, result := range results.Results {
@@ -986,7 +989,8 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	apiservertesting.ResetStub(apiservertesting.SharedStub)
 
 	// Finally, check that no params yields no results.
-	results, err = s.facade.AddSubnets(params.AddSubnetsParams{})
+	api = &subnets.APIv4{API: s.facade}
+	results, err = api.AddSubnets(params.AddSubnetsParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.NotNil)
 	c.Assert(results.Results, gc.HasLen, 0)
