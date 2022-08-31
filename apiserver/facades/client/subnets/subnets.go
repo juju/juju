@@ -60,12 +60,17 @@ type APIv2 struct {
 	*APIv3
 }
 
-// APIv3 provides the subnets API facade for versions 3.
+// APIv3 provides the subnets API facade for version 3.
 type APIv3 struct {
+	*APIv4
+}
+
+// APIv4 provides the subnets API facade for version 4.
+type APIv4 struct {
 	*API
 }
 
-// API provides the subnets API facade for version 4.
+// API provides the subnets API facade for version 5.
 type API struct {
 	backing    Backing
 	resources  facade.Resources
@@ -144,12 +149,8 @@ func (api *APIv3) AllSpaces() (params.SpaceResults, error) {
 	return results, nil
 }
 
-// AllSpaces does not belong on this API facade.
-// If you need it, use the spaces facade.
-func (api *API) AllSpaces(_, _ struct{}) {}
-
 // AddSubnets adds existing subnets to Juju.
-func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+func (api *APIv4) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
