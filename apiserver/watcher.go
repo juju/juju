@@ -896,9 +896,14 @@ func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
 			crossmodel.GetBackend(w.st),
 			w.watcher.OfferUUID(), w.watcher.OfferName())
 		if err != nil {
-			return params.OfferStatusWatchResult{
-				Error: apiservererrors.ServerError(err),
-			}, nil
+			// For the specific case where we are informed that a migration is
+			// in progress, we want to return an error that causes the client
+			// to stop watching, rather than in the payload.
+			if errors.Is(err, migration.ErrMigrating) {
+				return params.OfferStatusWatchResult{}, err
+			}
+
+			return params.OfferStatusWatchResult{Error: apiservererrors.ServerError(err)}, nil
 		}
 		return params.OfferStatusWatchResult{
 			Changes: []params.OfferStatusChange{*change},

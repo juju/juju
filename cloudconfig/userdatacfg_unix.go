@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
+	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -147,9 +148,11 @@ func (w *unixConfigure) ConfigureBasic() error {
 	// Keep preruncmd at the beginning of any runcmd's that juju adds
 	if preruncmds, ok := w.icfg.CloudInitUserData["preruncmd"].([]interface{}); ok {
 		for i := len(preruncmds) - 1; i >= 0; i -= 1 {
-			if cmd, ok := preruncmds[i].(string); ok {
-				w.conf.PrependRunCmd(cmd)
+			cmd, err := runCmdToString(preruncmds[i])
+			if err != nil {
+				return errors.Annotate(err, "invalid preruncmd")
 			}
+			w.conf.PrependRunCmd(cmd)
 		}
 	}
 	w.conf.AddRunCmd(
@@ -237,7 +240,11 @@ func (w *unixConfigure) ConfigureJuju() error {
 	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]interface{}); ok {
 		cmds := make([]string, len(postruncmds))
 		for i, v := range postruncmds {
-			cmds[i] = v.(string)
+			cmd, err := runCmdToString(v)
+			if err != nil {
+				return errors.Annotate(err, "invalid postruncmd")
+			}
+			cmds[i] = cmd
 		}
 		defer w.conf.AddScripts(cmds...)
 	}
@@ -393,6 +400,28 @@ func (w *unixConfigure) ConfigureJuju() error {
 	w.conf.AddRunTextFile("/sbin/remove-juju-services", removeServicesScript, 0755)
 
 	return w.addMachineAgentToBoot()
+}
+
+// runCmdToString converts a postruncmd or preruncmd value to a string.
+// Per https://cloudinit.readthedocs.io/en/latest/topics/examples.html,
+// these run commands can be either a string or a list of strings.
+func runCmdToString(v any) (string, error) {
+	switch v := v.(type) {
+	case string:
+		return v, nil
+	case []any: // beware! won't be be []string
+		strs := make([]string, len(v))
+		for i, sv := range v {
+			ss, ok := sv.(string)
+			if !ok {
+				return "", errors.Errorf("expected list of strings, got list containing %T", sv)
+			}
+			strs[i] = ss
+		}
+		return utils.CommandString(strs...), nil
+	default:
+		return "", errors.Errorf("expected string or list of strings, got %T", v)
+	}
 }
 
 // Not all cloudinit-userdata attr are allowed to override, these attr have been

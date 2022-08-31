@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -212,10 +213,10 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectParts(bundleData)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 
-	obtained, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, bundleData)
 }
@@ -224,7 +225,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectParts(bundleData)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
 
@@ -233,9 +234,33 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
 		"blog-title": "magic bundle config",
 	}
 
-	obtained, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, &expected)
+}
+
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(typoBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	expectedError := errors.New(`document 0:\n  line 1: unrecognized field "sries"\n  line 18: unrecognized field "constrai"`)
+	s.expectParts(&charm.BundleDataPart{
+		Data:            bundleData,
+		UnmarshallError: expectedError,
+	})
+	s.expectBasePath()
+	s.setupOverlayFile(c)
+
+	expected := *bundleData
+	expected.Applications["wordpress"].Options = map[string]interface{}{
+		"blog-title": "magic bundle config",
+	}
+
+	obtained, unmarshallErrors, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, &expected)
+	c.Assert(unmarshallErrors, gc.HasLen, 1)
+	c.Assert(unmarshallErrors[0], gc.Equals, expectedError)
 }
 
 func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
@@ -321,9 +346,9 @@ func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *composeAndVerifyRepSuite) expectParts(bundleData *charm.BundleData) {
-	retVal := []*charm.BundleDataPart{{Data: bundleData}}
-	s.bundleDataSource.EXPECT().Parts().Return(retVal)
+func (s *composeAndVerifyRepSuite) expectParts(part *charm.BundleDataPart) {
+	retVal := []*charm.BundleDataPart{part}
+	s.bundleDataSource.EXPECT().Parts().Return(retVal).AnyTimes()
 }
 
 func (s *composeAndVerifyRepSuite) expectBasePath() {
@@ -367,6 +392,32 @@ applications:
 machines:
   "0":
     series: xenial
+  "1":
+    series: xenial
+relations:
+- - wordpress:db
+  - mysql:db
+`
+
+const typoBundle = `
+sries: bionic
+applications:
+  mysql:
+    charm: cs:mysql-42
+    series: xenial
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: cs:wordpress-47
+    series: xenial
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0":
+    series: xenial
+    constrai: arch=arm64
   "1":
     series: xenial
 relations:

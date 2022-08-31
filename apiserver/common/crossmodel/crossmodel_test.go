@@ -45,7 +45,7 @@ func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
 	})
 }
 
-func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGone(c *gc.C) {
+func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *gc.C) {
 	st := &mockBackend{}
 	ch, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,7 +55,16 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGone(c *gc.C) {
 	})
 }
 
-func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGone(c *gc.C) {
+func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneMigrating(c *gc.C) {
+	st := &mockBackend{
+		migrating: true,
+	}
+
+	_, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
+	c.Assert(err, gc.ErrorMatches, "model is being migrated")
+}
+
+func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c *gc.C) {
 	st := &mockBackend{}
 	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,6 +72,15 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGone(c *gc.C) {
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Terminated, Info: "application has been removed"},
 	})
+}
+
+func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneMigrating(c *gc.C) {
+	st := &mockBackend{
+		migrating: true,
+	}
+
+	_, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	c.Assert(err, gc.ErrorMatches, "model is being migrated")
 }
 
 func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
@@ -78,9 +96,11 @@ func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
 type mockBackend struct {
 	testing.Stub
 	crossmodel.Backend
+
 	appName        string
 	appStatus      status.StatusInfo
 	remoteEntities map[names.Tag]string
+	migrating      bool
 }
 
 func (st *mockBackend) GetRemoteEntity(token string) (names.Tag, error) {
@@ -113,6 +133,10 @@ func (st *mockBackend) Application(name string) (crossmodel.Application, error) 
 		name:   "mysql",
 		status: st.appStatus,
 	}, nil
+}
+
+func (st *mockBackend) IsMigrationActive() (bool, error) {
+	return st.migrating, nil
 }
 
 type mockApplication struct {
