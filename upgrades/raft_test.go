@@ -6,7 +6,6 @@ package upgrades_test
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
@@ -19,8 +18,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/raftlease"
-	raftleasestore "github.com/juju/juju/state/raftlease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	raftworker "github.com/juju/juju/worker/raft"
@@ -173,7 +170,6 @@ type mockState struct {
 	info    controller.StateServingInfo
 	config  controller.Config
 	leases  map[lease.Key]lease.Info
-	target  *mockTarget
 }
 
 func (s *mockState) ReplicaSetMembers() ([]replicaset.Member, error) {
@@ -186,47 +182,6 @@ func (s *mockState) StateServingInfo() (controller.StateServingInfo, error) {
 
 func (s *mockState) ControllerConfig() (controller.Config, error) {
 	return s.config, s.stub.NextErr()
-}
-
-func (s *mockState) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
-	s.stub.AddCall("LegacyLeases", localTime)
-	return s.leases, s.stub.NextErr()
-}
-
-func (s *mockState) DropLeasesCollection() error {
-	s.stub.AddCall("DropLeasesCollection")
-	return s.stub.NextErr()
-}
-
-func (s *mockState) LeaseNotifyTarget(logger raftleasestore.Logger) (raftlease.NotifyTarget, error) {
-	s.stub.AddCall("LeaseNotifyTarget", logger)
-	return s.target, s.stub.NextErr()
-}
-
-type mockTarget struct {
-	raftlease.NotifyTarget
-	stub testing.Stub
-}
-
-func (t *mockTarget) Claimed(key lease.Key, holder string) error {
-	t.stub.AddCall("Claimed", key, holder)
-	return t.stub.NextErr()
-}
-
-func (t *mockTarget) assertClaimed(c *gc.C, claims map[lease.Key]string) {
-	c.Assert(t.stub.Calls(), gc.HasLen, len(claims))
-	for _, call := range t.stub.Calls() {
-		c.Assert(call.FuncName, gc.Equals, "Claimed")
-		c.Assert(call.Args, gc.HasLen, 2)
-		key, ok := call.Args[0].(lease.Key)
-		c.Assert(ok, gc.Equals, true)
-		holder, ok := call.Args[1].(string)
-		c.Assert(ok, gc.Equals, true)
-		expectedHolder, found := claims[key]
-		c.Assert(found, gc.Equals, true)
-		c.Assert(holder, gc.Equals, expectedHolder)
-		delete(claims, key)
-	}
 }
 
 type captureWriter struct {
