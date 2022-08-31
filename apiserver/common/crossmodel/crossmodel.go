@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
@@ -505,13 +506,28 @@ func GetRelationLifeSuspendedStatusChange(
 type offerGetter interface {
 	ApplicationOfferForUUID(string) (*crossmodel.ApplicationOffer, error)
 	Application(string) (Application, error)
+
+	// IsMigrationActive returns true if the current model is
+	// in the process of being migrated to another controller.
+	IsMigrationActive() (bool, error)
 }
 
-// GetOfferStatusChange returns a status change
-// struct for a specified offer name.
+// GetOfferStatusChange returns a status change struct for the input offer name.
+// If the offer or application are not found during a migration, a specific
+// error to indicate the migration-in-progress is returned.
+// This is interpreted upstream as a watcher error and propagated to the
+// remote CMR consumer.
 func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.OfferStatusChange, error) {
+	migrating, err := st.IsMigrationActive()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	offer, err := st.ApplicationOfferForUUID(offerUUID)
 	if errors.IsNotFound(err) {
+		if migrating {
+			return nil, migration.ErrMigrating
+		}
 		return &params.OfferStatusChange{
 			OfferName: offerName,
 			Status: params.EntityStatus{
@@ -522,9 +538,12 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(wallyworld) - for now, offer status is just the application status
+
 	app, err := st.Application(offer.ApplicationName)
 	if errors.IsNotFound(err) {
+		if migrating {
+			return nil, migration.ErrMigrating
+		}
 		return &params.OfferStatusChange{
 			OfferName: offerName,
 			Status: params.EntityStatus{
@@ -536,8 +555,6 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 		return nil, errors.Trace(err)
 	}
 
-	// We use the status from the cached application as that is where
-	// the derived status from the units are handled if this is necessary.
 	sts := status.StatusInfo{
 		Status: status.Unknown,
 	}

@@ -550,7 +550,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		// TODO: move full watcher to the model cache.
+
 		w, err := api.offerStatusWatcher(api.st, arg.OfferUUID)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)

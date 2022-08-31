@@ -630,6 +630,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedOffers, jc.DeepEquals, []string{"mysql-uuid"})
 	s.st.CheckCalls(c, []testing.StubCall{
+		{"IsMigrationActive", nil},
 		{"Application", []interface{}{"mysql"}},
 	})
 	app.CheckCalls(c, []testing.StubCall{
