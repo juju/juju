@@ -13,13 +13,13 @@ import (
 )
 
 type SecretGrantSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&SecretGrantSuite{})
 
 func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
-	hctx, _ := s.ContextSuite.NewHookContext()
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	for _, t := range []struct {
 		args []string
@@ -27,21 +27,18 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
 	}{
 		{
 			args: []string{},
-			err:  "ERROR missing secret name",
+			err:  "ERROR missing secret URI",
 		}, {
-			args: []string{"password"},
-			err:  `ERROR missing application or unit`,
+			args: []string{"foo"},
+			err:  `ERROR secret URI "foo" not valid`,
 		}, {
-			args: []string{"password", "--app", "0/foo"},
-			err:  `ERROR application "0/foo" not valid`,
-		}, {
-			args: []string{"password", "--unit", "foo"},
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--unit", "foo"},
 			err:  `ERROR unit "foo" not valid`,
 		}, {
-			args: []string{"password", "--app", "foo", "--relation", "foo"},
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--relation", "foo"},
 			err:  `ERROR invalid value "foo" for option --relation: invalid relation id`,
 		}, {
-			args: []string{"password", "--app", "foo", "--relation", "-666"},
+			args: []string{"secret:9m4e2mr0ui3e8a215n4g", "--relation", "-666"},
 			err:  `ERROR invalid value "-666" for option --relation: relation not found`,
 		},
 	} {
@@ -56,25 +53,58 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
 }
 
 func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
-	hctx, info := s.ContextSuite.NewHookContext()
-	info.SetNewRelation(1, "db", s.Stub)
-	info.SetAsRelationHook(1, "mediawiki")
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
-		"password", "--app", "foo",
+		"secret:9m4e2mr0ui3e8a215n4g",
 		"--relation", "db:1",
 	})
 
 	c.Assert(code, gc.Equals, 0)
-	app := "foo"
-	relId := 1
 	args := &jujuc.SecretGrantRevokeArgs{
-		ApplicationName: &app,
-		RelationId:      &relId,
+		RelationKey:     ptr("wordpress:db mediawiki:db"),
+		ApplicationName: ptr("mediawiki"),
 	}
-	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "GrantSecret")
-	s.Stub.CheckCall(c, 4, "GrantSecret", "password", args)
+	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "RemoteApplicationName", "GrantSecret")
+	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
+}
+
+func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
+
+	com, err := jujuc.NewCommand(hctx, "secret-grant")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
+		"secret:9m4e2mr0ui3e8a215n4g",
+		"--relation", "db:1",
+		"--unit", "mediawiki/0",
+	})
+
+	c.Assert(code, gc.Equals, 0)
+	args := &jujuc.SecretGrantRevokeArgs{
+		RelationKey:     ptr("wordpress:db mediawiki:db"),
+		ApplicationName: ptr("mediawiki"),
+		UnitName:        ptr("mediawiki/0"),
+	}
+	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "RemoteApplicationName", "GrantSecret")
+	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
+}
+
+func (s *SecretGrantSuite) TestGrantSecretWrongUnit(c *gc.C) {
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
+
+	com, err := jujuc.NewCommand(hctx, "secret-grant")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
+		"secret:9m4e2mr0ui3e8a215n4g",
+		"--relation", "db:1",
+		"--unit", "foo/0",
+	})
+
+	c.Assert(code, gc.Equals, 2)
 }

@@ -44,26 +44,27 @@ func (s *machineUpgraderSuite) SetUpTest(c *gc.C) {
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that should
-//       need all of the setup we have for this test suite
+//
+//	need all of the setup we have for this test suite
 func (s *machineUpgraderSuite) TestNew(c *gc.C) {
 	upgrader := upgrader.NewState(s.stateAPI)
 	c.Assert(upgrader, gc.NotNil)
 }
 
 func (s *machineUpgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
-	err := s.st.SetVersion("machine-42", coretesting.CurrentVersion(c))
+	err := s.st.SetVersion("machine-42", coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *machineUpgraderSuite) TestSetVersionNotMachine(c *gc.C) {
-	err := s.st.SetVersion("foo-42", coretesting.CurrentVersion(c))
+	err := s.st.SetVersion("foo-42", coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	agentTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
@@ -90,7 +91,7 @@ func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestTools(c *gc.C) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -107,7 +108,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event
@@ -132,7 +133,7 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 

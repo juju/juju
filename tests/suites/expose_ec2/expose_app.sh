@@ -6,7 +6,7 @@ run_expose_app_ec2() {
 	ensure "expose-app" "${file}"
 
 	# Deploy test charm
-	juju deploy cs:~jameinel/ubuntu-lite-7
+	juju deploy jameinel-ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Open ports and verify hook tool behavior

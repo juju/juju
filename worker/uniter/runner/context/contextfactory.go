@@ -13,11 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
@@ -62,6 +62,21 @@ type StorageContextAccessor interface {
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
 
+// SecretsAccessor is used by the hook context to access the secrets backend.
+type SecretsAccessor interface {
+	// CreateSecretURIs is used by secret-add to get URIs
+	// for added secrets.
+	CreateSecretURIs(int) ([]*secrets.URI, error)
+
+	// SecretMetadata is used by secrets-get to fetch
+	// metadata for secrets.
+	SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error)
+
+	// GetContent is used by secrets-get to fetch the
+	// content of a secret.
+	GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
+}
+
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
 type RelationsFunc func() map[int]*RelationInfo
@@ -72,7 +87,7 @@ type contextFactory struct {
 	state     *uniter.State
 	resources *uniter.ResourcesFacadeClient
 	payloads  *uniter.PayloadFacadeClient
-	secrets   *secretsmanager.Client
+	secrets   SecretsAccessor
 	tracker   leadership.Tracker
 
 	logger loggo.Logger
@@ -100,7 +115,7 @@ type contextFactory struct {
 // for the context factory.
 type FactoryConfig struct {
 	State            *uniter.State
-	Secrets          *secretsmanager.Client
+	Secrets          SecretsAccessor
 	Unit             *uniter.Unit
 	Resources        *uniter.ResourcesFacadeClient
 	Payloads         *uniter.PayloadFacadeClient
@@ -181,7 +196,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
-		secretFacade:       f.secrets,
+		secrets:            f.secrets,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
@@ -272,6 +287,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	}
 	if hookInfo.Kind.IsSecret() {
 		ctx.secretURI = hookInfo.SecretURI
+		ctx.secretLabel = hookInfo.SecretLabel
 	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName
@@ -380,6 +396,26 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
+	owner := f.unit.ApplicationTag().String()
+	info, err := ctx.secrets.SecretMetadata(secrets.Filter{
+		OwnerTag: &owner,
+	})
+	if err != nil {
+		return err
+	}
+	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
+	for _, v := range info {
+		ctx.secretMetadata[v.URI.ID] = jujuc.SecretMetadata{
+			Description:      v.Description,
+			Label:            v.Label,
+			RotatePolicy:     v.RotatePolicy,
+			LatestRevision:   v.LatestRevision,
+			LatestExpireTime: v.LatestExpireTime,
+			NextRotateTime:   v.NextRotateTime,
+		}
+	}
+
 	return nil
 }
 

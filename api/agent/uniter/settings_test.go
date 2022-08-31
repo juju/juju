@@ -4,12 +4,9 @@
 package uniter_test
 
 import (
-	"github.com/juju/names/v4"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
-	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -85,68 +82,4 @@ func (s *settingsSuite) TestDelete(c *gc.C) {
 		"foo": "qaz",
 		"abc": "123",
 	})
-}
-
-func (s *settingsSuite) TestWrite(c *gc.C) {
-	settingsUpdated := false
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		switch request {
-		case "ReadSettings":
-			c.Assert(arg, gc.DeepEquals, params.RelationUnits{
-				RelationUnits: []params.RelationUnit{{
-					Relation: "relation-mysql.database#wordpress.server",
-					Unit:     "unit-mysql-0",
-				}},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.SettingsResults{})
-			*(result.(*params.SettingsResults)) = params.SettingsResults{
-				Results: []params.SettingsResult{{
-					Settings: params.Settings{
-						"some":  "stuff",
-						"other": "things",
-					},
-				}},
-			}
-		case "UpdateSettings":
-			c.Assert(arg, gc.DeepEquals, params.RelationUnitsSettings{
-				RelationUnits: []params.RelationUnitSettings{{
-					Relation: "relation-mysql.database#wordpress.server",
-					Unit:     "unit-mysql-0",
-					Settings: params.Settings{
-						"foo":   "qaz",
-						"other": "days",
-						"some":  "",
-					},
-					ApplicationSettings: params.Settings{"foo": "bar"},
-				}},
-			})
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			*(result.(*params.ErrorResults)) = params.ErrorResults{
-				Results: []params.ErrorResult{{}},
-			}
-			settingsUpdated = true
-		default:
-			c.Fatalf("unexpected api call %q", request)
-		}
-		return nil
-	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-
-	relUnit := uniter.CreateRelationUnit(client, names.NewRelationTag("mysql:database wordpress:server"), names.NewUnitTag("mysql/0"))
-	settings, err := relUnit.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
-		"some":  "stuff",
-		"other": "things",
-	})
-
-	settings.Set("some", "bar")
-	settings.Delete("foo")
-	settings.Delete("some")
-	settings.Set("foo", "qaz")
-	settings.Set("other", "days")
-	err = relUnit.UpdateRelationSettings(settings.FinalResult(), params.Settings{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settingsUpdated, jc.IsTrue)
 }

@@ -74,6 +74,7 @@ func charmSeries(series string, force bool, cm charm.CharmMeta) (string, error) 
 		return series, nil
 	}
 	computedSeries, err := ComputedSeries(cm)
+	logger.Tracef("series %q, %v", series, computedSeries)
 	if err != nil {
 		return "", err
 	}
@@ -151,7 +152,7 @@ type unsupportedSeriesError struct {
 
 func (e *unsupportedSeriesError) Error() string {
 	return fmt.Sprintf(
-		"series %q not supported by charm, supported series are: %s",
+		"series %q not supported by charm, the charm supported series are: %s",
 		e.requestedSeries, strings.Join(e.supportedSeries, ","),
 	)
 }

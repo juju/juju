@@ -2773,6 +2773,45 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 	c.Assert(newMysqlSettings, gc.DeepEquals, mysqlSettings)
 }
 
+func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C) {
+	st := s.State
+	// Add a application with charm settings, app config, and leadership settings.
+	f := factory.NewFactory(st, s.StatePool)
+
+	// Add a application with charm settings, app config, and leadership settings.
+	testCharm := f.MakeCharmV2(c, &factory.CharmParams{
+		Name: "snappass-test", // it has resources
+	})
+	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
+	origin := &state.CharmOrigin{
+		Source:   testCharm.URL().Schema,
+		Type:     "charm",
+		Revision: &testCharm.URL().Revision,
+		Channel: &state.Channel{
+			Risk: "edge",
+		},
+		Platform: &state.Platform{
+			Architecture: testCharm.URL().Architecture,
+			OS:           "ubuntu",
+			Series:       testCharm.URL().Series,
+		},
+	}
+	application := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm:       testCharm,
+		CharmOrigin: origin,
+	})
+	allApplications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allApplications, gc.HasLen, 1)
+
+	_, newSt := s.importModel(c, s.State)
+	importedApp, err := newSt.Application(application.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	exportedOrigin := application.CharmOrigin()
+	exportedOrigin.Channel.Track = "latest"
+	c.Assert(importedApp.CharmOrigin(), gc.DeepEquals, exportedOrigin)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

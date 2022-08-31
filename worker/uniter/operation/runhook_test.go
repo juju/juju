@@ -4,8 +4,6 @@
 package operation_test
 
 import (
-	"time"
-
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -894,7 +892,14 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
 	}
-	factory := newOpFactory(nil, callbacks)
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				context: &MockContext{},
+			},
+		},
+	}
+	factory := newOpFactory(runnerFactory, callbacks)
 	op, err := factory.NewRunHook(hook.Info{
 		Kind: hooks.SecretRotate, SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
 	})
@@ -905,12 +910,13 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 		Step: operation.Pending,
 	}
 
-	now := time.Now()
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, expectState)
 	c.Assert(callbacks.rotatedSecretURI, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(callbacks.rotatedSecretTime.After(now), jc.IsTrue)
+	c.Assert(callbacks.rotatedOldRevision, gc.Equals, 666)
 }
 
 func (s *RunHookSuite) TestPrepareHookError_SecretRotate_NotLeader(c *gc.C) {

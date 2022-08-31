@@ -6,8 +6,8 @@
 //
 // The most interesting endpoints at this stage are:
 //
-//  - /debug/pprof/goroutine?debug=1:
-//    prints out all the goroutines in the agent
-//  - /debug/pprof/heap?debug=1:
-//    prints out the heap profile
+//   - /debug/pprof/goroutine?debug=1:
+//     prints out all the goroutines in the agent
+//   - /debug/pprof/heap?debug=1:
+//     prints out the heap profile
 package introspection

@@ -4,10 +4,12 @@
 package secrets
 
 import (
-	"context"
-	"time"
+	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher"
 )
 
 const (
@@ -15,53 +17,103 @@ const (
 	Version = 1
 )
 
+// ContentParams represents the content of a secret,
+// which is either a secret value or an id used to
+// access the content from an external provider like vault.
+type ContentParams struct {
+	secrets.SecretValue
+	ProviderId *string
+}
+
+// Validate returns an error if the content is invalid.
+func (p *ContentParams) Validate() error {
+	if p.ProviderId == nil && p.SecretValue == nil {
+		return errors.NotValidf("secret content without value or provider id")
+	}
+	return nil
+}
+
 // CreateParams are used to create a secret.
 type CreateParams struct {
-	ProviderLabel  string
-	Version        int
-	Owner          string
-	RotateInterval time.Duration
-	Description    string
-	Tags           map[string]string
-	Params         map[string]interface{}
-	Data           map[string]string
+	Version int
+
+	secrets.SecretConfig
+	Content ContentParams
+	Owner   names.Tag
+
+	LeaderToken leadership.Token
+}
+
+// Validate returns an error if params are invalid.
+func (p *CreateParams) Validate() error {
+	switch p.Owner.Kind() {
+	case names.ApplicationTagKind, names.UnitTagKind:
+	default:
+		return errors.NotValidf("secret owner kind %q", p.Owner.Kind())
+	}
+	if err := p.Content.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return p.SecretConfig.Validate()
 }
 
 // UpdateParams are used to update a secret.
 type UpdateParams struct {
-	RotateInterval *time.Duration
-	Description    *string
-	Tags           *map[string]string
-	Params         map[string]interface{}
-	Data           map[string]string
+	secrets.SecretConfig
+	Content ContentParams
+
+	LeaderToken leadership.Token
 }
 
-// Filter is used when querying secrets.
-type Filter struct {
-	// TODO(wallyworld)
+// Validate returns an error if params are invalid.
+func (p *UpdateParams) Validate() error {
+	if err := p.Content.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return p.SecretConfig.Validate()
 }
 
-// SecretsService instances provide a backend for storing secrets values.
-type SecretsService interface {
-	// CreateSecret creates a new secret and returns a URL for accessing the secret value.
-	CreateSecret(context.Context, *secrets.URI, CreateParams) (*secrets.SecretMetadata, error)
+type baseClient interface {
+	// CreateSecretURIs generates new secret URIs.
+	CreateSecretURIs(int) ([]*secrets.URI, error)
 
-	// UpdateSecret updates a given secret with a new secret value.
-	UpdateSecret(context.Context, *secrets.URI, UpdateParams) (*secrets.SecretMetadata, error)
+	// Create creates a new secret and returns the URI.
+	// If uri is not nil, that uri is used, otherwise
+	// a new URI is generated.
+	Create(uri *secrets.URI, p CreateParams) (*secrets.URI, error)
 
-	// DeleteSecret deletes the specified secret.
-	DeleteSecret(context.Context, *secrets.URI) error
+	// Update updates an existing secret content and/or config like rotate interval.
+	Update(uri *secrets.URI, p UpdateParams) error
 
-	// GetSecret returns the metadata for the specified secret.
-	GetSecret(context.Context, *secrets.URI) (*secrets.SecretMetadata, error)
+	// Remove removes the specified secret.
+	Remove(uri *secrets.URI) error
 
-	// GetSecretValue returns the value of the specified secret.
-	GetSecretValue(context.Context, *secrets.URI, int) (secrets.SecretValue, error)
+	// SecretMetadata returns metadata for the specified secrets.
+	SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error)
 
-	// ListSecrets returns secret metadata using the specified filter.
-	ListSecrets(context.Context, Filter) ([]*secrets.SecretMetadata, error)
+	// GetConsumerSecretsRevisionInfo returns the current revision and labels for secrets consumed
+	// by the specified unit.
+	GetConsumerSecretsRevisionInfo(unitName string, uri []string) (map[string]secrets.SecretRevisionInfo, error)
+
+	// WatchSecretsChanges returns a watcher which serves changes to
+	// secrets payloads for any secrets consumed by the specified unit.
+	WatchSecretsChanges(unit string) (watcher.StringsWatcher, error)
+
+	// SecretRotated records the outcome of rotating a secret.
+	SecretRotated(uri string, oldRevision int) error
 }
 
-// ProviderConfig is used when constructing a secrets provider.
-// TODO(wallyworld) - use a schema
-type ProviderConfig map[string]interface{}
+type jujuAPIClient interface {
+	baseClient
+
+	// GetContentInfo returns info about the content of a secret.
+	GetContentInfo(uri *secrets.URI, label string, update, peek bool) (*ContentParams, error)
+}
+
+// Client provides access to a secrets api facade.
+type Client interface {
+	baseClient
+
+	// GetContent returns the content of a secret.
+	GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
+}

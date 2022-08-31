@@ -73,12 +73,13 @@ var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[^/]+)/)?(?P<model
 
 // ParseOfferURL parses the specified URL string into an OfferURL.
 // The URL string is of one of the forms:
-//  <model-name>.<application-name>
-//  <model-name>.<application-name>:<relation-name>
-//  <user>/<model-name>.<application-name>
-//  <user>/<model-name>.<application-name>:<relation-name>
-//  <controller>:<user>/<model-name>.<application-name>
-//  <controller>:<user>/<model-name>.<application-name>:<relation-name>
+//
+//	<model-name>.<application-name>
+//	<model-name>.<application-name>:<relation-name>
+//	<user>/<model-name>.<application-name>
+//	<user>/<model-name>.<application-name>:<relation-name>
+//	<controller>:<user>/<model-name>.<application-name>
+//	<controller>:<user>/<model-name>.<application-name>:<relation-name>
 func ParseOfferURL(urlStr string) (*OfferURL, error) {
 	return parseOfferURL(urlStr)
 }

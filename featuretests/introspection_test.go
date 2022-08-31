@@ -68,7 +68,7 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 	err := m.SetMongoPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	vers := testing.CurrentVersion(c)
+	vers := testing.CurrentVersion()
 	return s.startAgent(c, m.Tag(), password, vers, false)
 }
 

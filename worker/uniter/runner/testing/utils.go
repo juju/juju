@@ -12,8 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -140,4 +142,19 @@ func (ft *FakeTicket) Ready() <-chan struct{} {
 	c := make(chan struct{})
 	close(c)
 	return c
+}
+
+type SecretsContextAccessor struct {
+	context.SecretsAccessor
+}
+
+func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error) {
+	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
+	return []secrets.SecretMetadata{{
+		URI:            uri,
+		LatestRevision: 666,
+		Description:    "description",
+		RotatePolicy:   secrets.RotateHourly,
+		Label:          "label",
+	}}, nil
 }

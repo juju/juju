@@ -139,30 +139,31 @@ func connect(info *api.Info) (api.Connection, error) {
 
 /*
 Deadcode that isn't used, but seems useful
-func leaderSet(facadeCaller base.FacadeCaller, holderTag names.UnitTag, keys map[string]string) error {
-	appId, err := names.UnitApplication(holderTag.Id())
-	if err != nil {
-		return errors.Trace(err)
+
+	func leaderSet(facadeCaller base.FacadeCaller, holderTag names.UnitTag, keys map[string]string) error {
+		appId, err := names.UnitApplication(holderTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		applicationTag := names.NewApplicationTag(appId)
+		args := params.MergeLeadershipSettingsBulkParams{
+			Params: []params.MergeLeadershipSettingsParam{{
+				ApplicationTag: applicationTag.String(),
+				UnitTag:        holderTag.String(),
+				Settings:       keys,
+			}},
+		}
+		var results params.ErrorResults
+		err = facadeCaller.FacadeCall("Merge", args, &results)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = results.OneError()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	}
-	applicationTag := names.NewApplicationTag(appId)
-	args := params.MergeLeadershipSettingsBulkParams{
-		Params: []params.MergeLeadershipSettingsParam{{
-			ApplicationTag: applicationTag.String(),
-			UnitTag:        holderTag.String(),
-			Settings:       keys,
-		}},
-	}
-	var results params.ErrorResults
-	err = facadeCaller.FacadeCall("Merge", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = results.OneError()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
 */
 func claimLoop(holderTag names.UnitTag, claimer coreleadership.Claimer, claimDuration, renewDuration time.Duration) {
 	next := time.After(0)

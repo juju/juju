@@ -32,7 +32,7 @@ func NewLeadershipSettingsAccessor(
 	}
 }
 
-// SettingsChangeNotifierFn declares a function-type which will return
+// RegisterWatcherFn declares a function-type which will return
 // a channel that can be blocked on to be notified of setting changes
 // for the provided document key.
 type RegisterWatcherFn func(serviceId string) (watcherId string, _ error)
@@ -45,7 +45,7 @@ type GetSettingsFn func(serviceId string) (map[string]string, error)
 // if the unit is not leader of the service.
 type LeaderCheckFn func(serviceId, unitId string) leadership.Token
 
-// MergeSettingsChunk declares a function-type which will write the
+// MergeSettingsChunkFn declares a function-type which will write the
 // provided settings chunk into the greater leadership settings for
 // the provided service ID, so long as the supplied Token remains
 // valid.

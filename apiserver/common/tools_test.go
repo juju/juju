@@ -74,7 +74,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 		},
 	}
 
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	configAttrs := map[string]interface{}{
 		"name":                 "some-name",
 		"type":                 "some-type",
@@ -111,6 +111,61 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
+}
+
+func (s *getToolsSuite) TestSeriesTools(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	getCanRead := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag == names.NewMachineTag("0")
+		}, nil
+	}
+	tg := common.NewToolsGetter(
+		s.entityFinder, s.configGetter, nil,
+		nil, s.toolsFinder, getCanRead,
+	)
+	c.Assert(tg, gc.NotNil)
+
+	current := coretesting.CurrentVersion()
+	currentCopy := current
+	currentCopy.Release = coretesting.HostSeries(c)
+	configAttrs := map[string]interface{}{
+		"name":                 "some-name",
+		"type":                 "some-type",
+		"uuid":                 coretesting.ModelTag.Id(),
+		config.AgentVersionKey: currentCopy.Number.String(),
+	}
+	config, err := config.New(config.NoDefaults, configAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.configGetter.EXPECT().ModelConfig().Return(config, nil)
+
+	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
+	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)
+	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+		Number:       currentCopy.Number,
+		MajorVersion: -1,
+		MinorVersion: -1,
+		OSType:       currentCopy.Release,
+		Arch:         currentCopy.Arch,
+	}).Return(params.FindToolsResult{List: coretools.List{{
+		Version: current,
+		URL:     "tools:" + current.String(),
+	}}}, nil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-0"},
+		}}
+	result, err := tg.Tools(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
+	tools := result.Results[0].ToolsList[0]
+	c.Assert(tools.Version, gc.DeepEquals, current)
+	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
 }
 
 func (s *getToolsSuite) TestToolsError(c *gc.C) {
@@ -162,7 +217,7 @@ func (s *setToolsSuite) TestSetTools(c *gc.C) {
 	ts := common.NewToolsSetter(s.entityFinder, getCanWrite)
 	c.Assert(ts, gc.NotNil)
 
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag: "machine-0",
@@ -206,7 +261,7 @@ func (s *setToolsSuite) TestToolsSetError(c *gc.C) {
 		AgentTools: []params.EntityVersion{{
 			Tag: "machine-42",
 			Tools: &params.Version{
-				Version: coretesting.CurrentVersion(c),
+				Version: coretesting.CurrentVersion(),
 			},
 		}},
 	}
@@ -256,7 +311,7 @@ func (s *findToolsSuite) expectMatchingStorageTools(c *gc.C, storageMetadata []b
 }
 
 func (s *findToolsSuite) expectBootstrapEnvironConfig(c *gc.C) {
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	configAttrs := map[string]interface{}{
 		"name":                 "some-name",
 		"type":                 "some-type",
@@ -434,7 +489,7 @@ func (s *findToolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 
 func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersion bool) {
 	var called bool
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
@@ -506,7 +561,7 @@ func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents().Return(nil, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(coretesting.CurrentVersion(c))
+	_, err := g.ToolsURLs(coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from")
 }
 
@@ -516,7 +571,7 @@ func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents().Return(nil, errors.New("oh noes"))
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(coretesting.CurrentVersion(c))
+	_, err := g.ToolsURLs(coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "oh noes")
 }
 
@@ -528,7 +583,7 @@ func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
 	}, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	urls, err := g.ToolsURLs(current)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urls, jc.DeepEquals, []string{

@@ -317,7 +317,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return m
@@ -383,7 +383,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine, params.Password
@@ -393,9 +393,11 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 // Sensible default values are substituted for missing ones.
 // Supported charms depend on the charm/testing package.
 // Currently supported charms:
-//   all-hooks, category, dummy, logging, monitoring, mysql,
-//   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
-//   varnish-alternative, wordpress.
+//
+//	all-hooks, category, dummy, logging, monitoring, mysql,
+//	mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
+//	varnish-alternative, wordpress.
+//
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	if params == nil {

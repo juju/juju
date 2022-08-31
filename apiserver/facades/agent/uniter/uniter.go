@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
@@ -51,6 +52,7 @@ type UniterAPI struct {
 	*common.UpgradeSeriesAPI
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
+	*secretsmanager.SecretsManagerAPI
 	meterstatus.MeterStatus
 	lxdProfileAPI       *LXDProfileAPIv2
 	m                   *state.Model
@@ -664,102 +666,6 @@ func (u *UniterAPI) SetWorkloadVersion(args params.EntityWorkloadVersions) (para
 		if err != nil {
 			resultItem.Error = apiservererrors.ServerError(err)
 		}
-	}
-	return result, nil
-}
-
-func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitPortRanges, err := unit.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply open the requested port range for all endpoints.
-		unitPortRanges.Open("", network.PortRange{
-			FromPort: entity.FromPort,
-			ToPort:   entity.ToPort,
-			Protocol: entity.Protocol,
-		})
-
-		err = u.st.ApplyOperation(unitPortRanges.Changes())
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
-// ClosePorts sets the policy of the port range with protocol to be
-// closed, for all given units.
-func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		unitPortRanges, err := unit.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply close the requested port range for all endpoints.
-		unitPortRanges.Close("", network.PortRange{
-			FromPort: entity.FromPort,
-			ToPort:   entity.ToPort,
-			Protocol: entity.Protocol,
-		})
-
-		err = u.st.ApplyOperation(unitPortRanges.Changes())
-		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1442,36 +1348,6 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 	return result, nil
 }
 
-// UpdateSettings persists all changes made to the local settings of
-// all given pairs of relation and unit. Keys with empty values are
-// considered a signal to delete these values.
-func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.RelationUnits)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-
-	for i, arg := range args.RelationUnits {
-		updateOp, err := u.updateUnitAndApplicationSettingsOp(arg, canAccess)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		if err = u.st.ApplyOperation(updateOp); err != nil {
-			if leadership.IsNotLeaderError(err) {
-				err = apiservererrors.ErrPerm
-			}
-
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
-}
-
 func (u *UniterAPI) updateUnitAndApplicationSettingsOp(arg params.RelationUnitSettings, canAccess common.AuthFunc) (state.ModelOperation, error) {
 	unitTag, err := names.ParseUnitTag(arg.Unit)
 	if err != nil {
@@ -1637,15 +1513,6 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
-}
-
-func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
-	unit, err := u.cacheModel.Unit(tag.Id())
-	return unit, errors.Trace(err)
-}
-
-func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
-	return u.st.Application(tag.Id())
 }
 
 func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
@@ -2109,14 +1976,6 @@ func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
 		}
 		return false
 	}
-}
-
-func (u *UniterAPI) setPodSpec(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) error {
-	modelOp, err := u.setPodSpecOperation(appTag, spec, unitTag, canAccessApp)
-	if err != nil {
-		return err
-	}
-	return u.st.ApplyOperation(modelOp)
 }
 
 func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
@@ -2859,6 +2718,61 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return errors.Trace(err)
 		}
 		modelOps = append(modelOps, modelOp)
+	}
+
+	// TODO - do in txn once we have support for that
+	if len(changes.SecretDeletes) > 0 {
+		result, err := u.SecretsManagerAPI.RemoveSecrets(params.SecretURIArgs{Args: changes.SecretDeletes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "removing secrets")
+		}
+	}
+	if len(changes.SecretCreates) > 0 {
+		result, err := u.SecretsManagerAPI.CreateSecrets(params.CreateSecretArgs{Args: changes.SecretCreates})
+		if err == nil {
+			var errorStrings []string
+			for _, r := range result.Results {
+				if r.Error != nil {
+					errorStrings = append(errorStrings, r.Error.Error())
+				}
+			}
+			if errorStrings != nil {
+				err = errors.New(strings.Join(errorStrings, "\n"))
+			}
+		}
+		if err != nil {
+			return errors.Annotate(err, "creating secrets")
+		}
+	}
+	if len(changes.SecretUpdates) > 0 {
+		result, err := u.SecretsManagerAPI.UpdateSecrets(params.UpdateSecretArgs{Args: changes.SecretUpdates})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "updating secrets")
+		}
+	}
+	if len(changes.SecretGrants) > 0 {
+		result, err := u.SecretsManagerAPI.SecretsGrant(params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "granting secrets access")
+		}
+	}
+	if len(changes.SecretRevokes) > 0 {
+		result, err := u.SecretsManagerAPI.SecretsRevoke(params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "revoking secrets access")
+		}
 	}
 
 	// Apply all changes in a single transaction.

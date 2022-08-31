@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v9"
@@ -21,6 +22,7 @@ import (
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -374,6 +376,16 @@ func (s *RefreshErrorsStateSuite) SetUpSuite(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpSuite(c)
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 }
 
 func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
@@ -513,6 +525,16 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 
 	s.charmClient = mockCharmClient{}
 	s.cmd = NewRefreshCommandForStateTest(
@@ -919,6 +941,35 @@ func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
 	curl := s.assertUpgraded(c, s.riak, 42, false)
 	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *RefreshSuccessStateSuite) TestCharmPathNotFound(c *gc.C) {
+	myriakPath := filepath.Join(c.MkDir(), "riak")
+	_, err := os.Stat(myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*file does not exist")
+}
+
+func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
+	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
+
+	// Change the revision to 42 and upgrade to it with explicit revision.
+	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := s.assertUpgraded(c, s.riak, 42, false)
+	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
+	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *RefreshSuccessStateSuite) TestSwitchToLocalNotFound(c *gc.C) {
+	myriakPath := filepath.Join(c.MkDir(), "riak")
+	_, err := os.Stat(myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
+	c.Assert(err, gc.ErrorMatches, ".*file does not exist")
 }
 
 func (s *RefreshSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {

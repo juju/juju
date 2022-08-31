@@ -4,9 +4,13 @@
 package deployer
 
 import (
-	"github.com/juju/charm/v9"
+	"fmt"
+	"strings"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/version"
 )
 
@@ -75,7 +79,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// No series explicitly requested by the user.
 	// Use model default series, if explicitly set and supported by the charm.
 	if defaultSeries, explicit := s.conf.DefaultSeries(); explicit {
-		if _, err := charm.SeriesForCharm(defaultSeries, s.supportedSeries); err == nil {
+		if _, err := corecharm.SeriesForCharm(defaultSeries, s.supportedSeries); err == nil {
 			// validate the series we get from the charm
 			if err := s.validateSeries(defaultSeries); err != nil {
 				return "", err
@@ -95,7 +99,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 			supportedSeries = append(supportedSeries, charmSeries)
 		}
 	}
-	defaultSeries, err := charm.SeriesForCharm("", supportedSeries)
+	defaultSeries, err := corecharm.SeriesForCharm("", supportedSeries)
 	if err == nil {
 		return defaultSeries, nil
 	}
@@ -106,6 +110,12 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// At this point, because we have no idea what series the charm supports,
 	// *everything* requires --force.
 	if !s.force {
+		logger.Tracef("juju supported series %s", s.supportedJujuSeries.SortedValues())
+		logger.Tracef("charm supported series %s", s.supportedSeries)
+		if corecharm.IsMissingSeriesError(err) && len(s.supportedSeries) > 0 {
+			return "", errors.Errorf("the charm defined series %q not supported", strings.Join(s.supportedSeries, ", "))
+		}
+
 		// We know err is not nil due to above, so return the error
 		// returned to us from the charm call.
 		return "", err
@@ -120,10 +130,20 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 // is supported, or if they used --force.
 func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 	// TODO(sidecar): handle computed series
-	series, err := charm.SeriesForCharm(requestedSeries, s.supportedSeries)
+	series, err := corecharm.SeriesForCharm(requestedSeries, s.supportedSeries)
 	if s.force {
 		series = requestedSeries
 	} else if err != nil {
+		if corecharm.IsUnsupportedSeriesError(err) {
+			supported := s.supportedJujuSeries.Intersection(set.NewStrings(s.supportedSeries...))
+			if supported.IsEmpty() {
+				return "", errors.NewNotSupported(nil, fmt.Sprintf("series: %s", requestedSeries))
+			}
+			return "", errors.Errorf(
+				"series %q is not supported, supported series are: %s",
+				requestedSeries, strings.Join(supported.SortedValues(), ","),
+			)
+		}
 		return "", err
 	}
 
@@ -143,13 +163,9 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 }
 
 func (s seriesSelector) validateSeries(seriesName string) error {
-	// if we're forcing then we don't need the following validation checks.
 	if len(s.supportedJujuSeries) == 0 {
 		// programming error
 		return errors.Errorf("expected supported juju series to exist")
-	}
-	if s.force {
-		return nil
 	}
 
 	if !s.supportedJujuSeries.Contains(seriesName) {

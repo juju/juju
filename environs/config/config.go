@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
@@ -293,6 +294,9 @@ const (
 	// LoggingOutputKey is a key for determining the destination of output for
 	// logging.
 	LoggingOutputKey = "logging-output"
+
+	// DefaultSeriesKey is a key for the default Ubuntu series to use for the model.
+	DefaultSeriesKey = "default-series"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -412,8 +416,8 @@ const (
 // "ca-cert" and "ca-private-key" values.  If not specified, CA details
 // will be read from:
 //
-//     ~/.local/share/juju/<name>-cert.pem
-//     ~/.local/share/juju/<name>-private-key.pem
+//	~/.local/share/juju/<name>-cert.pem
+//	~/.local/share/juju/<name>-private-key.pem
 //
 // if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
@@ -494,7 +498,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":                jujuversion.DefaultSupportedLTS(),
+	DefaultSeriesKey:                jujuversion.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:       HarvestDestroyed.String(),
 	NumProvisionWorkersKey:          16,
 	NumContainerProvisionWorkersKey: 4,
@@ -795,6 +799,10 @@ func Validate(cfg, old *Config) error {
 		return errors.Trace(err)
 	}
 
+	if err := cfg.validateDefaultSeries(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := cfg.validateMode(); err != nil {
 		return errors.Trace(err)
 	}
@@ -931,10 +939,28 @@ func (c *Config) DefaultSpace() string {
 	return c.asString(DefaultSpace)
 }
 
+var supportedJujuSeries = series.WorkloadSeries
+
+func (c *Config) validateDefaultSeries() error {
+	defaultSeries, configured := c.DefaultSeries()
+	if !configured {
+		return nil
+	}
+	supported, err := supportedJujuSeries(time.Now(), "", "")
+	if err != nil {
+		return errors.Annotate(err, "cannot read supported series")
+	}
+	logger.Tracef("supported series %s", supported.SortedValues())
+	if !supported.Contains(defaultSeries) {
+		return errors.NotSupportedf("series %q", defaultSeries)
+	}
+	return nil
+}
+
 // DefaultSeries returns the configured default Ubuntu series for the model,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
-	s, ok := c.defined["default-series"]
+	s, ok := c.defined[DefaultSeriesKey]
 	if !ok {
 		return "", false
 	}
@@ -1701,7 +1727,7 @@ var alwaysOptional = schema.Defaults{
 	AgentMetadataURLKey:             schema.Omit,
 	ContainerImageStreamKey:         schema.Omit,
 	ContainerImageMetadataURLKey:    schema.Omit,
-	"default-series":                schema.Omit,
+	DefaultSeriesKey:                schema.Omit,
 	"development":                   schema.Omit,
 	"ssl-hostname-verification":     schema.Omit,
 	"proxy-ssh":                     schema.Omit,
@@ -1933,7 +1959,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"default-series": {
+	DefaultSeriesKey: {
 		Description: "The default series of Ubuntu to use for deploying charms",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,

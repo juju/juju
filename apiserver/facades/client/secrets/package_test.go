@@ -10,7 +10,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -19,7 +19,7 @@ func TestPackage(t *testing.T) {
 }
 
 func NewTestAPI(
-	service secrets.SecretsService,
+	store state.SecretsStore,
 	authorizer facade.Authorizer,
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
@@ -30,6 +30,6 @@ func NewTestAPI(
 		authorizer:     authorizer,
 		controllerUUID: coretesting.ControllerTag.Id(),
 		modelUUID:      coretesting.ModelTag.Id(),
-		secretsService: service,
+		backend:        store,
 	}, nil
 }

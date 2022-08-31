@@ -111,20 +111,20 @@ def assert_keystone_is_responding(client):
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None, series='bionic', constraints=None):
+        client, model_name, resource_contents=None, series='jammy', constraints=None):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
     if constraints is not None:
         new_model.set_model_constraints(constraints)
-    new_model.deploy('cs:nrpe', series=series)
-    new_model.deploy('cs:nagios', series=series)
+    new_model.deploy('cs:nrpe', series=series, force=True)
+    new_model.deploy('cs:nagios', series=series, force=True)
     new_model.juju('add-relation', ('nrpe:monitors', 'nagios:monitors'))
 
     application = deploy_simple_resource_server(
         new_model, resource_contents, series,
     )
-    _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
+    _, deploy_complete = new_model.deploy('ubuntu', series=series)
     new_model.wait_for(deploy_complete)
     new_model.juju('add-relation', ('nrpe', application))
     new_model.juju('add-relation', ('nrpe', 'ubuntu'))
@@ -138,7 +138,7 @@ def deploy_simple_server_to_new_model(
 
 
 def deploy_simple_resource_server(
-        client, resource_contents=None, series='bionic'):
+        client, resource_contents=None, series='jammy'):
     application_name = 'simple-resource-http'
     log.info('Deploying charm: {}'.format(application_name))
     charm_path = local_charm_path(

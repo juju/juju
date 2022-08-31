@@ -35,11 +35,10 @@ run_deploy_cmr_bundle() {
 
 	ensure "test-cmr-bundles-deploy" "${file}"
 
-	# mysql charm does not have stable channel, so we use the candidate channel
-	juju deploy mysql --channel=candidate
-	wait_for "mysql" ".applications | keys[0]"
+	juju deploy easyrsa
+	wait_for "easyrsa" ".applications | keys[0]"
 
-	juju offer mysql:db
+	juju offer easyrsa:client
 	juju add-model other
 
 	juju switch other
@@ -51,7 +50,7 @@ run_deploy_cmr_bundle() {
 	# https://charmhub.io/wordpress
 	juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
-	wait_for "wordpress" "$(idle_condition "wordpress")"
+	wait_for "etcd" "$(idle_condition "etcd")"
 
 	destroy_model "test-cmr-bundles-deploy"
 	destroy_model "other"
@@ -69,10 +68,22 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	bundle=./tests/suites/deploy/bundles/telegraf_bundle.yaml
 	juju deploy ${bundle}
 
+	echo "Make a copy of reference yaml"
+	cp ${bundle} "${TEST_DIR}/telegraf_bundle.yaml"
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		yq -i "
+			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
+			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
+		" "${TEST_DIR}/telegraf_bundle.yaml"
+	else
+		yq -i . "${TEST_DIR}/telegraf_bundle.yaml"
+	fi
 	# no need to wait for the bundle to finish deploying to
 	# check the export.
-	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
-	diff -u ${bundle} "${TEST_DIR}/exported-bundle.yaml"
+	echo "Compare export-bundle with telegraf_bundle"
+	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
+	yq -i . "${TEST_DIR}/exported_bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
 }
@@ -89,10 +100,6 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
 	juju deploy ${bundle}
 
-	if ! which "yq" >/dev/null 2>&1; then
-		sudo snap install yq --classic --channel latest/stable
-	fi
-
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
 	influxdb_rev=$(juju info influxdb --format json | jq -r '."channel-map"."latest/stable".revision')
 	telegraf_rev=$(juju info telegraf --format json | jq -r '."channel-map"."latest/stable".revision')
@@ -101,18 +108,25 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	echo "Make a copy of reference yaml and insert revisions in it"
 	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 	yq -i "
-    .applications.influxdb.revision = ${influxdb_rev} |
-    .applications.telegraf.revision = ${telegraf_rev} |
-    .applications.ubuntu.revision = ${ubuntu_rev}
-  " "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+		.applications.influxdb.revision = ${influxdb_rev} |
+		.applications.telegraf.revision = ${telegraf_rev} |
+		.applications.ubuntu.revision = ${ubuntu_rev}
+	" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+
+	if [[ -n ${MODEL_ARCH:-} ]]; then
+		yq -i "
+			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
+			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
+		" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	fi
 
 	# The model should be updated immediately, so we can export the bundle before
 	# everything is done deploying
 	echo "Compare export-bundle with telegraf_bundle_with_revisions"
-	juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
+	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
 	# reformat the yaml to have the same format as telegraf_bundle_with_revisions.yaml
-	yq -i . "${TEST_DIR}/exported-bundle.yaml"
-	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported-bundle.yaml"
+	yq -i . "${TEST_DIR}/exported_bundle.yaml"
+	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }
@@ -129,7 +143,7 @@ run_deploy_trusted_bundle() {
 	OUT=$(juju deploy ${bundle} 2>&1 || true)
 	echo "${OUT}" | check "repeat the deploy command with the --trust argument"
 
-	juju deploy --trust ${bundle}
+	juju deploy --trust ${bundle} --force # TODO: remove --force once "juju-qa-trust-checker" supports jammy.
 
 	wait_for "trust-checker" "$(idle_condition "trust-checker")"
 
@@ -148,7 +162,7 @@ run_deploy_charmhub_bundle() {
 	juju deploy "${bundle}"
 
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
-	wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "candidate")"
+	wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "latest/candidate")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal" 1)"
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "juju-qa-test")"

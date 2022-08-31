@@ -17,10 +17,7 @@ import (
 
 const (
 	txnLogWorker = "txnlog"
-	txnLogPruner = "txnlog-pruner"
 )
-
-var txnLogPruneInterval = 10 * time.Minute
 
 // workers runs the workers that a State instance requires.
 // It wraps a Runner instance which restarts any of the
@@ -55,14 +52,6 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 			Logger:    loggo.GetLogger("juju.state.watcher"),
 		})
 	})
-	// The controller also needs to prune the txn log collection.
-	if st.IsController() {
-		_ = ws.StartWorker(txnLogPruner, func() (worker.Worker, error) {
-			return jworker.NewPeriodicWorker(
-				ws.txnLogPruner, txnLogPruneInterval, jworker.NewTimer,
-			), nil
-		})
-	}
 	return ws, nil
 }
 
@@ -72,17 +61,4 @@ func (ws *workers) txnLogWatcher() watcher.BaseWatcher {
 		return watcher.NewDead(errors.Trace(err))
 	}
 	return w.(watcher.BaseWatcher)
-}
-
-func (ws *workers) txnLogPruner(stop <-chan struct{}) error {
-	cfg, err := ws.state.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	coll, closer := ws.state.db().GetRawCollection(txnLogC)
-	defer closer()
-
-	txnLogSizeMB := cfg.MaxTxnLogSizeMB()
-	err = pruneCollection(stop, ws.state, 0, txnLogSizeMB, coll, "", nil, "")
-	return errors.Trace(err)
 }

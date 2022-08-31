@@ -83,8 +83,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BackingState.StartSync()
-
 	// Wait for the PA to load the new configuration. We wait for the change we expect
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
@@ -98,7 +96,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 			}
 			received = append(received, newCfg.ProvisionerHarvestMode().String())
 		case <-time.After(coretesting.ShortWait):
-			s.BackingState.StartSync()
 		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")
@@ -125,8 +122,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BackingState.StartSync()
-
 	// Wait for the PA to load the new configuration. We wait for the change we expect
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
@@ -146,9 +141,6 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 				}
 				received = append(received, newCfg.NumProvisionWorkers())
 			}
-
-		case <-time.After(coretesting.ShortWait):
-			s.BackingState.StartSync()
 		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")
@@ -226,7 +218,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 
-	current := coretesting.CurrentVersion(c)
+	current := coretesting.CurrentVersion()
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -301,7 +293,6 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 ) (
 	returnInstances map[string]instances.Instance,
 ) {
-	s.BackingState.StartSync()
 	returnInstances = make(map[string]instances.Instance, len(machines))
 	found := 0
 	for {
@@ -395,7 +386,6 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 
 // checkNoOperations checks that the environ was not operated upon.
 func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
-	s.BackingState.StartSync()
 	select {
 	case o := <-s.op:
 		c.Fatalf("unexpected operation %+v", o)
@@ -413,7 +403,6 @@ func (s *CommonProvisionerSuite) checkStopInstances(c *gc.C, instances ...instan
 func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
 	instancesToStop []instances.Instance, instancesToKeep []instances.Instance) {
 
-	s.BackingState.StartSync()
 	instanceIdsToStop := set.NewStrings()
 	for _, instance := range instancesToStop {
 		instanceIdsToStop.Add(string(instance.Id()))
@@ -463,7 +452,7 @@ func (s *CommonProvisionerSuite) waitForWatcher(c *gc.C, w state.NotifyWatcher, 
 			}
 		case <-resync:
 			resync = time.After(coretesting.ShortWait)
-			s.BackingState.StartSync()
+
 		case <-timeout:
 			c.Fatalf("%v wait timed out", name)
 		}

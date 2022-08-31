@@ -123,6 +123,7 @@ func newBuilder(destinationDir string, filesToBackUp []string, db DBDumper) (b *
 		return nil, errors.Annotate(err, "while making backups staging directory")
 	}
 
+	// TODO(hpidcock): lp:1558657
 	finalFilename := time.Now().Format(FilenameTemplate)
 	// Populate the builder.
 	b = &builder{

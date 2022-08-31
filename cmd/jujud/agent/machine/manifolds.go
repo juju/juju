@@ -86,7 +86,6 @@ import (
 	"github.com/juju/juju/worker/raft/raftforwarder"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
-	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
@@ -94,7 +93,6 @@ import (
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
-	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
@@ -635,15 +633,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		})),
 
-		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Interval:      time.Minute,
-			NewFacade:     resumer.NewFacade,
-			NewWorker:     resumer.NewWorker,
-		})),
-
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -653,15 +642,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			externalcontrollerupdater.ManifoldConfig{
 				APICallerName:                      apiCallerName,
 				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
-			},
-		))),
-
-		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
-			txnpruner.ManifoldConfig{
-				ClockName:     clockName,
-				StateName:     stateName,
-				PruneInterval: config.TransactionPruneInterval,
-				NewWorker:     txnpruner.New,
 			},
 		))),
 
@@ -1165,7 +1145,6 @@ const (
 	deployerName                  = "deployer"
 	authenticationWorkerName      = "ssh-authkeys-updater"
 	storageProvisionerName        = "storage-provisioner"
-	resumerName                   = "mgo-txn-resumer"
 	identityFileWriterName        = "ssh-identity-writer"
 	toolsVersionCheckerName       = "tools-version-checker"
 	machineActionName             = "machine-action-runner"
@@ -1176,7 +1155,6 @@ const (
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
 	instanceMutaterName           = "instance-mutater"
-	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"
 	modelCacheInitializedFlagName = "model-cache-initialized-flag"

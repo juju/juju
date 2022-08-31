@@ -9,12 +9,12 @@ import (
 	"github.com/juju/proxy"
 )
 
-//Implementation of PackageHelper for OpenSUSE
+// Implementation of PackageHelper for OpenSUSE
 type openSUSEHelper struct {
 	paccmder commands.PackageCommander
 }
 
-//Returns the list of required packages in OpenSUSE
+// Returns the list of required packages in OpenSUSE
 func (helper openSUSEHelper) getRequiredPackages() []string {
 	return []string{
 		"curl",

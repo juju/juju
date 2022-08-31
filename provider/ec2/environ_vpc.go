@@ -147,14 +147,14 @@ type vpcAPIClient interface {
 // Returns an error satisfying isVPCNotRecommendedError() in the following
 // cases:
 //
-// 1. The VPC's state is not "available".
-// 2. The VPC does not have an Internet Gateway (IGW) attached.
-// 3. A main route table is not associated with the VPC.
-// 4. The main route table lacks both a default route via the IGW and a local
-//    route matching the VPC's CIDR block.
-// 5. One or more of the VPC's subnets are not associated with the main route
-//    table of the VPC.
-// 6. None of the the VPC's subnets have the MapPublicIPOnLaunch attribute set.
+//  1. The VPC's state is not "available".
+//  2. The VPC does not have an Internet Gateway (IGW) attached.
+//  3. A main route table is not associated with the VPC.
+//  4. The main route table lacks both a default route via the IGW and a local
+//     route matching the VPC's CIDR block.
+//  5. One or more of the VPC's subnets are not associated with the main route
+//     table of the VPC.
+//  6. None of the the VPC's subnets have the MapPublicIPOnLaunch attribute set.
 //
 // With the vpc-id-force config setting set to true, the provider can ignore a
 // vpcNotRecommendedError. A vpcNotUsableError cannot be ignored, while

@@ -188,6 +188,7 @@ func (a *RemoteApplication) StatusHistory(filter status.StatusHistoryFilter) ([]
 		db:        a.st.db(),
 		globalKey: a.globalKey(),
 		filter:    filter,
+		clock:     a.st.clock(),
 	}
 	return statusHistory(args)
 }

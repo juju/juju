@@ -63,7 +63,7 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystems(c *gc.C) {
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
 
 	// Filesystem 1 has a backing volume, so should not be reported.
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0")
 	wc.AssertNoChange()
 }
@@ -80,7 +80,7 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *gc.C) {
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
 
 	// Filesystem 1 has a backing volume, so should not be reported.
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0:0")
 	wc.AssertNoChange()
 }
@@ -98,7 +98,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystems(c *gc.C) {
 	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0/2", "0/3", "1")
 	wc.AssertNoChange()
 }
@@ -119,7 +119,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedFirst(c 
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
 	s.backend.machineFilesystemsW.C <- []string{"0/2", "0/3"}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0/2", "0/3", "1")
 	wc.AssertNoChange()
 }
@@ -132,7 +132,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedLater(c 
 	// No volumes are attached to begin with.
 	s.backend.modelVolumeAttachmentsW.C <- []string{}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0/2", "0/3")
 	wc.AssertNoChange()
 
@@ -164,7 +164,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c
 	// which does nothing.
 	s.backend.modelVolumeAttachmentsW.C <- []string{}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent()
 	wc.AssertNoChange()
 }
@@ -176,7 +176,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachments(c *gc.C) {
 	s.backend.machineFilesystemAttachmentsW.C <- []string{"0:0/2", "0:0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0:0/2", "0:0/3", "0:1")
 	wc.AssertNoChange()
 }
@@ -197,7 +197,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
 	s.backend.machineFilesystemAttachmentsW.C <- []string{"0:0/2", "0:0/3"}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0:0/2", "0:0/3", "0:1")
 	wc.AssertNoChange()
 }
@@ -210,7 +210,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	// No volumes are attached to begin with.
 	s.backend.modelVolumeAttachmentsW.C <- []string{}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("0:0/2", "0:0/3")
 	wc.AssertNoChange()
 
@@ -242,7 +242,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	// which does nothing.
 	s.backend.modelVolumeAttachmentsW.C <- []string{}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent()
 	wc.AssertNoChange()
 }
@@ -254,7 +254,7 @@ func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *gc.C) {
 	s.backend.unitFilesystemsW.C <- []string{"mariadb/0/2", "mariadb/0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"mariadb/0:1", "mariadb/0:2", "mysql/1:3"}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("1", "mariadb/0/2", "mariadb/0/3")
 	wc.AssertNoChange()
 }
@@ -272,7 +272,7 @@ func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *gc.C) {
 	s.backend.unitFilesystemAttachmentsW.C <- []string{"mariadb/0:mariadb/0/2", "mariadb/0:mariadb/0/3"}
 	s.backend.modelVolumeAttachmentsW.C <- []string{"mariadb/0:1", "mariadb/0:2", "mysql/0:3"}
 
-	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChangeInSingleEvent("mariadb/0:mariadb/0/2", "mariadb/0:mariadb/0/3", "mariadb/0:1")
 	wc.AssertNoChange()
 }

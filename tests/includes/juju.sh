@@ -193,7 +193,7 @@ setup_vsphere_simplestreams() {
 	local dir series
 
 	dir=${1}
-	series=${2:-"focal"}
+	series=${2:-"jammy"}
 
 	if [[ ! -f ${dir} ]]; then
 		mkdir "${dir}" || true
@@ -265,10 +265,20 @@ pre_bootstrap() {
 	else
 		# In CI tests, both Build and OfficialBuild are set.
 		# Juju confuses when it needs to decide the operator image tag to use.
-		# So we need to explicitely set the agent version for CI tests.
-		version=$(juju_version)
+		# So we need to explicitly set the agent version for CI tests.
+		if [[ -n ${JUJU_VERSION:-} ]]; then
+			version=${JUJU_VERSION}
+		else
+			version=$(juju_version)
+		fi
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
 	fi
+
+	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/"
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=build-${SHORT_GIT_COMMIT}"
+	fi
+
 	echo "BOOTSTRAP_ADDITIONAL_ARGS => ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }
 
@@ -379,7 +389,11 @@ destroy_controller() {
 	output="${TEST_DIR}/${name}-destroy-controller.log"
 
 	echo "====> Destroying juju ($(green "${name}"))"
-	echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
+		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+	else
+		echo "${name}" | xargs -I % juju kill-controller -t 0 -y % >"${output}" 2>&1
+	fi
 
 	set +e
 	CHK=$(cat "${output}" | grep -i "ERROR" || true)

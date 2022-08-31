@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	resource "github.com/juju/charm/v9/resource"
-	resource0 "github.com/juju/juju/core/resources"
+	resources "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
 )
 
@@ -38,10 +38,10 @@ func (m *MockResources) EXPECT() *MockResourcesMockRecorder {
 }
 
 // GetResource mocks base method.
-func (m *MockResources) GetResource(arg0, arg1 string) (resource0.Resource, error) {
+func (m *MockResources) GetResource(arg0, arg1 string) (resources.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResource", arg0, arg1)
-	ret0, _ := ret[0].(resource0.Resource)
+	ret0, _ := ret[0].(resources.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -53,10 +53,10 @@ func (mr *MockResourcesMockRecorder) GetResource(arg0, arg1 interface{}) *gomock
 }
 
 // OpenResource mocks base method.
-func (m *MockResources) OpenResource(arg0, arg1 string) (resource0.Resource, io.ReadCloser, error) {
+func (m *MockResources) OpenResource(arg0, arg1 string) (resources.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenResource", arg0, arg1)
-	ret0, _ := ret[0].(resource0.Resource)
+	ret0, _ := ret[0].(resources.Resource)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -69,10 +69,10 @@ func (mr *MockResourcesMockRecorder) OpenResource(arg0, arg1 interface{}) *gomoc
 }
 
 // OpenResourceForUniter mocks base method.
-func (m *MockResources) OpenResourceForUniter(arg0, arg1 string) (resource0.Resource, io.ReadCloser, error) {
+func (m *MockResources) OpenResourceForUniter(arg0, arg1 string) (resources.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenResourceForUniter", arg0, arg1)
-	ret0, _ := ret[0].(resource0.Resource)
+	ret0, _ := ret[0].(resources.Resource)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -85,10 +85,10 @@ func (mr *MockResourcesMockRecorder) OpenResourceForUniter(arg0, arg1 interface{
 }
 
 // SetResource mocks base method.
-func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resource0.Resource, error) {
+func (m *MockResources) SetResource(arg0, arg1 string, arg2 resource.Resource, arg3 io.Reader, arg4 state.IncrementCharmModifiedVersionType) (resources.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetResource", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(resource0.Resource)
+	ret0, _ := ret[0].(resources.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -15,11 +15,11 @@ const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<en
 
 // parseBindExpr parses the --bind option and returns back a map where keys
 // are endpoint names and values are space names. Valid forms are:
-// * relation-name=space-name
-// * extra-binding-name=space-name
-// * space-name (equivalent to binding all endpoints to the same space, i.e. application-default)
-// * The above in a space separated list to specify multiple bindings,
-//   e.g. "rel1=space1 ext1=space2 space3"
+//   - relation-name=space-name
+//   - extra-binding-name=space-name
+//   - space-name (equivalent to binding all endpoints to the same space, i.e. application-default)
+//   - The above in a space separated list to specify multiple bindings,
+//     e.g. "rel1=space1 ext1=space2 space3"
 func parseBindExpr(expr string, knownSpaceNames set.Strings) (map[string]string, error) {
 	if expr == "" {
 		return nil, nil

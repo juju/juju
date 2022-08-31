@@ -26,26 +26,21 @@ type listSecretsCommand struct {
 	out cmd.Output
 
 	listSecretsAPIFunc func() (ListSecretsAPI, error)
-	showSecrets        bool
+	revealSecrets      bool
+	owner              string
 }
 
 var listSecretsDoc = `
 Displays the secrets available for charms to use if granted access.
 
-For controller/model admins, the actual secret value is exposed
-with the '--show-secrets' option in json or yaml formats.
-Secret values are not shown in tabular format.
-
 Examples:
-
     juju secrets
     juju secrets --format yaml
-    juju secrets --format json --show-secrets
 `
 
 // ListSecretsAPI is the secrets client API.
 type ListSecretsAPI interface {
-	ListSecrets(bool) ([]apisecrets.SecretDetails, error)
+	ListSecrets(bool, secrets.Filter) ([]apisecrets.SecretDetails, error)
 	Close() error
 }
 
@@ -78,7 +73,7 @@ func (c *listSecretsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *listSecretsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.showSecrets, "show-secrets", false, "Show secret values, applicable to yaml or json formats only")
+	f.StringVar(&c.owner, "owner", "", "Include secrets for the specified owner")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
@@ -93,27 +88,37 @@ type secretValueDetails struct {
 	Error error              `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
+type secretRevisionDetails struct {
+	Revision   int        `json:"revision" yaml:"revision"`
+	CreateTime time.Time  `json:"created" yaml:"created"`
+	UpdateTime time.Time  `json:"updated" yaml:"updated"`
+	ExpireTime *time.Time `json:"expires,omitempty" yaml:"expires,omitempty"`
+}
+
+type secretDetailsByID map[string]secretDisplayDetails
+
 type secretDisplayDetails struct {
-	URI            string              `json:"URI" yaml:"URI"`
-	Revision       int                 `json:"revision" yaml:"revision"`
-	RotateInterval time.Duration       `json:"rotate-interval,omitempty" yaml:"rotate-interval,omitempty"`
-	Version        int                 `json:"version" yaml:"version"`
-	Description    string              `json:"description,omitempty" yaml:"description,omitempty"`
-	Owner          string              `json:"owner,omitempty" yaml:"owner,omitempty"`
-	Tags           map[string]string   `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Provider       string              `json:"backend" yaml:"backend"`
-	ProviderID     string              `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
-	CreateTime     time.Time           `json:"create-time" yaml:"create-time"`
-	UpdateTime     time.Time           `json:"update-time" yaml:"update-time"`
-	Error          string              `json:"error,omitempty" yaml:"error,omitempty"`
-	Value          *secretValueDetails `json:"value,omitempty" yaml:"value,omitempty"`
+	URI              *secrets.URI            `json:"-" yaml:"-"`
+	LatestRevision   int                     `json:"revision" yaml:"revision"`
+	LatestExpireTime *time.Time              `json:"expires,omitempty" yaml:"expires,omitempty"`
+	RotatePolicy     secrets.RotatePolicy    `json:"rotation,omitempty" yaml:"rotation,omitempty"`
+	NextRotateTime   *time.Time              `json:"rotates,omitempty" yaml:"rotates,omitempty"`
+	Owner            string                  `json:"owner,omitempty" yaml:"owner,omitempty"`
+	Description      string                  `json:"description,omitempty" yaml:"description,omitempty"`
+	Label            string                  `json:"label,omitempty" yaml:"label,omitempty"`
+	CreateTime       time.Time               `json:"created" yaml:"created"`
+	UpdateTime       time.Time               `json:"updated" yaml:"updated"`
+	ProviderID       string                  `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
+	Error            string                  `json:"error,omitempty" yaml:"error,omitempty"`
+	Value            *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
+	Revisions        []secretRevisionDetails `json:"revisions,omitempty" yaml:"revisions,omitempty"`
 }
 
 // Run implements cmd.Run.
 func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
-	if c.showSecrets && c.out.Name() == "tabular" {
+	if c.revealSecrets && c.out.Name() == "tabular" {
 		ctxt.Infof("secret values are not shown in tabular format")
-		c.showSecrets = false
+		c.revealSecrets = false
 	}
 
 	api, err := c.listSecretsAPIFunc()
@@ -122,31 +127,52 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer api.Close()
 
-	result, err := api.ListSecrets(c.showSecrets)
+	filter := secrets.Filter{}
+	if c.owner != "" {
+		owner := names.NewApplicationTag(c.owner).String()
+		filter.OwnerTag = &owner
+	}
+	result, err := api.ListSecrets(c.revealSecrets, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := make([]secretDisplayDetails, len(result))
-	for i, m := range result {
+	details := gatherSecretInfo(result, c.revealSecrets, false)
+	return c.out.Write(ctxt, details)
+}
+
+func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisions bool) map[string]secretDisplayDetails {
+	details := make(secretDetailsByID)
+	for _, m := range secrets {
 		ownerId := ""
 		if owner, err := names.ParseTag(m.Metadata.OwnerTag); err == nil {
 			ownerId = owner.Id()
 		}
-		details[i] = secretDisplayDetails{
-			URI:            m.Metadata.URI.ShortString(),
-			RotateInterval: m.Metadata.RotateInterval,
-			Version:        m.Metadata.Version,
-			Description:    m.Metadata.Description,
-			Owner:          ownerId,
-			Tags:           m.Metadata.Tags,
-			Provider:       m.Metadata.Provider,
-			ProviderID:     m.Metadata.ProviderID,
-			Revision:       m.Metadata.Revision,
-			CreateTime:     m.Metadata.CreateTime,
-			UpdateTime:     m.Metadata.UpdateTime,
-			Error:          m.Error,
+		info := secretDisplayDetails{
+			URI:              m.Metadata.URI,
+			Owner:            ownerId,
+			LatestRevision:   m.Metadata.LatestRevision,
+			LatestExpireTime: m.Metadata.LatestExpireTime,
+			ProviderID:       m.Metadata.ProviderID,
+			Description:      m.Metadata.Description,
+			Label:            m.Metadata.Label,
+			RotatePolicy:     m.Metadata.RotatePolicy,
+			NextRotateTime:   m.Metadata.NextRotateTime,
+			CreateTime:       m.Metadata.CreateTime,
+			UpdateTime:       m.Metadata.UpdateTime,
+			Error:            m.Error,
 		}
-		if c.showSecrets && m.Value != nil {
+		if includeRevisions {
+			info.Revisions = make([]secretRevisionDetails, len(m.Revisions))
+			for i, r := range m.Revisions {
+				info.Revisions[i] = secretRevisionDetails{
+					Revision:   r.Revision,
+					CreateTime: r.CreateTime,
+					UpdateTime: r.UpdateTime,
+					ExpireTime: r.ExpireTime,
+				}
+			}
+		}
+		if reveal && m.Value != nil {
 			valueDetails := &secretValueDetails{}
 			val, err := m.Value.Values()
 			if err != nil {
@@ -154,31 +180,40 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 			} else {
 				valueDetails.Data = val
 			}
-			details[i].Value = valueDetails
+			info.Value = valueDetails
 		}
+		details[info.URI.ID] = info
 	}
-	return c.out.Write(ctxt, details)
+	return details
 }
 
 // formatSecretsTabular writes a tabular summary of secret information.
 func formatSecretsTabular(writer io.Writer, value interface{}) error {
-	secrets, ok := value.([]secretDisplayDetails)
+	result, ok := value.(map[string]secretDisplayDetails)
 	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", secrets, value)
+		return errors.Errorf("expected value of type %T, got %T", result, value)
+	}
+
+	var secrets []secretDisplayDetails
+	for _, s := range result {
+		secrets = append(secrets, s)
 	}
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.SetColumnAlignRight(1)
+	w.SetColumnAlignRight(3)
 
-	w.Println("URI", "Revision", "Rotate", "Backend", "Age")
+	w.Println("ID", "Owner", "Rotation", "Revision", "Last updated")
 	sort.Slice(secrets, func(i, j int) bool {
-		return secrets[i].URI < secrets[j].URI
+		if secrets[i].Owner != secrets[j].Owner {
+			return secrets[i].Owner < secrets[j].Owner
+		}
+		return secrets[i].LatestRevision > secrets[j].LatestRevision
 	})
 	now := time.Now()
 	for _, s := range secrets {
 		age := common.UserFriendlyDuration(s.UpdateTime, now)
-		w.Print(s.URI, s.Revision, common.HumaniseInterval(s.RotateInterval), s.Provider, age)
+		w.Print(s.URI.ID, s.Owner, s.RotatePolicy, s.LatestRevision, age)
 		w.Println()
 	}
 	return tw.Flush()

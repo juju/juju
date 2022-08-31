@@ -4,15 +4,19 @@
 package uniter
 
 import (
+	"time"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -452,44 +456,6 @@ func (u *Unit) AvailabilityZone() (string, error) {
 	return result.Result, nil
 }
 
-// OpenPorts sets the policy of the port range with protocol to be
-// opened.
-func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPortRanges{
-		Entities: []params.EntityPortRange{{
-			Tag:      u.tag.String(),
-			Protocol: protocol,
-			FromPort: fromPort,
-			ToPort:   toPort,
-		}},
-	}
-	err := u.st.facade.FacadeCall("OpenPorts", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// ClosePorts sets the policy of the port range with protocol to be
-// closed.
-func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPortRanges{
-		Entities: []params.EntityPortRange{{
-			Tag:      u.tag.String(),
-			Protocol: protocol,
-			FromPort: fromPort,
-			ToPort:   toPort,
-		}},
-	}
-	err := u.st.facade.FacadeCall("ClosePorts", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 var ErrNoCharmURLSet = errors.New("unit has no charm url set")
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -823,29 +789,6 @@ func (u *Unit) CanApplyLXDProfile() (bool, error) {
 	return result.Result, nil
 }
 
-// AddStorage adds desired storage instances to a unit.
-func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) error {
-	all := make([]params.StorageAddParams, 0, len(constraints))
-	for storage, cons := range constraints {
-		for _, one := range cons {
-			all = append(all, params.StorageAddParams{
-				UnitTag:     u.Tag().String(),
-				StorageName: storage,
-				Constraints: one,
-			})
-		}
-	}
-
-	args := params.StoragesAddParams{Storages: all}
-	var results params.ErrorResults
-	err := u.st.facade.FacadeCall("AddUnitStorage", args, &results)
-	if err != nil {
-		return err
-	}
-
-	return results.Combine()
-}
-
 // NetworkInfo returns network interfaces/addresses for specified bindings.
 func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error) {
 	var results params.NetworkInfoResults
@@ -884,8 +827,7 @@ func (u *Unit) CommitHookChanges(req params.CommitHookChangesArgs) error {
 	if err != nil {
 		return err
 	}
-	// Make sure we correctly decode quota-related errors.
-	return maybeRestoreQuotaLimitError(results.OneError())
+	return apiservererrors.RestoreError(results.OneError())
 }
 
 // CommitHookParamsBuilder is a helper type for populating the set of
@@ -989,6 +931,147 @@ func (b *CommitHookParamsBuilder) SetRawK8sSpec(appTag names.ApplicationTag, spe
 	}
 }
 
+// SecretUpsertArg holds parameters for creating or updating a secret.
+type SecretUpsertArg struct {
+	URI          *secrets.URI
+	RotatePolicy *secrets.RotatePolicy
+	ExpireTime   *time.Time
+	Description  *string
+	Label        *string
+	Value        secrets.SecretValue
+}
+
+// SecretCreateArg holds parameters for creating a secret.
+type SecretCreateArg struct {
+	SecretUpsertArg
+	OwnerTag names.Tag
+}
+
+// AddSecretCreates records requests to create secrets.
+func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
+	if len(creates) == 0 {
+		return
+	}
+	b.arg.SecretCreates = make([]params.CreateSecretArg, len(creates))
+	for i, c := range creates {
+
+		var data secrets.SecretData
+		if c.Value != nil {
+			data = c.Value.EncodedValues()
+		}
+		if len(data) == 0 {
+			data = nil
+		}
+
+		uriStr := c.URI.String()
+		b.arg.SecretCreates[i] = params.CreateSecretArg{
+			UpsertSecretArg: params.UpsertSecretArg{
+				RotatePolicy: c.RotatePolicy,
+				ExpireTime:   c.ExpireTime,
+				Description:  c.Description,
+				Label:        c.Label,
+				Content:      params.SecretContentParams{Data: data},
+			},
+			URI:      &uriStr,
+			OwnerTag: c.OwnerTag.String(),
+		}
+	}
+}
+
+// AddSecretUpdates records requests to update secrets.
+func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
+	if len(updates) == 0 {
+		return
+	}
+	b.arg.SecretUpdates = make([]params.UpdateSecretArg, len(updates))
+	for i, u := range updates {
+
+		var data secrets.SecretData
+		if u.Value != nil {
+			data = u.Value.EncodedValues()
+		}
+		if len(data) == 0 {
+			data = nil
+		}
+
+		b.arg.SecretUpdates[i] = params.UpdateSecretArg{
+			UpsertSecretArg: params.UpsertSecretArg{
+				RotatePolicy: u.RotatePolicy,
+				ExpireTime:   u.ExpireTime,
+				Description:  u.Description,
+				Label:        u.Label,
+				Content:      params.SecretContentParams{Data: data},
+			},
+			URI: u.URI.String(),
+		}
+	}
+}
+
+// SecretGrantRevokeArgs holds parameters for updating a secret's access.
+type SecretGrantRevokeArgs struct {
+	URI             *secrets.URI
+	ApplicationName *string
+	UnitName        *string
+	RelationKey     *string
+	Role            secrets.SecretRole
+}
+
+// AddSecretGrants records requests to grant secret access.
+func (b *CommitHookParamsBuilder) AddSecretGrants(grants []SecretGrantRevokeArgs) {
+	if len(grants) == 0 {
+		return
+	}
+	b.arg.SecretGrants = make([]params.GrantRevokeSecretArg, len(grants))
+	for i, g := range grants {
+		b.arg.SecretGrants[i] = grantRevokeArgsToParams(&g)
+	}
+}
+
+// AddSecretRevokes records requests to revoke secret access.
+func (b *CommitHookParamsBuilder) AddSecretRevokes(revokes []SecretGrantRevokeArgs) {
+	if len(revokes) == 0 {
+		return
+	}
+	b.arg.SecretRevokes = make([]params.GrantRevokeSecretArg, len(revokes))
+	for i, g := range revokes {
+		b.arg.SecretRevokes[i] = grantRevokeArgsToParams(&g)
+	}
+}
+
+func grantRevokeArgsToParams(p *SecretGrantRevokeArgs) params.GrantRevokeSecretArg {
+	var subjectTag, scopeTag string
+	if p.ApplicationName != nil {
+		subjectTag = names.NewApplicationTag(*p.ApplicationName).String()
+	}
+	if p.UnitName != nil {
+		subjectTag = names.NewUnitTag(*p.UnitName).String()
+	}
+	if p.RelationKey != nil {
+		scopeTag = names.NewRelationTag(*p.RelationKey).String()
+	} else {
+		scopeTag = subjectTag
+	}
+	return params.GrantRevokeSecretArg{
+		URI:         p.URI.String(),
+		ScopeTag:    scopeTag,
+		SubjectTags: []string{subjectTag},
+		Role:        string(p.Role),
+	}
+}
+
+// AddSecretDeletes records requests to delete secrets.
+func (b *CommitHookParamsBuilder) AddSecretDeletes(deletes []*secrets.URI) {
+	if len(deletes) == 0 {
+		return
+	}
+	b.arg.SecretDeletes = make([]params.SecretURIArg, len(deletes))
+	for i, u := range deletes {
+		b.arg.SecretDeletes[i] = params.SecretURIArg{
+			URI: u.String(),
+		}
+	}
+}
+
 // Build assembles the recorded change requests into a CommitHookChangesArgs
 // instance that can be passed as an argument to the CommitHookChanges API
 // call.
@@ -1020,17 +1103,10 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	count += len(b.arg.OpenPorts)
 	count += len(b.arg.ClosePorts)
 	count += len(b.arg.AddStorage)
+	count += len(b.arg.SecretCreates)
+	count += len(b.arg.SecretUpdates)
+	count += len(b.arg.SecretDeletes)
+	count += len(b.arg.SecretGrants)
+	count += len(b.arg.SecretRevokes)
 	return count
-}
-
-// maybeRestoreQuotaLimitError checks if the server emitted a quota limit
-// exceeded error and restores it back to a typed error from juju/errors.
-// Ideally, we would use apiserver/common.RestoreError but apparently, that
-// package imports worker/uniter/{operation, remotestate} causing an import
-// cycle.
-func maybeRestoreQuotaLimitError(err error) error {
-	if params.IsCodeQuotaLimitExceeded(err) {
-		return errors.NewQuotaLimitExceeded(nil, err.Error())
-	}
-	return err
 }

@@ -141,13 +141,13 @@ func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 	return nil, fmt.Errorf("bad protocol supplied for connection: %v", remote.Protocol)
 }
 
-func connectLocal() (lxd.ContainerServer, error) {
-	client, err := lxd.ConnectLXDUnix(SocketPath(nil), nil)
+func connectLocal() (lxd.InstanceServer, error) {
+	client, err := lxd.ConnectLXDUnix(SocketPath(shared.IsUnixSocket), nil)
 	return client, errors.Trace(err)
 }
 
 // ConnectRemote connects to LXD on a remote socket.
-func ConnectRemote(spec ServerSpec) (lxd.ContainerServer, error) {
+func ConnectRemote(spec ServerSpec) (lxd.InstanceServer, error) {
 	// Ensure the Port on the Host, if we get an error it is reasonable to
 	// assume that the address in the spec is invalid.
 	uri, err := EnsureHostPort(spec.Host)
@@ -163,28 +163,27 @@ func ConnectRemote(spec ServerSpec) (lxd.ContainerServer, error) {
 //   - LXD_DIR environment variable.
 //   - Snap socket.
 //   - Debian socket.
-// We give preference to LXD installed via Snap.
-// isSocket defaults to socket detection from the LXD shared package.
-// TODO (manadart 2018-04-30) This looks like it can be achieved by using a
-// combination of VarPath and HostPath from lxd.shared, in which case this
-// can be deprecated in their favour.
+//
+// An empty string is returned if no socket path can be determined.
 func SocketPath(isSocket func(path string) bool) string {
-	path := os.Getenv("LXD_DIR")
-	if path != "" {
-		logger.Debugf("using environment LXD_DIR as socket path: %q", path)
-	} else {
-		path = filepath.FromSlash("/var/snap/lxd/common/lxd")
-		if isSocket == nil {
-			isSocket = shared.IsUnixSocket
+	for _, maybePath := range []string{
+		os.Getenv("LXD_DIR"),
+		filepath.FromSlash("/var/snap/lxd/common/lxd"),
+		filepath.FromSlash("/var/lib/lxd"),
+	} {
+		if maybePath == "" {
+			continue
 		}
-		if isSocket(filepath.Join(path, "unix.socket")) {
-			logger.Debugf("using LXD snap socket: %q", path)
-		} else {
-			path = filepath.FromSlash("/var/lib/lxd")
-			logger.Debugf("LXD snap socket not found, falling back to debian socket: %q", path)
+
+		maybePath = filepath.Join(maybePath, "unix.socket")
+		if isSocket(maybePath) {
+			logger.Debugf("using LXD socket at path: %q", maybePath)
+			return maybePath
 		}
 	}
-	return filepath.Join(path, "unix.socket")
+
+	logger.Debugf("unable to detect LXD socket path")
+	return ""
 }
 
 // EnsureHTTPS takes a URI and ensures that it is a HTTPS URL.

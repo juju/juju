@@ -33,7 +33,7 @@ func (s *stateSuite) TearDownTest(c *gc.C) {
 func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 	w, err := s.firewaller.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -70,7 +70,7 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	expectChanges := []string{

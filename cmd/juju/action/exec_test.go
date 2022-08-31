@@ -471,12 +471,6 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 		)
 	}()
 
-	numExpectedTimers := 3
-	for t := 0; t < 1; t++ {
-		err2 := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, numExpectedTimers)
-		c.Assert(err2, jc.ErrorIsNil)
-		numExpectedTimers = 1
-	}
 	wg.Wait()
 	c.Check(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
 
@@ -763,8 +757,8 @@ mysql/0:
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
 }
 
-func testClock() *testclock.Clock {
-	return testclock.NewClock(time.Now())
+func testClock() testclock.AdvanceableClock {
+	return testclock.NewDilatedWallClock(100 * time.Millisecond)
 }
 
 func (s *ExecSuite) TestBlockAllMachines(c *gc.C) {

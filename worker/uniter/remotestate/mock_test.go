@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/names/v4"
 )
 
 func newMockWatcher() *mockWatcher {
@@ -414,4 +416,28 @@ func (w *mockRotateSecretsWatcher) Kill() {
 
 func (*mockRotateSecretsWatcher) Wait() error {
 	return nil
+}
+
+type mockSecretsClient struct {
+	secretsWatcher *mockStringsWatcher
+	unitName       string
+}
+
+func (m *mockSecretsClient) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
+	m.unitName = unitName
+	return m.secretsWatcher, nil
+}
+
+func (m *mockSecretsClient) GetConsumerSecretsRevisionInfo(unitName string, uris []string) (map[string]secrets.SecretRevisionInfo, error) {
+	if unitName != m.unitName {
+		return nil, errors.NotFoundf("unit %q", unitName)
+	}
+	result := make(map[string]secrets.SecretRevisionInfo)
+	for i, uri := range uris {
+		result[uri] = secrets.SecretRevisionInfo{
+			Revision: 666 + i,
+			Label:    "label-" + uri,
+		}
+	}
+	return result, nil
 }

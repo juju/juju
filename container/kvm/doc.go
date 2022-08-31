@@ -63,6 +63,5 @@ store alone as it may be in use by other domains.
 
 TBD: Put together something to send progress through a reader to the callback
 function. We need to follow along with the method as implemented by LXD.
-
 */
 package kvm

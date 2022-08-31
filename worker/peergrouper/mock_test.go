@@ -65,7 +65,9 @@ type errorPattern struct {
 // in path.Match.
 //
 // The standard form for errors is:
-//    Type.Function <arg>...
+//
+//	Type.Function <arg>...
+//
 // See individual functions for details.
 func (e *errorPatterns) setErrorFor(what string, err error) {
 	e.setErrorFuncFor(what, func() error {

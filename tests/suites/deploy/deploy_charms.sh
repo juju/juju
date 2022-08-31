@@ -5,7 +5,7 @@ run_deploy_charm() {
 
 	ensure "test-deploy-charm" "${file}"
 
-	juju deploy cs:~jameinel/ubuntu-lite-7
+	juju deploy jameinel-ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	destroy_model "test-deploy-charm"
@@ -111,7 +111,7 @@ run_deploy_lxd_to_machine() {
 	juju add-machine -n 2 --series=jammy
 
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
-	juju deploy "${charm}" --to 0
+	juju deploy "${charm}" --to 0 --series=jammy
 
 	# Test the case where we wait for the machine to start
 	# before deploying the unit.

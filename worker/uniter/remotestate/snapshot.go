@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -91,6 +92,11 @@ type Snapshot struct {
 
 	// SecretRotations is a list of secret URIs that need to be rotated.
 	SecretRotations []string
+
+	// SecretInfo is a list of the labels and revision info
+	// for secrets consumed by this unit.
+	// The map is keyed on secret ID.
+	SecretInfo map[string]secrets.SecretRevisionInfo
 
 	// UpgradeSeriesStatus is the preparation status of
 	// any currently running series upgrade.

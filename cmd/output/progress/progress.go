@@ -52,10 +52,9 @@ type Meter interface {
 // MakeProgressBar creates an appropriate progress.Meter for the environ in
 // which it is called:
 //
-// * if no terminal is attached, or we think we're running a test, a
-//   minimalistic QuietMeter is returned.
-// * otherwise, an ANSIMeter is returned.
-//
+//   - if no terminal is attached, or we think we're running a test, a
+//     minimalistic QuietMeter is returned.
+//   - otherwise, an ANSIMeter is returned.
 func MakeProgressBar(stdout io.Writer) Meter {
 	if terminal.IsTerminal(int(os.Stdin.Fd())) {
 		return NewANSIMeter(stdout, term{}, DefaultEscapeChars(), clock.WallClock)

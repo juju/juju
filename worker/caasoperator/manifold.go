@@ -31,6 +31,9 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
+	jujusecrets "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/secretrotate"
@@ -199,12 +202,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					return c
 				}
 			}
-
+			jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
+			secretsClient, err := secrets.NewClient(jujuSecretsAPI, jujusecrets.Store, provider.StoreConfig{})
+			if err != nil {
+				return nil, err
+			}
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
-				client := secretsmanager.NewClient(apiCaller)
 				appName, _ := names.UnitApplication(unitTag.Id())
 				return secretrotate.New(secretrotate.Config{
-					SecretManagerFacade: client,
+					SecretManagerFacade: jujuSecretsAPI,
 					Clock:               clock,
 					Logger:              config.Logger.Child("secretsrotate"),
 					SecretOwner:         names.NewApplicationTag(appName),
@@ -259,6 +265,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
 				HookRetryStrategy:       hookRetryStrategy,
 				TranslateResolverErr:    config.TranslateResolverErr,
+				SecretsClient:           secretsClient,
 				SecretRotateWatcherFunc: secretRotateWatcherFunc,
 				Logger:                  wCfg.Logger.Child("uniter"),
 			}

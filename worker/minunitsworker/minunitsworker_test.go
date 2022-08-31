@@ -49,7 +49,6 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 
 	timeout := time.After(coretesting.LongWait)
 	for {
-		s.State.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
 			wordpressUnits, err := wordpress.AllUnits()

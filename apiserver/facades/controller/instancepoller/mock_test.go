@@ -248,10 +248,6 @@ func (m *mockState) SetSpaceInfo(infos network.SpaceInfos) {
 	m.spaceInfos = infos
 }
 
-// StartSync implements statetesting.SyncStarter, so mockState can be
-// used with watcher helpers/checkers.
-func (m *mockState) StartSync() {}
-
 func (m *mockState) ApplyOperation(op state.ModelOperation) error {
 	m.MethodCall(m, "ApplyOperation", op)
 

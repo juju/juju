@@ -46,6 +46,9 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
+	jujusecrets "github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
+	jujusecretsprovider "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -134,12 +137,12 @@ type testContext struct {
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
-	createdSecretURI       string
+	createdSecretURI       *secrets.URI
 	updateStatusHookTicker *manualTicker
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
 	secretsRotateCh        chan []string
-	secretsFacade          *secretsmanager.Client
+	secretsClient          jujusecrets.Client
 	err                    string
 
 	wg             sync.WaitGroup
@@ -217,7 +220,9 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
-	ctx.secretsFacade = secretsmanager.NewClient(apiConn)
+	jujuSecretsAPI := secretsmanager.NewClient(apiConn)
+	ctx.secretsClient, err = jujusecrets.NewClient(jujuSecretsAPI, jujusecretsprovider.Store, provider.StoreConfig{})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ctx *testContext) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
@@ -594,7 +599,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			ctx.secretsRotateCh = secretsChanged
 			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
 		},
-		SecretsFacade: ctx.secretsFacade,
+		SecretsClient: ctx.secretsClient,
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -639,7 +644,6 @@ func (s waitUniterDead) waitDead(c *gc.C, ctx *testContext) error {
 		wait <- u.Wait()
 	}()
 
-	ctx.s.BackingState.StartSync()
 	select {
 	case err := <-wait:
 		return err
@@ -799,7 +803,7 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 	}
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-time.After(coretesting.ShortWait):
 			err := ctx.unit.Refresh()
@@ -869,7 +873,7 @@ type waitHooks []string
 func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		ctx.s.BackingState.StartSync()
+
 		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
@@ -908,7 +912,6 @@ func (s waitHooks) step(c *gc.C, ctx *testContext) {
 	}
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, cannotMatch, _ = ctx.matchHooks(c); match {
@@ -1282,7 +1285,7 @@ type waitSubordinateExists struct {
 func (s waitSubordinateExists) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not created")
@@ -1303,7 +1306,7 @@ type waitSubordinateDying struct{}
 func (waitSubordinateDying) step(c *gc.C, ctx *testContext) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
+
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not made Dying")
@@ -1559,7 +1562,6 @@ func (s setLeaderSettings) step(c *gc.C, ctx *testContext) {
 	// about getting an API conn for whatever unit's meant to be leader.
 	err := ctx.application.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.s.BackingState.StartSync()
 }
 
 type successToken struct{}
@@ -1642,6 +1644,10 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *testContext) {
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 type createSecret struct {
 	applicationName string
 }
@@ -1650,19 +1656,49 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 	if s.applicationName == "" {
 		s.applicationName = "u"
 	}
-	expiry := time.Now()
-	uri, err := ctx.secretsFacade.Create(&secrets.SecretConfig{
-		Expiry: &expiry,
-	}, names.NewApplicationTag(s.applicationName), secrets.NewSecretValue(map[string]string{"foo": "bar"}))
+
+	uri, err := ctx.secretsClient.Create(nil, jujusecrets.CreateParams{
+		SecretConfig: secrets.SecretConfig{
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(time.Now().Add(time.Hour)),
+		},
+		Owner:   names.NewApplicationTag(s.applicationName),
+		Content: jujusecrets.ContentParams{SecretValue: secrets.NewSecretValue(map[string]string{"foo": "bar"})},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.createdSecretURI = uri
+}
+
+type fakeToken struct{}
+
+func (t *fakeToken) Check(int, interface{}) error {
+	return nil
+}
+
+type changeSecret struct{}
+
+func (s changeSecret) step(c *gc.C, ctx *testContext) {
+	store := state.NewSecrets(ctx.st)
+	_, err := store.UpdateSecret(ctx.createdSecretURI, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type getSecret struct{}
+
+func (s getSecret) step(c *gc.C, ctx *testContext) {
+	val, err := ctx.secretsClient.GetContent(ctx.createdSecretURI, "foorbar", false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 type rotateSecret struct{}
 
 func (s rotateSecret) step(c *gc.C, ctx *testContext) {
 	select {
-	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI}:
+	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI.String()}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("sending rotate secret change for %q", ctx.createdSecretURI)
 	}

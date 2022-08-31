@@ -146,7 +146,7 @@ func main() {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  session.DB(args.Database),
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		Clock:                     clock.WallClock,
 	})

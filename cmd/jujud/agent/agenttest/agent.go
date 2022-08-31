@@ -113,7 +113,7 @@ type AgentSuite struct {
 // with the given entity name. It returns the agent's configuration and the
 // current tools.
 func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
-	vers := coretesting.CurrentVersion(c)
+	vers := coretesting.CurrentVersion()
 	return s.PrimeAgentVersion(c, tag, password, vers)
 }
 
@@ -168,7 +168,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 // a state agent with the given entity name. It returns the agent's
 // configuration and the current tools.
 func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
-	vers := coretesting.CurrentVersion(c)
+	vers := coretesting.CurrentVersion()
 	return s.PrimeStateAgentVersion(c, tag, password, vers)
 }
 

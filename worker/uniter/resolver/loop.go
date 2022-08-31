@@ -60,16 +60,16 @@ type LoopConfig struct {
 // be called when a change is anticipated (i.e. due to ErrWaiting).
 //
 // The resolver loop can be controlled in the following ways:
-//  - if the "abort" channel is signalled, then the loop will
-//    exit with ErrLoopAborted
-//  - if the resolver returns ErrWaiting, then no operations
-//    will be executed until the remote state has changed
-//    again
-//  - if the resolver returns ErrNoOperation, then "onIdle"
-//    will be invoked and the loop will wait until the remote
-//    state has changed again
-//  - if the resolver, onIdle, or executor return some other
-//    error, the loop will exit immediately
+//   - if the "abort" channel is signalled, then the loop will
+//     exit with ErrLoopAborted
+//   - if the resolver returns ErrWaiting, then no operations
+//     will be executed until the remote state has changed
+//     again
+//   - if the resolver returns ErrNoOperation, then "onIdle"
+//     will be invoked and the loop will wait until the remote
+//     state has changed again
+//   - if the resolver, onIdle, or executor return some other
+//     error, the loop will exit immediately
 func Loop(cfg LoopConfig, localState *LocalState) error {
 	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 

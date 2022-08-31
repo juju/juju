@@ -71,7 +71,11 @@ func (s *supportedInfo) compile(now time.Time) error {
 		// false when reading in the distro information. Setting OverrideSupport
 		// to true, will force it to be the same value as the default.
 		if !version.IgnoreDistroInfoUpdate {
-			supported = distroInfo.Supported(now)
+			if current {
+				// We only want to update the previously supported to possibly deprecated.
+				// But we do not want to update a Juju deprecated LTS to supported again.
+				supported = distroInfo.Supported(now)
+			}
 		}
 
 		s.values[seriesName] = seriesVersion{
@@ -134,7 +138,6 @@ func (s *supportedInfo) controllerSeries() []string {
 		if version.WorkloadType != ControllerWorkloadType {
 			continue
 		}
-
 		if version.ESMSupported || version.Supported {
 			result = append(result, namedSeries.Name.String())
 		}
@@ -273,7 +276,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "14.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Utopic: {
 		WorkloadType: ControllerWorkloadType,
@@ -291,7 +293,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "16.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Yakkety: {
 		WorkloadType: ControllerWorkloadType,
@@ -309,7 +310,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "18.04",
 		LTS:          true,
-		ESMSupported: true,
 	},
 	Cosmic: {
 		WorkloadType: ControllerWorkloadType,

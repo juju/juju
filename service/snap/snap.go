@@ -269,12 +269,12 @@ func (s Service) StartCommands() ([]string, error) {
 // status returns an interpreted output from the `snap services` command.
 // For example, this output from `snap services juju-db.daemon`
 //
-//     Service                                Startup  Current
-//     juju-db.daemon                         enabled  inactive
+//	Service                                Startup  Current
+//	juju-db.daemon                         enabled  inactive
 //
 // returns this output from status
 //
-//     (true, true, false, nil)
+//	(true, true, false, nil)
 func (s *Service) status() (isInstalled, enabledAtStartup, isCurrentlyActive bool, err error) {
 	out, err := s.runCommand("services", s.Name())
 	if err != nil {

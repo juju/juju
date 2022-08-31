@@ -50,6 +50,9 @@ type Info struct {
 
 	// SecretURI is the secret URI relevant to the hook.
 	SecretURI string `yaml:"secret-uri,omitempty"`
+
+	// SecretLabel is the secret label to expose to the hook.
+	SecretLabel string `yaml:"secret-label,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -95,7 +98,7 @@ func (hi Info) Validate() error {
 		return nil
 	case hooks.LeaderElected, hooks.LeaderDeposed, hooks.LeaderSettingsChanged:
 		return nil
-	case hooks.SecretRotate:
+	case hooks.SecretRotate, hooks.SecretChanged, hooks.SecretExpired, hooks.SecretRemove:
 		if hi.SecretURI == "" {
 			return errors.Errorf("%q hook requires a secret URI", hi.Kind)
 		}

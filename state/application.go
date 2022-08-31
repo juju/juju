@@ -344,6 +344,9 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 			}
 			op.AddError(errors.Errorf("force erase application %q history proceeded despite encountering ERROR %v", op.app, err))
 		}
+		if err := op.deleteSecrets(); err != nil {
+			logger.Errorf("cannot delete secrets for application %q: %v", op.app, err)
+		}
 		return nil
 	}
 	connected, err2 := applicationHasConnectedOffers(op.app.st, op.app.Name())
@@ -375,6 +378,20 @@ func (op *DestroyApplicationOperation) eraseHistory() error {
 		one := errors.Annotate(err, "application")
 		if op.FatalError(one) {
 			return one
+		}
+	}
+	return nil
+}
+
+func (op *DestroyApplicationOperation) deleteSecrets() error {
+	store := NewSecrets(op.app.st)
+	ownedURIs, err := op.app.st.referencedSecrets(op.app.Tag(), "owner-tag")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, uri := range ownedURIs {
+		if err := store.DeleteSecret(uri); err != nil {
+			return errors.Annotatef(err, "deleting owned secret %q", uri.ShortString())
 		}
 	}
 	return nil
@@ -668,6 +685,17 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, removeOfferOps...)
+	// Remove secret permissions.
+	secretPermissionsOps, err := a.st.removeScopedSecretPermissionOps(a.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretPermissionsOps...)
+	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(a.ApplicationTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretLabelOps...)
 
 	// Note that appCharmDecRefOps might not catch the final decref
 	// when run in a transaction that decrefs more than once. So we
@@ -2061,7 +2089,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
+	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
 		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
 	}
@@ -2690,6 +2718,14 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
+	secretPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -2715,6 +2751,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, portsOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
+	ops = append(ops, secretPermissionsOps...)
+	ops = append(ops, secretLabelOps...)
 
 	m, err := a.st.Model()
 	if err != nil {
@@ -3357,6 +3395,7 @@ func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status
 		db:        a.st.db(),
 		globalKey: a.globalKey(),
 		filter:    filter,
+		clock:     a.st.clock(),
 	}
 	return statusHistory(args)
 }

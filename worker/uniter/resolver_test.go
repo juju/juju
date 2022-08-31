@@ -107,7 +107,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(logger),
-		Secrets:             secrets.NewSecretsResolver(func(_ string) {}),
+		Secrets:             secrets.NewSecretsResolver(logger, func(_ string) {}),
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),

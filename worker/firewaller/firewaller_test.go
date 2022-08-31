@@ -114,8 +114,6 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instanc
 
 	start := time.Now()
 	for {
-		s.BackingState.StartSync()
-
 		// Make it more likely for the dust to have settled (there still may
 		// be rare cases where a test passes when it shouldn't if expected
 		// is nil, which is the initial value).
@@ -146,7 +144,6 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 
 	start := time.Now()
 	for {
-		s.BackingState.StartSync()
 		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
@@ -823,7 +820,6 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 
 	errc := make(chan error, 1)
 	go func() { errc <- fw.Wait() }()
-	s.BackingState.StartSync()
 	select {
 	case err := <-errc:
 		c.Assert(err, gc.ErrorMatches,
@@ -963,7 +959,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	// This will trigger the firewaller to publish the changes.
 	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
@@ -977,7 +972,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	ingressRequired = false
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on leave scope")
@@ -996,8 +990,6 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	// This will trigger the firewaller to try and publish the changes.
 	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
-
 	// We should not have published any ingress events yet - no changed published.
 	select {
 	case <-time.After(coretesting.ShortWait):
@@ -1176,15 +1168,13 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	// This will trigger the firewaller to publish the changes.
 	err = ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
 	case <-published:
 	}
 
-	// Check that the relation status is set to error.
-	s.BackingState.StartSync()
+	// Check that the relation status is set to error
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		relStatus, err := rel.Status()
 		c.Check(err, jc.ErrorIsNil)

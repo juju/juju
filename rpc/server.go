@@ -205,7 +205,7 @@ func (conn *Conn) Start(ctx context.Context) {
 //
 // Methods on the root value are of the form:
 //
-//      M(id string) (O, error)
+//	M(id string) (O, error)
 //
 // where M is an exported name, conventionally naming the object type,
 // id is some identifier for the object and O is the type of the

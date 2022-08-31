@@ -155,12 +155,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check version command returns a fully qualified version string",
 		args:    []string{"version"},
 		code:    0,
-		out:     testing.CurrentVersion(c).String() + "\n",
+		out:     testing.CurrentVersion().String() + "\n",
 	}, {
 		summary: "check --version command returns a fully qualified version string",
 		args:    []string{"--version"},
 		code:    0,
-		out:     testing.CurrentVersion(c).String() + "\n",
+		out:     testing.CurrentVersion().String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -263,7 +263,7 @@ func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
 }
 
 func checkVersionOutput(c *gc.C, output string) {
-	ver := testing.CurrentVersion(c)
+	ver := testing.CurrentVersion()
 	c.Check(output, gc.Equals, ver.String()+"\n")
 }
 
@@ -493,7 +493,7 @@ var optionalFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"list-secrets", "secrets",
+	"list-secrets", "secrets", "show-secret",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -600,7 +600,7 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *gc.C) {
 	stubRegistry := &stubRegistry{stub: &jujutesting.Stub{}}
 	registry := jujuCommandRegistry{
 		commandRegistry: stubRegistry,
-		whitelist:       set.NewStrings("show-status"),
+		whitelist:       set.NewStrings("status"),
 		excluded:        set.NewStrings(),
 	}
 	registerCommands(registry)

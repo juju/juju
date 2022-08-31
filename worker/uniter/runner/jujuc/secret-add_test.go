@@ -92,9 +92,9 @@ func (s *SecretAddSuite) TestAddSecretExpireDuration(c *gc.C) {
 	c.Assert(call.Args, gc.HasLen, 1)
 	args, ok := call.Args[0].(*jujuc.SecretUpsertArgs)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(args.Expiry, gc.NotNil)
-	c.Assert(args.Expiry.After(expectedExpiry), jc.IsTrue)
-	args.Expiry = nil
+	c.Assert(args.ExpireTime, gc.NotNil)
+	c.Assert(args.ExpireTime.After(expectedExpiry), jc.IsTrue)
+	args.ExpireTime = nil
 	c.Assert(args, jc.DeepEquals, expectedArgs)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")
 }
@@ -122,7 +122,7 @@ func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *gc.C) {
 		RotatePolicy: ptr(coresecrets.RotateDaily),
 		Description:  ptr("sssshhhh"),
 		Label:        ptr("foobar"),
-		Expiry:       ptr(expectedExpiry),
+		ExpireTime:   ptr(expectedExpiry),
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "CreateSecret", Args: []interface{}{args}}})
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g\n")

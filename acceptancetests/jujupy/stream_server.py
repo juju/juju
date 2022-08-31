@@ -75,7 +75,7 @@ class _JujuStreamData:
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.
         :param series: Series string that appears in item_name
-          (e.g. 'bionic', 'xenial', 'centos')
+          (e.g. 'jammy', 'focal', 'centos')
         """
         shutil.copy(agent_tgz_path, self._agent_path)
         product_dict = _generate_product_json(
@@ -118,7 +118,7 @@ class StreamServer:
           This file is copied into the JujuStreamData working dir to be served
           up at a later date.
         :param series: Series string that appears in item_name
-          (e.g. 'bionic', 'xenial', 'centos')
+          (e.g. 'jammy', 'focal', 'centos')
         """
         self.stream_data.add_product(
             content_id, version, arch, agent_tgz_path, series)
@@ -254,6 +254,7 @@ def _get_series_code(series):
         xenial=16.04,
         bionic=18.04,
         focal=20.04,
+        jammy=22.04,
     )
     try:
         series_code = _series_lookup[series]

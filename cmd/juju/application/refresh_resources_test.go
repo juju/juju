@@ -9,13 +9,16 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v9"
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -30,6 +33,17 @@ func (s *RefreshResourceSuite) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuiteBaseSuite.SetUpTest(c)
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial", "quantal",
+			), nil
+		},
+	)
+
 	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)

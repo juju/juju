@@ -1309,6 +1309,7 @@ func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]st
 		db:        m.st.db(),
 		globalKey: m.globalInstanceKey(),
 		filter:    filter,
+		clock:     m.st.clock(),
 	}
 	return statusHistory(args)
 }
@@ -1964,6 +1965,7 @@ func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.Sta
 		db:        m.st.db(),
 		globalKey: m.globalKey(),
 		filter:    filter,
+		clock:     m.st.clock(),
 	}
 	return statusHistory(args)
 }

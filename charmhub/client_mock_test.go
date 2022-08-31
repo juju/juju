@@ -12,6 +12,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	path "github.com/juju/juju/charmhub/path"
+	loggo "github.com/juju/loggo"
 )
 
 // MockHTTPClient is a mock of HTTPClient interface.
@@ -164,6 +165,25 @@ func NewMockLogger(ctrl *gomock.Controller) *MockLogger {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
+}
+
+// ChildWithLabels mocks base method.
+func (m *MockLogger) ChildWithLabels(arg0 string, arg1 ...string) loggo.Logger {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ChildWithLabels", varargs...)
+	ret0, _ := ret[0].(loggo.Logger)
+	return ret0
+}
+
+// ChildWithLabels indicates an expected call of ChildWithLabels.
+func (mr *MockLoggerMockRecorder) ChildWithLabels(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChildWithLabels", reflect.TypeOf((*MockLogger)(nil).ChildWithLabels), varargs...)
 }
 
 // Errorf mocks base method.

@@ -26,6 +26,7 @@ import (
 
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/worker/uniter/runner/jujuc Context
 type Context interface {
 	HookContext
@@ -166,44 +167,58 @@ type ContextUnit interface {
 }
 
 // SecretUpsertArgs specifies args used to create or update a secret.
+// Nil values are not included in the update.
 type SecretUpsertArgs struct {
 	// Value is the new secret value or nil to not update.
 	Value secrets.SecretValue
 
-	// RotateInterval is the new rotate interval or nil to not update.
 	RotatePolicy *secrets.RotatePolicy
-	Expiry       *time.Time
+	ExpireTime   *time.Time
 
-	// Description describes the secret or nil to not update.
 	Description *string
-
-	Label *string
+	Label       *string
 }
 
 // SecretGrantRevokeArgs specify the args used to grant or revoke access to a secret.
 type SecretGrantRevokeArgs struct {
 	ApplicationName *string
 	UnitName        *string
-	RelationId      *int
+	RelationKey     *string
 	Role            *secrets.SecretRole
+}
+
+// SecretMetadata holds a secret's metadata.
+type SecretMetadata struct {
+	Description      string
+	Label            string
+	RotatePolicy     secrets.RotatePolicy
+	LatestRevision   int
+	LatestExpireTime *time.Time
+	NextRotateTime   *time.Time
 }
 
 // ContextSecrets is the part of a hook context related to secrets.
 type ContextSecrets interface {
 	// GetSecret returns the value of the specified secret.
-	GetSecret(string) (secrets.SecretValue, error)
+	GetSecret(*secrets.URI, string, bool, bool) (secrets.SecretValue, error)
 
 	// CreateSecret creates a secret with the specified data.
-	CreateSecret(args *SecretUpsertArgs) (string, error)
+	CreateSecret(*SecretUpsertArgs) (*secrets.URI, error)
 
 	// UpdateSecret creates a secret with the specified data.
-	UpdateSecret(string, *SecretUpsertArgs) error
+	UpdateSecret(*secrets.URI, *SecretUpsertArgs) error
+
+	// RemoveSecret removes a secret with the specified uri.
+	RemoveSecret(*secrets.URI) error
 
 	// GrantSecret grants access to the specified secret.
-	GrantSecret(string, *SecretGrantRevokeArgs) error
+	GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error
 
 	// RevokeSecret revokes access to the specified secret.
-	RevokeSecret(string, *SecretGrantRevokeArgs) error
+	RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error
+
+	// SecretMetadata gets the secret metadata for secrets created by the charm.
+	SecretMetadata() (map[string]SecretMetadata, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.
@@ -345,6 +360,7 @@ type ContextRelations interface {
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_relation_mock.go github.com/juju/juju/worker/uniter/runner/jujuc ContextRelation
 type ContextRelation interface {
 
@@ -353,6 +369,9 @@ type ContextRelation interface {
 
 	// Name returns the name the locally executing charm assigned to this relation.
 	Name() string
+
+	// RelationTag returns the relation tag.
+	RelationTag() names.RelationTag
 
 	// FakeId returns a string of the form "relation-name:123", which uniquely
 	// identifies the relation to the hook. In reality, the identification

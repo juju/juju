@@ -14,7 +14,7 @@ import (
 type secretUpdateCommand struct {
 	secretUpsertCommand
 
-	uri string
+	secretURI *secrets.URI
 }
 
 // NewSecretUpdateCommand returns a command to create a secret.
@@ -62,8 +62,8 @@ func (c *secretUpdateCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret URI")
 	}
-	c.uri = args[0]
-	if _, err := secrets.ParseURI(c.uri); err != nil {
+	var err error
+	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
 		return errors.Trace(err)
 	}
 	return c.secretUpsertCommand.Init(args[1:])
@@ -71,5 +71,5 @@ func (c *secretUpdateCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *secretUpdateCommand) Run(ctx *cmd.Context) error {
-	return c.ctx.UpdateSecret(c.uri, c.marshallArg())
+	return c.ctx.UpdateSecret(c.secretURI, c.marshallArg())
 }

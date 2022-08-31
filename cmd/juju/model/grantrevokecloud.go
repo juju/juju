@@ -4,6 +4,8 @@
 package model
 
 import (
+	"strings"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/client/cloud"
@@ -15,13 +17,14 @@ import (
 	"github.com/juju/juju/core/permission"
 )
 
+var validCloudAccessLevels = `
+Valid access levels are:
+    `[1:] + strings.Join(filterAccessLevels(permission.AllAccessLevels, permission.ValidateCloudAccess), "\n    ")
+
 var usageGrantCloudSummary = `
 Grants access level to a Juju user for a cloud.`[1:]
 
-var usageGrantCloudDetails = `
-Valid access levels are:
-    add-model
-    admin
+var usageGrantCloudDetails = validCloudAccessLevels + `
 
 Examples:
 Grant user 'joe' 'add-model' access to cloud 'fluffy':
@@ -30,7 +33,7 @@ Grant user 'joe' 'add-model' access to cloud 'fluffy':
 
 See also: 
     revoke-cloud
-    add-user`[1:]
+    add-user`
 
 var usageRevokeCloudSummary = `
 Revokes access from a Juju user for a cloud.`[1:]
@@ -39,6 +42,8 @@ var usageRevokeCloudDetails = `
 Revoking admin access, from a user who has that permission, will leave
 that user with add-model access. Revoking add-model access, however, also revokes
 admin access.
+
+`[1:] + validCloudAccessLevels + `
 
 Examples:
 Revoke 'add-model' (and 'admin') access from user 'joe' for cloud 'fluffy':
@@ -50,7 +55,7 @@ Revoke 'admin' access from user 'sam' for clouds 'fluffy' and 'rainy':
     juju revoke-cloud sam admin fluffy rainy
 
 See also: 
-    grant-cloud`[1:]
+    grant-cloud`
 
 type accessCloudCommand struct {
 	modelcmd.ControllerCommandBase

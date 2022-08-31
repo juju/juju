@@ -50,12 +50,13 @@ fi`
 // original value when called.
 //
 // input may be:
-//    - nil (ignore input)
-//    - a string (match input exactly)
+//   - nil (ignore input)
+//   - a string (match input exactly)
+//
 // output may be:
-//    - nil (no output)
-//    - a string (stdout)
-//    - a slice of strings, of length two (stdout, stderr)
+//   - nil (no output)
+//   - a string (stdout)
+//   - a slice of strings, of length two (stdout, stderr)
 func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")

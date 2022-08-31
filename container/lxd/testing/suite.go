@@ -35,7 +35,7 @@ func (s *BaseSuite) Arch() string {
 	return s.arch
 }
 
-func (s *BaseSuite) NewMockServerClustered(ctrl *gomock.Controller, serverName string) *MockContainerServer {
+func (s *BaseSuite) NewMockServerClustered(ctrl *gomock.Controller, serverName string) *MockInstanceServer {
 	mutate := func(s *lxdapi.Server) {
 		s.APIExtensions = []string{"network", "clustering"}
 		s.Environment.ServerClustered = true
@@ -46,7 +46,7 @@ func (s *BaseSuite) NewMockServerClustered(ctrl *gomock.Controller, serverName s
 
 // NewMockServerWithExtensions initialises a mock container server.
 // The return from GetServer indicates the input supported API extensions.
-func (s *BaseSuite) NewMockServerWithExtensions(ctrl *gomock.Controller, extensions ...string) *MockContainerServer {
+func (s *BaseSuite) NewMockServerWithExtensions(ctrl *gomock.Controller, extensions ...string) *MockInstanceServer {
 	return s.NewMockServer(ctrl, func(s *lxdapi.Server) { s.APIExtensions = extensions })
 }
 
@@ -54,8 +54,8 @@ func (s *BaseSuite) NewMockServerWithExtensions(ctrl *gomock.Controller, extensi
 // expectation for the GetServer function, which is called each time NewClient
 // is used to instantiate our wrapper.
 // Any input mutations are applied to the return from the first GetServer call.
-func (s *BaseSuite) NewMockServer(ctrl *gomock.Controller, svrMutations ...func(*lxdapi.Server)) *MockContainerServer {
-	svr := NewMockContainerServer(ctrl)
+func (s *BaseSuite) NewMockServer(ctrl *gomock.Controller, svrMutations ...func(*lxdapi.Server)) *MockInstanceServer {
+	svr := NewMockInstanceServer(ctrl)
 
 	cfg := &lxdapi.Server{}
 	for _, f := range svrMutations {

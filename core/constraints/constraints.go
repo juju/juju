@@ -82,7 +82,7 @@ type Value struct {
 	// empty list will override any default tags, where a nil list will not.
 	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
-	// InstanceRole, if not nil, indicates that the specificed role/profile for
+	// InstanceRole, if not nil, indicates that the specified role/profile for
 	// the given cloud should be used. Only valid for clouds which support
 	// instance roles. Currently only for AWS with instance-profiles
 	InstanceRole *string `json:"instance-role,omitempty" yaml:"instance-role,omitempty"`

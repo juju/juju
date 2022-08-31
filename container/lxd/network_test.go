@@ -216,11 +216,12 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches,
 		`profile "default": no network device found with nictype "bridged" or "macvlan"\n`+
 			`\tthe following devices were checked: eth0\n`+
-			`Note: juju does not support IPv6.\n`+
-			`Reconfigure lxd to use a network of type "bridged" or "macvlan", disabling IPv6.`)
+			`Reconfigure lxd to use a network of type "bridged" or "macvlan".`)
 }
 
-func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
+// Juju used to fail when IPv6 was enabled on the lxd network. This test now
+// checks regression to make sure that we know longer fail.
+func (s *networkSuite) TestVerifyNetworkDeviceIPv6PresentNoFail(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -230,7 +231,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
 		Managed: true,
 		NetworkPut: lxdapi.NetworkPut{
 			Config: map[string]string{
-				"ipv6.address": "something-not-nothing",
+				"ipv6.address": "2001:DB8::1",
 			},
 		},
 	}
@@ -240,10 +241,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(defaultLegacyProfileWithNIC(), "")
-	c.Assert(err, gc.ErrorMatches,
-		`profile "default": juju does not support IPv6. Disable IPv6 in LXD via:\n`+
-			`\tlxc network set lxdbr0 ipv6.address none\n`+
-			`and run the command again`)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
@@ -426,7 +424,7 @@ func (s *networkSuite) TestEnableHTTPSListener(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := &lxdapi.Server{}
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
@@ -449,7 +447,7 @@ func (s *networkSuite) TestEnableHTTPSListenerWithFallbackToIPv4(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := &lxdapi.Server{}
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
@@ -478,7 +476,7 @@ func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg := &lxdapi.Server{}
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
 	cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil)
 

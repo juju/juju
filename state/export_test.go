@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -137,7 +138,7 @@ func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
 		Database:                  db.raw,
 		Clock:                     st.stateClock,
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          db.maxTxnAttempts,
 	})
@@ -151,7 +152,7 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 		Database:                  db.raw,
 		Clock:                     st.stateClock,
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		RunTransactionObserver: func(t jujutxn.Transaction) {
 			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
@@ -201,6 +202,16 @@ func ControllerRefCount(st *State, controllerUUID string) (int, error) {
 
 	key := externalControllerRefCountKey(controllerUUID)
 	return nsRefcounts.read(refcounts, key)
+}
+
+func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.db().RunTransaction([]txn.Op{incOp})
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
@@ -744,7 +755,7 @@ func RemoveUnitRelations(c *gc.C, rel *Relation) {
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(
-	c *gc.C, clock *testclock.Clock,
+	c *gc.C, clock testclock.AdvanceableClock,
 	unit *Unit, statusVal status.Status,
 	count, batchSize int,
 	nextData func(int) map[string]interface{},
@@ -1043,6 +1054,7 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 		db:        st.db(),
 		globalKey: globalCloudContainerKey(name),
 		filter:    filter,
+		clock:     st.clock(),
 	}
 	return statusHistory(args)
 }
@@ -1068,14 +1080,14 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
-func GetSecretRotateTime(c *gc.C, st *State, id string) time.Time {
+func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
 
 	var doc secretRotationDoc
-	err := secretRotateCollection.FindId(secretGlobalKey(id)).One(&doc)
+	err := secretRotateCollection.FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	return doc.LastRotateTime
+	return doc.NextRotateTime.UTC()
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

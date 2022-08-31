@@ -162,11 +162,11 @@ See also:
 
 func (c *statusCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-status",
+		Name:    "status",
 		Args:    "[<selector> [...]]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
-		Aliases: []string{"status"},
+		Aliases: []string{"show-status"},
 	})
 }
 

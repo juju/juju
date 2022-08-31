@@ -111,7 +111,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +126,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	current := testing.CurrentVersion(c)
+	current := testing.CurrentVersion()
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
