@@ -399,10 +399,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				ch = ch.WithRevision(*spec.Revision)
 			}
 		}
-		urlForOrigin := ch
-		if spec.Revision != nil && *spec.Revision != -1 {
-			urlForOrigin = urlForOrigin.WithRevision(*spec.Revision)
-		}
 
 		channel, origin, err := h.constructChannelAndOrigin(ch, spec.Series, spec.Channel, cons)
 		if err != nil {
@@ -422,6 +418,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				Revision: -1,
 			}
 			origin = origin.WithSeries("")
+			origin.OS = ""
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
