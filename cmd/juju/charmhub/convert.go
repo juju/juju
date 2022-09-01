@@ -11,7 +11,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -29,21 +28,30 @@ func convertCharmInfoResult(info transport.InfoResponse, arch, series string) (I
 		Tags:        categories(info.Entity.Categories),
 		StoreURL:    info.Entity.StoreURL,
 	}
+	var isKubernetes bool
 	switch transport.Type(ir.Type) {
 	case transport.BundleType:
 		ir.Bundle = convertBundle(info.Entity.Charms)
 		// TODO (stickupkid): Get the Bundle.Release and set it to the
 		// InfoResponse at a high level.
 	case transport.CharmType:
-		var err error
-		ir.Charm, ir.Series, err = convertCharm(info)
-		if err != nil {
-			return InfoResponse{}, errors.Trace(err)
+		ir.Charm, isKubernetes = convertCharm(info)
+	}
+
+	for _, base := range info.DefaultRelease.Revision.Bases {
+		var s string
+		if isKubernetes {
+			s = "kubernetes"
+		} else {
+			s, _ = coreseries.VersionSeries(base.Channel)
+		}
+		if s != "" {
+			ir.Series = append(ir.Series, s)
 		}
 	}
 
 	var err error
-	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, isKubernetes(ir.Series), arch, series)
+	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, isKubernetes, arch, series)
 	if err != nil {
 		return ir, errors.Trace(err)
 	}
@@ -85,36 +93,26 @@ func convertBundle(charms []transport.Charm) *Bundle {
 	return bundle
 }
 
-func convertCharm(info transport.InfoResponse) (*Charm, []string, error) {
-	charmHubCharm := Charm{
+func convertCharm(info transport.InfoResponse) (ch *Charm, isKubernetes bool) {
+	ch = &Charm{
 		UsedBy: info.Entity.UsedBy,
 	}
-	var series []string
-	var err error
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
-		charmHubCharm.Subordinate = meta.Subordinate
-		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
+		ch.Subordinate = meta.Subordinate
+		ch.Relations = transformRelations(meta.Requires, meta.Provides)
 
 		// TODO: hml 2021-04-15
 		// Implementation of Manifest in charmhub InfoResponse is
 		// required.  In the default-release channel map.
 		cm := charmMeta{meta: meta}
-		series, err = corecharm.ComputedSeries(cm)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
+		isKubernetes = corecharm.IsKubernetes(cm)
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
-		charmHubCharm.Config = &charm.Config{
+		ch.Config = &charm.Config{
 			Options: toCharmOptionMap(cfg),
 		}
 	}
-	return &charmHubCharm, series, nil
-}
-
-func isKubernetes(series []string) bool {
-	seriesSet := set.NewStrings(series...)
-	return seriesSet.Contains("kubernetes")
+	return ch, isKubernetes
 }
 
 func includeChannel(p []corecharm.Platform, architecture, series string) bool {

@@ -260,8 +260,12 @@ func (s *infoSuite) expectInfo() {
 		},
 		DefaultRelease: transport.InfoChannelMap{
 			Revision: transport.InfoRevision{
-				MetadataYAML: entityMeta,
 				ConfigYAML:   entityConfig,
+				MetadataYAML: entityMeta,
+				Bases: []transport.Base{
+					{Name: "ubuntu", Channel: "18.04"},
+					{Name: "ubuntu", Channel: "16.04"},
+				},
 			},
 		},
 		ChannelMap: []transport.InfoChannelMap{{
@@ -299,7 +303,6 @@ description: |
   This will install and setup services optimized to run in the cloud.
   By default it will place Ngnix configured to scale horizontally
   with Nginx's reverse proxy.
-series: [bionic, xenial]
 provides:
   source:
     interface: dummy-token
