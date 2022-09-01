@@ -52,7 +52,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v2 v2.0.0
 	github.com/juju/charm/v8 v8.0.5
-	github.com/juju/charmrepo/v6 v6.0.2
+	github.com/juju/charmrepo/v6 v6.0.3
 	github.com/juju/clock v1.0.0
 	github.com/juju/cmd/v3 v3.0.0
 	github.com/juju/collections v1.0.0
