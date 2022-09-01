@@ -129,7 +129,7 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 
 func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
 	url := secrets.NewURI()
-	context.SetEnvironmentHookContextSecret(ctx, url.String(), nil)
+	context.SetEnvironmentHookContextSecret(ctx, url.String(), nil, nil)
 	return []string{
 		"JUJU_SECRET_ID=" + url.String(),
 		"JUJU_SECRET_LABEL=label-" + url.String(),

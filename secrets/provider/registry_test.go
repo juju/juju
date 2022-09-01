@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/secrets/provider"
-	_ "github.com/juju/juju/secrets/provider/juju"
+	_ "github.com/juju/juju/secrets/provider/all"
 )
 
 type registrySuite struct {

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
 )
 
 // Client is the api client for the SecretsManager facade.
@@ -26,6 +27,19 @@ func NewClient(caller base.APICaller) *Client {
 	return &Client{
 		facade: base.NewFacadeCaller(caller, "SecretsManager"),
 	}
+}
+
+// GetSecretStoreConfig fetches the config needed to make a secret store client.
+func (c *Client) GetSecretStoreConfig() (*provider.StoreConfig, error) {
+	var result params.SecretStoreConfig
+	err := c.facade.FacadeCall("GetSecretStoreConfig", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &provider.StoreConfig{
+		StoreType: result.StoreType,
+		Params:    result.Params,
+	}, nil
 }
 
 // CreateSecretURIs generates new secret URIs.
@@ -55,96 +69,6 @@ func (c *Client) CreateSecretURIs(count int) ([]*coresecrets.URI, error) {
 		uris[i] = uri
 	}
 	return uris, nil
-}
-
-// Create creates a new secret.
-func (c *Client) Create(uri *coresecrets.URI, p secrets.CreateParams) (*coresecrets.URI, error) {
-	var results params.StringResults
-
-	content := params.SecretContentParams{ProviderId: p.Content.ProviderId}
-	if p.Content.SecretValue != nil {
-		content.Data = p.Content.SecretValue.EncodedValues()
-	}
-	arg := params.CreateSecretArg{
-		OwnerTag: p.Owner.String(),
-		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: p.RotatePolicy,
-			ExpireTime:   p.ExpireTime,
-			Description:  p.Description,
-			Label:        p.Label,
-			Params:       p.Params,
-			Content:      content,
-		},
-	}
-	// If uri is nil, one will be generated but we also allow it to be
-	// generated ahead of time and passed in.
-	if uri != nil {
-		uriStr := uri.String()
-		arg.URI = &uriStr
-	}
-	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{arg},
-	}, &results); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if n := len(results.Results); n != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", n)
-	}
-	if err := results.Results[0].Error; err != nil {
-		return nil, errors.Trace(err)
-	}
-	uri, err := coresecrets.ParseURI(results.Results[0].Result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return uri, nil
-}
-
-// Update updates an existing secret value and/or config like rotate interval.
-func (c *Client) Update(uri *coresecrets.URI, p secrets.UpdateParams) error {
-	var results params.ErrorResults
-
-	content := params.SecretContentParams{ProviderId: p.Content.ProviderId}
-	if p.Content.SecretValue != nil && len(p.Content.SecretValue.EncodedValues()) > 0 {
-		content.Data = p.Content.SecretValue.EncodedValues()
-	}
-	arg := params.UpdateSecretArg{
-		URI: uri.String(),
-		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: p.RotatePolicy,
-			ExpireTime:   p.ExpireTime,
-			Description:  p.Description,
-			Label:        p.Label,
-			Params:       p.Params,
-			Content:      content,
-		},
-	}
-	if err := c.facade.FacadeCall("UpdateSecrets", params.UpdateSecretArgs{
-		Args: []params.UpdateSecretArg{arg},
-	}, &results); err != nil {
-		return errors.Trace(err)
-	}
-	return results.OneError()
-}
-
-// Remove removes the specified secret.
-func (c *Client) Remove(uri *coresecrets.URI) error {
-	args := params.SecretURIArgs{
-		Args: []params.SecretURIArg{{URI: uri.String()}},
-	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("RemoveSecrets", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
 }
 
 // GetContentInfo returns info about the content of a secret.
@@ -234,7 +158,7 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 }
 
 // SecretMetadata returns metadata for the specified secrets.
-func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.SecretMetadata, error) {
+func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.SecretOwnerMetadata, error) {
 	arg := params.ListSecretsArgs{
 		Filter: params.SecretsFilter{
 			OwnerTag: filter.OwnerTag,
@@ -250,13 +174,13 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result []coresecrets.SecretMetadata
+	var result []coresecrets.SecretOwnerMetadata
 	for _, info := range results.Results {
 		uri, err := coresecrets.ParseURI(info.URI)
 		if err != nil {
 			return nil, errors.NotValidf("secret URI %q", info.URI)
 		}
-		result = append(result, coresecrets.SecretMetadata{
+		md := coresecrets.SecretMetadata{
 			URI:              uri,
 			Description:      info.Description,
 			Label:            info.Label,
@@ -264,6 +188,17 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 			LatestRevision:   info.LatestRevision,
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
+		}
+		var providerIds []string
+		for _, r := range info.Revisions {
+			if r.ProviderId == nil {
+				continue
+			}
+			providerIds = append(providerIds, *r.ProviderId)
+		}
+		result = append(result, coresecrets.SecretOwnerMetadata{
+			Metadata:    md,
+			ProviderIds: providerIds,
 		})
 	}
 	return result, nil

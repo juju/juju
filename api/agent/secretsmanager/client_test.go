@@ -14,6 +14,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -33,6 +34,29 @@ func (s *SecretsSuite) TestNewClient(c *gc.C) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func (s *SecretsSuite) TestGetSecretStoreConfig(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetSecretStoreConfig")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
+		*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
+			StoreType: "juju",
+			Params:    map[string]interface{}{"foo": "bar"},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	result, err := client.GetSecretStoreConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, &provider.StoreConfig{
+		StoreType: "juju",
+		Params:    map[string]interface{}{"foo": "bar"},
+	})
 }
 
 func (s *SecretsSuite) TestCreateSecretURIs(c *gc.C) {
@@ -60,109 +84,6 @@ func (s *SecretsSuite) TestCreateSecretURIs(c *gc.C) {
 	result, err := client.CreateSecretURIs(2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []*coresecrets.URI{uri, uri2})
-}
-
-func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
-	uri := coresecrets.NewURI()
-	data := map[string]string{"foo": "bar"}
-	expiry := time.Now()
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "UpdateSecrets")
-		c.Check(arg, jc.DeepEquals, params.UpdateSecretArgs{
-			Args: []params.UpdateSecretArg{{
-				URI: uri.String(),
-				UpsertSecretArg: params.UpsertSecretArg{
-					RotatePolicy: ptr(coresecrets.RotateDaily),
-					ExpireTime:   ptr(expiry),
-					Description:  ptr("my secret"),
-					Label:        ptr("foo"),
-					Params: map[string]interface{}{
-						"password-length":        10,
-						"password-special-chars": true,
-					},
-					Content: params.SecretContentParams{Data: data},
-				},
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	value := coresecrets.NewSecretValue(data)
-	p := secrets.UpdateParams{
-		SecretConfig: coresecrets.SecretConfig{
-			RotatePolicy: ptr(coresecrets.RotateDaily),
-			ExpireTime:   ptr(expiry),
-			Description:  ptr("my secret"),
-			Label:        ptr("foo"),
-			Params: map[string]interface{}{
-				"password-length":        10,
-				"password-special-chars": true,
-			},
-		},
-		Content: secrets.ContentParams{SecretValue: value},
-	}
-	err := client.Update(uri, p)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SecretsSuite) TestUpdateSecretsError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{
-				Error: &params.Error{Message: "boom"},
-			}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	uri := coresecrets.NewURI()
-	err := client.Update(uri, secrets.UpdateParams{})
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *SecretsSuite) TestRemoveSecret(c *gc.C) {
-	uri := coresecrets.NewURI()
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "SecretsManager")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "RemoveSecrets")
-		c.Check(arg, jc.DeepEquals, params.SecretURIArgs{
-			Args: []params.SecretURIArg{{
-				URI: uri.String(),
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{}},
-		}
-		return nil
-	})
-	client := secretsmanager.NewClient(apiCaller)
-	err := client.Remove(uri)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SecretsSuite) TestRemoveSecretsError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{
-				Error: &params.Error{Message: "boom"},
-			}},
-		}
-		return nil
-	})
-	uri := coresecrets.NewURI()
-	client := secretsmanager.NewClient(apiCaller)
-	err := client.Remove(uri)
-	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
@@ -230,6 +151,12 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 				LatestRevision:   666,
 				NextRotateTime:   &now,
 				LatestExpireTime: &now,
+				Revisions: []params.SecretRevision{{
+					Revision:   666,
+					ProviderId: ptr("provider-id"),
+				}, {
+					Revision: 667,
+				}},
 			}},
 		}
 		return nil
@@ -241,11 +168,12 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
-		c.Assert(info.URI.String(), gc.Equals, uri.String())
-		c.Assert(info.Label, gc.Equals, "label")
-		c.Assert(info.LatestRevision, gc.Equals, 666)
-		c.Assert(info.LatestExpireTime, gc.Equals, &now)
-		c.Assert(info.NextRotateTime, gc.Equals, &now)
+		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
+		c.Assert(info.Metadata.Label, gc.Equals, "label")
+		c.Assert(info.Metadata.LatestRevision, gc.Equals, 666)
+		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
+		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
+		c.Assert(info.ProviderIds, jc.DeepEquals, []string{"provider-id"})
 	}
 }
 

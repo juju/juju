@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
@@ -21,8 +23,8 @@ type secretsClient struct {
 
 // NewClient returns a new secret client configured to use the specified
 // secret store as a content backend.
-func NewClient(jujuAPI jujuAPIClient, storeType string, cfg provider.StoreConfig) (*secretsClient, error) {
-	p, err := provider.Provider(storeType)
+func NewClient(jujuAPI jujuAPIClient, cfg *provider.StoreConfig) (*secretsClient, error) {
+	p, err := provider.Provider(cfg.StoreType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -36,33 +38,9 @@ func NewClient(jujuAPI jujuAPIClient, storeType string, cfg provider.StoreConfig
 	}, nil
 }
 
-// TODO(wallyworld) - for now we just delegate all call to the Juju API.
-// There's no vault or k8s backend store support yet.
-
 // CreateSecretURIs implements Client.
 func (c *secretsClient) CreateSecretURIs(count int) ([]*secrets.URI, error) {
 	return c.jujuAPI.CreateSecretURIs(count)
-}
-
-// Create implements Client.
-func (c *secretsClient) Create(uri *secrets.URI, p CreateParams) (*secrets.URI, error) {
-	if err := p.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return c.jujuAPI.Create(uri, p)
-}
-
-// Update implements Client.
-func (c *secretsClient) Update(uri *secrets.URI, p UpdateParams) error {
-	if err := p.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	return c.jujuAPI.Update(uri, p)
-}
-
-// Remove implements Client.
-func (c *secretsClient) Remove(uri *secrets.URI) error {
-	return c.jujuAPI.Remove(uri)
 }
 
 // GetConsumerSecretsRevisionInfo implements Client.
@@ -82,13 +60,32 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, update, peek 
 	// We just support the juju backend for now.
 	// In the future, we'll use the store to lookup the secret content based on id.
 	if content.ProviderId != nil && c.store == nil {
-		return nil, errors.NotSupportedf("secret content from non-juju store")
+		return nil, errors.NotSupportedf("secret content from external store")
+	}
+	if content.ProviderId != nil {
+		return c.store.GetContent(context.Background(), *content.ProviderId)
 	}
 	return content.SecretValue, nil
 }
 
+// SaveContent implements Client.
+func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
+	if c.store == nil {
+		return "", errors.NotSupportedf("saving secret content to external store")
+	}
+	return c.store.SaveContent(context.Background(), uri, revision, value)
+}
+
+// DeleteContent implements Client.
+func (c *secretsClient) DeleteContent(providerId string) error {
+	if c.store == nil {
+		return errors.NotSupportedf("deleting secret content from external store")
+	}
+	return c.store.DeleteContent(context.Background(), providerId)
+}
+
 // SecretMetadata implements Client.
-func (c *secretsClient) SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error) {
+func (c *secretsClient) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
 	return c.jujuAPI.SecretMetadata(filter)
 }
 

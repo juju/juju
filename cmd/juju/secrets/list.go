@@ -108,7 +108,6 @@ type secretDisplayDetails struct {
 	Label            string                  `json:"label,omitempty" yaml:"label,omitempty"`
 	CreateTime       time.Time               `json:"created" yaml:"created"`
 	UpdateTime       time.Time               `json:"updated" yaml:"updated"`
-	ProviderID       string                  `json:"backend-id,omitempty" yaml:"backend-id,omitempty"`
 	Error            string                  `json:"error,omitempty" yaml:"error,omitempty"`
 	Value            *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
 	Revisions        []secretRevisionDetails `json:"revisions,omitempty" yaml:"revisions,omitempty"`
@@ -152,7 +151,6 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 			Owner:            ownerId,
 			LatestRevision:   m.Metadata.LatestRevision,
 			LatestExpireTime: m.Metadata.LatestExpireTime,
-			ProviderID:       m.Metadata.ProviderID,
 			Description:      m.Metadata.Description,
 			Label:            m.Metadata.Label,
 			RotatePolicy:     m.Metadata.RotatePolicy,

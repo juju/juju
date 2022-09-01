@@ -77,19 +77,8 @@ type baseClient interface {
 	// CreateSecretURIs generates new secret URIs.
 	CreateSecretURIs(int) ([]*secrets.URI, error)
 
-	// Create creates a new secret and returns the URI.
-	// If uri is not nil, that uri is used, otherwise
-	// a new URI is generated.
-	Create(uri *secrets.URI, p CreateParams) (*secrets.URI, error)
-
-	// Update updates an existing secret content and/or config like rotate interval.
-	Update(uri *secrets.URI, p UpdateParams) error
-
-	// Remove removes the specified secret.
-	Remove(uri *secrets.URI) error
-
 	// SecretMetadata returns metadata for the specified secrets.
-	SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error)
+	SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error)
 
 	// GetConsumerSecretsRevisionInfo returns the current revision and labels for secrets consumed
 	// by the specified unit.
@@ -114,6 +103,13 @@ type jujuAPIClient interface {
 type Client interface {
 	baseClient
 
-	// GetContent returns the content of a secret.
+	// GetContent returns the content of a secret, either from an external store if
+	// one is configured, or from Juju.
 	GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
+
+	// SaveContent saves the content of a secret to an external store returning the provider id.
+	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
+
+	// DeleteContent deletes a secret from an external store.
+	DeleteContent(providerId string) error
 }

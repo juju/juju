@@ -939,12 +939,19 @@ type SecretUpsertArg struct {
 	Description  *string
 	Label        *string
 	Value        secrets.SecretValue
+	ProviderId   *string
 }
 
 // SecretCreateArg holds parameters for creating a secret.
 type SecretCreateArg struct {
 	SecretUpsertArg
 	OwnerTag names.Tag
+}
+
+// SecretUpdateArg holds parameters for updating a secret.
+type SecretUpdateArg struct {
+	SecretUpsertArg
+	CurrentRevision int
 }
 
 // AddSecretCreates records requests to create secrets.
@@ -970,7 +977,10 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 				ExpireTime:   c.ExpireTime,
 				Description:  c.Description,
 				Label:        c.Label,
-				Content:      params.SecretContentParams{Data: data},
+				Content: params.SecretContentParams{
+					Data:       data,
+					ProviderId: c.ProviderId,
+				},
 			},
 			URI:      &uriStr,
 			OwnerTag: c.OwnerTag.String(),
@@ -1000,7 +1010,10 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 				ExpireTime:   u.ExpireTime,
 				Description:  u.Description,
 				Label:        u.Label,
-				Content:      params.SecretContentParams{Data: data},
+				Content: params.SecretContentParams{
+					Data:       data,
+					ProviderId: u.ProviderId,
+				},
 			},
 			URI: u.URI.String(),
 		}

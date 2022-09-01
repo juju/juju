@@ -84,7 +84,6 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 		LatestRevision:   1,
 		LatestExpireTime: ptr(expire),
 		OwnerTag:         s.owner.Tag().String(),
-		ProviderID:       "",
 		CreateTime:       now,
 		UpdateTime:       now,
 	})
@@ -92,6 +91,26 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	p.Label = nil
 	_, err = s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+}
+
+func (s *SecretsSuite) TestCreateProviderId(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.ControllerUUID = s.State.ControllerUUID()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ProviderId:  ptr("provider-id"),
+		},
+	}
+	_, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	v, providerId, err := s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v.EncodedValues(), gc.HasLen, 0)
+	c.Assert(providerId, gc.NotNil)
+	c.Assert(*providerId, gc.Equals, "provider-id")
 }
 
 func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
@@ -141,7 +160,7 @@ func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
 
 func (s *SecretsSuite) TestGetValueNotFound(c *gc.C) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
-	_, err := s.store.GetSecretValue(uri, 666)
+	_, _, err := s.store.GetSecretValue(uri, 666)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -159,8 +178,9 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 	md, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	val, err := s.store.GetSecretValue(md.URI, 1)
+	val, providerId, err := s.store.GetSecretValue(md.URI, 1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerId, gc.IsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
@@ -211,7 +231,6 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		OwnerTag:         s.owner.Tag().String(),
 		Description:      "my secret",
 		Label:            "foobar",
-		ProviderID:       "",
 		CreateTime:       now,
 		UpdateTime:       now,
 	}})
@@ -261,7 +280,6 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 		OwnerTag:         s.owner.Tag().String(),
 		Description:      "my secret",
 		Label:            "foobar",
-		ProviderID:       "",
 		CreateTime:       now,
 		UpdateTime:       now,
 	}})
@@ -567,9 +585,15 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	if update.Data != nil {
 		expectedData = update.Data
 	}
-	val, err := s.store.GetSecretValue(md.URI, expectedRevision)
+	val, providerId, err := s.store.GetSecretValue(md.URI, expectedRevision)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
+	if update.ProviderId != nil {
+		c.Assert(providerId, gc.NotNil)
+		c.Assert(*update.ProviderId, gc.Equals, *providerId)
+	} else {
+		c.Assert(providerId, gc.IsNil)
+		c.Assert(val.EncodedValues(), jc.DeepEquals, expectedData)
+	}
 	if update.ExpireTime != nil {
 		revs, err := s.store.ListSecretRevisions(md.URI)
 		c.Assert(err, jc.ErrorIsNil)
@@ -646,21 +670,29 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
+	updateTime := s.Clock.Now().Round(time.Second).UTC()
+	s.assertUpdatedSecret(c, md, 3, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ProviderId:  ptr("provider-id"),
+	})
+	updateTime2 := s.Clock.Now().Round(time.Second).UTC()
 	r, err := s.store.ListSecretRevisions(uri)
 	c.Assert(err, jc.ErrorIsNil)
-	updateTime := s.Clock.Now().Round(time.Second).UTC()
-	c.Assert(r, jc.DeepEquals, []*secrets.SecretRevisionMetadata{
-		{
-			Revision:   1,
-			CreateTime: now,
-			UpdateTime: now,
-		},
-		{
-			Revision:   2,
-			CreateTime: updateTime,
-			UpdateTime: updateTime,
-		},
-	})
+
+	c.Assert(r, jc.DeepEquals, []*secrets.SecretRevisionMetadata{{
+		Revision:   1,
+		CreateTime: now,
+		UpdateTime: now,
+	}, {
+		Revision:   2,
+		CreateTime: updateTime,
+		UpdateTime: updateTime,
+	}, {
+		Revision:   3,
+		ProviderId: ptr("provider-id"),
+		CreateTime: updateTime2,
+		UpdateTime: updateTime2,
+	}})
 }
 
 func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
@@ -931,7 +963,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 
 	err := s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.store.GetSecretValue(uri1, 1)
+	_, _, err = s.store.GetSecretValue(uri1, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)

@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
+	_ "github.com/juju/juju/secrets/provider/all"
 	jujusecretsprovider "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -221,7 +222,7 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
 	jujuSecretsAPI := secretsmanager.NewClient(apiConn)
-	ctx.secretsClient, err = jujusecrets.NewClient(jujuSecretsAPI, jujusecretsprovider.Store, provider.StoreConfig{})
+	ctx.secretsClient, err = jujusecrets.NewClient(jujuSecretsAPI, &provider.StoreConfig{StoreType: jujusecretsprovider.Store})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1657,13 +1658,24 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 		s.applicationName = "u"
 	}
 
-	uri, err := ctx.secretsClient.Create(nil, jujusecrets.CreateParams{
-		SecretConfig: secrets.SecretConfig{
+	uri := secrets.NewURI()
+	store := state.NewSecrets(ctx.st)
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(time.Now().Add(time.Hour)),
+			Data:           map[string]string{"foo": "bar"},
 		},
-		Owner:   names.NewApplicationTag(s.applicationName),
-		Content: jujusecrets.ContentParams{SecretValue: secrets.NewSecretValue(map[string]string{"foo": "bar"})},
+		Owner: names.NewApplicationTag(s.applicationName).String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	appTag := names.NewApplicationTag(s.applicationName)
+	err = ctx.st.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       appTag,
+		Subject:     appTag,
+		Role:        secrets.RoleManage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.createdSecretURI = uri

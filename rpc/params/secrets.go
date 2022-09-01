@@ -9,6 +9,12 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
+// SecretStoreConfig holds config for creating a secret store client.
+type SecretStoreConfig struct {
+	StoreType string                 `json:"type"`
+	Params    map[string]interface{} `json:"params,omitempty"`
+}
+
 // SecretContentParams holds params for representing the content of a secret.
 type SecretContentParams struct {
 	// Data is the key values of the secret value itself.
@@ -148,8 +154,9 @@ type ListSecretResults struct {
 
 type SecretRevision struct {
 	Revision   int        `json:"revision"`
-	CreateTime time.Time  `json:"create-time"`
-	UpdateTime time.Time  `json:"update-time"`
+	ProviderId *string    `json:"provider-id,omitempty"`
+	CreateTime time.Time  `json:"create-time,omitempty"`
+	UpdateTime time.Time  `json:"update-time,omitempty"`
 	ExpireTime *time.Time `json:"expire-time,omitempty"`
 }
 
@@ -158,7 +165,6 @@ type ListSecretResult struct {
 	URI              string             `json:"uri"`
 	Version          int                `json:"version"`
 	OwnerTag         string             `json:"owner-tag"`
-	ProviderID       string             `json:"provider-id,omitempty"`
 	RotatePolicy     string             `json:"rotate-policy,omitempty"`
 	NextRotateTime   *time.Time         `json:"next-rotate-time,omitempty"`
 	Description      string             `json:"description,omitempty"`

@@ -148,13 +148,24 @@ type SecretsContextAccessor struct {
 	context.SecretsAccessor
 }
 
-func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error) {
+func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
-	return []secrets.SecretMetadata{{
-		URI:            uri,
-		LatestRevision: 666,
-		Description:    "description",
-		RotatePolicy:   secrets.RotateHourly,
-		Label:          "label",
+	return []secrets.SecretOwnerMetadata{{
+		Metadata: secrets.SecretMetadata{
+			URI:            uri,
+			LatestRevision: 666,
+			Description:    "description",
+			RotatePolicy:   secrets.RotateHourly,
+			Label:          "label",
+		},
+		ProviderIds: []string{"provider-id"},
 	}}, nil
+}
+
+func (s SecretsContextAccessor) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
+	return "", errors.NotSupportedf("")
+}
+
+func (s SecretsContextAccessor) DeleteContent(providerId string) error {
+	return nil
 }

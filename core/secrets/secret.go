@@ -149,8 +149,6 @@ type SecretMetadata struct {
 
 	// OwnerTag is the entity which created the secret.
 	OwnerTag string
-	// ProviderID is the ID/URI used by the underlying secrets provider.
-	ProviderID string
 
 	CreateTime time.Time
 	UpdateTime time.Time
@@ -168,9 +166,16 @@ type SecretMetadata struct {
 // SecretRevisionMetadata holds metadata about a secret revision.
 type SecretRevisionMetadata struct {
 	Revision   int
+	ProviderId *string
 	CreateTime time.Time
 	UpdateTime time.Time
 	ExpireTime *time.Time
+}
+
+// SecretOwnerMetadata holds a secret metadata and any provider ids of revisions.
+type SecretOwnerMetadata struct {
+	Metadata    SecretMetadata
+	ProviderIds []string
 }
 
 // SecretConsumerMetadata holds metadata about a secret

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/sockets"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"

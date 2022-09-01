@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	jujusecrets "github.com/juju/juju/secrets"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
@@ -71,6 +70,14 @@ type RebootQuerier interface {
 	Query(tag names.Tag) (bool, error)
 }
 
+// SecretsClient provides methods used by the remote state watcher, hook context,
+// and op callbacks.
+type SecretsClient interface {
+	remotestate.SecretsClient
+	context.SecretsAccessor
+	SecretRotated(uri string, oldRevision int) error
+}
+
 // RemoteInitFunc is used to init remote state
 type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) error
 
@@ -78,7 +85,7 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
-	secrets                      jujusecrets.Client
+	secrets                      SecretsClient
 	paths                        Paths
 	unit                         *uniter.Unit
 	resources                    *uniter.ResourcesFacadeClient
@@ -176,7 +183,7 @@ type UniterParams struct {
 	UniterFacade                  *uniter.State
 	ResourcesFacade               *uniter.ResourcesFacadeClient
 	PayloadFacade                 *uniter.PayloadFacadeClient
-	SecretsClient                 jujusecrets.Client
+	SecretsClient                 SecretsClient
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker

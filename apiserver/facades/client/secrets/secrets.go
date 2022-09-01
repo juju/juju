@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 )
 
@@ -22,7 +25,8 @@ type SecretsAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	backend state.SecretsStore
+	backend     SecretsBackend
+	storeGetter func() (provider.SecretsStore, error)
 }
 
 func (s *SecretsAPI) checkCanRead() error {
@@ -96,7 +100,6 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			URI:              m.URI.String(),
 			Version:          m.Version,
 			OwnerTag:         m.OwnerTag,
-			ProviderID:       m.ProviderID,
 			Description:      m.Description,
 			Label:            m.Label,
 			RotatePolicy:     string(m.RotatePolicy),
@@ -119,8 +122,10 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			if arg.Filter.Revision != nil {
 				rev = *arg.Filter.Revision
 			}
-			// TODO(wallyworld) - use external secrets content store if configured
-			val, err := s.backend.GetSecretValue(m.URI, rev)
+			val, providerId, err := s.backend.GetSecretValue(m.URI, rev)
+			if providerId != nil {
+				val, err = s.secretContentFromStore(*providerId)
+			}
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}
@@ -132,4 +137,12 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 		result.Results[i] = secretResult
 	}
 	return result, nil
+}
+
+func (s *SecretsAPI) secretContentFromStore(providerId string) (coresecrets.SecretValue, error) {
+	store, err := s.storeGetter()
+	if err != nil {
+		return nil, err
+	}
+	return store.GetContent(context.Background(), providerId)
 }

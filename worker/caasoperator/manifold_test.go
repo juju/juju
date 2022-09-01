@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
+	_ "github.com/juju/juju/secrets/provider/all"
 	jujusecrets "github.com/juju/juju/secrets/provider/juju"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
@@ -206,7 +207,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UniterParams.SocketConfig.TLSConfig = nil
 
 	jujuSecretsAPI := secretsmanager.NewClient(s.apiCaller)
-	secretsClient, err := secrets.NewClient(jujuSecretsAPI, jujusecrets.Store, provider.StoreConfig{})
+	secretsClient, err := secrets.NewClient(jujuSecretsAPI, &provider.StoreConfig{StoreType: jujusecrets.Store})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
 		ModelUUID:             coretesting.ModelTag.Id(),
@@ -248,6 +249,14 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	defer ctrl.Finish()
 
 	s.apiCaller.EXPECT().BestFacadeVersion("SecretsManager").AnyTimes().Return(1)
+	s.apiCaller.EXPECT().APICall(
+		"SecretsManager", 1, "", "GetSecretStoreConfig", nil,
+		&params.SecretStoreConfig{},
+	).DoAndReturn(func(objType string, facadeVersion int, id, request string, args, result interface{}) error {
+		out := result.(*params.SecretStoreConfig)
+		out.StoreType = "juju"
+		return nil
+	})
 
 	w, err := s.manifold.Start(s.newContext(nil))
 	c.Assert(err, jc.ErrorIsNil)

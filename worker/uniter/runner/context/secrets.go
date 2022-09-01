@@ -16,7 +16,7 @@ type secretsChangeRecorder struct {
 	logger loggo.Logger
 
 	pendingCreates []uniter.SecretCreateArg
-	pendingUpdates []uniter.SecretUpsertArg
+	pendingUpdates []uniter.SecretUpdateArg
 	pendingDeletes []*secrets.URI
 	pendingGrants  []uniter.SecretGrantRevokeArgs
 	pendingRevokes []uniter.SecretGrantRevokeArgs
@@ -38,7 +38,7 @@ func (s *secretsChangeRecorder) create(arg uniter.SecretCreateArg) {
 	s.pendingCreates = append(s.pendingCreates, arg)
 }
 
-func (s *secretsChangeRecorder) update(arg uniter.SecretUpsertArg) {
+func (s *secretsChangeRecorder) update(arg uniter.SecretUpdateArg) {
 	for i, d := range s.pendingDeletes {
 		if d.ID == arg.URI.ID {
 			s.pendingDeletes = append(s.pendingDeletes[:i], s.pendingDeletes[i+1:]...)

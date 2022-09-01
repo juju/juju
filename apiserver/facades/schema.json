@@ -38455,9 +38455,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "provider-id": {
-                            "type": "string"
-                        },
                         "revisions": {
                             "type": "array",
                             "items": {
@@ -38534,6 +38531,9 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
                         "revision": {
                             "type": "integer"
                         },
@@ -38544,9 +38544,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "revision",
-                        "create-time",
-                        "update-time"
+                        "revision"
                     ]
                 },
                 "SecretValueResult": {
@@ -38653,6 +38651,15 @@
                         }
                     },
                     "description": "GetSecretMetadata returns metadata for the caller's secrets."
+                },
+                "GetSecretStoreConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SecretStoreConfig"
+                        }
+                    },
+                    "description": "GetSecretStoreConfig gets the config needed to create a client to the model's secret store."
                 },
                 "RemoveSecrets": {
                     "type": "object",
@@ -39011,9 +39018,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "provider-id": {
-                            "type": "string"
-                        },
                         "revisions": {
                             "type": "array",
                             "items": {
@@ -39155,6 +39159,9 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
                         "revision": {
                             "type": "integer"
                         },
@@ -39165,9 +39172,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "revision",
-                        "create-time",
-                        "update-time"
+                        "revision"
                     ]
                 },
                 "SecretRotatedArg": {
@@ -39203,6 +39208,27 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
+                    ]
+                },
+                "SecretStoreConfig": {
+                    "type": "object",
+                    "properties": {
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
                     ]
                 },
                 "SecretTriggerChange": {
@@ -44352,6 +44378,15 @@
                     },
                     "description": "GetSecretMetadata returns metadata for the caller's secrets."
                 },
+                "GetSecretStoreConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SecretStoreConfig"
+                        }
+                    },
+                    "description": "GetSecretStoreConfig gets the config needed to create a client to the model's secret store."
+                },
                 "GoalStates": {
                     "type": "object",
                     "properties": {
@@ -46343,9 +46378,6 @@
                         "owner-tag": {
                             "type": "string"
                         },
-                        "provider-id": {
-                            "type": "string"
-                        },
                         "revisions": {
                             "type": "array",
                             "items": {
@@ -47249,6 +47281,9 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
                         "revision": {
                             "type": "integer"
                         },
@@ -47259,9 +47294,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "revision",
-                        "create-time",
-                        "update-time"
+                        "revision"
                     ]
                 },
                 "SecretRotatedArg": {
@@ -47297,6 +47330,27 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
+                    ]
+                },
+                "SecretStoreConfig": {
+                    "type": "object",
+                    "properties": {
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
                     ]
                 },
                 "SecretTriggerChange": {

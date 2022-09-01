@@ -36,6 +36,7 @@ type HookContextParams struct {
 	AssignedMachineTag  names.MachineTag
 	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
+	Secrets             SecretsAccessor
 	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
 	Clock               Clock
@@ -68,6 +69,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		assignedMachineTag:  hcParams.AssignedMachineTag,
 		storage:             hcParams.Storage,
 		storageTag:          hcParams.StorageTag,
+		secrets:             hcParams.Secrets,
 		secretMetadata:      hcParams.SecretMetadata,
 		clock:               hcParams.Clock,
 		logger:              loggo.GetLogger("test"),
@@ -130,10 +132,11 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 }
 
 // SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
-func SetEnvironmentHookContextSecret(context *HookContext, secretURI string, client SecretsAccessor) {
+func SetEnvironmentHookContextSecret(context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
 	context.secrets = client
+	context.secretMetadata = metadata
 }
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
@@ -292,7 +295,7 @@ func (ctx *HookContext) PendingSecretCreates() []uniter.SecretCreateArg {
 	return ctx.secretChanges.pendingCreates
 }
 
-func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpsertArg {
+func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpdateArg {
 	return ctx.secretChanges.pendingUpdates
 }
 

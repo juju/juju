@@ -70,11 +70,18 @@ type SecretsAccessor interface {
 
 	// SecretMetadata is used by secrets-get to fetch
 	// metadata for secrets.
-	SecretMetadata(filter secrets.Filter) ([]secrets.SecretMetadata, error)
+	SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error)
 
 	// GetContent is used by secrets-get to fetch the
 	// content of a secret.
 	GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
+
+	// SaveContent is used when flushing the context to save secret
+	// content to a secrets store.
+	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
+
+	// DeleteContent deletes a secret from a secrets store.
+	DeleteContent(providerId string) error
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context
@@ -406,13 +413,15 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
 	for _, v := range info {
-		ctx.secretMetadata[v.URI.ID] = jujuc.SecretMetadata{
-			Description:      v.Description,
-			Label:            v.Label,
-			RotatePolicy:     v.RotatePolicy,
-			LatestRevision:   v.LatestRevision,
-			LatestExpireTime: v.LatestExpireTime,
-			NextRotateTime:   v.NextRotateTime,
+		md := v.Metadata
+		ctx.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
+			Description:      md.Description,
+			Label:            md.Label,
+			RotatePolicy:     md.RotatePolicy,
+			LatestRevision:   md.LatestRevision,
+			LatestExpireTime: md.LatestExpireTime,
+			NextRotateTime:   md.NextRotateTime,
+			ProviderIds:      v.ProviderIds,
 		}
 	}
 

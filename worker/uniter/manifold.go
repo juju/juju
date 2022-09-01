@@ -22,8 +22,6 @@ import (
 	"github.com/juju/juju/observability/probe"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	jujusecrets "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/secretrotate"
@@ -153,7 +151,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			payloadFacade := uniter.NewPayloadFacadeClient(apiConn)
 
-			secretsClient, err := secrets.NewClient(jujuSecretsAPI, jujusecrets.Store, provider.StoreConfig{})
+			storeCfg, err := jujuSecretsAPI.GetSecretStoreConfig()
+			if err != nil {
+				return nil, err
+			}
+			secretsClient, err := secrets.NewClient(jujuSecretsAPI, storeCfg)
 			if err != nil {
 				return nil, err
 			}
