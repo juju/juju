@@ -22,8 +22,8 @@ Get your fortune
 | 1.1-stable | 19       | latest/stable    | focal, bionic, xenial                |
 | 1.4-cand   | 20       | latest/candidate | jammy, focal, bionic, xenial         |
 | 2.0-edge   | 21       | latest/edge      | groovy, jammy, focal, bionic, xenial |
-| 8          | 8        | 2.0/stable       | disco, bionic, xenial, trusty        |
-| 10         | 10       | 2.0/edge         | disco, bionic, xenial, trusty        |
+| 2.0-stable | 22       | 2.0/stable       | disco, bionic, xenial, trusty        |
+| 2.0-edge   | 23       | 2.0/edge         | disco, bionic, xenial, trusty        |
 
 To publish new versions of stable/candidate/edge see the files in the
 subdirectories 'stable', 'candidate', 'edge' respectively. You should be able
