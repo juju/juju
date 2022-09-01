@@ -589,6 +589,9 @@ func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujuc
 	// We assume that Hidden, ExpandFilePath and FilePath are mutually
 	// exclusive here.
 	switch {
+	// Adds support for lp1988239. Order is important here!
+	case attr.Hidden && attr.ExpandFilePath:
+		return enterFile(name, attr.Description, p, true, attr.Optional)
 	case attr.Hidden:
 		return p.EnterPassword(name)
 	case attr.ExpandFilePath:
