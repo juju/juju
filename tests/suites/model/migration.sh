@@ -76,8 +76,6 @@ run_model_migration_version() {
 	fi
 	export JUJU_VERSION=$stable_version
 
-	# Unset to re-generate from the new agent-version.
-	unset BOOTSTRAP_ADDITIONAL_ARGS
 	# Ensure we have another controller available.
 	bootstrap_alt_controller "alt-model-migration-version-stable"
 	juju --show-log switch "alt-model-migration-version-stable"
@@ -171,7 +169,10 @@ run_model_migration_saas_common() {
 	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
 	juju --show-log relate dummy-sink dummy-source
 	# wait for relation joined before migrate.
+	# work around for fixing:
+	# ERROR source prechecks failed: unit dummy-source/0 hasn't joined relation "dummy-source:sink remote-abaa4396b3ae409981ad83d1d04af21f:source" yet
 	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+	sleep 30
 
 	juju --show-log migrate "model-migration-saas" "alt-model-migration-saas"
 	sleep 5
@@ -235,6 +236,7 @@ run_model_migration_saas_external() {
 	juju --show-log relate dummy-sink dummy-source
 	# wait for relation joined before migrate.
 	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+	sleep 30
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju --show-log migrate "model-migration-saas" "model-migration-saas-target"
@@ -300,6 +302,7 @@ run_model_migration_saas_consumer() {
 	juju --show-log relate dummy-sink dummy-source
 	# wait for relation joined before migrate.
 	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+	sleep 30
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju config dummy-source token=wait-for-it
@@ -365,6 +368,9 @@ bootstrap_alt_controller() {
 
 	START_TIME=$(date +%s)
 	echo "====> Bootstrapping ${name}"
+
+	# Unset to re-generate from the new agent-version.
+	unset BOOTSTRAP_ADDITIONAL_ARGS
 
 	file="${TEST_DIR}/${name}.log"
 	juju_bootstrap "${BOOTSTRAP_CLOUD}" "${name}" "misc" "${file}"
