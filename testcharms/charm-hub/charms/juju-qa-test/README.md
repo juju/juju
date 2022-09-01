@@ -30,6 +30,29 @@ subdirectories 'stable', 'candidate', 'edge' respectively. You should be able
 to copy those files into this directory, run `charcmraft pack; charcmcraft upload`,
 and then update this file with the new revisions.
 
+### Test that depend on juju-qa-test
+
+If you need to roll out new revisions, make sure to do a grep for tests that interact with `juju-qa-test`.
+Currently those are:
+
+```
+  suites/resources/basic.sh
+    needs the resources to be available and matching the test expectations (so
+    you can deploy stable or candidate and see what the resource content is, to
+    make sure we get the right resource associated with the given track)
+  suites/resources/upgrades.sh
+    uses multiple channels to ensure that we can 'refresh' to switch to
+    different versions of the resource.
+  suites/deploy/deploy_bundles.sh
+    has a bundle (juju-qa-test-bundle) that deploys several charms including
+    juju-qa-test and ensure that juju can deploy a charm from a bundle with an
+    explicitly listed channel
+  suites/deploy/deploy_revision.sh
+    tests that we can deploy an explicit revision from charmhub, this
+    especially needs care as new revisions need the test to be updated to
+    match, it also associates explicit resource revisions with those channels
+```
+
 
 ## Resource versions and contents
 
