@@ -8,7 +8,7 @@ run_user_grant_revoke() {
 	ensure "user-grant-revoke" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r ".\"user\"" | check "admin"
+	juju whoami --format=json | jq -r '."user"' | check "admin"
 
 	echo "Add user with read rights"
 	juju add-user readuser
@@ -23,9 +23,9 @@ run_user_grant_revoke() {
 	juju grant adminuser admin "user-grant-revoke"
 
 	echo "Check rights for added users"
-	juju show-model "user-grant-revoke" --format=json | jq -r ".\"user-grant-revoke\".\"users\".\"readuser\".\"access\"" | check "read"
-	juju show-model "user-grant-revoke" --format=json | jq -r ".\"user-grant-revoke\".\"users\".\"writeuser\".\"access\"" | check "write"
-	juju show-model "user-grant-revoke" --format=json | jq -r ".\"user-grant-revoke\".\"users\".\"adminuser\".\"access\"" | check "admin"
+	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."readuser"."access"' | check "read"
+	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."writeuser"."access"' | check "write"
+	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."adminuser"."access"' | check "admin"
 
 	echo "Revoke rights"
 	juju revoke readuser read "user-grant-revoke"
@@ -33,9 +33,9 @@ run_user_grant_revoke() {
 	juju revoke adminuser admin "user-grant-revoke"
 
 	echo "Check rights for added users after revoke"
-	juju show-model "user-grant-revoke" --format=json | jq -r ".\"user-grant-revoke\".\"users\".\"readuser\".\"access\"" | check null
-	juju show-model "user-grant-revoke" --format=json | jq -r ".\"user-grant-revoke\".\"users\".\"writeuser\".\"access\"" | check "read"
-	juju show-model "user-grant-revoke" --format=json | jq -r ".\"user-grant-revoke\".\"users\".\"adminuser\".\"access\"" | check "write"
+	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."readuser"."access"' | check null
+	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."writeuser"."access"' | check "read"
+	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."adminuser"."access"' | check "write"
 
 	destroy_model "user-grant-revoke"
 }
@@ -50,7 +50,7 @@ run_user_disable_enable() {
 	ensure "user-disable-enable" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r ".\"user\"" | check "admin"
+	juju whoami --format=json | jq -r '."user"' | check "admin"
 
 	echo "Add testuser"
 	juju add-user testuser
@@ -60,13 +60,13 @@ run_user_disable_enable() {
 	juju disable-user testuser
 
 	echo "Check testuser is disabled"
-	juju show-user testuser --format=json | jq -r ".\"disabled\"" | check true
+	juju show-user testuser --format=json | jq -r '."disabled"' | check true
 
 	echo "Enable testuser"
 	juju enable-user testuser
 
 	echo "Check testuser is enabled"
-	juju show-user testuser --format=json | jq -r ".\"disabled\"" | check null
+	juju show-user testuser --format=json | jq -r '."disabled"' | check null
 
 	destroy_model "user-disable-enable"
 }
@@ -83,6 +83,6 @@ test_user_manage() {
 		cd .. || exit
 
 		run "run_user_grant_revoke"
-		run "run user_disable_enable"
+		run "run_user_disable_enable"
 	)
 }
