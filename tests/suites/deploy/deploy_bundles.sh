@@ -46,9 +46,6 @@ run_deploy_cmr_bundle() {
 
 	bundle=./tests/suites/deploy/bundles/cmr_bundles_test_deploy.yaml
 	sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" >"${TEST_DIR}/cmr_bundles_test_deploy.yaml"
-	# TODO - upgrade this bundle to use focal
-	# Must wait until the wordpress charm is updated to support focal/jammy
-	# https://charmhub.io/wordpress
 	juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
 	wait_for "active" '.applications["etcd"] | ."application-status".current'
@@ -144,12 +141,11 @@ run_deploy_trusted_bundle() {
 
 	ensure "test-trusted-bundles-deploy" "${file}"
 
-	# TODO - upgrade the charm to support focal
 	bundle=./tests/suites/deploy/bundles/trusted_bundle.yaml
 	OUT=$(juju deploy ${bundle} 2>&1 || true)
 	echo "${OUT}" | check "repeat the deploy command with the --trust argument"
 
-	juju deploy --trust ${bundle} --force # TODO: remove --force once "juju-qa-trust-checker" supports jammy.
+	juju deploy --trust ${bundle}
 
 	wait_for "trust-checker" "$(idle_condition "trust-checker")"
 
@@ -221,7 +217,6 @@ run_deploy_lxd_profile_bundle() {
 	ensure "${model_name}" "${file}"
 
 	bundle=./tests/suites/deploy/bundles/lxd-profile-bundle.yaml
-	# TODO - upgrade the charm to support focal
 	juju deploy "${bundle}"
 
 	# 8 units of lxd-profile

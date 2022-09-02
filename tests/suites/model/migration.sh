@@ -65,8 +65,7 @@ run_model_migration_version() {
 
 	# test against beta channel for devel
 	# TODO: change back to stable once 3.0 released.
-	# channel="$major_minor/beta"  # 3.0
-	channel="$major_minor/stable" # 2.9
+	channel="$major_minor/beta"
 
 	stable_version=$(snap info juju | yq ".channels[\"$channel\"]" | cut -d' ' -f1)
 	echo "stable_version ==> $stable_version"
@@ -97,8 +96,7 @@ run_model_migration_version() {
 	wait_for "active" "$(workload_status "etcd" 1).current"
 	wait_for "active" "$(workload_status "etcd" 2).current"
 
-	# juju --show-log run etcd/0 etcd/1 etcd/2 --wait=5m health  # 3.0
-	juju --show-log run-action etcd/0 etcd/1 etcd/2 --wait=5m health # 2.9
+	juju --show-log run etcd/0 etcd/1 etcd/2 --wait=5m health
 
 	juju --show-log migrate "model-migration-version-stable" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju --show-log switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
@@ -128,8 +126,7 @@ run_model_migration_version() {
 	wait_for "active" "$(workload_status "etcd" 3).current"
 	wait_for "active" "$(workload_status "etcd" 4).current"
 
-	# juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health  # 3.0
-	juju --show-log run-action etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health # 2.9
+	juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health
 
 	# Clean up.
 	destroy_controller "alt-model-migration-version-stable"
