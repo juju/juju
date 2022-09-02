@@ -37,7 +37,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 			},
 			{
 				EntityTag:   "applicationB",
-				Annotations: map[string]string{"annotation2": "test"},
+				Annotations: annts2,
 			},
 		},
 	}
