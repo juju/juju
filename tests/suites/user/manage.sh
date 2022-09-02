@@ -71,6 +71,40 @@ run_user_disable_enable() {
 	destroy_model "user-disable-enable"
 }
 
+# Granting and revoking login/add-model/superuser rights for the controller access.
+run_user_controller_access() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# The following ensures that a bootstrap juju exists.
+	file="${TEST_DIR}/test-user-controller-access.log"
+	ensure "user-controller-access" "${file}"
+
+	echo "Check that current user is admin"
+	juju whoami --format=json | jq -r '."user"' | check "admin"
+
+	echo "Add user with login rights"
+	juju add-user junioradmin
+
+	echo "Add user with superuser rights"
+	juju add-user senioradmin
+	juju grant senioradmin superuser
+
+	echo "Check rights for added users"
+	juju users --format=json | jq -r '.[] | select(."user-name"=="junioradmin") | ."access"' | check "login"
+	juju users --format=json | jq -r '.[] | select(."user-name"=="senioradmin") | ."access"' | check "superuser"
+
+	echo "Revoke rights"
+	juju revoke junioradmin login
+	juju revoke senioradmin superuser
+
+	echo "Check rights for added users after revoke"
+	juju users --format=json | jq -r '.[] | select(."user-name"=="junioradmin") | ."access"' | check ""
+	juju users --format=json | jq -r '.[] | select(."user-name"=="senioradmin") | ."access"' | check "login"
+
+	destroy_model "user-controller-access"
+}
+
 test_user_manage() {
 	if [ -n "$(skip 'test_user_manage')" ]; then
 		echo "==> SKIP: Asked to skip user manage tests"
@@ -84,5 +118,6 @@ test_user_manage() {
 
 		run "run_user_grant_revoke"
 		run "run_user_disable_enable"
+		run "run_user_controller_access"
 	)
 }
