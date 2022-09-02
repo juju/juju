@@ -75,14 +75,14 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.cfg.Controller = s.controller
 }
 
-func (s *baseSuite) newServer(c *gc.C) *api.Info {
+func (s *baseSuite) newServer(c *gc.C) *testserver.Server {
 	server := testserver.NewServerWithConfig(c, s.StatePool, s.cfg)
 	s.AddCleanup(func(c *gc.C) {
 		workertest.CleanKill(c, server.APIServer)
 		server.HTTPServer.Close()
 	})
 	server.Info.ModelTag = s.Model.ModelTag()
-	return server.Info
+	return server
 }
 
 func (s *baseSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {

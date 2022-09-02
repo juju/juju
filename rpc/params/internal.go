@@ -312,6 +312,11 @@ type CommitHookChangesArg struct {
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 	SetPodSpec           *PodSpec               `json:"pod-spec,omitempty"`
 	SetRawK8sSpec        *PodSpec               `json:"set-raw-k8s-spec,omitempty"`
+	SecretCreates        []CreateSecretArg      `json:"secret-creates,omitempty"`
+	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
+	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
+	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`
+	SecretDeletes        []SecretURIArg         `json:"secret-deletes,omitempty"`
 }
 
 // ModelConfig holds a model configuration.
@@ -374,6 +379,7 @@ type RelationUnitPairs struct {
 
 // RelationUnitSettings holds a relation tag, a unit tag and local
 // unit and app-level settings.
+// TODO(juju3) - remove
 type RelationUnitSettings struct {
 	Relation            string   `json:"relation"`
 	Unit                string   `json:"unit"`
@@ -383,6 +389,7 @@ type RelationUnitSettings struct {
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
 // or UpdateRelationSettings API calls.
+// TODO(juju3) - remove
 type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }
@@ -452,12 +459,12 @@ type LifeResults struct {
 // be a container.
 //
 // The InstanceInfo struct contains three categories of information:
-//  - interal data, as the machine's tag and the tags of any attached
-//    storage volumes
-//  - naming and other provider-specific information, including the
-//    instance id and display name
-//  - configuration information, including its attached storage volumes,
-//    charm profiles and networking
+//   - interal data, as the machine's tag and the tags of any attached
+//     storage volumes
+//   - naming and other provider-specific information, including the
+//     instance id and display name
+//   - configuration information, including its attached storage volumes,
+//     charm profiles and networking
 type InstanceInfo struct {
 	Tag             string                            `json:"tag"`
 	InstanceId      instance.Id                       `json:"instance-id"`

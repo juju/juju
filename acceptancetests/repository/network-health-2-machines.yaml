@@ -1,10 +1,10 @@
 # network-health-2-machines:
 machines:
   '0':
-    series: bionic
+    series: jammy
   '1':
-    series: bionic
-series: bionic
+    series: jammy
+series: jammy
 applications:
   dummy-source-a:
     charm: cs:~juju-qa/dummy-source

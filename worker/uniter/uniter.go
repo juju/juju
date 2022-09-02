@@ -18,7 +18,6 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -71,6 +70,13 @@ type RebootQuerier interface {
 	Query(tag names.Tag) (bool, error)
 }
 
+// SecretsClient provides methods used by the remote state watcher, hook context,
+// and op callbacks.
+type SecretsClient interface {
+	remotestate.SecretsClient
+	context.SecretsAccessor
+}
+
 // RemoteInitFunc is used to init remote state
 type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) error
 
@@ -78,7 +84,8 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
-	secrets                      *secretsmanager.Client
+	secretsClient                SecretsClient
+	secretsStoreGetter           context.SecretsStoreGetter
 	paths                        Paths
 	unit                         *uniter.Unit
 	resources                    *uniter.ResourcesFacadeClient
@@ -176,7 +183,8 @@ type UniterParams struct {
 	UniterFacade                  *uniter.State
 	ResourcesFacade               *uniter.ResourcesFacadeClient
 	PayloadFacade                 *uniter.PayloadFacadeClient
-	SecretsFacade                 *secretsmanager.Client
+	SecretsClient                 SecretsClient
+	SecretsStoreGetter            context.SecretsStoreGetter
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
@@ -251,7 +259,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			st:                            uniterParams.UniterFacade,
 			resources:                     uniterParams.ResourcesFacade,
 			payloads:                      uniterParams.PayloadFacade,
-			secrets:                       uniterParams.SecretsFacade,
+			secretsClient:                 uniterParams.SecretsClient,
+			secretsStoreGetter:            uniterParams.SecretsStoreGetter,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
@@ -387,7 +396,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
-				SecretsClient:                 u.secrets,
+				SecretsClient:                 u.secretsClient,
 				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
@@ -815,17 +824,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:            u.st,
-		Secrets:          u.secrets,
-		Unit:             u.unit,
-		Resources:        u.resources,
-		Payloads:         u.payloads,
-		Tracker:          u.leadershipTracker,
-		GetRelationInfos: u.relationStateTracker.GetInfo,
-		Storage:          u.storage,
-		Paths:            u.paths,
-		Clock:            u.clock,
-		Logger:           u.logger.Child("context"),
+		State:              u.st,
+		SecretsClient:      u.secretsClient,
+		SecretsStoreGetter: u.secretsStoreGetter,
+		Unit:               u.unit,
+		Resources:          u.resources,
+		Payloads:           u.payloads,
+		Tracker:            u.leadershipTracker,
+		GetRelationInfos:   u.relationStateTracker.GetInfo,
+		Storage:            u.storage,
+		Paths:              u.paths,
+		Clock:              u.clock,
+		Logger:             u.logger.Child("context"),
 	})
 	if err != nil {
 		return err

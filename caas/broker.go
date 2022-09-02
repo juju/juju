@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -206,6 +207,9 @@ type Broker interface {
 	// ServiceManager provides an API for creating and watching services.
 	ServiceManager
 
+	// SecretsStore provides an API for managing Juju secrets.
+	SecretsStore
+
 	// ModelOperatorManager provides an API for deploying operators for
 	// individual models.
 	ModelOperatorManager
@@ -244,6 +248,17 @@ type ApplicationBroker interface {
 	// the provider id for the unit. If containerName is empty, then the first workload container
 	// is used.
 	WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error)
+}
+
+type SecretsStore interface {
+	// SaveJujuSecret saves a secret, returning an id used to access the secret later.
+	SaveJujuSecret(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
+
+	// GetJujuSecret gets the content of a Juju secret.
+	GetJujuSecret(ctx context.Context, id string) (secrets.SecretValue, error)
+
+	// DeleteJujuSecret deletes a Juju secret.
+	DeleteJujuSecret(ctx context.Context, id string) error
 }
 
 // ModelOperatorManager provides an API for deploying operators for individual

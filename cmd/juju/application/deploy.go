@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -48,8 +47,6 @@ import (
 type SpacesAPI interface {
 	ListSpaces() ([]apiparams.Space, error)
 }
-
-var supportedJujuSeries = series.WorkloadSeries
 
 type CharmsAPI interface {
 	store.CharmsAPI

@@ -113,6 +113,61 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
 }
 
+func (s *getToolsSuite) TestSeriesTools(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	getCanRead := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag == names.NewMachineTag("0")
+		}, nil
+	}
+	tg := common.NewToolsGetter(
+		s.entityFinder, s.configGetter, nil,
+		nil, s.toolsFinder, getCanRead,
+	)
+	c.Assert(tg, gc.NotNil)
+
+	current := coretesting.CurrentVersion()
+	currentCopy := current
+	currentCopy.Release = coretesting.HostSeries(c)
+	configAttrs := map[string]interface{}{
+		"name":                 "some-name",
+		"type":                 "some-type",
+		"uuid":                 coretesting.ModelTag.Id(),
+		config.AgentVersionKey: currentCopy.Number.String(),
+	}
+	config, err := config.New(config.NoDefaults, configAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.configGetter.EXPECT().ModelConfig().Return(config, nil)
+
+	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
+	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)
+	s.toolsFinder.EXPECT().FindTools(params.FindToolsParams{
+		Number:       currentCopy.Number,
+		MajorVersion: -1,
+		MinorVersion: -1,
+		OSType:       currentCopy.Release,
+		Arch:         currentCopy.Arch,
+	}).Return(params.FindToolsResult{List: coretools.List{{
+		Version: current,
+		URL:     "tools:" + current.String(),
+	}}}, nil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-0"},
+		}}
+	result, err := tg.Tools(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
+	tools := result.Results[0].ToolsList[0]
+	c.Assert(tools.Version, gc.DeepEquals, current)
+	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
+}
+
 func (s *getToolsSuite) TestToolsError(c *gc.C) {
 	defer s.setup(c).Finish()
 

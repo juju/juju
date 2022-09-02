@@ -50,6 +50,9 @@ import (
 
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+
+	// Import the secret providers.
+	_ "github.com/juju/juju/secrets/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")

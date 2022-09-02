@@ -81,9 +81,11 @@ var (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/var/lib/juju
-//         An empty directory returned as DataDir - the
-//         root of the juju data storage space.
+//
+//	RootDir/var/lib/juju
+//	    An empty directory returned as DataDir - the
+//	    root of the juju data storage space.
+//
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
 	// ConfigAttrs can be set up before SetUpTest

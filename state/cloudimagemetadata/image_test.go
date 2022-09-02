@@ -642,7 +642,10 @@ func NewTestMongo(database *mgo.Database) *TestMongo {
 	return &TestMongo{
 		database: database,
 		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
-			Database: database,
+			Database:                  database,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "-",
+			ServerSideTransactions:    true,
 		}),
 	}
 }

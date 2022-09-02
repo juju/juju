@@ -22,8 +22,10 @@ var _ = gc.Suite(&connectionSuite{})
 
 func (s *connectionSuite) TestLxdSocketPathLxdDirSet(c *gc.C) {
 	c.Assert(os.Setenv("LXD_DIR", "foobar"), jc.ErrorIsNil)
-	path := lxd.SocketPath(nil)
-	c.Check(path, gc.Equals, filepath.Join("foobar", "unix.socket"))
+	isSocket := func(path string) bool {
+		return path == filepath.FromSlash("foobar/unix.socket")
+	}
+	c.Check(lxd.SocketPath(isSocket), gc.Equals, filepath.Join("foobar", "unix.socket"))
 }
 
 func (s *connectionSuite) TestLxdSocketPathSnapSocketAndDebianSocketExists(c *gc.C) {
@@ -32,8 +34,7 @@ func (s *connectionSuite) TestLxdSocketPathSnapSocketAndDebianSocketExists(c *gc
 		return path == filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket") ||
 			path == filepath.FromSlash("/var/lib/lxd/unix.socket")
 	}
-	path := lxd.SocketPath(isSocket)
-	c.Check(path, gc.Equals, filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket"))
+	c.Check(lxd.SocketPath(isSocket), gc.Equals, filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket"))
 }
 
 func (s *connectionSuite) TestLxdSocketPathNoSnapSocket(c *gc.C) {
@@ -41,8 +42,13 @@ func (s *connectionSuite) TestLxdSocketPathNoSnapSocket(c *gc.C) {
 	isSocket := func(path string) bool {
 		return path == filepath.FromSlash("/var/lib/lxd/unix.socket")
 	}
-	path := lxd.SocketPath(isSocket)
-	c.Check(path, gc.Equals, filepath.FromSlash("/var/lib/lxd/unix.socket"))
+	c.Check(lxd.SocketPath(isSocket), gc.Equals, filepath.FromSlash("/var/lib/lxd/unix.socket"))
+}
+
+func (s *connectionSuite) TestLxdSocketPathNoSocket(c *gc.C) {
+	c.Assert(os.Setenv("LXD_DIR", ""), jc.ErrorIsNil)
+	isSocket := func(path string) bool { return false }
+	c.Check(lxd.SocketPath(isSocket), gc.Equals, "")
 }
 
 func (s *connectionSuite) TestConnectRemoteBadProtocol(c *gc.C) {

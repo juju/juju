@@ -51,6 +51,7 @@ type abortCommand struct {
 
 // AbortCommandAPI describes API methods required
 // to execute the branch command.
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/abort_mock.go github.com/juju/juju/cmd/juju/model AbortCommandAPI
 type AbortCommandAPI interface {
 	Close() error

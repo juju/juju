@@ -80,6 +80,6 @@ func (s *SupportedSeriesLinuxSuite) TestWorkloadSeries(c *gc.C) {
 	series, err := WorkloadSeries(time.Time{}, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series.SortedValues(), gc.DeepEquals, []string{
-		"bionic", "centos7", "centos8", "centos9", "focal", "genericlinux", "jammy", "kubernetes",
-		"opensuseleap", "trusty", "xenial"})
+		"centos7", "centos8", "centos9", "focal", "genericlinux", "jammy", "kubernetes",
+		"opensuseleap"})
 }

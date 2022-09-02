@@ -85,7 +85,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	w, err := s.apiMachine.WatchUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

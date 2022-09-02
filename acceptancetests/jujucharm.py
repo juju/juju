@@ -24,7 +24,7 @@ class Charm:
     """Representation of a juju charm."""
 
     DEFAULT_MAINTAINER = "juju-qa@lists.canonical.com"
-    DEFAULT_SERIES = ("bionic", "xenial", "trusty")
+    DEFAULT_SERIES = ("jammy", "focal")
     DEFAULT_DESCRIPTION = "description"
 
     NAME_REGEX = re.compile('^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$')

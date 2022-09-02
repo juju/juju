@@ -116,7 +116,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-	s.BackingState.StartSync()
 	updatedServers := []corenetwork.SpaceHostPorts{
 		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
 	}
@@ -130,7 +129,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	}
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -155,7 +153,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-	s.BackingState.StartSync()
 
 	// SetAPIHostPorts should be called with the initial value (empty),
 	// and then the updated value.
@@ -172,7 +169,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -187,7 +183,6 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	updatedServers = []corenetwork.SpaceHostPorts{}
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -260,7 +255,6 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
 	defer w.Kill()
-	s.BackingState.StartSync()
 
 	updatedServers := []corenetwork.SpaceHostPorts{
 		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
@@ -295,7 +289,6 @@ LXC_BRIDGE="ignored"`[1:])
 
 	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, gc.IsNil)
-	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")

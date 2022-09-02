@@ -6,7 +6,6 @@ package mocks
 
 import (
 	reflect "reflect"
-	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
@@ -535,7 +534,7 @@ func (mr *MockCallbacksMockRecorder) SetExecutingStatus(arg0 interface{}) *gomoc
 }
 
 // SetSecretRotated mocks base method.
-func (m *MockCallbacks) SetSecretRotated(arg0 string, arg1 time.Time) error {
+func (m *MockCallbacks) SetSecretRotated(arg0 string, arg1 int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetSecretRotated", arg0, arg1)
 	ret0, _ := ret[0].(error)

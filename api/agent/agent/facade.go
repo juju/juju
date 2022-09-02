@@ -26,10 +26,11 @@ const (
 // that currently live in apicaller. This criterion is every bit as
 // terrible as it sounds -- surely there should be a new facade at the
 // apiserver level somewhere? -- but:
-//  1) this feels like a convenient/transitional method grouping, not a
+//  1. this feels like a convenient/transitional method grouping, not a
 //     fundamental *role*; and
-//  2) at least it's a narrowed interface, and eschews the object-style
+//  2. at least it's a narrowed interface, and eschews the object-style
 //     sins of *State/*Entity.
+//
 // Progress not perfection.
 type ConnFacade interface {
 

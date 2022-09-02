@@ -219,7 +219,7 @@ func (s *firewallerBaseSuite) testWatchModelMachines(
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 
@@ -292,10 +292,10 @@ func (s *firewallerBaseSuite) testWatch(
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc1 := statetesting.NewNotifyWatcherC(c, s.State, watcher1.(state.NotifyWatcher))
+	wc1 := statetesting.NewNotifyWatcherC(c, watcher1.(state.NotifyWatcher))
 	wc1.AssertNoChange()
 	if allowUnits {
-		wc2 := statetesting.NewNotifyWatcherC(c, s.State, watcher2.(state.NotifyWatcher))
+		wc2 := statetesting.NewNotifyWatcherC(c, watcher2.(state.NotifyWatcher))
 		wc2.AssertNoChange()
 	}
 }
@@ -337,7 +337,7 @@ func (s *firewallerBaseSuite) testWatchUnits(
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 }
 

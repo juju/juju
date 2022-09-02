@@ -177,12 +177,11 @@ func ParseIngressRules(r io.Reader) (firewall.IngressRules, error) {
 // The iptables rules we care about have the following format, and we
 // will skip all other rules:
 //
-//    Chain INPUT (policy ACCEPT)
-//    target     prot opt source               destination
-//    ACCEPT     tcp  --  0.0.0.0/0            192.168.0.1  multiport dports 3456:3458 /* juju ingress */
-//    ACCEPT     tcp  --  0.0.0.0/0            192.168.0.2  tcp dpt:12345 /* juju ingress */
-//    ACCEPT     icmp --  0.0.0.0/0            10.0.0.1     icmptype 8 /* juju ingress */
-//
+//	Chain INPUT (policy ACCEPT)
+//	target     prot opt source               destination
+//	ACCEPT     tcp  --  0.0.0.0/0            192.168.0.1  multiport dports 3456:3458 /* juju ingress */
+//	ACCEPT     tcp  --  0.0.0.0/0            192.168.0.2  tcp dpt:12345 /* juju ingress */
+//	ACCEPT     icmp --  0.0.0.0/0            10.0.0.1     icmptype 8 /* juju ingress */
 func parseIngressRule(line string) (firewall.IngressRule, bool, error) {
 	fail := func(err error) (firewall.IngressRule, bool, error) {
 		return firewall.IngressRule{}, false, err

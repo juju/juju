@@ -65,7 +65,6 @@ type Environ struct {
 var _ common.ZonedEnviron = (*Environ)(nil)
 var _ storage.ProviderRegistry = (*Environ)(nil)
 var _ environs.Environ = (*Environ)(nil)
-var _ environs.Firewaller = (*Environ)(nil)
 var _ environs.Networking = (*Environ)(nil)
 var _ environs.NetworkingEnviron = (*Environ)(nil)
 

@@ -65,8 +65,8 @@ func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (api.Connec
 // if it encounters a CodeNotProvisioned error, periodically retrying;
 // and eventually, having either succeeded, failed, or timed out, returns:
 //
-//   * (if successful) the connection, and whether the fallback was used
-//   * (otherwise) whatever error it most recently encountered
+//   - (if successful) the connection, and whether the fallback was used
+//   - (otherwise) whatever error it most recently encountered
 //
 // It's clear that it still has machine-agent concerns still baked in,
 // but there's no obvious practical path to separating those entirely at
@@ -178,11 +178,11 @@ func shortModelUUID(model names.ModelTag) string {
 // ScaryConnect logs into the API using the supplied agent's credentials,
 // like OnlyConnect; and then:
 //
-//   * returns ErrConnectImpossible if the agent entity is dead or
+//   - returns ErrConnectImpossible if the agent entity is dead or
 //     unauthorized for all known passwords;
-//   * replaces insecure credentials with freshly (locally) generated ones
+//   - replaces insecure credentials with freshly (locally) generated ones
 //     (and returns ErrPasswordChanged, expecting to be reinvoked);
-//   * unconditionally resets the remote-state password to its current value
+//   - unconditionally resets the remote-state password to its current value
 //     (for what seems like a bad reason).
 //
 // This is clearly a mess but at least now it's a documented and localized

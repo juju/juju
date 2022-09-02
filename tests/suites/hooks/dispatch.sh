@@ -10,8 +10,7 @@ run_hook_dispatching_script() {
 	# log level is WARNING.
 	juju model-config logging-config="<root>=INFO"
 
-	# TODO - upgrade the charm to support focal
-	juju deploy juju-qa-ubuntu-plus --channel=beta
+	juju deploy ./testcharms/charms/ubuntu-plus
 	wait_for "ubuntu-plus" "$(idle_condition "ubuntu-plus")"
 
 	juju debug-log --include unit-ubuntu-plus-0 | grep -q "via hook dispatching script: dispatch" || true

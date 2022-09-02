@@ -56,14 +56,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"s"},
 			}},
 		},
-		txnLogC: {
-			// This collection is used by mgo/txn to record the set of documents
-			// affected by each successful transaction; and by state/watcher to
-			// generate a stream of document-resolution events that are delivered
-			// to, and interpreted by, both state and the multiwatcher.
-			global:    true,
-			rawAccess: true,
-		},
 
 		// ------------------
 
@@ -549,26 +541,32 @@ func allCollections() CollectionSchema {
 		cloudServicesC: {},
 
 		secretMetadataC: {
-			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"controller-uuid", "model-uuid", "_id"},
+				Key: []string{"model-uuid", "_id"},
 			}},
 		},
 
 		secretRevisionsC: {
-			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"revision", "_id"},
+			}},
 		},
 
 		secretConsumersC: {
 			indexes: []mgo.Index{{
-				Key: []string{"consumer-tag"},
+				Key: []string{"consumer-tag", "model-uuid"},
+			}},
+		},
+
+		secretPermissionsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"subject-tag", "scope-tag", "model-uuid"},
 			}},
 		},
 
 		secretRotateC: {
-			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"owner-tag"},
+				Key: []string{"owner-tag", "model-uuid"},
 			}},
 		},
 
@@ -660,7 +658,6 @@ const (
 	linkLayerDevicesC          = "linklayerdevices"
 	ipAddressesC               = "ip.addresses"
 	toolsmetadataC             = "toolsmetadata"
-	txnLogC                    = "sstxns.log"
 	txnsC                      = "txns"
 	unitsC                     = "units"
 	unitStatesC                = "unitstates"
@@ -682,8 +679,18 @@ const (
 	firewallRulesC       = "firewallRules"
 
 	// Secrets
-	secretMetadataC  = "secretMetadata"
-	secretRevisionsC = "secretRevisions"
-	secretConsumersC = "secretConsumers"
-	secretRotateC    = "secretRotate"
+	secretMetadataC    = "secretMetadata"
+	secretRevisionsC   = "secretRevisions"
+	secretConsumersC   = "secretConsumers"
+	secretPermissionsC = "secretPermissions"
+	secretRotateC      = "secretRotate"
 )
+
+// watcherIgnoreList contains all the collections in mongo that should not be watched by the
+// TxnWatcher.
+var watcherIgnoreList = []string{
+	bakeryStorageItemsC,
+	sequenceC,
+	refcountsC,
+	statusesHistoryC,
+}

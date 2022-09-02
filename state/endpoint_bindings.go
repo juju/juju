@@ -194,18 +194,18 @@ func (b *Bindings) createOp(bindings map[string]string, meta *charm.Meta) (txn.O
 // The implementation calculates the final set of bindings by merging the provided
 // newMap into the existing set of bindings. The final bindings are validated
 // in two ways:
-// 1) we make sure that the endpoint names in the binding map are all present
-//    in the provided charm metadata and that the space IDs actually exist.
-// 2) we check that all existing units for the application are executing on
-//    machines that have an address in each space we are binding to. This
-//    check can be circumvented by setting the force argument to true.
+//  1. we make sure that the endpoint names in the binding map are all present
+//     in the provided charm metadata and that the space IDs actually exist.
+//  2. we check that all existing units for the application are executing on
+//     machines that have an address in each space we are binding to. This
+//     check can be circumvented by setting the force argument to true.
 //
 // The returned operation list includes additional operations that perform
 // the following assertions:
-// - assert that the unit count has not changed while the txn is in progress.
-// - assert that the spaces we are binding to have not been deleted.
-// - assert that the existing bindings we used for calculating the merged set
-//   of bindings have not changed while the txn is in progress.
+//   - assert that the unit count has not changed while the txn is in progress.
+//   - assert that the spaces we are binding to have not been deleted.
+//   - assert that the existing bindings we used for calculating the merged set
+//     of bindings have not changed while the txn is in progress.
 func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *charm.Meta, force bool) ([]txn.Op, error) {
 	var ops []txn.Op
 

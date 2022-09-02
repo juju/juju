@@ -4,17 +4,17 @@
 package secretsmanager
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/secrets"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
 )
 
 // Client is the api client for the SecretsManager facade.
@@ -29,93 +29,61 @@ func NewClient(caller base.APICaller) *Client {
 	}
 }
 
-// Create creates a new secret.
-func (c *Client) Create(cfg *secrets.SecretConfig, ownerTag names.Tag, value secrets.SecretValue) (string, error) {
-	var data secrets.SecretData
-	if value != nil {
-		data = value.EncodedValues()
+// GetSecretStoreConfig fetches the config needed to make a secret store client.
+func (c *Client) GetSecretStoreConfig() (*provider.StoreConfig, error) {
+	var result params.SecretStoreConfig
+	err := c.facade.FacadeCall("GetSecretStoreConfig", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	return &provider.StoreConfig{
+		StoreType: result.StoreType,
+		Params:    result.Params,
+	}, nil
+}
 
+// CreateSecretURIs generates new secret URIs.
+func (c *Client) CreateSecretURIs(count int) ([]*coresecrets.URI, error) {
 	var results params.StringResults
 
-	arg := params.CreateSecretArg{
-		OwnerTag: ownerTag.String(),
-		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: cfg.RotatePolicy,
-			ExpireTime:   cfg.ExpireTime,
-			Description:  cfg.Description,
-			Label:        cfg.Label,
-			Params:       cfg.Params,
-			Data:         data,
-		},
+	if count <= 0 {
+		return nil, errors.NotValidf("secret URi count %d", count)
 	}
-	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{arg},
+	if err := c.facade.FacadeCall("CreateSecretURIs", params.CreateSecretURIsArg{
+		Count: count,
 	}, &results); err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	if n := len(results.Results); n != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", n)
+	if n := len(results.Results); n != count {
+		return nil, errors.Errorf("expected %d result(s), got %d", count, n)
 	}
-	if err := results.Results[0].Error; err != nil {
-		return "", err
-	}
-	return results.Results[0].Result, nil
-}
-
-// Update updates an existing secret value and/or config like rotate interval.
-func (c *Client) Update(uri string, cfg *secrets.SecretConfig, value secrets.SecretValue) error {
-	secretUri, err := secrets.ParseURI(uri)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var data secrets.SecretData
-	if value != nil {
-		data = value.EncodedValues()
-		if len(data) == 0 {
-			data = nil
+	uris := make([]*coresecrets.URI, count)
+	for i, s := range results.Results {
+		if err := s.Error; err != nil {
+			return nil, errors.Trace(err)
 		}
+		uri, err := coresecrets.ParseURI(s.Result)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		uris[i] = uri
 	}
-
-	var results params.ErrorResults
-
-	arg := params.UpdateSecretArg{
-		URI: secretUri.String(),
-		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: cfg.RotatePolicy,
-			ExpireTime:   cfg.ExpireTime,
-			Description:  cfg.Description,
-			Label:        cfg.Label,
-			Params:       cfg.Params,
-			Data:         data,
-		},
-	}
-	if err := c.facade.FacadeCall("UpdateSecrets", params.UpdateSecretArgs{
-		Args: []params.UpdateSecretArg{arg},
-	}, &results); err != nil {
-		return errors.Trace(err)
-	}
-	return results.OneError()
+	return uris, nil
 }
 
-// GetValue returns the value of a secret.
-func (c *Client) GetValue(uri, label string, update, peek bool) (secrets.SecretValue, error) {
-	arg := params.GetSecretValueArg{
+// GetContentInfo returns info about the content of a secret.
+func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, update, peek bool) (*secrets.ContentParams, error) {
+	arg := params.GetSecretContentArg{
 		Label:  label,
 		Update: update,
 		Peek:   peek,
 	}
-	secretUri, err := secrets.ParseURI(uri)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	arg.URI = secretUri.String()
+	arg.URI = uri.String()
 
-	var results params.SecretValueResults
+	var results params.SecretContentResults
 
-	if err := c.facade.FacadeCall("GetSecretValues", params.GetSecretValueArgs{
-		Args: []params.GetSecretValueArg{arg},
+	if err := c.facade.FacadeCall("GetSecretContentInfo", params.GetSecretContentArgs{
+		Args: []params.GetSecretContentArg{arg},
 	}, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -126,7 +94,12 @@ func (c *Client) GetValue(uri, label string, update, peek bool) (secrets.SecretV
 	if err := results.Results[0].Error; err != nil {
 		return nil, err
 	}
-	return secrets.NewSecretValue(results.Results[0].Data), nil
+	result := results.Results[0].Content
+	content := &secrets.ContentParams{ProviderId: result.ProviderId}
+	if len(result.Data) > 0 {
+		content.SecretValue = coresecrets.NewSecretValue(result.Data)
+	}
+	return content, nil
 }
 
 // WatchSecretsChanges returns a watcher which serves changes to
@@ -151,34 +124,32 @@ func (c *Client) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, e
 	return w, nil
 }
 
-// SecretRevisionInfo holds info used to read a secret vale.
-type SecretRevisionInfo struct {
-	Revision int
-	Label    string
-}
-
-// GetLatestSecretsRevisionInfo returns the current revision and labels for secrets consumed
+// GetConsumerSecretsRevisionInfo returns the current revision and labels for secrets consumed
 // by the specified unit.
-func (c *Client) GetLatestSecretsRevisionInfo(unitName string, uris []string) (map[string]SecretRevisionInfo, error) {
+func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) (map[string]coresecrets.SecretRevisionInfo, error) {
 	var results params.SecretConsumerInfoResults
 	args := params.GetSecretConsumerInfoArgs{
 		ConsumerTag: names.NewUnitTag(unitName).String(),
 		URIs:        uris,
 	}
 
-	err := c.facade.FacadeCall("GetLatestSecretsRevisionInfo", args, &results)
+	err := c.facade.FacadeCall("GetConsumerSecretsRevisionInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
 	if len(results.Results) != len(uris) {
 		return nil, errors.Errorf("expected %d result, got %d", len(uris), len(results.Results))
 	}
-	info := make(map[string]SecretRevisionInfo)
+	info := make(map[string]coresecrets.SecretRevisionInfo)
 	for i, latest := range results.Results {
-		if err := results.Results[i].Error; err != nil && err.Code != params.CodeNotFound {
+		if err := results.Results[i].Error; err != nil {
+			// If deleted or now unauthorised, do not report any info for this url.
+			if err.Code == params.CodeNotFound || err.Code == params.CodeUnauthorized {
+				continue
+			}
 			return nil, errors.Annotatef(err, "finding latest info for secret %q", uris[i])
 		}
-		info[uris[i]] = SecretRevisionInfo{
+		info[uris[i]] = coresecrets.SecretRevisionInfo{
 			Revision: latest.Revision,
 			Label:    latest.Label,
 		}
@@ -186,10 +157,57 @@ func (c *Client) GetLatestSecretsRevisionInfo(unitName string, uris []string) (m
 	return info, err
 }
 
+// SecretMetadata returns metadata for the specified secrets.
+func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.SecretOwnerMetadata, error) {
+	arg := params.ListSecretsArgs{
+		Filter: params.SecretsFilter{
+			OwnerTag: filter.OwnerTag,
+			Revision: filter.Revision,
+		},
+	}
+	if filter.URI != nil {
+		uri := filter.URI.String()
+		arg.Filter.URI = &uri
+	}
+	var results params.ListSecretResults
+	err := c.facade.FacadeCall("GetSecretMetadata", arg, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var result []coresecrets.SecretOwnerMetadata
+	for _, info := range results.Results {
+		uri, err := coresecrets.ParseURI(info.URI)
+		if err != nil {
+			return nil, errors.NotValidf("secret URI %q", info.URI)
+		}
+		md := coresecrets.SecretMetadata{
+			URI:              uri,
+			Description:      info.Description,
+			Label:            info.Label,
+			RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),
+			LatestRevision:   info.LatestRevision,
+			LatestExpireTime: info.LatestExpireTime,
+			NextRotateTime:   info.NextRotateTime,
+		}
+		var providerIds []string
+		for _, r := range info.Revisions {
+			if r.ProviderId == nil {
+				continue
+			}
+			providerIds = append(providerIds, *r.ProviderId)
+		}
+		result = append(result, coresecrets.SecretOwnerMetadata{
+			Metadata:    md,
+			ProviderIds: providerIds,
+		})
+	}
+	return result, nil
+}
+
 // WatchSecretsRotationChanges returns a watcher which serves changes to
 // secrets rotation config for any secrets managed by the specified owner.
-func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRotationWatcher, error) {
-	var results params.SecretRotationWatchResults
+func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretTriggerWatcher, error) {
+	var results params.SecretTriggerWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: ownerTag}},
 	}
@@ -208,9 +226,9 @@ func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretRot
 	return w, nil
 }
 
-// SecretRotated records when a secret was last rotated.
-func (c *Client) SecretRotated(uri string, when time.Time) error {
-	secretUri, err := secrets.ParseURI(uri)
+// SecretRotated records the outcome of rotating a secret.
+func (c *Client) SecretRotated(uri string, oldRevision int) error {
+	secretUri, err := coresecrets.ParseURI(uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -218,8 +236,8 @@ func (c *Client) SecretRotated(uri string, when time.Time) error {
 	var results params.ErrorResults
 	args := params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
-			URI:  secretUri.String(),
-			When: when,
+			URI:              secretUri.String(),
+			OriginalRevision: oldRevision,
 		}},
 	}
 	err = c.facade.FacadeCall("SecretsRotated", args, &results)
@@ -243,19 +261,14 @@ type SecretRevokeGrantArgs struct {
 	ApplicationName *string
 	UnitName        *string
 	RelationKey     *string
-	Role            secrets.SecretRole
+	Role            coresecrets.SecretRole
 }
 
 // Grant grants access to the specified secret.
-func (c *Client) Grant(uri string, p *SecretRevokeGrantArgs) error {
-	secretUri, err := secrets.ParseURI(uri)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	args := grantRevokeArgsToParams(p, secretUri)
+func (c *Client) Grant(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
+	args := grantRevokeArgsToParams(p, uri)
 	var results params.ErrorResults
-	err = c.facade.FacadeCall("SecretsGrant", args, &results)
+	err := c.facade.FacadeCall("SecretsGrant", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -269,7 +282,7 @@ func (c *Client) Grant(uri string, p *SecretRevokeGrantArgs) error {
 	return nil
 }
 
-func grantRevokeArgsToParams(p *SecretRevokeGrantArgs, secretUri *secrets.URI) params.GrantRevokeSecretArgs {
+func grantRevokeArgsToParams(p *SecretRevokeGrantArgs, secretUri *coresecrets.URI) params.GrantRevokeSecretArgs {
 	var subjectTag, scopeTag string
 	if p.ApplicationName != nil {
 		subjectTag = names.NewApplicationTag(*p.ApplicationName).String()
@@ -294,15 +307,10 @@ func grantRevokeArgsToParams(p *SecretRevokeGrantArgs, secretUri *secrets.URI) p
 }
 
 // Revoke revokes access to the specified secret.
-func (c *Client) Revoke(uri string, p *SecretRevokeGrantArgs) error {
-	secretUri, err := secrets.ParseURI(uri)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	args := grantRevokeArgsToParams(p, secretUri)
+func (c *Client) Revoke(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
+	args := grantRevokeArgsToParams(p, uri)
 	var results params.ErrorResults
-	err = c.facade.FacadeCall("SecretsRevoke", args, &results)
+	err := c.facade.FacadeCall("SecretsRevoke", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

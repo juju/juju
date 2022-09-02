@@ -326,7 +326,7 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// initial event
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// single change is reported
@@ -342,6 +342,8 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	// changes are coalesced
 	_, err = s.State.EnsureUpgradeInfo(serverIdB, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	_, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
@@ -366,7 +368,7 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// initial event
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// single change is reported
@@ -382,6 +384,8 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	// changes are coalesced
 	_, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(quiescence): these two changes should be one event.
+	wc.AssertOneChange()
 	err = info.SetStatus(state.UpgradeDBComplete)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

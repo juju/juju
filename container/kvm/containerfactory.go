@@ -12,8 +12,7 @@ type containerFactory struct {
 var _ ContainerFactory = (*containerFactory)(nil)
 
 func (factory *containerFactory) New(name string) Container {
-	alwaysFalse := false
-	return factory.new(name, &alwaysFalse)
+	return factory.new(name, nil)
 }
 
 func (factory *containerFactory) List() (result []Container, err error) {
@@ -23,7 +22,6 @@ func (factory *containerFactory) List() (result []Container, err error) {
 	}
 	for hostname, status := range machines {
 		result = append(result, factory.new(hostname, isRunning(status)))
-
 	}
 	return result, nil
 }
@@ -38,9 +36,6 @@ func (factory *containerFactory) new(name string, started *bool) *kvmContainer {
 }
 
 func isRunning(value string) *bool {
-	var result *bool = new(bool)
-	if value == "running" {
-		*result = true
-	}
-	return result
+	result := value == "running"
+	return &result
 }

@@ -10,6 +10,7 @@ run_network_health() {
 	juju deploy ubuntu ubuntu-jammy --series jammy
 
 	# Now the testing charm for each series.
+
 	juju deploy 'juju-qa-network-health' network-health-focal --series focal
 	juju deploy 'juju-qa-network-health' network-health-jammy --series jammy
 
@@ -21,6 +22,7 @@ run_network_health() {
 
 	wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 2)"
 	wait_for "ubuntu-jammy" "$(idle_condition "ubuntu-jammy" 3)"
+
 	wait_for "network-health-focal" "$(idle_subordinate_condition "network-health-focal" "ubuntu-focal")"
 	wait_for "network-health-jammy" "$(idle_subordinate_condition "network-health-jammy" "ubuntu-jammy")"
 
@@ -45,7 +47,8 @@ check_default_routes() {
 check_accessibility() {
 	echo "[+] checking neighbour connectivity and external access"
 
-	for net_health_unit in "network-health-jammy/0" "network-health-focal/0"; do
+	for net_health_unit in "network-health-focal/0" "network-health-jammy/0"; do
+
 		ip="$(juju show-unit $net_health_unit --format json | jq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
 
 		curl_cmd="curl -s http://${ip}:8039"

@@ -498,17 +498,3 @@ func (mr *MockRelationUnitMockRecorder) Settings() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settings", reflect.TypeOf((*MockRelationUnit)(nil).Settings))
 }
-
-// UpdateRelationSettings mocks base method.
-func (m *MockRelationUnit) UpdateRelationSettings(arg0, arg1 params.Settings) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateRelationSettings", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateRelationSettings indicates an expected call of UpdateRelationSettings.
-func (mr *MockRelationUnitMockRecorder) UpdateRelationSettings(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRelationSettings", reflect.TypeOf((*MockRelationUnit)(nil).UpdateRelationSettings), arg0, arg1)
-}

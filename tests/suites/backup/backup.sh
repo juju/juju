@@ -31,7 +31,7 @@ run_basic_backup_restore() {
 	ensure "test-basic-backup-restore" "${file}"
 
 	echo "Deploy a workload (1 machine)"
-	juju deploy cs:~jameinel/ubuntu-lite-7
+	juju deploy jameinel-ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 	juju status --format json | jq '.machines | length' | check 1
 	id0=$(juju status --format json | jq -r '.machines["0"]["instance-id"]')

@@ -50,20 +50,6 @@ func (mr *MockModelUpgraderAPIMockRecorder) AbortModelUpgrade(arg0 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortModelUpgrade", reflect.TypeOf((*MockModelUpgraderAPI)(nil).AbortModelUpgrade), arg0)
 }
 
-// BestAPIVersion mocks base method.
-func (m *MockModelUpgraderAPI) BestAPIVersion() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BestAPIVersion")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// BestAPIVersion indicates an expected call of BestAPIVersion.
-func (mr *MockModelUpgraderAPIMockRecorder) BestAPIVersion() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestAPIVersion", reflect.TypeOf((*MockModelUpgraderAPI)(nil).BestAPIVersion))
-}
-
 // Close mocks base method.
 func (m *MockModelUpgraderAPI) Close() error {
 	m.ctrl.T.Helper()

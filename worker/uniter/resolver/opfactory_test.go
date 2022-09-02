@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -91,7 +91,7 @@ func (s *ResolverOpFactorySuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 func (s *ResolverOpFactorySuite) TestSecretChanged(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 
-	f.RemoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
+	f.RemoteState.SecretInfo = map[string]secrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 

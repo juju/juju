@@ -387,8 +387,9 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 }
 
 // startWorkers starts the worker backends on the *State
-//   * txn log watcher
-//   * txn log pruner
+//   - txn log watcher
+//   - txn log pruner
+//
 // startWorkers will close the *State if it fails.
 func (st *State) startWorkers(hub *pubsub.SimpleHub) (err error) {
 	defer func() {
@@ -2531,24 +2532,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		return errors.Trace(u.AssignToNewMachine())
 	}
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
-}
-
-type hasAdvance interface {
-	Advance(time.Duration)
-}
-
-// StartSync forces watchers to resynchronize their state with the
-// database immediately. This will happen periodically automatically.
-// This method is called only from tests.
-func (st *State) StartSync() {
-	if advanceable, ok := st.clock().(hasAdvance); ok {
-		// The amount of time we advance here just needs to be more
-		// than 10ms as that is the minimum time the txnwatcher
-		// is waiting on, however one second is more human noticeable.
-		// The state testing StateSuite type changes the polling interval
-		// of the pool's txnwatcher to be one second.
-		advanceable.Advance(time.Second)
-	}
 }
 
 // SetAdminMongoPassword sets the administrative password

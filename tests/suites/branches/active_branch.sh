@@ -6,7 +6,7 @@ run_indicate_active_branch_no_active() {
 
 	ensure "indicate-active-branch-no-active" "${file}"
 
-	juju deploy cs:~jameinel/ubuntu-lite-7
+	juju deploy jameinel-ubuntu-lite
 
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
@@ -28,7 +28,7 @@ run_indicate_active_branch_active() {
 
 	ensure "indicate-active-branch-active" "${file}"
 
-	juju deploy cs:~jameinel/ubuntu-lite-7
+	juju deploy jameinel-ubuntu-lite
 
 	juju add-branch bla
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"

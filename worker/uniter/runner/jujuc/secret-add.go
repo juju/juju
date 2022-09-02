@@ -150,10 +150,10 @@ func (c *secretAddCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *secretAddCommand) Run(ctx *cmd.Context) error {
-	id, err := c.ctx.CreateSecret(c.marshallArg())
+	uri, err := c.ctx.CreateSecret(c.marshallArg())
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(ctx.Stdout, id)
+	fmt.Fprintln(ctx.Stdout, uri.ShortString())
 	return nil
 }

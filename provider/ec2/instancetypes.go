@@ -94,7 +94,8 @@ func virtType(info types.InstanceTypeInfo) *string {
 // list at the time of writing.
 //
 // See:
-//     http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html#vpc-only-instance-types
+//
+//	http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html#vpc-only-instance-types
 func supportsClassic(instanceType string) bool {
 	classicTypes := set.NewStrings(
 		"c1", "c3",

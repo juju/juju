@@ -17,9 +17,9 @@ type secretRevokeCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	uri  string
-	app  string
-	unit string
+	secretURL *secrets.URI
+	app       string
+	unit      string
 
 	relationId      int
 	relationIdProxy gnuflag.Value
@@ -43,7 +43,8 @@ Revoke access to view the value of a specified secret.
 Access may be revoked from an application (all units of
 that application lose access), or from a specified unit.
 If run in a relation hook, the related application's 
-access is revoked.
+access is revoked, unless a uni is specified, in which
+case just that unit's access is revoked.'
 
 Examples:
     secret-revoke secret:9m4e2mr0ui3e8a215n4g
@@ -73,31 +74,35 @@ func (c *secretRevokeCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret URI")
 	}
-	c.uri = args[0]
-	if _, err := secrets.ParseURI(c.uri); err != nil {
+	var err error
+	if c.secretURL, err = secrets.ParseURI(args[0]); err != nil {
 		return errors.Trace(err)
 	}
-	count := 0
-	if c.relationId >= 0 {
-		count++
-	}
 	if c.app != "" {
-		count++
 		if !names.IsValidApplication(c.app) {
 			return errors.NotValidf("application %q", c.app)
 		}
 	}
 	if c.unit != "" {
-		count++
 		if !names.IsValidUnit(c.unit) {
 			return errors.NotValidf("unit %q", c.unit)
 		}
 	}
-	if count == 0 {
-		return errors.New("missing relation or application or unit")
+	if c.app != "" && c.unit != "" {
+		return errors.New("specify only one of application or unit")
 	}
-	if count != 1 {
-		return errors.New("specify only one of relation or application or unit")
+	if c.relationId >= 0 {
+		r, err := c.ctx.Relation(c.relationId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if c.app != "" {
+			return errors.New("do not specify both relation and app")
+		}
+		c.app = r.RemoteApplicationName()
+	}
+	if c.app == "" && c.unit == "" {
+		return errors.New("missing relation or application or unit")
 	}
 	return cmd.CheckEmpty(args[1:])
 }
@@ -111,21 +116,6 @@ func (c *secretRevokeCommand) Run(_ *cmd.Context) error {
 	if c.unit != "" {
 		args.UnitName = &c.unit
 	}
-	if c.relationId >= 0 {
-		r, err := c.ctx.Relation(c.relationId)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		key := r.RelationTag().Id()
-		args.RelationKey = &key
-		remoteAppName, err := remoteAppForRelation(c.ctx, c.unit)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if remoteAppName != "" {
-			args.ApplicationName = &remoteAppName
-		}
-	}
 
-	return c.ctx.RevokeSecret(c.uri, args)
+	return c.ctx.RevokeSecret(c.secretURL, args)
 }

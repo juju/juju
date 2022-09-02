@@ -76,7 +76,7 @@ func (m *WorkerMatcher) checkOnce() bool {
 }
 
 // WaitMatch returns only when the match func succeeds, or it times out.
-func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration, sync func()) {
+func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration) {
 	timeout := time.After(maxWait)
 	for {
 		if match() {
@@ -84,7 +84,6 @@ func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration, sync func()) {
 		}
 		select {
 		case <-time.After(coretesting.ShortWait):
-			sync()
 		case <-timeout:
 			c.Fatalf("timed out waiting for workers")
 		}
@@ -118,7 +117,7 @@ func (tracker *EngineTracker) Workers(id string) set.Strings {
 // only work if you hack up the relevant engine-starting code to
 // include:
 //
-//    manifolds["self"] = dependency.SelfManifold(engine)
+//	manifolds["self"] = dependency.SelfManifold(engine)
 //
 // or otherwise inject a suitable "self" manifold.
 func (tracker *EngineTracker) Report(id string) map[string]interface{} {

@@ -11,6 +11,7 @@ series:
   - bionic
   - eoan
   - focal
+  - jammy
 
 resources:
   foo:

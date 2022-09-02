@@ -5,4 +5,4 @@
 // Run 'go generate' to regenerate the mock interfaces.
 package testing
 
-//go:generate go run github.com/golang/mock/mockgen -package testing -destination lxd_mock.go -write_package_comment=false github.com/lxc/lxd/client Operation,RemoteOperation,Server,ImageServer,ContainerServer
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination lxd_mock.go -write_package_comment=false github.com/lxc/lxd/client Operation,RemoteOperation,Server,ImageServer,InstanceServer

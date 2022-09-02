@@ -13,15 +13,13 @@ import (
 )
 
 type SecretGrantSuite struct {
-	ContextSuite
+	relationSuite
 }
 
 var _ = gc.Suite(&SecretGrantSuite{})
 
 func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
-	hctx, info := s.ContextSuite.NewHookContext()
-	info.SetNewRelation(1, "db", s.Stub)
-	info.SetAsRelationHook(1, "mediawiki/0")
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	for _, t := range []struct {
 		args []string
@@ -55,9 +53,7 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
 }
 
 func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
-	hctx, info := s.ContextSuite.NewHookContext()
-	info.SetNewRelation(1, "db", s.Stub)
-	info.SetAsRelationHook(1, "mediawiki/0")
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,16 +65,15 @@ func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
 
 	c.Assert(code, gc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
-		RelationKey: ptr("wordpress:db mediawiki:db"),
+		RelationKey:     ptr("wordpress:db mediawiki:db"),
+		ApplicationName: ptr("mediawiki"),
 	}
-	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "GrantSecret")
-	s.Stub.CheckCall(c, 6, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
+	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "RemoteApplicationName", "GrantSecret")
+	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
 }
 
 func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
-	hctx, info := s.ContextSuite.NewHookContext()
-	info.SetNewRelation(1, "db", s.Stub)
-	info.SetAsRelationHook(1, "mediawiki/0")
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,14 +90,12 @@ func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
 		ApplicationName: ptr("mediawiki"),
 		UnitName:        ptr("mediawiki/0"),
 	}
-	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "RemoteApplicationName", "RemoteUnitName", "Relation", "RelationTag", "GrantSecret")
-	s.Stub.CheckCall(c, 8, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
+	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "RemoteApplicationName", "GrantSecret")
+	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
 }
 
 func (s *SecretGrantSuite) TestGrantSecretWrongUnit(c *gc.C) {
-	hctx, info := s.ContextSuite.NewHookContext()
-	info.SetNewRelation(1, "db", s.Stub)
-	info.SetAsRelationHook(1, "mediawiki/0")
+	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
 	com, err := jujuc.NewCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)

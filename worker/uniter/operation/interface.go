@@ -4,8 +4,6 @@
 package operation
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/v3/exec"
@@ -243,8 +241,8 @@ type Callbacks interface {
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
 
-	// SetSecretRotated updates the time when the secret was rotated.
-	SetSecretRotated(url string, when time.Time) error
+	// SetSecretRotated updates the secret rotation status.
+	SetSecretRotated(url string, originalRevision int) error
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

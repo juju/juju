@@ -295,7 +295,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Check that the Watch has consumed the initial events ("returned" in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, w.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	s.State.UpdateCloudCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, nil))

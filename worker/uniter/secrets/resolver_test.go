@@ -4,27 +4,30 @@
 package secrets_test
 
 import (
-	"time"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/life"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/operation/mocks"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	runnermocks "github.com/juju/juju/worker/uniter/runner/mocks"
 	"github.com/juju/juju/worker/uniter/secrets"
 )
 
 type rotateSecretsSuite struct {
 	remoteState   remotestate.Snapshot
 	mockCallbacks *mocks.MockCallbacks
+	mockFactory   *runnermocks.MockFactory
+	mockRunner    *runnermocks.MockRunner
+	mockContext   *runnermocks.MockContext
 	opFactory     operation.Factory
 	resolver      resolver.Resolver
 	rotatedSecret func(string)
@@ -51,9 +54,13 @@ func (s *rotateSecretsSuite) SetUpTest(_ *gc.C) {
 func (s *rotateSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockCallbacks = mocks.NewMockCallbacks(ctlr)
+	s.mockFactory = runnermocks.NewMockFactory(ctlr)
+	s.mockRunner = runnermocks.NewMockRunner(ctlr)
+	s.mockContext = runnermocks.NewMockContext(ctlr)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
-		Callbacks: s.mockCallbacks,
-		Logger:    loggo.GetLogger("test"),
+		Callbacks:     s.mockCallbacks,
+		RunnerFactory: s.mockFactory,
+		Logger:        loggo.GetLogger("test"),
 	})
 	return ctlr
 }
@@ -133,30 +140,37 @@ func (s *rotateSecretsSuite) TestRotateCommit(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	var rotatedURL string
-	s.rotatedSecret = func(url string) {
-		rotatedURL = url
+	uri := coresecrets.NewURI()
+	s.remoteState.SecretRotations = []string{uri.String()}
+	var rotatedURI string
+	s.rotatedSecret = func(uri string) {
+		rotatedURI = uri
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
 	hi := hook.Info{
 		Kind:      hooks.SecretRotate,
-		SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
+		SecretURI: uri.String(),
 	}
-	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
-	now := time.Now()
-	s.mockCallbacks.EXPECT().SetSecretRotated("secret:9m4e2mr0ui3e8a215n4g", gomock.Any()).DoAndReturn(
-		func(url string, when time.Time) error {
-			c.Assert(url, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-			c.Assert(when.After(now), jc.IsTrue)
-			return nil
+	s.mockCallbacks.EXPECT().PrepareHook(hi).Return("", nil)
+	s.mockFactory.EXPECT().NewHookRunner(hi).Return(s.mockRunner, nil)
+	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
+	s.mockContext.EXPECT().Prepare().Return(nil)
+	s.mockContext.EXPECT().SecretMetadata().Return(map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			LatestRevision: 666,
 		},
-	)
+	}, nil)
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
+	s.mockCallbacks.EXPECT().SetSecretRotated(uri.String(), 666).Return(nil)
+
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rotatedURL, gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(rotatedURI, gc.Equals, uri.String())
 }
 
 type changeSecretsSuite struct {
@@ -190,7 +204,7 @@ func (s *changeSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 			Kind: operation.Continue,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -207,7 +221,7 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -228,7 +242,7 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
 			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -249,7 +263,7 @@ func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]secretsmanager.SecretRevisionInfo{
+	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)

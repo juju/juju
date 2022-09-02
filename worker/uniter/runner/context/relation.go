@@ -27,8 +27,7 @@ type Relation interface {
 	// Suspended returns the relation's current suspended status.
 	Suspended() bool
 
-	// Refresh refreshes the contents of the relation from the underlying
-	// state.
+	// SetStatus updates the status of the relation.
 	SetStatus(status relation.Status) error
 
 	// Tag returns the relation tag.
@@ -61,10 +60,6 @@ type RelationUnit interface {
 	// Settings returns a Settings which allows access to the unit's settings
 	// within the relation.
 	Settings() (*uniter.Settings, error)
-
-	// UpdateRelationSettings is used to record any changes to settings for
-	// this unit and application.
-	UpdateRelationSettings(unit, application params.Settings) error
 }
 
 type RelationUnitShim struct {
@@ -155,12 +150,6 @@ func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 		ctx.applicationSettings = settings
 	}
 	return ctx.applicationSettings, nil
-}
-
-// WriteSettings persists all changes made to the relation settings (unit and application)
-func (ctx *ContextRelation) WriteSettings() error {
-	unitSettings, appSettings := ctx.FinalSettings()
-	return errors.Trace(ctx.ru.UpdateRelationSettings(unitSettings, appSettings))
 }
 
 // FinalSettings returns the changes made to the relation settings (unit and application)

@@ -76,7 +76,7 @@ var txnRunner = func(db *mgo.Database) jujutxn.Runner {
 	return jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  db,
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 	})
 }

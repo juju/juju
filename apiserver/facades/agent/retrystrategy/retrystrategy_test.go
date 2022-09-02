@@ -196,7 +196,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
 	s.setRetryStrategy(c, false)

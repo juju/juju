@@ -454,6 +454,7 @@ type EntityPortRange struct {
 
 // EntitiesPortRanges holds the parameters for making an OpenPorts or
 // ClosePorts on some entities.
+// TODO(juju3) - remove
 type EntitiesPortRanges struct {
 	Entities []EntityPortRange `json:"entities"`
 }

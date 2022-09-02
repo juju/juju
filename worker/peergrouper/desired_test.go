@@ -576,8 +576,9 @@ func memberTag(id string) map[string]string {
 // description.
 // Each member in the description is white-space separated and holds the decimal
 // replica-set id optionally followed by the characters:
-//	- 'v' if the member is voting.
-// 	- 'T' if the member has no associated controller tags.
+//   - 'v' if the member is voting.
+//   - 'T' if the member has no associated controller tags.
+//
 // Unless the T flag is specified, the controller tag
 // will be the replica-set id + 10.
 func mkMembers(description string, ipVersion TestIPVersion) []replicaset.Member {
@@ -614,9 +615,9 @@ var stateFlags = map[rune]replicaset.MemberState{
 // description.
 // Each member in the description is white-space separated  and holds the
 // decimal replica-set id optionally followed by the characters:
-// 	- 'H' if the instance is not healthy.
-//	- 'p' if the instance is in PrimaryState
-//	- 's' if the instance is in SecondaryState
+//   - 'H' if the instance is not healthy.
+//   - 'p' if the instance is in PrimaryState
+//   - 's' if the instance is in SecondaryState
 func mkStatuses(description string, ipVersion TestIPVersion) []replicaset.MemberStatus {
 	descrs := parseDescr(description)
 	ss := make([]replicaset.MemberStatus, len(descrs))

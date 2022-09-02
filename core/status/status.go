@@ -236,7 +236,7 @@ const (
 	MessageWaitForMachine    = "waiting for machine"
 	MessageWaitForContainer  = "waiting for container"
 	MessageInstallingAgent   = "installing agent"
-	MessageInitializingAgent = "agent initializing"
+	MessageInitializingAgent = "agent initialising"
 	MessageInstallingCharm   = "installing charm software"
 )
 

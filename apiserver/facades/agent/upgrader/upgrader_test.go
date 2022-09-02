@@ -89,7 +89,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
@@ -120,7 +120,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
@@ -154,7 +154,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
@@ -187,7 +187,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))

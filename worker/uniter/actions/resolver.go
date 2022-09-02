@@ -52,7 +52,7 @@ func (r *actionsResolver) NextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
-) (_ operation.Operation, err error) {
+) (op operation.Operation, err error) {
 	// During CAAS unit initialization action operations are
 	// deferred until the unit is running. If the remote charm needs
 	// updating, hold off on action running.
@@ -80,7 +80,12 @@ func (r *actionsResolver) NextOp(
 
 	defer func() {
 		if errors.Cause(err) == charmrunner.ErrActionNotAvailable {
-			err = resolver.ErrNoOperation
+			if localState.Step == operation.Pending && localState.ActionId != nil {
+				r.logger.Infof("found missing action %v; ignoring", *localState.ActionId)
+				op, err = opFactory.NewFailAction(*localState.ActionId)
+			} else {
+				err = resolver.ErrNoOperation
+			}
 		}
 	}()
 

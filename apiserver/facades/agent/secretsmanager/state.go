@@ -15,7 +15,7 @@ import (
 // SecretsRotation instances provide secret rotation apis.
 type SecretsRotation interface {
 	WatchSecretsRotationChanges(owner string) state.SecretsRotationWatcher
-	SecretRotated(uri *secrets.URI, when time.Time) error
+	SecretRotated(uri *secrets.URI, next time.Time) error
 }
 
 // SecretsConsumer instances provide secret consumer apis.
@@ -23,6 +23,17 @@ type SecretsConsumer interface {
 	GetSecretConsumer(*secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
 	SaveSecretConsumer(*secrets.URI, string, *secrets.SecretConsumerMetadata) error
 	WatchConsumedSecretsChanges(string) state.StringsWatcher
-	GrantSecret(uri *secrets.URI, scope names.Tag, subject names.Tag, role secrets.SecretRole) error
-	RevokeSecret(uri *secrets.URI, scope names.Tag, subject names.Tag) error
+	GrantSecretAccess(*secrets.URI, state.SecretAccessParams) error
+	RevokeSecretAccess(*secrets.URI, state.SecretAccessParams) error
+	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
+}
+
+type SecretsBackend interface {
+	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
+	UpdateSecret(*secrets.URI, state.UpdateSecretParams) (*secrets.SecretMetadata, error)
+	DeleteSecret(*secrets.URI) error
+	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
+	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
+	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
+	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 }

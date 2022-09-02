@@ -55,7 +55,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  catalogue,
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          3,
 	})

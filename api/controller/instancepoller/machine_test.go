@@ -278,11 +278,13 @@ var entitiesArgs = params.Entities{
 // - the Error field is of type *params.Error
 //
 // Example:
-//   err := apiservertesting.ServerError("foo")
-//   r := MakeResultsWithErrors(params.LifeResults{}, err, 2)
-// is equvalent to:
-//   r := params.LifeResults{Results: []params.LifeResult{{Error: err}, {Error: err}}}
 //
+//	err := apiservertesting.ServerError("foo")
+//	r := MakeResultsWithErrors(params.LifeResults{}, err, 2)
+//
+// is equvalent to:
+//
+//	r := params.LifeResults{Results: []params.LifeResult{{Error: err}, {Error: err}}}
 func MakeResultsWithErrors(resultsRef interface{}, err *params.Error, howMany int) interface{} {
 	// Make a new instance of the same type as resultsRef.
 	resultsType := reflect.TypeOf(resultsRef)

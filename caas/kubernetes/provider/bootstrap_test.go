@@ -641,6 +641,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				Requests: core.ResourceList{
 					core.ResourceMemory: resource.MustParse("4000Mi"),
 				},
+				Limits: core.ResourceList{
+					core.ResourceMemory: resource.MustParse("4000Mi"),
+				},
 			},
 			Env: []core.EnvVar{
 				{

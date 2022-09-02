@@ -75,28 +75,32 @@ func AllWorkloadOSTypes(requestedSeries, imageStream string) (set.Strings, error
 }
 
 func seriesForTypes(path string, now time.Time, requestedSeries, imageStream string) (*supportedInfo, error) {
-	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruent with the Ubuntu release cycle for its own series (not
-	// including centos), so that should be reflected here.
-	//
 	// For non-LTS releases; they'll appear in juju/os as default available, but
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
 	// the non-LTS should disappear if they're not in the release window for that
 	// series.
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
-	composeSeriesVersions()
+	updateSeriesVersionsOnce()
+	all := getAllSeriesVersions()
 	if requestedSeries != "" && imageStream == Daily {
-		setSupported(allSeriesVersions, requestedSeries)
+		setSupported(all, requestedSeries)
 	}
-
 	source := series.NewDistroInfo(path)
-	supported := newSupportedInfo(source, allSeriesVersions)
+	supported := newSupportedInfo(source, all)
 	if err := supported.compile(now); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return supported, nil
+}
+
+func getAllSeriesVersions() map[SeriesName]seriesVersion {
+	copy := make(map[SeriesName]seriesVersion, len(allSeriesVersions))
+	for name, v := range allSeriesVersions {
+		copy[name] = v
+	}
+	return copy
 }
 
 // GetOSFromSeries will return the operating system based
@@ -144,7 +148,12 @@ func updateSeriesVersions() error {
 	switch hostOS {
 	case jujuos.Ubuntu:
 		for seriesName, s := range sInfo {
-			ubuntuSeries[SeriesName(seriesName)] = seriesVersion{
+			key := SeriesName(seriesName)
+			if _, known := ubuntuSeries[key]; known {
+				// We only update unknown/new series.
+				continue
+			}
+			ubuntuSeries[key] = seriesVersion{
 				WorkloadType:             ControllerWorkloadType,
 				Version:                  s.Version,
 				LTS:                      s.LTS,

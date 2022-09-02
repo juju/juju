@@ -253,7 +253,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -290,7 +290,7 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -425,56 +425,6 @@ func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
 	c.Assert(address, gc.Equals, "a-zone")
 }
 
-func (s *unitSuite) TestOpenPorts(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "OpenPorts")
-		c.Assert(arg, gc.DeepEquals, params.EntitiesPortRanges{
-			Entities: []params.EntityPortRange{{
-				Tag:      "unit-mysql-0",
-				Protocol: "TCP",
-				FromPort: 1,
-				ToPort:   100,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
-		}
-		return nil
-	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.OpenPorts("TCP", 1, 100)
-	c.Assert(err, gc.ErrorMatches, "biff")
-}
-
-func (s *unitSuite) TestClosePorts(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "ClosePorts")
-		c.Assert(arg, gc.DeepEquals, params.EntitiesPortRanges{
-			Entities: []params.EntityPortRange{{
-				Tag:      "unit-mysql-0",
-				Protocol: "TCP",
-				FromPort: 1,
-				ToPort:   100,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
-		}
-		return nil
-	})
-	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.ClosePorts("TCP", 1, 100)
-	c.Assert(err, gc.ErrorMatches, "biff")
-}
-
 func (s *unitSuite) TestCharmURL(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
@@ -597,7 +547,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -629,7 +579,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchTrustConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -661,7 +611,7 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchAddressesHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -692,7 +642,7 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchUpgradeSeriesNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -973,7 +923,7 @@ func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	w, err := unit.WatchInstanceData()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event.

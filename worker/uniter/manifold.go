@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/observability/probe"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/secretrotate"
@@ -89,46 +90,46 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.CharmDirName,
 			config.HookRetryStrategyName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 			// Collect all required resources.
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := ctx.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			var apiConn api.Connection
-			if err := context.Get(config.APICallerName, &apiConn); err != nil {
+			if err := ctx.Get(config.APICallerName, &apiConn); err != nil {
 				// TODO(fwereade): absence of an APICaller shouldn't be the end of
 				// the world -- we ought to return a type that can at least run the
 				// leader-deposed hook -- but that's not done yet.
 				return nil, err
 			}
 			var leadershipTracker leadership.TrackerWorker
-			if err := context.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
+			if err := ctx.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}
 			leadershipTrackerFunc := func(_ names.UnitTag) leadership.TrackerWorker {
 				return leadershipTracker
 			}
 			var charmDirGuard fortress.Guard
-			if err := context.Get(config.CharmDirName, &charmDirGuard); err != nil {
+			if err := ctx.Get(config.CharmDirName, &charmDirGuard); err != nil {
 				return nil, err
 			}
 
 			var hookRetryStrategy params.RetryStrategy
-			if err := context.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
+			if err := ctx.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
 				return nil, err
 			}
 
 			downloader := charms.NewCharmDownloader(apiConn)
 
+			jujuSecretsAPI := secretsmanager.NewClient(apiConn)
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
-				client := secretsmanager.NewClient(apiConn)
 				appName, _ := names.UnitApplication(unitTag.Id())
 				return secretrotate.New(secretrotate.Config{
-					SecretManagerFacade: client,
+					SecretManagerFacade: jujuSecretsAPI,
 					Clock:               config.Clock,
 					Logger:              config.Logger.Child("secretsrotate"),
 					SecretOwner:         names.NewApplicationTag(appName),
@@ -150,11 +151,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			payloadFacade := uniter.NewPayloadFacadeClient(apiConn)
 
+			secretsStoreGetter := func() (secrets.Store, error) {
+				return secrets.NewClient(jujuSecretsAPI)
+			}
+
 			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:                 uniter.NewState(apiConn, unitTag),
 				ResourcesFacade:              resourcesFacade,
 				PayloadFacade:                payloadFacade,
-				SecretsFacade:                secretsmanager.NewClient(apiConn),
+				SecretsClient:                jujuSecretsAPI,
+				SecretsStoreGetter:           secretsStoreGetter,
 				UnitTag:                      unitTag,
 				ModelType:                    config.ModelType,
 				LeadershipTrackerFunc:        leadershipTrackerFunc,
