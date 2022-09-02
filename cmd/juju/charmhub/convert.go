@@ -39,12 +39,7 @@ func convertCharmInfoResult(info transport.InfoResponse, arch, series string) (I
 	}
 
 	for _, base := range info.DefaultRelease.Revision.Bases {
-		var s string
-		if isKubernetes {
-			s = "kubernetes"
-		} else {
-			s, _ = coreseries.VersionSeries(base.Channel)
-		}
+		s, _ := coreseries.VersionSeries(base.Channel)
 		if s != "" {
 			ir.Series = append(ir.Series, s)
 		}
