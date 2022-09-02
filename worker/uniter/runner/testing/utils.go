@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/juju/sockets"
+	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -146,6 +147,7 @@ func (ft *FakeTicket) Ready() <-chan struct{} {
 
 type SecretsContextAccessor struct {
 	context.SecretsAccessor
+	jujusecrets.Store
 }
 
 func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {

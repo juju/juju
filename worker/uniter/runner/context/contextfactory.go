@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/worker/uniter/runner/context/resources"
@@ -72,17 +73,12 @@ type SecretsAccessor interface {
 	// metadata for secrets.
 	SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error)
 
-	// GetContent is used by secrets-get to fetch the
-	// content of a secret.
-	GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
-
-	// SaveContent is used when flushing the context to save secret
-	// content to a secrets store.
-	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
-
-	// DeleteContent deletes a secret from a secrets store.
-	DeleteContent(providerId string) error
+	// SecretRotated records the outcome of rotating a secret.
+	SecretRotated(uri string, oldRevision int) error
 }
+
+// SecretsStoreGetter creates a secrets store client.
+type SecretsStoreGetter func() (jujusecrets.Store, error)
 
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
@@ -90,12 +86,13 @@ type RelationsFunc func() map[int]*RelationInfo
 
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit      *uniter.Unit
-	state     *uniter.State
-	resources *uniter.ResourcesFacadeClient
-	payloads  *uniter.PayloadFacadeClient
-	secrets   SecretsAccessor
-	tracker   leadership.Tracker
+	unit               *uniter.Unit
+	state              *uniter.State
+	resources          *uniter.ResourcesFacadeClient
+	payloads           *uniter.PayloadFacadeClient
+	secretsClient      SecretsAccessor
+	secretsStoreGetter SecretsStoreGetter
+	tracker            leadership.Tracker
 
 	logger loggo.Logger
 
@@ -121,17 +118,18 @@ type contextFactory struct {
 // FactoryConfig contains configuration values
 // for the context factory.
 type FactoryConfig struct {
-	State            *uniter.State
-	Secrets          SecretsAccessor
-	Unit             *uniter.Unit
-	Resources        *uniter.ResourcesFacadeClient
-	Payloads         *uniter.PayloadFacadeClient
-	Tracker          leadership.Tracker
-	GetRelationInfos RelationsFunc
-	Storage          StorageContextAccessor
-	Paths            Paths
-	Clock            Clock
-	Logger           loggo.Logger
+	State              *uniter.State
+	SecretsClient      SecretsAccessor
+	SecretsStoreGetter SecretsStoreGetter
+	Unit               *uniter.Unit
+	Resources          *uniter.ResourcesFacadeClient
+	Payloads           *uniter.PayloadFacadeClient
+	Tracker            leadership.Tracker
+	GetRelationInfos   RelationsFunc
+	Storage            StorageContextAccessor
+	Paths              Paths
+	Clock              Clock
+	Logger             loggo.Logger
 }
 
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
@@ -164,25 +162,26 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	}
 
 	f := &contextFactory{
-		unit:             config.Unit,
-		state:            config.State,
-		resources:        config.Resources,
-		payloads:         config.Payloads,
-		secrets:          config.Secrets,
-		tracker:          config.Tracker,
-		logger:           config.Logger,
-		paths:            config.Paths,
-		modelUUID:        m.UUID,
-		modelName:        m.Name,
-		machineTag:       machineTag,
-		getRelationInfos: config.GetRelationInfos,
-		relationCaches:   map[int]*RelationCache{},
-		storage:          config.Storage,
-		rand:             rand.New(rand.NewSource(time.Now().Unix())),
-		clock:            config.Clock,
-		zone:             zone,
-		principal:        principal,
-		modelType:        m.ModelType,
+		unit:               config.Unit,
+		state:              config.State,
+		resources:          config.Resources,
+		payloads:           config.Payloads,
+		secretsClient:      config.SecretsClient,
+		secretsStoreGetter: config.SecretsStoreGetter,
+		tracker:            config.Tracker,
+		logger:             config.Logger,
+		paths:              config.Paths,
+		modelUUID:          m.UUID,
+		modelName:          m.Name,
+		machineTag:         machineTag,
+		getRelationInfos:   config.GetRelationInfos,
+		relationCaches:     map[int]*RelationCache{},
+		storage:            config.Storage,
+		rand:               rand.New(rand.NewSource(time.Now().Unix())),
+		clock:              config.Clock,
+		zone:               zone,
+		principal:          principal,
+		modelType:          m.ModelType,
 	}
 	return f, nil
 }
@@ -203,7 +202,8 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
-		secrets:            f.secrets,
+		secretsClient:      f.secretsClient,
+		secretsStoreGetter: f.secretsStoreGetter,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
@@ -405,7 +405,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 	owner := f.unit.ApplicationTag().String()
-	info, err := ctx.secrets.SecretMetadata(secrets.Filter{
+	info, err := ctx.secretsClient.SecretMetadata(secrets.Filter{
 		OwnerTag: &owner,
 	})
 	if err != nil {

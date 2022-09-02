@@ -26,8 +26,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	jujusecrets "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
@@ -922,12 +920,9 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("wordpress/0"))
 	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
-	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-	secretsClient, err := secrets.NewClient(jujuSecretsAPI, &provider.StoreConfig{StoreType: jujusecrets.Store})
-	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, secretsClient)
+	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, nil, nil)
 
-	err = hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
+	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
 	c.Assert(err, jc.ErrorIsNil)
 	cancel := make(chan struct{})
 	context.WithActionContext(hookContext, nil, cancel)
@@ -965,8 +960,22 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	call := 0
 	uri := coresecrets.NewURI()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if call == 0 {
+			call++
+			c.Assert(objType, gc.Equals, "SecretsManager")
+			c.Assert(version, gc.Equals, 0)
+			c.Assert(id, gc.Equals, "")
+			c.Assert(request, gc.Equals, "GetSecretStoreConfig")
+			c.Assert(arg, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.SecretStoreConfig{})
+			*(result.(*params.SecretStoreConfig)) = params.SecretStoreConfig{
+				StoreType: "juju",
+			}
+			return nil
+		}
 		c.Assert(objType, gc.Equals, "SecretsManager")
 		c.Assert(version, gc.Equals, 0)
 		c.Assert(id, gc.Equals, "")
@@ -990,9 +999,9 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-	secretsClient, err := secrets.NewClient(jujuSecretsAPI, &provider.StoreConfig{StoreType: jujusecrets.Store})
+	secretsStore, err := secrets.NewClient(jujuSecretsAPI)
 	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, secretsClient)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsStore)
 
 	value, err := hookContext.GetSecret(uri, "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1031,9 +1040,7 @@ func (s *mockHookContextSuite) TestSecretCreate(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-	secretsClient, err := secrets.NewClient(jujuSecretsAPI, &provider.StoreConfig{StoreType: jujusecrets.Store})
-	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, "", nil, secretsClient)
+	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
 
 	uri, err := hookContext.CreateSecret(&jujuc.SecretUpsertArgs{
 		Value:        value,
@@ -1068,7 +1075,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
 		uri.ID: {Description: "a secret", LatestRevision: 666},
-	}, nil)
+	}, nil, nil)
 	err := hookContext.UpdateSecret(uri, &jujuc.SecretUpsertArgs{
 		Value:        value,
 		RotatePolicy: ptr(coresecrets.RotateDaily),
@@ -1096,7 +1103,7 @@ func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
 	err := hookContext.RemoveSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, []*coresecrets.URI{uri})
@@ -1131,13 +1138,11 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-	secretsClient, err := secrets.NewClient(jujuSecretsAPI, &provider.StoreConfig{StoreType: jujusecrets.Store})
-	c.Assert(err, jc.ErrorIsNil)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, secretsClient)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, nil)
 
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
-	err = hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
@@ -1156,7 +1161,7 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 	uri := coresecrets.NewURI()
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
 	app := "mariadb"
 	relationKey := "wordpress:db mysql:server"
 	err := hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{

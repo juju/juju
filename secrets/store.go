@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -23,7 +22,11 @@ type secretsClient struct {
 
 // NewClient returns a new secret client configured to use the specified
 // secret store as a content backend.
-func NewClient(jujuAPI jujuAPIClient, cfg *provider.StoreConfig) (*secretsClient, error) {
+func NewClient(jujuAPI jujuAPIClient) (*secretsClient, error) {
+	cfg, err := jujuAPI.GetSecretStoreConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	p, err := provider.Provider(cfg.StoreType)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -36,16 +39,6 @@ func NewClient(jujuAPI jujuAPIClient, cfg *provider.StoreConfig) (*secretsClient
 		jujuAPI: jujuAPI,
 		store:   store,
 	}, nil
-}
-
-// CreateSecretURIs implements Client.
-func (c *secretsClient) CreateSecretURIs(count int) ([]*secrets.URI, error) {
-	return c.jujuAPI.CreateSecretURIs(count)
-}
-
-// GetConsumerSecretsRevisionInfo implements Client.
-func (c *secretsClient) GetConsumerSecretsRevisionInfo(unitName string, secretURIs []string) (map[string]secrets.SecretRevisionInfo, error) {
-	return c.jujuAPI.GetConsumerSecretsRevisionInfo(unitName, secretURIs)
 }
 
 // GetContent implements Client.
@@ -82,19 +75,4 @@ func (c *secretsClient) DeleteContent(providerId string) error {
 		return errors.NotSupportedf("deleting secret content from external store")
 	}
 	return c.store.DeleteContent(context.Background(), providerId)
-}
-
-// SecretMetadata implements Client.
-func (c *secretsClient) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
-	return c.jujuAPI.SecretMetadata(filter)
-}
-
-// WatchSecretsChanges implements Client.
-func (c *secretsClient) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
-	return c.jujuAPI.WatchSecretsChanges(unitName)
-}
-
-// SecretRotated implements Client.
-func (c *secretsClient) SecretRotated(uri string, oldRevision int) error {
-	return c.jujuAPI.SecretRotated(uri, oldRevision)
 }

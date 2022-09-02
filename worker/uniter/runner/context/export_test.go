@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -36,7 +37,8 @@ type HookContextParams struct {
 	AssignedMachineTag  names.MachineTag
 	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
-	Secrets             SecretsAccessor
+	SecretsClient       SecretsAccessor
+	SecretsStore        jujusecrets.Store
 	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
 	Clock               Clock
@@ -69,7 +71,8 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		assignedMachineTag:  hcParams.AssignedMachineTag,
 		storage:             hcParams.Storage,
 		storageTag:          hcParams.StorageTag,
-		secrets:             hcParams.Secrets,
+		secretsClient:       hcParams.SecretsClient,
+		secretsStoreGetter:  func() (jujusecrets.Store, error) { return hcParams.SecretsStore, nil },
 		secretMetadata:      hcParams.SecretMetadata,
 		clock:               hcParams.Clock,
 		logger:              loggo.GetLogger("test"),
@@ -132,10 +135,13 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 }
 
 // SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
-func SetEnvironmentHookContextSecret(context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor) {
+func SetEnvironmentHookContextSecret(
+	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, store jujusecrets.Store,
+) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
-	context.secrets = client
+	context.secretsClient = client
+	context.secretsStore = store
 	context.secretMetadata = metadata
 }
 

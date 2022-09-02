@@ -201,13 +201,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 			jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-			storeCfg, err := jujuSecretsAPI.GetSecretStoreConfig()
-			if err != nil {
-				return nil, err
-			}
-			secretsClient, err := secrets.NewClient(jujuSecretsAPI, storeCfg)
-			if err != nil {
-				return nil, err
+			secretsStoreGetter := func() (secrets.Store, error) {
+				return secrets.NewClient(jujuSecretsAPI)
 			}
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
 				appName, _ := names.UnitApplication(unitTag.Id())
@@ -267,7 +262,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
 				HookRetryStrategy:       hookRetryStrategy,
 				TranslateResolverErr:    config.TranslateResolverErr,
-				SecretsClient:           secretsClient,
+				SecretsClient:           jujuSecretsAPI,
+				SecretsStoreGetter:      secretsStoreGetter,
 				SecretRotateWatcherFunc: secretRotateWatcherFunc,
 				Logger:                  wCfg.Logger.Child("uniter"),
 			}

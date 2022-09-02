@@ -28,6 +28,11 @@ func newSecretsChangeRecorder(logger loggo.Logger) *secretsChangeRecorder {
 	}
 }
 
+func (s *secretsChangeRecorder) haveContentUpdates() bool {
+	return len(s.pendingCreates) > 0 || len(s.pendingUpdates) > 0 ||
+		len(s.pendingDeletes) > 0
+}
+
 func (s *secretsChangeRecorder) create(arg uniter.SecretCreateArg) {
 	for i, d := range s.pendingDeletes {
 		if d.ID == arg.URI.ID {

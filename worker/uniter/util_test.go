@@ -47,9 +47,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	jujusecrets "github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
-	jujusecretsprovider "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -143,7 +141,8 @@ type testContext struct {
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
 	secretsRotateCh        chan []string
-	secretsClient          jujusecrets.Client
+	secretsClient          *secretsmanager.Client
+	secretsStore           jujusecrets.Store
 	err                    string
 
 	wg             sync.WaitGroup
@@ -221,8 +220,8 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
-	jujuSecretsAPI := secretsmanager.NewClient(apiConn)
-	ctx.secretsClient, err = jujusecrets.NewClient(jujuSecretsAPI, &provider.StoreConfig{StoreType: jujusecretsprovider.Store})
+	ctx.secretsClient = secretsmanager.NewClient(apiConn)
+	ctx.secretsStore, err = jujusecrets.NewClient(ctx.secretsClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -601,6 +600,9 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
 		},
 		SecretsClient: ctx.secretsClient,
+		SecretsStoreGetter: func() (jujusecrets.Store, error) {
+			return ctx.secretsStore, nil
+		},
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1701,7 +1703,7 @@ func (s changeSecret) step(c *gc.C, ctx *testContext) {
 type getSecret struct{}
 
 func (s getSecret) step(c *gc.C, ctx *testContext) {
-	val, err := ctx.secretsClient.GetContent(ctx.createdSecretURI, "foorbar", false, false)
+	val, err := ctx.secretsStore.GetContent(ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
 }

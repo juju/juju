@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
@@ -148,8 +149,13 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
-	// secrets allows the context to access the secrets backend.
-	secrets SecretsAccessor
+	// secretsClient allows the context to access the secrets backend.
+	secretsClient SecretsAccessor
+
+	// secretsStoreGetter is used to get a client to access the secrets store.
+	secretsStoreGetter SecretsStoreGetter
+	// secretsStore is the secrets store client, created only when needed.
+	secretsStore secrets.Store
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -737,9 +743,25 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+func (ctx *HookContext) getSecretsStore() (secrets.Store, error) {
+	if ctx.secretsStore != nil {
+		return ctx.secretsStore, nil
+	}
+	var err error
+	ctx.secretsStore, err = ctx.secretsStoreGetter()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.secretsStore, nil
+}
+
 // GetSecret returns the value of the specified secret.
 func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
-	v, err := ctx.secrets.GetContent(uri, label, update, peek)
+	store, err := ctx.getSecretsStore()
+	if err != nil {
+		return nil, err
+	}
+	v, err := store.GetContent(uri, label, update, peek)
 	if err != nil {
 		return nil, err
 	}
@@ -755,7 +777,7 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (*coresecrets
 	if !isLeader {
 		return nil, ErrIsNotLeader
 	}
-	uris, err := ctx.secrets.CreateSecretURIs(1)
+	uris, err := ctx.secretsClient.CreateSecretURIs(1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1312,11 +1334,19 @@ func (ctx *HookContext) doFlush(process string) error {
 	// Before saving the secret metadata to Juju, save the content to an external
 	// store (if configured) - we need the provider id to send to Juju.
 	// If the flush to Juju fails, we'll delete the external content.
+	var secretsStore secrets.Store
+	if ctx.secretChanges.haveContentUpdates() {
+		var err error
+		secretsStore, err = ctx.getSecretsStore()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	var cleanups []string
 	pendingCreates := make([]uniter.SecretCreateArg, len(ctx.secretChanges.pendingCreates))
 	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
 	for i, c := range ctx.secretChanges.pendingCreates {
-		providerId, err := ctx.secrets.SaveContent(c.URI, 1, c.Value)
+		providerId, err := secretsStore.SaveContent(c.URI, 1, c.Value)
 		if errors.IsNotSupported(err) {
 			pendingCreates[i] = c
 			continue
@@ -1332,7 +1362,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	for i, u := range ctx.secretChanges.pendingUpdates {
 		// Juju checks that the current revision is stable when updating metadata so it's
 		// safe to increment here knowing the same value will be saved in Juju.
-		providerId, err := ctx.secrets.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
+		providerId, err := secretsStore.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
 		if errors.IsNotSupported(err) {
 			pendingUpdates[i] = u.SecretUpsertArg
 			continue
@@ -1365,7 +1395,7 @@ func (ctx *HookContext) doFlush(process string) error {
 			ctx.logger.Errorf("cannot apply changes: %v", err)
 		cleanupDone:
 			for _, secretId := range cleanups {
-				if err2 := ctx.secrets.DeleteContent(secretId); err2 != nil {
+				if err2 := secretsStore.DeleteContent(secretId); err2 != nil {
 					if errors.IsNotSupported(err) {
 						break cleanupDone
 					}
@@ -1384,7 +1414,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 	deleteDone:
 		for _, secretId := range md.ProviderIds {
-			if err := ctx.secrets.DeleteContent(secretId); err != nil {
+			if err := secretsStore.DeleteContent(secretId); err != nil {
 				if errors.IsNotSupported(err) {
 					break deleteDone
 				}

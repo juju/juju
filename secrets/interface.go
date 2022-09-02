@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/secrets/provider"
 )
 
 const (
@@ -73,36 +73,15 @@ func (p *UpdateParams) Validate() error {
 	return p.SecretConfig.Validate()
 }
 
-type baseClient interface {
-	// CreateSecretURIs generates new secret URIs.
-	CreateSecretURIs(int) ([]*secrets.URI, error)
-
-	// SecretMetadata returns metadata for the specified secrets.
-	SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error)
-
-	// GetConsumerSecretsRevisionInfo returns the current revision and labels for secrets consumed
-	// by the specified unit.
-	GetConsumerSecretsRevisionInfo(unitName string, uri []string) (map[string]secrets.SecretRevisionInfo, error)
-
-	// WatchSecretsChanges returns a watcher which serves changes to
-	// secrets payloads for any secrets consumed by the specified unit.
-	WatchSecretsChanges(unit string) (watcher.StringsWatcher, error)
-
-	// SecretRotated records the outcome of rotating a secret.
-	SecretRotated(uri string, oldRevision int) error
-}
-
 type jujuAPIClient interface {
-	baseClient
-
 	// GetContentInfo returns info about the content of a secret.
 	GetContentInfo(uri *secrets.URI, label string, update, peek bool) (*ContentParams, error)
+	// GetSecretStoreConfig fetches the config needed to make a secret store client.
+	GetSecretStoreConfig() (*provider.StoreConfig, error)
 }
 
-// Client provides access to a secrets api facade.
-type Client interface {
-	baseClient
-
+// Store provides access to a secrets store.
+type Store interface {
 	// GetContent returns the content of a secret, either from an external store if
 	// one is configured, or from Juju.
 	GetContent(uri *secrets.URI, label string, update, peek bool) (secrets.SecretValue, error)
