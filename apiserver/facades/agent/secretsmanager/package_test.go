@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
@@ -20,7 +21,7 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstore.go github.com/juju/juju/state SecretsStore
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsBackend
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationservice.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsRotation
@@ -31,9 +32,10 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	leadership leadership.Checker,
-	store SecretsStore,
+	backend SecretsBackend,
 	consumer SecretsConsumer,
 	secretsRotation SecretsRotation,
+	storeConfigGetter commonsecrets.StoreConfigGetter,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -47,9 +49,10 @@ func NewTestAPI(
 		modelUUID:         coretesting.ModelTag.Id(),
 		resources:         resources,
 		leadershipChecker: leadership,
-		secretsStore:      store,
+		secretsBackend:    backend,
 		secretsConsumer:   consumer,
 		secretsRotation:   secretsRotation,
+		storeConfigGetter: storeConfigGetter,
 		clock:             clock,
 	}, nil
 }

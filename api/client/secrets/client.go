@@ -61,7 +61,6 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 				LatestExpireTime: r.LatestExpireTime,
 				Description:      r.Description,
 				Label:            r.Label,
-				ProviderID:       r.ProviderID,
 				CreateTime:       r.CreateTime,
 				UpdateTime:       r.UpdateTime,
 			},

@@ -524,6 +524,7 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(nexRotateTime),
+			Data:           map[string]string{"foo": "bar"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

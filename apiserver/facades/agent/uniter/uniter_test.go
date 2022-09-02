@@ -4656,7 +4656,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	c.Assert(md.Description, gc.Equals, "a secret")
 	c.Assert(md.Label, gc.Equals, "foobar")
 	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
-	val, err := store.GetSecretValue(uri, 2)
+	val, _, err := store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
 	access, err := s.State.SecretAccess(uri, s.mysql.Tag())

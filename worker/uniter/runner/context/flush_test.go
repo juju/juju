@@ -356,6 +356,9 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.secretMetadata = map[string]jujuc.SecretMetadata{
+		uri.ID: {Description: "some secret", LatestRevision: 1},
+	}
 	ctx := s.context(c)
 
 	err = ctx.UpdateSecret(uri, &jujuc.SecretUpsertArgs{
@@ -376,10 +379,10 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	md, err := store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.Description, gc.Equals, "")
-	val, err := store.GetSecretValue(uri, 1)
+	val, _, err := store.GetSecretValue(uri, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
-	val, err = store.GetSecretValue(uri, 2)
+	val, _, err = store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Flush the context with a success.
@@ -394,7 +397,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	c.Assert(md.Description, gc.Equals, "a secret")
 	c.Assert(md.Label, gc.Equals, "foobar")
 	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
-	val, err = store.GetSecretValue(uri, 2)
+	val, _, err = store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
 	access, err := s.State.SecretAccess(uri, s.application.Tag())

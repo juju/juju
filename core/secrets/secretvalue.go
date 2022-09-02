@@ -53,6 +53,16 @@ func NewSecretValue(data map[string]string) SecretValue {
 	return &secretValue{data: dataCopy}
 }
 
+// NewSecretBytes returns a secret using the specified map of values.
+// The map values are assumed to be already base64 encoded.
+func NewSecretBytes(data map[string][]byte) SecretValue {
+	dataCopy := make(map[string][]byte, len(data))
+	for k, v := range data {
+		dataCopy[k] = append([]byte(nil), v...)
+	}
+	return &secretValue{data: dataCopy}
+}
+
 // EncodedValues implements SecretValue.
 func (v *secretValue) EncodedValues() map[string]string {
 	dataCopy := make(map[string]string, len(v.data))

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
@@ -148,8 +149,13 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
-	// secrets allows the context to access the secrets backend.
-	secrets SecretsAccessor
+	// secretsClient allows the context to access the secrets backend.
+	secretsClient SecretsAccessor
+
+	// secretsStoreGetter is used to get a client to access the secrets store.
+	secretsStoreGetter SecretsStoreGetter
+	// secretsStore is the secrets store client, created only when needed.
+	secretsStore secrets.Store
 
 	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
@@ -737,9 +743,25 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+func (ctx *HookContext) getSecretsStore() (secrets.Store, error) {
+	if ctx.secretsStore != nil {
+		return ctx.secretsStore, nil
+	}
+	var err error
+	ctx.secretsStore, err = ctx.secretsStoreGetter()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.secretsStore, nil
+}
+
 // GetSecret returns the value of the specified secret.
 func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, peek bool) (coresecrets.SecretValue, error) {
-	v, err := ctx.secrets.GetContent(uri, label, update, peek)
+	store, err := ctx.getSecretsStore()
+	if err != nil {
+		return nil, err
+	}
+	v, err := store.GetContent(uri, label, update, peek)
 	if err != nil {
 		return nil, err
 	}
@@ -755,7 +777,7 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (*coresecrets
 	if !isLeader {
 		return nil, ErrIsNotLeader
 	}
-	uris, err := ctx.secrets.CreateSecretURIs(1)
+	uris, err := ctx.secretsClient.CreateSecretURIs(1)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -786,13 +808,20 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUps
 	if !isLeader {
 		return ErrIsNotLeader
 	}
-	ctx.secretChanges.update(uniter.SecretUpsertArg{
-		URI:          uri,
-		RotatePolicy: args.RotatePolicy,
-		ExpireTime:   args.ExpireTime,
-		Description:  args.Description,
-		Label:        args.Label,
-		Value:        args.Value,
+	md, ok := ctx.secretMetadata[uri.ID]
+	if !ok {
+		return errors.NotFoundf("secret %q", uri.ShortString())
+	}
+	ctx.secretChanges.update(uniter.SecretUpdateArg{
+		SecretUpsertArg: uniter.SecretUpsertArg{
+			URI:          uri,
+			RotatePolicy: args.RotatePolicy,
+			ExpireTime:   args.ExpireTime,
+			Description:  args.Description,
+			Label:        args.Label,
+			Value:        args.Value,
+		},
+		CurrentRevision: md.LatestRevision,
 	})
 	return nil
 }
@@ -815,7 +844,7 @@ func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI) error {
 func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error) {
 	pendingUpdatesByID := make(map[string]uniter.SecretUpsertArg)
 	for _, u := range ctx.secretChanges.pendingUpdates {
-		pendingUpdatesByID[u.URI.ID] = u
+		pendingUpdatesByID[u.URI.ID] = u.SecretUpsertArg
 	}
 	pendingDeletes := set.NewStrings()
 	for _, r := range ctx.secretChanges.pendingDeletes {
@@ -1302,8 +1331,53 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.AddStorage(ctx.storageAddConstraints)
 	}
 
-	b.AddSecretCreates(ctx.secretChanges.pendingCreates)
-	b.AddSecretUpdates(ctx.secretChanges.pendingUpdates)
+	// Before saving the secret metadata to Juju, save the content to an external
+	// store (if configured) - we need the provider id to send to Juju.
+	// If the flush to Juju fails, we'll delete the external content.
+	var secretsStore secrets.Store
+	if ctx.secretChanges.haveContentUpdates() {
+		var err error
+		secretsStore, err = ctx.getSecretsStore()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	var cleanups []string
+	pendingCreates := make([]uniter.SecretCreateArg, len(ctx.secretChanges.pendingCreates))
+	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
+	for i, c := range ctx.secretChanges.pendingCreates {
+		providerId, err := secretsStore.SaveContent(c.URI, 1, c.Value)
+		if errors.IsNotSupported(err) {
+			pendingCreates[i] = c
+			continue
+		}
+		if err != nil {
+			return errors.Annotatef(err, "saving content for secret %q", c.URI.ID)
+		}
+		cleanups = append(cleanups, providerId)
+		c.ProviderId = &providerId
+		c.Value = nil
+		pendingCreates[i] = c
+	}
+	for i, u := range ctx.secretChanges.pendingUpdates {
+		// Juju checks that the current revision is stable when updating metadata so it's
+		// safe to increment here knowing the same value will be saved in Juju.
+		providerId, err := secretsStore.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
+		if errors.IsNotSupported(err) {
+			pendingUpdates[i] = u.SecretUpsertArg
+			continue
+		}
+		if err != nil {
+			return errors.Annotatef(err, "saving content for secret %q", u.URI.ID)
+		}
+		cleanups = append(cleanups, providerId)
+		u.ProviderId = &providerId
+		u.Value = nil
+		pendingUpdates[i] = u.SecretUpsertArg
+	}
+
+	b.AddSecretCreates(pendingCreates)
+	b.AddSecretUpdates(pendingUpdates)
 	b.AddSecretDeletes(ctx.secretChanges.pendingDeletes)
 	b.AddSecretGrants(ctx.secretChanges.pendingGrants)
 	b.AddSecretRevokes(ctx.secretChanges.pendingRevokes)
@@ -1319,7 +1393,33 @@ func (ctx *HookContext) doFlush(process string) error {
 	if numChanges > 0 {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
 			ctx.logger.Errorf("cannot apply changes: %v", err)
+		cleanupDone:
+			for _, secretId := range cleanups {
+				if err2 := secretsStore.DeleteContent(secretId); err2 != nil {
+					if errors.IsNotSupported(err) {
+						break cleanupDone
+					}
+					ctx.logger.Errorf("cannot cleanup secret %q: %v", secretId, err2)
+				}
+			}
 			return errors.Trace(err)
+		}
+	}
+
+	// When Juju has been updated, we can remove any secrets from the store.
+	for _, uri := range ctx.secretChanges.pendingDeletes {
+		md, ok := ctx.secretMetadata[uri.ID]
+		if !ok {
+			continue
+		}
+	deleteDone:
+		for _, secretId := range md.ProviderIds {
+			if err := secretsStore.DeleteContent(secretId); err != nil {
+				if errors.IsNotSupported(err) {
+					break deleteDone
+				}
+				return errors.Annotatef(err, "cannot delete secret %q from store: %v", secretId, err)
+			}
 		}
 	}
 

@@ -222,6 +222,8 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
 		Storage:             s.storage,
 		SecretMetadata:      s.secretMetadata,
+		SecretsClient:       s.secrets,
+		SecretsStore:        s.secrets,
 		StorageTag:          storageTag,
 		Paths:               runnertesting.NewRealPaths(c),
 		Clock:               s.clock,
