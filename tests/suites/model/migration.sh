@@ -71,7 +71,7 @@ run_model_migration_version() {
 	echo "stable_version ==> $stable_version"
 	if [[ $stable_version == "--" || $stable_version == null ]]; then
 		echo "==> SKIP: run_model_migration_version because $channel is not published yet!"
-		exit 0
+		return
 	fi
 	export JUJU_VERSION=$stable_version
 
