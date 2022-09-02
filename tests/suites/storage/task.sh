@@ -13,10 +13,7 @@ test_storage() {
 
 	bootstrap "test-storage" "${file}"
 
-  test_block_storage
-  test_rootfs_storage
-  test_tmpfs_storage
-  test_fs_storage
+  test_charm_storage
 
 	destroy_controller "test-storage"
 }
