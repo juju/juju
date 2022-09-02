@@ -40,6 +40,7 @@ func (c *statusCommand) formatSummary(writer io.Writer, value interface{}) error
 // - Headers:
 //   - All subnets the environment occupies.
 //   - All ports the environment utilizes.
+//
 // - Sections:
 //   - Machines: Displays total #, and then the # in each state.
 //   - Units: Displays total #, and then # in each state.

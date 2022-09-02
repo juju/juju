@@ -9,6 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/api/client/secrets"
+	secrets0 "github.com/juju/juju/core/secrets"
 )
 
 // MockListSecretsAPI is a mock of ListSecretsAPI interface.
@@ -49,16 +50,16 @@ func (mr *MockListSecretsAPIMockRecorder) Close() *gomock.Call {
 }
 
 // ListSecrets mocks base method.
-func (m *MockListSecretsAPI) ListSecrets(arg0 bool) ([]secrets.SecretDetails, error) {
+func (m *MockListSecretsAPI) ListSecrets(arg0 bool, arg1 secrets0.Filter) ([]secrets.SecretDetails, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSecrets", arg0)
+	ret := m.ctrl.Call(m, "ListSecrets", arg0, arg1)
 	ret0, _ := ret[0].([]secrets.SecretDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListSecrets indicates an expected call of ListSecrets.
-func (mr *MockListSecretsAPIMockRecorder) ListSecrets(arg0 interface{}) *gomock.Call {
+func (mr *MockListSecretsAPIMockRecorder) ListSecrets(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockListSecretsAPI)(nil).ListSecrets), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockListSecretsAPI)(nil).ListSecrets), arg0, arg1)
 }

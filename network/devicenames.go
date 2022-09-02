@@ -181,11 +181,11 @@ func parseDeviceNames(args ...string) devices {
 //
 // For example, sorting:
 //
-//  [ br-eth10 br-eth1 br-eth2 ]
+//	[ br-eth10 br-eth1 br-eth2 ]
 //
 // would sort as:
 //
-//  [ br-eth1 br-eth2 br-eth10 ]
+//	[ br-eth1 br-eth2 br-eth10 ]
 //
 // In purely alphabetical sorting "br-eth10" would be sorted before
 // "br-eth2" because "1" is sorted as smaller than "2", while in
@@ -196,12 +196,11 @@ func parseDeviceNames(args ...string) devices {
 //
 // For example, sorting:
 //
-//  [ br-eth2 br-eth10.10 br-eth200.0 br-eth1.0 br-eth2.0 ]
+//	[ br-eth2 br-eth10.10 br-eth200.0 br-eth1.0 br-eth2.0 ]
 //
 // would sort as:
 //
-//  [ br-eth1.0 br-eth2 br-eth2.0 br-eth10.10 br-eth200.0 ]
-//
+//	[ br-eth1.0 br-eth2 br-eth2.0 br-eth10.10 br-eth200.0 ]
 func NaturallySortDeviceNames(names ...string) []string {
 	if names == nil {
 		return nil

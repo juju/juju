@@ -224,7 +224,7 @@ type importedSSHKey struct {
 	err         error
 }
 
-//  Override for testing
+// Override for testing
 var RunSSHImportId = runSSHImportId
 
 func runSSHImportId(keyId string) (string, error) {

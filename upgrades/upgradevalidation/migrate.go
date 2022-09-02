@@ -21,7 +21,7 @@ func ValidatorsForModelMigrationSource(
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
-			getCheckForLXDVersion(cloudspec, minLXDVersion),
+			getCheckForLXDVersion(cloudspec),
 		)
 	}
 	return validators

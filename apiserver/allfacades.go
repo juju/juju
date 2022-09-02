@@ -101,7 +101,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/raftlease"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
-	"github.com/juju/juju/apiserver/facades/controller/resumer"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
@@ -195,7 +194,6 @@ func AllFacades() *facade.Registry {
 	remoterelations.Register(registry)
 	resources.Register(registry)
 	resourceshookcontext.Register(registry)
-	resumer.Register(registry)
 	retrystrategy.Register(registry)
 	singular.Register(registry)
 	secrets.Register(registry)

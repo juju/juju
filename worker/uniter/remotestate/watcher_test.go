@@ -13,9 +13,9 @@ import (
 	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -235,7 +235,7 @@ func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:       map[string]int{},
 		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
-		SecretInfo:          map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:          map[string]secrets.SecretRevisionInfo{},
 	})
 }
 
@@ -247,7 +247,7 @@ func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 		ActionChanged:       map[string]int{},
 		ActionsBlocked:      true,
 		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
-		SecretInfo:          map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:          map[string]secrets.SecretRevisionInfo{},
 	})
 }
 
@@ -258,7 +258,7 @@ func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *gc.C) {
 		Storage:             map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:       map[string]int{},
 		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
-		SecretInfo:          map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:          map[string]secrets.SecretRevisionInfo{},
 	})
 }
 
@@ -329,7 +329,7 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
 		UpgradeSeriesTarget:   "focal",
-		SecretInfo:            map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:            map[string]secrets.SecretRevisionInfo{},
 	})
 }
 
@@ -353,7 +353,7 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
-		SecretInfo:            map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:            map[string]secrets.SecretRevisionInfo{},
 	})
 }
 
@@ -379,7 +379,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ActionsBlocked:         true,
 		ActionChanged:          map[string]int{},
 		ContainerRunningStatus: nil,
-		SecretInfo:             map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:             map[string]secrets.SecretRevisionInfo{},
 	})
 
 	t := time.Now()
@@ -416,7 +416,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ActionChanged:          map[string]int{},
 		ProviderID:             s.st.unit.providerID,
 		ContainerRunningStatus: s.running,
-		SecretInfo:             map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:             map[string]secrets.SecretRevisionInfo{},
 	})
 
 	s.running = &remotestate.ContainerRunningStatus{
@@ -451,7 +451,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		ActionChanged:          map[string]int{},
 		ProviderID:             s.st.unit.providerID,
 		ContainerRunningStatus: s.running,
-		SecretInfo:             map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:             map[string]secrets.SecretRevisionInfo{},
 	})
 }
 
@@ -489,7 +489,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	s.secretsClient.secretsWatcher.changes <- secretURIs
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{
+	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {
 			Revision: 666,
 			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
@@ -1061,7 +1061,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 
 	s.secretsClient.secretsWatcher.changes <- secretURIs
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secretsmanager.SecretRevisionInfo{
+	c.Assert(s.watcher.Snapshot().SecretInfo, jc.DeepEquals, map[string]secrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {
 			Revision: 666,
 			Label:    "label-secret:9m4e2mr0ui3e8a215n4g",
@@ -1123,7 +1123,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
-		SecretInfo:            map[string]secretsmanager.SecretRevisionInfo{},
+		SecretInfo:            map[string]secrets.SecretRevisionInfo{},
 	})
 }
 

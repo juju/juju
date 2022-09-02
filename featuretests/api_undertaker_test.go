@@ -137,7 +137,7 @@ func (s *undertakerSuite) TestWatchModelResources(c *gc.C) {
 	w, err := undertakerClient.WatchModelResources()
 	c.Assert(err, jc.ErrorIsNil)
 	defer w.Kill()
-	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 	wc.AssertStops()
 }

@@ -75,12 +75,12 @@ def assess_cloud_provisioning(bs_manager, series=None):
     add-machine, remove-machine and destroy-controller.  It does not test
     charms.
 
-    It tests "xenial" and "win2012r2" as representative series on Azure.  It
-    tests "xenial" rather than "bionic" because "bionic" will be used for
+    It tests "focal" and "win2012r2" as representative series on Azure.  It
+    tests "focal" rather than "jammy" because "jammy" will be used for
     bootstrap by default.
     """
     if series is None:
-        series = ['win2012r2', 'xenial', 'centos7']
+        series = ['win2012r2', 'focal', 'centos7']
     logging.info(
         'Testing provisioning for series: {}'.format(', '.join(series)))
     client = bs_manager.client

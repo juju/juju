@@ -55,6 +55,7 @@ type ContextSuite struct {
 	apiUnit     *uniter.Unit
 	payloads    *uniter.PayloadFacadeClient
 	storage     *runnertesting.StorageContextAccessor
+	secrets     *runnertesting.SecretsContextAccessor
 
 	apiRelunits map[int]*uniter.RelationUnit
 	relch       *state.Charm
@@ -80,6 +81,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.secrets = &runnertesting.SecretsContextAccessor{}
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,6 +118,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
+		SecretsClient:    s.secrets,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           loggo.GetLogger("test"),

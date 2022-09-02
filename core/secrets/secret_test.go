@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/rs/xid"
 	gc "gopkg.in/check.v1"
@@ -108,4 +110,26 @@ func (s *SecretURISuite) TestNew(c *gc.C) {
 	c.Assert(URI.ControllerUUID, gc.Equals, "")
 	_, err := xid.FromString(URI.ID)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type SecretSuite struct{}
+
+var _ = gc.Suite(&SecretSuite{})
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *SecretSuite) TestValidateConfig(c *gc.C) {
+	cfg := secrets.SecretConfig{
+		RotatePolicy: ptr(secrets.RotateDaily),
+	}
+	err := cfg.Validate()
+	c.Assert(err, gc.ErrorMatches, "cannot specify a secret rotate policy without a next rotate time")
+
+	cfg = secrets.SecretConfig{
+		NextRotateTime: ptr(time.Now()),
+	}
+	err = cfg.Validate()
+	c.Assert(err, gc.ErrorMatches, "cannot specify a secret rotate time without a rotate policy")
 }

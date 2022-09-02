@@ -8,52 +8,48 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
-	"github.com/juju/juju/secrets/provider/juju"
+	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsManager", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newSecretManagerAPI(ctx)
+		return NewSecretManagerAPI(ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
 
-// newSecretManagerAPI creates a SecretsManagerAPI.
-func newSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
+// NewSecretManagerAPI creates a SecretsManagerAPI.
+func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	// Work out the app name associated with the agent since this is
-	// the secret owner for newly created secrets.
-	agentTag := context.Auth().GetAuthTag()
-	agentAppName := agentTag.Id()
-	if agentTag.Kind() == names.UnitTagKind {
-		agentAppName, _ = names.UnitApplication(agentAppName)
-	}
-
-	// For now we just support the Juju secrets provider.
-	service, err := provider.NewSecretProvider(juju.Provider, secrets.ProviderConfig{
-		juju.ParamBackend: context.State(),
-	})
+	secretsBackend := state.NewSecrets(context.State())
+	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
-		return nil, errors.Annotate(err, "creating juju secrets service")
+		return nil, errors.Trace(err)
+	}
+	secretStoreConfigGetter := func() (*provider.StoreConfig, error) {
+		model, err := context.State().Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return secrets.StoreConfig(model)
 	}
 	return &SecretsManagerAPI{
-		authTag:         context.Auth().GetAuthTag(),
-		controllerUUID:  context.State().ControllerUUID(),
-		modelUUID:       context.State().ModelUUID(),
-		secretsService:  service,
-		resources:       context.Resources(),
-		secretsRotation: context.State(),
-		secretsConsumer: context.State(),
-		manageSecret:    secretOwner(agentAppName),
-		canRead:         canReadSecret(context.Auth()),
-		clock:           clock.WallClock,
+		authTag:           context.Auth().GetAuthTag(),
+		controllerUUID:    context.State().ControllerUUID(),
+		modelUUID:         context.State().ModelUUID(),
+		leadershipChecker: leadershipChecker,
+		secretsBackend:    secretsBackend,
+		resources:         context.Resources(),
+		secretsRotation:   context.State(),
+		secretsConsumer:   context.State(),
+		clock:             clock.WallClock,
+		storeConfigGetter: secretStoreConfigGetter,
 	}, nil
 }

@@ -63,7 +63,6 @@ func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 	case <-ctx.inited.triggered():
 		timeout := time.After(testing.LongWait)
 		for {
-			ctx.st.StartSync()
 			select {
 			case <-timeout:
 				got, err := ctx.DeployedUnits()

@@ -5,12 +5,15 @@ package watcher_test
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
@@ -27,13 +30,10 @@ type TxnWatcherSuite struct {
 	mgotesting.MgoSuite
 	testing.BaseSuite
 
-	log          *mgo.Collection
-	stash        *mgo.Collection
-	runner       jujutxn.Runner
-	w            *watcher.TxnWatcher
-	ch           chan watcher.Change
-	iteratorFunc func(collection *mgo.Collection) mongo.Iterator
-	clock        *testclock.Clock
+	runner jujutxn.Runner
+	w      *watcher.TxnWatcher
+	ch     chan watcher.Change
+	clock  clock.Clock
 }
 
 var _ = gc.Suite(&TxnWatcherSuite{})
@@ -51,13 +51,7 @@ func (s *TxnWatcherSuite) TearDownSuite(c *gc.C) {
 func (s *TxnWatcherSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
-
-	db := s.MgoSuite.Session.DB("juju")
-	s.log = db.C("testingsstxns.log")
-	s.log.Create(&mgo.CollectionInfo{})
-	s.stash = db.C("txn.stash")
-	s.clock = testclock.NewClock(time.Now())
-	s.iteratorFunc = nil
+	s.clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
 }
 
 func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
@@ -65,15 +59,8 @@ func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 }
 
-func (s *TxnWatcherSuite) advanceTime(c *gc.C, d time.Duration, waiters int) {
-	// Here we are assuming that there is one and only one thing
-	// using the After function on the testing clock, that being our
-	// watcher.
-	c.Assert(s.clock.WaitAdvance(d, testing.ShortWait, waiters), jc.ErrorIsNil)
-}
-
 func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, *fakeHub) {
-	return s.newWatcherWithError(c, expect, nil)
+	return s.newWatcherWithError(c, expect, nil, watcher.TxnWatcherConfig{})
 }
 
 func (s *TxnWatcherSuite) newRunner(c *gc.C) {
@@ -82,42 +69,42 @@ func (s *TxnWatcherSuite) newRunner(c *gc.C) {
 		s.runner = nil
 		runnerSession.Close()
 	})
+	runnerSession.SetMode(mgo.Strong, true)
 	s.runner = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  runnerSession.DB("juju"),
 		TransactionCollectionName: "txn",
-		ChangeLogName:             s.log.Name,
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          3,
 	})
 }
 
-func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error) (*watcher.TxnWatcher, *fakeHub) {
+func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error, baseConfig watcher.TxnWatcherConfig) (*watcher.TxnWatcher, *fakeHub) {
 	hub := newFakeHub(c, expect)
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
 
 	session := s.MgoSuite.Session.New()
-	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
-		Session:        session,
-		JujuDBName:     "juju",
-		CollectionName: s.log.Name,
-		Hub:            hub,
-		Clock:          s.clock,
-		Logger:         logger,
-		IteratorFunc:   s.iteratorFunc,
-	})
+	baseConfig.Session = session
+	baseConfig.JujuDBName = "juju"
+	baseConfig.Hub = hub
+	baseConfig.Clock = s.clock
+	baseConfig.Logger = logger
+	baseConfig.PollInterval = testing.ShortWait
+	w, err := watcher.NewTxnWatcher(baseConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		if watcherError == nil {
 			c.Check(w.Stop(), jc.ErrorIsNil)
 		} else {
-			c.Check(w.Stop(), gc.Equals, watcherError)
+			err := w.Stop()
+			c.Check(errors.Is(err, watcherError), jc.IsTrue,
+				gc.Commentf("%s should match error %s", err.Error(), watcherError.Error()))
 		}
 		session.Close()
 	})
-
-	// Synchronize, otherwise the tests will race.
-	w.Report()
+	err = w.Ready()
+	c.Assert(err, jc.ErrorIsNil)
 	return w, hub
 }
 
@@ -125,7 +112,7 @@ func (s *TxnWatcherSuite) revno(c *gc.C, coll string, id interface{}) (revno int
 	var doc struct {
 		Revno int64 `bson:"txn-revno"`
 	}
-	err := s.log.Database.C(coll).FindId(id).One(&doc)
+	err := s.Session.DB("juju").C(coll).FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.Revno
 }
@@ -168,6 +155,20 @@ func (s *TxnWatcherSuite) update(c *gc.C, coll string, id interface{}) (revno in
 	return revno
 }
 
+func (s *TxnWatcherSuite) updateTwice(c *gc.C, coll string, id interface{}) (revno int64) {
+	ops := []txn.Op{
+		{C: coll, Id: id, Update: M{"$inc": M{"n": 1}}},
+		{C: coll, Id: id, Update: M{"$inc": M{"n": 1}, "$set": M{"x": "y"}}},
+	}
+	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
+		return ops, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	revno = s.revno(c, coll, id)
+	c.Logf("update(%#v, %#v) => revno %d", coll, id, revno)
+	return revno
+}
+
 func (s *TxnWatcherSuite) remove(c *gc.C, coll string, id interface{}) (revno int64) {
 	ops := []txn.Op{{C: coll, Id: id, Remove: true}}
 	err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
@@ -201,7 +202,6 @@ func (s *TxnWatcherSuite) TestInsert(c *gc.C) {
 
 	revno := s.insert(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected()
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -216,7 +216,6 @@ func (s *TxnWatcherSuite) TestUpdate(c *gc.C) {
 	_, hub := s.newWatcher(c, 1)
 	revno := s.update(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected()
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -231,7 +230,6 @@ func (s *TxnWatcherSuite) TestRemove(c *gc.C) {
 	_, hub := s.newWatcher(c, 1)
 	revno := s.remove(c, "test", "a")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected()
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -247,28 +245,6 @@ func (s *TxnWatcherSuite) TestWatchOrder(c *gc.C) {
 	revno2 := s.insert(c, "test", "b")
 	revno3 := s.insert(c, "test", "c")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
-	hub.waitForExpected()
-
-	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno1},
-		{"test", "b", revno2},
-		{"test", "c", revno3},
-	})
-}
-
-func (s *TxnWatcherSuite) TestMissingOplogCollection(c *gc.C) {
-	db := s.MgoSuite.Session.DB("juju")
-	s.log = db.C("missingsstxns.log")
-
-	s.newRunner(c)
-	_, hub := s.newWatcher(c, 3)
-
-	revno1 := s.insert(c, "test", "a")
-	revno2 := s.insert(c, "test", "b")
-	revno3 := s.insert(c, "test", "c")
-
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected()
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -284,7 +260,6 @@ func (s *TxnWatcherSuite) TestTransactionWithMultiple(c *gc.C) {
 
 	revnos := s.insertAll(c, "test", "a", "b", "c")
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected()
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
@@ -319,7 +294,6 @@ func (s *TxnWatcherSuite) TestScale(c *gc.C) {
 	c.Logf("Got %d documents in the collection...", count)
 	c.Assert(count, gc.Equals, N)
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	hub.waitForExpected()
 
 	for i := 0; i < N; i++ {
@@ -332,9 +306,7 @@ func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
 	_, hub := s.newWatcher(c, 2)
 
 	revno1 := s.insert(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
 	revno2 := s.remove(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 2)
 
 	hub.waitForExpected()
 
@@ -344,69 +316,117 @@ func (s *TxnWatcherSuite) TestInsertThenRemove(c *gc.C) {
 	})
 }
 
-func (s *TxnWatcherSuite) TestDoubleUpdate(c *gc.C) {
+func (s *TxnWatcherSuite) TestMultiUpdateSameDocSameTxn(c *gc.C) {
 	s.newRunner(c)
 	_, hub := s.newWatcher(c, 2)
 
-	hub.setupSync()
 	revno1 := s.insert(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
-	hub.waitSync()
-
-	s.update(c, "test", "a")
-	revno3 := s.update(c, "test", "a")
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 2)
+	revno2 := s.updateTwice(c, "test", "a")
 
 	hub.waitForExpected()
 
 	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
 		{"test", "a", revno1},
-		{"test", "a", revno3},
+		{"test", "a", revno2},
 	})
 }
 
-func (s *TxnWatcherSuite) TestErrorRetry(c *gc.C) {
-	syncCh := make(chan struct{}, 1)
-	s.PatchValue(&watcher.TxnPollNotifyFunc, func() {
-		syncCh <- struct{}{}
-	})
-
-	fakeIter := &fakeIterator{err: errors.New("boom")}
-	s.iteratorFunc = func(collection *mgo.Collection) mongo.Iterator {
-		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
-		return fakeIter
-	}
+func (s *TxnWatcherSuite) TestShouldRetryGetMore(c *gc.C) {
 	s.newRunner(c)
-	_, hub := s.newWatcher(c, 1)
-	revno := s.insert(c, "test", "a")
-
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
-	select {
-	case <-syncCh:
-	case <-time.After(testing.LongWait):
-		c.Error("txn watcher didn't sync")
+	getMoreErrors := make(chan error, 10)
+	for i := 0; i < 10; i++ {
+		getMoreErrors <- &mgo.QueryError{Code: 1, Message: "resumeable for sure"}
 	}
-
-	fakeIter.err = nil
-	s.advanceTime(c, watcher.TxnWatcherErrorShortWait, 2)
-	hub.waitForExpected()
-	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
-		{"test", "a", revno},
+	numResumeOrStart := int32(0)
+	run := func(db *mgo.Database, cmd, resp any) error {
+		b, ok := cmd.(bson.D)
+		c.Assert(ok, jc.IsTrue)
+		switch b[0].Name {
+		case "aggregate":
+			atomic.AddInt32(&numResumeOrStart, 1)
+		case "getMore":
+			select {
+			case err := <-getMoreErrors:
+				return err
+			default:
+			}
+		}
+		return db.Run(cmd, resp)
+	}
+	_, hub := s.newWatcherWithError(c, 1, nil, watcher.TxnWatcherConfig{
+		RunCmd: run,
 	})
-}
-
-func (s *TxnWatcherSuite) TestOutOfSyncError(c *gc.C) {
-	fakeIter := &fakeIterator{err: watcher.OutOfSyncError}
-	s.iteratorFunc = func(collection *mgo.Collection) mongo.Iterator {
-		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
-		return fakeIter
-	}
-	s.newRunner(c)
-	_, hub := s.newWatcherWithError(c, 1, watcher.OutOfSyncError)
 	s.insert(c, "test", "a")
+	hub.waitForExpected()
+	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(2))
+}
 
-	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
+func (s *TxnWatcherSuite) TestShouldResume(c *gc.C) {
+	s.newRunner(c)
+	getMoreErrors := make(chan error, 1)
+	for i := 0; i < 1; i++ {
+		getMoreErrors <- &mgo.QueryError{Code: 43, Message: "cursor died maybe resume"}
+	}
+	numResumeOrStart := int32(0)
+	run := func(db *mgo.Database, cmd, resp any) error {
+		b, ok := cmd.(bson.D)
+		c.Assert(ok, jc.IsTrue)
+		switch b[0].Name {
+		case "aggregate":
+			atomic.AddInt32(&numResumeOrStart, 1)
+		case "getMore":
+			select {
+			case err := <-getMoreErrors:
+				return err
+			default:
+			}
+		}
+		return db.Run(cmd, resp)
+	}
+	_, hub := s.newWatcherWithError(c, 1, nil, watcher.TxnWatcherConfig{
+		RunCmd: run,
+	})
+	s.insert(c, "test", "a")
+	hub.waitForExpected()
+	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(2))
+}
+
+func (s *TxnWatcherSuite) TestNotResumable(c *gc.C) {
+	s.newRunner(c)
+	numResumeOrStart := int32(0)
+	run := func(db *mgo.Database, cmd, resp any) error {
+		b, ok := cmd.(bson.D)
+		c.Assert(ok, jc.IsTrue)
+		switch b[0].Name {
+		case "aggregate":
+			atomic.AddInt32(&numResumeOrStart, 1)
+		case "getMore":
+			return &mgo.QueryError{Code: 234, Message: "bad"}
+		}
+		return db.Run(cmd, resp)
+	}
+	_, hub := s.newWatcherWithError(c, 1, watcher.FatalChangeStreamError, watcher.TxnWatcherConfig{
+		RunCmd: run,
+	})
+	s.insert(c, "test", "a")
 	hub.waitForError()
+	c.Assert(atomic.LoadInt32(&numResumeOrStart), gc.Equals, int32(1))
+}
+
+func (s *TxnWatcherSuite) TestFilterCollection(c *gc.C) {
+	s.newRunner(c)
+
+	_, hub := s.newWatcherWithError(c, 1, nil, watcher.TxnWatcherConfig{
+		IgnoreCollections: []string{"filtered"},
+	})
+	s.insert(c, "filtered", "b")
+	revno2 := s.insert(c, "test", "a")
+
+	hub.waitForExpected()
+
+	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
+		{"test", "a", revno2},
+	})
 }
 
 type fakeIterator struct {

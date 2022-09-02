@@ -89,7 +89,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"logging-config-updater",
 			"machine-action-runner",
 			"machiner",
-			"mgo-txn-resumer",
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
@@ -117,7 +116,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"syslog",
 			"termination-signal-handler",
 			"tools-version-checker",
-			"transaction-pruner",
 			"unconverted-api-workers",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
@@ -161,7 +159,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"lease-manager",
 			"log-sender",
 			"logging-config-updater",
-			"mgo-txn-resumer",
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
@@ -185,7 +182,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"state-config-watcher",
 			"syslog",
 			"termination-signal-handler",
-			"transaction-pruner",
 			"unconverted-api-workers",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
@@ -316,7 +312,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// Explicitly guarded by ifPrimaryController.
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
-		"transaction-pruner",
 	)
 
 	// Guarded by ifDatabaseUpgradeComplete,
@@ -743,18 +738,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"mgo-txn-resumer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"migration-fortress": {
 		"upgrade-check-flag",
 		"upgrade-check-gate",
@@ -1029,23 +1012,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"transaction-pruner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"clock",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"unconverted-api-workers": {
 		"agent",
 		"api-caller",
@@ -1301,18 +1267,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"mgo-txn-resumer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"migration-fortress": {
 		"upgrade-check-flag",
 		"upgrade-check-gate",
@@ -1537,23 +1491,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"syslog": {},
 
 	"termination-signal-handler": {},
-
-	"transaction-pruner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"clock",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
 
 	"unconverted-api-workers": {
 		"agent",

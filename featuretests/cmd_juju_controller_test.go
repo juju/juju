@@ -437,7 +437,6 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 // opRecvTimeout waits for any of the given kinds of operation to
 // be received from ops, and times out if not.
 func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
-	st.StartSync()
 	for {
 		select {
 		case op := <-opc:

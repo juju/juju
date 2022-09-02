@@ -13,8 +13,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/state"
 )
 
 // SecretsAPI is the backend for the Secrets facade.
@@ -23,7 +25,8 @@ type SecretsAPI struct {
 	controllerUUID string
 	modelUUID      string
 
-	secretsService secrets.SecretsService
+	backend     SecretsBackend
+	storeGetter func() (provider.SecretsStore, error)
 }
 
 func (s *SecretsAPI) checkCanRead() error {
@@ -60,30 +63,69 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			return result, errors.Trace(err)
 		}
 	}
-	ctx := context.Background()
-	metadata, err := s.secretsService.ListSecrets(ctx, secrets.Filter{})
+	var uri *coresecrets.URI
+	if arg.Filter.URI != nil {
+		var err error
+		uri, err = coresecrets.ParseURI(*arg.Filter.URI)
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+	}
+	metadata, err := s.backend.ListSecrets(state.SecretsFilter{
+		URI:      uri,
+		OwnerTag: arg.Filter.OwnerTag,
+	})
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.ListSecretResults{}, errors.Trace(err)
+	}
+	revisionMetadata := make(map[string][]*coresecrets.SecretRevisionMetadata)
+	for _, md := range metadata {
+		if arg.Filter.Revision == nil {
+			revs, err := s.backend.ListSecretRevisions(md.URI)
+			if err != nil {
+				return params.ListSecretResults{}, errors.Trace(err)
+			}
+			revisionMetadata[md.URI.ID] = revs
+			continue
+		}
+		rev, err := s.backend.GetSecretRevision(md.URI, *arg.Filter.Revision)
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+		revisionMetadata[md.URI.ID] = []*coresecrets.SecretRevisionMetadata{rev}
 	}
 	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
 		secretResult := params.ListSecretResult{
-			URI:            m.URI.String(),
-			Version:        m.Version,
-			OwnerTag:       m.OwnerTag,
-			Provider:       m.Provider,
-			ProviderID:     m.ProviderID,
-			Description:    m.Description,
-			Label:          m.Label,
-			RotatePolicy:   string(m.RotatePolicy),
-			NextRotateTime: m.NextRotateTime,
-			ExpireTime:     m.ExpireTime,
-			Revision:       m.Revision,
-			CreateTime:     m.CreateTime,
-			UpdateTime:     m.UpdateTime,
+			URI:              m.URI.String(),
+			Version:          m.Version,
+			OwnerTag:         m.OwnerTag,
+			Description:      m.Description,
+			Label:            m.Label,
+			RotatePolicy:     string(m.RotatePolicy),
+			NextRotateTime:   m.NextRotateTime,
+			LatestRevision:   m.LatestRevision,
+			LatestExpireTime: m.LatestExpireTime,
+			CreateTime:       m.CreateTime,
+			UpdateTime:       m.UpdateTime,
+		}
+		for _, r := range revisionMetadata[m.URI.ID] {
+			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
+				Revision:   r.Revision,
+				CreateTime: r.CreateTime,
+				UpdateTime: r.UpdateTime,
+				ExpireTime: r.ExpireTime,
+			})
 		}
 		if arg.ShowSecrets {
-			val, err := s.secretsService.GetSecretValue(ctx, m.URI, m.Revision)
+			rev := m.LatestRevision
+			if arg.Filter.Revision != nil {
+				rev = *arg.Filter.Revision
+			}
+			val, providerId, err := s.backend.GetSecretValue(m.URI, rev)
+			if providerId != nil {
+				val, err = s.secretContentFromStore(*providerId)
+			}
 			valueResult := &params.SecretValueResult{
 				Error: apiservererrors.ServerError(err),
 			}
@@ -95,4 +137,12 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 		result.Results[i] = secretResult
 	}
 	return result, nil
+}
+
+func (s *SecretsAPI) secretContentFromStore(providerId string) (coresecrets.SecretValue, error) {
+	store, err := s.storeGetter()
+	if err != nil {
+		return nil, err
+	}
+	return store.GetContent(context.Background(), providerId)
 }

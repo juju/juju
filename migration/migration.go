@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/description/v3"
@@ -79,7 +80,7 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 		err := claimer.ClaimLeadership(
 			application.Name(),
 			application.Leader(),
-			state.InitialLeaderClaimTime,
+			time.Minute,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotatef(

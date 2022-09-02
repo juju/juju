@@ -74,7 +74,7 @@ func (s *secretsResolver) NextOp(
 }
 
 func (s *secretsResolver) rotateOp(
-	localState resolver.LocalState,
+	_ resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {

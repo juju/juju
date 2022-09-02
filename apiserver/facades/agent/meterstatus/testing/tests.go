@@ -63,7 +63,7 @@ func TestWatchMeterStatus(c *gc.C, status meterstatus.MeterStatus, unit *jujusta
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, state, resource.(jujustate.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, resource.(jujustate.NotifyWatcher))
 	wc.AssertNoChange()
 
 	err = unit.SetMeterStatus("GREEN", "No additional information.")

@@ -8,7 +8,7 @@ run_charmstore_charmrevisionupdater() {
 	ensure "${model_name}" "${file}"
 
 	# Deploy an old revision of postgresql
-	juju deploy cs:postgresql-238
+	juju deploy cs:postgresql-238 --series focal
 
 	# Wait for revision update worker to update the available revision.
 	# eg can-upgrade-to: cs:postgresql-239
@@ -27,7 +27,7 @@ run_charmhub_charmrevisionupdater() {
 	ensure "${model_name}" "${file}"
 
 	# Deploy an old revision of ubuntu
-	juju deploy ubuntu --channel=stable --revision=18
+	juju deploy ubuntu --channel=stable --revision=18 --series focal
 
 	# Wait for revision update worker to update the available revision.
 	# eg can-upgrade-to: ch:ubuntu-18

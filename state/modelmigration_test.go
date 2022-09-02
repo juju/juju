@@ -69,7 +69,8 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.ModelUUID(), gc.Equals, s.State2.ModelUUID())
 	checkIdAndAttempt(c, mig, 0)
 
-	c.Check(mig.StartTime(), gc.Equals, s.Clock.Now())
+	c.Check(mig.StartTime().IsZero(), jc.IsFalse)
+	c.Check(mig.StartTime().Before(s.Clock.Now()), jc.IsTrue)
 	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
 	c.Check(mig.StatusMessage(), gc.Equals, "starting")
@@ -354,7 +355,8 @@ func (s *MigrationSuite) TestMigration(c *gc.C) {
 	mig2, err := s.State2.Migration(mig1.Id())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(mig1.Id(), gc.Equals, mig2.Id())
-	c.Check(mig2.StartTime(), gc.Equals, s.Clock.Now())
+	c.Check(mig2.StartTime().IsZero(), jc.IsFalse)
+	c.Check(mig2.StartTime().Before(s.Clock.Now()), jc.IsTrue)
 }
 
 func (s *MigrationSuite) TestMigrationNotFound(c *gc.C) {
@@ -397,7 +399,8 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		assertPhase(c, mig, phase)
-		c.Assert(mig.PhaseChangedTime(), gc.Equals, s.Clock.Now())
+		c.Check(mig.PhaseChangedTime().IsZero(), jc.IsFalse)
+		c.Assert(mig.PhaseChangedTime().Before(s.Clock.Now()), jc.IsTrue)
 
 		// Check success timestamp is set only when SUCCESS is
 		// reached.
@@ -407,7 +410,12 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 			if phase == migration.SUCCESS {
 				successTime = s.Clock.Now()
 			}
-			c.Assert(mig.SuccessTime(), gc.Equals, successTime)
+			if successTime.IsZero() {
+				c.Assert(mig.SuccessTime().IsZero(), jc.IsTrue)
+			} else {
+				c.Assert(mig.SuccessTime().IsZero(), jc.IsFalse)
+				c.Assert(mig.SuccessTime().Before(successTime), jc.IsTrue)
+			}
 		}
 
 		// Check still marked as active.
@@ -469,8 +477,10 @@ func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 }
 
 func (s *MigrationSuite) assertMigrationCleanedUp(c *gc.C, mig state.ModelMigration) {
-	c.Assert(mig.PhaseChangedTime(), gc.Equals, s.Clock.Now())
-	c.Assert(mig.EndTime(), gc.Equals, s.Clock.Now())
+	c.Check(mig.PhaseChangedTime().IsZero(), jc.IsFalse)
+	c.Assert(mig.PhaseChangedTime().Before(s.Clock.Now()), jc.IsTrue)
+	c.Check(mig.EndTime().IsZero(), jc.IsFalse)
+	c.Assert(mig.EndTime().Before(s.Clock.Now()), jc.IsTrue)
 	assertMigrationNotActive(c, s.State2)
 }
 
@@ -589,7 +599,7 @@ func (s *MigrationSuite) createMigrationWatcher(c *gc.C, st *state.State) (
 ) {
 	w := st.WatchForMigration()
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
-	return w, statetesting.NewNotifyWatcherC(c, st, w)
+	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
 func (s *MigrationSuite) TestWatchMigrationStatus(c *gc.C) {
@@ -892,7 +902,7 @@ func (s *MigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 	w := st.WatchMigrationStatus()
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
-	return w, statetesting.NewNotifyWatcherC(c, st, w)
+	return w, statetesting.NewNotifyWatcherC(c, w)
 }
 
 func (s *MigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
@@ -906,7 +916,7 @@ func (s *MigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
 	w, err := mig.WatchMinionReports()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { statetesting.AssertStop(c, w) })
-	wc := statetesting.NewNotifyWatcherC(c, st, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 
 	return mig, wc
 }

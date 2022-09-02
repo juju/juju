@@ -10,34 +10,34 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	machineactions "github.com/juju/juju/api/agent/machineactions"
 	watcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 )
 
-// MockFacade is a mock of Facade interface
+// MockFacade is a mock of Facade interface.
 type MockFacade struct {
 	ctrl     *gomock.Controller
 	recorder *MockFacadeMockRecorder
 }
 
-// MockFacadeMockRecorder is the mock recorder for MockFacade
+// MockFacadeMockRecorder is the mock recorder for MockFacade.
 type MockFacadeMockRecorder struct {
 	mock *MockFacade
 }
 
-// NewMockFacade creates a new mock instance
+// NewMockFacade creates a new mock instance.
 func NewMockFacade(ctrl *gomock.Controller) *MockFacade {
 	mock := &MockFacade{ctrl: ctrl}
 	mock.recorder = &MockFacadeMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
 }
 
-// Action mocks base method
+// Action mocks base method.
 func (m *MockFacade) Action(arg0 names.ActionTag) (*machineactions.Action, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Action", arg0)
@@ -46,13 +46,13 @@ func (m *MockFacade) Action(arg0 names.ActionTag) (*machineactions.Action, error
 	return ret0, ret1
 }
 
-// Action indicates an expected call of Action
+// Action indicates an expected call of Action.
 func (mr *MockFacadeMockRecorder) Action(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockFacade)(nil).Action), arg0)
 }
 
-// ActionBegin mocks base method
+// ActionBegin mocks base method.
 func (m *MockFacade) ActionBegin(arg0 names.ActionTag) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionBegin", arg0)
@@ -60,13 +60,13 @@ func (m *MockFacade) ActionBegin(arg0 names.ActionTag) error {
 	return ret0
 }
 
-// ActionBegin indicates an expected call of ActionBegin
+// ActionBegin indicates an expected call of ActionBegin.
 func (mr *MockFacadeMockRecorder) ActionBegin(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionBegin", reflect.TypeOf((*MockFacade)(nil).ActionBegin), arg0)
 }
 
-// ActionFinish mocks base method
+// ActionFinish mocks base method.
 func (m *MockFacade) ActionFinish(arg0 names.ActionTag, arg1 string, arg2 map[string]interface{}, arg3 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionFinish", arg0, arg1, arg2, arg3)
@@ -74,13 +74,13 @@ func (m *MockFacade) ActionFinish(arg0 names.ActionTag, arg1 string, arg2 map[st
 	return ret0
 }
 
-// ActionFinish indicates an expected call of ActionFinish
+// ActionFinish indicates an expected call of ActionFinish.
 func (mr *MockFacadeMockRecorder) ActionFinish(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionFinish", reflect.TypeOf((*MockFacade)(nil).ActionFinish), arg0, arg1, arg2, arg3)
 }
 
-// RunningActions mocks base method
+// RunningActions mocks base method.
 func (m *MockFacade) RunningActions(arg0 names.MachineTag) ([]params.ActionResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunningActions", arg0)
@@ -89,13 +89,13 @@ func (m *MockFacade) RunningActions(arg0 names.MachineTag) ([]params.ActionResul
 	return ret0, ret1
 }
 
-// RunningActions indicates an expected call of RunningActions
+// RunningActions indicates an expected call of RunningActions.
 func (mr *MockFacadeMockRecorder) RunningActions(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunningActions", reflect.TypeOf((*MockFacade)(nil).RunningActions), arg0)
 }
 
-// WatchActionNotifications mocks base method
+// WatchActionNotifications mocks base method.
 func (m *MockFacade) WatchActionNotifications(arg0 names.MachineTag) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchActionNotifications", arg0)
@@ -104,7 +104,7 @@ func (m *MockFacade) WatchActionNotifications(arg0 names.MachineTag) (watcher.St
 	return ret0, ret1
 }
 
-// WatchActionNotifications indicates an expected call of WatchActionNotifications
+// WatchActionNotifications indicates an expected call of WatchActionNotifications.
 func (mr *MockFacadeMockRecorder) WatchActionNotifications(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchActionNotifications", reflect.TypeOf((*MockFacade)(nil).WatchActionNotifications), arg0)

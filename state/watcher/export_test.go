@@ -6,15 +6,8 @@ package watcher
 import "time"
 
 const (
-	// Add a small fudge factor to the wait times; if we use exactly the same wait time
-	// for the fake clock, on slow systems the next watcher event can occur before the
-	// watcher sync can run to process the first event.
-
-	TxnWatcherShortWait      = time.Duration(1.1 * float64(txnWatcherShortWait))
-	TxnWatcherErrorShortWait = time.Duration(1.1 * float64(txnWatcherErrorShortWait))
+	TxnWatcherErrorWait = time.Duration(1.1 * float64(txnWatcherErrorWait))
 )
-
-var OutOfSyncError = outOfSyncError{}
 
 func NewTestHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) (*HubWatcher, <-chan struct{}) {
 	return newHubWatcher(hub, clock, modelUUID, logger)

@@ -63,7 +63,6 @@ func (s *kvmProvisionerSuite) nextEvent(c *gc.C) mock.Event {
 }
 
 func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
-	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
@@ -73,7 +72,6 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 }
 
 func (s *kvmProvisionerSuite) expectStopped(c *gc.C, instId string) {
-	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
 	c.Assert(event.InstanceId, gc.Equals, instId)

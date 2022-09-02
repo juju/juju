@@ -1026,7 +1026,22 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if err := k8sapplication.ApplyConstraints(&workloadSpec.Pod.PodSpec, appName, params.Constraints); err != nil {
+	if err := k8sapplication.ApplyConstraints(
+		&workloadSpec.Pod.PodSpec, appName, params.Constraints,
+		func(pod *core.PodSpec, resourceName core.ResourceName, value string) error {
+			if len(pod.Containers) == 0 {
+				return nil
+			}
+			// Just the first container is enough for scheduling purposes.
+			pod.Containers[0].Resources.Requests, err = k8sapplication.MergeConstraint(
+				resourceName, value, pod.Containers[0].Resources.Requests,
+			)
+			if err != nil {
+				return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
+			}
+			return nil
+		},
+	); err != nil {
 		return errors.Trace(err)
 	}
 

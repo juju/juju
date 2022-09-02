@@ -69,7 +69,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 	c.Check(resourceMachine, gc.NotNil)
 
 	w := resourceMachine.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	return &machines{

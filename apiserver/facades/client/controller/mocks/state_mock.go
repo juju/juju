@@ -452,6 +452,20 @@ func (mr *MockRelationMockRecorder) Endpoint(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoint", reflect.TypeOf((*MockRelation)(nil).Endpoint), arg0)
 }
 
+// ModelUUID mocks base method.
+func (m *MockRelation) ModelUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ModelUUID indicates an expected call of ModelUUID.
+func (mr *MockRelationMockRecorder) ModelUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockRelation)(nil).ModelUUID))
+}
+
 // RelatedEndpoints mocks base method.
 func (m *MockRelation) RelatedEndpoints(arg0 string) ([]state.Endpoint, error) {
 	m.ctrl.T.Helper()

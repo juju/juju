@@ -45,47 +45,61 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 		c.Check(request, gc.Equals, "ListSecrets")
 		c.Check(arg, gc.DeepEquals, params.ListSecretsArgs{
 			ShowSecrets: true,
+			Filter: params.SecretsFilter{
+				URI:      ptr(uri.String()),
+				Revision: ptr(666),
+				OwnerTag: ptr("application-mysql"),
+			},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			[]params.ListSecretResult{{
-				URI:            uri.String(),
-				Version:        1,
-				OwnerTag:       "application-mysql",
-				Provider:       "juju",
-				ProviderID:     "provider-id",
-				RotatePolicy:   string(secrets.RotateHourly),
-				ExpireTime:     ptr(now),
-				NextRotateTime: ptr(now.Add(time.Hour)),
-				Description:    "shhh",
-				Label:          "foobar",
-				Revision:       2,
-				CreateTime:     now,
-				UpdateTime:     now.Add(time.Second),
-				Value:          &params.SecretValueResult{Data: data},
+				URI:              uri.String(),
+				Version:          1,
+				OwnerTag:         "application-mysql",
+				RotatePolicy:     string(secrets.RotateHourly),
+				LatestExpireTime: ptr(now),
+				NextRotateTime:   ptr(now.Add(time.Hour)),
+				Description:      "shhh",
+				Label:            "foobar",
+				LatestRevision:   2,
+				CreateTime:       now,
+				UpdateTime:       now.Add(time.Second),
+				Revisions: []params.SecretRevision{{
+					Revision:   666,
+					CreateTime: now,
+					UpdateTime: now.Add(time.Second),
+					ExpireTime: ptr(now.Add(time.Hour)),
+				}},
+				Value: &params.SecretValueResult{Data: data},
 			}},
 		}
 		return nil
 	})
 	client := apisecrets.NewClient(apiCaller)
-	result, err := client.ListSecrets(true)
+	result, err := client.ListSecrets(true, secrets.Filter{
+		URI: uri, OwnerTag: ptr("application-mysql"), Revision: ptr(666)})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []apisecrets.SecretDetails{{
 		Metadata: secrets.SecretMetadata{
-			URI:            uri,
-			Version:        1,
-			OwnerTag:       "application-mysql",
-			Provider:       "juju",
-			ProviderID:     "provider-id",
-			RotatePolicy:   secrets.RotateHourly,
-			ExpireTime:     ptr(now),
-			NextRotateTime: ptr(now.Add(time.Hour)),
-			Description:    "shhh",
-			Label:          "foobar",
-			Revision:       2,
-			CreateTime:     now,
-			UpdateTime:     now.Add(time.Second),
+			URI:              uri,
+			Version:          1,
+			OwnerTag:         "application-mysql",
+			RotatePolicy:     secrets.RotateHourly,
+			LatestRevision:   2,
+			LatestExpireTime: ptr(now),
+			NextRotateTime:   ptr(now.Add(time.Hour)),
+			Description:      "shhh",
+			Label:            "foobar",
+			CreateTime:       now,
+			UpdateTime:       now.Add(time.Second),
 		},
+		Revisions: []secrets.SecretRevisionMetadata{{
+			Revision:   666,
+			CreateTime: now,
+			UpdateTime: now.Add(time.Second),
+			ExpireTime: ptr(now.Add(time.Hour)),
+		}},
 		Value: secrets.NewSecretValue(data),
 	}})
 }
@@ -103,7 +117,7 @@ func (s *SecretsSuite) TestListSecretsError(c *gc.C) {
 		return nil
 	})
 	client := apisecrets.NewClient(apiCaller)
-	result, err := client.ListSecrets(true)
+	result, err := client.ListSecrets(true, secrets.Filter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Error, gc.Equals, "boom")

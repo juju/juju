@@ -138,7 +138,7 @@ func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
 		Database:                  db.raw,
 		Clock:                     st.stateClock,
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          db.maxTxnAttempts,
 	})
@@ -152,7 +152,7 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 		Database:                  db.raw,
 		Clock:                     st.stateClock,
 		TransactionCollectionName: "txns",
-		ChangeLogName:             "sstxns.log",
+		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		RunTransactionObserver: func(t jujutxn.Transaction) {
 			txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
@@ -755,7 +755,7 @@ func RemoveUnitRelations(c *gc.C, rel *Relation) {
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(
-	c *gc.C, clock *testclock.Clock,
+	c *gc.C, clock testclock.AdvanceableClock,
 	unit *Unit, statusVal status.Status,
 	count, batchSize int,
 	nextData func(int) map[string]interface{},
@@ -1054,6 +1054,7 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 		db:        st.db(),
 		globalKey: globalCloudContainerKey(name),
 		filter:    filter,
+		clock:     st.clock(),
 	}
 	return statusHistory(args)
 }
@@ -1079,14 +1080,14 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
-func GetSecretRotateTime(c *gc.C, st *State, id string) time.Time {
+func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
 
 	var doc secretRotationDoc
 	err := secretRotateCollection.FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
-	return doc.LastRotateTime.UTC()
+	return doc.NextRotateTime.UTC()
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

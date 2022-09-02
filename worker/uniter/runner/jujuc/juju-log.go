@@ -16,6 +16,7 @@ import (
 )
 
 // JujuLogContext is the Context for the JujuLogCommand
+//
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/juju-log_mock.go github.com/juju/juju/worker/uniter/runner/jujuc JujuLogContext
 type JujuLogContext interface {
 	UnitName() string

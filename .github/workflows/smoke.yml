@@ -43,6 +43,12 @@ jobs:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
 
+    - name: setup env
+      shell: bash
+      run: |
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
     - name: Build snap
       shell: bash
       run: |
@@ -72,37 +78,27 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
+      fail-fast: false
       matrix:
-        snap_version: ["3.0/stable"]
+        snap_version: ["2.9/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
       CHARM_microk8s: elasticsearch-k8s
       DOCKER_REGISTRY: 10.152.183.69
+      # TODO: enable this once 3.0 released.
+      # RUN_TEST: RUN
 
     steps:
-
-    - name: PreCheck
-      shell: bash
-      run: |
-        set -ux
-        set +e
-        OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
-        set -e
-        if [ "$OUT" = "NOT FOUND" ]; then
-          echo "RUN_TEST=NO_BASE_VERSION" >> $GITHUB_ENV
-        else
-          echo "RUN_TEST=RUN" >> $GITHUB_ENV
-        fi
-
     - name: Install Dependencies
       if: env.RUN_TEST == 'RUN'
       shell: bash
       run: |
         set -euxo pipefail
         sudo apt-get remove lxd lxd-client
+        sudo snap remove lxd --purge
         sudo snap install snapcraft --classic
-        sudo snap install lxd
+        sudo snap install lxd --channel latest/stable
         sudo snap install yq
         sudo snap install juju --classic --channel=${{ matrix.snap_version }}
 
@@ -136,6 +132,12 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: ${{ steps.vars.outputs.go-version }}
+
+    - name: setup env
+      shell: bash
+      run: |
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
     - name: Setup k8s
       if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
@@ -320,50 +322,54 @@ jobs:
         juju status
         juju version
 
-    - name: Test upgrade controller
-      if: env.RUN_TEST == 'RUN'
+    - name: Test upgrade controller - localhost
+      if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
       shell: bash
       env:
         UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
         CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
-        UPGRADE_PARAMS_localhost: ""
-        UPGRADE_PARAMS_microk8s: "--agent-stream=develop --debug"
       run: |
         set -euxo pipefail
 
         # Upgrade to the latest stable.
         juju upgrade-controller --debug
+        .github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
+
+        make go-install
+        $GOPATH/bin/juju upgrade-controller --build-agent --debug
+        .github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.1"
+        rm -rf $GOPATH/bin/juju*
         
-        attempt=0
-        while true; do
-          UPDATED=$((juju show-controller --format=json || echo "") | jq -r '.c.details."agent-version"')
-          if [[ $UPDATED == $CURRENT_STABLE_JUJU_TAG* ]]; then
-              break
-          fi
-          sleep 10
-          attempt=$((attempt+1))
-          if [ "$attempt" -eq 48 ]; then
-              echo "Upgrade controller timed out"
-              exit 1
-          fi
-        done
+        # Upgrade to local built snap version - upload snap jujud.
+        snap_version=$(juju version | cut -d '-' -f 1);
+        juju upgrade-controller --agent-version $snap_version
+        .github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.2"
+
+        PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
+        if [ "$PANIC" != "" ]; then
+            echo "Panic found:"
+            juju debug-log --replay --no-tail -m controller
+            exit 1
+        fi
+
+        .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
+
+    - name: Test upgrade controller - microk8s
+      if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
+      shell: bash
+      env:
+        UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
+        CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
+      run: |
+        set -euxo pipefail
+
+        # Upgrade to the latest stable.
+        juju upgrade-controller --debug
+        .github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
         
         # Upgrade to local built version.
-        juju upgrade-controller ${UPGRADE_PARAMS_${{ matrix.model_type }}}
-
-        attempt=0
-        while true; do
-          UPDATED=$((juju show-controller --format=json || echo "") | jq -r '.c.details."agent-version"')
-          if [[ $UPDATED == $UPSTREAM_JUJU_TAG* ]]; then
-              break
-          fi
-          sleep 10
-          attempt=$((attempt+1))
-          if [ "$attempt" -eq 48 ]; then
-              echo "Upgrade controller timed out"
-              exit 1
-          fi
-        done
+        juju upgrade-controller --agent-stream=develop --debug
+        .github/verify-agent-version.sh $UPSTREAM_JUJU_TAG
 
         PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
         if [ "$PANIC" != "" ]; then

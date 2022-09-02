@@ -179,7 +179,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series:   "precise",
+		series:   "jammy",
 		arch:     "amd64",
 		region:   "us-east-1",
 		endpoint: "https://ec2.us-east-1.amazonaws.com",
@@ -196,7 +196,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series:   "precise",
+		series:   "jammy",
 		arch:     "amd64",
 		region:   "us-west-1",
 		endpoint: "https://ec2.us-west-1.amazonaws.com",

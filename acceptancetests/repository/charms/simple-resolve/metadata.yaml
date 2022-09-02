@@ -6,6 +6,7 @@ description: |
 categories:
   - misc
 series:
+  - jammy
   - xenial
   - bionic
   - trusty

@@ -35,10 +35,10 @@ func (m *MockSecretManagerFacade) EXPECT() *MockSecretManagerFacadeMockRecorder 
 }
 
 // WatchSecretsRotationChanges mocks base method.
-func (m *MockSecretManagerFacade) WatchSecretsRotationChanges(arg0 string) (watcher.SecretRotationWatcher, error) {
+func (m *MockSecretManagerFacade) WatchSecretsRotationChanges(arg0 string) (watcher.SecretTriggerWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchSecretsRotationChanges", arg0)
-	ret0, _ := ret[0].(watcher.SecretRotationWatcher)
+	ret0, _ := ret[0].(watcher.SecretTriggerWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

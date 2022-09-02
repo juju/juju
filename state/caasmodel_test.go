@@ -346,7 +346,7 @@ func (s *CAASModelSuite) TestUnitStatusNoPodSpec(c *gc.C) {
 	})
 
 	msWorkload := unitWorkloadStatus(c, m, unit.Name(), false)
-	c.Check(msWorkload.Message, gc.Equals, "agent initializing")
+	c.Check(msWorkload.Message, gc.Equals, "agent initialising")
 	c.Check(msWorkload.Status, gc.Equals, status.Waiting)
 
 	err := unit.SetStatus(status.StatusInfo{Status: status.Active, Message: "running"})

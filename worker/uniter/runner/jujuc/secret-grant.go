@@ -17,9 +17,10 @@ type secretGrantCommand struct {
 	cmd.CommandBase
 	ctx Context
 
-	uri  string
-	app  string
-	unit string
+	secretURI *secrets.URI
+	app       string
+	unit      string
+	relation  string
 
 	relationId      int
 	relationIdProxy gnuflag.Value
@@ -70,60 +71,35 @@ func (c *secretGrantCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("missing secret URI")
 	}
-	c.uri = args[0]
-	if _, err := secrets.ParseURI(c.uri); err != nil {
+	var err error
+	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
 		return errors.Trace(err)
 	}
 	if c.relationId == -1 {
 		return errors.Errorf("no relation id specified")
 	}
-	if c.unit != "" && !names.IsValidUnit(c.unit) {
-		return errors.NotValidf("unit %q", c.unit)
-	}
-	if c.unit == "" {
-		return cmd.CheckEmpty(args[1:])
-	}
-
-	remoteAppName, err := remoteAppForRelation(c.ctx, c.unit)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if remoteAppName != "" {
-		c.app = remoteAppName
-	}
-	return cmd.CheckEmpty(args[1:])
-}
-
-func remoteAppForRelation(ctx Context, unitName string) (string, error) {
-	remoteAppName, err := ctx.RemoteApplicationName()
-	if err != nil && !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	}
-	if remoteAppName == "" {
-		remoteUnitName, err := ctx.RemoteUnitName()
-		if err != nil && !errors.IsNotFound(err) {
-			return "", errors.Trace(err)
-		}
-		remoteAppName, _ = names.UnitApplication(remoteUnitName)
-	}
-	if remoteAppName != "" && unitName != "" {
-		appNameForUnit, _ := names.UnitApplication(unitName)
-		if appNameForUnit != remoteAppName {
-			return "", errors.Errorf("cannot specify unit %q in relation to application %q", unitName, remoteAppName)
-		}
-	}
-	return remoteAppName, nil
-}
-
-// Run implements cmd.Command.
-func (c *secretGrantCommand) Run(_ *cmd.Context) error {
 	r, err := c.ctx.Relation(c.relationId)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	key := r.RelationTag().Id()
+	c.relation = r.RelationTag().Id()
+	c.app = r.RemoteApplicationName()
+	if c.unit != "" {
+		if !names.IsValidUnit(c.unit) {
+			return errors.NotValidf("unit %q", c.unit)
+		}
+		appNameForUnit, _ := names.UnitApplication(c.unit)
+		if appNameForUnit != c.app {
+			return errors.Errorf("cannot specify unit %q in relation to application %q", c.unit, c.app)
+		}
+	}
+	return cmd.CheckEmpty(args[1:])
+}
+
+// Run implements cmd.Command.
+func (c *secretGrantCommand) Run(_ *cmd.Context) error {
 	args := &SecretGrantRevokeArgs{
-		RelationKey: &key,
+		RelationKey: &c.relation,
 	}
 	if c.unit != "" {
 		args.UnitName = &c.unit
@@ -132,5 +108,5 @@ func (c *secretGrantCommand) Run(_ *cmd.Context) error {
 		args.ApplicationName = &c.app
 	}
 
-	return c.ctx.GrantSecret(c.uri, args)
+	return c.ctx.GrantSecret(c.secretURI, args)
 }

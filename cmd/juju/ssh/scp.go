@@ -105,6 +105,10 @@ Examples:
     # (-- -3):
     juju scp -- -3 0:file.dat foo/0:
 
+    # Copy a file ('chunks-inspect') from localhost to /loki directory
+    # in a specific container in a juju unit running in Kubernetes:
+    juju scp --container loki chunks-inspect loki-k8s/0:/loki
+
 See also: 
 	ssh
 `

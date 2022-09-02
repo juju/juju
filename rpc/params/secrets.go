@@ -9,6 +9,20 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
+// SecretStoreConfig holds config for creating a secret store client.
+type SecretStoreConfig struct {
+	StoreType string                 `json:"type"`
+	Params    map[string]interface{} `json:"params,omitempty"`
+}
+
+// SecretContentParams holds params for representing the content of a secret.
+type SecretContentParams struct {
+	// Data is the key values of the secret value itself.
+	Data map[string]string `json:"data,omitempty"`
+	// ProviderId is the content id for when a secret store like vault is used.
+	ProviderId *string `json:"provider-id,omitempty"`
+}
+
 // UpsertSecretArg holds the args for creating or updating a secret.
 type UpsertSecretArg struct {
 	// RotatePolicy is how often a secret should be rotated.
@@ -23,7 +37,12 @@ type UpsertSecretArg struct {
 	// See core/secrets/secret.go.
 	Params map[string]interface{} `json:"params,omitempty"`
 	// Data is the key values of the secret value itself.
-	Data map[string]string `json:"data,omitempty"`
+	Content SecretContentParams `json:"content,omitempty"`
+}
+
+// CreateSecretURIsArg holds args for creating secret URIs.
+type CreateSecretURIsArg struct {
+	Count int `json:"count"`
 }
 
 // CreateSecretArgs holds args for creating secrets.
@@ -35,20 +54,34 @@ type CreateSecretArgs struct {
 type CreateSecretArg struct {
 	UpsertSecretArg
 
+	// URI identifies the secret to create.
+	// If empty, the controller generates a URI.
+	URI *string `json:"uri,omitempty"`
 	// OwnerTag is the owner of the secret.
 	OwnerTag string `json:"owner-tag"`
 }
 
-// UpdateSecretArgs holds args for creating secrets.
+// UpdateSecretArgs holds args for updating secrets.
 type UpdateSecretArgs struct {
 	Args []UpdateSecretArg `json:"args"`
 }
 
-// UpdateSecretArg holds the args for creating a secret.
+// UpdateSecretArg holds the args for updating a secret.
 type UpdateSecretArg struct {
 	UpsertSecretArg
 
 	// URI identifies the secret to update.
+	URI string `json:"uri"`
+}
+
+// SecretURIArgs holds args for identifying secrets.
+type SecretURIArgs struct {
+	Args []SecretURIArg `json:"args"`
+}
+
+// SecretURIArg holds the args for identifying a secret.
+type SecretURIArg struct {
+	// URI identifies the secret.
 	URI string `json:"uri"`
 }
 
@@ -64,29 +97,35 @@ type SecretConsumerInfoResults struct {
 	Results []SecretConsumerInfoResult `json:"results"`
 }
 
-// SecretValueResult is the result of getting a secret value.
+// SecretConsumerInfoResult is the result of getting a secret value.
 type SecretConsumerInfoResult struct {
 	Revision int    `json:"revision"`
 	Label    string `json:"label"`
 	Error    *Error `json:"error,omitempty"`
 }
 
-// GetSecretValueArgs holds the args for getting secret values.
-type GetSecretValueArgs struct {
-	Args []GetSecretValueArg `json:"args"`
+// GetSecretContentArgs holds the args for getting secret values.
+type GetSecretContentArgs struct {
+	Args []GetSecretContentArg `json:"args"`
 }
 
-// GetSecretValueArg holds the args for getting a secret value.
-type GetSecretValueArg struct {
+// GetSecretContentArg holds the args for getting a secret value.
+type GetSecretContentArg struct {
 	URI    string `json:"uri"`
 	Label  string `json:"label,omitempty"`
 	Update bool   `json:"update,omitempty"`
 	Peek   bool   `json:"peek,omitempty"`
 }
 
-// SecretValueResults holds secret value results.
-type SecretValueResults struct {
-	Results []SecretValueResult `json:"results"`
+// SecretContentResults holds secret value results.
+type SecretContentResults struct {
+	Results []SecretContentResult `json:"results"`
+}
+
+// SecretContentResult is the result of getting secret content.
+type SecretContentResult struct {
+	Content SecretContentParams `json:"content"`
+	Error   *Error              `json:"error,omitempty"`
 }
 
 // SecretValueResult is the result of getting a secret value.
@@ -95,9 +134,17 @@ type SecretValueResult struct {
 	Error *Error            `json:"error,omitempty"`
 }
 
+// SecretsFilter is used when querying secrets.
+type SecretsFilter struct {
+	URI      *string `json:"uri,omitempty"`
+	Revision *int    `json:"revision,omitempty"`
+	OwnerTag *string `json:"owner-tag,omitempty"`
+}
+
 // ListSecretsArgs holds the args for listing secrets.
 type ListSecretsArgs struct {
-	ShowSecrets bool `json:"show-secrets"`
+	ShowSecrets bool          `json:"show-secrets"`
+	Filter      SecretsFilter `json:"filter"`
 }
 
 // ListSecretResults holds secret metadata results.
@@ -105,42 +152,48 @@ type ListSecretResults struct {
 	Results []ListSecretResult `json:"results"`
 }
 
+type SecretRevision struct {
+	Revision   int        `json:"revision"`
+	ProviderId *string    `json:"provider-id,omitempty"`
+	CreateTime time.Time  `json:"create-time,omitempty"`
+	UpdateTime time.Time  `json:"update-time,omitempty"`
+	ExpireTime *time.Time `json:"expire-time,omitempty"`
+}
+
 // ListSecretResult is the result of getting secret metadata.
 type ListSecretResult struct {
-	URI            string             `json:"uri"`
-	Version        int                `json:"version"`
-	OwnerTag       string             `json:"owner-tag"`
-	Provider       string             `json:"provider"`
-	ProviderID     string             `json:"provider-id,omitempty"`
-	RotatePolicy   string             `json:"rotate-policy,omitempty"`
-	NextRotateTime *time.Time         `json:"next-rotate-time,omitempty"`
-	ExpireTime     *time.Time         `json:"expire-time,omitempty"`
-	Description    string             `json:"description,omitempty"`
-	Label          string             `json:"label,omitempty"`
-	Revision       int                `json:"revision"`
-	CreateTime     time.Time          `json:"create-time"`
-	UpdateTime     time.Time          `json:"update-time"`
-	Value          *SecretValueResult `json:"value,omitempty"`
+	URI              string             `json:"uri"`
+	Version          int                `json:"version"`
+	OwnerTag         string             `json:"owner-tag"`
+	RotatePolicy     string             `json:"rotate-policy,omitempty"`
+	NextRotateTime   *time.Time         `json:"next-rotate-time,omitempty"`
+	Description      string             `json:"description,omitempty"`
+	Label            string             `json:"label,omitempty"`
+	LatestRevision   int                `json:"latest-revision"`
+	LatestExpireTime *time.Time         `json:"latest-expire-time,omitempty"`
+	CreateTime       time.Time          `json:"create-time"`
+	UpdateTime       time.Time          `json:"update-time"`
+	Revisions        []SecretRevision   `json:"revisions"`
+	Value            *SecretValueResult `json:"value,omitempty"`
 }
 
-// SecretRotationChange describes a change to a secret rotation config.
-type SecretRotationChange struct {
-	URI            string        `json:"uri"`
-	RotateInterval time.Duration `json:"rotate-interval"`
-	LastRotateTime time.Time     `json:"last-rotate-time"`
+// SecretTriggerChange describes a change to a secret trigger.
+type SecretTriggerChange struct {
+	URI             string    `json:"uri"`
+	NextTriggerTime time.Time `json:"next-trugger-time"`
 }
 
-// SecretRotationWatchResult holds secret rotation change events.
-type SecretRotationWatchResult struct {
-	SecretRotationWatcherId string                 `json:"watcher-id"`
-	Changes                 []SecretRotationChange `json:"changes"`
-	Error                   *Error                 `json:"error,omitempty"`
+// SecretTriggerWatchResult holds secret trigger change events.
+type SecretTriggerWatchResult struct {
+	WatcherId string                `json:"watcher-id"`
+	Changes   []SecretTriggerChange `json:"changes"`
+	Error     *Error                `json:"error,omitempty"`
 }
 
-// SecretRotationWatchResults holds the results for any API call which ends up
-// returning a list of SecretRotationWatchResult.
-type SecretRotationWatchResults struct {
-	Results []SecretRotationWatchResult `json:"results"`
+// SecretTriggerWatchResults holds the results for any API call which ends up
+// returning a list of SecretTriggerWatchResult.
+type SecretTriggerWatchResults struct {
+	Results []SecretTriggerWatchResult `json:"results"`
 }
 
 // SecretRotatedArgs holds the args for updating rotated secret info.
@@ -150,8 +203,9 @@ type SecretRotatedArgs struct {
 
 // SecretRotatedArg holds the args for updating rotated secret info.
 type SecretRotatedArg struct {
-	URI  string    `json:"uri"`
-	When time.Time `json:"when"`
+	URI              string `json:"uri"`
+	OriginalRevision int    `json:"original-revision"`
+	Skip             bool   `json:"skip"`
 }
 
 // GrantRevokeSecretArgs holds args for changing access to secrets.

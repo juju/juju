@@ -10,6 +10,8 @@ description: |
 tags: ["applications"]
 series:
   - trusty
+  - focal
+  - jammy
 requires:
   db:
     interface: mysql

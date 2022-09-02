@@ -187,22 +187,39 @@ type SecretGrantRevokeArgs struct {
 	Role            *secrets.SecretRole
 }
 
+// SecretMetadata holds a secret's metadata.
+type SecretMetadata struct {
+	Description      string
+	Label            string
+	RotatePolicy     secrets.RotatePolicy
+	LatestRevision   int
+	LatestExpireTime *time.Time
+	NextRotateTime   *time.Time
+	ProviderIds      []string
+}
+
 // ContextSecrets is the part of a hook context related to secrets.
 type ContextSecrets interface {
 	// GetSecret returns the value of the specified secret.
-	GetSecret(string, string, bool, bool) (secrets.SecretValue, error)
+	GetSecret(*secrets.URI, string, bool, bool) (secrets.SecretValue, error)
 
 	// CreateSecret creates a secret with the specified data.
-	CreateSecret(args *SecretUpsertArgs) (string, error)
+	CreateSecret(*SecretUpsertArgs) (*secrets.URI, error)
 
 	// UpdateSecret creates a secret with the specified data.
-	UpdateSecret(string, *SecretUpsertArgs) error
+	UpdateSecret(*secrets.URI, *SecretUpsertArgs) error
+
+	// RemoveSecret removes a secret with the specified uri.
+	RemoveSecret(*secrets.URI) error
 
 	// GrantSecret grants access to the specified secret.
-	GrantSecret(string, *SecretGrantRevokeArgs) error
+	GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error
 
 	// RevokeSecret revokes access to the specified secret.
-	RevokeSecret(string, *SecretGrantRevokeArgs) error
+	RevokeSecret(*secrets.URI, *SecretGrantRevokeArgs) error
+
+	// SecretMetadata gets the secret metadata for secrets created by the charm.
+	SecretMetadata() (map[string]SecretMetadata, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

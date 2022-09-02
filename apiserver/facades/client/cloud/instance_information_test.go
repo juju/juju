@@ -4,72 +4,91 @@
 package cloud_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/credentialcommon"
-	"github.com/juju/juju/apiserver/facades/client/cloud"
+	credentialcommonmocks "github.com/juju/juju/apiserver/common/credentialcommon/mocks"
+	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
+	"github.com/juju/juju/apiserver/facades/client/cloud/mocks"
 	"github.com/juju/juju/apiserver/testing"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	environsmocks "github.com/juju/juju/environs/mocks"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
-type instanceTypesSuite struct{}
+type instanceTypesSuite struct {
+	backend                     *mocks.MockBackend
+	ctrlBackend                 *mocks.MockBackend
+	pool                        *mocks.MockModelPoolBackend
+	authorizer                  *testing.FakeAuthorizer
+	credcommonPersistentBackend *credentialcommonmocks.MockPersistentBackend
+}
+
+func (s *instanceTypesSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.backend = mocks.NewMockBackend(ctrl)
+	s.ctrlBackend = mocks.NewMockBackend(ctrl)
+	s.pool = mocks.NewMockModelPoolBackend(ctrl)
+	s.credcommonPersistentBackend = credentialcommonmocks.NewMockPersistentBackend(ctrl)
+	s.authorizer = &testing.FakeAuthorizer{
+		Tag: userTag,
+	}
+
+	return ctrl
+}
 
 var _ = gc.Suite(&instanceTypesSuite{})
 
 var over9kCPUCores uint64 = 9001
 
 func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
-	backend := &mockBackend{}
-	ctlrBackend := &mockBackend{
-		cloud: jujucloud.Cloud{Name: "aws"},
-	}
-	authorizer := &testing.FakeAuthorizer{Tag: names.NewUserTag("admin"),
-		Controller: true}
+	adminTag := names.NewUserTag("admin")
+	ctrl := p.setup(c, adminTag)
+	defer ctrl.Finish()
+
+	mockModel := mocks.NewMockModel(ctrl)
 
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
-	env := &mockEnviron{
-		results: map[constraints.Value]instances.InstanceTypesWithCostMetadata{
-			itCons: {
-				CostUnit:     "USD/h",
-				CostCurrency: "USD",
-				InstanceTypes: []instances.InstanceType{
-					{Name: "instancetype-1"},
-					{Name: "instancetype-2"}},
-			},
-		},
-	}
+	failureCons := constraints.Value{}
+
+	mockEnv := environsmocks.NewMockEnviron(ctrl)
+	mockEnv.EXPECT().InstanceTypes(gomock.Any(),
+		itCons).Return(instances.InstanceTypesWithCostMetadata{
+		CostUnit:     "USD/h",
+		CostCurrency: "USD",
+		InstanceTypes: []instances.InstanceType{
+			{Name: "instancetype-1"},
+			{Name: "instancetype-2"}},
+	}, nil)
+	mockEnv.EXPECT().InstanceTypes(gomock.Any(),
+		failureCons).Return(instances.InstanceTypesWithCostMetadata{},
+		errors.NotFoundf("Instances matching constraint "))
+
 	fakeEnvironGet := func(
 		st environs.EnvironConfigGetter,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
-		return env, nil
+		return mockEnv, nil
 	}
 
-	aCloud := jujucloud.Cloud{
-		Name:      "dummy",
-		Type:      "dummy",
-		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
-		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-	}
-	pool := &mockStatePool{
-		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
-			return newModelBackend(c, aCloud, modelUUID), context.NewEmptyCloudCallContext(), nil
-		},
-	}
-	api, err := cloud.NewCloudAPI(backend, ctlrBackend, pool, authorizer)
+	mockModel.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	mockModel.EXPECT().CloudName().Return("aws").AnyTimes()
+
+	p.ctrlBackend.EXPECT().Model().Return(mockModel, nil)
+	p.pool.EXPECT().GetModelCallContext(coretesting.ModelTag.Id()).Return(p.credcommonPersistentBackend,
+		context.NewEmptyCloudCallContext(), nil)
+
+	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	failureCons := constraints.Value{}
 	cons := params.CloudInstanceTypesConstraints{
 		Constraints: []params.CloudInstanceTypesConstraint{
 			{CloudTag: "cloud-aws",
@@ -82,14 +101,13 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 				CloudRegion: "a-region",
 				Constraints: &itCons}},
 	}
-	r, err := cloud.InstanceTypes(api, fakeEnvironGet, cons)
+	r, err := cloudfacade.InstanceTypes(api, fakeEnvironGet, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
 		{
 			InstanceTypes: []params.InstanceType{
-				{
-					Name: "instancetype-1"},
+				{Name: "instancetype-1"},
 				{Name: "instancetype-2"}},
 			CostUnit:     "USD/h",
 			CostCurrency: "USD",
@@ -99,27 +117,4 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		{
 			Error: &params.Error{Message: "asking gce cloud information to aws cloud not valid", Code: "not valid"}}}
 	c.Assert(r.Results, gc.DeepEquals, expected)
-}
-
-func (*mockBackend) ModelConfig() (*config.Config, error) {
-	return nil, nil
-}
-
-func (b *mockBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
-	return state.Credential{}, nil
-}
-
-type mockEnviron struct {
-	environs.Environ
-	cloud.Backend
-
-	results map[constraints.Value]instances.InstanceTypesWithCostMetadata
-}
-
-func (m *mockEnviron) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	it, ok := m.results[c]
-	if !ok {
-		return instances.InstanceTypesWithCostMetadata{}, errors.NotFoundf("Instances matching constraint %v", c)
-	}
-	return it, nil
 }

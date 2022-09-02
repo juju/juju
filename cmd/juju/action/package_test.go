@@ -49,7 +49,7 @@ type BaseActionSuite struct {
 
 	modelFlags []string
 	store      *jujuclient.MemStore
-	clock      *testclock.Clock
+	clock      testclock.AdvanceableClock
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {

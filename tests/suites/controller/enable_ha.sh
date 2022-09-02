@@ -104,7 +104,7 @@ run_enable_ha() {
 
 	ensure "enable-ha" "${file}"
 
-	juju deploy "cs:~jameinel/ubuntu-lite-7"
+	juju deploy jameinel-ubuntu-lite
 
 	juju enable-ha
 

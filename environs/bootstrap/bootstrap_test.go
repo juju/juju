@@ -217,7 +217,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": "wily",
+		"default-series": "focal",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -261,7 +261,7 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": "wily",
+		"default-series": "jammy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -271,13 +271,13 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
-			BootstrapSeries:          "xenial",
+			BootstrapSeries:          "focal",
 			SupportedBootstrapSeries: supportedJujuSeries,
 			Force:                    true,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "xenial")
+	c.Check(env.args.BootstrapSeries, gc.Equals, "focal")
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -285,7 +285,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": "spock",
+		"default-series": "jammy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg

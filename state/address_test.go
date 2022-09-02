@@ -321,7 +321,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{network.NewSpaceHostPorts(99, "0.1.2.3")})
@@ -344,7 +344,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	mgmtHP := network.SpaceHostPort{

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -707,6 +708,41 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
 	c.Assert(rc.TotalConnectionCount(), gc.Equals, 0)
 }
 
+func (s *RelationSuite) TestRemoveAlsoDeletesSecretPermissions(c *gc.C) {
+	relation := s.Factory.MakeRelation(c, nil)
+	app, err := s.State.Application(relation.Endpoints()[0].ApplicationName)
+	c.Assert(err, jc.ErrorIsNil)
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   app.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subject := names.NewApplicationTag("wordpress")
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.SecretAccess(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleView)
+
+	state.RemoveRelation(c, relation, false)
+	access, err = s.State.SecretAccess(uri, subject)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleNone)
+}
+
 func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags( /*none*/ )
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -739,7 +775,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 
 	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	// Initial event.
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -768,7 +804,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatusDead(c *gc.C) {
 
 	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(rel.Tag().Id())
 
 	err = rel.Destroy()
@@ -1057,7 +1093,7 @@ func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	err = relation.UpdateApplicationSettings(
@@ -1091,7 +1127,7 @@ func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
 	// No notify if the other application's settings are changed.

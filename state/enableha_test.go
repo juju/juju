@@ -464,7 +464,7 @@ func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange("0")
 
 	info, err := s.State.ControllerInfo()

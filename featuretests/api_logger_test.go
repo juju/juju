@@ -34,7 +34,7 @@ func (s *apiLoggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_ = watcher
 
-	wc := watchertest.NewNotifyWatcherC(c, watcher, nil)
+	wc := watchertest.NewNotifyWatcherC(c, watcher)
 	// Initial event.
 	wc.AssertOneChange()
 

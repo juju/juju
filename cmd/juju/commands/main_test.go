@@ -493,7 +493,7 @@ var optionalFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"list-secrets", "secrets",
+	"list-secrets", "secrets", "show-secret",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -600,7 +600,7 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *gc.C) {
 	stubRegistry := &stubRegistry{stub: &jujutesting.Stub{}}
 	registry := jujuCommandRegistry{
 		commandRegistry: stubRegistry,
-		whitelist:       set.NewStrings("show-status"),
+		whitelist:       set.NewStrings("status"),
 		excluded:        set.NewStrings(),
 	}
 	registerCommands(registry)

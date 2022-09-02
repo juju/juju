@@ -106,8 +106,22 @@ var configTests = []configTest{
 		about:       "Explicit series",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"default-series": "jammy",
+		}),
+	}, {
+		about:       "old series",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"default-series": "bionic",
+		}),
+		err: `series "bionic" not supported`,
+	}, {
+		about:       "bad series",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-series": "my-series",
 		}),
+		err: `series "my-series" not supported`,
 	}, {
 		about:       "Explicit logging",
 		useDefaults: config.UseDefaults,
@@ -395,7 +409,7 @@ var configTests = []configTest{
 			"ssl-hostname-verification":  true,
 			"authorized-keys":            "ssh-rsa mykeys rog@rog-x220\n",
 			"region":                     "us-east-1",
-			"default-series":             "precise",
+			"default-series":             "focal",
 			"secret-key":                 "a-secret-key",
 			"access-key":                 "an-access-key",
 			"agent-version":              "1.13.2",

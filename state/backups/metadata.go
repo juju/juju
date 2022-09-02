@@ -112,7 +112,7 @@ type ControllerMetadata struct {
 const currentFormatVersion = 1
 
 // NewMetadata returns a new Metadata for a state backup archive,
-//in the most current format.
+// in the most current format.
 func NewMetadata() *Metadata {
 	return &Metadata{
 		FileMetadata: filestorage.NewMetadata(),

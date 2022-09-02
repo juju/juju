@@ -23,7 +23,7 @@ func ValidatorsForControllerUpgrade(
 				checkMongoVersionForControllerModel,
 				checkNoWinMachinesForModel,
 				checkForDeprecatedUbuntuSeriesForModel,
-				getCheckForLXDVersion(cloudspec, minLXDVersion),
+				getCheckForLXDVersion(cloudspec),
 			)
 		}
 		return validators
@@ -36,7 +36,7 @@ func ValidatorsForControllerUpgrade(
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
-			getCheckForLXDVersion(cloudspec, minLXDVersion),
+			getCheckForLXDVersion(cloudspec),
 		)
 	}
 	return validators
@@ -53,7 +53,7 @@ func ValidatorsForModelUpgrade(
 		validators = append(validators,
 			checkNoWinMachinesForModel,
 			checkForDeprecatedUbuntuSeriesForModel,
-			getCheckForLXDVersion(cloudspec, minLXDVersion),
+			getCheckForLXDVersion(cloudspec),
 		)
 	}
 	return validators

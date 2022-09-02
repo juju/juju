@@ -110,6 +110,7 @@ func (u *UnitAgent) StatusHistory(filter status.StatusHistoryFilter) ([]status.S
 		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
+		clock:     u.st.clock(),
 	}
 	return statusHistory(args)
 }

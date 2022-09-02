@@ -71,6 +71,6 @@ func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned"
 	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.st, resource.(state.NotifyWatcher))
+	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"
@@ -78,7 +77,6 @@ func (s *ShowOperationSuite) TestRun(c *gc.C) {
 		withAPIDelay      time.Duration
 		withAPITimeout    time.Duration
 		withAPIResponse   actionapi.Operations
-		withTicks         int
 		withAPIError      string
 		withFormat        string
 		expectedErr       string
@@ -87,9 +85,7 @@ func (s *ShowOperationSuite) TestRun(c *gc.C) {
 	}{{
 		should:            "timeout if result never comes",
 		withClientWait:    "2s",
-		withAPIDelay:      3 * time.Second,
-		withAPITimeout:    5 * time.Second,
-		withTicks:         1,
+		withAPIDelay:      10 * time.Second,
 		withClientQueryID: operationId,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
@@ -107,18 +103,15 @@ timing:
 	}, {
 		should:            "pass api error through properly",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIError:      "api call error",
 		expectedErr:       "api call error",
 	}, {
 		should:            "fail with id not found",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		expectedErr:       `operation "` + operationId + `" not found`,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -133,32 +126,8 @@ status: failed
 error: an apiserver error
 `[1:],
 	}, {
-		should:            "only return once status is no longer running or pending",
-		withAPIDelay:      1 * time.Second,
-		withClientWait:    "10s",
-		withClientQueryID: operationId,
-		withAPITimeout:    3 * time.Second,
-		withTicks:         2,
-		withAPIResponse: actionapi.Operations{
-			Operations: []actionapi.Operation{{
-				ID:     operationId,
-				Status: "running",
-				Actions: []actionapi.ActionResult{{
-					Output: map[string]interface{}{
-						"foo": map[string]interface{}{
-							"bar": "baz",
-						},
-					},
-				}},
-				Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-				Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-			}},
-		},
-		expectedErr: "test timed out before wait time",
-	}, {
 		should:            "pretty-print operation output",
 		withClientQueryID: operationId,
-		withAPITimeout:    1 * time.Second,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -208,8 +177,6 @@ tasks:
 		should:            "pretty-print action output with no completed time",
 		withClientQueryID: operationId,
 		withClientWait:    "1s",
-		withAPITimeout:    2 * time.Second,
-		withTicks:         1,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -257,10 +224,8 @@ tasks:
 	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: operationId,
-		withAPITimeout:    5 * time.Second,
-		withClientWait:    "3s",
+		withClientWait:    "10s",
 		withAPIDelay:      1 * time.Second,
-		withTicks:         1,
 		withAPIResponse: actionapi.Operations{
 			Operations: []actionapi.Operation{{
 				ID:      operationId,
@@ -333,24 +298,6 @@ timing:
 				t.withAPIError,
 			)
 
-			numExpectedTimers := 0
-			// Ensure the api timeout timer is registered.
-			if t.withAPITimeout > 0 {
-				numExpectedTimers++
-			}
-			// And the api delay timer.
-			if t.withAPIDelay > 0 {
-				numExpectedTimers++
-			}
-			err := s.clock.WaitAdvance(0*time.Second, testing.ShortWait, numExpectedTimers)
-			c.Assert(err, jc.ErrorIsNil)
-
-			// Ensure the cmd max wait timer is registered. But this only happens
-			// during Run() so check for it later.
-			if t.withClientWait != "" {
-				numExpectedTimers++
-			}
-
 			s.testRunHelper(
 				c,
 				fakeClient,
@@ -361,8 +308,6 @@ timing:
 				t.withClientQueryID,
 				modelFlag,
 				t.watch,
-				t.withTicks,
-				numExpectedTimers,
 			)
 		}
 	}
@@ -370,7 +315,7 @@ timing:
 
 func (s *ShowOperationSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, format, wait, query, modelFlag string,
-	watch bool, numTicks int, numExpectedTimers int,
+	watch bool,
 ) {
 	unpatch := s.patchAPIClient(client)
 	defer unpatch()
@@ -398,14 +343,6 @@ func (s *ShowOperationSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
 	}()
 
-	if numTicks > 0 {
-		numExpectedTimers += 1
-	}
-	for t := 0; t < numTicks; t++ {
-		err2 := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, numExpectedTimers)
-		c.Assert(err2, jc.ErrorIsNil)
-		numExpectedTimers--
-	}
 	wg.Wait()
 
 	if expectedErr != "" {
@@ -425,9 +362,12 @@ func (s *ShowOperationSuite) makeFakeClient(
 	if delay != 0 {
 		delayTimer = s.clock.NewTimer(delay)
 	}
+	if timeout == 0 {
+		timeout = testing.LongWait
+	}
 	client := &fakeAPIClient{
 		delay:            delayTimer,
-		timeout:          s.clock.NewTimer(timeout),
+		timeout:          clock.WallClock.NewTimer(timeout),
 		operationResults: response,
 	}
 	if errStr != "" {

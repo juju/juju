@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,8 +19,9 @@ type statusSetter interface {
 	SetStatus(status.StatusInfo) error
 }
 
-func primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int, nextData func(int) map[string]interface{}, delta time.Duration, info string) {
-	now := time.Now().Add(-delta)
+func primeStatusHistory(c *gc.C, clock clock.Clock, entity statusSetter,
+	statusVal status.Status, count int, nextData func(int) map[string]interface{}, delta time.Duration, info string) {
+	now := clock.Now().Add(-delta)
 	for i := 0; i < count; i++ {
 		c.Logf("setting status for %v", entity)
 		data := nextData(i)
@@ -42,8 +44,8 @@ func checkInitialWorkloadStatus(c *gc.C, statusInfo status.StatusInfo) {
 	c.Check(statusInfo.Since, gc.NotNil)
 }
 
-func primeUnitStatusHistory(c *gc.C, unit *state.Unit, count int, delta time.Duration) {
-	primeStatusHistory(c, unit, status.Active, count, func(i int) map[string]interface{} {
+func primeUnitStatusHistory(c *gc.C, clock clock.Clock, unit *state.Unit, count int, delta time.Duration) {
+	primeStatusHistory(c, clock, unit, status.Active, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$foo": i, "$delta": delta}
 	}, delta, "")
 }
@@ -62,8 +64,8 @@ func checkInitialUnitAgentStatus(c *gc.C, statusInfo status.StatusInfo) {
 	c.Assert(statusInfo.Since, gc.NotNil)
 }
 
-func primeUnitAgentStatusHistory(c *gc.C, agent *state.UnitAgent, count int, delta time.Duration, info string) {
-	primeStatusHistory(c, agent, status.Executing, count, func(i int) map[string]interface{} {
+func primeUnitAgentStatusHistory(c *gc.C, clock clock.Clock, agent *state.UnitAgent, count int, delta time.Duration, info string) {
+	primeStatusHistory(c, clock, agent, status.Executing, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$bar": i, "$delta": delta}
 	}, delta, info)
 }

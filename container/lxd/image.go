@@ -61,7 +61,7 @@ func (s *Server) FindImage(
 			logger.Debugf("Found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,
-				LXDServer: s.ContainerServer,
+				LXDServer: s.InstanceServer,
 			}, nil
 		}
 	}
@@ -114,7 +114,7 @@ func (s *Server) FindImage(
 
 		// Now that we have the image cached locally, we indicate in the return
 		// that the source is local instead of the remote where we found it.
-		sourced.LXDServer = s.ContainerServer
+		sourced.LXDServer = s.InstanceServer
 	}
 
 	return sourced, nil

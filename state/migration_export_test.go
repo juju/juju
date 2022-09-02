@@ -84,7 +84,7 @@ func (s *MigrationBaseSuite) setRandSequenceValue(c *gc.C, name string) int {
 }
 
 func (s *MigrationBaseSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
-	primeStatusHistory(c, entity, statusVal, count, func(i int) map[string]interface{} {
+	primeStatusHistory(c, s.StatePool.Clock(), entity, statusVal, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"index": count - i}
 	}, 0, "")
 }

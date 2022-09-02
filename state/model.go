@@ -778,6 +778,7 @@ func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.Statu
 		db:        m.st.db(),
 		globalKey: m.globalKey(),
 		filter:    filter,
+		clock:     m.st.clock(),
 	}
 	return statusHistory(args)
 }

@@ -44,7 +44,8 @@ func (s *machineUpgraderSuite) SetUpTest(c *gc.C) {
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that should
-//       need all of the setup we have for this test suite
+//
+//	need all of the setup we have for this test suite
 func (s *machineUpgraderSuite) TestNew(c *gc.C) {
 	upgrader := upgrader.NewState(s.stateAPI)
 	c.Assert(upgrader, gc.NotNil)
@@ -107,7 +108,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
 	// Initial event

@@ -17,18 +17,21 @@ import (
 	"github.com/juju/juju/core/constraints"
 )
 
+// ConstraintApplier defines the function type for configuring constraint for a pod.
+type ConstraintApplier func(pod *core.PodSpec, resourceName core.ResourceName, value string) error
+
 // ApplyConstraints applies the specified constraints to the pod.
-func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value) error {
+func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value, configureConstraint ConstraintApplier) error {
 	// TODO(allow resource limits to be applied to each container).
 	// For now we only do resource requests, one container is sufficient for
 	// scheduling purposes.
 	if mem := cons.Mem; mem != nil {
-		if err := configureConstraint(pod, "memory", fmt.Sprintf("%dMi", *mem)); err != nil {
+		if err := configureConstraint(pod, core.ResourceMemory, fmt.Sprintf("%dMi", *mem)); err != nil {
 			return errors.Annotatef(err, "configuring memory constraint for %s", appName)
 		}
 	}
 	if cpu := cons.CpuPower; cpu != nil {
-		if err := configureConstraint(pod, "cpu", fmt.Sprintf("%dm", *cpu)); err != nil {
+		if err := configureConstraint(pod, core.ResourceCPU, fmt.Sprintf("%dm", *cpu)); err != nil {
 			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
 		}
 	}
@@ -258,32 +261,35 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 	return nil
 }
 
-func configureConstraint(pod *core.PodSpec, constraint, value string) error {
+func configureConstraint(pod *core.PodSpec, resourceName core.ResourceName, value string) (err error) {
+	if len(pod.Containers) == 0 {
+		return nil
+	}
+	pod.Containers[0].Resources.Requests, err = MergeConstraint(resourceName, value, pod.Containers[0].Resources.Requests)
+	if err != nil {
+		return errors.Annotatef(err, "merging request constraint %s=%s", resourceName, value)
+	}
 	for i := range pod.Containers {
-		resources := pod.Containers[i].Resources
-		err := mergeConstraint(constraint, value, &resources)
+		pod.Containers[i].Resources.Limits, err = MergeConstraint(resourceName, value, pod.Containers[i].Resources.Limits)
 		if err != nil {
-			return errors.Annotatef(err, "merging constraint %q to %#v", constraint, resources)
+			return errors.Annotatef(err, "merging limit constraint %s=%s", resourceName, value)
 		}
-		pod.Containers[i].Resources = resources
-		// Just the first container is enough for scheduling purposes.
-		break
 	}
 	return nil
 }
 
-func mergeConstraint(constraint string, value string, resources *core.ResourceRequirements) error {
-	if resources.Requests == nil {
-		resources.Requests = core.ResourceList{}
+// MergeConstraint merges constraint spec.
+func MergeConstraint(resourceName core.ResourceName, value string, resourcesList core.ResourceList) (core.ResourceList, error) {
+	if resourcesList == nil {
+		resourcesList = core.ResourceList{}
 	}
-	resourceName := core.ResourceName(constraint)
-	if v, ok := resources.Requests[resourceName]; ok {
-		return errors.NotValidf("resource limit for %q has already been set to %v!", resourceName, v)
+	if v, ok := resourcesList[resourceName]; ok {
+		return nil, errors.NotValidf("resource list for %q has already been set to %v", resourceName, v)
 	}
 	parsedValue, err := resource.ParseQuantity(value)
 	if err != nil {
-		return errors.Annotatef(err, "invalid constraint value %q for %v", value, constraint)
+		return nil, errors.Annotatef(err, "invalid constraint value %q for %q", value, resourceName)
 	}
-	resources.Requests[resourceName] = parsedValue
-	return nil
+	resourcesList[resourceName] = parsedValue
+	return resourcesList, nil
 }

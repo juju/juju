@@ -701,7 +701,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusNewUnitsAllocating(
 			c.Assert(len(unitsAPIResultSingleActive), gc.DeepEquals, 1)
 			return unitsAPIResultSingleActive, nil
 		}),
-		tc.facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units settled down", nil).
+		tc.facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units to settle down", nil).
 			DoAndReturn(func(string, status.Status, string, map[string]interface{}) error {
 				close(done)
 				return nil
@@ -786,7 +786,7 @@ func (s *ApplicationWorkerSuite) TestRefreshApplicationStatusTransitionFromWaiti
 			c.Assert(len(unitsAPIResultPartialActive), gc.DeepEquals, 3)
 			return unitsAPIResultPartialActive, nil
 		}),
-		tc.facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units settled down", nil).
+		tc.facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units to settle down", nil).
 			DoAndReturn(func(string, status.Status, string, map[string]interface{}) error {
 				err := tc.clock.WaitAdvance(10*time.Second, coretesting.ShortWait, 2)
 				c.Assert(err, jc.ErrorIsNil)

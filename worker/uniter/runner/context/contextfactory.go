@@ -13,12 +13,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context/payloads"
 	"github.com/juju/juju/worker/uniter/runner/context/resources"
@@ -62,18 +63,36 @@ type StorageContextAccessor interface {
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
 
+// SecretsAccessor is used by the hook context to access the secrets backend.
+type SecretsAccessor interface {
+	// CreateSecretURIs is used by secret-add to get URIs
+	// for added secrets.
+	CreateSecretURIs(int) ([]*secrets.URI, error)
+
+	// SecretMetadata is used by secrets-get to fetch
+	// metadata for secrets.
+	SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error)
+
+	// SecretRotated records the outcome of rotating a secret.
+	SecretRotated(uri string, oldRevision int) error
+}
+
+// SecretsStoreGetter creates a secrets store client.
+type SecretsStoreGetter func() (jujusecrets.Store, error)
+
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
 type RelationsFunc func() map[int]*RelationInfo
 
 type contextFactory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit      *uniter.Unit
-	state     *uniter.State
-	resources *uniter.ResourcesFacadeClient
-	payloads  *uniter.PayloadFacadeClient
-	secrets   *secretsmanager.Client
-	tracker   leadership.Tracker
+	unit               *uniter.Unit
+	state              *uniter.State
+	resources          *uniter.ResourcesFacadeClient
+	payloads           *uniter.PayloadFacadeClient
+	secretsClient      SecretsAccessor
+	secretsStoreGetter SecretsStoreGetter
+	tracker            leadership.Tracker
 
 	logger loggo.Logger
 
@@ -99,17 +118,18 @@ type contextFactory struct {
 // FactoryConfig contains configuration values
 // for the context factory.
 type FactoryConfig struct {
-	State            *uniter.State
-	Secrets          *secretsmanager.Client
-	Unit             *uniter.Unit
-	Resources        *uniter.ResourcesFacadeClient
-	Payloads         *uniter.PayloadFacadeClient
-	Tracker          leadership.Tracker
-	GetRelationInfos RelationsFunc
-	Storage          StorageContextAccessor
-	Paths            Paths
-	Clock            Clock
-	Logger           loggo.Logger
+	State              *uniter.State
+	SecretsClient      SecretsAccessor
+	SecretsStoreGetter SecretsStoreGetter
+	Unit               *uniter.Unit
+	Resources          *uniter.ResourcesFacadeClient
+	Payloads           *uniter.PayloadFacadeClient
+	Tracker            leadership.Tracker
+	GetRelationInfos   RelationsFunc
+	Storage            StorageContextAccessor
+	Paths              Paths
+	Clock              Clock
+	Logger             loggo.Logger
 }
 
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
@@ -142,25 +162,26 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	}
 
 	f := &contextFactory{
-		unit:             config.Unit,
-		state:            config.State,
-		resources:        config.Resources,
-		payloads:         config.Payloads,
-		secrets:          config.Secrets,
-		tracker:          config.Tracker,
-		logger:           config.Logger,
-		paths:            config.Paths,
-		modelUUID:        m.UUID,
-		modelName:        m.Name,
-		machineTag:       machineTag,
-		getRelationInfos: config.GetRelationInfos,
-		relationCaches:   map[int]*RelationCache{},
-		storage:          config.Storage,
-		rand:             rand.New(rand.NewSource(time.Now().Unix())),
-		clock:            config.Clock,
-		zone:             zone,
-		principal:        principal,
-		modelType:        m.ModelType,
+		unit:               config.Unit,
+		state:              config.State,
+		resources:          config.Resources,
+		payloads:           config.Payloads,
+		secretsClient:      config.SecretsClient,
+		secretsStoreGetter: config.SecretsStoreGetter,
+		tracker:            config.Tracker,
+		logger:             config.Logger,
+		paths:              config.Paths,
+		modelUUID:          m.UUID,
+		modelName:          m.Name,
+		machineTag:         machineTag,
+		getRelationInfos:   config.GetRelationInfos,
+		relationCaches:     map[int]*RelationCache{},
+		storage:            config.Storage,
+		rand:               rand.New(rand.NewSource(time.Now().Unix())),
+		clock:              config.Clock,
+		zone:               zone,
+		principal:          principal,
+		modelType:          m.ModelType,
 	}
 	return f, nil
 }
@@ -181,7 +202,8 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
-		secretFacade:       f.secrets,
+		secretsClient:      f.secretsClient,
+		secretsStoreGetter: f.secretsStoreGetter,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
@@ -381,6 +403,28 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
+	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
+	owner := f.unit.ApplicationTag().String()
+	info, err := ctx.secretsClient.SecretMetadata(secrets.Filter{
+		OwnerTag: &owner,
+	})
+	if err != nil {
+		return err
+	}
+	ctx.secretMetadata = make(map[string]jujuc.SecretMetadata)
+	for _, v := range info {
+		md := v.Metadata
+		ctx.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
+			Description:      md.Description,
+			Label:            md.Label,
+			RotatePolicy:     md.RotatePolicy,
+			LatestRevision:   md.LatestRevision,
+			LatestExpireTime: md.LatestExpireTime,
+			NextRotateTime:   md.NextRotateTime,
+			ProviderIds:      v.ProviderIds,
+		}
+	}
+
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/golang/mock/gomock"
@@ -15,8 +16,10 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -27,13 +30,15 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
+	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type deployerSuite struct {
+	testing.IsolationSuite
+
 	consumeDetails    *mocks.MockConsumeDetails
 	resolver          *mocks.MockResolver
 	deployerAPI       *mocks.MockDeployerAPI
@@ -53,6 +58,16 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(_ *gc.C) {
 	s.deployResourceIDs = make(map[string]string)
+
+	// TODO: remove this patch once we removed all the old series from tests in current package.
+	s.PatchValue(&SupportedJujuSeries,
+		func(time.Time, string, string) (set.Strings, error) {
+			return set.NewStrings(
+				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"jammy", "focal", "bionic", "xenial",
+			), nil
+		},
+	)
 }
 
 func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
@@ -378,7 +393,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployCAAS(c *gc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
-		Series: []string{series.Kubernetes.String()},
+		Series: []string{jujuseries.Kubernetes.String()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -393,7 +408,7 @@ func (s *deployerSuite) TestValidateResourcesNeededForLocalDeployIAAS(c *gc.C) {
 	}
 
 	err := f.validateResourcesNeededForLocalDeploy(&charm.Meta{
-		Series: []string{series.Kubernetes.String()},
+		Series: []string{jujuseries.Kubernetes.String()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

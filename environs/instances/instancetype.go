@@ -181,7 +181,7 @@ func (bc byCost) Swap(i, j int) {
 	bc[i], bc[j] = bc[j], bc[i]
 }
 
-//byMemory is used to sort a slice of instance types by the amount of RAM they have.
+// byMemory is used to sort a slice of instance types by the amount of RAM they have.
 type byMemory []InstanceType
 
 func (s byMemory) Len() int      { return len(s) }
