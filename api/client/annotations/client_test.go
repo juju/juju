@@ -42,23 +42,24 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 		},
 	}
 
-	for _, aParam := range args.Annotations {
-		// Since sometimes arrays returned on some
-		// architectures vary the order within params.AnnotationsSet,
-		// simply assert that each entity has its own annotations.
-		// Bug 1409141
-		c.Assert(aParam.Annotations, gc.DeepEquals, setParams[aParam.EntityTag])
-	}
-
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{
 		Results: nil,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Set", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("Set", args, result).SetArg(2, results).DoAndReturn(
+		func(arg0 string, args params.AnnotationsSet, results *params.ErrorResults) []error {
+			for _, aParam := range args.Annotations {
+				// Since sometimes arrays returned on some
+				// architectures vary the order within params.AnnotationsSet,
+				// simply assert that each entity has its own annotations.
+				// Bug 1409141
+				c.Assert(aParam.Annotations, gc.DeepEquals, setParams[aParam.EntityTag])
+			}
+			return nil
+		})
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
-	// annotationsClient := annotations.NewClient(apiCaller)
 	callErrs, err := annotationsClient.Set(setParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callErrs, gc.HasLen, 0)
