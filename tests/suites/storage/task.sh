@@ -13,7 +13,7 @@ test_storage() {
 
 	bootstrap "test-storage" "${file}"
 
-  test_charm_storage
+	test_charm_storage
 
 	destroy_controller "test-storage"
 }

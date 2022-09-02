@@ -1,10 +1,7 @@
 run_charm_storage() {
 	echo
 
-	model_name="test-charm-storage"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
+	model_name="test-storage"
 
 	echo "Assess create-storage-pool"
 	juju create-storage-pool -m "${model_name}" loopy loop size=1G
@@ -127,7 +124,6 @@ run_charm_storage() {
 	wait_for "{}" ".applications"
 	echo "All charm storage tests PASSED"
 
-	destroy_model "${model_name}"
 }
 
 test_charm_storage() {
