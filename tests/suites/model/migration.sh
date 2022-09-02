@@ -54,6 +54,9 @@ run_model_migration() {
 #   - Migrates from stable -> devel controller
 #   - Asserts the deployed application continues to work
 run_model_migration_version() {
+	# Record the current value then restore later once this run done.
+	SHORT_GIT_COMMIT_VALUE="$SHORT_GIT_COMMIT"
+	JUJU_VERSION_VALUE="$JUJU_VERSION"
 	# Reset JUJU_VERSION and SHORT_GIT_COMMIT for stable bootstrap
 	unset SHORT_GIT_COMMIT
 	juju_version_without_build_number=$(echo "$JUJU_VERSION" | sed "s/.$JUJU_BUILD_NUMBER//")
@@ -73,8 +76,6 @@ run_model_migration_version() {
 	fi
 	export JUJU_VERSION=$stable_version
 
-	# Unset to re-generate from the new agent-version.
-	unset BOOTSTRAP_ADDITIONAL_ARGS
 	# Ensure we have another controller available.
 	bootstrap_alt_controller "alt-model-migration-version-stable"
 	juju --show-log switch "alt-model-migration-version-stable"
@@ -127,13 +128,17 @@ run_model_migration_version() {
 	wait_for "active" "$(workload_status "etcd" 3).current"
 	wait_for "active" "$(workload_status "etcd" 4).current"
 
-	# juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=50m health  # 3.0
-	juju --show-log run-action etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=50m health # 2.9
+	# juju --show-log run etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health  # 3.0
+	juju --show-log run-action etcd/0 etcd/1 etcd/2 etcd/3 etcd/4 --wait=10m health # 2.9
 
 	# Clean up.
 	destroy_controller "alt-model-migration-version-stable"
 
 	destroy_model "model-migration-version-stable"
+
+	# Restore these two environment variables for the rest of the tests.
+	export SHORT_GIT_COMMIT="$SHORT_GIT_COMMIT_VALUE"
+	export JUJU_VERSION="$JUJU_VERSION_VALUE"
 }
 
 # Migrating a model that is the offerer of a cross-model relation
@@ -161,13 +166,19 @@ run_model_migration_saas_common() {
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
-	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
-	juju relate dummy-sink dummy-source
+	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
+	juju --show-log relate dummy-sink dummy-source
+	# wait for relation joined before migrate.
+	# work around for fixing:
+	# ERROR source prechecks failed: unit dummy-source/0 hasn't joined relation "dummy-source:sink remote-abaa4396b3ae409981ad83d1d04af21f:source" yet
+	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+	sleep 30
 
 	juju switch "model-migration-saas"
 	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
 
-	juju migrate "model-migration-saas" "alt-model-migration-saas"
+	juju --show-log migrate "model-migration-saas" "alt-model-migration-saas"
+	sleep 5
 	juju switch "alt-model-migration-saas"
 
 	# Wait for the new model migration to appear in the alt controller.
@@ -224,13 +235,17 @@ run_model_migration_saas_external() {
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
-	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
-	juju relate dummy-sink dummy-source
+	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
+	juju --show-log relate dummy-sink dummy-source
+	# wait for relation joined before migrate.
+	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+	sleep 30
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
 
-	juju migrate "model-migration-saas" "model-migration-saas-target"
+	juju --show-log migrate "model-migration-saas" "model-migration-saas-target"
+	sleep 5
 	juju switch "model-migration-saas-target"
 
 	# Wait for the new model migration to appear in the target controller.
@@ -288,15 +303,19 @@ run_model_migration_saas_consumer() {
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
-	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
-	juju relate dummy-sink dummy-source
+	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
+	juju --show-log relate dummy-sink dummy-source
+	# wait for relation joined before migrate.
+	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+	sleep 30
 
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju config dummy-source token=wait-for-it
 	juju switch "model-migration-saas-consume"
 	wait_for "wait-for-it" "$(workload_status "dummy-sink" 0).message"
 
-	juju migrate "model-migration-consumer" "model-migration-saas-target"
+	juju --show-log migrate "model-migration-consumer" "model-migration-saas-target"
+	sleep 5
 	juju switch "model-migration-saas-target"
 
 	# Wait for the new model migration to appear in the target controller.
@@ -354,6 +373,9 @@ bootstrap_alt_controller() {
 
 	START_TIME=$(date +%s)
 	echo "====> Bootstrapping ${name}"
+
+	# Unset to re-generate from the new agent-version.
+	unset BOOTSTRAP_ADDITIONAL_ARGS
 
 	file="${TEST_DIR}/${name}.log"
 	juju_bootstrap "${BOOTSTRAP_CLOUD}" "${name}" "misc" "${file}"
