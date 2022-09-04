@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -95,10 +96,6 @@ func convertCharm(info transport.InfoResponse) (ch *Charm, isKubernetes bool) {
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		ch.Subordinate = meta.Subordinate
 		ch.Relations = transformRelations(meta.Requires, meta.Provides)
-
-		// TODO: hml 2021-04-15
-		// Implementation of Manifest in charmhub InfoResponse is
-		// required.  In the default-release channel map.
 		cm := charmMeta{meta: meta}
 		isKubernetes = corecharm.IsKubernetes(cm)
 	}
