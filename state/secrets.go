@@ -284,7 +284,7 @@ func (st *State) checkExists(uri *secrets.URI) error {
 		return errors.Trace(err)
 	}
 	if n == 0 {
-		return errors.NotFoundf("secret %q", uri.ShortString())
+		return errors.NotFoundf("secret %q", uri.String())
 	}
 	return nil
 }
@@ -409,7 +409,6 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	uri.ControllerUUID = s.st.ControllerUUID()
 	return &secrets.SecretMetadata{
 		URI:              uri,
 		Version:          doc.Version,
@@ -461,7 +460,7 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 		"_id", uri.ID,
 	}})
 	if err != nil {
-		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
+		return errors.Annotatef(err, "deleting revisions for %s", uri.String())
 	}
 
 	secretRotateCollection, closer := s.st.db().GetCollection(secretRotateC)
@@ -470,7 +469,7 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 		"_id", uri.ID,
 	}})
 	if err != nil {
-		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
+		return errors.Annotatef(err, "deleting revisions for %s", uri.String())
 	}
 
 	secretRevisionsCollection, closer := s.st.db().GetCollection(secretRevisionsC)
@@ -479,7 +478,7 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 		"_id", bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}},
 	}})
 	if err != nil {
-		return errors.Annotatef(err, "deleting revisions for %s", uri.ShortString())
+		return errors.Annotatef(err, "deleting revisions for %s", uri.String())
 	}
 
 	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
@@ -488,7 +487,7 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
 	}})
 	if err != nil {
-		return errors.Annotatef(err, "deleting permissions for %s", uri.ShortString())
+		return errors.Annotatef(err, "deleting permissions for %s", uri.String())
 	}
 
 	secretConsumersCollection, closer := s.st.db().GetCollection(secretConsumersC)
@@ -497,7 +496,7 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
 	}})
 	if err != nil {
-		return errors.Annotatef(err, "deleting consumer info for %s", uri.ShortString())
+		return errors.Annotatef(err, "deleting consumer info for %s", uri.String())
 	}
 	refCountsCollection, closer := s.st.db().GetCollection(refcountsC)
 	defer closer()
@@ -505,7 +504,7 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI) (err error) {
 		"_id", fmt.Sprintf("%s#%s", uri.ID, "consumer"),
 	}})
 	if err != nil {
-		return errors.Annotatef(err, "deleting consumer info for %s", uri.ShortString())
+		return errors.Annotatef(err, "deleting consumer info for %s", uri.String())
 	}
 	return nil
 }
@@ -878,8 +877,13 @@ func (st *State) findSecretEntity(tag names.Tag) (entity Lifer, collName, docID 
 		docID = id
 	case names.ApplicationTag:
 		entity, err = st.Application(id)
-		collName = applicationsC
 		docID = id
+		if err == nil {
+			collName = applicationsC
+		} else if errors.IsNotFound(err) {
+			entity, err = st.RemoteApplication(id)
+			collName = remoteApplicationsC
+		}
 	default:
 		err = errors.NotValidf("secret scope reference %q", tag.String())
 	}
@@ -921,16 +925,41 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 		return errors.NotValidf("secret role %q", p.Role)
 	}
 
-	entity, scopeCollName, scopeDocID, err := st.findSecretEntity(p.Scope)
+	scopeEntity, scopeCollName, scopeDocID, err := st.findSecretEntity(p.Scope)
 	if err != nil {
 		return errors.Annotate(err, "invalid scope reference")
 	}
-	if entity.Life() != Alive {
+	if scopeEntity.Life() != Alive {
 		return errors.Errorf("cannot grant access to secret in scope of %q which is not alive", p.Scope)
 	}
+	subjectEntity, subjectCollName, subjectDocID, err := st.findSecretEntity(p.Subject)
+	if err != nil {
+		return errors.Annotate(err, "invalid subject reference")
+	}
+	if subjectEntity.Life() != Alive {
+		return errors.Errorf("cannot grant dying %q access to secret", p.Subject)
+	}
+	isCrossModel := subjectCollName == remoteApplicationsC
+	if subjectCollName == unitsC {
+		unitApp, _ := names.UnitApplication(p.Subject.Id())
+		_, err = st.RemoteApplication(unitApp)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		isCrossModel = err == nil
+	}
+	if isCrossModel {
+		return errors.NotSupportedf("sharing secrets across a cross model relation")
+	}
+
 	isScopeAliveOp := txn.Op{
 		C:      scopeCollName,
 		Id:     scopeDocID,
+		Assert: isAliveDoc,
+	}
+	isSubjectAliveOp := txn.Op{
+		C:      subjectCollName,
+		Id:     subjectDocID,
 		Assert: isAliveDoc,
 	}
 
@@ -973,7 +1002,7 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 			Update: bson.M{"$set": bson.M{
 				"role": p.Role,
 			}},
-		}, isScopeAliveOp}, nil
+		}, isScopeAliveOp, isSubjectAliveOp}, nil
 	}
 	return st.db().Run(buildTxnWithLeadership(buildTxn, p.LeaderToken))
 }

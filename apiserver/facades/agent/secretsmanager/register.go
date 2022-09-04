@@ -42,7 +42,6 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	}
 	return &SecretsManagerAPI{
 		authTag:           context.Auth().GetAuthTag(),
-		controllerUUID:    context.State().ControllerUUID(),
 		modelUUID:         context.State().ModelUUID(),
 		leadershipChecker: leadershipChecker,
 		secretsBackend:    secretsBackend,

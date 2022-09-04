@@ -154,6 +154,6 @@ func (c *secretAddCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(ctx.Stdout, uri.ShortString())
+	fmt.Fprintln(ctx.Stdout, uri.String())
 	return nil
 }

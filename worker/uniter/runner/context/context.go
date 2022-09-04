@@ -810,7 +810,7 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUps
 	}
 	md, ok := ctx.secretMetadata[uri.ID]
 	if !ok {
-		return errors.NotFoundf("secret %q", uri.ShortString())
+		return errors.NotFoundf("secret %q", uri.String())
 	}
 	ctx.secretChanges.update(uniter.SecretUpdateArg{
 		SecretUpsertArg: uniter.SecretUpsertArg{

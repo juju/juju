@@ -40,13 +40,10 @@ func (c *SecretConfig) Validate() error {
 
 // URI represents a reference to a secret.
 type URI struct {
-	ID             string
-	ControllerUUID string
+	ID string
 }
 
 const (
-	uuidSnippet = `[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}`
-
 	idSnippet = `[0-9a-z]{20}`
 
 	// SecretScheme is the URL prefix for a secret.
@@ -54,7 +51,7 @@ const (
 )
 
 var secretURIParse = regexp.MustCompile(`^` +
-	fmt.Sprintf(`((?P<ControllerUUID>%s)/)?(?P<id>%s)`, uuidSnippet, idSnippet) +
+	fmt.Sprintf(`(?P<id>%s)`, idSnippet) +
 	`$`)
 
 // ParseURI parses the specified string into a URI.
@@ -77,23 +74,14 @@ func ParseURI(str string) (*URI, error) {
 	if matches == nil {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
-	id, err := xid.FromString(matches[3])
+	id, err := xid.FromString(matches[1])
 	if err != nil {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
 	result := &URI{
-		ControllerUUID: matches[2],
-		ID:             id.String(),
+		ID: id.String(),
 	}
 	return result, nil
-}
-
-// Raw returns the URI with just the ID part.
-// Used in tests.
-func (u *URI) Raw() *URI {
-	c := *u
-	c.ControllerUUID = ""
-	return &c
 }
 
 // NewURI returns a new secret URI.
@@ -103,25 +91,12 @@ func NewURI() *URI {
 	}
 }
 
-// ShortString prints the URI without controller UUID.
-func (u *URI) ShortString() string {
-	if u == nil {
-		return ""
-	}
-	uCopy := *u
-	uCopy.ControllerUUID = ""
-	return uCopy.String()
-}
-
 // String prints the URI as a string.
 func (u *URI) String() string {
 	if u == nil {
 		return ""
 	}
 	var fullPath []string
-	if u.ControllerUUID != "" {
-		fullPath = append(fullPath, u.ControllerUUID)
-	}
 	fullPath = append(fullPath, u.ID)
 	str := strings.Join(fullPath, "/")
 	urlValue := url.URL{
