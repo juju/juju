@@ -7,9 +7,5 @@ categories:
   - misc
 series:
   - jammy
-  - xenial
+  - focal
   - bionic
-  - trusty
-  - artful
-  - disco
-  - eoan
