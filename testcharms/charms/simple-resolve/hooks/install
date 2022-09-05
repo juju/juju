@@ -24,16 +24,3 @@ run_count=$(cat ${canary_file})
 echo $((${run_count}+1)) > ${canary_file}
 exit_error ${run_count}
 
-# This will be useful when install error retries are limited to n-times. For 
-# now it retries forever and thus there is no exit condition.
-# if [ ${run_count} -le 3 ]; then
-#     echo "Incrementing and erroring"
-#     echo $((${run_count}+1)) > ${canary_file}
-#     exit_error ${run_count}
-# else
-#     echo "Canary file found, exit success."
-#     touch ${success_file}
-#     status-set maintenance "Install hook succeeded." || true
-#     exit 0
-# fi
-
