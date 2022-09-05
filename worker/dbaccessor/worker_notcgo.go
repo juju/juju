@@ -1,3 +1,4 @@
+//go:build !cgo
 // +build !cgo
 
 // Copyright 2022 Canonical Ltd.
@@ -51,4 +52,8 @@ func (a *unsupportedApp) Close() error {
 // GetREPL returns a Repl worker from the underlying DB.
 func (a *unsupportedApp) GetREPL(dbGetter DBGetter) (REPL, error) {
 	return nil, errors.NotSupportedf("repl")
+}
+
+func isRetryableError(error) bool {
+	return false
 }

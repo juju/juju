@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -22,7 +23,10 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 )
 
-const dqlitePort = 17666
+const (
+	dqlitePort         = 17666
+	replSocketFileName = "juju.sock"
+)
 
 type DBGetter interface {
 	GetDB(modelUUID string) (*sql.DB, error)
@@ -96,8 +100,6 @@ type DBApp interface {
 	ID() uint64
 	// Close the application node, releasing all resources it created.
 	Close() error
-	// GetREPL returns a Repl worker from the underlying DB.
-	GetREPL(DBGetter) (REPL, error)
 }
 
 type REPL interface {
@@ -271,7 +273,6 @@ func (w *dbWorker) initializeDqlite() error {
 		WithLogger(w.cfg.Logger),
 	}
 
-	// Start dqlite
 	if err := os.MkdirAll(w.cfg.DataDir, 0700); err != nil {
 		return errors.Annotatef(err, "creating directory for dqlite data")
 	}
@@ -281,22 +282,17 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Trace(err)
 	}
 
-	// Ensure dqlite is ready to acccept new changes
+	// Ensure dqlite is ready to accept new changes.
 	if err := w.dbApp.Ready(context.TODO()); err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil
 		return errors.Annotatef(err, "ensuring dqlite is ready to process changes")
 	}
 
-	// Start REPL
-	repl, err := w.dbApp.GetREPL(w)
-	if err != nil {
+	if err := w.startREPL(); err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil
 		return errors.Annotatef(err, "starting dqlite REPL")
-	}
-	if err := w.catacomb.Add(repl); err != nil {
-		return errors.Trace(err)
 	}
 
 	w.cfg.Logger.Infof("initialized dqlite application (ID: %v)", w.dbApp.ID())
@@ -325,6 +321,17 @@ func (w *dbWorker) getDQliteTLSConfiguration() (serverConf, clientConf *tls.Conf
 			InsecureSkipVerify: true,
 		},
 		nil
+}
+
+func (w *dbWorker) startREPL() error {
+	socketPath := filepath.Join(w.cfg.DataDir, replSocketFileName)
+	_ = os.Remove(socketPath)
+
+	repl, err := newREPL(socketPath, w, isRetryableError, w.cfg.Clock, w.cfg.Logger)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(w.catacomb.Add(repl))
 }
 
 func detectLocalDQliteAddress() (string, error) {

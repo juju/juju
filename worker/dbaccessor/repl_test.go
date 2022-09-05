@@ -25,7 +25,7 @@ func (s *REPLSuite) TestREPL(c *gc.C) {
 		return false
 	}, clock.WallClock, fakeLogger{})
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.CheckKill(c, repl)
+	workertest.CleanKill(c, repl)
 }
 
 func (s *REPLSuite) makeTempSocket(c *gc.C) (string, func()) {
