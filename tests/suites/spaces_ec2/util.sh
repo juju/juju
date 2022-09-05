@@ -73,9 +73,32 @@ assert_endpoint_binding_matches() {
 	got=$(juju show-application ${app_name} --format json | jq -r ".[\"${app_name}\"] | .[\"endpoint-bindings\"] | .[\"${endpoint_name}\"]")
 	if [ "$got" != "$exp_space_name" ]; then
 		# shellcheck disable=SC2086,SC2016,SC2046
-		echo $(red "Expected endpoint \"${endpoint_name}\" in juju show-application ${app_name} to be ${exp_space_name}; got ${got}")
+		echo $(red "Expected endpoint ${endpoint_name} in juju show-application ${app_name} to be ${exp_space_name}; got ${got}")
 		exit 1
 	fi
+}
+
+assert_machine_ip_is_in_cidrs() {
+	local machine_index cidrs
+
+	machine_index=${1}
+	cidrs=${2}
+
+	if ! which "grepcidr" >/dev/null 2>&1; then
+		sudo apt install grepcidr -y
+	fi
+
+	for cidr in $cidrs; do
+		machine_ip_in_cidr=$(juju machines --format json | jq -r ".machines[\"${machine_index}\"][\"ip-addresses\"][]" | grepcidr "${cidr}" || echo "")
+		if [ -n "${machine_ip_in_cidr}" ]; then
+			echo "${machine_ip_in_cidr}"
+			return
+		fi
+	done
+
+	# shellcheck disable=SC2086,SC2016,SC2046
+	echo $(red "machine ${machine_index} has no ips in subnet ${cidrs}") 1>&2
+	exit 1
 }
 
 # get_unit_index(app_name)
