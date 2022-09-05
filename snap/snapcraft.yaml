@@ -118,6 +118,8 @@ parts:
           sha256: $hash
       EOF
       cp -a jujud-versions.yaml $SNAPCRAFT_PART_INSTALL/bin
+    stage-packages:
+      - openssh-client
 
 hooks:
   connect-plug-peers: {}
