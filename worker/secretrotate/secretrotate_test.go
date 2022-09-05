@@ -152,7 +152,7 @@ func (s *workerSuite) TestFirstSecret(c *gc.C) {
 		NextTriggerTime: next,
 	}}
 	s.advanceClock(c, time.Hour)
-	s.expectRotated(c, uri.ShortString())
+	s.expectRotated(c, uri.String())
 }
 
 func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
@@ -179,7 +179,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotate(c *gc.C) {
 		NextTriggerTime: now.Add(time.Hour),
 	}}
 	s.advanceClock(c, 2*time.Hour)
-	s.expectRotated(c, uri.ShortString())
+	s.expectRotated(c, uri.String())
 }
 
 func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
@@ -210,7 +210,7 @@ func (s *workerSuite) TestSecretUpdateBeforeRotateNotTriggered(c *gc.C) {
 
 	// Final sanity check.
 	s.advanceClock(c, time.Hour)
-	s.expectRotated(c, uri.ShortString())
+	s.expectRotated(c, uri.String())
 }
 
 func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
@@ -240,10 +240,10 @@ func (s *workerSuite) TestNewSecretTriggersBefore(c *gc.C) {
 	}}
 	time.Sleep(testing.ShortWait) // ensure advanceClock happens after timer is updated
 	s.advanceClock(c, 15*time.Minute)
-	s.expectRotated(c, uri2.ShortString())
+	s.expectRotated(c, uri2.String())
 
 	s.advanceClock(c, 30*time.Minute)
-	s.expectRotated(c, uri.ShortString())
+	s.expectRotated(c, uri.String())
 }
 
 func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
@@ -272,7 +272,7 @@ func (s *workerSuite) TestManySecretsTrigger(c *gc.C) {
 	}}
 
 	s.advanceClock(c, 90*time.Minute)
-	s.expectRotated(c, uri.ShortString(), uri2.ShortString())
+	s.expectRotated(c, uri.String(), uri2.String())
 }
 
 func (s *workerSuite) TestDeleteSecretRotation(c *gc.C) {
@@ -336,7 +336,7 @@ func (s *workerSuite) TestManySecretsDeleteOne(c *gc.C) {
 	s.expectNoRotates(c)
 
 	s.advanceClock(c, 30*time.Minute)
-	s.expectRotated(c, uri.ShortString())
+	s.expectRotated(c, uri.String())
 }
 
 func (s *workerSuite) TestRotateGranularity(c *gc.C) {
@@ -364,5 +364,5 @@ func (s *workerSuite) TestRotateGranularity(c *gc.C) {
 	}}
 	// First secret won't rotate before the one minute granularity.
 	s.advanceClock(c, 46*time.Second)
-	s.expectRotated(c, uri.ShortString(), uri2.ShortString())
+	s.expectRotated(c, uri.String(), uri2.String())
 }

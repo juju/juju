@@ -26,8 +26,7 @@ var logger = loggo.GetLogger("juju.apiserver.secretsmanager")
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
-	controllerUUID string
-	modelUUID      string
+	modelUUID string
 
 	leadershipChecker leadership.Checker
 	secretsBackend    SecretsBackend
@@ -130,10 +129,12 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 		Role:        coresecrets.RoleManage,
 	})
 	if err != nil {
-		// TODO(wallyworld) - remove secret when that is supported
+		if err2 := s.secretsBackend.DeleteSecret(uri); err2 != nil {
+			logger.Warningf("cleaning up secret %q", uri)
+		}
 		return "", errors.Annotate(err, "granting secret owner permission to manage the secret")
 	}
-	return md.URI.ShortString(), nil
+	return md.URI.String(), nil
 }
 
 func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRotateTime *time.Time) state.UpdateSecretParams {
@@ -170,14 +171,10 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if uri.ControllerUUID != "" && uri.ControllerUUID != s.controllerUUID {
-		return errors.NotValidf("secret URI with controller UUID %q", uri.ControllerUUID)
-	}
 	if arg.RotatePolicy == nil && arg.Description == nil && arg.ExpireTime == nil &&
 		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.ProviderId == nil {
 		return errors.New("at least one attribute to update must be specified")
 	}
-	uri.ControllerUUID = s.controllerUUID
 	if !s.canManage(uri, s.authTag) {
 		return apiservererrors.ErrPerm
 	}
@@ -215,10 +212,6 @@ func (s *SecretsManagerAPI) removeSecret(arg params.SecretURIArg) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if uri.ControllerUUID != "" && uri.ControllerUUID != s.controllerUUID {
-		return errors.NotValidf("secret URI with controller UUID %q", uri.ControllerUUID)
-	}
-	uri.ControllerUUID = s.controllerUUID
 	if !s.canManage(uri, s.authTag) {
 		return apiservererrors.ErrPerm
 	}
@@ -258,9 +251,6 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if uri.ControllerUUID == "" {
-		uri.ControllerUUID = s.controllerUUID
-	}
 	if !s.canRead(uri, consumerTag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -280,7 +270,7 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 	result.Results = make([]params.ListSecretResult, len(secrets))
 	for i, md := range secrets {
 		result.Results[i] = params.ListSecretResult{
-			URI:              md.URI.ShortString(),
+			URI:              md.URI.String(),
 			Version:          md.Version,
 			RotatePolicy:     md.RotatePolicy.String(),
 			NextRotateTime:   md.NextRotateTime,
@@ -331,9 +321,6 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if uri.ControllerUUID == "" {
-		uri.ControllerUUID = s.controllerUUID
 	}
 	if !s.canRead(uri, s.authTag) {
 		return nil, apiservererrors.ErrPerm
@@ -456,7 +443,6 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		if err != nil {
 			return errors.Trace(err)
 		}
-		uri.ControllerUUID = s.controllerUUID
 		md, err := s.secretsBackend.GetSecret(uri)
 		if err != nil {
 			return errors.Trace(err)
@@ -478,13 +464,13 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 			lastRotateTime = &now
 		}
 		var nextRotateTime time.Time
-		logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ShortString(), arg.OriginalRevision, md.LatestRevision)
+		logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.String(), arg.OriginalRevision, md.LatestRevision)
 		if arg.Skip || md.LatestRevision > arg.OriginalRevision {
 			nextRotateTime = *md.RotatePolicy.NextRotateTime(*lastRotateTime)
 		} else {
 			nextRotateTime = lastRotateTime.Add(coresecrets.RotateRetryDelay)
 		}
-		logger.Debugf("secret %q next rotate time is now: %s", uri.ShortString(), nextRotateTime.UTC().Format(time.RFC3339))
+		logger.Debugf("secret %q next rotate time is now: %s", uri.String(), nextRotateTime.UTC().Format(time.RFC3339))
 		return s.secretsRotation.SecretRotated(uri, nextRotateTime)
 	}
 	for i, arg := range args.Args {
@@ -521,7 +507,6 @@ func (s *SecretsManagerAPI) secretsGrantRevoke(args params.GrantRevokeSecretArgs
 		if err != nil {
 			return errors.Trace(err)
 		}
-		uri.ControllerUUID = s.controllerUUID
 		if !s.canManage(uri, s.authTag) {
 			return apiservererrors.ErrPerm
 		}

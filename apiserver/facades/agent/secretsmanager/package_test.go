@@ -45,7 +45,6 @@ func NewTestAPI(
 
 	return &SecretsManagerAPI{
 		authTag:           authTag,
-		controllerUUID:    coretesting.ControllerTag.Id(),
 		modelUUID:         coretesting.ModelTag.Id(),
 		resources:         resources,
 		leadershipChecker: leadership,

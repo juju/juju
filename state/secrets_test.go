@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -53,7 +54,6 @@ func ptr[T any](v T) *T {
 
 func (s *SecretsSuite) TestCreate(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
@@ -95,7 +95,6 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 
 func (s *SecretsSuite) TestCreateProviderId(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag().String(),
@@ -115,7 +114,6 @@ func (s *SecretsSuite) TestCreateProviderId(c *gc.C) {
 
 func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
@@ -136,7 +134,6 @@ func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
 	_, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := secrets.NewURI()
-	uri2.ControllerUUID = s.State.ControllerUUID()
 	_, err = s.store.CreateSecret(uri2, p)
 	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
 }
@@ -166,7 +163,6 @@ func (s *SecretsSuite) TestGetValueNotFound(c *gc.C) {
 
 func (s *SecretsSuite) TestGetValue(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	p := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag().String(),
@@ -188,7 +184,6 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 
 func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
@@ -211,7 +206,6 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 
 	// Create another secret to ensure it is excluded.
 	uri2 := secrets.NewURI()
-	uri2.ControllerUUID = s.State.ControllerUUID()
 	p.Owner = "application-wordpress"
 	_, err = s.store.CreateSecret(uri2, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -238,7 +232,6 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 
 func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
@@ -261,7 +254,6 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 
 	// Create another secret to ensure it is excluded.
 	uri2 := secrets.NewURI()
-	uri2.ControllerUUID = s.State.ControllerUUID()
 	p.Owner = "application-wordpress"
 	_, err = s.store.CreateSecret(uri2, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -294,7 +286,6 @@ func (s *SecretsSuite) TestUpdateNothing(c *gc.C) {
 
 func (s *SecretsSuite) TestUpdateAll(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -324,7 +315,6 @@ func (s *SecretsSuite) TestUpdateAll(c *gc.C) {
 
 func (s *SecretsSuite) TestUpdateRotateInterval(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -348,7 +338,6 @@ func (s *SecretsSuite) TestUpdateRotateInterval(c *gc.C) {
 
 func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -371,7 +360,6 @@ func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 
 func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	cp := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag().String(),
@@ -385,7 +373,6 @@ func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := secrets.NewURI()
-	uri2.ControllerUUID = s.State.ControllerUUID()
 	cp.Label = ptr("label2")
 	_, err = s.store.CreateSecret(uri2, cp)
 	c.Assert(err, jc.ErrorIsNil)
@@ -404,7 +391,6 @@ func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
 
 func (s *SecretsSuite) TestUpdateData(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -428,7 +414,6 @@ func (s *SecretsSuite) TestUpdateData(c *gc.C) {
 
 func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -465,7 +450,6 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 
 func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -506,7 +490,6 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 
 func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -612,7 +595,6 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 
 func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -650,7 +632,6 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 
 func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
@@ -679,7 +660,10 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	r, err := s.store.ListSecretRevisions(uri)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(r, jc.DeepEquals, []*secrets.SecretRevisionMetadata{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(r, mc, []*secrets.SecretRevisionMetadata{{
 		Revision:   1,
 		CreateTime: now,
 		UpdateTime: now,
@@ -697,7 +681,6 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 
 func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 	cp := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag().String(),
@@ -738,7 +721,6 @@ func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
 	uri := secrets.NewURI()
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	uri.ControllerUUID = s.State.ControllerUUID()
 
 	_, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -767,7 +749,6 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	uri := secrets.NewURI()
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	uri.ControllerUUID = s.State.ControllerUUID()
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
 		CurrentRevision: 666,
@@ -797,7 +778,6 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	uri := secrets.NewURI()
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	uri.ControllerUUID = s.State.ControllerUUID()
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
 		CurrentRevision: 666,
@@ -847,6 +827,49 @@ func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 	c.Assert(access, gc.Equals, secrets.RoleView)
 }
 
+func (s *SecretsSuite) TestSecretGrantCrossModel(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
+		OfferUUID:       "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := s.owner.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       relation.Tag(),
+		Subject:     rwordpress.Tag(),
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
@@ -873,11 +896,45 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {
 	_, err = s.relation.DestroyWithForce(true, time.Second)
 	c.Assert(err, jc.ErrorIsNil)
 
-	subject := names.NewApplicationTag("wordpress")
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 		LeaderToken: &fakeToken{},
 		Scope:       s.relation.Tag(),
-		Subject:     subject,
+		Subject:     wordpress.Tag(),
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot grant access to secret in scope of "relation-wordpress.db#mysql.server" which is not alive`)
+}
+
+func (s *SecretsSuite) TestSecretGrantAccessDyingSubject(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure destroy only sets app to dying.
+	wordpress, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := s.relation.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.relation.Tag(),
+		Subject:     wordpress.Tag(),
 		Role:        secrets.RoleView,
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot grant access to secret in scope of "relation-wordpress.db#mysql.server" which is not alive`)
@@ -928,7 +985,6 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 	subject := names.NewApplicationTag("wordpress")
 	create := func() *secrets.URI {
 		uri := secrets.NewURI()
-		uri.ControllerUUID = s.State.ControllerUUID()
 		now := s.Clock.Now().Round(time.Second).UTC()
 		next := now.Add(time.Minute).Round(time.Second).UTC()
 		cp := state.CreateSecretParams{
@@ -1017,7 +1073,6 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 
 func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -1043,7 +1098,6 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 
 func (s *SecretsSuite) TestSecretRotatedConcurrent(c *gc.C) {
 	uri := secrets.NewURI()
-	uri.ControllerUUID = s.State.ControllerUUID()
 
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -1109,7 +1163,7 @@ func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotati
 
 	wc := testing.NewSecretsRotationWatcherC(c, w)
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI:             md.URI.Raw(),
+		URI:             md.URI,
 		NextTriggerTime: next,
 	})
 	wc.AssertNoChange()
@@ -1132,7 +1186,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI:             uri.Raw(),
+		URI:             uri,
 		NextTriggerTime: next,
 	})
 	wc.AssertNoChange()
@@ -1150,7 +1204,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI: md.URI.Raw(),
+		URI: md.URI,
 	})
 	wc.AssertNoChange()
 }
@@ -1166,7 +1220,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C
 	err := s.State.SecretRotated(uri, next)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI:             uri.Raw(),
+		URI:             uri,
 		NextTriggerTime: next,
 	})
 	next2 := now.Add(time.Hour).Round(time.Second).UTC()
@@ -1174,7 +1228,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI:             uri.Raw(),
+		URI:             uri,
 		NextTriggerTime: next2,
 	})
 	wc.AssertNoChange()
@@ -1191,7 +1245,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(
 	err := s.State.SecretRotated(uri, next)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI:             uri.Raw(),
+		URI:             uri,
 		NextTriggerTime: next,
 	})
 	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
@@ -1201,7 +1255,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI: md.URI.Raw(),
+		URI: md.URI,
 	})
 	wc.AssertNoChange()
 }
@@ -1217,7 +1271,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	err := s.State.SecretRotated(uri, next)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI:             uri.Raw(),
+		URI:             uri,
 		NextTriggerTime: next,
 	})
 
@@ -1235,7 +1289,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI:             md2.URI.Raw(),
+		URI:             md2.URI,
 		NextTriggerTime: next2,
 	})
 
@@ -1246,7 +1300,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(watcher.SecretTriggerChange{
-		URI: md.URI.Raw(),
+		URI: md.URI,
 	})
 	wc.AssertNoChange()
 }
