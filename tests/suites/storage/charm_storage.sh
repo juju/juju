@@ -1,7 +1,12 @@
+# This subtest tests that juju can create storage pools for the different storage providers
+# and can deploy a charm and make use of the already provisioned different storage types.
 run_charm_storage() {
 	echo
 
-	model_name="test-storage"
+	model_name="charm-storage"
+	file="${TEST_DIR}/test-${model_name}.log"
+
+	ensure "${model_name}" "${file}"
 
 	echo "Assess create-storage-pool"
 	juju create-storage-pool -m "${model_name}" loopy loop size=1G
@@ -42,9 +47,7 @@ run_charm_storage() {
 	# remove the application
 	juju remove-application dummy-storage-fs
 	wait_for "{}" ".applications"
-
 	# Assess charm storage with the filesystem storage provider
-
 	echo "Assessing block loop disk 1"
 	juju deploy ./testcharms/charms/dummy-storage-lp --series="jammy" --storage disks=loop,1G
 	wait_for "dummy-storage-lp" ".applications"
@@ -57,7 +60,6 @@ run_charm_storage() {
 	# assert the attached unit state
 	juju list-storage --format json | jq '.storage[] | .attachments |.units[] | .life' | check "alive"
 	echo "Block loop disk 1 PASSED"
-
 	echo "Assessing add storage block loop disk 2"
 	juju add-storage -m "${model_name}" dummy-storage-lp/0 disks=1
 	# assert the storage kind name
@@ -72,7 +74,6 @@ run_charm_storage() {
 	# remove the application
 	juju remove-application dummy-storage-lp
 	wait_for "{}" ".applications"
-
 	echo "Assessing filesystem tmpfs"
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-tp --series jammy --storage data=tmpfs,1G
 	wait_for "dummy-storage-tp" ".applications"
@@ -88,7 +89,6 @@ run_charm_storage() {
 	# remove the application
 	juju remove-application dummy-storage-tp
 	wait_for "{}" ".applications"
-
 	echo "Assessing filesystem"
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-np --series jammy --storage data=1G
 	wait_for "dummy-storage-np" ".applications"
@@ -106,7 +106,6 @@ run_charm_storage() {
 	wait_for "{}" ".applications"
 	# We remove storage data/4 since in Juju 2.3+ it is persistent. Otherwise it will interfere with the next test's results
 	juju remove-storage data/4
-
 	echo "Assessing multiple filesystem, block, rootfs, loop"
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-mp --series jammy --storage data=1G
 	wait_for "dummy-storage-mp" ".applications"
@@ -124,6 +123,7 @@ run_charm_storage() {
 	wait_for "{}" ".applications"
 	echo "All charm storage tests PASSED"
 
+	destroy_model "${model_name}"
 }
 
 test_charm_storage() {
