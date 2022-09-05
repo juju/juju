@@ -1,7 +1,5 @@
 applications:
     trust-checker:
-        charm: juju-qa-trust-checker
-        channel: beta
-        series: jammy
+        charm: ../charms/trust-checker
         num_units: 1
         trust: true
