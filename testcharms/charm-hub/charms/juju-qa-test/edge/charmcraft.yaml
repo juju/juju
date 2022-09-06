@@ -1,4 +1,16 @@
 type: charm
+parts:
+  charm:
+    prime:
+      - dispatch
+      - hooks
+      - README.md
+      - LICENSE
+      - version
+      - src
+      - actions.yaml
+      - metadata.yaml
+      - config.yaml
 bases:
     - build-on:
         - name: "ubuntu"
@@ -12,3 +24,7 @@ bases:
           channel: "18.04"
         - name: "ubuntu"
           channel: "20.04"
+        - name: "ubuntu"
+          channel: "20.10"
+        - name: "ubuntu"
+          channel: "22.04"

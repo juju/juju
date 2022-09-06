@@ -1,4 +1,16 @@
 type: charm
+parts:
+  charm:
+    prime:
+      - dispatch
+      - hooks
+      - README.md
+      - LICENSE
+      - version
+      - src
+      - actions.yaml
+      - metadata.yaml
+      - config.yaml
 bases:
     - build-on:
         - name: "ubuntu"

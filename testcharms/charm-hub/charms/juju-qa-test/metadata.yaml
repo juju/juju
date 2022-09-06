@@ -7,7 +7,6 @@ summary: |
 description: |
   A container-based V2 metadata charm to use in testing juju.
   It has config, actions, resources, and a relation.
-series: [groovy, focal, bionic, xenial]
 requires:
   info:
     interface: juju-info
@@ -17,5 +16,3 @@ resources:
     type: file
     filename: foo.txt
     description: "foo resource."
-
-
