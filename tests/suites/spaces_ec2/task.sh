@@ -33,16 +33,16 @@ test_spaces_ec2() {
 
 setup_nic_for_space_tests() {
 	isolated_subnet_id=$(aws ec2 describe-subnets --filters Name=cidr-block,Values=172.31.254.0/24 2>/dev/null | jq -r '.Subnets[0].SubnetId')
-	if [ -z "$isolated_subnet_id" ]; then
+	if [ "$isolated_subnet_id" == "null" ]; then
 		# shellcheck disable=SC2046
-		echo $(red 'To run these tests you need to create a subnet with name "isolated" and CIDR "172.31.254/24"')
+		echo $(red 'To run these tests you need to create a subnet with name "isolated" and CIDR "172.31.254/24"') 1>&2
 		exit 1
 	fi
 
 	hotplug_nic_id=$(aws ec2 create-network-interface --subnet-id "$isolated_subnet_id" --description="hot-pluggable NIC for space tests" 2>/dev/null | jq -r '.NetworkInterface.NetworkInterfaceId')
-	if [ -z "$hotplug_nic_id" ]; then
+	if [ "$hotplug_nic_id" == "null" ]; then
 		# shellcheck disable=SC2046
-		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs")
+		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs") 1>&2
 		exit 1
 	fi
 
