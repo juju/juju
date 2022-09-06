@@ -64,7 +64,8 @@ TEST_NAMES="agents \
             spaces_ec2 \
             static_analysis \
             unit \
-            upgrade"
+            upgrade \
+            user"
 
 # Show test suites, can be used to test if a test suite is available or not.
 show_test_suites() {
