@@ -14,10 +14,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/canonical/go-dqlite/driver"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
+	"github.com/mattn/go-sqlite3"
 )
 
 const readTimeout = 5 * time.Second
@@ -41,7 +43,7 @@ type replCmdDef struct {
 type sqlREPL struct {
 	connListener   net.Listener
 	dbGetter       DBGetter
-	retriableError func(error) bool
+	retryableError func(error) bool
 	clock          clock.Clock
 	logger         Logger
 
@@ -52,7 +54,7 @@ type sqlREPL struct {
 	commands map[string]replCmdDef
 }
 
-func newREPL(pathToSocket string, dbGetter DBGetter, retriableError func(error) bool, clock clock.Clock, logger Logger) (REPL, error) {
+func newREPL(pathToSocket string, dbGetter DBGetter, retryableError func(error) bool, clock clock.Clock, logger Logger) (REPL, error) {
 	l, err := net.Listen("unix", pathToSocket)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating UNIX socket for REPL sessions")
@@ -65,7 +67,7 @@ func newREPL(pathToSocket string, dbGetter DBGetter, retriableError func(error) 
 	r := &sqlREPL{
 		connListener:    l,
 		dbGetter:        dbGetter,
-		retriableError:  retriableError,
+		retryableError:  retryableError,
 		clock:           clock,
 		logger:          logger,
 		sessionCtx:      ctx,
@@ -81,7 +83,7 @@ func newREPL(pathToSocket string, dbGetter DBGetter, retriableError func(error) 
 // any open sessions that they need to gracefully terminate.
 func (r *sqlREPL) Kill() {
 	r.logger.Infof("shutting down REPL socket and draining open sessions")
-	r.connListener.Close()
+	_ = r.connListener.Close()
 }
 
 // Wait implements the Worker interface. It blocks until all open REPL sessions
@@ -286,7 +288,7 @@ func (r *sqlREPL) handleSQLExecCommand(s *replSession) {
 	// You have been warned!
 	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
 		return s.db.ExecContext(r.sessionCtx, s.cmdParams)
-	}, r.retriableError)
+	}, r.retryableError)
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)
 		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; check the logs for more details\n")
@@ -310,7 +312,7 @@ func (r *sqlREPL) handleSQLSelectCommand(s *replSession) {
 	// You have been warned!
 	wrappedRes, err := withRetryWithResult(func() (interface{}, error) {
 		return s.db.QueryContext(r.sessionCtx, s.cmdParams)
-	}, r.retriableError)
+	}, r.retryableError)
 	if err != nil {
 		r.logger.Errorf("[session: %v] unable to execute query: %v", s.id, err)
 		_, _ = fmt.Fprintf(s.resWriter, "Unable to execute query; check the logs for more details\n")
@@ -366,7 +368,7 @@ const (
 	retryDelay   = time.Millisecond
 )
 
-func withRetry(fn func() error, retriable func(error) bool) error {
+func withRetry(fn func() error, retryable func(error) bool) error {
 	for attempt := 0; attempt < maxDBRetries; attempt++ {
 		err := fn()
 		if err == nil {
@@ -378,7 +380,7 @@ func withRetry(fn func() error, retriable func(error) bool) error {
 			return sql.ErrNoRows
 		}
 
-		if !retriable(err) {
+		if !retryable(err) {
 			return err
 		}
 
@@ -389,7 +391,7 @@ func withRetry(fn func() error, retriable func(error) bool) error {
 	return errors.Errorf("unable to complete request after %d retries", maxDBRetries)
 }
 
-func withRetryWithResult(fn func() (interface{}, error), retriable func(error) bool) (interface{}, error) {
+func withRetryWithResult(fn func() (interface{}, error), retryable func(error) bool) (interface{}, error) {
 	var (
 		res interface{}
 		err error
@@ -398,9 +400,44 @@ func withRetryWithResult(fn func() (interface{}, error), retriable func(error) b
 	if retryErr := withRetry(func() error {
 		res, err = fn()
 		return err
-	}, retriable); retryErr != nil {
+	}, retryable); retryErr != nil {
 		return nil, retryErr
 	}
 
 	return res, err
+}
+
+// isRetryableError returns true if the given error might be transient and the
+// interaction can be safely retried.
+func isRetryableError(err error) bool {
+	err = errors.Cause(err)
+	if err == nil {
+		return false
+	}
+
+	if err, ok := err.(driver.Error); ok && err.Code == driver.ErrBusy {
+		return true
+	}
+
+	if err == sqlite3.ErrLocked || err == sqlite3.ErrBusy {
+		return true
+	}
+
+	if strings.Contains(err.Error(), "database is locked") {
+		return true
+	}
+
+	if strings.Contains(err.Error(), "cannot start a transaction within a transaction") {
+		return true
+	}
+
+	if strings.Contains(err.Error(), "bad connection") {
+		return true
+	}
+
+	if strings.Contains(err.Error(), "checkpoint in progress") {
+		return true
+	}
+
+	return false
 }

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
@@ -49,7 +50,7 @@ type WorkerConfig struct {
 	DataDir           string
 	Clock             clock.Clock
 	Logger            Logger
-	NewApp            func(string, ...Option) (DBApp, error)
+	NewApp            func(string, ...app.Option) (DBApp, error)
 }
 
 // Validate ensures that the config values are valid.
@@ -81,23 +82,27 @@ func (c *WorkerConfig) Validate() error {
 type DBApp interface {
 	// Open the dqlite database with the given name
 	Open(context.Context, string) (*sql.DB, error)
-	// Ready can be used to wait for a node to complete some initial tasks that
-	// are initiated at startup. For example a brand new node will attempt to
-	// join the cluster, a restarted node will check if it should assume some
-	// particular role, etc.
+
+	// Ready can be used to wait for a node to complete tasks that
+	// are initiated at startup. For example a new node will attempt
+	// to join the cluster, a restarted node will check if it should
+	// assume some particular role, etc.
 	//
-	// If this method returns without error it means that those initial tasks
-	// have succeeded and follow-up operations like Open() are more likely to
-	// succeed quickly.
+	// If this method returns without error it means that those initial
+	// tasks have succeeded and follow-up operations like Open() are more
+	// likely to succeed quickly.
 	Ready(context.Context) error
+
 	// Handover transfers all responsibilities for this node (such has
 	// leadership and voting rights) to another node, if one is available.
 	//
-	// This method should always be called before invoking Close(), in order to
-	// gracefully shutdown a node.
+	// This method should always be called before invoking Close(),
+	// in order to gracefully shut down a node.
 	Handover(context.Context) error
+
 	// ID returns the dqlite ID of this application node.
 	ID() uint64
+
 	// Close the application node, releasing all resources it created.
 	Close() error
 }
@@ -245,7 +250,7 @@ func (w *dbWorker) initializeDqlite() error {
 		return nil
 	}
 
-	// Use the controller CA/cert to setup TLS for the dqlite peers.
+	// Use the controller CA/cert to set up TLS for the dqlite peers.
 	dqServerTLSConf, dqClientTLSConf, err := w.getDQliteTLSConfiguration()
 	if err != nil {
 		return errors.Annotatef(err, "configuring TLS support for dqlite cluster")
@@ -265,12 +270,10 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Annotatef(err, "detecting local dqlite address")
 	}
 
-	appOpts := []Option{
-		WithAddress(localAddr),
-		WithCluster(peerAddrs),
-		WithTLS(dqServerTLSConf, dqClientTLSConf),
-		WithClock(w.cfg.Clock),
-		WithLogger(w.cfg.Logger),
+	appOpts := []app.Option{
+		app.WithAddress(localAddr),
+		app.WithCluster(peerAddrs),
+		app.WithTLS(dqServerTLSConf, dqClientTLSConf),
 	}
 
 	if err := os.MkdirAll(w.cfg.DataDir, 0700); err != nil {
