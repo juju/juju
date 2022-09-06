@@ -302,6 +302,10 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      qatarcentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
   azure-china:
     type: azure
     description: Microsoft Azure China
