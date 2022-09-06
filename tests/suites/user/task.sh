@@ -14,7 +14,7 @@ test_user() {
 	bootstrap "test-user" "${file}"
 
 	# Tests that need to be run are added here.
-	test_user_grant_revoke
+	test_user_manage
 
 	destroy_controller "test-user"
 }
