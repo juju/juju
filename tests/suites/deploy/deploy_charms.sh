@@ -238,6 +238,7 @@ run_resolve_charm() {
 
 	juju resolve --no-retry simple-resolve/0
 
+	wait_for "No install hook" '.applications["simple-resolve"] | ."application-status".message'
 	wait_for "active" '.applications["simple-resolve"] | ."application-status".current'
 
 	destroy_model "${model_name}"
