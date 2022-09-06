@@ -5,6 +5,7 @@ package provider
 
 import (
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -14,12 +15,26 @@ type Model interface {
 	Cloud() (cloud.Cloud, error)
 	CloudCredential() (*cloud.Credential, error)
 	Config() (*config.Config, error)
+	UUID() string
 }
 
 // SecretStoreProvider instances create secret stores.
 type SecretStoreProvider interface {
 	// TODO(wallyworld) - add config schema methods
 
-	StoreConfig(m Model) (*StoreConfig, error)
+	// Initialise sets up the secrets store to host secrets for
+	// the specified model.
+	Initialise(m Model) error
+
+	// CleanupSecrets removes any ACLs / resources associated
+	// with the removed secrets.
+	CleanupSecrets(m Model, removed []*secrets.URI) error
+
+	// StoreConfig returns the config needed to create a vault secrets store client
+	// used to manage owned secrets and read shared secrets.
+	StoreConfig(m Model, adminUser bool, owned []*secrets.URI, read []*secrets.URI) (*StoreConfig, error)
+
+	// NewStore creates a secrets store client using the
+	// specified config.
 	NewStore(cfg *StoreConfig) (SecretsStore, error)
 }

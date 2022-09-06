@@ -34,15 +34,7 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cfg, err := secrets.StoreConfig(model)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		p, err := provider.Provider(cfg.StoreType)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return p.NewStore(cfg)
+		return secrets.StoreForInspect(model)
 	}
 	return &SecretsAPI{
 		authorizer:     context.Auth(),

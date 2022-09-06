@@ -37,8 +37,8 @@ const RawK8sSpec = "raw-k8s-spec"
 // Secrets enables the secrets feature.
 const Secrets = "secrets"
 
-// SecretsStores enables external secrets stores.
-const SecretsStores = "secrets-stores"
+// SecretStores enables external secrets stores.
+const SecretStores = "secret-stores"
 
 // RaftAPILeases will switch all lease store management transport, currently
 // handled by Pubsub to facade API interaction.

@@ -38,7 +38,14 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.StoreConfig(model)
+		return secrets.StoreConfig(model, context.Auth().GetAuthTag())
+	}
+	providerGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
+		model, err := context.State().Model()
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		return secrets.ProviderInfoForModel(model)
 	}
 	return &SecretsManagerAPI{
 		authTag:           context.Auth().GetAuthTag(),
@@ -50,5 +57,6 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		secretsConsumer:   context.State(),
 		clock:             clock.WallClock,
 		storeConfigGetter: secretStoreConfigGetter,
+		providerGetter:    providerGetter,
 	}, nil
 }

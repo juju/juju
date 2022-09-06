@@ -33,6 +33,7 @@ type SecretsManagerSuite struct {
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
 
+	provider               *mocks.MockSecretStoreProvider
 	leadership             *mocks.MockChecker
 	token                  *mocks.MockToken
 	secretsBackend         *mocks.MockSecretsBackend
@@ -52,12 +53,17 @@ func (s *SecretsManagerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
+type mockModel struct {
+	provider.Model
+}
+
 func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.resources = facademocks.NewMockResources(ctrl)
 
+	s.provider = mocks.NewMockSecretStoreProvider(ctrl)
 	s.leadership = mocks.NewMockChecker(ctrl)
 	s.token = mocks.NewMockToken(ctrl)
 	s.secretsBackend = mocks.NewMockSecretsBackend(ctrl)
@@ -76,10 +82,13 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			Params:    map[string]interface{}{"foo": "bar"},
 		}, nil
 	}
+	providerGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
+		return s.provider, mockModel{}, nil
+	}
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
 		s.authorizer, s.resources, s.leadership, s.secretsBackend, s.secretsConsumer, s.secretsRotationService,
-		storeConfigGetter, s.authTag, s.clock)
+		storeConfigGetter, providerGetter, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -358,6 +367,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check(0, nil).Return(nil)
 	s.expectSecretAccessQuery(1)
+	s.provider.EXPECT().CleanupSecrets(mockModel{}, []*coresecrets.URI{uri}).Return(nil)
 
 	results, err := s.facade.RemoveSecrets(params.SecretURIArgs{
 		Args: []params.SecretURIArg{{

@@ -277,6 +277,52 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	}})
 }
 
+func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	subject := names.NewApplicationTag("wordpress")
+
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Description: ptr("my secret"),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	cp.Owner = "application-wordpress"
+	_, err = s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		ConsumerTags: []string{subject.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+		URI:            uri,
+		LatestRevision: 1,
+		Version:        1,
+		OwnerTag:       s.owner.Tag().String(),
+		Description:    "my secret",
+		CreateTime:     now,
+		UpdateTime:     now,
+	}})
+}
+
 func (s *SecretsSuite) TestUpdateNothing(c *gc.C) {
 	up := state.UpdateSecretParams{}
 	uri := secrets.NewURI()
