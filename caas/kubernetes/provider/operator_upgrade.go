@@ -204,7 +204,10 @@ func operatorUpgrade(
 	}
 
 	podChecker, err := workloadInitUpgrade(appName, operatorImagePath, broker)
-	if err != nil {
+	if errors.Is(err, errors.NotFound) {
+		// If there is no workload for this operator yet, just continue.
+		podChecker = func() (bool, error) { return true, nil }
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
