@@ -183,18 +183,21 @@ ${DQLITE_ARCHIVE_PATH}:
 	@lxc file pull ${DQLITE_BUILD_CONTAINER}/root/build/juju-dqlite-static-lib-deps.tar.bz2 $@
 	@lxc delete -f $(DQLITE_BUILD_CONTAINER)
 
+# s3 puts here are without an ACL.
+# The bucket uses policies that allow GetObject to anyone,
+# and PutObject to select Juju team accounts.
 dqlite-deps-push: ${DQLITE_ARCHIVE_PATH}
 	@echo "DQLITE: Pushing ${DQLITE_S3_ARCHIVE_PATH} to s3"
-	aws s3 cp --acl public-read $< ${DQLITE_S3_ARCHIVE_PATH}
+	aws s3 cp $< ${DQLITE_S3_ARCHIVE_PATH}
 	@echo "DQLITE: Pushing latest-dqlite-deps-$(shell uname -m).tar.bz2 to s3"
-	aws s3 cp --acl public-read ${DQLITE_S3_ARCHIVE_PATH} ${DQLITE_S3_BUCKET}/latest-dqlite-deps-$(shell uname -m).tar.bz2
+	aws s3 cp ${DQLITE_S3_ARCHIVE_PATH} ${DQLITE_S3_BUCKET}/latest-dqlite-deps-$(shell uname -m).tar.bz2
 
 dqlite-deps-pull:
 	@echo "DQLITE: Cleaning up deps path"
 	@mkdir -p ${DQLITE_EXTRACTED_DEPS_PATH}
 	@rm -rf ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}
 	@echo "DQLITE: Pulling latest-dqlite-deps-$(shell uname -m).tar.bz2 from s3"
-	aws s3 cp s3://dqlite-static-libs/latest-dqlite-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
+	wget -q -O- https://dqlite-static-libs.s3.amazonaws.com/latest-dqlite-deps-$(shell uname -m).tar.bz2 - | tar xjf - -C ${DQLITE_EXTRACTED_DEPS_PATH}
 
 dqlite-deps-check:
 	@if [ ! -d ${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} ]; then \

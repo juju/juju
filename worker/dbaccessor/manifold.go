@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"path/filepath"
 
+	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
@@ -29,7 +30,7 @@ type ManifoldConfig struct {
 	AgentName string
 	Clock     clock.Clock
 	Logger    Logger
-	NewApp    func(string, ...Option) (DBApp, error)
+	NewApp    func(string, ...app.Option) (DBApp, error)
 }
 
 // Manifold returns a dependency manifold that runs the dbaccessor
@@ -91,4 +92,10 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 		return errors.Errorf("expected output of *dbaccessor.DBGetter, got %T", out)
 	}
 	return nil
+}
+
+// NewApp creates a new DQlite application.
+func NewApp(dataDir string, options ...app.Option) (DBApp, error) {
+	dqlite, err := app.New(dataDir, options...)
+	return dqlite, errors.Trace(err)
 }
