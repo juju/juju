@@ -1962,7 +1962,7 @@ var configSchema = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	DefaultSeries: {
-		Description: "The default series of Ubuntu to use for deploying charms",
+		Description: "The default series of Ubuntu to use for deploying charms, will act like --series when deploying charms",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

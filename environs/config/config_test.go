@@ -683,11 +683,12 @@ func (test configTest) check(c *gc.C, home *jujutesting.FakeHome) {
 
 	seriesAttr, _ := test.attrs["default-series"].(string)
 	defaultSeries, ok := cfg.DefaultSeries()
-	c.Assert(ok, jc.IsTrue)
 	if seriesAttr != "" {
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(defaultSeries, gc.Equals, jujuversion.DefaultSupportedLTS())
+		c.Assert(ok, jc.IsFalse)
+		c.Assert(defaultSeries, gc.Equals, "")
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
