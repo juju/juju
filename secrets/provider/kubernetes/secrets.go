@@ -32,8 +32,19 @@ func NewProvider() provider.SecretStoreProvider {
 type k8sProvider struct {
 }
 
+// Initialise is not used.
+func (p k8sProvider) Initialise(m provider.Model) error {
+	return nil
+}
+
+// CleanupSecrets is not used.
+func (p k8sProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
+	return nil
+}
+
 // StoreConfig returns the config needed to create a k8s secrets store.
-func (p k8sProvider) StoreConfig(m provider.Model) (*provider.StoreConfig, error) {
+// TODO(wallyworld) - only allow access to the specified secrets
+func (p k8sProvider) StoreConfig(m provider.Model, admin bool, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
 	cloudSpec, err := cloudSpecForModel(m)
 	if err != nil {
 		return nil, errors.Trace(err)

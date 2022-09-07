@@ -37,6 +37,7 @@ type SecretsManagerAPI struct {
 	clock             clock.Clock
 
 	storeConfigGetter commonsecrets.StoreConfigGetter
+	providerGetter    commonsecrets.ProviderInfoGetter
 }
 
 // GetSecretStoreConfig gets the config needed to create a client to the model's secret store.
@@ -197,21 +198,36 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 
 // RemoveSecrets removes the specified secrets.
 func (s *SecretsManagerAPI) RemoveSecrets(args params.SecretURIArgs) (params.ErrorResults, error) {
+	uris := make([]*coresecrets.URI, len(args.Args))
+	for i, arg := range args.Args {
+		uri, err := coresecrets.ParseURI(arg.URI)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		uris[i] = uri
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	for i, arg := range args.Args {
-		err := s.removeSecret(arg)
+	var removed []*coresecrets.URI
+	for i, uri := range uris {
+		err := s.removeSecret(uri)
 		result.Results[i].Error = apiservererrors.ServerError(err)
+		if err == nil {
+			removed = append(removed, uri)
+		}
+	}
+	provider, model, err := s.providerGetter()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	if err := provider.CleanupSecrets(model, removed); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) removeSecret(arg params.SecretURIArg) error {
-	uri, err := coresecrets.ParseURI(arg.URI)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (s *SecretsManagerAPI) removeSecret(uri *coresecrets.URI) error {
 	if !s.canManage(uri, s.authTag) {
 		return apiservererrors.ErrPerm
 	}

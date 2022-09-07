@@ -27,6 +27,7 @@ func TestPackage(t *testing.T) {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationservice.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsRotation
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationwatcher.go github.com/juju/juju/state SecretsRotationWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretStoreProvider
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
@@ -36,6 +37,7 @@ func NewTestAPI(
 	consumer SecretsConsumer,
 	secretsRotation SecretsRotation,
 	storeConfigGetter commonsecrets.StoreConfigGetter,
+	providerGetter commonsecrets.ProviderInfoGetter,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -52,6 +54,7 @@ func NewTestAPI(
 		secretsConsumer:   consumer,
 		secretsRotation:   secretsRotation,
 		storeConfigGetter: storeConfigGetter,
+		providerGetter:    providerGetter,
 		clock:             clock,
 	}, nil
 }

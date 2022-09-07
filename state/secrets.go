@@ -60,8 +60,9 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 
 // SecretsFilter holds attributes to match when listing secrets.
 type SecretsFilter struct {
-	URI      *secrets.URI
-	OwnerTag *string
+	URI          *secrets.URI
+	OwnerTag     *string
+	ConsumerTags []string
 }
 
 // SecretsStore instances use mongo as a secrets store.
@@ -573,9 +574,14 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	if filter.OwnerTag != nil {
 		q = append(q, bson.DocElem{"owner-tag", *filter.OwnerTag})
 	}
-	err := secretMetadataCollection.Find(q).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
+	// Only query here if we want everything or no consumers were specified.
+	// We need to do the consumer processing below as the results are seeded
+	// from a different collection.
+	if len(q) > 0 || len(filter.ConsumerTags) == 0 {
+		err := secretMetadataCollection.Find(q).All(&docs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	result := make([]*secrets.SecretMetadata, len(docs))
 	for i, doc := range docs {
@@ -588,7 +594,50 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 			return nil, errors.Trace(err)
 		}
 	}
+	if len(filter.ConsumerTags) == 0 {
+		return result, nil
+	}
+	consumedIds, err := s.listConsumedSecrets(filter.ConsumerTags)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	docs = []secretMetadataDoc(nil)
+	q2 := bson.M{"_id": bson.M{"$in": consumedIds}}
+	err = secretMetadataCollection.Find(q2).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, doc := range docs {
+		nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		md, err := s.toSecretMetadata(&doc, nextRotateTime)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, md)
+	}
 	return result, nil
+}
+
+func (s *secretsStore) listConsumedSecrets(consumers []string) ([]string, error) {
+	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
+	defer closer()
+	var docs []secretPermissionDoc
+	err := secretPermissionsCollection.Find(bson.D{
+		{"_id", bson.D{{"$regex", fmt.Sprintf(".*#(%s)", strings.Join(consumers, "|"))}}},
+		{"role", secrets.RoleView},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading permissions for %q", consumers)
+	}
+	var ids []string
+	for _, doc := range docs {
+		id := s.st.localID(doc.DocID)
+		ids = append(ids, strings.Split(id, "#")[0])
+	}
+	return ids, nil
 }
 
 // ListSecretRevisions returns the revision metadata for the given secret.
