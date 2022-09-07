@@ -26,6 +26,11 @@ func (p jujuProvider) Initialise(m provider.Model) error {
 	return nil
 }
 
+// CleanupModel is not used.
+func (p jujuProvider) CleanupModel(m provider.Model) error {
+	return nil
+}
+
 // CleanupSecrets is not used.
 func (p jujuProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
 	return nil

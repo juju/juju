@@ -35,6 +35,20 @@ func (m *MockSecretStoreProvider) EXPECT() *MockSecretStoreProviderMockRecorder 
 	return m.recorder
 }
 
+// CleanupModel mocks base method.
+func (m *MockSecretStoreProvider) CleanupModel(arg0 provider.Model) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CleanupModel", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CleanupModel indicates an expected call of CleanupModel.
+func (mr *MockSecretStoreProviderMockRecorder) CleanupModel(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupModel", reflect.TypeOf((*MockSecretStoreProvider)(nil).CleanupModel), arg0)
+}
+
 // CleanupSecrets mocks base method.
 func (m *MockSecretStoreProvider) CleanupSecrets(arg0 provider.Model, arg1 []*secrets.URI) error {
 	m.ctrl.T.Helper()
