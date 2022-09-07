@@ -297,6 +297,10 @@ const (
 	// LoggingOutputKey is a key for determining the destination of output for
 	// logging.
 	LoggingOutputKey = "logging-output"
+
+	// DefaultSeries is what series a model should explicitly use for charms unless
+	// otherwise provided.
+	DefaultSeries = "default-series"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -498,7 +502,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":                jujuversion.DefaultSupportedLTS(),
+	DefaultSeries:                   "",
 	ProvisionerHarvestModeKey:       HarvestDestroyed.String(),
 	NumProvisionWorkersKey:          16,
 	NumContainerProvisionWorkersKey: 4,
@@ -938,7 +942,7 @@ func (c *Config) DefaultSpace() string {
 // DefaultSeries returns the configured default Ubuntu series for the model,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
-	s, ok := c.defined["default-series"]
+	s, ok := c.defined[DefaultSeries]
 	if !ok {
 		return "", false
 	}
@@ -1725,7 +1729,7 @@ var alwaysOptional = schema.Defaults{
 	AgentMetadataURLKey:             schema.Omit,
 	ContainerImageStreamKey:         schema.Omit,
 	ContainerImageMetadataURLKey:    schema.Omit,
-	"default-series":                schema.Omit,
+	DefaultSeries:                   schema.Omit,
 	"development":                   schema.Omit,
 	"ssl-hostname-verification":     schema.Omit,
 	"proxy-ssh":                     schema.Omit,
@@ -1957,7 +1961,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"default-series": {
+	DefaultSeries: {
 		Description: "The default series of Ubuntu to use for deploying charms",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
