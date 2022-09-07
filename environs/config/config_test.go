@@ -643,11 +643,11 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, s.FakeHomeSuite.Home)
+		test.check(c)
 	}
 }
 
-func (test configTest) check(c *gc.C, home *jujutesting.FakeHome) {
+func (test configTest) check(c *gc.C) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
 		c.Check(cfg, gc.IsNil)
