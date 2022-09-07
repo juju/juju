@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/hashicorp/vault/api"
@@ -58,20 +59,61 @@ func (p vaultProvider) Initialise(m provider.Model) error {
 			Type:    "kv",
 			Options: map[string]string{"version": "1"},
 		})
-		if err != nil {
-			var apiErr *api.ResponseError
-			if errors.As(err, &apiErr) {
-				message := strings.Join(apiErr.Errors, ",")
-				if apiErr.StatusCode != 400 || !strings.Contains(message, "path is already in use") {
-					return errors.Trace(err)
-				}
-			}
+		if !isAlreadyExists(err, "path is already in use") {
+			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-// CleanupSecrets removes policies associated with the removed secrets..
+// CleanupModel deletes all secrets and policies associated with the model.
+func (p vaultProvider) CleanupModel(m provider.Model) error {
+	cfg, err := p.adminConfig(m)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	k, err := p.newStore(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	sys := k.client.Sys()
+
+	// First remove any policies.
+	ctx := context.Background()
+	policies, err := sys.ListPoliciesWithContext(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, p := range policies {
+		if strings.HasPrefix(p, "model-"+k.modelUUID) {
+			if err := sys.DeletePolicyWithContext(ctx, p); err != nil {
+				if isNotFound(err) {
+					continue
+				}
+				return errors.Annotatef(err, "deleting policy %q", p)
+			}
+		}
+	}
+
+	// Now remove any secrets.
+	s, err := k.client.Logical().ListWithContext(ctx, k.modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	keys, ok := s.Data["keys"].([]interface{})
+	if !ok {
+		return nil
+	}
+	for _, id := range keys {
+		err = k.client.KVv1(k.modelUUID).Delete(ctx, fmt.Sprintf("%s", id))
+		if err != nil && !isNotFound(err) {
+			return errors.Annotatef(err, "deleting secret %q", id)
+		}
+	}
+	return nil
+}
+
+// CleanupSecrets removes policies associated with the removed secrets.
 func (p vaultProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
 	cfg, err := p.adminConfig(m)
 	if err != nil {
@@ -92,18 +134,16 @@ func (p vaultProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) 
 		return false
 	}
 
-	policies, err := sys.ListPolicies()
+	ctx := context.Background()
+	policies, err := sys.ListPoliciesWithContext(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, p := range policies {
 		if isRelevantPolicy(p) {
-			if err := sys.DeletePolicy(p); err != nil {
-				var apiErr *api.ResponseError
-				if errors.As(err, &apiErr) {
-					if apiErr.StatusCode == 404 {
-						continue
-					}
+			if err := sys.DeletePolicyWithContext(ctx, p); err != nil {
+				if isNotFound(err) {
+					continue
 				}
 				return errors.Annotatef(err, "deleting policy %q", p)
 			}
@@ -117,6 +157,8 @@ type vaultConfig struct {
 	Namespace     string   `yaml:"namespace" json:"namespace"`
 	Token         string   `yaml:"token" json:"token"`
 	CACert        string   `yaml:"ca-cert" json:"ca-cert"`
+	ClientCert    string   `yaml:"client-cert" json:"client-cert"`
+	ClientKey     string   `yaml:"client-key" json:"client-key"`
 	TLSServerName string   `yaml:"tls-server-name" json:"tls-server-name"`
 	Keys          []string `yaml:"keys" json:"keys"`
 }
@@ -148,6 +190,8 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 			"namespace":       vaultCfg.Namespace,
 			"token":           vaultCfg.Token,
 			"ca-cert":         vaultCfg.CACert,
+			"client-cert":     vaultCfg.ClientCert,
+			"client-key":      vaultCfg.ClientKey,
 			"tls-server-name": vaultCfg.TLSServerName,
 		},
 	}
@@ -185,13 +229,14 @@ func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*se
 	}
 	sys := store.client.Sys()
 
+	ctx := context.Background()
 	modelUUID := m.UUID()
 	var policies []string
 	if adminUser {
 		// For admin users, add secrets for the model can be read.
 		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, modelUUID)
 		policyName := fmt.Sprintf("model-%s-read", modelUUID)
-		err = sys.PutPolicy(policyName, rule)
+		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating read policy for model %q", modelUUID)
 		}
@@ -200,7 +245,7 @@ func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*se
 		// Agents can create new secrets in the model.
 		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["create"]}`, modelUUID)
 		policyName := fmt.Sprintf("model-%s-create", modelUUID)
-		err = sys.PutPolicy(policyName, rule)
+		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating create policy for model %q", modelUUID)
 		}
@@ -211,7 +256,7 @@ func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*se
 	for _, uri := range owned {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, modelUUID, uri.ID)
 		policyName := fmt.Sprintf("model-%s-%s-owner", modelUUID, uri.ID)
-		err = sys.PutPolicy(policyName, rule)
+		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating owner policy for %q", uri.ID)
 		}
@@ -223,7 +268,7 @@ func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*se
 	for _, uri := range read {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, modelUUID, uri.ID)
 		policyName := fmt.Sprintf("model-%s-%s-read", modelUUID, uri.ID)
-		err = sys.PutPolicy(policyName, rule)
+		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating read policy for %q", uri.ID)
 		}
@@ -253,9 +298,43 @@ func (p vaultProvider) NewStore(cfg *provider.StoreConfig) (provider.SecretsStor
 func (p vaultProvider) newStore(cfg *provider.StoreConfig) (*vaultStore, error) {
 	modelUUID := cfg.Params["model-uuid"].(string)
 	address := cfg.Params["endpoint"].(string)
+
+	var clientCertPath, clientKeyPath string
+	clientCert, _ := cfg.Params["client-cert"].(string)
+	clientKey, _ := cfg.Params["client-key"].(string)
+	if clientCert != "" && clientKey == "" {
+		return nil, errors.NotValidf("vault config missing client key")
+	}
+	if clientCert == "" && clientKey != "" {
+		return nil, errors.NotValidf("vault config missing client certificate")
+	}
+	if clientCert != "" {
+		clientCertFile, err := os.CreateTemp("", "client-cert")
+		if err != nil {
+			return nil, errors.Annotate(err, "creating client cert file")
+		}
+		defer func() { _ = clientCertFile.Close() }()
+		clientCertPath = clientCertFile.Name()
+		if _, err := clientCertFile.Write([]byte(clientCert)); err != nil {
+			return nil, errors.Annotate(err, "writing client cert file")
+		}
+
+		clientKeyFile, err := os.CreateTemp("", "client-key")
+		if err != nil {
+			return nil, errors.Annotate(err, "creating client key file")
+		}
+		defer func() { _ = clientKeyFile.Close() }()
+		clientKeyPath = clientKeyFile.Name()
+		if _, err := clientKeyFile.Write([]byte(clientKey)); err != nil {
+			return nil, errors.Annotate(err, "writing client key file")
+		}
+	}
+
 	tlsConfig := vault.TLSConfig{
 		TLSConfig: &api.TLSConfig{
 			CACertBytes:   []byte(cfg.Params["ca-cert"].(string)),
+			ClientCert:    clientCertPath,
+			ClientKey:     clientKeyPath,
 			TLSServerName: cfg.Params["tls-server-name"].(string),
 		},
 	}
@@ -282,7 +361,11 @@ func secretPath(uri *secrets.URI, revision int) string {
 }
 
 // GetContent implements SecretsStore.
-func (k vaultStore) GetContent(ctx context.Context, providerId string) (secrets.SecretValue, error) {
+func (k vaultStore) GetContent(ctx context.Context, providerId string) (_ secrets.SecretValue, err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
 	s, err := k.client.KVv1(k.modelUUID).Get(ctx, providerId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting secret %q", providerId)
@@ -295,17 +378,29 @@ func (k vaultStore) GetContent(ctx context.Context, providerId string) (secrets.
 }
 
 // DeleteContent implements SecretsStore.
-func (k vaultStore) DeleteContent(ctx context.Context, providerId string) error {
-	return k.client.KVv1(k.modelUUID).Delete(ctx, providerId)
+func (k vaultStore) DeleteContent(ctx context.Context, providerId string) (err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
+	err = k.client.KVv1(k.modelUUID).Delete(ctx, providerId)
+	if isNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 // SaveContent implements SecretsStore.
-func (k vaultStore) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
+func (k vaultStore) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (_ string, err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
 	path := secretPath(uri, revision)
 	val := make(map[string]interface{})
 	for k, v := range value.EncodedValues() {
 		val[k] = v
 	}
-	err := k.client.KVv1(k.modelUUID).Put(ctx, path, val)
+	err = k.client.KVv1(k.modelUUID).Put(ctx, path, val)
 	return path, errors.Annotatef(err, "saving secret content for %q", uri)
 }

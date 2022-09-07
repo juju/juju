@@ -30,6 +30,10 @@ type SecretStoreProvider interface {
 	// with the removed secrets.
 	CleanupSecrets(m Model, removed []*secrets.URI) error
 
+	// CleanupModel removes any secrets / ACLs / resources
+	// associated with the model.
+	CleanupModel(m Model) error
+
 	// StoreConfig returns the config needed to create a vault secrets store client
 	// used to manage owned secrets and read shared secrets.
 	StoreConfig(m Model, adminUser bool, owned []*secrets.URI, read []*secrets.URI) (*StoreConfig, error)

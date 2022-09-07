@@ -37,6 +37,11 @@ func (p k8sProvider) Initialise(m provider.Model) error {
 	return nil
 }
 
+// CleanupModel is not used.
+func (p k8sProvider) CleanupModel(m provider.Model) error {
+	return nil
+}
+
 // CleanupSecrets is not used.
 func (p k8sProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
 	return nil
