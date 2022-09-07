@@ -30,8 +30,8 @@ const (
 )
 
 type DBGetter interface {
-	GetDB(modelUUID string) (*sql.DB, error)
-	GetExistingDB(modelUUID string) (*sql.DB, error)
+	GetDB(namespace string) (*sql.DB, error)
+	GetExistingDB(namespace string) (*sql.DB, error)
 }
 
 // Hub provides an API for publishing and subscribing to incoming messages.
