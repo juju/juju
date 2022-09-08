@@ -1138,3 +1138,19 @@ func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait tim
 func GetCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
 	return getCollectionCappedInfo(coll)
 }
+
+func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
+	actionNotifications, closer := m.st.db().GetCollection(actionNotificationsC)
+	defer closer()
+
+	docs := []actionNotificationDoc{}
+	err := actionNotifications.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all actions")
+	}
+	actionIDs := make([]string, len(docs))
+	for i, doc := range docs {
+		actionIDs[i] = doc.ActionID
+	}
+	return actionIDs, nil
+}

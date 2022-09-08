@@ -2184,22 +2184,27 @@ func (i *importer) addAction(action description.Action) error {
 		Completed:  action.Completed(),
 		Status:     ActionStatus(action.Status()),
 	}
-	prefix := ensureActionMarker(action.Receiver())
-	notificationDoc := &actionNotificationDoc{
-		DocId:     i.st.docID(prefix + action.Id()),
-		ModelUUID: modelUUID,
-		Receiver:  action.Receiver(),
-		ActionID:  action.Id(),
-	}
+
 	ops := []txn.Op{{
 		C:      actionsC,
 		Id:     newDoc.DocId,
 		Insert: newDoc,
-	}, {
-		C:      actionNotificationsC,
-		Id:     notificationDoc.DocId,
-		Insert: notificationDoc,
 	}}
+
+	if newDoc.Status == ActionPending {
+		prefix := ensureActionMarker(action.Receiver())
+		notificationDoc := &actionNotificationDoc{
+			DocId:     i.st.docID(prefix + action.Id()),
+			ModelUUID: modelUUID,
+			Receiver:  action.Receiver(),
+			ActionID:  action.Id(),
+		}
+		ops = append(ops, txn.Op{
+			C:      actionNotificationsC,
+			Id:     notificationDoc.DocId,
+			Insert: notificationDoc,
+		})
+	}
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)

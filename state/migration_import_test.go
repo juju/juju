@@ -1986,23 +1986,47 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := m.EnqueueOperation("a test", 2)
+	operationIDPending, err := m.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
+	action, err := m.EnqueueAction(operationIDPending, machine.MachineTag(), "action-pending", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(action.Status(), gc.Equals, state.ActionPending)
+
+	operationIDRunning, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	action, err = m.EnqueueAction(operationIDRunning, machine.MachineTag(), "action-running", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(action.Status(), gc.Equals, state.ActionPending)
+	action, err = action.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(action.Status(), gc.Equals, state.ActionRunning)
 
 	newModel, newState := s.importModel(c, s.State)
 	defer func() {
 		c.Assert(newState.Close(), jc.ErrorIsNil)
 	}()
 
-	actions, _ := newModel.AllActions()
-	c.Assert(actions, gc.HasLen, 1)
-	action := actions[0]
-	c.Check(action.Receiver(), gc.Equals, machine.Id())
-	c.Check(action.Name(), gc.Equals, "foo")
-	c.Check(state.ActionOperationId(action), gc.Equals, operationID)
-	c.Check(action.Status(), gc.Equals, state.ActionPending)
+	actions, err := newModel.AllActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 2)
+
+	actionPending := actions[0]
+	c.Check(actionPending.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionPending.Name(), gc.Equals, "action-pending")
+	c.Check(state.ActionOperationId(actionPending), gc.Equals, operationIDPending)
+	c.Check(actionPending.Status(), gc.Equals, state.ActionPending)
+
+	actionRunning := actions[1]
+	c.Check(actionRunning.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionRunning.Name(), gc.Equals, "action-running")
+	c.Check(state.ActionOperationId(actionRunning), gc.Equals, operationIDRunning)
+	c.Check(actionRunning.Status(), gc.Equals, state.ActionRunning)
+
+	// Only pending actions will have action notification docs imported.
+	actionIDs, err := newModel.AllActionIDsHasActionNotifications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionIDs, gc.HasLen, 1)
+	c.Check(actionIDs[0], gc.Equals, actionPending.Id())
 }
 
 func (s *MigrationImportSuite) TestOperation(c *gc.C) {
