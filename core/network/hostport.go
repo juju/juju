@@ -69,7 +69,7 @@ func (hps HostPorts) Unique() HostPorts {
 // matching function and returns them in NetAddr form.
 // If there are no suitable addresses then an empty slice is returned.
 func (hps HostPorts) PrioritizedForScope(getMatcher ScopeMatchFunc) []string {
-	indexes := indexesByScopeMatch(len(hps), func(i int) Address { return hps[i].(Address) }, getMatcher)
+	indexes := indexesByScopeMatch(hps, getMatcher)
 	out := make([]string, len(indexes))
 	for i, index := range indexes {
 		out[i] = DialAddress(hps[index])
@@ -309,7 +309,7 @@ func (hps SpaceHostPorts) InSpaces(spaces ...SpaceInfo) (SpaceHostPorts, bool) {
 // AllMatchingScope returns the HostPorts that best satisfy the input scope
 // matching function, as strings usable as arguments to net.Dial.
 func (hps SpaceHostPorts) AllMatchingScope(getMatcher ScopeMatchFunc) []string {
-	indexes := indexesForScope(len(hps), func(i int) Address { return hps[i].SpaceAddress }, getMatcher)
+	indexes := indexesForScope(hps, getMatcher)
 	out := make([]string, 0, len(indexes))
 	for _, index := range indexes {
 		out = append(out, DialAddress(hps[index]))
