@@ -22,6 +22,7 @@ type CredentialManagerSuite struct {
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	args := params.InvalidateCredentialArg{Reason: "auth fail"}
 	result := new(params.ErrorResult)
 	results := params.ErrorResult{}
@@ -36,6 +37,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	args := params.InvalidateCredentialArg{}
 	result := new(params.ErrorResult)
 	results := params.ErrorResult{Error: apiservererrors.ServerError(errors.New("boom"))}
@@ -50,6 +52,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 	args := params.InvalidateCredentialArg{}
 	result := new(params.ErrorResult)
 
