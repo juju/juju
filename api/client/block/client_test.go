@@ -22,6 +22,8 @@ var _ = gc.Suite(&blockMockSuite{})
 
 func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	blockType := state.DestroyBlock.String()
 	msg := "for test switch block on"
 
@@ -41,6 +43,8 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 
 func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	errmsg := "test error"
 
 	args := params.BlockSwitchParams{
@@ -62,6 +66,8 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 
 func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	blockType := state.DestroyBlock.String()
 
 	args := params.BlockSwitchParams{
@@ -81,6 +87,8 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 
 func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	errmsg := "test error"
 
 	args := params.BlockSwitchParams{
@@ -101,6 +109,8 @@ func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
 
 func (s *blockMockSuite) TestList(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	one := params.BlockResult{
 		Result: params.Block{
 			Id:      "-42",
