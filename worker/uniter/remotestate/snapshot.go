@@ -93,10 +93,14 @@ type Snapshot struct {
 	// SecretRotations is a list of secret URIs that need to be rotated.
 	SecretRotations []string
 
-	// SecretInfo is a list of the labels and revision info
+	// ConsumedSecretInfo is a list of the labels and revision info
 	// for secrets consumed by this unit.
 	// The map is keyed on secret ID.
-	SecretInfo map[string]secrets.SecretRevisionInfo
+	ConsumedSecretInfo map[string]secrets.SecretRevisionInfo
+
+	// ObsoleteSecretRevisions is a list of the obsolete
+	// revisions for secrets owned by this unit.
+	ObsoleteSecretRevisions map[string][]int
 
 	// UpgradeSeriesStatus is the preparation status of
 	// any currently running series upgrade.

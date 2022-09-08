@@ -390,7 +390,7 @@ func (op *DestroyApplicationOperation) deleteSecrets() error {
 		return errors.Trace(err)
 	}
 	for _, uri := range ownedURIs {
-		if err := store.DeleteSecret(uri); err != nil {
+		if _, err := store.DeleteSecret(uri, nil); err != nil {
 			return errors.Annotatef(err, "deleting owned secret %q", uri.String())
 		}
 	}

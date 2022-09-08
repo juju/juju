@@ -316,7 +316,7 @@ type CommitHookChangesArg struct {
 	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
 	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
 	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`
-	SecretDeletes        []SecretURIArg         `json:"secret-deletes,omitempty"`
+	SecretDeletes        []DeleteSecretArg      `json:"secret-deletes,omitempty"`
 }
 
 // ModelConfig holds a model configuration.

@@ -130,7 +130,7 @@ func (s *SecretsManagerAPI) createSecret(arg params.CreateSecretArg) (string, er
 		Role:        coresecrets.RoleManage,
 	})
 	if err != nil {
-		if err2 := s.secretsBackend.DeleteSecret(uri); err2 != nil {
+		if _, err2 := s.secretsBackend.DeleteSecret(uri, nil); err2 != nil {
 			logger.Warningf("cleaning up secret %q", uri)
 		}
 		return "", errors.Annotate(err, "granting secret owner permission to manage the secret")
@@ -197,46 +197,54 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 }
 
 // RemoveSecrets removes the specified secrets.
-func (s *SecretsManagerAPI) RemoveSecrets(args params.SecretURIArgs) (params.ErrorResults, error) {
-	uris := make([]*coresecrets.URI, len(args.Args))
+func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
+	type deleteInfo struct {
+		uri       *coresecrets.URI
+		revisions []int
+	}
+	toDelete := make([]deleteInfo, len(args.Args))
 	for i, arg := range args.Args {
 		uri, err := coresecrets.ParseURI(arg.URI)
 		if err != nil {
 			return params.ErrorResults{}, errors.Trace(err)
 		}
-		uris[i] = uri
+		toDelete[i] = deleteInfo{uri: uri, revisions: arg.Revisions}
 	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	var removed []*coresecrets.URI
-	for i, uri := range uris {
-		err := s.removeSecret(uri)
+	var removedURIs []*coresecrets.URI
+	for i, d := range toDelete {
+		removed, err := s.removeSecret(d.uri, d.revisions)
 		result.Results[i].Error = apiservererrors.ServerError(err)
-		if err == nil {
-			removed = append(removed, uri)
+		if err == nil && removed {
+			removedURIs = append(removedURIs, d.uri)
 		}
 	}
+	if len(removedURIs) == 0 {
+		return result, nil
+	}
+
 	provider, model, err := s.providerGetter()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	if err := provider.CleanupSecrets(model, removed); err != nil {
+	if err := provider.CleanupSecrets(model, removedURIs); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) removeSecret(uri *coresecrets.URI) error {
+func (s *SecretsManagerAPI) removeSecret(uri *coresecrets.URI, revisions []int) (bool, error) {
 	if !s.canManage(uri, s.authTag) {
-		return apiservererrors.ErrPerm
+		return false, apiservererrors.ErrPerm
 	}
 	appName := authTagApp(s.authTag)
 	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
 	if err := token.Check(0, nil); err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	return s.secretsBackend.DeleteSecret(uri)
+	return s.secretsBackend.DeleteSecret(uri, revisions)
 }
 
 // GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
@@ -377,8 +385,8 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 	return &secrets.ContentParams{SecretValue: val, ProviderId: providerId}, nil
 }
 
-// WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
-func (s *SecretsManagerAPI) WatchSecretsChanges(args params.Entities) (params.StringsWatchResults, error) {
+// WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
+func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -394,6 +402,51 @@ func (s *SecretsManagerAPI) WatchSecretsChanges(args params.Entities) (params.St
 		if secretChanges, ok := <-w.Changes(); ok {
 			changes := make([]string, len(secretChanges))
 			copy(changes, secretChanges)
+			return s.resources.Register(w), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.StringsWatchResult
+		id, changes, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.StringsWatcherId = id
+			result.Changes = changes
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+// WatchObsoleteRevisions sets up a watcher to notify of changes to obsolete secret revisions for the specified secrets.
+func (s *SecretsManagerAPI) WatchObsoleteRevisions(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, []string, error) {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		if !s.isSameApplication(tag) {
+			return "", nil, apiservererrors.ErrPerm
+		}
+
+		// Only unit leaders can watch secrets owned by the app.
+		appName := authTagApp(s.authTag)
+		if tag.Kind() == names.ApplicationTagKind {
+			token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+			if err := token.Check(0, nil); err != nil {
+				return "", nil, errors.Trace(err)
+			}
+		}
+
+		w := s.secretsConsumer.WatchObsoleteRevisions(arg.Tag)
+		if obsolete, ok := <-w.Changes(); ok {
+			changes := make([]string, len(obsolete))
+			copy(changes, obsolete)
 			return s.resources.Register(w), changes, nil
 		}
 		return "", nil, watcher.EnsureErr(w)

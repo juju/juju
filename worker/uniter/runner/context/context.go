@@ -6,6 +6,7 @@ package context
 import (
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -315,6 +316,8 @@ type HookContext struct {
 
 	// secretURI is the reference to the secret relevant to the hook.
 	secretURI string
+
+	secretRevision int
 
 	// secretLabel is the secret label to expose to the hook.
 	secretLabel string
@@ -827,7 +830,7 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUps
 }
 
 // RemoveSecret removes a secret with the specified uri.
-func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI) error {
+func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -835,7 +838,7 @@ func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI) error {
 	if !isLeader {
 		return ErrIsNotLeader
 	}
-	ctx.secretChanges.remove(uri)
+	ctx.secretChanges.remove(uri, revision)
 	return nil
 }
 
@@ -848,7 +851,7 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 	}
 	pendingDeletes := set.NewStrings()
 	for _, r := range ctx.secretChanges.pendingDeletes {
-		pendingDeletes.Add(r.ID)
+		pendingDeletes.Add(r.URI.ID)
 	}
 
 	result := make(map[string]jujuc.SecretMetadata)
@@ -1215,6 +1218,11 @@ func (ctx *HookContext) HookVars(
 			"JUJU_SECRET_ID="+ctx.secretURI,
 			"JUJU_SECRET_LABEL="+ctx.secretLabel,
 		)
+		if ctx.secretRevision > 0 {
+			vars = append(vars,
+				"JUJU_SECRET_REVISION="+strconv.Itoa(ctx.secretRevision),
+			)
+		}
 	}
 
 	if storage, err := ctx.HookStorage(); err == nil {
@@ -1345,7 +1353,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	var cleanups []string
 	pendingCreates := make([]uniter.SecretCreateArg, len(ctx.secretChanges.pendingCreates))
 	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
-	pendingDeletes := make([]*coresecrets.URI, len(ctx.secretChanges.pendingDeletes))
+	pendingDeletes := make([]uniter.SecretDeleteArg, len(ctx.secretChanges.pendingDeletes))
 	for i, c := range ctx.secretChanges.pendingCreates {
 		providerId, err := secretsStore.SaveContent(c.URI, 1, c.Value)
 		if errors.IsNotSupported(err) {
@@ -1376,14 +1384,26 @@ func (ctx *HookContext) doFlush(process string) error {
 		u.Value = nil
 		pendingUpdates[i] = u.SecretUpsertArg
 	}
-	for i, uri := range ctx.secretChanges.pendingDeletes {
-		pendingDeletes[i] = uri
-		md, ok := ctx.secretMetadata[uri.ID]
+
+	for i, d := range ctx.secretChanges.pendingDeletes {
+		pendingDeletes[i] = d
+		md, ok := ctx.secretMetadata[d.URI.ID]
 		if !ok {
 			continue
 		}
+		var providerIds []string
+		if d.Revision == nil {
+			for _, providerId := range md.ProviderIds {
+				providerIds = append(providerIds, providerId)
+			}
+		} else {
+			if providerId, ok := md.ProviderIds[*d.Revision]; ok {
+				providerIds = []string{providerId}
+			}
+		}
+		ctx.logger.Debugf("deleting secret %q provider ids: %v", d.URI.String(), providerIds)
 	deleteDone:
-		for _, secretId := range md.ProviderIds {
+		for _, secretId := range providerIds {
 			if err := secretsStore.DeleteContent(secretId); err != nil {
 				if errors.IsNotSupported(err) {
 					break deleteDone

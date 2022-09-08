@@ -268,7 +268,7 @@ func (ctx *RestrictedContext) UpdateSecret(*secrets.URI, *SecretUpsertArgs) erro
 	return ErrRestrictedContext
 }
 
-func (ctx *RestrictedContext) RemoveSecret(*secrets.URI) error {
+func (ctx *RestrictedContext) RemoveSecret(*secrets.URI, *int) error {
 	return ErrRestrictedContext
 }
 

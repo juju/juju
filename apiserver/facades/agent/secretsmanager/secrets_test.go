@@ -363,15 +363,38 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretsBackend.EXPECT().DeleteSecret(&expectURI).Return(nil)
+	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(true, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check(0, nil).Return(nil)
 	s.expectSecretAccessQuery(1)
 	s.provider.EXPECT().CleanupSecrets(mockModel{}, []*coresecrets.URI{uri}).Return(nil)
 
-	results, err := s.facade.RemoveSecrets(params.SecretURIArgs{
-		Args: []params.SecretURIArg{{
-			URI: expectURI.String(),
+	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(false, nil)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.expectSecretAccessQuery(1)
+
+	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -496,7 +519,7 @@ func (s *SecretsManagerSuite) TestGetSecretContent(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestWatchSecretsChanges(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges("unit-mariadb-0").Return(
@@ -509,7 +532,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsChanges(c *gc.C) {
 	watchChan <- []string{uri.String()}
 	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
 
-	result, err := s.facade.WatchSecretsChanges(params.Entities{
+	result, err := s.facade.WatchConsumedSecretsChanges(params.Entities{
 		Entities: []params.Entity{{
 			Tag: "unit-mariadb-0",
 		}, {

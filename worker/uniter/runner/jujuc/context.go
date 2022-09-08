@@ -195,7 +195,7 @@ type SecretMetadata struct {
 	LatestRevision   int
 	LatestExpireTime *time.Time
 	NextRotateTime   *time.Time
-	ProviderIds      []string
+	ProviderIds      map[int]string
 }
 
 // ContextSecrets is the part of a hook context related to secrets.
@@ -210,7 +210,7 @@ type ContextSecrets interface {
 	UpdateSecret(*secrets.URI, *SecretUpsertArgs) error
 
 	// RemoveSecret removes a secret with the specified uri.
-	RemoveSecret(*secrets.URI) error
+	RemoveSecret(*secrets.URI, *int) error
 
 	// GrantSecret grants access to the specified secret.
 	GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error

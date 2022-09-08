@@ -91,7 +91,7 @@ func (s *ResolverOpFactorySuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 func (s *ResolverOpFactorySuite) TestSecretChanged(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 
-	f.RemoteState.SecretInfo = map[string]secrets.SecretRevisionInfo{
+	f.RemoteState.ConsumedSecretInfo = map[string]secrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 
@@ -101,11 +101,41 @@ func (s *ResolverOpFactorySuite) TestSecretChanged(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	resultState, err := op.Commit(operation.State{})
+	resultState, err := op.Commit(operation.State{
+		SecretRevisions: map[string]int{
+			"secret:666e2mr0ui3e8a215n4g": 999,
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(resultState.SecretRevisions, jc.DeepEquals, map[string]int{
 		"secret:9m4e2mr0ui3e8a215n4g": 666,
+	})
+}
+
+func (s *ResolverOpFactorySuite) TestSecretRemove(c *gc.C) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+
+	f.RemoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 667},
+	}
+
+	op, err := f.NewRunHook(hook.Info{
+		Kind:           hooks.SecretRemove,
+		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
+		SecretRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	resultState, err := op.Commit(operation.State{
+		SecretObsoleteRevisions: map[string][]int{
+			"secret:9m4e2mr0ui3e8a215n4g": {667, 999},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(resultState.SecretObsoleteRevisions, jc.DeepEquals, map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 667},
 	})
 }
 

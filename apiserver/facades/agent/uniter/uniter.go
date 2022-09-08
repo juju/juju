@@ -2722,7 +2722,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 
 	// TODO - do in txn once we have support for that
 	if len(changes.SecretDeletes) > 0 {
-		result, err := u.SecretsManagerAPI.RemoveSecrets(params.SecretURIArgs{Args: changes.SecretDeletes})
+		result, err := u.SecretsManagerAPI.RemoveSecrets(params.DeleteSecretArgs{Args: changes.SecretDeletes})
 		if err == nil {
 			err = result.Combine()
 		}

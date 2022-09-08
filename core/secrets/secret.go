@@ -150,7 +150,7 @@ type SecretRevisionMetadata struct {
 // SecretOwnerMetadata holds a secret metadata and any provider ids of revisions.
 type SecretOwnerMetadata struct {
 	Metadata    SecretMetadata
-	ProviderIds []string
+	ProviderIds map[int]string
 }
 
 // SecretConsumerMetadata holds metadata about a secret

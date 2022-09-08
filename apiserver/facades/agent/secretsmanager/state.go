@@ -23,6 +23,7 @@ type SecretsConsumer interface {
 	GetSecretConsumer(*secrets.URI, string) (*secrets.SecretConsumerMetadata, error)
 	SaveSecretConsumer(*secrets.URI, string, *secrets.SecretConsumerMetadata) error
 	WatchConsumedSecretsChanges(string) state.StringsWatcher
+	WatchObsoleteRevisions(string) state.StringsWatcher
 	GrantSecretAccess(*secrets.URI, state.SecretAccessParams) error
 	RevokeSecretAccess(*secrets.URI, state.SecretAccessParams) error
 	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
@@ -31,7 +32,7 @@ type SecretsConsumer interface {
 type SecretsBackend interface {
 	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, state.UpdateSecretParams) (*secrets.SecretMetadata, error)
-	DeleteSecret(*secrets.URI) error
+	DeleteSecret(*secrets.URI, []int) (bool, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)

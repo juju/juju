@@ -5,6 +5,8 @@ package remotestate
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,8 +43,9 @@ type SecretRotateWatcherFunc func(names.UnitTag, chan []string) (worker.Worker, 
 
 // SecretsClient provides access to the secrets manager facade.
 type SecretsClient interface {
-	WatchSecretsChanges(string) (watcher.StringsWatcher, error)
+	WatchConsumedSecretsChanges(string) (watcher.StringsWatcher, error)
 	GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error)
+	WatchObsoleteRevisions(appName string) (watcher.StringsWatcher, error)
 }
 
 // RemoteStateWatcher collects unit, application, and application config information
@@ -166,13 +169,14 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		// so that we coalesce events while the observer is busy.
 		out: make(chan struct{}, 1),
 		current: Snapshot{
-			Relations:           make(map[int]RelationSnapshot),
-			Storage:             make(map[names.StorageTag]StorageSnapshot),
-			ActionsBlocked:      config.ContainerRunningStatusChannel != nil,
-			ActionChanged:       make(map[string]int),
-			UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
-			WorkloadEvents:      config.InitialWorkloadEventIDs,
-			SecretInfo:          make(map[string]secrets.SecretRevisionInfo),
+			Relations:               make(map[int]RelationSnapshot),
+			Storage:                 make(map[names.StorageTag]StorageSnapshot),
+			ActionsBlocked:          config.ContainerRunningStatusChannel != nil,
+			ActionChanged:           make(map[string]int),
+			UpgradeSeriesStatus:     model.UpgradeSeriesNotStarted,
+			WorkloadEvents:          config.InitialWorkloadEventIDs,
+			ConsumedSecretInfo:      make(map[string]secrets.SecretRevisionInfo),
+			ObsoleteSecretRevisions: make(map[string][]int),
 		},
 		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
@@ -241,9 +245,15 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	}
 	snapshot.SecretRotations = make([]string, len(w.current.SecretRotations))
 	copy(snapshot.SecretRotations, w.current.SecretRotations)
-	snapshot.SecretInfo = make(map[string]secrets.SecretRevisionInfo)
-	for u, r := range w.current.SecretInfo {
-		snapshot.SecretInfo[u] = r
+	snapshot.ConsumedSecretInfo = make(map[string]secrets.SecretRevisionInfo)
+	for u, r := range w.current.ConsumedSecretInfo {
+		snapshot.ConsumedSecretInfo[u] = r
+	}
+	snapshot.ObsoleteSecretRevisions = make(map[string][]int)
+	for u, r := range w.current.ObsoleteSecretRevisions {
+		rCopy := make([]int, len(r))
+		copy(rCopy, r)
+		snapshot.ObsoleteSecretRevisions[u] = rCopy
 	}
 	return snapshot
 }
@@ -394,12 +404,23 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenSecretsChange bool
-	secretsw, err := w.secretsClient.WatchSecretsChanges(w.unit.Tag().Id())
+	secretsw, err := w.secretsClient.WatchConsumedSecretsChanges(w.unit.Tag().Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	secretsChanges := secretsw.Changes()
 	if err := w.catacomb.Add(secretsw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
+	var seenSecretRevisionsChange bool
+	secretRevisionsw, err := w.secretsClient.WatchObsoleteRevisions(w.application.Tag().Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	secretRevisionsChanges := secretRevisionsw.Changes()
+	if err := w.catacomb.Add(secretRevisionsw); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
@@ -573,6 +594,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenSecretsChange)
+
+		case secretRevisions, ok := <-secretRevisionsChanges:
+			w.logger.Debugf("got obsolete secret revisions change for %s: %s", w.application.Tag().Id(), secretRevisions)
+			if !ok {
+				return errors.New("secret revisions watcher closed")
+			}
+			if err := w.secretObsoleteRevisionsChanged(secretRevisions); err != nil {
+				return errors.Trace(err)
+			}
+			observedEvent(&seenSecretRevisionsChange)
 
 		case _, ok := <-instanceDataChannel:
 			w.logger.Debugf("got instance data change for %s", w.unit.Tag().Id())
@@ -923,11 +954,32 @@ func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
 	w.logger.Debugf("got latest secret info: %#v", info)
 	for _, uri := range secretURIs {
 		if latest, ok := info[uri]; ok {
-			w.current.SecretInfo[uri] = latest
+			w.current.ConsumedSecretInfo[uri] = latest
 		} else {
-			delete(w.current.SecretInfo, uri)
+			delete(w.current.ConsumedSecretInfo, uri)
 		}
 	}
+	return nil
+}
+
+func (w *RemoteStateWatcher) secretObsoleteRevisionsChanged(secretRevisions []string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, revInfo := range secretRevisions {
+		parts := strings.Split(revInfo, "/")
+		if len(parts) < 2 {
+			return errors.NotValidf("secret ID/revision %q", revInfo)
+		}
+		uri := parts[0]
+		rev, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return errors.NotValidf("secret revision %q for %q", parts[1], uri)
+		}
+		obsolete := set.NewInts(w.current.ObsoleteSecretRevisions[uri]...)
+		obsolete.Add(rev)
+		w.current.ObsoleteSecretRevisions[uri] = obsolete.SortedValues()
+	}
+	w.logger.Debugf("obsolete secret revisions: %v", w.current.ObsoleteSecretRevisions)
 	return nil
 }
 

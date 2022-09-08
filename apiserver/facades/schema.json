@@ -38669,7 +38669,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SecretURIArgs"
+                            "$ref": "#/definitions/DeleteSecretArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -38725,7 +38725,7 @@
                     },
                     "description": "UpdateSecrets updates the specified secrets."
                 },
-                "WatchSecretsChanges": {
+                "WatchConsumedSecretsChanges": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -38735,7 +38735,19 @@
                             "$ref": "#/definitions/StringsWatchResults"
                         }
                     },
-                    "description": "WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                    "description": "WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                },
+                "WatchObsoleteRevisions": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchObsoleteRevisions sets up a watcher to notify of changes to obsolete secret revisions for the specified secrets."
                 },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
@@ -38820,6 +38832,39 @@
                     "additionalProperties": false,
                     "required": [
                         "count"
+                    ]
+                },
+                "DeleteSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "revision": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "DeleteSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeleteSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "Entities": {
@@ -39287,33 +39332,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "SecretURIArg": {
-                    "type": "object",
-                    "properties": {
-                        "uri": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uri"
-                    ]
-                },
-                "SecretURIArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretURIArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
                     ]
                 },
                 "SecretValueResult": {
@@ -44662,7 +44680,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SecretURIArgs"
+                            "$ref": "#/definitions/DeleteSecretArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -45000,6 +45018,18 @@
                     },
                     "description": "WatchConfigSettingsHash returns a StringsWatcher that yields a hash\nof the config values every time the config changes. The uniter can\nsave this hash and use it to decide whether the config-changed hook\nneeds to be run (or whether this was just an agent restart with no\nsubstantive config change)."
                 },
+                "WatchConsumedSecretsChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                },
                 "WatchForModelConfigChanges": {
                     "type": "object",
                     "properties": {
@@ -45044,6 +45074,18 @@
                         }
                     }
                 },
+                "WatchObsoleteRevisions": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchObsoleteRevisions sets up a watcher to notify of changes to obsolete secret revisions for the specified secrets."
+                },
                 "WatchRelationUnits": {
                     "type": "object",
                     "properties": {
@@ -45055,18 +45097,6 @@
                         }
                     },
                     "description": "WatchRelationUnits returns a RelationUnitsWatcher for observing\nchanges to every unit in the supplied relation that is visible to\nthe supplied unit. See also state/watcher.go:RelationUnit.Watch()."
-                },
-                "WatchSecretsChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringsWatchResults"
-                        }
-                    },
-                    "description": "WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
                 },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
@@ -45631,7 +45661,7 @@
                         "secret-deletes": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretURIArg"
+                                "$ref": "#/definitions/DeleteSecretArg"
                             }
                         },
                         "secret-grants": {
@@ -45791,6 +45821,39 @@
                     "additionalProperties": false,
                     "required": [
                         "count"
+                    ]
+                },
+                "DeleteSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "revision": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "DeleteSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeleteSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "Endpoint": {
@@ -47409,33 +47472,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "SecretURIArg": {
-                    "type": "object",
-                    "properties": {
-                        "uri": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uri"
-                    ]
-                },
-                "SecretURIArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretURIArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
                     ]
                 },
                 "SecretValueResult": {

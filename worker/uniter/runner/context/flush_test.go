@@ -368,7 +368,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.RemoveSecret(uri2)
+	err = ctx.RemoveSecret(uri2, ptr(1))
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: ptr(s.application.Name()),

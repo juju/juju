@@ -121,3 +121,17 @@ func (mr *MockSecretsConsumerMockRecorder) WatchConsumedSecretsChanges(arg0 inte
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConsumedSecretsChanges", reflect.TypeOf((*MockSecretsConsumer)(nil).WatchConsumedSecretsChanges), arg0)
 }
+
+// WatchObsoleteRevisions mocks base method.
+func (m *MockSecretsConsumer) WatchObsoleteRevisions(arg0 string) state.StringsWatcher {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchObsoleteRevisions", arg0)
+	ret0, _ := ret[0].(state.StringsWatcher)
+	return ret0
+}
+
+// WatchObsoleteRevisions indicates an expected call of WatchObsoleteRevisions.
+func (mr *MockSecretsConsumerMockRecorder) WatchObsoleteRevisions(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsoleteRevisions", reflect.TypeOf((*MockSecretsConsumer)(nil).WatchObsoleteRevisions), arg0)
+}

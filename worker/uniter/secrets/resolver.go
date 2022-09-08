@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"github.com/juju/charm/v9/hooks"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/life"
@@ -58,7 +59,7 @@ func (s *secretsResolver) NextOp(
 	if op, err := s.rotateOp(localState, remoteState, opFactory); err == nil || err != resolver.ErrNoOperation {
 		return op, err
 	}
-	for uri, info := range remoteState.SecretInfo {
+	for uri, info := range remoteState.ConsumedSecretInfo {
 		existing, ok := localState.SecretRevisions[uri]
 		s.logger.Debugf("%s: current=%d, new=%d", uri, existing, info.Revision)
 		if !ok || existing != info.Revision {
@@ -66,6 +67,21 @@ func (s *secretsResolver) NextOp(
 				Kind:        hooks.SecretChanged,
 				SecretURI:   uri,
 				SecretLabel: info.Label,
+			})
+			return op, err
+		}
+	}
+	for uri, revs := range remoteState.ObsoleteSecretRevisions {
+		s.logger.Debugf("%s: resolving obsolete %v", uri, revs)
+		alreadyProcessed := set.NewInts(localState.SecretObsoleteRevisions[uri]...)
+		for _, rev := range revs {
+			if alreadyProcessed.Contains(rev) {
+				continue
+			}
+			op, err := opFactory.NewRunHook(hook.Info{
+				Kind:           hooks.SecretRemove,
+				SecretURI:      uri,
+				SecretRevision: rev,
 			})
 			return op, err
 		}

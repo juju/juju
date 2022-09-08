@@ -204,7 +204,7 @@ func (s *changeSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 			Kind: operation.Continue,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -221,7 +221,7 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *gc.C) {
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -242,7 +242,7 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
 			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -263,8 +263,105 @@ func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
+	}
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+type removeSecretSuite struct {
+	remoteState remotestate.Snapshot
+	opFactory   operation.Factory
+	resolver    resolver.Resolver
+}
+
+var _ = gc.Suite(&removeSecretSuite{})
+
+func (s *removeSecretSuite) SetUpTest(_ *gc.C) {
+	s.remoteState = remotestate.Snapshot{
+		Life: life.Alive,
+	}
+
+	logger := loggo.GetLogger("test")
+	s.resolver = secrets.NewSecretsResolver(logger, nil)
+}
+
+func (s *removeSecretSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctlr := gomock.NewController(c)
+	s.opFactory = operation.NewFactory(operation.FactoryParams{
+		Logger: loggo.GetLogger("test"),
+	})
+	return ctlr
+}
+
+func (s *removeSecretSuite) TestNextOpNotInstalled(c *gc.C) {
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	}
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+func (s *removeSecretSuite) TestNextOpNoneExisting(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/666) hook")
+}
+
+func (s *removeSecretSuite) TestNextOpNextRevision(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			SecretObsoleteRevisions: map[string][]int{
+				"secret:9m4e2mr0ui3e8a215n4g": {666},
+			},
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/668) hook")
+}
+
+func (s *removeSecretSuite) TestNextOpNone(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			SecretObsoleteRevisions: map[string][]int{
+				"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+			},
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)

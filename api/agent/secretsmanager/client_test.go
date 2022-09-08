@@ -173,16 +173,16 @@ func (s *SecretsSuite) TestGetSecretMetadata(c *gc.C) {
 		c.Assert(info.Metadata.LatestRevision, gc.Equals, 666)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
-		c.Assert(info.ProviderIds, jc.DeepEquals, []string{"provider-id"})
+		c.Assert(info.ProviderIds, jc.DeepEquals, map[int]string{666: "provider-id"})
 	}
 }
 
-func (s *SecretsSuite) TestWatchSecretsChanges(c *gc.C) {
+func (s *SecretsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchSecretsChanges")
+		c.Check(request, gc.Equals, "WatchConsumedSecretsChanges")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-foo-0"}},
 		})
@@ -195,7 +195,7 @@ func (s *SecretsSuite) TestWatchSecretsChanges(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	_, err := client.WatchSecretsChanges("foo/0")
+	_, err := client.WatchConsumedSecretsChanges("foo/0")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -229,6 +229,28 @@ func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *gc.C) {
 		"secret:9m4e2mr0ui3e8a215n4g", "secret:8n3e2mr0ui3e8a215n5h", "secret:7c5e2mr0ui3e8a2154r2"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, map[string]coresecrets.SecretRevisionInfo{})
+}
+
+func (s *SecretsSuite) TestWatchObsoleteRevisions(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchObsoleteRevisions")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "application-app"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			[]params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	_, err := client.WatchObsoleteRevisions("app")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
 func (s *SecretsSuite) TestWatchSecretsRotationChanges(c *gc.C) {

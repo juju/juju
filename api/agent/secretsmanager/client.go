@@ -102,14 +102,36 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, update, peek
 	return content, nil
 }
 
-// WatchSecretsChanges returns a watcher which serves changes to
+// WatchConsumedSecretsChanges returns a watcher which serves changes to
 // secrets payloads for any secrets consumed by the specified unit.
-func (c *Client) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
 	}
-	err := c.facade.FacadeCall("WatchSecretsChanges", args, &results)
+	err := c.facade.FacadeCall("WatchConsumedSecretsChanges", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchObsoleteRevisions returns a watcher which serves secret revisions for which
+// there are no longer any consumers.
+func (c *Client) WatchObsoleteRevisions(appName string) (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}},
+	}
+	err := c.facade.FacadeCall("WatchObsoleteRevisions", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -189,12 +211,12 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
 		}
-		var providerIds []string
+		providerIds := make(map[int]string)
 		for _, r := range info.Revisions {
 			if r.ProviderId == nil {
 				continue
 			}
-			providerIds = append(providerIds, *r.ProviderId)
+			providerIds[r.Revision] = *r.ProviderId
 		}
 		result = append(result, coresecrets.SecretOwnerMetadata{
 			Metadata:    md,

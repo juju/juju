@@ -51,6 +51,9 @@ type Info struct {
 	// SecretURI is the secret URI relevant to the hook.
 	SecretURI string `yaml:"secret-uri,omitempty"`
 
+	// SecretRevision is the secret revision relevant to the hook.
+	SecretRevision int `yaml:"secret-revision,omitempty"`
+
 	// SecretLabel is the secret label to expose to the hook.
 	SecretLabel string `yaml:"secret-label,omitempty"`
 }
