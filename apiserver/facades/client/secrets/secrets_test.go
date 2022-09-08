@@ -85,7 +85,6 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withStore bool) {
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
-	uri.ControllerUUID = coretesting.ControllerTag.Id()
 	metadata := []*coresecrets.SecretMetadata{{
 		URI:              uri,
 		Version:          1,

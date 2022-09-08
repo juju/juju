@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
@@ -20,9 +21,11 @@ type UndertakerAPI struct {
 	st        State
 	resources facade.Resources
 	*common.StatusSetter
+
+	secretsProviderGetter commonsecrets.ProviderInfoGetter
 }
 
-func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
+func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer, secretsProviderGetter commonsecrets.ProviderInfoGetter) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -44,9 +47,10 @@ func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Au
 		}, nil
 	}
 	return &UndertakerAPI{
-		st:           st,
-		resources:    resources,
-		StatusSetter: common.NewStatusSetter(st, getCanModifyModel),
+		st:                    st,
+		resources:             resources,
+		secretsProviderGetter: secretsProviderGetter,
+		StatusSetter:          common.NewStatusSetter(st, getCanModifyModel),
 	}, nil
 }
 
@@ -80,6 +84,13 @@ func (u *UndertakerAPI) ProcessDyingModel() error {
 
 // RemoveModel removes any records of this model from Juju.
 func (u *UndertakerAPI) RemoveModel() error {
+	p, model, err := u.secretsProviderGetter()
+	if err != nil {
+		return errors.Annotate(err, "getting secrets provider")
+	}
+	if err := p.CleanupModel(model); err != nil {
+		return errors.Annotate(err, "cleaning model from secrets provider")
+	}
 	return u.st.RemoveDyingModel()
 }
 

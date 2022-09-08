@@ -111,11 +111,12 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // OperatorProvisioningInfo holds the info needed to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImageDetails resources.DockerImageDetails
-	Version      version.Number
-	APIAddresses []string
-	Tags         map[string]string
-	CharmStorage *storage.KubernetesFilesystemParams
+	ImageDetails     resources.DockerImageDetails
+	BaseImageDetails resources.DockerImageDetails
+	Version          version.Number
+	APIAddresses     []string
+	Tags             map[string]string
+	CharmStorage     *storage.KubernetesFilesystemParams
 }
 
 // OperatorProvisioningInfo returns the info needed to provision an operator for an application.
@@ -135,11 +136,12 @@ func (c *Client) OperatorProvisioningInfo(applicationName string) (OperatorProvi
 		return OperatorProvisioningInfo{}, errors.Trace(err)
 	}
 	return OperatorProvisioningInfo{
-		ImageDetails: params.ConvertDockerImageInfo(info.ImageDetails),
-		Version:      info.Version,
-		APIAddresses: info.APIAddresses,
-		Tags:         info.Tags,
-		CharmStorage: filesystemFromParams(info.CharmStorage),
+		ImageDetails:     params.ConvertDockerImageInfo(info.ImageDetails),
+		BaseImageDetails: params.ConvertDockerImageInfo(info.BaseImageDetails),
+		Version:          info.Version,
+		APIAddresses:     info.APIAddresses,
+		Tags:             info.Tags,
+		CharmStorage:     filesystemFromParams(info.CharmStorage),
 	}, nil
 }
 

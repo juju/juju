@@ -431,7 +431,7 @@ type ModelOperatorConfig struct {
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
 
-	// ImageDetails is the docker registry URL and auth details for the image.
+	// ImageDetails is the docker registry URL and auth details for the juju operator image.
 	ImageDetails resources.DockerImageDetails
 
 	// Port is the socket port that the operator model will be listening on
@@ -440,8 +440,11 @@ type ModelOperatorConfig struct {
 
 // OperatorConfig is the config to use when creating an operator.
 type OperatorConfig struct {
-	// ImageDetails is the docker registry URL and auth details for the image.
+	// ImageDetails is the docker registry URL and auth details for the juju operator image.
 	ImageDetails resources.DockerImageDetails
+
+	// BaseImageDetails is the docker registry URL and auth details for the charm base image.
+	BaseImageDetails resources.DockerImageDetails
 
 	// Version is the Juju version of the operator image.
 	Version version.Number

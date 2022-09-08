@@ -7,9 +7,11 @@ import (
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/secrets/provider/kubernetes"
+	"github.com/juju/juju/secrets/provider/vault"
 )
 
 func init() {
 	provider.Register(juju.Store, juju.NewProvider())
 	provider.Register(kubernetes.Store, kubernetes.NewProvider())
+	provider.Register(vault.Store, vault.NewProvider())
 }
