@@ -12185,6 +12185,9 @@
                                 "type": "string"
                             }
                         },
+                        "base-image-details": {
+                            "$ref": "#/definitions/DockerImageInfo"
+                        },
                         "charm-storage": {
                             "$ref": "#/definitions/KubernetesFilesystemParams"
                         },
@@ -12209,6 +12212,7 @@
                     "additionalProperties": false,
                     "required": [
                         "image-details",
+                        "base-image-details",
                         "version",
                         "api-addresses"
                     ]
