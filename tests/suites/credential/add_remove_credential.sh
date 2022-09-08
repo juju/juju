@@ -10,12 +10,11 @@ run_add_remove_credential() {
 
 	juju add-credential aws -f ./tests/suites/credential/credentials-data/fake-credentials.yaml --client
 
-	juju credentials aws --format=json | jq -r ".\"client-credentials\".\"aws\".\"cloud-credentials\".\"fake-credential-name\".\"details\".\"access-key\"" | check "fake-access-key"
+	juju credentials aws --format=json | jq -r '."client-credentials"."aws"."cloud-credentials"."fake-credential-name"."details"."access-key"' | check "fake-access-key"
 
 	juju remove-credential aws fake-credential-name --client
 
-	juju credentials aws --format=json | jq -r ".\"client-credentials\".\"aws\".\"cloud-credentials\".\"fake-credential-name\".\"details\".\"access-key\"" | check null
-
+	juju credentials aws --format=json | jq -r '."client-credentials"."aws"."cloud-credentials"."fake-credential-name"."details"."access-key"' | check null
 
 	destroy_model "${model_name}"
 }
