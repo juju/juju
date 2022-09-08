@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"net"
+	"sort"
 
 	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/errors"
@@ -41,16 +42,16 @@ func NewOptionFactory(cfg agent.Config, port int, interfaceAddrs func() ([]net.A
 // for specifying the local address:port to use.
 // TODO (manadart 2022-09-07): We will need to consider what happens with
 // juju-ha-space controller configuration as it relates to this address.
-// Consider also using the generic address collection functions to filter.
+// We should also look at taking the config as a config setter,
+// writing the address after the first determination, then just reading it
+// thereafter so that it never changes.
 func (f *OptionFactory) WithAddressOption() (app.Option, error) {
 	sysAddrs, err := f.interfaceAddrs()
 	if err != nil {
 		return nil, errors.Annotate(err, "querying addresses of system NICs")
 	}
 
-	// Dqlite nodes should only advertise cloud-local addresses to their
-	// peers. To figure out the address to bind to, we need to scan all NIC
-	// addresses and return the first one that has cloud-local scope.
+	var addrs network.MachineAddresses
 	for _, sysAddr := range sysAddrs {
 		var host string
 
@@ -63,11 +64,17 @@ func (f *OptionFactory) WithAddressOption() (app.Option, error) {
 			continue
 		}
 
-		machAddr := network.NewMachineAddress(host)
-		if machAddr.Scope == network.ScopeCloudLocal {
-			return app.WithAddress(fmt.Sprintf("%s:%d", machAddr.Value, f.port)), nil
-		}
+		addrs = append(addrs, network.NewMachineAddress(host))
 	}
 
-	return nil, errors.NewNotFound(nil, "no suitable local address for advertising to Dqlite peers")
+	cloudLocal := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
+	if len(cloudLocal) == 0 {
+		return nil, errors.NewNotFound(nil, "no suitable local address for advertising to Dqlite peers")
+	}
+
+	// Sort to ensure that the same address is returned for multi-nic/address
+	// systems. Dqlite does not allow it to change between node restarts.
+	values := cloudLocal.Values()
+	sort.Strings(values)
+	return app.WithAddress(fmt.Sprintf("%s:%d", values[0], f.port)), nil
 }
