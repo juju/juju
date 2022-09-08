@@ -12,6 +12,9 @@ import (
 	"github.com/juju/juju/secrets/provider"
 )
 
+// PermissionDenied is returned when an api fails due to a permission issue.
+const PermissionDenied = errors.ConstError("permission denied")
+
 // secretsClient wraps a Juju secrets manager client.
 // If a store is specified, the secret content is managed
 // by the store instead of being stored in the Juju database.

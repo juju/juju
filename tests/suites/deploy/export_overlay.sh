@@ -6,7 +6,7 @@ run_cmr_bundles_export_overlay() {
 	ensure "cmr-bundles-test-export-overlay" "${file}"
 
 	juju add-user bar
-	juju deploy ./testcharms/charm-repo/bundle/apache2-with-offers
+	juju deploy ./tests/suites/deploy/bundles/bundle-with-overlays/easyrsa.yaml
 
 	OUT=$(juju export-bundle 2>&1)
 	echo "${OUT}"
@@ -19,13 +19,13 @@ run_cmr_bundles_export_overlay() {
 	echo -n 'my-include' >example.log
 	cat >overlay.yaml <<EOT
 applications:
-  wordpress:
+  etcd:
     annotations:
       raw: include-file://example.log
       enc: include-base64://example.log
 EOT
 
-	juju deploy ./testcharms/charm-repo/bundle/multi-doc-overlays --overlay overlay.yaml
+	juju deploy ./tests/suites/deploy/bundles/bundle-with-overlays/easyrsa-etcd.yaml --overlay overlay.yaml
 	OUT=$(juju export-bundle 2>&1)
 	echo "${OUT}"
 

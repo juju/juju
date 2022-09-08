@@ -302,6 +302,7 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 
 	cfg := &caas.OperatorConfig{
 		ImageDetails:        info.ImageDetails,
+		BaseImageDetails:    info.BaseImageDetails,
 		Version:             info.Version,
 		ResourceTags:        info.Tags,
 		CharmStorage:        charmStorageParams(info.CharmStorage),

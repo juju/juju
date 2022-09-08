@@ -4,6 +4,7 @@
 package juju
 
 import (
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -20,9 +21,24 @@ func NewProvider() provider.SecretStoreProvider {
 type jujuProvider struct {
 }
 
+// Initialise is not used.
+func (p jujuProvider) Initialise(m provider.Model) error {
+	return nil
+}
+
+// CleanupModel is not used.
+func (p jujuProvider) CleanupModel(m provider.Model) error {
+	return nil
+}
+
+// CleanupSecrets is not used.
+func (p jujuProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
+	return nil
+}
+
 // StoreConfig returns nil config params since the Juju store saves
 // secret content to the Juju database.
-func (p jujuProvider) StoreConfig(provider.Model) (*provider.StoreConfig, error) {
+func (p jujuProvider) StoreConfig(m provider.Model, admin bool, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
 	return &provider.StoreConfig{StoreType: Store}, nil
 }
 

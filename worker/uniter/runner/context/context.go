@@ -810,7 +810,7 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUps
 	}
 	md, ok := ctx.secretMetadata[uri.ID]
 	if !ok {
-		return errors.NotFoundf("secret %q", uri.ShortString())
+		return errors.NotFoundf("secret %q", uri.String())
 	}
 	ctx.secretChanges.update(uniter.SecretUpdateArg{
 		SecretUpsertArg: uniter.SecretUpsertArg{
@@ -1345,6 +1345,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	var cleanups []string
 	pendingCreates := make([]uniter.SecretCreateArg, len(ctx.secretChanges.pendingCreates))
 	pendingUpdates := make([]uniter.SecretUpsertArg, len(ctx.secretChanges.pendingUpdates))
+	pendingDeletes := make([]*coresecrets.URI, len(ctx.secretChanges.pendingDeletes))
 	for i, c := range ctx.secretChanges.pendingCreates {
 		providerId, err := secretsStore.SaveContent(c.URI, 1, c.Value)
 		if errors.IsNotSupported(err) {
@@ -1375,10 +1376,26 @@ func (ctx *HookContext) doFlush(process string) error {
 		u.Value = nil
 		pendingUpdates[i] = u.SecretUpsertArg
 	}
+	for i, uri := range ctx.secretChanges.pendingDeletes {
+		pendingDeletes[i] = uri
+		md, ok := ctx.secretMetadata[uri.ID]
+		if !ok {
+			continue
+		}
+	deleteDone:
+		for _, secretId := range md.ProviderIds {
+			if err := secretsStore.DeleteContent(secretId); err != nil {
+				if errors.IsNotSupported(err) {
+					break deleteDone
+				}
+				return errors.Annotatef(err, "cannot delete secret %q from store: %v", secretId, err)
+			}
+		}
+	}
 
 	b.AddSecretCreates(pendingCreates)
 	b.AddSecretUpdates(pendingUpdates)
-	b.AddSecretDeletes(ctx.secretChanges.pendingDeletes)
+	b.AddSecretDeletes(pendingDeletes)
 	b.AddSecretGrants(ctx.secretChanges.pendingGrants)
 	b.AddSecretRevokes(ctx.secretChanges.pendingRevokes)
 
@@ -1403,23 +1420,6 @@ func (ctx *HookContext) doFlush(process string) error {
 				}
 			}
 			return errors.Trace(err)
-		}
-	}
-
-	// When Juju has been updated, we can remove any secrets from the store.
-	for _, uri := range ctx.secretChanges.pendingDeletes {
-		md, ok := ctx.secretMetadata[uri.ID]
-		if !ok {
-			continue
-		}
-	deleteDone:
-		for _, secretId := range md.ProviderIds {
-			if err := secretsStore.DeleteContent(secretId); err != nil {
-				if errors.IsNotSupported(err) {
-					break deleteDone
-				}
-				return errors.Annotatef(err, "cannot delete secret %q from store: %v", secretId, err)
-			}
 		}
 	}
 

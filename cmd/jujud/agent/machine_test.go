@@ -73,6 +73,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/rpc/params"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"

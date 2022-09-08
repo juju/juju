@@ -31,7 +31,7 @@ var _ = gc.Suite(&kubernetesSuite{})
 func (*kubernetesSuite) TestStoreConfig(c *gc.C) {
 	p, err := provider.Provider(kubernetes.Store)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := p.StoreConfig(mockModel{})
+	cfg, err := p.StoreConfig(mockModel{}, false, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &provider.StoreConfig{
 		StoreType: kubernetes.Store,
@@ -70,7 +70,7 @@ func (s *kubernetesSuite) TestNewStore(c *gc.C) {
 	})
 	p, err := provider.Provider(kubernetes.Store)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := p.StoreConfig(model)
+	cfg, err := p.StoreConfig(model, false, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.NewStore(cfg)
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -80,6 +80,10 @@ type mockModel struct{}
 
 func (mockModel) ControllerUUID() string {
 	return coretesting.ControllerTag.Id()
+}
+
+func (mockModel) UUID() string {
+	return coretesting.ModelTag.Id()
 }
 
 func (mockModel) Cloud() (cloud.Cloud, error) {

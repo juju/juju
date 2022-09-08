@@ -252,7 +252,7 @@ func networkAddressesToStateArgs(
 			ProviderSubnetID:  dev.ProviderSubnetId,
 			ConfigMethod:      configType,
 			CIDRAddress:       cidrAddress,
-			DNSServers:        dev.DNSServers.ToIPAddresses(),
+			DNSServers:        dev.DNSServers.Values(),
 			DNSSearchDomains:  dev.DNSSearchDomains,
 			GatewayAddress:    dev.GatewayAddress.Value,
 			IsDefaultGateway:  dev.IsDefaultGateway,
