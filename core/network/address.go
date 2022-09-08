@@ -469,10 +469,10 @@ func (a ProviderAddress) String() string {
 // supporting conversion to SpaceAddresses.
 type ProviderAddresses []ProviderAddress
 
-// ToIPAddresses transforms the ProviderAddresses to a string slice containing
+// Values transforms the ProviderAddresses to a string slice containing
 // their raw IP values.
-func (pas ProviderAddresses) ToIPAddresses() []string {
-	return toIPAddresses(pas)
+func (pas ProviderAddresses) Values() []string {
+	return toStrings(pas)
 }
 
 // ToSpaceAddresses transforms the ProviderAddresses to SpaceAddresses by using
@@ -571,15 +571,7 @@ func NewSpaceAddresses(inAddresses ...string) (outAddresses SpaceAddresses) {
 // Values returns a slice of strings containing the IP/host-name of each of
 // the receiver addresses.
 func (sas SpaceAddresses) Values() []string {
-	if sas == nil {
-		return nil
-	}
-
-	values := make([]string, len(sas))
-	for i, a := range sas {
-		values[i] = a.Value
-	}
-	return values
+	return toStrings(sas)
 }
 
 // ToProviderAddresses transforms the SpaceAddresses to ProviderAddresses by using
@@ -882,9 +874,9 @@ func IsNoAddressError(err error) bool {
 	return ok
 }
 
-// toIPAddresses returns the IP addresses in string form for input
+// toStrings returns the IP addresses in string form for input
 // that is a slice of types implementing the Address interface.
-func toIPAddresses[T Address](addrs []T) []string {
+func toStrings[T Address](addrs []T) []string {
 	if addrs == nil {
 		return nil
 	}
