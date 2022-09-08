@@ -47,6 +47,7 @@ TEST_NAMES="agents \
             cli \
             constraints \
             controller \
+            credential \
             ck \
             deploy \
             expose_ec2 \

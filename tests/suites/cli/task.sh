@@ -17,7 +17,6 @@ test_cli() {
 	test_local_charms
 	test_model_config
 	test_model_defaults
-	test_block_commands
 
 	destroy_controller "test-cli"
 }
