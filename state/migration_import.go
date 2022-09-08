@@ -2191,7 +2191,7 @@ func (i *importer) addAction(action description.Action) error {
 		Insert: newDoc,
 	}}
 
-	if newDoc.Status == ActionPending {
+	if activeStatus.Contains(string(newDoc.Status)) {
 		prefix := ensureActionMarker(action.Receiver())
 		notificationDoc := &actionNotificationDoc{
 			DocId:     i.st.docID(prefix + action.Id()),
