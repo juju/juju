@@ -20,6 +20,8 @@ var _ = gc.Suite(&bundleMockSuite{})
 
 func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
@@ -78,6 +80,8 @@ func (s *bundleMockSuite) TestGetChanges(c *gc.C) {
 
 func (s *bundleMockSuite) TestGetChangesReturnsErrors(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
@@ -108,6 +112,8 @@ func (s *bundleMockSuite) TestGetChangesReturnsErrors(c *gc.C) {
 
 func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
@@ -162,6 +168,8 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 
 func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	bundleURL := "cs:bundle-url"
 	bundleYAML := `applications:
 	ubuntu:
@@ -195,6 +203,8 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 
 func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	bundleStr := `applications:
 	ubuntu:
 		charm: ch:ubuntu
