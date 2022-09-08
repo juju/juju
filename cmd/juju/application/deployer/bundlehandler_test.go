@@ -592,7 +592,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, rev int) *charm.URL {
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
-		curl.WithRevision(rev),
+		curl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
