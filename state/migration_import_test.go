@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"time" // only uses time.Time values
 
@@ -1986,23 +1987,117 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := m.EnqueueOperation("a test", 2)
+	// pending action.
+	operationIDPending, err := m.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, nil)
+	actionPending, err := m.EnqueueAction(operationIDPending, machine.MachineTag(), "action-pending", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionPending.Status(), gc.Equals, state.ActionPending)
+
+	// running action.
+	operationIDRunning, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionRunning, err := m.EnqueueAction(operationIDRunning, machine.MachineTag(), "action-running", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionRunning.Status(), gc.Equals, state.ActionPending)
+	actionRunning, err = actionRunning.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionRunning.Status(), gc.Equals, state.ActionRunning)
+
+	// aborting action.
+	operationIDAborting, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionAborting, err := m.EnqueueAction(operationIDAborting, machine.MachineTag(), "action-aborting", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborting.Status(), gc.Equals, state.ActionPending)
+	actionAborting, err = actionAborting.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborting.Status(), gc.Equals, state.ActionRunning)
+	actionAborting, err = actionAborting.Finish(state.ActionResults{Status: state.ActionAborting})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborting.Status(), gc.Equals, state.ActionAborting)
+
+	// aborted action.
+	operationIDAborted, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionAborted, err := m.EnqueueAction(operationIDAborted, machine.MachineTag(), "action-aborted", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborted.Status(), gc.Equals, state.ActionPending)
+	actionAborted, err = actionAborted.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborted.Status(), gc.Equals, state.ActionRunning)
+	actionAborted, err = actionAborted.Finish(state.ActionResults{Status: state.ActionAborted})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborted.Status(), gc.Equals, state.ActionAborted)
+
+	// completed action.
+	operationIDCompleted, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionCompleted, err := m.EnqueueAction(operationIDCompleted, machine.MachineTag(), "action-completed", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionCompleted.Status(), gc.Equals, state.ActionPending)
+	actionCompleted, err = actionCompleted.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionCompleted.Status(), gc.Equals, state.ActionRunning)
+	actionCompleted, err = actionCompleted.Finish(state.ActionResults{Status: state.ActionCompleted})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionCompleted.Status(), gc.Equals, state.ActionCompleted)
 
 	newModel, newState := s.importModel(c, s.State)
 	defer func() {
 		c.Assert(newState.Close(), jc.ErrorIsNil)
 	}()
 
-	actions, _ := newModel.AllActions()
-	c.Assert(actions, gc.HasLen, 1)
-	action := actions[0]
-	c.Check(action.Receiver(), gc.Equals, machine.Id())
-	c.Check(action.Name(), gc.Equals, "foo")
-	c.Check(state.ActionOperationId(action), gc.Equals, operationID)
-	c.Check(action.Status(), gc.Equals, state.ActionPending)
+	actions, err := newModel.AllActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 5)
+
+	actionPending, err = newModel.ActionByTag(actionPending.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionPending.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionPending.Name(), gc.Equals, "action-pending")
+	c.Check(state.ActionOperationId(actionPending), gc.Equals, operationIDPending)
+	c.Check(actionPending.Status(), gc.Equals, state.ActionPending)
+
+	actionRunning, err = newModel.ActionByTag(actionRunning.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionRunning.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionRunning.Name(), gc.Equals, "action-running")
+	c.Check(state.ActionOperationId(actionRunning), gc.Equals, operationIDRunning)
+	c.Check(actionRunning.Status(), gc.Equals, state.ActionRunning)
+
+	actionAborting, err = newModel.ActionByTag(actionAborting.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionAborting.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionAborting.Name(), gc.Equals, "action-aborting")
+	c.Check(state.ActionOperationId(actionAborting), gc.Equals, operationIDAborting)
+	c.Check(actionAborting.Status(), gc.Equals, state.ActionAborting)
+
+	actionAborted, err = newModel.ActionByTag(actionAborted.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionAborted.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionAborted.Name(), gc.Equals, "action-aborted")
+	c.Check(state.ActionOperationId(actionAborted), gc.Equals, operationIDAborted)
+	c.Check(actionAborted.Status(), gc.Equals, state.ActionAborted)
+
+	actionCompleted, err = newModel.ActionByTag(actionCompleted.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionCompleted.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionCompleted.Name(), gc.Equals, "action-completed")
+	c.Check(state.ActionOperationId(actionCompleted), gc.Equals, operationIDCompleted)
+	c.Check(actionCompleted.Status(), gc.Equals, state.ActionCompleted)
+
+	// Only pending/running/aborting actions will have action notification docs imported.
+	actionIDs, err := newModel.AllActionIDsHasActionNotifications()
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Strings(actionIDs)
+	expectedIDs := []string{
+		actionRunning.Id(),
+		actionPending.Id(),
+		actionAborting.Id(),
+	}
+	sort.Strings(expectedIDs)
+	c.Check(actionIDs, gc.DeepEquals, expectedIDs)
 }
 
 func (s *MigrationImportSuite) TestOperation(c *gc.C) {
