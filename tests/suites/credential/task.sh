@@ -9,7 +9,5 @@ test_credential() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
-	file="${TEST_DIR}/test-credentials.log"
-
 	test_add_remove_credential
 }
