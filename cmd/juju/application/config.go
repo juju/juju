@@ -87,7 +87,7 @@ apache2:
 If the above yaml document is stored in a file called config.yaml, the
 following command can be used to apply the config changes:
 
-juju config --file config.yaml
+juju config apache2 --file config.yaml
 
 Finally, the --reset flag can be used to revert one or more configuration
 settings back to their default value as defined in the charm metadata:
