@@ -98,6 +98,8 @@ type Uniter struct {
 
 	relationStateTracker relation.RelationStateTracker
 
+	secretsTracker secrets.SecretStateTracker
+
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
 	setStatusMutex      sync.Mutex
@@ -498,7 +500,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.commands, watcher.CommandCompleted,
 			),
 			Secrets: secrets.NewSecretsResolver(
-				u.logger.Child("secrets"),
+				u.logger.ChildWithLabels("secrets", corelogger.SECRETS),
+				u.secretsTracker,
 				watcher.RotateSecretCompleted,
 			),
 			Logger: u.logger,
@@ -807,6 +810,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.storage = storageAttachments
 
+	secretsTracker, err := secrets.NewSecrets(
+		u.secretsClient, unitTag, u.unit, u.logger.ChildWithLabels("secrets", corelogger.SECRETS),
+	)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create secrets tracker")
+	}
+	u.secretsTracker = secretsTracker
+
 	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
 		u.logger.Warningf(err.Error())
 	}
@@ -1019,6 +1030,9 @@ func (u *Uniter) Report() map[string]interface{} {
 	}
 	if u.relationStateTracker != nil {
 		result["relations"] = u.relationStateTracker.Report()
+	}
+	if u.secretsTracker != nil {
+		result["secrets"] = u.secretsTracker.Report()
 	}
 
 	return result

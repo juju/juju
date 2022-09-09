@@ -21,23 +21,19 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
-// Logger represents the logging methods used in this package.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // secretsResolver is a Resolver that returns operations to rotate secrets.
 // When a rotation is completed, the "rotatedSecrets" callback
 // is invoked to update the rotate time in the remote state.
 type secretsResolver struct {
 	logger         Logger
+	secretsTracker SecretStateTracker
 	rotatedSecrets func(url string)
 }
 
 // NewSecretsResolver returns a new Resolver that returns operations
 // to rotate secrets.
-func NewSecretsResolver(logger Logger, rotatedSecrets func(string)) resolver.Resolver {
-	return &secretsResolver{logger: logger, rotatedSecrets: rotatedSecrets}
+func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker, rotatedSecrets func(string)) resolver.Resolver {
+	return &secretsResolver{logger: logger, secretsTracker: secretsTracker, rotatedSecrets: rotatedSecrets}
 }
 
 // NextOp is part of the resolver.Resolver interface.
@@ -60,20 +56,21 @@ func (s *secretsResolver) NextOp(
 		return op, err
 	}
 	for uri, info := range remoteState.ConsumedSecretInfo {
-		existing, ok := localState.SecretRevisions[uri]
+		existing := s.secretsTracker.ConsumedSecretRevision(uri)
 		s.logger.Debugf("%s: current=%d, new=%d", uri, existing, info.Revision)
-		if !ok || existing != info.Revision {
+		if existing != info.Revision {
 			op, err := opFactory.NewRunHook(hook.Info{
-				Kind:        hooks.SecretChanged,
-				SecretURI:   uri,
-				SecretLabel: info.Label,
+				Kind:           hooks.SecretChanged,
+				SecretURI:      uri,
+				SecretRevision: info.Revision,
+				SecretLabel:    info.Label,
 			})
 			return op, err
 		}
 	}
 	for uri, revs := range remoteState.ObsoleteSecretRevisions {
 		s.logger.Debugf("%s: resolving obsolete %v", uri, revs)
-		alreadyProcessed := set.NewInts(localState.SecretObsoleteRevisions[uri]...)
+		alreadyProcessed := set.NewInts(s.secretsTracker.SecretObsoleteRevisions(uri)...)
 		for _, rev := range revs {
 			if alreadyProcessed.Contains(rev) {
 				continue

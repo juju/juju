@@ -2658,6 +2658,9 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if changes.SetUnitState.StorageState != nil {
 			newUS.SetStorageState(*changes.SetUnitState.StorageState)
 		}
+		if changes.SetUnitState.SecretState != nil {
+			newUS.SetSecretState(*changes.SetUnitState.SecretState)
+		}
 		if changes.SetUnitState.MeterStatusState != nil {
 			newUS.SetMeterStatusState(*changes.SetUnitState.MeterStatusState)
 		}

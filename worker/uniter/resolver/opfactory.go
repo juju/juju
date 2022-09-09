@@ -5,7 +5,6 @@ package resolver
 
 import (
 	"github.com/juju/charm/v9/hooks"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
@@ -169,41 +168,6 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 				state.ConfigHash = configHash
 				state.TrustHash = trustHash
 				state.AddressesHash = addressesHash
-			}
-		}}
-	case hooks.SecretChanged:
-		latest, ok := s.RemoteState.ConsumedSecretInfo[info.SecretURI]
-		allConsumed := set.NewStrings()
-		for uri := range s.RemoteState.ConsumedSecretInfo {
-			allConsumed.Add(uri)
-		}
-		op = onCommitWrapper{op, func(state *operation.State) {
-			if state != nil {
-				if state.SecretRevisions == nil {
-					state.SecretRevisions = make(map[string]int)
-				}
-				if ok {
-					state.SecretRevisions[info.SecretURI] = latest.Revision
-				}
-				// Delete from unit state any secrets which have been removed.
-				for uri := range state.SecretRevisions {
-					if !allConsumed.Contains(uri) {
-						delete(state.SecretRevisions, uri)
-					}
-				}
-			}
-		}}
-	case hooks.SecretRemove:
-		knownObsolete := set.NewInts(s.RemoteState.ObsoleteSecretRevisions[info.SecretURI]...)
-		op = onCommitWrapper{op, func(state *operation.State) {
-			if state != nil {
-				if state.SecretObsoleteRevisions == nil {
-					state.SecretObsoleteRevisions = make(map[string][]int)
-				}
-				obsolete := set.NewInts(state.SecretObsoleteRevisions[info.SecretURI]...)
-				obsolete.Add(info.SecretRevision)
-				// Delete from unit state any revisions which have been removed.
-				state.SecretObsoleteRevisions[info.SecretURI] = obsolete.Intersection(knownObsolete).SortedValues()
 			}
 		}}
 	case hooks.LeaderSettingsChanged:

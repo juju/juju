@@ -295,7 +295,9 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	if hookInfo.Kind.IsSecret() {
 		ctx.secretURI = hookInfo.SecretURI
 		ctx.secretLabel = hookInfo.SecretLabel
-		ctx.secretRevision = hookInfo.SecretRevision
+		if hookInfo.Kind == hooks.SecretRemove {
+			ctx.secretRevision = hookInfo.SecretRevision
+		}
 		if ctx.secretLabel == "" {
 			info, err := ctx.SecretMetadata()
 			if err != nil {

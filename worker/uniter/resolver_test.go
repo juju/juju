@@ -95,6 +95,8 @@ func (s *rebootResolverSuite) SetUpTest(_ *gc.C) {
 func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, rebootDetected bool) {
 	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	secretsTracker, err := secrets.NewSecrets(&dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	logger := loggo.GetLogger("test")
 
 	s.workloadEvents = container.NewWorkloadEvents()
@@ -107,7 +109,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(logger),
-		Secrets:             secrets.NewSecretsResolver(logger, func(_ string) {}),
+		Secrets:             secrets.NewSecretsResolver(logger, secretsTracker, func(_ string) {}),
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),

@@ -113,14 +113,6 @@ type State struct {
 	// machine/container addresses - it's used to determine whether we
 	// need to run config-changed.
 	AddressesHash string `yaml:"addresses-hash,omitempty"`
-
-	// SecretRevisions stores the last seen revision for each secret - it's
-	// used to determine if we need to run secret-changed.
-	SecretRevisions map[string]int `yaml:"secret-revisions,omitempty"`
-
-	// SecretObsoleteRevisions stores the revisions for which the secret-remove
-	// hook has already been run for a given secret.
-	SecretObsoleteRevisions map[string][]int `yaml:"secret-obsolete-revisions,omitempty"`
 }
 
 // Validate returns an error if the state violates expectations.

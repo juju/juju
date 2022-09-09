@@ -317,6 +317,7 @@ type HookContext struct {
 	// secretURI is the reference to the secret relevant to the hook.
 	secretURI string
 
+	// secretRevision is the secret revision relevant to the hook.
 	secretRevision int
 
 	// secretLabel is the secret label to expose to the hook.
@@ -1371,6 +1372,10 @@ func (ctx *HookContext) doFlush(process string) error {
 	for i, u := range ctx.secretChanges.pendingUpdates {
 		// Juju checks that the current revision is stable when updating metadata so it's
 		// safe to increment here knowing the same value will be saved in Juju.
+		if u.Value == nil {
+			pendingUpdates[i] = u.SecretUpsertArg
+			continue
+		}
 		providerId, err := secretsStore.SaveContent(u.URI, u.CurrentRevision+1, u.Value)
 		if errors.IsNotSupported(err) {
 			pendingUpdates[i] = u.SecretUpsertArg

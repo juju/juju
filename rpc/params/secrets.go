@@ -82,7 +82,7 @@ type DeleteSecretArgs struct {
 // DeleteSecretArg holds the args for deleting a secret.
 type DeleteSecretArg struct {
 	URI       string `json:"uri"`
-	Revisions []int  `json:"revision,omitempty"`
+	Revisions []int  `json:"revisions,omitempty"`
 }
 
 // GetSecretConsumerInfoArgs holds the args for getting secret

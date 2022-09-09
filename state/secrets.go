@@ -1010,7 +1010,7 @@ func (st *State) markObsoleteRevisionOps(uri *secrets.URI, exceptForConsumer str
 	var obsoleteOps []txn.Op
 	revs, latest, err := st.getOrphanedSecretRevisions(uri, exceptForConsumer, exceptForRev)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting orphaned secret revisions")
 	}
 
 	for _, rev := range revs {

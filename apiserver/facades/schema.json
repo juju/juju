@@ -28448,6 +28448,9 @@
                                 }
                             }
                         },
+                        "secret-state": {
+                            "type": "string"
+                        },
                         "storage-state": {
                             "type": "string"
                         },
@@ -28502,6 +28505,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "secret-state": {
+                            "type": "string"
                         },
                         "storage-state": {
                             "type": "string"
@@ -38837,7 +38843,7 @@
                 "DeleteSecretArg": {
                     "type": "object",
                     "properties": {
-                        "revision": {
+                        "revisions": {
                             "type": "array",
                             "items": {
                                 "type": "integer"
@@ -45826,7 +45832,7 @@
                 "DeleteSecretArg": {
                     "type": "object",
                     "properties": {
-                        "revision": {
+                        "revisions": {
                             "type": "array",
                             "items": {
                                 "type": "integer"
@@ -47528,6 +47534,9 @@
                                 }
                             }
                         },
+                        "secret-state": {
+                            "type": "string"
+                        },
                         "storage-state": {
                             "type": "string"
                         },
@@ -47991,6 +48000,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "secret-state": {
+                            "type": "string"
                         },
                         "storage-state": {
                             "type": "string"
@@ -48854,6 +48866,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "secret-state": {
+                            "type": "string"
                         },
                         "storage-state": {
                             "type": "string"

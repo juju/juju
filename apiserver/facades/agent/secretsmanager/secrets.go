@@ -399,9 +399,7 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 			return "", nil, apiservererrors.ErrPerm
 		}
 		w := s.secretsConsumer.WatchConsumedSecretsChanges(arg.Tag)
-		if secretChanges, ok := <-w.Changes(); ok {
-			changes := make([]string, len(secretChanges))
-			copy(changes, secretChanges)
+		if changes, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), changes, nil
 		}
 		return "", nil, watcher.EnsureErr(w)
@@ -444,9 +442,7 @@ func (s *SecretsManagerAPI) WatchObsoleteRevisions(args params.Entities) (params
 		}
 
 		w := s.secretsConsumer.WatchObsoleteRevisions(arg.Tag)
-		if obsolete, ok := <-w.Changes(); ok {
-			changes := make([]string, len(obsolete))
-			copy(changes, obsolete)
+		if changes, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), changes, nil
 		}
 		return "", nil, watcher.EnsureErr(w)
