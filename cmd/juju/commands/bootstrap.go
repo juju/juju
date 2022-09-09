@@ -30,6 +30,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/common"
 	cmdcontroller "github.com/juju/juju/cmd/juju/controller"
 	cmdmodel "github.com/juju/juju/cmd/juju/model"
@@ -359,19 +360,25 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 
 	if c.ControllerCharmPath != "" {
-		_, err := c.Filesystem().Stat(c.ControllerCharmPath)
-		if err != nil {
-			return errors.Annotatef(err, "problem with --controller-charm-path")
-		}
-		ch, err := charm.ReadCharm(c.ControllerCharmPath)
-		if err != nil {
-			return errors.Errorf("--controller-charm-path %q is not a valid charm", c.ControllerCharmPath)
-		}
-		if ch.Meta().Name != bootstrap.ControllerCharmName {
-			return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath,
-				bootstrap.ControllerCharmName)
+		if refresher.IsLocalURL(c.ControllerCharmPath) {
+			_, err := c.Filesystem().Stat(c.ControllerCharmPath)
+			if err != nil {
+				return errors.Annotatef(err, "problem with --controller-charm-path")
+			}
+			ch, err := charm.ReadCharm(c.ControllerCharmPath)
+			if err != nil {
+				return errors.Errorf("--controller-charm-path %q is not a valid charm", c.ControllerCharmPath)
+			}
+			if ch.Meta().Name != bootstrap.ControllerCharmName {
+				return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath,
+					bootstrap.ControllerCharmName)
+			}
+		} else {
+			// Assume this is a Charmhub URL
+			// TODO(barrettj12): validate the charm exists on CharmHub
 		}
 	}
+
 	if c.ControllerCharmRisk != "" {
 		if _, err := charm.MakeChannel("", c.ControllerCharmRisk, ""); err != nil {
 			return errors.NotValidf("controller charm risk %q", c.ControllerCharmRisk)
@@ -705,7 +712,7 @@ to create a new model to deploy %sworkloads.
 	}
 
 	isCAASController = jujucloud.CloudIsCAAS(cloud)
-	if isCAASController && c.ControllerCharmPath != "" {
+	if isCAASController && refresher.IsLocalURL(c.ControllerCharmPath) {
 		return errors.NotSupportedf("deploying a local controller charm on a k8s controller")
 	}
 	if !isCAASController {
