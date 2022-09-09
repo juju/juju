@@ -12,7 +12,6 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/subnets"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -52,34 +51,6 @@ func (s *SubnetsSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
-func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) apitesting.APICall {
-	spaceTag := names.NewSpaceTag(space).String()
-	if providerId != "" {
-		cidr = ""
-	}
-
-	expectArgs := params.AddSubnetsParams{
-		Subnets: []params.AddSubnetParams{{
-			SpaceTag:         spaceTag,
-			CIDR:             cidr,
-			SubnetProviderId: providerId,
-			Zones:            zones,
-		}}}
-
-	expectResults := params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	}
-
-	args := apitesting.APICall{
-		Facade:  "Subnets",
-		Method:  "AddSubnets",
-		Args:    expectArgs,
-		Results: expectResults,
-	}
-
-	return args
-}
-
 func makeListSubnetsArgs(space *names.SpaceTag, zone string) apitesting.APICall {
 	expectResults := params.ListSubnetsResults{}
 	expectArgs := params.SubnetsFilters{
@@ -93,74 +64,6 @@ func makeListSubnetsArgs(space *names.SpaceTag, zone string) apitesting.APICall 
 		Args:    expectArgs,
 	}
 	return args
-}
-
-func (s *SubnetsSuite) TestAddSubnet(c *gc.C) {
-	cidr := "1.1.1.0/24"
-	providerId := "foo"
-	space := "bar"
-	zones := []string{"foo", "bar"}
-	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
-	s.prepareAPICall(c, args)
-	err := s.api.AddSubnet(
-		cidr,
-		network.Id(providerId),
-		names.NewSpaceTag(space),
-		zones,
-	)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SubnetsSuite) TestAddSubnetFails(c *gc.C) {
-	cidr := "1.1.1.0/24"
-	providerId := "foo"
-	space := "bar"
-	zones := []string{"foo", "bar"}
-	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
-	args.Error = errors.New("bang")
-	s.prepareAPICall(c, args)
-	err := s.api.AddSubnet(
-		cidr,
-		network.Id(providerId),
-		names.NewSpaceTag(space),
-		zones,
-	)
-	c.Check(s.apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(err, gc.ErrorMatches, "bang")
-}
-
-func (s *SubnetsSuite) TestAddSubnetV2(c *gc.C) {
-	var called bool
-	apicaller := &apitesting.BestVersionCaller{
-		APICallerFunc: apitesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Subnets")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "AddSubnets")
-				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-				c.Assert(a, jc.DeepEquals, params.AddSubnetsParamsV2{
-					Subnets: []params.AddSubnetParamsV2{{
-						SpaceTag:  names.NewSpaceTag("testv2").String(),
-						SubnetTag: "subnet-1.1.1.0/24",
-					}}})
-				*result.(*params.ErrorResults) = params.ErrorResults{
-					Results: []params.ErrorResult{{}},
-				}
-				called = true
-				return nil
-			},
-		),
-		BestVersion: 2,
-	}
-	apiv2 := subnets.NewAPI(apicaller)
-	err := apiv2.AddSubnet("1.1.1.0/24", "", names.NewSpaceTag("testv2"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {

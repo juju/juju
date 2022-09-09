@@ -513,7 +513,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(space.NewRenameCommand())
 
 	// Manage subnets
-	r.Register(subnet.NewAddCommand())
 	r.Register(subnet.NewListCommand())
 
 	// Manage controllers
