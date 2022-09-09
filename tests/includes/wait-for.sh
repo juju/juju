@@ -74,7 +74,6 @@ active_condition() {
 
 	name=${1}
 	app_index=${2:-0}
-	unit_index=${3:-0}
 
 	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }
