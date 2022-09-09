@@ -44579,8 +44579,8 @@
     },
     {
         "Name": "Subnets",
-        "Description": "API provides the subnets API facade for version 4.",
-        "Version": 4,
+        "Description": "API provides the subnets API facade for version 5.",
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -44590,18 +44590,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "AddSubnets": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddSubnetsParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "AddSubnets adds existing subnets to Juju."
-                },
                 "AllZones": {
                     "type": "object",
                     "properties": {
@@ -44637,51 +44625,6 @@
                 }
             },
             "definitions": {
-                "AddSubnetParams": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "subnet-provider-id": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "space-tag"
-                    ]
-                },
-                "AddSubnetsParams": {
-                    "type": "object",
-                    "properties": {
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AddSubnetParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "subnets"
-                    ]
-                },
                 "CIDRParams": {
                     "type": "object",
                     "properties": {
@@ -44720,30 +44663,6 @@
                     "required": [
                         "message",
                         "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "ListSubnetsResults": {
