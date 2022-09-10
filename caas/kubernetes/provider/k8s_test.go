@@ -1004,7 +1004,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 				},
 			}, nil),
 	)
-	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, `namespace "test" may already be in use`).Finish()
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {

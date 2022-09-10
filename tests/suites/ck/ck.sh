@@ -11,7 +11,9 @@ run_deploy_ck() {
 	ensure "${model_name}" "${file}"
 
 	overlay_path="./tests/suites/ck/overlay/${BOOTSTRAP_PROVIDER}.yaml"
-	juju deploy charmed-kubernetes --overlay "${overlay_path}" --trust
+	# TODO: pin CK test to 1.24/stable for now, remove once 1.25/stable fixed.
+	# Issue: `0/5 nodes are available: 5 pod has unbound immediate PersistentVolumeClaims. preemption: 0/5 nodes are available: 5 Preemption is not helpful for scheduling.` But the cluster does have 5 READY worker nodes.
+	juju deploy charmed-kubernetes --overlay "${overlay_path}" --trust --channel 1.24/stable
 
 	if ! which "kubectl" >/dev/null 2>&1; then
 		sudo snap install kubectl --classic --channel latest/stable
