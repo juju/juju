@@ -33,9 +33,6 @@ type Backing interface {
 	// zones with the given zones.
 	SetAvailabilityZones(network.AvailabilityZones) error
 
-	// AddSubnet creates a backing subnet for an existing subnet.
-	AddSubnet(networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error)
-
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]networkingcommon.BackingSubnet, error)
 
