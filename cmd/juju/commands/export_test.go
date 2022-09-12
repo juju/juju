@@ -82,7 +82,7 @@ func NewSSHContainer(
 		applicationAPI:     applicationAPI,
 		charmsAPI:          charmsAPI,
 		execClient:         execClient,
-		execClientGetter: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
+		execClientGetter: func(string, string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 			return execClient, nil
 		},
 		remote:    remote,
