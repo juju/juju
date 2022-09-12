@@ -14,20 +14,22 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/operation/mocks"
+	operationmocks "github.com/juju/juju/worker/uniter/operation/mocks"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnermocks "github.com/juju/juju/worker/uniter/runner/mocks"
 	"github.com/juju/juju/worker/uniter/secrets"
+	"github.com/juju/juju/worker/uniter/secrets/mocks"
 )
 
 type rotateSecretsSuite struct {
 	remoteState   remotestate.Snapshot
-	mockCallbacks *mocks.MockCallbacks
+	mockCallbacks *operationmocks.MockCallbacks
 	mockFactory   *runnermocks.MockFactory
 	mockRunner    *runnermocks.MockRunner
 	mockContext   *runnermocks.MockContext
+	mockTracker   *mocks.MockSecretStateTracker
 	opFactory     operation.Factory
 	resolver      resolver.Resolver
 	rotatedSecret func(string)
@@ -43,7 +45,7 @@ func (s *rotateSecretsSuite) SetUpTest(_ *gc.C) {
 
 	s.rotatedSecret = nil
 	logger := loggo.GetLogger("test")
-	s.resolver = secrets.NewSecretsResolver(logger, func(url string) {
+	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, func(url string) {
 		if s.rotatedSecret != nil {
 			s.rotatedSecret(url)
 		}
@@ -53,10 +55,11 @@ func (s *rotateSecretsSuite) SetUpTest(_ *gc.C) {
 
 func (s *rotateSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
-	s.mockCallbacks = mocks.NewMockCallbacks(ctlr)
+	s.mockCallbacks = operationmocks.NewMockCallbacks(ctlr)
 	s.mockFactory = runnermocks.NewMockFactory(ctlr)
 	s.mockRunner = runnermocks.NewMockRunner(ctlr)
 	s.mockContext = runnermocks.NewMockContext(ctlr)
+	s.mockTracker = mocks.NewMockSecretStateTracker(ctlr)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
 		Callbacks:     s.mockCallbacks,
 		RunnerFactory: s.mockFactory,
@@ -176,6 +179,7 @@ func (s *rotateSecretsSuite) TestRotateCommit(c *gc.C) {
 type changeSecretsSuite struct {
 	remoteState remotestate.Snapshot
 	opFactory   operation.Factory
+	tracker     *mocks.MockSecretStateTracker
 	resolver    resolver.Resolver
 }
 
@@ -185,16 +189,16 @@ func (s *changeSecretsSuite) SetUpTest(_ *gc.C) {
 	s.remoteState = remotestate.Snapshot{
 		Life: life.Alive,
 	}
-
-	logger := loggo.GetLogger("test")
-	s.resolver = secrets.NewSecretsResolver(logger, nil)
 }
 
 func (s *changeSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
+	logger := loggo.GetLogger("test")
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
-		Logger: loggo.GetLogger("test"),
+		Logger: logger,
 	})
+	s.tracker = mocks.NewMockSecretStateTracker(ctlr)
+	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil)
 	return ctlr
 }
 
@@ -204,7 +208,7 @@ func (s *changeSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 			Kind: operation.Continue,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -215,56 +219,154 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.tracker.EXPECT().ConsumedSecretRevision("secret:9m4e2mr0ui3e8a215n4g").Return(0)
+
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
+	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
 
 func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.tracker.EXPECT().ConsumedSecretRevision("secret:9m4e2mr0ui3e8a215n4g").Return(667)
+
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
-			SecretRevisions: map[string]int{
-				"secret:9m4e2mr0ui3e8a215n4g": 667,
-			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
+	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
 
 func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.tracker.EXPECT().ConsumedSecretRevision("secret:9m4e2mr0ui3e8a215n4g").Return(666)
+
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
-			SecretRevisions: map[string]int{
-				"secret:9m4e2mr0ui3e8a215n4g": 666,
-			},
 		},
 	}
-	s.remoteState.SecretInfo = map[string]coresecrets.SecretRevisionInfo{
+	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
+	}
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+type removeSecretSuite struct {
+	remoteState remotestate.Snapshot
+	opFactory   operation.Factory
+	tracker     *mocks.MockSecretStateTracker
+	resolver    resolver.Resolver
+}
+
+var _ = gc.Suite(&removeSecretSuite{})
+
+func (s *removeSecretSuite) SetUpTest(_ *gc.C) {
+	s.remoteState = remotestate.Snapshot{
+		Life: life.Alive,
+	}
+}
+
+func (s *removeSecretSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctlr := gomock.NewController(c)
+	logger := loggo.GetLogger("test")
+	s.opFactory = operation.NewFactory(operation.FactoryParams{
+		Logger: logger,
+	})
+	s.tracker = mocks.NewMockSecretStateTracker(ctlr)
+	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil)
+	return ctlr
+}
+
+func (s *removeSecretSuite) TestNextOpNotInstalled(c *gc.C) {
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	}
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+func (s *removeSecretSuite) TestNextOpNoneExisting(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.tracker.EXPECT().SecretObsoleteRevisions("secret:9m4e2mr0ui3e8a215n4g").Return(nil)
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/666) hook")
+}
+
+func (s *removeSecretSuite) TestNextOpNextRevision(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.tracker.EXPECT().SecretObsoleteRevisions("secret:9m4e2mr0ui3e8a215n4g").Return([]int{666})
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
+	}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/668) hook")
+}
+
+func (s *removeSecretSuite) TestNextOpNone(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.tracker.EXPECT().SecretObsoleteRevisions("secret:9m4e2mr0ui3e8a215n4g").Return([]int{666, 668})
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
+		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)

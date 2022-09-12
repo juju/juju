@@ -419,11 +419,13 @@ func (*mockRotateSecretsWatcher) Wait() error {
 }
 
 type mockSecretsClient struct {
-	secretsWatcher *mockStringsWatcher
-	unitName       string
+	secretsWatcher          *mockStringsWatcher
+	secretsRevisionsWatcher *mockStringsWatcher
+	unitName                string
+	appName                 string
 }
 
-func (m *mockSecretsClient) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
+func (m *mockSecretsClient) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
 	m.unitName = unitName
 	return m.secretsWatcher, nil
 }
@@ -440,4 +442,9 @@ func (m *mockSecretsClient) GetConsumerSecretsRevisionInfo(unitName string, uris
 		}
 	}
 	return result, nil
+}
+
+func (m *mockSecretsClient) WatchObsoleteRevisions(appName string) (watcher.StringsWatcher, error) {
+	m.appName = appName
+	return m.secretsRevisionsWatcher, nil
 }

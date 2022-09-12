@@ -35,8 +35,8 @@ func (c *ContextSecrets) UpdateSecret(uri *secrets.URI, args *jujuc.SecretUpsert
 }
 
 // RemoveSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) RemoveSecret(uri *secrets.URI) error {
-	c.stub.AddCall("RemoveSecret", uri.String())
+func (c *ContextSecrets) RemoveSecret(uri *secrets.URI, revision *int) error {
+	c.stub.AddCall("RemoveSecret", uri.String(), revision)
 	return nil
 }
 

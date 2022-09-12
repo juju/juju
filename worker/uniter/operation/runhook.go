@@ -51,7 +51,11 @@ func (rh *runHook) String() string {
 	case rh.info.Kind.IsStorage():
 		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
 	case rh.info.Kind.IsSecret():
-		suffix = fmt.Sprintf(" (%s)", rh.info.SecretURI)
+		if rh.info.SecretRevision == 0 {
+			suffix = fmt.Sprintf(" (%s)", rh.info.SecretURI)
+		} else {
+			suffix = fmt.Sprintf(" (%s/%d)", rh.info.SecretURI, rh.info.SecretRevision)
+		}
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }

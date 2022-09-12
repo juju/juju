@@ -176,7 +176,7 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 	}
 	var vaultCfg vaultConfig
 	if errJ := json.Unmarshal([]byte(vaultCfgStr), &vaultCfg); errJ != nil {
-		if errY := yaml.Unmarshal([]byte(vaultCfgStr), &vaultConfig{}); errY != nil {
+		if errY := yaml.Unmarshal([]byte(vaultCfgStr), &vaultCfg); errY != nil {
 			return nil, errors.NewNotValid(errY, "invalid vault config")
 		}
 	}

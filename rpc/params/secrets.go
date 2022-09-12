@@ -74,15 +74,15 @@ type UpdateSecretArg struct {
 	URI string `json:"uri"`
 }
 
-// SecretURIArgs holds args for identifying secrets.
-type SecretURIArgs struct {
-	Args []SecretURIArg `json:"args"`
+// DeleteSecretArgs holds args for deleting secrets.
+type DeleteSecretArgs struct {
+	Args []DeleteSecretArg `json:"args"`
 }
 
-// SecretURIArg holds the args for identifying a secret.
-type SecretURIArg struct {
-	// URI identifies the secret.
-	URI string `json:"uri"`
+// DeleteSecretArg holds the args for deleting a secret.
+type DeleteSecretArg struct {
+	URI       string `json:"uri"`
+	Revisions []int  `json:"revisions,omitempty"`
 }
 
 // GetSecretConsumerInfoArgs holds the args for getting secret

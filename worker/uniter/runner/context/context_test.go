@@ -590,7 +590,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ctx.RemoveSecret(uri2)
+	err = ctx.RemoveSecret(uri2, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	md, err = ctx.SecretMetadata()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1100,13 +1100,17 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uri := coresecrets.NewURI()
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).Times(2)
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, s.mockLeadership)
+
+	uri := coresecrets.NewURI()
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
-	err := hookContext.RemoveSecret(uri)
+	err := hookContext.RemoveSecret(uri, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, []*coresecrets.URI{uri})
+	uri2 := coresecrets.NewURI()
+	err = hookContext.RemoveSecret(uri2, ptr(666))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, []uniter.SecretDeleteArg{{URI: uri}, {URI: uri2, Revision: ptr(666)}})
 }
 
 func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
