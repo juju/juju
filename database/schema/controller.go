@@ -3,8 +3,11 @@
 
 package schema
 
-// controllerDDL is used to create the controller database schema at bootstrap.
-const controllerDDL = `
+import "strings"
+
+// ControllerDDL is used to create the controller database schema at bootstrap.
+func ControllerDDL() []string {
+	delta := `
 CREATE TABLE lease_type (
 	id		INT PRIMARY KEY,
 	type	TEXT
@@ -29,5 +32,7 @@ CREATE TABLE IF NOT EXISTS lease (
 );
 
 CREATE UNIQUE INDEX idx_lease_type_name
-ON lease (lease_type_id, name);
-`
+ON lease (lease_type_id, name);`[1:]
+
+	return strings.Split(delta, ";\n\n")
+}
