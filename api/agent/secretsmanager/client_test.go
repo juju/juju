@@ -231,12 +231,12 @@ func (s *SecretsSuite) GetConsumerSecretsRevisionInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, map[string]coresecrets.SecretRevisionInfo{})
 }
 
-func (s *SecretsSuite) TestWatchObsoleteRevisions(c *gc.C) {
+func (s *SecretsSuite) TestWatchObsolete(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchObsoleteRevisions")
+		c.Check(request, gc.Equals, "WatchObsolete")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "application-app"}},
 		})
@@ -249,7 +249,7 @@ func (s *SecretsSuite) TestWatchObsoleteRevisions(c *gc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	_, err := client.WatchObsoleteRevisions("app")
+	_, err := client.WatchObsolete("app")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 

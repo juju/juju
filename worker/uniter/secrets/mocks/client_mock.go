@@ -80,17 +80,17 @@ func (mr *MockSecretsClientMockRecorder) WatchConsumedSecretsChanges(arg0 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConsumedSecretsChanges", reflect.TypeOf((*MockSecretsClient)(nil).WatchConsumedSecretsChanges), arg0)
 }
 
-// WatchObsoleteRevisions mocks base method.
-func (m *MockSecretsClient) WatchObsoleteRevisions(arg0 string) (watcher.StringsWatcher, error) {
+// WatchObsolete mocks base method.
+func (m *MockSecretsClient) WatchObsolete(arg0 string) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsoleteRevisions", arg0)
+	ret := m.ctrl.Call(m, "WatchObsolete", arg0)
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchObsoleteRevisions indicates an expected call of WatchObsoleteRevisions.
-func (mr *MockSecretsClientMockRecorder) WatchObsoleteRevisions(arg0 interface{}) *gomock.Call {
+// WatchObsolete indicates an expected call of WatchObsolete.
+func (mr *MockSecretsClientMockRecorder) WatchObsolete(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsoleteRevisions", reflect.TypeOf((*MockSecretsClient)(nil).WatchObsoleteRevisions), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsClient)(nil).WatchObsolete), arg0)
 }

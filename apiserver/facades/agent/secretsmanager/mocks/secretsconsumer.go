@@ -109,11 +109,12 @@ func (mr *MockSecretsConsumerMockRecorder) SecretAccess(arg0, arg1 interface{}) 
 }
 
 // WatchConsumedSecretsChanges mocks base method.
-func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(arg0 string) state.StringsWatcher {
+func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(arg0 string) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchConsumedSecretsChanges", arg0)
 	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchConsumedSecretsChanges indicates an expected call of WatchConsumedSecretsChanges.
@@ -122,16 +123,17 @@ func (mr *MockSecretsConsumerMockRecorder) WatchConsumedSecretsChanges(arg0 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConsumedSecretsChanges", reflect.TypeOf((*MockSecretsConsumer)(nil).WatchConsumedSecretsChanges), arg0)
 }
 
-// WatchObsoleteRevisions mocks base method.
-func (m *MockSecretsConsumer) WatchObsoleteRevisions(arg0 string) state.StringsWatcher {
+// WatchObsolete mocks base method.
+func (m *MockSecretsConsumer) WatchObsolete(arg0 string) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsoleteRevisions", arg0)
+	ret := m.ctrl.Call(m, "WatchObsolete", arg0)
 	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// WatchObsoleteRevisions indicates an expected call of WatchObsoleteRevisions.
-func (mr *MockSecretsConsumerMockRecorder) WatchObsoleteRevisions(arg0 interface{}) *gomock.Call {
+// WatchObsolete indicates an expected call of WatchObsolete.
+func (mr *MockSecretsConsumerMockRecorder) WatchObsolete(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsoleteRevisions", reflect.TypeOf((*MockSecretsConsumer)(nil).WatchObsoleteRevisions), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsConsumer)(nil).WatchObsolete), arg0)
 }

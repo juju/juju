@@ -436,15 +436,18 @@ func (m *mockSecretsClient) GetConsumerSecretsRevisionInfo(unitName string, uris
 	}
 	result := make(map[string]secrets.SecretRevisionInfo)
 	for i, uri := range uris {
+		if i == 0 {
+			continue
+		}
 		result[uri] = secrets.SecretRevisionInfo{
-			Revision: 666 + i,
+			Revision: 665 + i,
 			Label:    "label-" + uri,
 		}
 	}
 	return result, nil
 }
 
-func (m *mockSecretsClient) WatchObsoleteRevisions(appName string) (watcher.StringsWatcher, error) {
+func (m *mockSecretsClient) WatchObsolete(appName string) (watcher.StringsWatcher, error) {
 	m.appName = appName
 	return m.secretsRevisionsWatcher, nil
 }

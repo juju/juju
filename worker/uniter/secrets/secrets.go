@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"reflect"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -74,10 +75,13 @@ func (s *Secrets) init() error {
 		if err != nil {
 			return errors.Annotate(err, "getting consumed secret info")
 		}
-		changed = len(info) > 0
-		s.secretsState.ConsumedSecretInfo = make(map[string]int)
+		updated := make(map[string]int)
 		for u, v := range info {
-			s.secretsState.ConsumedSecretInfo[u] = v.Revision
+			updated[u] = v.Revision
+		}
+		changed = !reflect.DeepEqual(updated, s.secretsState.ConsumedSecretInfo)
+		if changed {
+			s.secretsState.ConsumedSecretInfo = updated
 		}
 	}
 	ownerApp, _ := names.UnitApplication(s.unitTag.Id())
@@ -143,6 +147,21 @@ func (s *Secrets) CommitHook(hi hook.Info) error {
 	defer s.mu.Unlock()
 
 	s.secretsState.UpdateStateForHook(hi)
+	if err := s.stateOps.Write(s.secretsState); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SecretsRemoved implements SecretStateTracker.
+func (s *Secrets) SecretsRemoved(uris []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, uri := range uris {
+		delete(s.secretsState.ConsumedSecretInfo, uri)
+		delete(s.secretsState.SecretObsoleteRevisions, uri)
+	}
 	if err := s.stateOps.Write(s.secretsState); err != nil {
 		return err
 	}

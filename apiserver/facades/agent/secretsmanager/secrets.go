@@ -398,7 +398,10 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 		if !s.isSameApplication(tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		w := s.secretsConsumer.WatchConsumedSecretsChanges(arg.Tag)
+		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(arg.Tag)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
 		if changes, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), changes, nil
 		}
@@ -418,8 +421,14 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 	return results, nil
 }
 
-// WatchObsoleteRevisions sets up a watcher to notify of changes to obsolete secret revisions for the specified secrets.
-func (s *SecretsManagerAPI) WatchObsoleteRevisions(args params.Entities) (params.StringsWatchResults, error) {
+// WatchObsolete returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity no longer
+//     has any consumers
+//
+// Obsolete revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -441,7 +450,10 @@ func (s *SecretsManagerAPI) WatchObsoleteRevisions(args params.Entities) (params
 			}
 		}
 
-		w := s.secretsConsumer.WatchObsoleteRevisions(arg.Tag)
+		w, err := s.secretsConsumer.WatchObsolete(arg.Tag)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
 		if changes, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), changes, nil
 		}

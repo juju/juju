@@ -1294,11 +1294,11 @@ func (w *SrvModelSummaryWatcher) translateMessages(messages []cache.ModelSummary
 	return result
 }
 
-// srvSecretRotationWatcher defines the API wrapping a SecretsRotationWatcher.
+// srvSecretRotationWatcher defines the API wrapping a SecretsTriggerWatcher.
 type srvSecretRotationWatcher struct {
 	watcherCommon
 	st      *state.State
-	watcher state.SecretsRotationWatcher
+	watcher state.SecretsTriggerWatcher
 }
 
 func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
@@ -1311,7 +1311,7 @@ func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(state.SecretsRotationWatcher)
+	watcher, ok := resources.Get(id).(state.SecretsTriggerWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
