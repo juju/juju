@@ -4,25 +4,48 @@
 package database
 
 import (
+	"fmt"
+	"math/rand"
 	"net"
+	"os"
+	"strconv"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/testing"
 )
 
 type optionSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&optionSuite{})
 
-func (s *optionSuite) TestWithAddressOption(c *gc.C) {
-	cfg := dummyAgentConfig{dataDir: "/tmp/dqlite"}
+func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
+	subDir := strconv.Itoa(rand.Intn(10))
 
-	f := NewOptionFactory(cfg, dqlitePort, func() ([]net.Addr, error) {
+	cfg := dummyAgentConfig{dataDir: "/tmp/" + subDir}
+
+	f := NewOptionFactory(cfg, dqlitePort, nil)
+
+	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(expected) })
+
+	// Call twice to check both the creation and extant scenarios.
+	_, err := f.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dir, err := f.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(dir, gc.Equals, expected)
+
+	_, err = os.Stat(expected)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *optionSuite) TestWithAddressOption(c *gc.C) {
+	f := NewOptionFactory(nil, dqlitePort, func() ([]net.Addr, error) {
 		return []net.Addr{
 			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
 			&net.IPAddr{IP: net.ParseIP("127.0.0.1")},

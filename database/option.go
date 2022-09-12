@@ -3,6 +3,8 @@ package database
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/canonical/go-dqlite/app"
@@ -12,9 +14,12 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-const dqlitePort = 17666
+const (
+	dqliteDataDir = "dqlite"
+	dqlitePort    = 17666
+)
 
-// OptionFactory creates Dqlite `App` initialisation options.
+// OptionFactory creates Dqlite `App` initialisation arguments and options.
 // These generally depend on a controller's agent config.
 type OptionFactory struct {
 	cfg            agent.Config
@@ -36,6 +41,14 @@ func NewOptionFactory(cfg agent.Config, port int, interfaceAddrs func() ([]net.A
 		port:           port,
 		interfaceAddrs: interfaceAddrs,
 	}
+}
+
+// EnsureDataDir ensures that a directory for Dqlite data exists at
+// a path determined by the agent config, then returns that path.
+func (f *OptionFactory) EnsureDataDir() (string, error) {
+	dir := filepath.Join(f.cfg.DataDir(), dqliteDataDir)
+	err := os.MkdirAll(dir, 0700)
+	return dir, errors.Annotatef(err, "creating directory for Dqlite data")
 }
 
 // WithAddressOption returns a Dqlite application option
