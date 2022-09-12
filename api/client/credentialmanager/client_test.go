@@ -4,12 +4,12 @@
 package credentialmanager_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/credentialmanager"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
@@ -18,41 +18,48 @@ import (
 var _ = gc.Suite(&CredentialManagerSuite{})
 
 type CredentialManagerSuite struct {
-	testing.IsolationSuite
 }
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CredentialManager")
-		c.Check(request, gc.Equals, "InvalidateModelCredential")
-		c.Assert(arg, gc.Equals, params.InvalidateCredentialArg{Reason: "auth fail"})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
-		*(result.(*params.ErrorResult)) = params.ErrorResult{}
-		return nil
-	})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	args := params.InvalidateCredentialArg{Reason: "auth fail"}
+	result := new(params.ErrorResult)
+	results := params.ErrorResult{}
 
-	client := credentialmanager.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("InvalidateModelCredential", args, result).SetArg(2, results).Return(nil)
+	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.InvalidateModelCredential("auth fail")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResult)) = params.ErrorResult{Error: apiservererrors.ServerError(errors.New("boom"))}
-		return nil
-	})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	args := params.InvalidateCredentialArg{}
+	result := new(params.ErrorResult)
+	results := params.ErrorResult{Error: apiservererrors.ServerError(errors.New("boom"))}
 
-	client := credentialmanager.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("InvalidateModelCredential", args, result).SetArg(2, results).Return(nil)
+	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.InvalidateModelCredential("")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return errors.New("foo")
-	})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	args := params.InvalidateCredentialArg{}
+	result := new(params.ErrorResult)
 
-	client := credentialmanager.NewClient(apiCaller)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("InvalidateModelCredential", args, result).Return(errors.New("foo"))
+	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
+
 	err := client.InvalidateModelCredential("")
 	c.Assert(err, gc.ErrorMatches, "foo")
 }
