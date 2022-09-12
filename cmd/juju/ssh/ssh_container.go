@@ -45,7 +45,7 @@ type sshContainer struct {
 	modelAPI           ModelAPI
 	applicationAPI     ApplicationAPI
 	charmsAPI          CharmsAPI
-	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
+	execClientGetter   func(string, string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	execClient         k8sexec.Executor
 }
 
@@ -404,7 +404,7 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.execClientGetter(mInfo.Result.Name, cloudSpec)
+	return c.execClientGetter(c.modelName, c.modelUUID, cloudSpec)
 }
 
 func (c *sshContainer) maybePopulateTargetViaField(_ *resolvedTarget, _ func([]string) (*params.FullStatus, error)) error {

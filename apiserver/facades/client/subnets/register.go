@@ -13,8 +13,8 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Subnets", 4, func(ctx facade.Context) (facade.Facade, error) {
-		return newAPI(ctx) // Adds SubnetsByCIDR; removes AllSpaces.
+	registry.MustRegister("Subnets", 5, func(ctx facade.Context) (facade.Facade, error) {
+		return newAPI(ctx) // Removes AddSubnets.
 	}, reflect.TypeOf((*API)(nil)))
 }
 
