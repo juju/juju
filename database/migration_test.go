@@ -24,7 +24,3 @@ func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
 	m := NewMigration(s.DB(), stubLogger{}, delta)
 	c.Assert(m.Apply(), jc.ErrorIsNil)
 }
-
-type stubLogger struct{}
-
-func (stubLogger) Errorf(string, ...interface{}) {}

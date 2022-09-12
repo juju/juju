@@ -12,3 +12,7 @@ import (
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }
+
+type stubLogger struct{}
+
+func (stubLogger) Errorf(string, ...interface{}) {}
