@@ -496,7 +496,41 @@ func (s *execSuite) TestModelNameToNameSpace(c *gc.C) {
 			}}, nil),
 	)
 
-	nsName, err := exec.ModelNameToNameSpace("controller", false, s.mockNamespaces)
+	nsName, err := exec.ModelNameToNameSpace("controller", "", false, s.mockNamespaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nsName, gc.DeepEquals, "controller-k1")
+}
+
+func (s *execSuite) TestGetNamespaceForControllerModel(c *gc.C) {
+	ctrl := s.setupExecClient(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "model.juju.is/name=controller"}).
+			Return(&core.NamespaceList{Items: []core.Namespace{
+				// Modelling a situation where we have multiple controllers on the cluster
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "controller-k1",
+						Annotations: map[string]string{"model.juju.is/id": "uuid1"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "controller-k2",
+						Annotations: map[string]string{"model.juju.is/id": "uuid2"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "controller-k3",
+						Annotations: map[string]string{"model.juju.is/id": "uuid3"},
+					},
+				},
+			}}, nil),
+	)
+
+	nsName, err := exec.ModelNameToNameSpace("controller", "uuid2", false, s.mockNamespaces)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nsName, gc.DeepEquals, "controller-k2")
 }
