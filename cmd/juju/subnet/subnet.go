@@ -45,10 +45,6 @@ func (m *mvpAPIShim) Close() error {
 	return m.apiState.Close()
 }
 
-func (m *mvpAPIShim) AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error {
-	return m.facade.AddSubnet(cidr, id, spaceTag, zones)
-}
-
 func (m *mvpAPIShim) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
 	return m.facade.ListSubnets(withSpace, withZone)
 }
@@ -93,12 +89,6 @@ func (c *SubnetCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnAPI) error {
 	defer api.Close()
 	return toRun(api, ctx)
 }
-
-// Common errors shared between subcommands.
-var (
-	errNoCIDROrID = errors.New("either CIDR or provider ID is required")
-	errNoSpace    = errors.New("space name is required")
-)
 
 // CheckNumArgs is a helper used to validate the number of arguments
 // passed to Init(). If the number of arguments is X, errors[X] (if
