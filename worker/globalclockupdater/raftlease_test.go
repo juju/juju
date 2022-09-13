@@ -50,18 +50,18 @@ func (mr *MockNotifyTargetMockRecorder) Claimed(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Claimed", reflect.TypeOf((*MockNotifyTarget)(nil).Claimed), arg0, arg1)
 }
 
-// Expiries mocks base method.
-func (m *MockNotifyTarget) Expiries(arg0 []raftlease.Expired) error {
+// Expirations mocks base method.
+func (m *MockNotifyTarget) Expirations(arg0 []raftlease.Expired) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Expiries", arg0)
+	ret := m.ctrl.Call(m, "Expirations", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Expiries indicates an expected call of Expiries.
-func (mr *MockNotifyTargetMockRecorder) Expiries(arg0 interface{}) *gomock.Call {
+// Expirations indicates an expected call of Expirations.
+func (mr *MockNotifyTargetMockRecorder) Expirations(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expiries", reflect.TypeOf((*MockNotifyTarget)(nil).Expiries), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expirations", reflect.TypeOf((*MockNotifyTarget)(nil).Expirations), arg0)
 }
 
 // MockReadOnlyClock is a mock of ReadOnlyClock interface.

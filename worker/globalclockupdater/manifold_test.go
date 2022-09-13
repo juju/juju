@@ -268,7 +268,7 @@ func (noopTarget) Claimed(lease.Key, string) error {
 	return nil
 }
 
-// Expired will be called when a set if existing leases have expired.
-func (noopTarget) Expiries([]raftlease.Expired) error {
+// Expirations will be called when a set if existing leases have expired.
+func (noopTarget) Expirations([]raftlease.Expired) error {
 	return nil
 }
