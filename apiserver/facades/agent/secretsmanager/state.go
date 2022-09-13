@@ -12,9 +12,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// SecretsRotation instances provide secret rotation apis.
-type SecretsRotation interface {
+// SecretTriggers instances provide secret rotation/expiry apis.
+type SecretTriggers interface {
 	WatchSecretsRotationChanges(owner string) state.SecretsTriggerWatcher
+	WatchSecretRevisionsExpiryChanges(owner string) state.SecretsTriggerWatcher
 	SecretRotated(uri *secrets.URI, next time.Time) error
 }
 

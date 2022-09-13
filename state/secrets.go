@@ -107,7 +107,8 @@ type secretMetadataDoc struct {
 }
 
 type secretRevisionDoc struct {
-	DocID string `bson:"_id"`
+	DocID    string `bson:"_id"`
+	TxnRevno int64  `bson:"txn-revno"`
 
 	Revision   int            `bson:"revision"`
 	CreateTime time.Time      `bson:"create-time"`
@@ -116,6 +117,11 @@ type secretRevisionDoc struct {
 	Obsolete   bool           `bson:"obsolete"`
 	Data       secretsDataMap `bson:"data"`
 	ProviderId *string        `bson:"provider-id,omitempty"`
+
+	// OwnerTag is denormalised here so that watchers do not need
+	// to do an extra query on the secret metadata collection to
+	// filter on owner.
+	OwnerTag string `bson:"owner-tag"`
 }
 
 type secretsDataMap map[string]interface{}
@@ -176,10 +182,15 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 	if p.RotatePolicy != nil {
 		doc.RotatePolicy = string(toValue(p.RotatePolicy))
 	}
-	if p.ExpireTime != nil {
-		doc.LatestExpireTime = ptr(toValue(p.ExpireTime).Round(time.Second).UTC())
+	hasData := len(p.Data) > 0 || p.ProviderId != nil
+	if p.ExpireTime != nil || hasData {
+		if p.ExpireTime == nil || p.ExpireTime.IsZero() {
+			doc.LatestExpireTime = nil
+		} else {
+			doc.LatestExpireTime = ptr(toValue(p.ExpireTime).Round(time.Second).UTC())
+		}
 	}
-	if len(p.Data) > 0 || p.ProviderId != nil {
+	if hasData {
 		doc.LatestRevision++
 	}
 	doc.UpdateTime = s.st.nowToTheSecond()
@@ -190,7 +201,7 @@ func secretRevisionKey(uri *secrets.URI, revision int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, revision)
 }
 
-func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, revision int, expireTime *time.Time, data secrets.SecretData, providerId *string) *secretRevisionDoc {
+func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, providerId *string) *secretRevisionDoc {
 	dataCopy := make(secretsDataMap)
 	for k, v := range data {
 		dataCopy[k] = v
@@ -199,6 +210,7 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, revision int, expireT
 	doc := &secretRevisionDoc{
 		DocID:      secretRevisionKey(uri, revision),
 		Revision:   revision,
+		OwnerTag:   owner,
 		CreateTime: now,
 		UpdateTime: now,
 		Data:       dataCopy,
@@ -221,7 +233,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		return nil, errors.Trace(err)
 	}
 	revision := 1
-	valueDoc := s.secretRevisionDoc(uri, revision, p.ExpireTime, p.Data, p.ProviderId)
+	valueDoc := s.secretRevisionDoc(uri, p.Owner, revision, p.ExpireTime, p.Data, p.ProviderId)
 	// OwnerTag has already been validated.
 	owner, _ := names.ParseTag(metadataDoc.OwnerTag)
 	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
@@ -307,6 +319,16 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
+	// Pre-process the expire time update.
+	haveExpireTime := false
+	newExpireTime := p.ExpireTime
+	if newExpireTime != nil {
+		haveExpireTime = true
+		if newExpireTime.IsZero() {
+			newExpireTime = nil
+		}
+	}
+
 	var metadataDoc secretMetadataDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		err := secretMetadataCollection.FindId(uri.ID).One(&metadataDoc)
@@ -347,7 +369,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 			if revisionExists {
 				return nil, errors.AlreadyExistsf("secret value with revision %d for %q", metadataDoc.LatestRevision, uri.String())
 			}
-			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.LatestRevision, p.ExpireTime, p.Data, p.ProviderId)
+			revisionDoc := s.secretRevisionDoc(uri, metadataDoc.OwnerTag, metadataDoc.LatestRevision, newExpireTime, p.Data, p.ProviderId)
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,
 				Id:     revisionDoc.DocID,
@@ -375,15 +397,28 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 			}
 			ops = append(ops, obsoleteOps...)
 
-		} else if p.ExpireTime != nil {
+		} else if haveExpireTime {
 			if !revisionExists {
 				return nil, errors.NotFoundf("reversion %d for secret %q", metadataDoc.LatestRevision, uri.String())
+			}
+			// If the expire time is being removed, it needs to be unset.
+			toSet := bson.D{{"update-time", s.st.nowToTheSecond()}}
+			if newExpireTime != nil {
+				toSet = append(toSet, bson.DocElem{"expire-time", newExpireTime})
+			}
+			var toUnset bson.D
+			if newExpireTime == nil {
+				toUnset = bson.D{{"expire-time", nil}}
+			}
+			updates := bson.D{{"$set", toSet}}
+			if len(toUnset) > 0 {
+				updates = append(updates, bson.DocElem{"$unset", toUnset})
 			}
 			ops = append(ops, txn.Op{
 				C:      secretRevisionsC,
 				Id:     secretRevisionKey(uri, metadataDoc.LatestRevision),
 				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"expire-time": p.ExpireTime}},
+				Update: updates,
 			})
 		}
 		if p.RotatePolicy != nil || p.NextRotateTime != nil {
@@ -1097,26 +1132,18 @@ func newObsoleteSecretsWatcher(st modelBackend, owner string) *obsoleteSecretsWa
 	obsoleteRevisionsWatcher := newCollectionWatcher(st, colWCfg{
 		col: secretRevisionsC,
 		filter: func(key interface{}) bool {
-			secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
-			defer closer()
-
 			secretRevisionsCollection, closer := st.db().GetCollection(secretRevisionsC)
 			defer closer()
 
 			var doc secretRevisionDoc
-			err := secretRevisionsCollection.FindId(key).One(&doc)
-			if err != nil {
-				return false
-			}
-			parts := strings.Split(st.localID(doc.DocID), "/")
-
-			var mdDoc secretMetadataDoc
-			err = secretMetadataCollection.FindId(parts[0]).Select(bson.D{{"owner-tag", 1}}).One(&mdDoc)
+			err := secretRevisionsCollection.FindId(key).Select(
+				bson.D{{"owner-tag", 1}, {"obsolete", 1}},
+			).One(&doc)
 			if err != nil {
 				return false
 			}
 
-			return mdDoc.OwnerTag == owner && doc.Obsolete
+			return doc.OwnerTag == owner && doc.Obsolete
 		},
 		idconv: func(id string) string {
 			parts := strings.Split(id, "/")
@@ -1689,7 +1716,8 @@ func (st *State) WatchSecretsRotationChanges(owner string) SecretsTriggerWatcher
 	return newSecretsRotationWatcher(st, owner)
 }
 
-// SecretsTriggerWatcher defines a watcher for a secret time based trigger config.
+// SecretsTriggerWatcher defines a watcher for changes to secret
+// event trigger config.
 type SecretsTriggerWatcher interface {
 	Watcher
 	Changes() corewatcher.SecretTriggerChannel
@@ -1809,6 +1837,185 @@ func (w *secretsRotationWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.watcher.WatchCollection(secretRotateC, ch)
 	defer w.watcher.UnwatchCollection(secretRotateC, ch)
+	details, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case change, ok := <-ch:
+			if !ok {
+				return tomb.ErrDying
+			}
+			if details, err = w.merge(details, change); err != nil {
+				return err
+			}
+			if len(details) > 0 {
+				out = w.out
+			}
+		case out <- details:
+			out = nil
+			details = nil
+		}
+	}
+}
+
+// WatchSecretRevisionsExpiryChanges returns a watcher for expiry time updates to
+// secret revisions with the specified owner.
+func (st *State) WatchSecretRevisionsExpiryChanges(owner string) SecretsTriggerWatcher {
+	return newSecretsExpiryWatcher(st, owner)
+}
+
+type expiryWatcherDetails struct {
+	txnRevNo   int64
+	uri        *secrets.URI
+	revision   int
+	willExpire bool
+}
+
+type secretsExpiryWatcher struct {
+	commonWatcher
+	out chan []corewatcher.SecretTriggerChange
+
+	owner string
+	known map[string]expiryWatcherDetails
+}
+
+func newSecretsExpiryWatcher(backend modelBackend, owner string) *secretsExpiryWatcher {
+	w := &secretsExpiryWatcher{
+		commonWatcher: newCommonWatcher(backend),
+		out:           make(chan []corewatcher.SecretTriggerChange),
+		known:         make(map[string]expiryWatcherDetails),
+		owner:         owner,
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+// Changes returns a channel that will receive changes when the next expiry time
+// for a secret revision changes.
+func (w *secretsExpiryWatcher) Changes() corewatcher.SecretTriggerChannel {
+	return w.out
+}
+
+func (w *secretsExpiryWatcher) initial() ([]corewatcher.SecretTriggerChange, error) {
+	var details []corewatcher.SecretTriggerChange
+
+	var doc secretRevisionDoc
+	secretRevisionCollection, closer := w.db.GetCollection(secretRevisionsC)
+	defer closer()
+
+	iter := secretRevisionCollection.Find(bson.D{{"owner-tag", w.owner}}).Iter()
+	for iter.Next(&doc) {
+		uriStr, _ := splitSecretChange(w.backend.localID(doc.DocID))
+		uri, err := secrets.ParseURI(uriStr)
+		if err != nil {
+			_ = iter.Close()
+			return nil, errors.Annotatef(err, "invalid secret URI %q", uriStr)
+		}
+		willExpire := doc.ExpireTime != nil
+		w.known[doc.DocID] = expiryWatcherDetails{
+			txnRevNo:   doc.TxnRevno,
+			uri:        uri,
+			revision:   doc.Revision,
+			willExpire: willExpire,
+		}
+		if !willExpire {
+			continue
+		}
+		details = append(details, corewatcher.SecretTriggerChange{
+			URI:             uri,
+			Revision:        doc.Revision,
+			NextTriggerTime: doc.ExpireTime.UTC(),
+		})
+	}
+	return details, errors.Trace(iter.Close())
+}
+
+func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, change watcher.Change) ([]corewatcher.SecretTriggerChange, error) {
+	changeID := change.Id.(string)
+	knownDetails, known := w.known[changeID]
+
+	doc := secretRevisionDoc{}
+	if change.Revno >= 0 {
+		secretRevisionCollection, closer := w.db.GetCollection(secretRevisionsC)
+		defer closer()
+		err := secretRevisionCollection.Find(bson.D{{"_id", change.Id}, {"owner-tag", w.owner}}).One(&doc)
+		if err != nil && err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
+		}
+		// Changed but no longer in the collection so ignore.
+		if err != nil {
+			return details, nil
+		}
+	} else if known {
+		// Record deleted.
+		delete(w.known, changeID)
+		deletedDetails := corewatcher.SecretTriggerChange{
+			URI:      knownDetails.uri,
+			Revision: knownDetails.revision,
+		}
+		// If an earlier event was received for the same
+		// revision, update what we know here.
+		for i, detail := range details {
+			if detail.URI.ID == knownDetails.uri.ID {
+				if knownDetails.willExpire {
+					details[i] = deletedDetails
+				} else {
+					details = append(details[:i], details[i+1:]...)
+				}
+				return details, nil
+			}
+		}
+		// Only send an update if a deleted revision was
+		// previously going to expire.
+		if knownDetails.willExpire {
+			details = append(details, deletedDetails)
+		}
+		return details, nil
+	}
+	if doc.TxnRevno > knownDetails.txnRevNo {
+		uriStr, _ := splitSecretChange(w.backend.localID(doc.DocID))
+		uri, err := secrets.ParseURI(uriStr)
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid secret URI %q", uriStr)
+		}
+		willExpire := doc.ExpireTime != nil
+		w.known[changeID] = expiryWatcherDetails{
+			txnRevNo:   doc.TxnRevno,
+			uri:        uri,
+			revision:   doc.Revision,
+			willExpire: willExpire,
+		}
+		// The event we send depends on if the revision is set to expire.
+		if willExpire {
+			details = append(details, corewatcher.SecretTriggerChange{
+				URI:             uri,
+				Revision:        doc.Revision,
+				NextTriggerTime: doc.ExpireTime.UTC(),
+			})
+		} else if knownDetails.willExpire {
+			details = append(details, corewatcher.SecretTriggerChange{
+				URI:      uri,
+				Revision: doc.Revision,
+			})
+		}
+	}
+	return details, nil
+}
+
+func (w *secretsExpiryWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.watcher.WatchCollection(secretRevisionsC, ch)
+	defer w.watcher.UnwatchCollection(secretRevisionsC, ch)
 	details, err := w.initial()
 	if err != nil {
 		return err

@@ -53,7 +53,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		leadershipChecker: leadershipChecker,
 		secretsBackend:    secretsBackend,
 		resources:         context.Resources(),
-		secretsRotation:   context.State(),
+		secretsTriggers:   context.State(),
 		secretsConsumer:   context.State(),
 		clock:             clock.WallClock,
 		storeConfigGetter: secretStoreConfigGetter,

@@ -33,16 +33,16 @@ type SecretsManagerSuite struct {
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
 
-	provider               *mocks.MockSecretStoreProvider
-	leadership             *mocks.MockChecker
-	token                  *mocks.MockToken
-	secretsBackend         *mocks.MockSecretsBackend
-	secretsConsumer        *mocks.MockSecretsConsumer
-	secretsWatcher         *mocks.MockStringsWatcher
-	secretsRotationService *mocks.MockSecretsRotation
-	secretsRotationWatcher *mocks.MockSecretsTriggerWatcher
-	authTag                names.Tag
-	clock                  clock.Clock
+	provider              *mocks.MockSecretStoreProvider
+	leadership            *mocks.MockChecker
+	token                 *mocks.MockToken
+	secretsBackend        *mocks.MockSecretsBackend
+	secretsConsumer       *mocks.MockSecretsConsumer
+	secretsWatcher        *mocks.MockStringsWatcher
+	secretTriggers        *mocks.MockSecretTriggers
+	secretsTriggerWatcher *mocks.MockSecretsTriggerWatcher
+	authTag               names.Tag
+	clock                 clock.Clock
 
 	facade *secretsmanager.SecretsManagerAPI
 }
@@ -69,8 +69,8 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsBackend = mocks.NewMockSecretsBackend(ctrl)
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
-	s.secretsRotationService = mocks.NewMockSecretsRotation(ctrl)
-	s.secretsRotationWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
+	s.secretTriggers = mocks.NewMockSecretTriggers(ctrl)
+	s.secretsTriggerWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
 	s.authTag = names.NewUnitTag("mariadb/0")
 	s.expectAuthUnitAgent()
 
@@ -87,7 +87,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	}
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.leadership, s.secretsBackend, s.secretsConsumer, s.secretsRotationService,
+		s.authorizer, s.resources, s.leadership, s.secretsBackend, s.secretsConsumer, s.secretTriggers,
 		storeConfigGetter, providerGetter, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -553,10 +553,10 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsRotationService.EXPECT().WatchSecretsRotationChanges("application-mariadb").Return(
-		s.secretsRotationWatcher,
+	s.secretTriggers.EXPECT().WatchSecretsRotationChanges("application-mariadb").Return(
+		s.secretsTriggerWatcher,
 	)
-	s.resources.EXPECT().Register(s.secretsRotationWatcher).Return("1")
+	s.resources.EXPECT().Register(s.secretsTriggerWatcher).Return("1")
 
 	next := time.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()
@@ -565,7 +565,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		URI:             uri,
 		NextTriggerTime: next,
 	}}
-	s.secretsRotationWatcher.EXPECT().Changes().Return(rotateChan)
+	s.secretsTriggerWatcher.EXPECT().Changes().Return(rotateChan)
 
 	result, err := s.facade.WatchSecretsRotationChanges(params.Entities{
 		Entities: []params.Entity{{
@@ -593,7 +593,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	nextRotateTime := s.clock.Now().Add(time.Hour)
-	s.secretsRotationService.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
+	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
 	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:       "application-mariadb",
 		RotatePolicy:   coresecrets.RotateHourly,
@@ -626,7 +626,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	nextRotateTime := s.clock.Now().Add(coresecrets.RotateRetryDelay)
-	s.secretsRotationService.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
+	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
 	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:       "application-mariadb",
 		RotatePolicy:   coresecrets.RotateHourly,
@@ -668,6 +668,46 @@ func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretTriggers.EXPECT().WatchSecretRevisionsExpiryChanges("application-mariadb").Return(
+		s.secretsTriggerWatcher,
+	)
+	s.resources.EXPECT().Register(s.secretsTriggerWatcher).Return("1")
+
+	next := time.Now().Add(time.Hour)
+	uri := coresecrets.NewURI()
+	expiryChan := make(chan []corewatcher.SecretTriggerChange, 1)
+	expiryChan <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next,
+	}}
+	s.secretsTriggerWatcher.EXPECT().Changes().Return(expiryChan)
+
+	result, err := s.facade.WatchSecretRevisionsExpiryChanges(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "application-mariadb",
+		}, {
+			Tag: "application-foo",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResults{
+		Results: []params.SecretTriggerWatchResult{{
+			WatcherId: "1",
+			Changes: []params.SecretTriggerChange{{
+				URI:             uri.String(),
+				Revision:        666,
+				NextTriggerTime: next,
+			}},
+		}, {
+			Error: &params.Error{Code: "unauthorized access", Message: "permission denied"},
+		}},
 	})
 }
 

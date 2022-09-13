@@ -376,7 +376,7 @@ func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChan
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		select {
 		case actual, ok := <-c.Watcher.Changes():
-			c.Logf("Watcher.Changes() => %# v", actual)
+			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
 			c.Assert(ok, jc.IsTrue)
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
