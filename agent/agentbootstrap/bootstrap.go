@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/juju/juju/database"
+
 	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -74,7 +76,7 @@ type bootstrapController interface {
 // InitializeState should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
-// bootstrap machine and calls Write to save the the configuration.
+// bootstrap machine and calls Write to save the configuration.
 //
 // The cfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
@@ -109,6 +111,10 @@ func InitializeState(
 	info.Password = c.OldPassword()
 
 	if err := initRaft(c); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := database.BootstrapDqlite(database.NewOptionFactoryWithDefaults(c), logger); err != nil {
 		return nil, errors.Trace(err)
 	}
 
