@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/juju/juju/database"
-
 	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -30,6 +28,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/raft/queue"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
