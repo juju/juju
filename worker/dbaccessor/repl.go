@@ -252,7 +252,7 @@ func (r *sqlREPL) handleHelpCmd(s *replSession) {
 func (r *sqlREPL) handleOpenCommand(s *replSession) {
 	var err error
 
-	s.db, err = r.dbGetter.GetExistingDB(s.cmdParams)
+	s.db, err = r.dbGetter.GetDB(s.cmdParams)
 	if errors.IsNotFound(err) {
 		_, _ = fmt.Fprintf(s.resWriter, "No such database exists\n")
 		return
