@@ -102,6 +102,10 @@ type Snapshot struct {
 	// revisions for secrets owned by this unit.
 	ObsoleteSecretRevisions map[string][]int
 
+	// DeletedSecrets is a list of deleted secrets
+	// owned by this unit.
+	DeletedSecrets []string
+
 	// UpgradeSeriesStatus is the preparation status of
 	// any currently running series upgrade.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus

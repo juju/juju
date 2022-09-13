@@ -371,3 +371,86 @@ func (s *removeSecretSuite) TestNextOpNone(c *gc.C) {
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
+
+type secretDeletedSuite struct {
+	remoteState   remotestate.Snapshot
+	opFactory     operation.Factory
+	mockTracker   *mocks.MockSecretStateTracker
+	mockCallbacks *operationmocks.MockCallbacks
+	mockFactory   *runnermocks.MockFactory
+	resolver      resolver.Resolver
+}
+
+var _ = gc.Suite(&secretDeletedSuite{})
+
+func (s *secretDeletedSuite) SetUpTest(_ *gc.C) {
+	s.remoteState = remotestate.Snapshot{
+		Life: life.Alive,
+	}
+}
+
+func (s *secretDeletedSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctlr := gomock.NewController(c)
+	logger := loggo.GetLogger("test")
+	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil)
+	s.mockCallbacks = operationmocks.NewMockCallbacks(ctlr)
+	s.mockTracker = mocks.NewMockSecretStateTracker(ctlr)
+	s.opFactory = operation.NewFactory(operation.FactoryParams{
+		Callbacks: s.mockCallbacks,
+		Logger:    loggo.GetLogger("test"),
+	})
+	return ctlr
+}
+
+func (s *secretDeletedSuite) TestNextOpNotInstalled(c *gc.C) {
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+func (s *secretDeletedSuite) TestNextOp(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "process removed secrets: [secret:9m4e2mr0ui3e8a215n4g]")
+}
+
+func (s *secretDeletedSuite) TestCommit(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
+	_, err = op.Execute(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
+
+	s.mockCallbacks.EXPECT().SecretsRemoved([]string{"secret:9m4e2mr0ui3e8a215n4g"}).Return(nil)
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+}

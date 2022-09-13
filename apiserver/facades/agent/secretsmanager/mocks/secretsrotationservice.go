@@ -51,10 +51,10 @@ func (mr *MockSecretsRotationMockRecorder) SecretRotated(arg0, arg1 interface{})
 }
 
 // WatchSecretsRotationChanges mocks base method.
-func (m *MockSecretsRotation) WatchSecretsRotationChanges(arg0 string) state.SecretsRotationWatcher {
+func (m *MockSecretsRotation) WatchSecretsRotationChanges(arg0 string) state.SecretsTriggerWatcher {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchSecretsRotationChanges", arg0)
-	ret0, _ := ret[0].(state.SecretsRotationWatcher)
+	ret0, _ := ret[0].(state.SecretsTriggerWatcher)
 	return ret0
 }
 

@@ -173,3 +173,8 @@ func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRun
 func (opc *operationCallbacks) SetSecretRotated(uri string, oldRevision int) error {
 	return opc.u.secretsClient.SecretRotated(uri, oldRevision)
 }
+
+// SecretsRemoved is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) SecretsRemoved(uris []string) error {
+	return opc.u.secretsTracker.SecretsRemoved(uris)
+}

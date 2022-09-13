@@ -38743,7 +38743,7 @@
                     },
                     "description": "WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
                 },
-                "WatchObsoleteRevisions": {
+                "WatchObsolete": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -38753,7 +38753,7 @@
                             "$ref": "#/definitions/StringsWatchResults"
                         }
                     },
-                    "description": "WatchObsoleteRevisions sets up a watcher to notify of changes to obsolete secret revisions for the specified secrets."
+                    "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
                 },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
@@ -39515,7 +39515,7 @@
     },
     {
         "Name": "SecretsRotationWatcher",
-        "Description": "srvSecretRotationWatcher defines the API wrapping a SecretsRotationWatcher.",
+        "Description": "srvSecretRotationWatcher defines the API wrapping a SecretsTriggerWatcher.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -44999,7 +44999,7 @@
                         }
                     }
                 },
-                "WatchObsoleteRevisions": {
+                "WatchObsolete": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -45009,7 +45009,7 @@
                             "$ref": "#/definitions/StringsWatchResults"
                         }
                     },
-                    "description": "WatchObsoleteRevisions sets up a watcher to notify of changes to obsolete secret revisions for the specified secrets."
+                    "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
                 },
                 "WatchRelationUnits": {
                     "type": "object",

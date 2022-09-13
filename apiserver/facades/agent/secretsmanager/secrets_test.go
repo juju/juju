@@ -40,7 +40,7 @@ type SecretsManagerSuite struct {
 	secretsConsumer        *mocks.MockSecretsConsumer
 	secretsWatcher         *mocks.MockStringsWatcher
 	secretsRotationService *mocks.MockSecretsRotation
-	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
+	secretsRotationWatcher *mocks.MockSecretsTriggerWatcher
 	authTag                names.Tag
 	clock                  clock.Clock
 
@@ -70,7 +70,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.secretsRotationService = mocks.NewMockSecretsRotation(ctrl)
-	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
+	s.secretsRotationWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
 	s.authTag = names.NewUnitTag("mariadb/0")
 	s.expectAuthUnitAgent()
 
@@ -523,7 +523,7 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges("unit-mariadb-0").Return(
-		s.secretsWatcher,
+		s.secretsWatcher, nil,
 	)
 	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
 

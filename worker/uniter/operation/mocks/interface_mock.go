@@ -251,6 +251,21 @@ func (mr *MockFactoryMockRecorder) NewNoOpFinishUpgradeSeries() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpFinishUpgradeSeries", reflect.TypeOf((*MockFactory)(nil).NewNoOpFinishUpgradeSeries))
 }
 
+// NewNoOpSecretsRemoved mocks base method.
+func (m *MockFactory) NewNoOpSecretsRemoved(arg0 []string) (operation.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewNoOpSecretsRemoved", arg0)
+	ret0, _ := ret[0].(operation.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewNoOpSecretsRemoved indicates an expected call of NewNoOpSecretsRemoved.
+func (mr *MockFactoryMockRecorder) NewNoOpSecretsRemoved(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpSecretsRemoved", reflect.TypeOf((*MockFactory)(nil).NewNoOpSecretsRemoved), arg0)
+}
+
 // NewRemoteInit mocks base method.
 func (m *MockFactory) NewRemoteInit(arg0 remotestate.ContainerRunningStatus) (operation.Operation, error) {
 	m.ctrl.T.Helper()
@@ -503,6 +518,20 @@ func (m *MockCallbacks) RemoteInit(arg0 remotestate.ContainerRunningStatus, arg1
 func (mr *MockCallbacksMockRecorder) RemoteInit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteInit", reflect.TypeOf((*MockCallbacks)(nil).RemoteInit), arg0, arg1)
+}
+
+// SecretsRemoved mocks base method.
+func (m *MockCallbacks) SecretsRemoved(arg0 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretsRemoved", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SecretsRemoved indicates an expected call of SecretsRemoved.
+func (mr *MockCallbacksMockRecorder) SecretsRemoved(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockCallbacks)(nil).SecretsRemoved), arg0)
 }
 
 // SetCurrentCharm mocks base method.

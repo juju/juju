@@ -159,6 +159,10 @@ type Factory interface {
 	// NewResignLeadership creates an operation to ensure the uniter does not
 	// act as application leader.
 	NewResignLeadership() (Operation, error)
+
+	// NewNoOpSecretsRemoved creates an operation to update the secrets
+	// state when secrets are removed.
+	NewNoOpSecretsRemoved(uris []string) (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -243,6 +247,10 @@ type Callbacks interface {
 
 	// SetSecretRotated updates the secret rotation status.
 	SetSecretRotated(url string, originalRevision int) error
+
+	// SecretsRemoved updates the unit secret state when
+	// secrets are removed.
+	SecretsRemoved(uris []string) error
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

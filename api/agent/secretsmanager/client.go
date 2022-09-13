@@ -124,14 +124,19 @@ func (c *Client) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWa
 	return w, nil
 }
 
-// WatchObsoleteRevisions returns a watcher which serves secret revisions for which
-// there are no longer any consumers.
-func (c *Client) WatchObsoleteRevisions(appName string) (watcher.StringsWatcher, error) {
+// WatchObsolete returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity no longer
+//     has any consumers
+//
+// Obsolete revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (c *Client) WatchObsolete(appName string) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}},
 	}
-	err := c.facade.FacadeCall("WatchObsoleteRevisions", args, &results)
+	err := c.facade.FacadeCall("WatchObsolete", args, &results)
 	if err != nil {
 		return nil, err
 	}

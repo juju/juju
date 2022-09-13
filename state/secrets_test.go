@@ -1239,7 +1239,7 @@ func (s *SecretsRotationWatcherSuite) SetUpTest(c *gc.C) {
 	s.owner = s.Factory.MakeApplication(c, nil)
 }
 
-func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotationWatcher, *secrets.URI) {
+func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsTriggerWatcher, *secrets.URI) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -1257,7 +1257,7 @@ func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotati
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchSecretsRotationChanges(s.owner.Tag().String())
 
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	wc.AssertChange(watcher.SecretTriggerChange{
 		URI:             md.URI,
 		NextTriggerTime: next,
@@ -1273,7 +1273,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchInitialEvent(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -1290,7 +1290,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
@@ -1307,7 +1307,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
@@ -1332,7 +1332,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
@@ -1358,7 +1358,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
@@ -1428,7 +1428,8 @@ func (s *SecretsConsumedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 	}
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	w := s.State.WatchConsumedSecretsChanges("unit-mariadb-0")
+	w, err := s.State.WatchConsumedSecretsChanges("unit-mariadb-0")
+	c.Assert(err, jc.ErrorIsNil)
 
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
@@ -1501,6 +1502,28 @@ func (s *SecretsConsumedWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *SecretsConsumedWatcherSuite) TestWatchConsumedDeleted(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretConsumer(uri, "application-foo", &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+	err = s.State.SaveSecretConsumer(uri, "application-baz", &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+}
+
 type SecretsObsoleteWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore
@@ -1528,7 +1551,8 @@ func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 	}
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	w := s.State.WatchObsoleteRevisions(s.owner.Tag().String())
+	w, err := s.State.WatchObsolete(s.owner.Tag().String())
+	c.Assert(err, jc.ErrorIsNil)
 
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
@@ -1541,7 +1565,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatcherStartStop(c *gc.C) {
 	testing.AssertStop(c, w)
 }
 
-func (s *SecretsObsoleteWatcherSuite) TestWatch(c *gc.C) {
+func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
@@ -1592,5 +1616,92 @@ func (s *SecretsObsoleteWatcherSuite) TestWatch(c *gc.C) {
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(uri.String()+"/1", uri.String()+"/3")
+	wc.AssertNoChange()
+}
+
+func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	owner2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	uri2 := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner2.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri3 := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri3, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.DeleteSecret(uri, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri2, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri3, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri3.String())
+	wc.AssertNoChange()
+}
+
+func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretConsumer(uri, "application-foo", &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	p := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.State.SaveSecretConsumer(uri, "application-foo2", &secrets.SecretConsumerMetadata{
+		CurrentRevision: 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
+	err = s.State.SaveSecretConsumer(uri, "application-foo", &secrets.SecretConsumerMetadata{
+		CurrentRevision: 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Deleting the secret removes any pending orphaned changes.
+	_, err = s.store.DeleteSecret(uri, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
 	wc.AssertNoChange()
 }
