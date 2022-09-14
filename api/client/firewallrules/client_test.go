@@ -55,13 +55,9 @@ func (s *FirewallRulesSuite) TestSetFirewallRuleFacadeCallError(c *gc.C) {
 		}},
 	}
 	res := new(params.ErrorResults)
-	results := params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: apiservererrors.ServerError(errors.New("fail"))}},
-	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetFirewallRules", args, res).SetArg(2, results).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall("SetFirewallRules", args, res).Return(errors.New(msg))
 	client := firewallrules.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.SetFirewallRule("ssh", nil)
@@ -76,7 +72,7 @@ func (s *FirewallRulesSuite) TestSetFirewallRuleInvalid(c *gc.C) {
 	client := firewallrules.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.SetFirewallRule("foo", []string{"192.168.1.0/32"})
-	c.Assert(err, gc.ErrorMatches, `known service "foo" not valid`)
+	errors.Is(err, errors.NotValid)
 }
 
 func (s *FirewallRulesSuite) TestList(c *gc.C) {
@@ -97,10 +93,7 @@ func (s *FirewallRulesSuite) TestList(c *gc.C) {
 
 	ress, err := client.ListFirewallRules()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ress, jc.DeepEquals, []params.FirewallRule{{
-		KnownService:   params.SSHRule,
-		WhitelistCIDRS: []string{"192.168.1.0/32"},
-	}})
+	c.Assert(ress, jc.DeepEquals, results.Rules)
 }
 
 func (s *FirewallRulesSuite) TestListError(c *gc.C) {
