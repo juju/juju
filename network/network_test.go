@@ -162,7 +162,8 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.6.10",     // unfiltered
 		"192.168.122.1", // filtered (from virbr0 bridge, 192.168.122.1)
 		"192.168.123.42",
-		"localhost", // unfiltered because it isn't an IP address
+		"localhost",    // unfiltered because it isn't an IP address
+		"252.16.134.1", // filtered Class E reserved address, used by Fan.
 	}).AsProviderAddresses()
 	filteredAddresses := corenetwork.NewMachineAddresses([]string{
 		"127.0.0.1",

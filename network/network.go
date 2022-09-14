@@ -181,7 +181,6 @@ func gatherLXCAddresses(toRemove map[string][]string) {
 	if err := scanner.Err(); err != nil {
 		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
-	return
 }
 
 func gatherBridgeAddresses(bridgeName string, toRemove map[string][]string) {
@@ -192,21 +191,31 @@ func gatherBridgeAddresses(bridgeName string, toRemove map[string][]string) {
 	}
 	logger.Debugf("%q has addresses %v", bridgeName, addrs)
 	toRemove[bridgeName] = addrs
-	return
-
 }
 
 // FilterBridgeAddresses removes addresses seen as a Bridge address
 // (the IP address used only to connect to local containers),
 // rather than a remote accessible address.
+// This includes addresses used by the local Fan network.
 func FilterBridgeAddresses(addresses corenetwork.ProviderAddresses) corenetwork.ProviderAddresses {
 	addressesToRemove := make(map[string][]string)
 	gatherLXCAddresses(addressesToRemove)
 	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)
 	gatherBridgeAddresses(DefaultKVMBridge, addressesToRemove)
+	gatherFanAddresses(addresses, addressesToRemove)
 	filtered := filterAddrs(addresses, addressesToRemove)
 	logger.Debugf("addresses after filtering: %v", filtered)
 	return filtered
+}
+
+func gatherFanAddresses(addresses corenetwork.ProviderAddresses, addressesToRemove map[string][]string) {
+	var fanAddrs []string
+	for _, addr := range addresses {
+		if addr.Scope == corenetwork.ScopeFanLocal {
+			fanAddrs = append(fanAddrs, addr.Value)
+		}
+	}
+	addressesToRemove["fan"] = fanAddrs
 }
 
 // QuoteSpaces takes a slice of space names, and returns a nicely formatted
