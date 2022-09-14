@@ -29,17 +29,6 @@ const (
 	ExpirationsTimeout = time.Second * 30
 )
 
-// NotifyType defines a notification type.
-type NotifyType string
-
-const (
-	// Claimed defines the claimed notification type.
-	Claimed NotifyType = "claimed"
-
-	// Expirations defines the expirations notification type.
-	Expirations NotifyType = "expirations"
-)
-
 // NotificationProxy allows notifications to be sent via a proxy, rather than
 // directly to state, allowing the decoupling of state to a given worker.
 type NotificationProxy interface {
@@ -50,9 +39,6 @@ type NotificationProxy interface {
 
 // Notification defines a typed notification sent from the proxy.
 type Notification interface {
-	// Type returns the notification type.
-	Type() NotifyType
-
 	// ErrorResponse is used to notify the proxy call of any potential errors
 	// when sending.
 	ErrorResponse(error)
@@ -63,11 +49,6 @@ type ClaimedNote struct {
 	Key      lease.Key
 	Holder   string
 	response func(error)
-}
-
-// Type returns the notification type.
-func (ClaimedNote) Type() NotifyType {
-	return Claimed
 }
 
 // ErrorResponse is used to notify the proxy call of any potential errors
@@ -83,10 +64,6 @@ func (n ClaimedNote) ErrorResponse(err error) {
 type ExpirationsNote struct {
 	Expirations []raftlease.Expired
 	response    func(error)
-}
-
-func (ExpirationsNote) Type() NotifyType {
-	return Expirations
 }
 
 // ErrorResponse is used to notify the proxy call of any potential errors

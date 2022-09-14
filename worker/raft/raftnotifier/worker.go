@@ -101,37 +101,26 @@ func (w *Worker) loop() error {
 			// TODO: (stickupkid): We should push these as a batch through
 			// the notify target.
 			for _, change := range changes {
-				switch change.Type() {
-				case notifyproxy.Claimed:
-					note := change.(notifyproxy.ClaimedNote)
-					err := w.config.NotifyTarget.Claimed(note.Key, note.Holder)
+				var err error
 
-					// We always want to sent the error response, so that the other
-					// end of the proxy can be notified if there was an error or
-					// not.
-					note.ErrorResponse(err)
-
-					// If there was an error, return out, so we get a fresh proxy
-					// state.
-					if err != nil {
-						return errors.Trace(err)
-					}
-
-				case notifyproxy.Expirations:
-					note := change.(notifyproxy.ExpirationsNote)
-					err := w.config.NotifyTarget.Expirations(note.Expirations)
-
-					// We always want to sent the error response, so that the other
-					// end of the proxy can be notified if there was an error or
-					// not.
-					note.ErrorResponse(err)
-
-					// If there was an error, return out, so we get a fresh proxy
-					// state.
-					if err != nil {
-						return errors.Trace(err)
-					}
+				switch note := change.(type) {
+				case notifyproxy.ClaimedNote:
+					err = w.config.NotifyTarget.Claimed(note.Key, note.Holder)
+				case notifyproxy.ExpirationsNote:
+					err = w.config.NotifyTarget.Expirations(note.Expirations)
+				default:
+					return errors.Errorf("unrecognised notification type: %T", note)
 				}
+
+				// We always want to send the error response, so that the
+				// notifying side knows the result.
+				change.ErrorResponse(err)
+
+				// If there was an error, return to get a fresh proxy state.
+				if err != nil {
+					return errors.Trace(err)
+				}
+
 			}
 		}
 	}

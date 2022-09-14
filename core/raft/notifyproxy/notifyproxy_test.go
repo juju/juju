@@ -71,7 +71,6 @@ func (s *NotifyProxySuite) TestSendingWithNoWaitingOverflowsBuffer(c *gc.C) {
 	// As we overflowed the buffer, we should only get the buffered amount, not
 	// all of them.
 	for k, note := range results {
-		c.Assert(note.Type(), gc.Equals, Claimed)
 		expiry, ok := note.(ClaimedNote)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(expiry.Holder, gc.Equals, fmt.Sprintf("meshuggah%d", k+2))
@@ -105,7 +104,6 @@ func (s *NotifyProxySuite) TestClaimed(c *gc.C) {
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
-		c.Assert(note.Type(), gc.Equals, Claimed)
 		expiry, ok := note.(ClaimedNote)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(expiry.Holder, gc.Equals, "meshuggah")
@@ -142,7 +140,6 @@ func (s *NotifyProxySuite) TestExpirations(c *gc.C) {
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
-		c.Assert(note.Type(), gc.Equals, Expirations)
 		expiry, ok := note.(ExpirationsNote)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(expiry.Expirations, jc.DeepEquals, expected)
@@ -182,7 +179,6 @@ func (s *NotifyProxySuite) TestExpirationsWithBatch(c *gc.C) {
 	c.Assert(results, gc.HasLen, 1)
 
 	for _, note := range results {
-		c.Assert(note.Type(), gc.Equals, Expirations)
 		expiry, ok := note.(ExpirationsNote)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(expiry.Expirations, jc.DeepEquals, expected)
