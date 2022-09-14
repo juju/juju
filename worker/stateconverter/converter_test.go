@@ -1,121 +1,120 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package stateconverter
+package stateconverter_test
 
 import (
-	stderrs "errors"
-	"testing"
-
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/stateconverter"
+	"github.com/juju/juju/worker/stateconverter/mocks"
 )
 
-var _ = gc.Suite(&Suite{})
+var _ = gc.Suite(&converterSuite{})
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+type converterSuite struct {
+	machine  *mocks.MockMachine
+	machiner *mocks.MockMachiner
 }
 
-type Suite struct {
-	coretesting.BaseSuite
+func (s *converterSuite) TestSetUp(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
+	s.machine.EXPECT().Watch().Return(nil, nil)
+
+	conv := s.newConverter()
+	_, err := conv.SetUp()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (Suite) TestSetUp(c *gc.C) {
-	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	m := &fakeMachine{}
-	mr := &fakeMachiner{m: m}
-	conv := converter{machiner: mr, agent: a}
+func (s *converterSuite) TestSetupMachinerErr(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.NotValidf("machine tag")
+	s.machiner.EXPECT().Machine(gomock.Any()).Return(nil, expectedError)
+
+	conv := s.newConverter()
 	w, err := conv.SetUp()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conv.machine, gc.Equals, m)
-	c.Assert(mr.gotTag, gc.Equals, a.tag.(names.MachineTag))
-	c.Assert(w, gc.Equals, m.w)
-}
-
-func (Suite) TestSetupMachinerErr(c *gc.C) {
-	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	mr := &fakeMachiner{err: stderrs.New("foo")}
-	conv := converter{machiner: mr, agent: a}
-	w, err := conv.SetUp()
-	c.Assert(errors.Cause(err), gc.Equals, mr.err)
-	c.Assert(mr.gotTag, gc.Equals, a.tag.(names.MachineTag))
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(w, gc.IsNil)
 }
 
-func (Suite) TestSetupWatchErr(c *gc.C) {
-	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	m := &fakeMachine{watchErr: stderrs.New("foo")}
-	mr := &fakeMachiner{m: m}
-	conv := &converter{machiner: mr, agent: a}
+func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
+	expectedError := errors.NotValidf("machine tag")
+	s.machine.EXPECT().Watch().Return(nil, expectedError)
+
+	conv := s.newConverter()
 	w, err := conv.SetUp()
-	c.Assert(errors.Cause(err), gc.Equals, m.watchErr)
-	c.Assert(mr.gotTag, gc.Equals, a.tag.(names.MachineTag))
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(w, gc.IsNil)
 }
 
-func (s Suite) TestHandle(c *gc.C) {
-	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []model.MachineJob{model.JobHostUnits, model.JobManageModel}
-	m := &fakeMachine{
-		jobs: &params.JobsResult{Jobs: jobs},
-	}
-	mr := &fakeMachiner{m: m}
-	conv := &converter{machiner: mr, agent: a}
+func (s *converterSuite) TestHandle(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
+	s.machine.EXPECT().Watch().Return(nil, nil)
+	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
+	s.machine.EXPECT().Jobs().Return(&jobs, nil)
+
+	conv := s.newConverter()
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	// Since machine has model.JobManageModel, we expect an error
-	// which will get agent to restart.
+	// which will get machineTag to restart.
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 }
 
-func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
-	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []model.MachineJob{model.JobHostUnits}
-	m := &fakeMachine{
-		jobs: &params.JobsResult{Jobs: jobs},
-	}
-	mr := &fakeMachiner{m: m}
-	conv := &converter{machiner: mr, agent: a}
+func (s *converterSuite) TestHandleNoManageEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
+	s.machine.EXPECT().Watch().Return(nil, nil)
+	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits}}
+	s.machine.EXPECT().Jobs().Return(&jobs, nil)
+
+	conv := s.newConverter()
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	c.Assert(err, gc.IsNil)
 }
 
-func (Suite) TestHandleJobsError(c *gc.C) {
-	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []model.MachineJob{model.JobHostUnits, model.JobManageModel}
-	m := &fakeMachine{
-		jobs:    &params.JobsResult{Jobs: jobs},
-		jobsErr: errors.New("foo"),
-	}
-	mr := &fakeMachiner{m: m}
-	conv := &converter{machiner: mr, agent: a}
-	_, err := conv.SetUp()
-	c.Assert(err, gc.IsNil)
-	err = conv.Handle(nil)
-	c.Assert(errors.Cause(err), gc.Equals, m.jobsErr)
-}
+func (s *converterSuite) TestHandleJobsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil).AnyTimes()
+	s.machine.EXPECT().Watch().Return(nil, nil).AnyTimes()
+	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
+	s.machine.EXPECT().Jobs().Return(&jobs, nil)
+	expectedError := errors.New("foo")
+	s.machine.EXPECT().Jobs().Return(nil, expectedError)
 
-func (s Suite) TestHandleRestartError(c *gc.C) {
-	a := &fakeAgent{
-		tag: names.NewMachineTag("1"),
-	}
-	jobs := []model.MachineJob{model.JobHostUnits, model.JobManageModel}
-	m := &fakeMachine{
-		jobs: &params.JobsResult{Jobs: jobs},
-	}
-	mr := &fakeMachiner{m: m}
-	conv := &converter{machiner: mr, agent: a}
+	conv := s.newConverter()
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
+	// Since machine has model.JobManageModel, we expect an error
+	// which will get machineTag to restart.
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
+	_, err = conv.SetUp()
+	c.Assert(err, gc.IsNil)
+	err = conv.Handle(nil)
+	c.Assert(errors.Cause(err), gc.Equals, expectedError)
+}
+
+func (s *converterSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.machine = mocks.NewMockMachine(ctrl)
+	s.machiner = mocks.NewMockMachiner(ctrl)
+	return ctrl
+}
+
+func (s *converterSuite) newConverter() watcher.NotifyHandler {
+	return stateconverter.NewConverterForTest(s.machine, s.machiner)
 }

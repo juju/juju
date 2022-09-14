@@ -23,18 +23,13 @@ type ManifoldConfig struct {
 	APICallerName string
 	Logger        Logger
 
-	// A constructor for the stateconverter API which can be overridden
-	// during testing. If omitted, the default client for the stateconverter
+	// A constructor for the machiner API which can be overridden
+	// during testing. If omitted, the default client for the machiner
 	// facade will be automatically used.
-	NewStateConverterAPI func(base.APICaller) StateConverterAPI
+	NewMachinerAPI func(base.APICaller) Machiner
 }
 
 // Manifold returns a Manifold that encapsulates the stateconverter worker.
-//
-// This manifold exists to start API workers which have not yet been
-// ported to work directly with the dependency engine. Once all API
-// workers started by StartAPIWorkers have been migrated to the
-// dependency engine, this manifold can be removed.
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -69,10 +64,6 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	if err := context.Get(cfg.AgentName, &a); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var apiConn api.Connection
-	if err := context.Get(cfg.APICallerName, &apiConn); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	tag := a.CurrentConfig().Tag()
 	mTag, ok := tag.(names.MachineTag)
@@ -80,17 +71,33 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, errors.NotValidf("%q machine tag", a)
 	}
 
-	facade := apimachiner.NewState(apiConn)
-	handler := &converter{
-		agent:    mTag,
-		machiner: wrapper{facade},
-		logger:   cfg.Logger,
+	machiner, err := cfg.newMachiner(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	handlerCfg := config{
+		machineTag: mTag,
+		machiner:   machiner,
+		logger:     cfg.Logger,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
-		Handler: handler,
+		Handler: NewConverter(handlerCfg),
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start controller promoter worker")
 	}
 	return w, nil
+}
+
+func (cfg ManifoldConfig) newMachiner(context dependency.Context) (Machiner, error) {
+	if cfg.NewMachinerAPI != nil {
+		machiner := cfg.NewMachinerAPI(nil)
+		return machiner, nil
+	}
+	var apiConn api.Connection
+	if err := context.Get(cfg.APICallerName, &apiConn); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return wrapper{m: apimachiner.NewState(apiConn)}, nil
 }

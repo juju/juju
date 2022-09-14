@@ -13,23 +13,29 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// New returns a new notify watch handler that will convert the given machine &
+type config struct {
+	machineTag names.MachineTag
+	machiner   Machiner
+	logger     Logger
+}
+
+// NewConverter returns a new notify watch handler that will convert the given machine &
 // agent to a controller.
-//func New(m *machiner.State, agent names.Tag) (watcher.NotifyHandler, error) {
-//	mTag, ok := agent.(names.MachineTag)
-//	if !ok {
-//		return nil, errors.NotValidf("%q machine tag", agent)
-//	}
-//	return &converter{machiner: wrapper{m}, agent: mTag}, nil
-//}
+func NewConverter(cfg config) watcher.NotifyHandler {
+	return &converter{
+		machiner:   cfg.machiner,
+		machineTag: cfg.machineTag,
+		logger:     cfg.logger,
+	}
+}
 
 // converter is a NotifyWatchHandler that converts a unit hosting machine to a
 // state machine.
 type converter struct {
-	agent    names.MachineTag
-	machiner Machiner
-	machine  Machine
-	logger   Logger
+	machineTag names.MachineTag
+	machiner   Machiner
+	machine    Machine
+	logger     Logger
 }
 
 // wrapper is a wrapper around api/machiner.State to match the (local) machiner
@@ -51,7 +57,7 @@ func (w wrapper) Machine(tag names.MachineTag) (Machine, error) {
 // SetUp implements NotifyWatchHandler's SetUp method. It returns a watcher that
 // checks for changes to the current machine.
 func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
-	m, err := c.machiner.Machine(c.agent)
+	m, err := c.machiner.Machine(c.machineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

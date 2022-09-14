@@ -10,12 +10,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// StateConverterAPI describes the API exposed by the state converter facade.
-type StateConverterAPI interface {
-	WatchApplicationsWithPendingCharms() (watcher.StringsWatcher, error)
-	DownloadApplicationCharms(applications []names.ApplicationTag) error
-}
-
 // Logger represents the methods used by the worker to log details.
 type Logger interface {
 	Tracef(string, ...interface{})
