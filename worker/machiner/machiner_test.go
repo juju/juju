@@ -374,22 +374,20 @@ func (s *MachinerSuite) TestSetMachineAddresses(c *gc.C) {
 		&net.IPNet{IP: net.ParseIP("fe80::1")},     // LinkLocal Ignored
 	}
 
-	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
+	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
 		if name == "foobar" {
-			// The addresses on the LXC bridge
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+			return []string{
+				"10.0.3.1",
+				"10.0.3.4",
 			}, nil
 		} else if name == network.DefaultLXDBridge {
-			// The addresses on the LXD bridge
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
-				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
+			return []string{
+				"10.0.4.1",
+				"10.0.4.4",
 			}, nil
 		} else if name == network.DefaultKVMBridge {
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(192, 168, 1, 1)},
+			return []string{
+				"192.168.122.1",
 			}, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)

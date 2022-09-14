@@ -127,23 +127,21 @@ anything else ignored
 LXC_BRIDGE="ignored"`[1:])
 	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
+	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
 		if name == "foobar" {
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
-				// Try a CIDR 10.0.3.5/24 as well.
-				&net.IPNet{IP: net.IPv4(10, 0, 3, 5), Mask: net.IPv4Mask(255, 255, 255, 0)},
+			return []string{
+				"10.0.3.1",
+				"10.0.3.4",
+				"10.0.3.5/24",
 			}, nil
 		} else if name == network.DefaultLXDBridge {
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
-				// Try a CIDR 10.0.5.1/24 as well.
-				&net.IPNet{IP: net.IPv4(10, 0, 5, 1), Mask: net.IPv4Mask(255, 255, 255, 0)},
+			return []string{
+				"10.0.4.1",
+				"10.0.5.1/24",
 			}, nil
 		} else if name == network.DefaultKVMBridge {
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(192, 168, 122, 1)},
+			return []string{
+				"192.168.122.1",
 			}, nil
 		}
 		c.Fatalf("unknown bridge name: %q", name)
