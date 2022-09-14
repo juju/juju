@@ -38,7 +38,7 @@ run_persistent_storage() {
 	# check type, persistent setting and pool of single block storage unit
 	#
 	# storage type
-	juju storage --format json | jq '.storage | ."single-blk/0" | .kind' | check "block"
+	assert_storage "block" "$(kind_name "single-blk" 0)"
 	# persistent setting
 	echo "Checking persistent setting of single block storage unit"
 	juju storage --format json | jq '.storage | ."single-blk/0" | .persistent' | check true
@@ -53,7 +53,7 @@ run_persistent_storage() {
 	#
 	# check type, persistent setting and pool of single filesystem storage unit
 	#
-	juju storage --format json | jq '.storage | ."single-fs/1" | .kind' | check "filesystem"
+	assert_storage "filesystem" "$(kind_name "single-fs" 1)"
 	# persistent setting
 	echo "Checking persistent setting of single filesystem storage unit"
 	juju storage --format json | jq '.storage | ."single-fs/1" | .persistent' | check false
@@ -74,7 +74,7 @@ run_persistent_storage() {
 	# the status of storage may change time to time after a Juju CLI issued, in this test only
 	# the existence of storage id is the point of interest.
 	#
-	wait_for "{}" ".applications" # we use this wait_for command as an indicator that the storage
+	wait_for "{}" ".applications" # we use this wait_for command as an indicator that the application
 	# status has changed and now we can check for the storage status and assert that indeed the
 	# single filesystem storage unit has been removed successfully.
 	juju storage --format json | jq '.storage | has("single-fs/1")' | check false
