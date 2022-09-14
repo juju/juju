@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
-	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -92,6 +91,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
+	"github.com/juju/juju/worker/stateconverter"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
@@ -1020,7 +1020,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: syslogger.NewWorker,
 			NewLogger: syslogger.NewSyslog,
 		}),
-		stateConverterName: ifNotController(ifNotMigrating(conv2state.Manifold(conv2state.ManifoldConfig{
+		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Logger:        loggo.GetLogger("juju.worker.conv2state"),

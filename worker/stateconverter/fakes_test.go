@@ -1,12 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package conv2state
+package stateconverter
 
 import (
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v4"
 )
 
 type fakeMachiner struct {
