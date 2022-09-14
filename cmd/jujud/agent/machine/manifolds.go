@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
+	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -344,7 +345,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
-		isControllerFlagName: isControllerFlagManifold(),
+		isControllerFlagName:    isControllerFlagManifold(true),
+		isNotControllerFlagName: isControllerFlagManifold(false),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -1014,11 +1016,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewContainerWorker,
 		})),
-
 		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
 			NewWorker: syslogger.NewWorker,
 			NewLogger: syslogger.NewSyslog,
 		}),
+		stateConverterName: ifNotController(ifNotMigrating(conv2state.Manifold(conv2state.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.conv2state"),
+		}))),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1096,6 +1102,12 @@ var ifController = engine.Housing{
 	},
 }.Decorate
 
+var ifNotController = engine.Housing{
+	Flags: []string{
+		isNotControllerFlagName,
+	},
+}.Decorate
+
 var ifRaftLeader = engine.Housing{
 	Flags: []string{
 		raftFlagName,
@@ -1170,6 +1182,7 @@ const (
 	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
+	isNotControllerFlagName       = "is-not-controller-flag"
 	instanceMutaterName           = "instance-mutater"
 	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
@@ -1183,6 +1196,7 @@ const (
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"
+	stateConverterName            = "state-converter"
 
 	upgradeSeriesWorkerName = "upgrade-series"
 

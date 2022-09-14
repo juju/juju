@@ -4,7 +4,6 @@
 package machine
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
@@ -15,7 +14,7 @@ import (
 // config.
 // It returns a worker implementing engine.Flag, whose Check method returns
 // whether state config is present on the machine.
-func isControllerFlagManifold() dependency.Manifold {
+func isControllerFlagManifold(yes bool) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{stateConfigWatcherName},
 		Output: engine.FlagOutput,
@@ -24,10 +23,7 @@ func isControllerFlagManifold() dependency.Manifold {
 			if err := context.Get(stateConfigWatcherName, &haveStateConfig); err != nil {
 				return nil, err
 			}
-			if !haveStateConfig {
-				return nil, errors.Annotate(dependency.ErrMissing, "no state config detected")
-			}
-			return engine.NewStaticFlagWorker(true), nil
+			return engine.NewStaticFlagWorker(haveStateConfig && yes), nil
 		},
 	}
 }
