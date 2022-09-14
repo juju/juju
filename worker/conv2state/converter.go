@@ -11,35 +11,25 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
 )
 
 // New returns a new notify watch handler that will convert the given machine &
 // agent to a controller.
-func New(m *machiner.State, agent Agent) watcher.NotifyHandler {
-	return &converter{machiner: wrapper{m}, agent: agent}
-}
+//func New(m *machiner.State, agent names.Tag) (watcher.NotifyHandler, error) {
+//	mTag, ok := agent.(names.MachineTag)
+//	if !ok {
+//		return nil, errors.NotValidf("%q machine tag", agent)
+//	}
+//	return &converter{machiner: wrapper{m}, agent: mTag}, nil
+//}
 
 // converter is a NotifyWatchHandler that converts a unit hosting machine to a
 // state machine.
 type converter struct {
-	agent    Agent
-	machiner interface {
-		Machine(tag names.MachineTag) (machine, error)
-	}
-	machine machine
-}
-
-// Agent is an interface that exposes machine agent methods required for the
-// conversion worker.
-type Agent interface {
-	Tag() names.Tag
-}
-
-// machine is a type that has a list of jobs and can be watched.
-type machine interface {
-	Jobs() (*params.JobsResult, error)
-	Watch() (watcher.NotifyWatcher, error)
+	agent    names.MachineTag
+	machiner Machiner
+	machine  Machine
+	logger   Logger
 }
 
 // wrapper is a wrapper around api/machiner.State to match the (local) machiner
@@ -50,7 +40,7 @@ type wrapper struct {
 
 // Machines implements machiner.Machine and returns a machine from the wrapper
 // api/machiner.
-func (w wrapper) Machine(tag names.MachineTag) (machine, error) {
+func (w wrapper) Machine(tag names.MachineTag) (Machine, error) {
 	m, err := w.m.Machine(tag)
 	if err != nil {
 		return nil, err
@@ -61,7 +51,7 @@ func (w wrapper) Machine(tag names.MachineTag) (machine, error) {
 // SetUp implements NotifyWatchHandler's SetUp method. It returns a watcher that
 // checks for changes to the current machine.
 func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
-	m, err := c.machiner.Machine(c.agent.Tag().(names.MachineTag))
+	m, err := c.machiner.Machine(c.agent)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
