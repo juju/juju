@@ -8,13 +8,17 @@ run_add_remove_credential() {
 
 	ensure "${model_name}" "${file}"
 
-	juju add-credential aws -f ./tests/suites/credential/credentials-data/fake-credentials.yaml --client
+	echo "Add fake credential"
+	JUJU_DATA="${TEST_DIR}/juju" juju add-credential aws -f ./tests/suites/credential/credentials-data/fake-credentials.yaml --client
 
-	juju credentials aws --format=json | jq -r '."client-credentials"."aws"."cloud-credentials"."fake-credential-name"."details"."access-key"' | check "fake-access-key"
+	echo "Check fake credential"
+	JUJU_DATA="${TEST_DIR}/juju" juju credentials aws --format=json | jq -r '."client-credentials"."aws"."cloud-credentials"."fake-credential-name"."details"."access-key"' | check "fake-access-key"
 
-	juju remove-credential aws fake-credential-name --client
+	echo "Remove fake credential"
+	JUJU_DATA="${TEST_DIR}/juju" juju remove-credential aws fake-credential-name --client
 
-	juju credentials aws --format=json | jq -r '."client-credentials"."aws"."cloud-credentials"."fake-credential-name"."details"."access-key"' | check null
+	echo "Check fake credential is deleted"
+	JUJU_DATA="${TEST_DIR}/juju" juju credentials aws --format=json | jq -r '."client-credentials"."aws"."cloud-credentials"."fake-credential-name"."details"."access-key"' | check null
 
 	destroy_model "${model_name}"
 }
