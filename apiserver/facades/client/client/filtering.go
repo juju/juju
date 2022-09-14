@@ -282,8 +282,12 @@ func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate 
 
 func matchPortRanges(patterns []string, portRanges ...network.PortRange) (bool, bool, error) {
 	for _, p := range portRanges {
+		splitPortStr := strings.Split(p.String(), "/")
+		pNum := splitPortStr[0]
 		for _, patt := range patterns {
-			if strings.HasPrefix(p.String(), patt) {
+			splitPattStr := strings.Split(patt, "/")
+			pattNum := splitPattStr[0]
+			if strings.EqualFold(pNum, pattNum) && strings.HasPrefix(p.String(), patt) {
 				return true, true, nil
 			}
 		}
