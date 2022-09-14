@@ -146,7 +146,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				conf:                defaultSeries{"wily", true},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			expectedSeries: "bionic",
+			err: `series "wily" not supported by charm, supported series are: bionic, cosmic`,
 		},
 		{
 			title: "juju deploy multiseries   # use model series defaults if supported by charm",
