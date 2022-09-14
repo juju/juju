@@ -23,7 +23,7 @@ func isControllerFlagManifold(yes bool) dependency.Manifold {
 			if err := context.Get(stateConfigWatcherName, &haveStateConfig); err != nil {
 				return nil, err
 			}
-			return engine.NewStaticFlagWorker(haveStateConfig && yes), nil
+			return engine.NewStaticFlagWorker(haveStateConfig && yes || !haveStateConfig && !yes), nil
 		},
 	}
 }
