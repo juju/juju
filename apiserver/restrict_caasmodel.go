@@ -69,6 +69,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Upgrader",
 	"VolumeAttachmentsWatcher",
 	"RemoteRelationWatcher",
+	"SSHClient",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS
