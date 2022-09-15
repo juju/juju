@@ -31,7 +31,7 @@ type SecretsManagerAPI struct {
 	leadershipChecker leadership.Checker
 	secretsBackend    SecretsBackend
 	resources         facade.Resources
-	secretsRotation   SecretsRotation
+	secretsTriggers   SecretTriggers
 	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
 	clock             clock.Clock
@@ -483,7 +483,7 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 		if err != nil || authTagApp(s.authTag) != ownerTag.Id() {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		w := s.secretsRotation.WatchSecretsRotationChanges(ownerTag.String())
+		w := s.secretsTriggers.WatchSecretsRotationChanges(ownerTag.String())
 		if secretChanges, ok := <-w.Changes(); ok {
 			changes := make([]params.SecretTriggerChange, len(secretChanges))
 			for i, c := range secretChanges {
@@ -548,11 +548,49 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 			nextRotateTime = lastRotateTime.Add(coresecrets.RotateRetryDelay)
 		}
 		logger.Debugf("secret %q next rotate time is now: %s", uri.String(), nextRotateTime.UTC().Format(time.RFC3339))
-		return s.secretsRotation.SecretRotated(uri, nextRotateTime)
+		return s.secretsTriggers.SecretRotated(uri, nextRotateTime)
 	}
 	for i, arg := range args.Args {
 		var result params.ErrorResult
 		result.Error = apiservererrors.ServerError(one(arg))
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+// WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config.
+func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entities) (params.SecretTriggerWatchResults, error) {
+	results := params.SecretTriggerWatchResults{
+		Results: make([]params.SecretTriggerWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, []params.SecretTriggerChange, error) {
+		ownerTag, err := names.ParseTag(arg.Tag)
+		if err != nil || authTagApp(s.authTag) != ownerTag.Id() {
+			return "", nil, apiservererrors.ErrPerm
+		}
+		w := s.secretsTriggers.WatchSecretRevisionsExpiryChanges(ownerTag.String())
+		if secretChanges, ok := <-w.Changes(); ok {
+			changes := make([]params.SecretTriggerChange, len(secretChanges))
+			for i, c := range secretChanges {
+				changes[i] = params.SecretTriggerChange{
+					URI:             c.URI.String(),
+					Revision:        c.Revision,
+					NextTriggerTime: c.NextTriggerTime,
+				}
+			}
+			return s.resources.Register(w), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.SecretTriggerWatchResult
+		id, changes, err := one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.WatcherId = id
+			result.Changes = changes
+		}
 		results.Results[i] = result
 	}
 	return results, nil

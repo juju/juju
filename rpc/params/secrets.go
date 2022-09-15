@@ -180,7 +180,8 @@ type ListSecretResult struct {
 // SecretTriggerChange describes a change to a secret trigger.
 type SecretTriggerChange struct {
 	URI             string    `json:"uri"`
-	NextTriggerTime time.Time `json:"next-trugger-time"`
+	Revision        int       `json:"revision,omitempty"`
+	NextTriggerTime time.Time `json:"next-trigger-time"`
 }
 
 // SecretTriggerWatchResult holds secret trigger change events.

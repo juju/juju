@@ -38755,6 +38755,18 @@
                     },
                     "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
                 },
+                "WatchSecretRevisionsExpiryChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                        }
+                    },
+                    "description": "WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config."
+                },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
                     "properties": {
@@ -39289,9 +39301,12 @@
                 "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "next-trugger-time": {
+                        "next-trigger-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -39300,7 +39315,7 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "next-trugger-time"
+                        "next-trigger-time"
                     ]
                 },
                 "SecretTriggerWatchResult": {
@@ -39514,8 +39529,8 @@
         }
     },
     {
-        "Name": "SecretsRotationWatcher",
-        "Description": "srvSecretRotationWatcher defines the API wrapping a SecretsTriggerWatcher.",
+        "Name": "SecretsTriggerWatcher",
+        "Description": "srvSecretTriggerWatcher defines the API wrapping a SecretsTriggerWatcher.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -39569,9 +39584,12 @@
                 "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "next-trugger-time": {
+                        "next-trigger-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -39580,7 +39598,7 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "next-trugger-time"
+                        "next-trigger-time"
                     ]
                 },
                 "SecretTriggerWatchResult": {
@@ -45023,6 +45041,18 @@
                     },
                     "description": "WatchRelationUnits returns a RelationUnitsWatcher for observing\nchanges to every unit in the supplied relation that is visible to\nthe supplied unit. See also state/watcher.go:RelationUnit.Watch()."
                 },
+                "WatchSecretRevisionsExpiryChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                        }
+                    },
+                    "description": "WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config."
+                },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
                     "properties": {
@@ -47348,9 +47378,12 @@
                 "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "next-trugger-time": {
+                        "next-trigger-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -47359,7 +47392,7 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "next-trugger-time"
+                        "next-trigger-time"
                     ]
                 },
                 "SecretTriggerWatchResult": {

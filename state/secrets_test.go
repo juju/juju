@@ -402,6 +402,11 @@ func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		ExpireTime:  ptr(next),
 	})
+
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(time.Time{}),
+	})
 }
 
 func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
@@ -594,7 +599,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	if update.Label != nil {
 		expected.Label = *update.Label
 	}
-	if update.ExpireTime != nil {
+	if update.ExpireTime != nil && !update.ExpireTime.IsZero() {
 		expected.LatestExpireTime = update.ExpireTime
 	}
 
@@ -627,11 +632,21 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 		revs, err := s.store.ListSecretRevisions(md.URI)
 		c.Assert(err, jc.ErrorIsNil)
 		for _, r := range revs {
+			if r.ExpireTime == nil && update.ExpireTime.IsZero() {
+				return
+			}
 			if r.ExpireTime != nil && r.ExpireTime.Equal(update.ExpireTime.Round(time.Second).UTC()) {
 				return
 			}
 		}
 		c.Fatalf("expire time not set for secret revision %d", expectedRevision)
+		md, err := s.store.GetSecret(original.URI)
+		c.Assert(err, jc.ErrorIsNil)
+		if update.ExpireTime.IsZero() {
+			c.Assert(md.LatestExpireTime, gc.IsNil)
+		} else {
+			c.Assert(md.LatestExpireTime, gc.Equals, update.ExpireTime.Round(time.Second).UTC())
+		}
 	}
 	if update.NextRotateTime != nil {
 		nextTime := state.GetSecretNextRotateTime(c, s.State, md.URI.ID)
@@ -1397,6 +1412,175 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 
 	wc.AssertChange(watcher.SecretTriggerChange{
 		URI: md.URI,
+	})
+	wc.AssertNoChange()
+}
+
+type SecretsExpiryWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+
+	owner *state.Application
+}
+
+var _ = gc.Suite(&SecretsExpiryWatcherSuite{})
+
+func (s *SecretsExpiryWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecrets(s.State)
+	s.owner = s.Factory.MakeApplication(c, nil)
+}
+
+func (s *SecretsExpiryWatcherSuite) setupWatcher(c *gc.C) (state.SecretsTriggerWatcher, *secrets.URI) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag().String(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ExpireTime:  ptr(next),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	w := s.State.WatchSecretRevisionsExpiryChanges(s.owner.Tag().String())
+
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             md.URI,
+		Revision:        1,
+		NextTriggerTime: next,
+	})
+	wc.AssertNoChange()
+	return w, uri
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchInitialEvent(c *gc.C) {
+	w, _ := s.setupWatcher(c)
+	testing.AssertStop(c, w)
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(2 * time.Hour).Round(time.Second).UTC()
+
+	s.Clock.Advance(time.Hour)
+	updated := s.Clock.Now().Round(time.Second).UTC()
+	update := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(next),
+	}
+	md, err := s.store.UpdateSecret(uri, update)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.LatestExpireTime, gc.NotNil)
+	c.Assert(*md.LatestExpireTime, gc.Equals, next)
+
+	revs, err := s.store.ListSecretRevisions(md.URI)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, r := range revs {
+		if r.ExpireTime != nil && r.ExpireTime.Equal(update.ExpireTime.Round(time.Second).UTC()) {
+			c.Assert(r.UpdateTime, jc.DeepEquals, updated)
+			return
+		}
+	}
+	c.Fatalf("expire time not set for secret revision %d", 2)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri,
+		Revision:        3,
+		NextTriggerTime: next,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchSetExpiryToNil(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(time.Time{}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      md.URI,
+		Revision: 1,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(time.Time{}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	next := now.Add(2 * time.Hour).Round(time.Second).UTC()
+	update := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(next),
+	}
+	_, err = s.store.UpdateSecret(uri, update)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      md.URI,
+		Revision: 1,
+	})
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             md.URI,
+		Revision:        1,
+		NextTriggerTime: next,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchRemoveSecret(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	_, err := s.store.DeleteSecret(uri, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      uri,
+		Revision: 1,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchRemoveRevision(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.store.DeleteSecret(uri, []int{1})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      uri,
+		Revision: 1,
 	})
 	wc.AssertNoChange()
 }

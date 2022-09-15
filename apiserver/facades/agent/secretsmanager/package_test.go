@@ -24,7 +24,7 @@ func TestPackage(t *testing.T) {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsBackend
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationservice.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsRotation
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secrettriggers.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretTriggers
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsriggerwatcher.go github.com/juju/juju/state SecretsTriggerWatcher
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretStoreProvider
@@ -35,7 +35,7 @@ func NewTestAPI(
 	leadership leadership.Checker,
 	backend SecretsBackend,
 	consumer SecretsConsumer,
-	secretsRotation SecretsRotation,
+	secretTriggers SecretTriggers,
 	storeConfigGetter commonsecrets.StoreConfigGetter,
 	providerGetter commonsecrets.ProviderInfoGetter,
 	authTag names.Tag,
@@ -52,7 +52,7 @@ func NewTestAPI(
 		leadershipChecker: leadership,
 		secretsBackend:    backend,
 		secretsConsumer:   consumer,
-		secretsRotation:   secretsRotation,
+		secretsTriggers:   secretTriggers,
 		storeConfigGetter: storeConfigGetter,
 		providerGetter:    providerGetter,
 		clock:             clock,

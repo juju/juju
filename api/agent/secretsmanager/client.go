@@ -249,7 +249,7 @@ func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretTri
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewSecretsRotationWatcher(c.facade.RawAPICaller(), result)
+	w := apiwatcher.NewSecretsTriggerWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -279,6 +279,28 @@ func (c *Client) SecretRotated(uri string, oldRevision int) error {
 		return result.Error
 	}
 	return nil
+}
+
+// WatchSecretRevisionsExpiryChanges returns a watcher which serves changes to
+// secret revision expiry config for any secrets managed by the specified owner.
+func (c *Client) WatchSecretRevisionsExpiryChanges(ownerTag string) (watcher.SecretTriggerWatcher, error) {
+	var results params.SecretTriggerWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: ownerTag}},
+	}
+	err := c.facade.FacadeCall("WatchSecretRevisionsExpiryChanges", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewSecretsTriggerWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }
 
 // SecretRevokeGrantArgs holds the args used to grant or revoke access to a secret.

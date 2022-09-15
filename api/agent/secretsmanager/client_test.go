@@ -300,6 +300,28 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *SecretsSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SecretsManager")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchSecretRevisionsExpiryChanges")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "application-app"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.SecretTriggerWatchResults{})
+		*(result.(*params.SecretTriggerWatchResults)) = params.SecretTriggerWatchResults{
+			[]params.SecretTriggerWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	client := secretsmanager.NewClient(apiCaller)
+	_, err := client.WatchSecretRevisionsExpiryChanges("application-app")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
 func (s *SecretsSuite) TestGrant(c *gc.C) {
 	uri := coresecrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
