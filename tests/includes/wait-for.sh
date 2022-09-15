@@ -70,7 +70,7 @@ idle_subordinate_condition() {
 }
 
 active_condition() {
-	local name app_index unit_index
+	local name app_index
 
 	name=${1}
 	app_index=${2:-0}
