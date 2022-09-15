@@ -894,22 +894,22 @@ func (t *localServerSuite) TestStartInstanceZoneIndependent(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
-	inst, err := t.testStartInstanceSubnet(c, "0.1.2.0/24")
+	inst, err := t.testStartInstanceSubnet(c, "10.1.2.0/24")
 	c.Assert(err, jc.ErrorIsNil)
 	ec2Inst := ec2.InstanceSDKEC2(inst)
 	c.Assert(aws.ToString(ec2Inst.Placement.AvailabilityZone), gc.Equals, "test-available")
 }
 
 func (t *localServerSuite) TestStartInstanceSubnetUnavailable(c *gc.C) {
-	// See addTestingSubnets, 0.1.3.0/24 is in state "unavailable", but is in
+	// See addTestingSubnets, 10.1.3.0/24 is in state "unavailable", but is in
 	// an AZ that would otherwise be available
-	_, err := t.testStartInstanceSubnet(c, "0.1.3.0/24")
-	c.Assert(err, gc.ErrorMatches, `subnet "0.1.3.0/24" is "unavailable"`)
+	_, err := t.testStartInstanceSubnet(c, "10.1.3.0/24")
+	c.Assert(err, gc.ErrorMatches, `subnet "10.1.3.0/24" is "unavailable"`)
 }
 
 func (t *localServerSuite) TestStartInstanceSubnetAZUnavailable(c *gc.C) {
-	// See addTestingSubnets, 0.1.4.0/24 is in an AZ that is unavailable
-	_, err := t.testStartInstanceSubnet(c, "0.1.4.0/24")
+	// See addTestingSubnets, 10.1.4.0/24 is in an AZ that is unavailable
+	_, err := t.testStartInstanceSubnet(c, "10.1.4.0/24")
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
 }
 
@@ -947,7 +947,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": "vpc-0", "vpc-id-force": true})
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
-		Placement:      "subnet=0.1.2.0/24",
+		Placement:      "subnet=10.1.2.0/24",
 		SubnetsToZones: []map[corenetwork.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"test-available"},
@@ -956,7 +956,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
 	_, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
-	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=0.1.2.0/24`)
+	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=10.1.2.0/24`)
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -1161,19 +1161,50 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	c.Assert(errors.Details(err), jc.Contains, runInstancesError.ErrorMessage())
 }
 
+// addTestingNetworkInterface adds one network interface with vpc id and
+// availability zone. It will also have a private IP with no
+func (t *localServerSuite) addTestingNetworkInterfaceToInstance(c *gc.C, instId instance.Id) ([]instance.Id, string) {
+	vpc := t.srv.ec2srv.AddVpc(types.Vpc{
+		CidrBlock: aws.String("10.1.0.0/16"),
+		IsDefault: aws.Bool(true),
+	})
+	sub, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:            vpc.VpcId,
+		CidrBlock:        aws.String("10.1.2.0/24"),
+		AvailabilityZone: aws.String("test-available"),
+		State:            "available",
+		DefaultForAz:     aws.Bool(true),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results := make([]instance.Id, 1)
+	iface1, err := t.srv.ec2srv.AddNetworkInterface(types.NetworkInterface{
+		VpcId:              vpc.VpcId,
+		AvailabilityZone:   aws.String("test-available"),
+		PrivateIpAddresses: []types.NetworkInterfacePrivateIpAddress{{}},
+		Attachment: &types.NetworkInterfaceAttachment{
+			DeviceIndex: aws.Int32(-1),
+			InstanceId:  aws.String(string(instId)),
+		},
+		SubnetId: sub.SubnetId,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results[0] = instance.Id(aws.ToString(iface1.NetworkInterfaceId))
+	return results, aws.ToString(vpc.VpcId)
+}
+
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
 // server: 2 of the subnets are in the "test-available" AZ, the remaining - in
 // "test-unavailable". Returns a slice with the IDs of the created subnets and
 // vpc id that those were added to
 func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string) {
 	vpc := t.srv.ec2srv.AddVpc(types.Vpc{
-		CidrBlock: aws.String("0.1.0.0/16"),
+		CidrBlock: aws.String("10.1.0.0/16"),
 		IsDefault: aws.Bool(true),
 	})
 	results := make([]corenetwork.Id, 3)
 	sub1, err := t.srv.ec2srv.AddSubnet(types.Subnet{
 		VpcId:            vpc.VpcId,
-		CidrBlock:        aws.String("0.1.2.0/24"),
+		CidrBlock:        aws.String("10.1.2.0/24"),
 		AvailabilityZone: aws.String("test-available"),
 		State:            "available",
 		DefaultForAz:     aws.Bool(true),
@@ -1182,7 +1213,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string)
 	results[0] = corenetwork.Id(aws.ToString(sub1.SubnetId))
 	sub2, err := t.srv.ec2srv.AddSubnet(types.Subnet{
 		VpcId:            vpc.VpcId,
-		CidrBlock:        aws.String("0.1.3.0/24"),
+		CidrBlock:        aws.String("10.1.3.0/24"),
 		AvailabilityZone: aws.String("test-available"),
 		State:            "unavailable",
 	})
@@ -1190,7 +1221,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string)
 	results[1] = corenetwork.Id(aws.ToString(sub2.SubnetId))
 	sub3, err := t.srv.ec2srv.AddSubnet(types.Subnet{
 		VpcId:            vpc.VpcId,
-		CidrBlock:        aws.String("0.1.4.0/24"),
+		CidrBlock:        aws.String("10.1.4.0/24"),
 		AvailabilityZone: aws.String("test-unavailable"),
 		DefaultForAz:     aws.Bool(true),
 		State:            "unavailable",
@@ -1717,14 +1748,22 @@ func (t *localServerSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	_, _ = t.addTestingNetworkInterfaceToInstance(c, instId)
 	infoLists, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infoLists, gc.HasLen, 1)
 
 	list := infoLists[0]
-	c.Assert(list, gc.HasLen, 1)
+	c.Assert(list, gc.HasLen, 2)
 
-	t.assertInterfaceLooksValid(c, 0, 0, list[0])
+	// It's unpredictable which way around the interfaces are returned, so
+	// ensure the correct one is analysed. The misc interface is given the device
+	// index -1
+	if list[0].DeviceIndex == -1 {
+		t.assertInterfaceLooksValid(c, 0, 0, list[1])
+	} else {
+		t.assertInterfaceLooksValid(c, 0, 0, list[0])
+	}
 }
 
 func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDevIndex int, iface corenetwork.InterfaceInfo) {

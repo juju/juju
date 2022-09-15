@@ -1571,12 +1571,14 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 	}
 
 	for _, privAddr := range iface.PrivateIpAddresses {
-		if ip := aws.ToString(privAddr.Association.PublicIp); ip != "" {
-			ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewMachineAddress(
-				ip,
-				network.WithScope(network.ScopePublic),
-				network.WithConfigType(network.ConfigDHCP),
-			).AsProviderAddress())
+		if privAddr.Association != nil {
+			if ip := aws.ToString(privAddr.Association.PublicIp); ip != "" {
+				ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewMachineAddress(
+					ip,
+					network.WithScope(network.ScopePublic),
+					network.WithConfigType(network.ConfigDHCP),
+				).AsProviderAddress())
+			}
 		}
 
 		if aws.ToString(privAddr.PrivateIpAddress) == privateAddress {
