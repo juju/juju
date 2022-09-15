@@ -20,12 +20,14 @@ type Logger interface {
 	Criticalf(string, ...interface{})
 }
 
-// Machiner
+// Machiner represents necessary methods for this worker from the
+// machiner api.
 type Machiner interface {
 	Machine(tag names.MachineTag) (Machine, error)
 }
 
-// Machine is a type that has a list of jobs and can be watched.
+// Machine represents necessary methods for this worker from the
+// a machiner's machine.
 type Machine interface {
 	Jobs() (*params.JobsResult, error)
 	Watch() (watcher.NotifyWatcher, error)
