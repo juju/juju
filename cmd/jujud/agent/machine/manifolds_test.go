@@ -80,6 +80,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"http-server-args",
 			"instance-mutater",
 			"is-controller-flag",
+			"is-not-controller-flag",
 			"is-primary-controller-flag",
 			"lease-clock-updater",
 			"lease-manager",
@@ -112,6 +113,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"ssh-identity-writer",
 			"state",
 			"state-config-watcher",
+			"state-converter",
 			"storage-provisioner",
 			"syslog",
 			"termination-signal-handler",
@@ -237,6 +239,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"http-server",
 		"http-server-args",
 		"is-controller-flag",
+		"is-not-controller-flag",
 		"is-primary-controller-flag",
 		"lease-clock-updater",
 		"lease-manager",
@@ -647,6 +650,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
 
+	"is-not-controller-flag": {"agent", "state-config-watcher"},
+
 	"is-primary-controller-flag": {
 		"agent",
 		"api-caller",
@@ -993,6 +998,20 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"state": {"agent", "state-config-watcher"},
 
 	"state-config-watcher": {"agent"},
+
+	"state-converter": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-not-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"storage-provisioner": {
 		"agent",

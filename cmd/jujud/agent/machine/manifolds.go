@@ -345,8 +345,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
-		isControllerFlagName:    isControllerFlagManifold(true),
-		isNotControllerFlagName: isControllerFlagManifold(false),
+		isControllerFlagName: isControllerFlagManifold(true),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -1020,10 +1019,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: syslogger.NewWorker,
 			NewLogger: syslogger.NewSyslog,
 		}),
+		// isNotControllerFlagName is only used for the stateconverter,
+		isNotControllerFlagName: isControllerFlagManifold(false),
 		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.conv2state"),
+			Logger:        loggo.GetLogger("juju.worker.stateconverter"),
 		}))),
 	}
 
