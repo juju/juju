@@ -4,6 +4,8 @@
 package sshclient_test
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -13,10 +15,17 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/sshclient"
+	"github.com/juju/juju/apiserver/facades/client/sshclient/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -29,7 +38,7 @@ type facadeSuite struct {
 	facade           *sshclient.Facade
 	m0, uFoo, uOther string
 
-	callContext context.ProviderCallContext
+	callContext environscontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&facadeSuite{})
@@ -49,20 +58,20 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("igor")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
 
 func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
+	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
-	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
+	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
@@ -72,7 +81,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jeremy")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 
@@ -91,7 +100,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("superuser-jeremy")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext)
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 
@@ -238,14 +247,211 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 func (s *facadeSuite) TestLeader(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	mockReader := NewMockReader(ctrl)
+	mockReader := mocks.NewMockReader(ctrl)
 	mockReader.EXPECT().Leaders().Return(map[string]string{"testme": "ubuntu/4", "ubuntu": "ubuntu/5"}, nil)
-	facade, err := sshclient.InternalFacade(s.backend, mockReader, s.authorizer, s.callContext)
+	facade, err := sshclient.InternalFacade(s.backend, mockReader, s.authorizer, s.callContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := facade.Leader(params.Entity{Tag: names.NewApplicationTag("ubuntu").String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, "ubuntu/5")
+}
+
+func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	backend := mocks.NewMockBackend(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	broker := mocks.NewMockBroker(ctrl)
+
+	backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(false, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(false, nil),
+	)
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := facade.ModelCredentialForSSH()
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.IsNil)
+}
+
+func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	backend := mocks.NewMockBackend(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	broker := mocks.NewMockBroker(ctrl)
+
+	backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil),
+		backend.EXPECT().Model().Return(model, nil),
+		model.EXPECT().Type().Return(state.ModelTypeIAAS),
+	)
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := facade.ModelCredentialForSSH()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `facade ModelCredentialForSSH for non "caas" model not implemented`)
+	c.Assert(result.Result, gc.IsNil)
+}
+
+func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	backend := mocks.NewMockBackend(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	broker := mocks.NewMockBroker(ctrl)
+
+	cloudSpec := environscloudspec.CloudSpec{
+		Type:             "type",
+		Name:             "name",
+		Region:           "region",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+		CACertificates:   []string{testing.CACert},
+		SkipTLSVerify:    true,
+	}
+
+	backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil),
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil),
+		backend.EXPECT().Model().Return(model, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		backend.EXPECT().CloudSpec().Return(cloudSpec, nil),
+	)
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := facade.ModelCredentialForSSH()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `cloud spec "name" has empty credential not valid`)
+	c.Assert(result.Result, gc.IsNil)
+}
+
+func (s *facadeSuite) TestModelCredentialForSSH(c *gc.C) {
+	s.assertModelCredentialForSSH(c,
+		func(authorizer *mocks.MockAuthorizer) {
+			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil)
+			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil)
+		},
+	)
+}
+
+func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *gc.C) {
+	s.assertModelCredentialForSSH(c,
+		func(authorizer *mocks.MockAuthorizer) {
+			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(true, nil)
+			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(false, nil)
+		},
+	)
+}
+
+func (s *facadeSuite) TestModelCredentialForSSHSuperuserAccess(c *gc.C) {
+	s.assertModelCredentialForSSH(c,
+		func(authorizer *mocks.MockAuthorizer) {
+			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(false, nil)
+			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(true, nil)
+		},
+	)
+}
+
+func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mocks.MockAuthorizer)) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	backend := mocks.NewMockBackend(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	f(authorizer)
+	broker := mocks.NewMockBroker(ctrl)
+
+	credential := cloud.NewCredential(
+		"auth-type",
+		map[string]string{
+			k8scloud.CredAttrUsername: "foo",
+			k8scloud.CredAttrPassword: "pwd",
+		},
+	)
+	cloudSpec := environscloudspec.CloudSpec{
+		Type:             "type",
+		Name:             "name",
+		Region:           "region",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+		Credential:       &credential,
+		CACertificates:   []string{testing.CACert},
+		SkipTLSVerify:    true,
+	}
+
+	backend.EXPECT().ModelTag().Return(testing.ModelTag)
+	backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
+	model.EXPECT().ControllerUUID().Return(testing.ControllerTag.Id())
+
+	gomock.InOrder(
+		authorizer.EXPECT().AuthClient().Return(true),
+		backend.EXPECT().Model().Return(model, nil),
+		model.EXPECT().Type().Return(state.ModelTypeCAAS),
+		backend.EXPECT().CloudSpec().Return(cloudSpec, nil),
+		model.EXPECT().Config().Return(nil, nil),
+		broker.EXPECT().GetSecretToken(k8sprovider.ExecRBACResourceName).Return("token", nil),
+	)
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+		func(_ context.Context, arg environs.OpenParams) (sshclient.Broker, error) {
+			c.Assert(arg.ControllerUUID, gc.Equals, testing.ControllerTag.Id())
+			c.Assert(arg.Cloud, gc.DeepEquals, cloudSpec)
+			return broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := facade.ModelCredentialForSSH()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.DeepEquals, &params.CloudSpec{
+		Type:             "type",
+		Name:             "name",
+		Region:           "region",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+		Credential: &params.CloudCredential{
+			AuthType: "auth-type",
+			Attributes: map[string]string{
+				k8scloud.CredAttrUsername: "",
+				k8scloud.CredAttrPassword: "",
+				k8scloud.CredAttrToken:    "token",
+			},
+		},
+		CACertificates: []string{testing.CACert},
+		SkipTLSVerify:  true,
+	})
 }
 
 type mockBackend struct {
@@ -255,6 +461,14 @@ type mockBackend struct {
 
 func (backend *mockBackend) ModelTag() names.ModelTag {
 	return testing.ModelTag
+}
+
+func (backend *mockBackend) CloudSpec() (environscloudspec.CloudSpec, error) {
+	return environscloudspec.CloudSpec{}, errors.NotImplementedf("CloudSpec")
+}
+
+func (backend *mockBackend) Model() (sshclient.Model, error) {
+	return nil, errors.NotImplementedf("CloudSpec")
 }
 
 func (backend *mockBackend) ControllerTag() names.ControllerTag {

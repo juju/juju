@@ -4,10 +4,14 @@
 package sshclient
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -21,7 +25,10 @@ func Register(registry facade.FacadeRegistry) {
 		return newFacadeV2(ctx) // v2 adds AllAddresses() method.
 	}, reflect.TypeOf((*FacadeV2)(nil)))
 	registry.MustRegister("SSHClient", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacade(ctx) // v3 adds Leader() method.
+		return newFacadeV3(ctx) // v3 adds Leader() method.
+	}, reflect.TypeOf((*Facade)(nil)))
+	registry.MustRegister("SSHClient", 4, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacade(ctx) // v4 adds ModelCredentialForSSH() method.
 	}, reflect.TypeOf((*Facade)(nil)))
 }
 
@@ -45,14 +52,27 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 		&facadeBackend,
 		leadershipReader,
 		ctx.Auth(),
-		context.CallContext(st))
+		context.CallContext(st),
+		func(ctx stdcontext.Context, args environs.OpenParams) (Broker, error) {
+			return caas.New(ctx, args)
+		},
+	)
 }
 
-// newFacadeV2 is used for API registration.
-func newFacadeV2(ctx facade.Context) (*FacadeV2, error) {
+// newFacadeV3 is used for API registration.
+func newFacadeV3(ctx facade.Context) (*FacadeV3, error) {
 	f, err := newFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &FacadeV2{Facade: f}, nil
+	return &FacadeV3{f}, nil
+}
+
+// newFacadeV2 is used for API registration.
+func newFacadeV2(ctx facade.Context) (*FacadeV2, error) {
+	f, err := newFacadeV3(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &FacadeV2{f}, nil
 }
