@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	apps "k8s.io/api/apps/v1"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
@@ -101,7 +103,10 @@ const (
 )
 
 var (
+	// modelOperatorName is the model operator stack name used for deployment, service, RBAC resources.
 	modelOperatorName = "modeloperator"
+	// ExecRBACResourceName is the model's exec RBAC resource name.
+	ExecRBACResourceName = "model-exec"
 )
 
 // Client implements ModelOperatorBroker
@@ -183,6 +188,7 @@ func (m *modelOperatorBrokerBridge) IsLegacyLabels() bool {
 func ensureModelOperator(
 	modelUUID,
 	agentPath string,
+	clock jujuclock.Clock,
 	config *caas.ModelOperatorConfig,
 	broker ModelOperatorBroker,
 ) (err error) {
@@ -244,13 +250,13 @@ func ensureModelOperator(
 	saName, c, err := ensureModelOperatorRBAC(
 		ctx,
 		broker,
+		clock,
 		operatorName,
 		labels,
 	)
 	cleanUpFuncs = append(cleanUpFuncs, c...)
 	if err != nil {
-		err = errors.Trace(err)
-		return
+		return errors.Trace(err)
 	}
 
 	service := modelOperatorService(
@@ -327,7 +333,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 		isLegacyLabels: k.IsLegacyLabels,
 	}
 
-	return ensureModelOperator(modelUUID, agentPath, config, bridge)
+	return ensureModelOperator(modelUUID, agentPath, k.clock, config, bridge)
 }
 
 // ModelOperator return the model operator config used to create the current
@@ -543,19 +549,24 @@ func modelOperatorGlobalScopedName(model, operatorName string) string {
 func ensureModelOperatorRBAC(
 	ctx context.Context,
 	broker ModelOperatorBroker,
+	clock jujuclock.Clock,
 	operatorName string,
 	labels map[string]string,
 ) (string, []func(), error) {
 	cleanUpFuncs := []func(){}
 
-	globalName := modelOperatorGlobalScopedName(broker.Model(), operatorName)
+	objMetaGlobal := meta.ObjectMeta{
+		Name:   modelOperatorGlobalScopedName(broker.Model(), operatorName),
+		Labels: labels,
+	}
+	objMetaNamespaced := meta.ObjectMeta{
+		Name:      operatorName,
+		Labels:    labels,
+		Namespace: broker.Namespace(),
+	}
 
 	sa := &core.ServiceAccount{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      operatorName,
-			Namespace: broker.Namespace(),
-			Labels:    labels,
-		},
+		ObjectMeta:                   objMetaNamespaced,
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 
@@ -565,11 +576,8 @@ func ensureModelOperatorRBAC(
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring service account")
 	}
 
-	clusterRole := resources.NewClusterRole(globalName, &rbac.ClusterRole{
-		ObjectMeta: meta.ObjectMeta{
-			Name:   globalName,
-			Labels: labels,
-		},
+	clusterRole := resources.NewClusterRole(objMetaGlobal.GetName(), &rbac.ClusterRole{
+		ObjectMeta: objMetaGlobal,
 		Rules: []rbac.PolicyRule{
 			{
 				APIGroups: []string{""},
@@ -600,11 +608,8 @@ func ensureModelOperatorRBAC(
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring cluster role")
 	}
 
-	clusterRoleBinding := resources.NewClusterRoleBinding(globalName, &rbac.ClusterRoleBinding{
-		ObjectMeta: meta.ObjectMeta{
-			Name:   globalName,
-			Labels: labels,
-		},
+	clusterRoleBinding := resources.NewClusterRoleBinding(objMetaGlobal.GetName(), &rbac.ClusterRoleBinding{
+		ObjectMeta: objMetaGlobal,
 		RoleRef: rbac.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
@@ -626,11 +631,7 @@ func ensureModelOperatorRBAC(
 	}
 
 	role := &rbac.Role{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      operatorName,
-			Namespace: broker.Namespace(),
-			Labels:    labels,
-		},
+		ObjectMeta: objMetaNamespaced,
 		Rules: []rbac.PolicyRule{
 			{
 				APIGroups: []string{""},
@@ -651,11 +652,7 @@ func ensureModelOperatorRBAC(
 	}
 
 	roleBinding := &rbac.RoleBinding{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      operatorName,
-			Namespace: broker.Namespace(),
-			Labels:    labels,
-		},
+		ObjectMeta: objMetaNamespaced,
 		RoleRef: rbac.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
@@ -676,7 +673,66 @@ func ensureModelOperatorRBAC(
 		return sa.Name, cleanUpFuncs, errors.Annotate(err, "ensuring role binding")
 	}
 
-	return sa.Name, cleanUpFuncs, nil
+	err = ensureExecRBACResources(objMetaNamespaced, clock, broker)
+	return sa.Name, cleanUpFuncs, errors.Trace(err)
+}
+
+func ensureExecRBACResources(objMeta meta.ObjectMeta, clock jujuclock.Clock, broker ModelOperatorBroker) error {
+	objMeta.SetName(ExecRBACResourceName)
+
+	sa := &core.ServiceAccount{
+		ObjectMeta:                   objMeta,
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+	_, err := broker.EnsureServiceAccount(sa)
+	if err != nil {
+		return errors.Annotatef(err, "ensuring service account %q", sa.GetName())
+	}
+
+	role := &rbac.Role{
+		ObjectMeta: objMeta,
+		Rules: []rbac.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods/exec"},
+				Verbs: []string{
+					"create",
+				},
+			},
+		},
+	}
+	_, err = broker.EnsureRole(role)
+	if err != nil {
+		return errors.Annotatef(err, "ensuring role %q", role.GetName())
+	}
+
+	roleBinding := &rbac.RoleBinding{
+		ObjectMeta: objMeta,
+		RoleRef: rbac.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     role.Name,
+		},
+		Subjects: []rbac.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      sa.Name,
+				Namespace: sa.Namespace,
+			},
+		},
+	}
+
+	_, err = broker.EnsureRoleBinding(roleBinding)
+	if err != nil {
+		return errors.Annotatef(err, "ensuring role binding %q", roleBinding.Name)
+	}
+
+	_, err = proxy.EnsureSecretForServiceAccount(
+		sa.GetName(), objMeta, clock,
+		broker.Client().CoreV1().Secrets(objMeta.GetNamespace()),
+		broker.Client().CoreV1().ServiceAccounts(objMeta.GetNamespace()),
+	)
+	return errors.Trace(err)
 }
 
 func modelOperatorConfigMapAgentConfKey(operatorName string) string {
