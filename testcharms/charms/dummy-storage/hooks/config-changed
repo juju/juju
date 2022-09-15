@@ -5,8 +5,8 @@ juju-log -l INFO "Getting file fs token details."
 status-set maintenance "Getting file fs token details." || true
 
 function set_token() {
-    token_name=$1           # i.e. data-token
-    fs_path=$2              # i.e. /srv/data/ 
+    token_name=$1           # i.e. single-fs-token
+    fs_path=$2              # i.e. /srv/single-fs/ or /srv/multi-fs/multi-fs/13
 
     token="$(config-get $token_name)"
     token_file="$fs_path/token"
@@ -42,18 +42,18 @@ function set_token() {
 echo > /tmp/status
 
 # First the single token
-data_token=$(set_token "data-token" "/srv/data")
+single_fs_token=$(set_token "single-fs-token" "/srv/single-fs")
 
 juju-log -l INFO "Setting single token details."
-echo "data-token:$data_token" >> /tmp/status
+echo "single-fs-token:$single_fs_token" >> /tmp/status
 
-## Then the multi-fs token
-#for unit in $(storage-list multi-fs); do
-#    fs_path=$(storage-get -s $unit | grep "^location:\ " | cut -d: -f2 | tr -d ' ')
-#    multi_fs_token=$(set_token "multi-fs-token" "$fs_path")
-#    juju-log -l INFO "Setting multi token details."
-#    unit_token_number=$(echo $unit | cut -f2 -d"/")
-#    echo "multi-fs-token/$unit_token_number:$multi_fs_token" >> /tmp/status
-#done
+# Then the multi-fs token
+for unit in $(storage-list multi-fs); do
+    fs_path=$(storage-get -s $unit | grep "^location:\ " | cut -d: -f2 | tr -d ' ')
+    multi_fs_token=$(set_token "multi-fs-token" "$fs_path")
+    juju-log -l INFO "Setting multi token details."
+    unit_token_number=$(echo $unit | cut -f2 -d"/")
+    echo "multi-fs-token/$unit_token_number:$multi_fs_token" >> /tmp/status
+done
 
 status-set active "Stored token: /tmp/status" || true
