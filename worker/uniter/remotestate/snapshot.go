@@ -93,6 +93,9 @@ type Snapshot struct {
 	// SecretRotations is a list of secret URIs that need to be rotated.
 	SecretRotations []string
 
+	// ExpiredSecretRevisions is a list of secret revisions that need to be expired.
+	ExpiredSecretRevisions []string
+
 	// ConsumedSecretInfo is a list of the labels and revision info
 	// for secrets consumed by this unit.
 	// The map is keyed on secret ID.

@@ -23,21 +23,22 @@ import (
 	"github.com/juju/juju/worker/uniter/secrets/mocks"
 )
 
-type rotateSecretsSuite struct {
-	remoteState   remotestate.Snapshot
-	mockCallbacks *operationmocks.MockCallbacks
-	mockFactory   *runnermocks.MockFactory
-	mockRunner    *runnermocks.MockRunner
-	mockContext   *runnermocks.MockContext
-	mockTracker   *mocks.MockSecretStateTracker
-	opFactory     operation.Factory
-	resolver      resolver.Resolver
-	rotatedSecret func(string)
+type triggerSecretsSuite struct {
+	remoteState     remotestate.Snapshot
+	mockCallbacks   *operationmocks.MockCallbacks
+	mockFactory     *runnermocks.MockFactory
+	mockRunner      *runnermocks.MockRunner
+	mockContext     *runnermocks.MockContext
+	mockTracker     *mocks.MockSecretStateTracker
+	opFactory       operation.Factory
+	resolver        resolver.Resolver
+	rotatedSecret   func(string)
+	expiredRevision func(string)
 }
 
-var _ = gc.Suite(&rotateSecretsSuite{})
+var _ = gc.Suite(&triggerSecretsSuite{})
 
-func (s *rotateSecretsSuite) SetUpTest(_ *gc.C) {
+func (s *triggerSecretsSuite) SetUpTest(_ *gc.C) {
 	s.remoteState = remotestate.Snapshot{
 		Leader: true,
 		Life:   life.Alive,
@@ -49,11 +50,15 @@ func (s *rotateSecretsSuite) SetUpTest(_ *gc.C) {
 		if s.rotatedSecret != nil {
 			s.rotatedSecret(url)
 		}
+	}, func(rev string) {
+		if s.expiredRevision != nil {
+			s.expiredRevision(rev)
+		}
 	},
 	)
 }
 
-func (s *rotateSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *triggerSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockCallbacks = operationmocks.NewMockCallbacks(ctlr)
 	s.mockFactory = runnermocks.NewMockFactory(ctlr)
@@ -68,7 +73,7 @@ func (s *rotateSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctlr
 }
 
-func (s *rotateSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
+func (s *triggerSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -79,7 +84,7 @@ func (s *rotateSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
-func (s *rotateSecretsSuite) TestNextOpNotLeader(c *gc.C) {
+func (s *triggerSecretsSuite) TestNextOpNotLeader(c *gc.C) {
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind:      operation.Continue,
@@ -92,7 +97,7 @@ func (s *rotateSecretsSuite) TestNextOpNotLeader(c *gc.C) {
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
-func (s *rotateSecretsSuite) TestNextOpNotAlive(c *gc.C) {
+func (s *triggerSecretsSuite) TestNextOpNotAlive(c *gc.C) {
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind:      operation.Continue,
@@ -105,7 +110,7 @@ func (s *rotateSecretsSuite) TestNextOpNotAlive(c *gc.C) {
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
-func (s *rotateSecretsSuite) TestNextOpNotReady(c *gc.C) {
+func (s *triggerSecretsSuite) TestNextOpNotReady(c *gc.C) {
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind:      operation.Upgrade,
@@ -117,7 +122,7 @@ func (s *rotateSecretsSuite) TestNextOpNotReady(c *gc.C) {
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
-func (s *rotateSecretsSuite) TestNextOpRotate(c *gc.C) {
+func (s *triggerSecretsSuite) TestNextOpRotate(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -133,7 +138,7 @@ func (s *rotateSecretsSuite) TestNextOpRotate(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
 
-func (s *rotateSecretsSuite) TestRotateCommit(c *gc.C) {
+func (s *triggerSecretsSuite) TestRotateCommit(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -176,6 +181,60 @@ func (s *rotateSecretsSuite) TestRotateCommit(c *gc.C) {
 	c.Assert(rotatedURI, gc.Equals, uri.String())
 }
 
+func (s *triggerSecretsSuite) TestNextOpExpire(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.ExpiredSecretRevisions = []string{"secret:9m4e2mr0ui3e8a215n4g/666"}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run secret-expired (secret:9m4e2mr0ui3e8a215n4g/666) hook")
+}
+
+func (s *triggerSecretsSuite) TestExpireCommit(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	uri := coresecrets.NewURI()
+	s.remoteState.ExpiredSecretRevisions = []string{uri.String() + "/666"}
+	var expiredRevision string
+	s.expiredRevision = func(rev string) {
+		expiredRevision = rev
+	}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hi := hook.Info{
+		Kind:           hooks.SecretExpired,
+		SecretURI:      uri.String(),
+		SecretRevision: 666,
+	}
+	s.mockCallbacks.EXPECT().PrepareHook(hi).Return("", nil)
+	s.mockFactory.EXPECT().NewHookRunner(hi).Return(s.mockRunner, nil)
+	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
+	s.mockContext.EXPECT().Prepare().Return(nil)
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expiredRevision, gc.Equals, uri.String()+"/666")
+}
+
 type changeSecretsSuite struct {
 	remoteState remotestate.Snapshot
 	opFactory   operation.Factory
@@ -198,7 +257,7 @@ func (s *changeSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Logger: logger,
 	})
 	s.tracker = mocks.NewMockSecretStateTracker(ctlr)
-	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil)
+	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil, nil)
 	return ctlr
 }
 
@@ -296,7 +355,7 @@ func (s *removeSecretSuite) setupMocks(c *gc.C) *gomock.Controller {
 		Logger: logger,
 	})
 	s.tracker = mocks.NewMockSecretStateTracker(ctlr)
-	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil)
+	s.resolver = secrets.NewSecretsResolver(logger, s.tracker, nil, nil)
 	return ctlr
 }
 
@@ -392,7 +451,7 @@ func (s *secretDeletedSuite) SetUpTest(_ *gc.C) {
 func (s *secretDeletedSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	logger := loggo.GetLogger("test")
-	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil)
+	s.resolver = secrets.NewSecretsResolver(logger, s.mockTracker, nil, nil)
 	s.mockCallbacks = operationmocks.NewMockCallbacks(ctlr)
 	s.mockTracker = mocks.NewMockSecretStateTracker(ctlr)
 	s.opFactory = operation.NewFactory(operation.FactoryParams{

@@ -120,8 +120,12 @@ type Uniter struct {
 	hookLock machinelock.Lock
 
 	// secretRotateWatcherFunc returns a watcher that triggers when secrets
-	// created by this unit's application should be rotated.
-	secretRotateWatcherFunc remotestate.SecretRotateWatcherFunc
+	// owned by this unit ot its application should be rotated.
+	secretRotateWatcherFunc remotestate.SecretTriggerWatcherFunc
+
+	// secretExpiryWatcherFunc returns a watcher that triggers when
+	// secret revisions owned by this unit or its application should be expired.
+	secretExpiryWatcherFunc remotestate.SecretTriggerWatcherFunc
 
 	Probe Probe
 
@@ -190,7 +194,8 @@ type UniterParams struct {
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
-	SecretRotateWatcherFunc       remotestate.SecretRotateWatcherFunc
+	SecretRotateWatcherFunc       remotestate.SecretTriggerWatcherFunc
+	SecretExpiryWatcherFunc       remotestate.SecretTriggerWatcherFunc
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -268,6 +273,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			hookLock:                      uniterParams.MachineLock,
 			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
 			secretRotateWatcherFunc:       uniterParams.SecretRotateWatcherFunc,
+			secretExpiryWatcherFunc:       uniterParams.SecretExpiryWatcherFunc,
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -400,6 +406,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				LeadershipTracker:             u.leadershipTracker,
 				SecretsClient:                 u.secretsClient,
 				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
+				SecretExpiryWatcherFunc:       u.secretExpiryWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
@@ -503,6 +510,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.ChildWithLabels("secrets", corelogger.SECRETS),
 				u.secretsTracker,
 				watcher.RotateSecretCompleted,
+				watcher.ExpireRevisionCompleted,
 			),
 			Logger: u.logger,
 		}

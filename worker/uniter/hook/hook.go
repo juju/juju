@@ -108,6 +108,9 @@ func (hi Info) Validate() error {
 		if _, err := secrets.ParseURI(hi.SecretURI); err != nil {
 			return errors.Errorf("invalid secret URI %q", hi.SecretURI)
 		}
+		if (hi.Kind == hooks.SecretRemove || hi.Kind == hooks.SecretExpired) && hi.SecretRevision <= 0 {
+			return errors.Errorf("%q hook requires a secret revision", hi.Kind)
+		}
 		return nil
 	}
 	return errors.Errorf("unknown hook kind %q", hi.Kind)

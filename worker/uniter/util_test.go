@@ -141,6 +141,7 @@ type testContext struct {
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
 	secretsRotateCh        chan []string
+	secretsExpireCh        chan []string
 	secretsClient          *secretsmanager.Client
 	secretsStore           jujusecrets.Store
 	err                    string
@@ -598,6 +599,11 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			c.Assert(u.String(), gc.Equals, s.unitTag)
 			ctx.secretsRotateCh = secretsChanged
 			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
+		},
+		SecretExpiryWatcherFunc: func(u names.UnitTag, secretsChanged chan []string) (worker.Worker, error) {
+			c.Assert(u.String(), gc.Equals, s.unitTag)
+			ctx.secretsExpireCh = secretsChanged
+			return watchertest.NewMockStringsWatcher(ctx.secretsExpireCh), nil
 		},
 		SecretsClient: ctx.secretsClient,
 		SecretsStoreGetter: func() (jujusecrets.Store, error) {
@@ -1715,6 +1721,16 @@ func (s rotateSecret) step(c *gc.C, ctx *testContext) {
 	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI.String()}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("sending rotate secret change for %q", ctx.createdSecretURI)
+	}
+}
+
+type expireSecret struct{}
+
+func (s expireSecret) step(c *gc.C, ctx *testContext) {
+	select {
+	case ctx.secretsExpireCh <- []string{ctx.createdSecretURI.String() + "/1"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf(`sending expire secret change for "%s/1"`, ctx.createdSecretURI)
 	}
 }
 

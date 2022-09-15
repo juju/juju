@@ -4,6 +4,9 @@
 package secrets
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -25,15 +28,17 @@ var _ logger = struct{}{}
 // When a rotation is completed, the "rotatedSecrets" callback
 // is invoked to update the rotate time in the remote state.
 type secretsResolver struct {
-	logger         Logger
-	secretsTracker SecretStateTracker
-	rotatedSecrets func(url string)
+	logger           Logger
+	secretsTracker   SecretStateTracker
+	rotatedSecrets   func(url string)
+	expiredRevisions func(rev string)
 }
 
 // NewSecretsResolver returns a new Resolver that returns operations
-// to rotate secrets.
-func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker, rotatedSecrets func(string)) resolver.Resolver {
-	return &secretsResolver{logger: logger, secretsTracker: secretsTracker, rotatedSecrets: rotatedSecrets}
+// to rotate, expire, or run other secret related hooks.
+func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker, rotatedSecrets func(string), expiredRevisions func(string)) resolver.Resolver {
+	return &secretsResolver{logger: logger, secretsTracker: secretsTracker,
+		rotatedSecrets: rotatedSecrets, expiredRevisions: expiredRevisions}
 }
 
 // NextOp is part of the resolver.Resolver interface.
@@ -52,6 +57,9 @@ func (s *secretsResolver) NextOp(
 		return nil, resolver.ErrNoOperation
 	}
 
+	if op, err := s.expireOp(localState, remoteState, opFactory); err == nil || err != resolver.ErrNoOperation {
+		return op, err
+	}
 	if op, err := s.rotateOp(localState, remoteState, opFactory); err == nil || err != resolver.ErrNoOperation {
 		return op, err
 	}
@@ -113,6 +121,50 @@ func (s *secretsResolver) rotateOp(
 	}
 	opCompleted := func() {
 		s.rotatedSecrets(uri)
+	}
+	return &secretCompleter{op, opCompleted}, nil
+}
+
+func splitSecretChange(c string) (string, int) {
+	parts := strings.Split(c, "/")
+	if len(parts) < 2 {
+		return parts[0], 0
+	}
+	rev, _ := strconv.Atoi(parts[1])
+	return parts[0], rev
+}
+
+func (s *secretsResolver) expireOp(
+	_ resolver.LocalState,
+	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
+) (operation.Operation, error) {
+	if len(remoteState.ExpiredSecretRevisions) == 0 {
+		return nil, resolver.ErrNoOperation
+	}
+
+	// Nothing to do if we're no longer the leader.
+	if !remoteState.Leader {
+		return nil, resolver.ErrNoOperation
+	}
+
+	revSpec := remoteState.ExpiredSecretRevisions[0]
+	uri, rev := splitSecretChange(revSpec)
+	if rev == 0 {
+		s.logger.Warningf("ignoring invalid secret revision %q", revSpec)
+		return nil, resolver.ErrNoOperation
+	}
+
+	op, err := opFactory.NewRunHook(hook.Info{
+		Kind:           hooks.SecretExpired,
+		SecretURI:      uri,
+		SecretRevision: rev,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	opCompleted := func() {
+		s.expiredRevisions(revSpec)
 	}
 	return &secretCompleter{op, opCompleted}, nil
 }
