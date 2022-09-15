@@ -48,6 +48,13 @@ run_charm_storage() {
 	assert_storage "dummy-storage-fs/0" "$(unit_attachment "data" 0 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "data" 0 "dummy-storage-fs" 0)"
+	# assert the filesystem size
+	requested_storage=1024
+	acquired_storage=$(juju storage --format json | jq '.filesystems | .["0/0"] | select(.pool=="rootfs") | .size')
+	if [ "$requested_storage" -gt "$acquired_storage" ]; then
+		echo "acquired storage size $acquired_storage should be greater than the requested storage $requested_storage"
+		exit 1
+	fi
 	echo "Filesystem rootfs PASSED"
 
 	# Assess charm storage with the filesystem storage provider

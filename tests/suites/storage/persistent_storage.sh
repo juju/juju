@@ -28,10 +28,10 @@ run_persistent_storage() {
 	wait_for "active" "$(workload_status "dummy-storage" 0).current"
 
 	echo "Checking total number of storage unit(s)."
-	juju storage --format json | jq '.storage | keys | length' | check 2
+	assert_storage 2 ".storage | keys | length"
 	echo "Checking names of storage unit(s)."
-	juju storage --format json | jq '.storage | keys | .[0]' | check "single-blk/0"
-	juju storage --format json | jq '.storage | keys | .[1]' | check "single-fs/1"
+	assert_storage "single-blk/0" "$(label 0)"
+	assert_storage "single-fs/1" "$(label 1)"
 	echo "Check name and total number of storage unit: PASSED."
 
 	#
@@ -41,13 +41,13 @@ run_persistent_storage() {
 	assert_storage "block" "$(kind_name "single-blk" 0)"
 	# persistent setting
 	echo "Checking persistent setting of single block storage unit"
-	juju storage --format json | jq '.storage | ."single-blk/0" | .persistent' | check true
+	assert_storage true '.storage | ."single-blk/0" | .persistent'
 	# pool storage
-	juju storage --format json | jq '.volumes | ."0" | .storage' | check "single-blk/0"
+	assert_storage "single-blk/0" '.volumes | ."0" | .storage'
 	# pool setting
-	juju storage --format json | jq '.volumes | ."0" | .pool' | check "ebs"
+	assert_storage "ebs" '.volumes | ."0" | .pool'
 	# storage status
-	juju storage --format json | jq '.volumes | ."0" | .status | .current' | check "attached"
+	assert_storage "attached" '.volumes | ."0" | .status | .current'
 	echo "Check properties of single block device storage unit: PASSED."
 
 	#
@@ -56,13 +56,13 @@ run_persistent_storage() {
 	assert_storage "filesystem" "$(kind_name "single-fs" 1)"
 	# persistent setting
 	echo "Checking persistent setting of single filesystem storage unit"
-	juju storage --format json | jq '.storage | ."single-fs/1" | .persistent' | check false
+	assert_storage false '.storage | ."single-fs/1" | .persistent'
 	# pool storage
-	juju storage --format json | jq '.volumes | ."0" | .storage' | check "single-blk/0"
+	assert_storage "single-blk/0" '.volumes | ."0" | .storage'
 	# pool setting
-	juju storage --format json | jq '.volumes | ."0" | .pool' | check "ebs"
+	assert_storage "ebs" '.volumes | ."0" | .pool'
 	# storage status
-	juju storage --format json | jq '.volumes | ."0" | .status | .current' | check "attached"
+	assert_storage "attached" '.volumes | ."0" | .status | .current'
 	echo "Check properties of single filesystem storage unit: PASSED."
 
 	# assert charm removal message for single block and filesystem storage
@@ -71,24 +71,24 @@ run_persistent_storage() {
 	echo "${removal_msg}" | sed -sn 3p | sed 's/^-//' | check "will detach storage single-blk/0"
 	#
 	# wait until an update of storage status occurred. Due to the asynchronous nature of Juju,
-	# the status of storage may change time to time after a Juju CLI issued, in this test only
-	# the existence of storage id is the point of interest.
+	# the status of storage may change from time to time after a Juju CLI is issued, in this test only
+	# the existence of storage unit is the point of interest.
 	#
 	wait_for "{}" ".applications" # we use this wait_for command as an indicator that the application
 	# status has changed and now we can check for the storage status and assert that indeed the
 	# single filesystem storage unit has been removed successfully.
-	juju storage --format json | jq '.storage | has("single-fs/1")' | check false
+	assert_storage false '.storage | has("single-fs/1")'
 
 	echo "Checking total number of storage unit(s)."
-	juju storage --format json | jq '.storage | keys | length' | check 1
+	assert_storage 1 ".storage | keys | length"
 	echo "Check for existence of single block storage"
-	juju storage --format json | jq '.storage | has("single-blk/0")' | check true
+	assert_storage true '.storage | has("single-blk/0")'
 	echo "single-blk/0 found in storage list."
 
 	echo "Check for existence of single-blk/0 persistent storage after remove-application"
-	juju storage --format json | jq '.volumes | ."0" | .storage' | check "single-blk/0"
+	assert_storage "single-blk/0" '.volumes | ."0" | .storage'
 	# storage status
-	juju storage --format json | jq '.volumes | ."0" | .status | .current' | check "detached"
+	assert_storage "detached" '.volumes | ."0" | .status | .current'
 	echo "Check status of persistent storage single-blk/0 after remove-application: PASSED"
 
 	# Deploy charm with an existing detached storage
@@ -99,22 +99,22 @@ run_persistent_storage() {
 	# wait for current workload-status to be active
 	wait_for "active" "$(workload_status "dummy-storage" 1).current"
 	# assert storage unit count
-	juju storage --format json | jq '.storage | keys | length' | check 1
+	assert_storage 1 ".storage | keys | length"
 	echo "Checking existence of single block device storage single-blk/0."
-	juju storage --format json | jq '.storage | has("single-blk/0")' | check true
+	assert_storage true '.storage | has("single-blk/0")'
 	# assert persistent setting
 	echo "Checking persistent setting of storage unit single-blk/0."
-	juju storage --format json | jq '.storage | ."single-blk/0" | .persistent' | check true
+	assert_storage true '.storage | ."single-blk/0" | .persistent'
 	# assert storage status
 	echo "Checking the status of storage single-blk/0 in volumes."
-	juju storage --format json | jq '.volumes | ."0" | .status | .current' | check "attached"
+	assert_storage "attached" '.volumes | ."0" | .status | .current'
 
 	# remove charm
 	juju remove-application dummy-storage
 	# wait for application to be removed
 	wait_for "{}" ".applications"
 	# persistent storage should remain after remove-application
-	juju storage --format json | jq '.storage | has("single-blk/0")' | check true
+	assert_storage true '.storage | has("single-blk/0")'
 	# remove storage
 	juju remove-storage single-blk/0
 	# wait until an update of storage status occurred. Due to the asynchronous nature of Juju,
