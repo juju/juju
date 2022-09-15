@@ -70,7 +70,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	}
 
 	// Create the model.
-	cfg, err := config.New(config.NoDefaults, model.Config())
+	cfg, err := modelConfig(model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -241,6 +241,31 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
+}
+
+// modelConfig creates a config for the model being imported.
+// If the tools version is before 2.9.35, the default-series
+// value is cleared. This matches an upgrade step for 2.9.35
+// as well. Ensuring that the default-series value is set by
+// the user rather than a hold over from an old juju set value.
+// Related to using the default-series value in the same way
+// as a series flag at deploy.
+func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
+	v, ok := attrs["agent-version"].(string)
+	if !ok {
+		return nil, errors.New("model config missing agent-version")
+	}
+	toolsVersion, err := version.Parse(v)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Using MustParse as the value parsed will never change.
+	newer := version.MustParse("2.9.35")
+	if comp := toolsVersion.Compare(newer); comp >= 0 {
+		return config.New(config.NoDefaults, attrs)
+	}
+	attrs["default-series"] = ""
+	return config.New(config.NoDefaults, attrs)
 }
 
 // ImportStateMigration defines a migration for importing various entities from
