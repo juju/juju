@@ -272,39 +272,6 @@ func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
 	c.Assert(errs, gc.IsNil)
 }
 
-func (s *cloudSuite) TestUpdateCredentialCallError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.UpdateCredentialArgs{
-		Credentials: []params.TaggedCredential{{
-			Tag: "cloudcred-foo_bob_bar",
-			Credential: params.CloudCredential{
-				AuthType: "userpass",
-				Attributes: map[string]string{
-					"username": "admin",
-					"password": "adm1n",
-				},
-			},
-		}}}
-	res := new(params.UpdateCredentialResults)
-	results := params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{
-			{
-				CredentialTag: "cloudcred-foo_bob_bar",
-				Error:         apiservererrors.ServerError(errors.New("validation failure")),
-			},
-		},
-	}
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(errors.New("scary but true"))
-	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
-
-	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
-	c.Assert(err, gc.ErrorMatches, "scary but true")
-	c.Assert(result, gc.IsNil)
-}
-
 func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -807,74 +774,6 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar0", Error: apiservererrors.ServerError(errors.New("validation failure"))},
 	})
-}
-
-func (s *cloudSuite) TestUpdateCloudsCredentialsMasksLegacyError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.UpdateCredentialArgs{
-		Force: false,
-		Credentials: []params.TaggedCredential{{
-			Tag: "cloudcred-foo_bob_bar0",
-			Credential: params.CloudCredential{
-				AuthType: "userpass",
-				Attributes: map[string]string{
-					"username": "admin",
-					"password": "adm1n",
-				},
-			},
-		}}}
-	res := new(params.UpdateCredentialResults)
-	results := params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{
-			{CredentialTag: "cloudcred-foo_bob_bar0",
-				Error: apiservererrors.ServerError(errors.New("some models are no longer visible")),
-			},
-		},
-	}
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
-	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
-
-	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
-		{CredentialTag: "cloudcred-foo_bob_bar0"},
-	})
-}
-
-func (s *cloudSuite) TestUpdateCloudsCredentialsCallError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.UpdateCredentialArgs{
-		Force: false,
-		Credentials: []params.TaggedCredential{{
-			Tag: "cloudcred-foo_bob_bar0",
-			Credential: params.CloudCredential{
-				AuthType: "userpass",
-				Attributes: map[string]string{
-					"username": "admin",
-					"password": "adm1n",
-				},
-			},
-		}}}
-	res := new(params.UpdateCredentialResults)
-	results := params.UpdateCredentialResults{
-		Results: []params.UpdateCredentialResult{
-			{CredentialTag: "cloudcred-foo_bob_bar0",
-				Error: apiservererrors.ServerError(errors.New("some models are no longer visible")),
-			},
-		},
-	}
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(errors.New("scary but true"))
-	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
-
-	result, err := client.UpdateCloudsCredentials(createCredentials(1), false)
-	c.Assert(err, gc.ErrorMatches, "scary but true")
-	c.Assert(result, gc.IsNil)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
