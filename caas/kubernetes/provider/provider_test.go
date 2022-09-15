@@ -130,3 +130,44 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(config.AllAttrs(), gc.DeepEquals, validAttrs)
 }
+
+func (s *providerSuite) TestPatchCloudCredentialForCloudSpec(c *gc.C) {
+	credential := cloud.NewCredential(
+		"auth-type",
+		map[string]string{
+			k8scloud.CredAttrUsername: "foo",
+			k8scloud.CredAttrPassword: "pwd",
+		},
+	)
+	updatedCredential, err := provider.PatchCloudCredentialForCloudSpec(credential, "token")
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(updatedCredential.AuthType(), gc.Equals, "auth-type")
+	c.Check(updatedCredential.Attributes(), gc.DeepEquals, map[string]string{
+		k8scloud.CredAttrUsername: "",
+		k8scloud.CredAttrPassword: "",
+		k8scloud.CredAttrToken:    "token",
+	})
+
+	credential = cloud.NewCredential(
+		"auth-type",
+	)
+	updatedCredential, err = provider.PatchCloudCredentialForCloudSpec(credential, "token")
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(updatedCredential.AuthType(), gc.Equals, "auth-type")
+	c.Check(updatedCredential.Attributes(), gc.DeepEquals, map[string]string{
+		k8scloud.CredAttrToken: "token",
+	})
+}
+
+func (s *providerSuite) TestPatchCloudCredentialForCloudSpecFailedInValid(c *gc.C) {
+	credential := cloud.NewCredential(
+		map[string]string{
+			k8scloud.CredAttrUsername: "foo",
+			k8scloud.CredAttrPassword: "pwd",
+		},
+	)
+	_, err := provider.PatchCloudCredentialForCloudSpec(credential, "token")
+	c.Assert(err, gc.ErrorMatches, `x`)
+}

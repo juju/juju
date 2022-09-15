@@ -131,6 +131,21 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 	}, nil
 }
 
+// PatchCloudCredentialForCloudSpec patches the credential with the provided k8s secret token.
+func PatchCloudCredentialForCloudSpec(cred cloud.Credential, token string) (cloud.Credential, error) {
+	if cred.AuthType() == "" {
+		return cloud.Credential{}, errors.NotValidf("credential %q has empty auth type", cred.Label)
+	}
+	attributes := cred.Attributes()
+	if attributes == nil {
+		attributes = make(map[string]string)
+	}
+	attributes[k8scloud.CredAttrUsername] = ""
+	attributes[k8scloud.CredAttrPassword] = ""
+	attributes[k8scloud.CredAttrToken] = token
+	return cloud.NewNamedCredential(cred.Label, cred.AuthType(), attributes, cred.Revoked), nil
+}
+
 func newRestClient(cfg *rest.Config) (rest.Interface, error) {
 	return rest.RESTClientFor(cfg)
 }
