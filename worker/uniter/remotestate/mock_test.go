@@ -401,12 +401,12 @@ func (t *mockTicket) Wait() bool {
 	return t.result
 }
 
-type mockRotateSecretsWatcher struct {
-	rotateCh chan []string
-	stopCh   chan struct{}
+type mockSecretTriggerWatcher struct {
+	ch     chan []string
+	stopCh chan struct{}
 }
 
-func (w *mockRotateSecretsWatcher) Kill() {
+func (w *mockSecretTriggerWatcher) Kill() {
 	select {
 	case <-w.stopCh:
 	default:
@@ -414,7 +414,7 @@ func (w *mockRotateSecretsWatcher) Kill() {
 	}
 }
 
-func (*mockRotateSecretsWatcher) Wait() error {
+func (*mockSecretTriggerWatcher) Wait() error {
 	return nil
 }
 

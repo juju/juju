@@ -73,7 +73,7 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	}
 
 	switch hooks.Kind(name) {
-	case hooks.LeaderElected, hooks.SecretRotate:
+	case hooks.LeaderElected, hooks.SecretRotate, hooks.SecretExpired:
 		// Check if leadership has changed between queueing of the hook and
 		// Actual execution. Skip execution if we are no longer the leader.
 		var isLeader bool
@@ -107,7 +107,11 @@ func RunningHookMessage(hookName string, info hook.Info) string {
 		return fmt.Sprintf("running %s hook for %s", hookName, info.RemoteUnit)
 	}
 	if info.Kind.IsSecret() {
-		return fmt.Sprintf("running %s hook for %s", hookName, info.SecretURI)
+		revMsg := ""
+		if info.SecretRevision > 0 {
+			revMsg = fmt.Sprintf("/%d", info.SecretRevision)
+		}
+		return fmt.Sprintf("running %s hook for %s%s", hookName, info.SecretURI, revMsg)
 	}
 	return fmt.Sprintf("running %s hook", hookName)
 }

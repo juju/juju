@@ -35,8 +35,11 @@ type WatcherSuite struct {
 	clock                        *testclock.Clock
 
 	secretsClient            *mockSecretsClient
-	rotateSecretWatcher      *mockRotateSecretsWatcher
+	rotateSecretWatcher      *mockSecretTriggerWatcher
 	rotateSecretWatcherEvent chan string
+
+	expireRevisionWatcher      *mockSecretTriggerWatcher
+	expireRevisionWatcherEvent chan string
 
 	applicationWatcher   *mockNotifyWatcher
 	runningStatusWatcher *mockNotifyWatcher
@@ -199,9 +202,20 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 			case s.rotateSecretWatcherEvent <- u.Id():
 			default:
 			}
-			s.rotateSecretWatcher = &mockRotateSecretsWatcher{
-				rotateCh: rotateCh,
-				stopCh:   make(chan struct{}),
+			s.rotateSecretWatcher = &mockSecretTriggerWatcher{
+				ch:     rotateCh,
+				stopCh: make(chan struct{}),
+			}
+			return s.rotateSecretWatcher, nil
+		},
+		SecretExpiryWatcherFunc: func(u names.UnitTag, expireCh chan []string) (worker.Worker, error) {
+			select {
+			case s.expireRevisionWatcherEvent <- u.Id():
+			default:
+			}
+			s.expireRevisionWatcher = &mockSecretTriggerWatcher{
+				ch:     expireCh,
+				stopCh: make(chan struct{}),
 			}
 			return s.rotateSecretWatcher, nil
 		},
@@ -494,9 +508,14 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 
 	secretURIs := []string{"secret:999e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
-	s.rotateSecretWatcher.rotateCh <- secretURIs
+	s.rotateSecretWatcher.ch <- secretURIs
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+
+	secretRevisions := []string{"secret:999e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/667", "secret:8b4e2mr1wi3e8a215n5h/668"}
+	s.expireRevisionWatcher.ch <- secretRevisions
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, secretRevisions)
 
 	s.secretsClient.secretsWatcher.changes <- secretURIs
 	assertOneChange()
@@ -1074,9 +1093,14 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
 
 	secretURIs := []string{"secret:999e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g", "secret:8b4e2mr1wi3e8a215n5h"}
-	s.rotateSecretWatcher.rotateCh <- secretURIs
+	s.rotateSecretWatcher.ch <- secretURIs
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, secretURIs)
+
+	secretRevisions := []string{"secret:999e2mr0ui3e8a215n4g/666", "secret:9m4e2mr0ui3e8a215n4g/667", "secret:8b4e2mr1wi3e8a215n5h/668"}
+	s.expireRevisionWatcher.ch <- secretRevisions
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, secretRevisions)
 
 	s.secretsClient.secretsWatcher.changes <- secretURIs
 	assertOneChange()
@@ -1222,7 +1246,7 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 	c.Assert(snap.SecretRotations, gc.HasLen, 0)
 
 	select {
-	case s.rotateSecretWatcher.rotateCh <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case s.rotateSecretWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("timed out waiting to signal rotate secret channel")
 	}
@@ -1234,7 +1258,7 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 
 	// Adding same event twice shouldn't re-add it.
 	select {
-	case s.rotateSecretWatcher.rotateCh <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
+	case s.rotateSecretWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g"}:
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("timed out waiting to signal rotate secret channel")
 	}
@@ -1249,7 +1273,42 @@ func (s *WatcherSuite) TestRotateSecretsSignal(c *gc.C) {
 	c.Assert(snap.SecretRotations, gc.HasLen, 0)
 }
 
-func (s *WatcherSuite) TestLeaderRunsRotateWatcher(c *gc.C) {
+func (s *WatcherSuite) TestExpireSecretRevisionssSignal(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.HasLen, 0)
+
+	select {
+	case s.expireRevisionWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g/666"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal expire secret channel")
+	}
+
+	// Need to synchronize here in case the goroutine receiving from the
+	// channel processes the first event but not the second (in which case the
+	// assertion at the bottom of this test sometimes failed).
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	// Adding same event twice shouldn't re-add it.
+	select {
+	case s.expireRevisionWatcher.ch <- []string{"secret:9m4e2mr0ui3e8a215n4g/666"}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to signal expire secret channel")
+	}
+
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g/666"})
+
+	s.watcher.ExpireRevisionCompleted("secret:9m4e2mr0ui3e8a215n4g/666")
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.ExpiredSecretRevisions, gc.HasLen, 0)
+}
+
+func (s *WatcherSuite) TestLeaderRunsSecretTriggerWatchers(c *gc.C) {
 	s.leadership.claimTicket.result = false
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -1267,9 +1326,13 @@ func (s *WatcherSuite) TestLeaderRunsRotateWatcher(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Leader, jc.IsTrue)
 
-	s.rotateSecretWatcher.rotateCh <- []string{"secret:8b4e2mr1wi3e8a215n5h"}
+	s.rotateSecretWatcher.ch <- []string{"secret:8b4e2mr1wi3e8a215n5h"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().SecretRotations, jc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h"})
+
+	s.expireRevisionWatcher.ch <- []string{"secret:8b4e2mr1wi3e8a215n5h/666"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, jc.DeepEquals, []string{"secret:8b4e2mr1wi3e8a215n5h/666"})
 
 	// When not a leader anymore, stop the worker.
 	s.leadership.minionTicket.ch <- struct{}{}
@@ -1279,8 +1342,9 @@ func (s *WatcherSuite) TestLeaderRunsRotateWatcher(c *gc.C) {
 		c.Fatalf("timed out waiting to signal stop worker channel")
 	}
 
-	// When not a leader anymore, clear any pending secrets to be rotated.
+	// When not a leader anymore, clear any pending secrets to be rotated/expired.
 	c.Assert(s.watcher.Snapshot().SecretRotations, gc.HasLen, 0)
+	c.Assert(s.watcher.Snapshot().ExpiredSecretRevisions, gc.HasLen, 0)
 
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)

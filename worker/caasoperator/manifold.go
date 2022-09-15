@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/secretexpire"
 	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -214,6 +215,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					RotateSecrets:       rotateSecrets,
 				})
 			}
+			secretExpiryWatcherFunc := func(unitTag names.UnitTag, expireRevisions chan []string) (worker.Worker, error) {
+				appName, _ := names.UnitApplication(unitTag.Id())
+				return secretexpire.New(secretexpire.Config{
+					SecretManagerFacade: jujuSecretsAPI,
+					Clock:               clock,
+					Logger:              config.Logger.Child("secretsexpire"),
+					SecretOwner:         names.NewApplicationTag(appName),
+					ExpireRevisions:     expireRevisions,
+				})
+			}
 
 			wCfg := Config{
 				Logger:                config.Logger,
@@ -265,6 +276,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				SecretsClient:           jujuSecretsAPI,
 				SecretsStoreGetter:      secretsStoreGetter,
 				SecretRotateWatcherFunc: secretRotateWatcherFunc,
+				SecretExpiryWatcherFunc: secretExpiryWatcherFunc,
 				Logger:                  wCfg.Logger.Child("uniter"),
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
