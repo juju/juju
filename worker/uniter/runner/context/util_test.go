@@ -319,6 +319,7 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookCon
 	for id, v := range info {
 		c.Assert(id, gc.Equals, "9m4e2mr0ui3e8a215n4g")
 		c.Assert(v.Label, gc.Equals, "label")
+		c.Assert(v.Owner.String(), gc.Equals, "application-mariadb")
 		c.Assert(v.Description, gc.Equals, "description")
 		c.Assert(v.RotatePolicy, gc.Equals, secrets.RotateHourly)
 		c.Assert(v.LatestRevision, gc.Equals, 666)

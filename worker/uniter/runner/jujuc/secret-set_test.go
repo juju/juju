@@ -79,7 +79,7 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
-	expectedArgs := &jujuc.SecretUpsertArgs{
+	expectedArgs := &jujuc.SecretUpdateArgs{
 		Value:        val,
 		RotatePolicy: ptr(coresecrets.RotateDaily),
 		Description:  ptr("sssshhhh"),
@@ -89,7 +89,7 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	call := s.Stub.Calls()[0]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-	args, ok := call.Args[1].(*jujuc.SecretUpsertArgs)
+	args, ok := call.Args[1].(*jujuc.SecretUpdateArgs)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(args.ExpireTime, gc.NotNil)
 	c.Assert(args.ExpireTime.After(expectedExpiry), jc.IsTrue)
@@ -107,7 +107,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 
 	c.Assert(code, gc.Equals, 0)
 	val := coresecrets.NewSecretValue(map[string]string{"token": "key="})
-	args := &jujuc.SecretUpsertArgs{
+	args := &jujuc.SecretUpdateArgs{
 		Value: val,
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
@@ -122,7 +122,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "daily", "secret:9m4e2mr0ui3e8a215n4g"})
 
 	c.Assert(code, gc.Equals, 0)
-	args := &jujuc.SecretUpsertArgs{
+	args := &jujuc.SecretUpdateArgs{
 		Value:        coresecrets.NewSecretValue(nil),
 		RotatePolicy: ptr(coresecrets.RotateDaily),
 	}
@@ -156,7 +156,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretFromFile(c *gc.C) {
 		"key":         "c2VjcmV0",
 		"another-key": `R0lGODlhDAAMAIQAAP//9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5OTk6enp56enmlpaWNjY6Ojo4SEhP/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++f/++SH+Dk1hZGUgd2l0aCBHSU1QACwAAAAADAAMAAAFLCAgjoEwnuNAFOhpEMTRiggcz4BNJHrv/zCFcLiwMWYNG84BwwEeECcgggoBADs=`,
 	})
-	args := &jujuc.SecretUpsertArgs{
+	args := &jujuc.SecretUpdateArgs{
 		Value: val,
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})

@@ -595,12 +595,12 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			}
 			return client, nil
 		},
-		SecretRotateWatcherFunc: func(u names.UnitTag, secretsChanged chan []string) (worker.Worker, error) {
+		SecretRotateWatcherFunc: func(u names.UnitTag, isLeader bool, secretsChanged chan []string) (worker.Worker, error) {
 			c.Assert(u.String(), gc.Equals, s.unitTag)
 			ctx.secretsRotateCh = secretsChanged
 			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
 		},
-		SecretExpiryWatcherFunc: func(u names.UnitTag, secretsChanged chan []string) (worker.Worker, error) {
+		SecretExpiryWatcherFunc: func(u names.UnitTag, isLeader bool, secretsChanged chan []string) (worker.Worker, error) {
 			c.Assert(u.String(), gc.Equals, s.unitTag)
 			ctx.secretsExpireCh = secretsChanged
 			return watchertest.NewMockStringsWatcher(ctx.secretsExpireCh), nil
@@ -1675,7 +1675,7 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 			NextRotateTime: ptr(time.Now().Add(time.Hour)),
 			Data:           map[string]string{"foo": "bar"},
 		},
-		Owner: names.NewApplicationTag(s.applicationName).String(),
+		Owner: names.NewApplicationTag(s.applicationName),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	appTag := names.NewApplicationTag(s.applicationName)

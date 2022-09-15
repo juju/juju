@@ -156,6 +156,7 @@ func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets
 		Metadata: secrets.SecretMetadata{
 			URI:            uri,
 			LatestRevision: 666,
+			OwnerTag:       "application-mariadb",
 			Description:    "description",
 			RotatePolicy:   secrets.RotateHourly,
 			Label:          "label",

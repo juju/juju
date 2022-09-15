@@ -9,6 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	watcher "github.com/juju/juju/core/watcher"
+	names "github.com/juju/names/v4"
 )
 
 // MockSecretManagerFacade is a mock of SecretManagerFacade interface.
@@ -35,16 +36,20 @@ func (m *MockSecretManagerFacade) EXPECT() *MockSecretManagerFacadeMockRecorder 
 }
 
 // WatchSecretRevisionsExpiryChanges mocks base method.
-func (m *MockSecretManagerFacade) WatchSecretRevisionsExpiryChanges(arg0 string) (watcher.SecretTriggerWatcher, error) {
+func (m *MockSecretManagerFacade) WatchSecretRevisionsExpiryChanges(arg0 ...names.Tag) (watcher.SecretTriggerWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchSecretRevisionsExpiryChanges", arg0)
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchSecretRevisionsExpiryChanges", varargs...)
 	ret0, _ := ret[0].(watcher.SecretTriggerWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchSecretRevisionsExpiryChanges indicates an expected call of WatchSecretRevisionsExpiryChanges.
-func (mr *MockSecretManagerFacadeMockRecorder) WatchSecretRevisionsExpiryChanges(arg0 interface{}) *gomock.Call {
+func (mr *MockSecretManagerFacadeMockRecorder) WatchSecretRevisionsExpiryChanges(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretRevisionsExpiryChanges", reflect.TypeOf((*MockSecretManagerFacade)(nil).WatchSecretRevisionsExpiryChanges), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretRevisionsExpiryChanges", reflect.TypeOf((*MockSecretManagerFacade)(nil).WatchSecretRevisionsExpiryChanges), arg0...)
 }

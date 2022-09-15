@@ -38750,7 +38750,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringsWatchResults"
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
                     "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
@@ -38762,7 +38762,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
                     "description": "WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config."
@@ -38774,7 +38774,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
                     "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
@@ -39338,21 +39338,6 @@
                     "required": [
                         "watcher-id",
                         "changes"
-                    ]
-                },
-                "SecretTriggerWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretTriggerWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "SecretValueResult": {
@@ -45024,7 +45009,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringsWatchResults"
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
                     "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
@@ -45048,7 +45033,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
                     "description": "WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config."
@@ -45060,7 +45045,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
                     "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
@@ -47415,21 +47400,6 @@
                     "required": [
                         "watcher-id",
                         "changes"
-                    ]
-                },
-                "SecretTriggerWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretTriggerWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "SecretValueResult": {

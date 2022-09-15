@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
@@ -72,8 +73,20 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 		return nil, err
 	}
 
-	switch hooks.Kind(name) {
-	case hooks.LeaderElected, hooks.SecretRotate, hooks.SecretExpired:
+	kind := hooks.Kind(name)
+	leaderNeeded := kind == hooks.LeaderElected
+	if kind == hooks.SecretRotate || kind == hooks.SecretExpired || kind == hooks.SecretRemove {
+		secretMetadata, err := rnr.Context().SecretMetadata()
+		if err != nil {
+			return nil, err
+		}
+		if uri, err := secrets.ParseURI(rh.info.SecretURI); err == nil {
+			md, ok := secretMetadata[uri.ID]
+			leaderNeeded = ok && md.Owner.Kind() != names.UnitTagKind
+		}
+	}
+
+	if leaderNeeded {
 		// Check if leadership has changed between queueing of the hook and
 		// Actual execution. Skip execution if we are no longer the leader.
 		var isLeader bool

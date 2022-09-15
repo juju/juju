@@ -8,7 +8,6 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -20,7 +19,7 @@ var _ = gc.Suite(&HelpToolSuite{})
 
 func (suite *HelpToolSuite) SetUpTest(c *gc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	setFeatureFlags(feature.Secrets)
+	setFeatureFlags("")
 }
 
 func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
@@ -81,6 +80,13 @@ Currently available charm hook tools are:
     relation-list            list relation units
     relation-set             set relation settings
     resource-get             get the path to the locally cached resource file
+    secret-add               add a new secret
+    secret-get               get the value of a secret
+    secret-grant             grant access to a secret
+    secret-ids               print secret ids
+    secret-remove            remove a existing secret
+    secret-revoke            revoke access to a secret
+    secret-set               update an existing secret
     state-delete             delete server-side-state key value pair
     state-get                print server-side-state value
     state-set                set server-side-state values

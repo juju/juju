@@ -175,7 +175,7 @@ func (mr *MockContextMockRecorder) ConfigSettings() *gomock.Call {
 }
 
 // CreateSecret mocks base method.
-func (m *MockContext) CreateSecret(arg0 *jujuc.SecretUpsertArgs) (*secrets.URI, error) {
+func (m *MockContext) CreateSecret(arg0 *jujuc.SecretCreateArgs) (*secrets.URI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecret", arg0)
 	ret0, _ := ret[0].(*secrets.URI)
@@ -887,7 +887,7 @@ func (mr *MockContextMockRecorder) UpdateActionResults(arg0, arg1 interface{}) *
 }
 
 // UpdateSecret mocks base method.
-func (m *MockContext) UpdateSecret(arg0 *secrets.URI, arg1 *jujuc.SecretUpsertArgs) error {
+func (m *MockContext) UpdateSecret(arg0 *secrets.URI, arg1 *jujuc.SecretUpdateArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
 	ret0, _ := ret[0].(error)

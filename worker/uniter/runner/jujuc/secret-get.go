@@ -60,8 +60,8 @@ Examples
     secret-get --metadata --label db-password
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-get [key[#base64]]",
-		Args:    "<ID>",
+		Name:    "secret-get",
+		Args:    "<ID> [key[#base64]]",
 		Purpose: "get the value of a secret",
 		Doc:     doc,
 	})
@@ -119,6 +119,7 @@ func (c *secretGetCommand) Init(args []string) (err error) {
 type metadataDisplay struct {
 	LatestRevision   int                  `yaml:"revision" json:"revision"`
 	Label            string               `yaml:"label" json:"label"`
+	Owner            string               `yaml:"owner" json:"owner"`
 	Description      string               `yaml:"description,omitempty" json:"description,omitempty"`
 	RotatePolicy     secrets.RotatePolicy `yaml:"rotation,omitempty" json:"rotation,omitempty"`
 	LatestExpireTime *time.Time           `yaml:"expiry,omitempty" json:"expiry,omitempty"`
@@ -158,6 +159,7 @@ func (c *secretGetCommand) Run(ctx *cmd.Context) error {
 			got: {
 				LatestRevision:   md.LatestRevision,
 				Label:            md.Label,
+				Owner:            md.Owner.Kind(),
 				Description:      md.Description,
 				RotatePolicy:     md.RotatePolicy,
 				LatestExpireTime: md.LatestExpireTime,

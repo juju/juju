@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v4"
 )
 
 // MockSecretsBackend is a mock of SecretsBackend interface.
@@ -51,18 +52,23 @@ func (mr *MockSecretsBackendMockRecorder) CreateSecret(arg0, arg1 interface{}) *
 }
 
 // DeleteSecret mocks base method.
-func (m *MockSecretsBackend) DeleteSecret(arg0 *secrets.URI, arg1 []int) (bool, error) {
+func (m *MockSecretsBackend) DeleteSecret(arg0 *secrets.URI, arg1 ...int) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteSecret", arg0, arg1)
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteSecret", varargs...)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DeleteSecret indicates an expected call of DeleteSecret.
-func (mr *MockSecretsBackendMockRecorder) DeleteSecret(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockSecretsBackendMockRecorder) DeleteSecret(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretsBackend)(nil).DeleteSecret), arg0, arg1)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretsBackend)(nil).DeleteSecret), varargs...)
 }
 
 // GetSecret mocks base method.
@@ -139,4 +145,19 @@ func (m *MockSecretsBackend) UpdateSecret(arg0 *secrets.URI, arg1 state.UpdateSe
 func (mr *MockSecretsBackendMockRecorder) UpdateSecret(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretsBackend)(nil).UpdateSecret), arg0, arg1)
+}
+
+// WatchObsolete mocks base method.
+func (m *MockSecretsBackend) WatchObsolete(arg0 []names.Tag) (state.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchObsolete", arg0)
+	ret0, _ := ret[0].(state.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchObsolete indicates an expected call of WatchObsolete.
+func (mr *MockSecretsBackendMockRecorder) WatchObsolete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsBackend)(nil).WatchObsolete), arg0)
 }

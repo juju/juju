@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	watcher "github.com/juju/juju/core/watcher"
+	names "github.com/juju/names/v4"
 )
 
 // MockSecretsClient is a mock of SecretsClient interface.
@@ -81,16 +82,20 @@ func (mr *MockSecretsClientMockRecorder) WatchConsumedSecretsChanges(arg0 interf
 }
 
 // WatchObsolete mocks base method.
-func (m *MockSecretsClient) WatchObsolete(arg0 string) (watcher.StringsWatcher, error) {
+func (m *MockSecretsClient) WatchObsolete(arg0 ...names.Tag) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsolete", arg0)
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchObsolete", varargs...)
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchObsolete indicates an expected call of WatchObsolete.
-func (mr *MockSecretsClientMockRecorder) WatchObsolete(arg0 interface{}) *gomock.Call {
+func (mr *MockSecretsClientMockRecorder) WatchObsolete(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsClient)(nil).WatchObsolete), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsClient)(nil).WatchObsolete), arg0...)
 }

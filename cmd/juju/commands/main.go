@@ -568,10 +568,8 @@ func registerCommands(r commandRegistry) {
 	r.Register(charmhub.NewDownloadCommand())
 
 	// Secrets.
-	if featureflag.Enabled(feature.Secrets) {
-		r.Register(secrets.NewListSecretsCommand())
-		r.Register(secrets.NewShowSecretsCommand())
-	}
+	r.Register(secrets.NewListSecretsCommand())
+	r.Register(secrets.NewShowSecretsCommand())
 
 	// Payload commands.
 	r.Register(payload.NewListCommand())

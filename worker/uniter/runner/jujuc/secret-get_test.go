@@ -186,6 +186,7 @@ func (s *SecretGetSuite) TestSecretGetMetadata(c *gc.C) {
 9m4e2mr0ui3e8a215n4g:
   revision: 666
   label: label
+  owner: application
   description: description
   rotation: hourly
 `[1:])
@@ -205,6 +206,7 @@ func (s *SecretGetSuite) TestSecretGetMetadataByLabel(c *gc.C) {
 9m4e2mr0ui3e8a215n4g:
   revision: 666
   label: label
+  owner: application
   description: description
   rotation: hourly
 `[1:])

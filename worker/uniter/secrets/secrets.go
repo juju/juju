@@ -84,8 +84,7 @@ func (s *Secrets) init() error {
 			s.secretsState.ConsumedSecretInfo = updated
 		}
 	}
-	ownerApp, _ := names.UnitApplication(s.unitTag.Id())
-	owner := names.NewApplicationTag(ownerApp).String()
+	owner := s.unitTag.String()
 	metadata, err := s.client.SecretMetadata(coresecrets.Filter{
 		OwnerTag: &owner,
 	})

@@ -33,7 +33,7 @@ type CreateSecretParams struct {
 	UpdateSecretParams
 
 	Version int
-	Owner   string
+	Owner   names.Tag
 }
 
 // UpdateSecretParams are used to update a secret.
@@ -63,20 +63,21 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 // SecretsFilter holds attributes to match when listing secrets.
 type SecretsFilter struct {
 	URI          *secrets.URI
-	OwnerTag     *string
-	ConsumerTags []string
+	OwnerTags    []names.Tag
+	ConsumerTags []names.Tag
 }
 
 // SecretsStore instances use mongo as a secrets store.
 type SecretsStore interface {
 	CreateSecret(*secrets.URI, CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, UpdateSecretParams) (*secrets.SecretMetadata, error)
-	DeleteSecret(*secrets.URI, []int) (bool, error)
+	DeleteSecret(*secrets.URI, ...int) (bool, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
+	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -160,7 +161,7 @@ func (s *secretsStore) secretMetadataDoc(uri *secrets.URI, p *CreateSecretParams
 	md := &secretMetadataDoc{
 		DocID:      uri.ID,
 		Version:    p.Version,
-		OwnerTag:   p.Owner,
+		OwnerTag:   p.Owner.String(),
 		CreateTime: now,
 		UpdateTime: now,
 	}
@@ -233,7 +234,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		return nil, errors.Trace(err)
 	}
 	revision := 1
-	valueDoc := s.secretRevisionDoc(uri, p.Owner, revision, p.ExpireTime, p.Data, p.ProviderId)
+	valueDoc := s.secretRevisionDoc(uri, p.Owner.String(), revision, p.ExpireTime, p.Data, p.ProviderId)
 	// OwnerTag has already been validated.
 	owner, _ := names.ParseTag(metadataDoc.OwnerTag)
 	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
@@ -475,13 +476,21 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *
 // DeleteSecret deletes the specified secret revisions.
 // If revisions is nil or the last remaining revisions are
 // removed, the entire secret is deleted and the return bool is true.
-func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions []int) (removed bool, err error) {
+func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions ...int) (removed bool, err error) {
+	return s.st.deleteSecrets([]*secrets.URI{uri}, revisions...)
+}
+
+func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed bool, err error) {
 	// We will bulk delete the various artefacts, starting with the secret itself.
 	// Deleting the parent secret metadata first  will ensure that any consumers of
 	// the secret get notified and subsequent attempts to access any secret
 	// attributes (revision etc) return not found.
 	// It is not practical to do this record by record in a legacy client side mgo txn operation.
-	session := s.st.MongoSession()
+
+	if len(uris) == 0 || len(uris) > 1 && len(revisions) > 0 {
+		return false, errors.Errorf("PROGRAMMING ERROR: invalid secret deletion args uris=%v, revisions=%v", uris, revisions)
+	}
+	session := st.MongoSession()
 	err = session.StartTransaction()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -496,12 +505,13 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions []int) (removed 
 		}
 	}()
 
-	// If we not deleting all revisions for a secret, just remove the affected
+	// If we're not deleting all revisions for a secret, just remove the affected
 	// revision docs and exit early.
-	secretRevisionsCollection, closer := s.st.db().GetCollection(secretRevisionsC)
+	secretRevisionsCollection, closer := st.db().GetCollection(secretRevisionsC)
 	defer closer()
 
 	if len(revisions) > 0 {
+		uri := uris[0]
 		var savedRevisionDocs []secretRevisionDoc
 		err := secretRevisionsCollection.Find(bson.D{{"_id",
 			bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}}}}).Select(bson.D{{"revision", 1}}).All(&savedRevisionDocs)
@@ -526,72 +536,83 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions []int) (removed 
 		}
 	}
 
-	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
+	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
 	defer closer()
 
-	var md secretMetadataDoc
-	err = secretMetadataCollection.FindId(uri.ID).One(&md)
-	if err == mgo.ErrNotFound {
+	deleteOne := func(uri *secrets.URI) (bool, error) {
+		var md secretMetadataDoc
+		err = secretMetadataCollection.FindId(uri.ID).One(&md)
+		if err == mgo.ErrNotFound {
+			return true, nil
+		}
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		_, err = secretMetadataCollection.Writeable().RemoveAll(bson.D{{
+			"_id", uri.ID,
+		}})
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+		}
+
+		secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+		defer closer()
+		_, err = secretRotateCollection.Writeable().RemoveAll(bson.D{{
+			"_id", uri.ID,
+		}})
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+		}
+
+		_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}},
+		}})
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
+		}
+
+		secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+		defer closer()
+		_, err = secretPermissionsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
+		}})
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting permissions for %s", uri.String())
+		}
+
+		secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
+		defer closer()
+		_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
+			"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
+		}})
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting consumer info for %s", uri.String())
+		}
+		refCountsCollection, closer := st.db().GetCollection(refcountsC)
+		defer closer()
+		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", fmt.Sprintf("%s#%s", uri.ID, "consumer"),
+		}})
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
+		}
+		_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
+			"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
+		}})
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting label refcounts for %s", uri.String())
+		}
 		return true, nil
 	}
-	if err != nil {
-		return false, errors.Trace(err)
+	anyRemoved := false
+	for _, uri := range uris {
+		removed, err := deleteOne(uri)
+		if err != nil {
+			return false, errors.Annotatef(err, "deleting secret %q", uri.String())
+		}
+		anyRemoved = anyRemoved || removed
 	}
-	_, err = secretMetadataCollection.Writeable().RemoveAll(bson.D{{
-		"_id", uri.ID,
-	}})
-	if err != nil {
-		return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
-	}
-
-	secretRotateCollection, closer := s.st.db().GetCollection(secretRotateC)
-	defer closer()
-	_, err = secretRotateCollection.Writeable().RemoveAll(bson.D{{
-		"_id", uri.ID,
-	}})
-	if err != nil {
-		return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
-	}
-
-	_, err = secretRevisionsCollection.Writeable().RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", fmt.Sprintf("%s/.*", uri.ID)}},
-	}})
-	if err != nil {
-		return false, errors.Annotatef(err, "deleting revisions for %s", uri.String())
-	}
-
-	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
-	defer closer()
-	_, err = secretPermissionsCollection.Writeable().RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
-	}})
-	if err != nil {
-		return false, errors.Annotatef(err, "deleting permissions for %s", uri.String())
-	}
-
-	secretConsumersCollection, closer := s.st.db().GetCollection(secretConsumersC)
-	defer closer()
-	_, err = secretConsumersCollection.Writeable().RemoveAll(bson.D{{
-		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
-	}})
-	if err != nil {
-		return false, errors.Annotatef(err, "deleting consumer info for %s", uri.String())
-	}
-	refCountsCollection, closer := s.st.db().GetCollection(refcountsC)
-	defer closer()
-	_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-		"_id", fmt.Sprintf("%s#%s", uri.ID, "consumer"),
-	}})
-	if err != nil {
-		return false, errors.Annotatef(err, "deleting consumer refcounts for %s", uri.String())
-	}
-	_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
-		"_id", secretOwnerLabelKey(md.OwnerTag, md.Label),
-	}})
-	if err != nil {
-		return false, errors.Annotatef(err, "deleting label refcounts for %s", uri.String())
-	}
-	return true, nil
+	return anyRemoved, nil
 }
 
 // GetSecretValue gets the secret value for the specified URL.
@@ -644,6 +665,10 @@ func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, err
 	return s.toSecretMetadata(&doc, nextRotateTime)
 }
 
+func secretOwnerTerm(owners []string) bson.DocElem {
+	return bson.DocElem{Name: "owner-tag", Value: bson.D{{Name: "$in", Value: owners}}}
+}
+
 // ListSecrets list the secrets using the specified filter.
 func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetadata, error) {
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
@@ -655,8 +680,12 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	if filter.URI != nil {
 		q = append(q, bson.DocElem{"_id", filter.URI.ID})
 	}
-	if filter.OwnerTag != nil {
-		q = append(q, bson.DocElem{"owner-tag", *filter.OwnerTag})
+	if len(filter.OwnerTags) > 0 {
+		owners := make([]string, len(filter.OwnerTags))
+		for i, tag := range filter.OwnerTags {
+			owners[i] = tag.String()
+		}
+		q = append(q, secretOwnerTerm(owners))
 	}
 	// Only query here if we want everything or no consumers were specified.
 	// We need to do the consumer processing below as the results are seeded
@@ -681,7 +710,11 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 	if len(filter.ConsumerTags) == 0 {
 		return result, nil
 	}
-	consumedIds, err := s.listConsumedSecrets(filter.ConsumerTags)
+	consumers := make([]string, len(filter.ConsumerTags))
+	for i, tag := range filter.ConsumerTags {
+		consumers[i] = tag.String()
+	}
+	consumedIds, err := s.listConsumedSecrets(consumers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -859,7 +892,7 @@ func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error)
 }
 
 // GetSecretConsumer gets secret consumer metadata.
-func (st *State) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secrets.SecretConsumerMetadata, error) {
+func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secrets.SecretConsumerMetadata, error) {
 	if err := st.checkExists(uri); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -867,11 +900,11 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secre
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
-	key := secretConsumerKey(uri.ID, consumerTag)
+	key := secretConsumerKey(uri.ID, consumer.String())
 	var doc secretConsumerDoc
 	err := secretConsumersCollection.FindId(key).One(&doc)
 	if errors.Cause(err) == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("consumer %q metadata for secret %q", consumerTag, uri.String())
+		return nil, errors.NotFoundf("consumer %q metadata for secret %q", consumer, uri.String())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -884,8 +917,8 @@ func (st *State) GetSecretConsumer(uri *secrets.URI, consumerTag string) (*secre
 }
 
 // SaveSecretConsumer saves or updates secret consumer metadata.
-func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metadata *secrets.SecretConsumerMetadata) error {
-	key := secretConsumerKey(uri.ID, consumerTag)
+func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metadata *secrets.SecretConsumerMetadata) error {
+	key := secretConsumerKey(uri.ID, consumer.String())
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
@@ -915,7 +948,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metada
 				Assert: txn.DocMissing,
 				Insert: secretConsumerDoc{
 					DocID:           key,
-					ConsumerTag:     consumerTag,
+					ConsumerTag:     consumer.String(),
 					Label:           metadata.Label,
 					CurrentRevision: metadata.CurrentRevision,
 					LatestRevision:  metadata.LatestRevision,
@@ -933,7 +966,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumerTag string, metada
 
 		// The consumer is tracking a new revision, which might result in the
 		// previous revision becoming obsolete.
-		obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumerTag, metadata.CurrentRevision)
+		obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -973,11 +1006,8 @@ func (st *State) secretUpdateConsumersOps(uri *secrets.URI, newRevision int) ([]
 
 // WatchConsumedSecretsChanges returns a watcher for updates and deletes
 // of secrets that have been previously read by the specified consumer.
-func (st *State) WatchConsumedSecretsChanges(consumer string) (StringsWatcher, error) {
-	if _, err := names.ParseTag(consumer); err != nil {
-		return nil, errors.NewNotValid(err, "invalid consumer")
-	}
-	return newConsumedSecretsWatcher(st, consumer), nil
+func (st *State) WatchConsumedSecretsChanges(consumer names.Tag) (StringsWatcher, error) {
+	return newConsumedSecretsWatcher(st, consumer.String()), nil
 }
 
 type consumedSecretsWatcher struct {
@@ -1110,11 +1140,15 @@ func (w *consumedSecretsWatcher) loop() (err error) {
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (st *State) WatchObsolete(owner string) (StringsWatcher, error) {
-	if _, err := names.ParseTag(owner); err != nil {
-		return nil, errors.NewNotValid(err, "invalid owner")
+func (s *secretsStore) WatchObsolete(ownerTags []names.Tag) (StringsWatcher, error) {
+	if len(ownerTags) == 0 {
+		return nil, errors.New("missing secret owners")
 	}
-	return newObsoleteSecretsWatcher(st, owner), nil
+	owners := make([]string, len(ownerTags))
+	for i, owner := range ownerTags {
+		owners[i] = owner.String()
+	}
+	return newObsoleteSecretsWatcher(s.st, owners), nil
 }
 
 type obsoleteSecretsWatcher struct {
@@ -1123,11 +1157,11 @@ type obsoleteSecretsWatcher struct {
 
 	obsoleteRevisionsWatcher *collectionWatcher
 
-	owner string
-	known set.Strings
+	owners []string
+	known  set.Strings
 }
 
-func newObsoleteSecretsWatcher(st modelBackend, owner string) *obsoleteSecretsWatcher {
+func newObsoleteSecretsWatcher(st modelBackend, owners []string) *obsoleteSecretsWatcher {
 	// obsoleteRevisionsWatcher is for tracking secret revisions with no consumers.
 	obsoleteRevisionsWatcher := newCollectionWatcher(st, colWCfg{
 		col: secretRevisionsC,
@@ -1136,14 +1170,14 @@ func newObsoleteSecretsWatcher(st modelBackend, owner string) *obsoleteSecretsWa
 			defer closer()
 
 			var doc secretRevisionDoc
-			err := secretRevisionsCollection.FindId(key).Select(
-				bson.D{{"owner-tag", 1}, {"obsolete", 1}},
+			err := secretRevisionsCollection.Find(bson.D{{"_id", key}, secretOwnerTerm(owners)}).Select(
+				bson.D{{"obsolete", 1}},
 			).One(&doc)
 			if err != nil {
 				return false
 			}
 
-			return doc.OwnerTag == owner && doc.Obsolete
+			return doc.Obsolete
 		},
 		idconv: func(id string) string {
 			parts := strings.Split(id, "/")
@@ -1160,7 +1194,7 @@ func newObsoleteSecretsWatcher(st modelBackend, owner string) *obsoleteSecretsWa
 		obsoleteRevisionsWatcher: obsoleteRevisionsWatcher.(*collectionWatcher),
 		out:                      make(chan []string),
 		known:                    set.NewStrings(),
-		owner:                    owner,
+		owners:                   owners,
 	}
 	w.tomb.Go(func() error {
 		defer w.finish()
@@ -1184,7 +1218,7 @@ func (w *obsoleteSecretsWatcher) initial() error {
 	secretMetadataCollection, closer := w.db.GetCollection(secretMetadataC)
 	defer closer()
 
-	iter := secretMetadataCollection.Find(bson.D{{"owner-tag", w.owner}}).Iter()
+	iter := secretMetadataCollection.Find(bson.D{secretOwnerTerm(w.owners)}).Iter()
 	for iter.Next(&doc) {
 		w.known.Add(doc.DocID)
 	}
@@ -1236,7 +1270,7 @@ func (w *obsoleteSecretsWatcher) mergedOwnedChanges(currentChanges []string, cha
 	// record that we know about it.
 	secretMetadataColl, closer := w.db.GetCollection(secretMetadataC)
 	defer closer()
-	err := secretMetadataColl.Find(bson.D{{"_id", change.Id}, {"owner-tag", w.owner}}).One(&doc)
+	err := secretMetadataColl.Find(bson.D{{"_id", change.Id}, secretOwnerTerm(w.owners)}).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
 		return nil, errors.Trace(err)
 	}
@@ -1712,8 +1746,15 @@ func (st *State) SecretRotated(uri *secrets.URI, next time.Time) error {
 
 // WatchSecretsRotationChanges returns a watcher for rotation updates to secrets
 // with the specified owner.
-func (st *State) WatchSecretsRotationChanges(owner string) SecretsTriggerWatcher {
-	return newSecretsRotationWatcher(st, owner)
+func (st *State) WatchSecretsRotationChanges(ownerTags []names.Tag) (SecretsTriggerWatcher, error) {
+	if len(ownerTags) == 0 {
+		return nil, errors.New("missing secret owners")
+	}
+	owners := make([]string, len(ownerTags))
+	for i, owner := range ownerTags {
+		owners[i] = owner.String()
+	}
+	return newSecretsRotationWatcher(st, owners), nil
 }
 
 // SecretsTriggerWatcher defines a watcher for changes to secret
@@ -1732,16 +1773,16 @@ type secretsRotationWatcher struct {
 	commonWatcher
 	out chan []corewatcher.SecretTriggerChange
 
-	owner string
-	known map[string]rotateWatcherDetails
+	owners []string
+	known  map[string]rotateWatcherDetails
 }
 
-func newSecretsRotationWatcher(backend modelBackend, owner string) *secretsRotationWatcher {
+func newSecretsRotationWatcher(backend modelBackend, owners []string) *secretsRotationWatcher {
 	w := &secretsRotationWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		out:           make(chan []corewatcher.SecretTriggerChange),
 		known:         make(map[string]rotateWatcherDetails),
-		owner:         owner,
+		owners:        owners,
 	}
 	w.tomb.Go(func() error {
 		defer close(w.out)
@@ -1763,7 +1804,7 @@ func (w *secretsRotationWatcher) initial() ([]corewatcher.SecretTriggerChange, e
 	secretRotateCollection, closer := w.db.GetCollection(secretRotateC)
 	defer closer()
 
-	iter := secretRotateCollection.Find(bson.D{{"owner-tag", w.owner}}).Iter()
+	iter := secretRotateCollection.Find(bson.D{secretOwnerTerm(w.owners)}).Iter()
 	for iter.Next(&doc) {
 		uriStr := w.backend.localID(doc.DocID)
 		uri, err := secrets.ParseURI(uriStr)
@@ -1792,7 +1833,7 @@ func (w *secretsRotationWatcher) merge(details []corewatcher.SecretTriggerChange
 		// Record added or updated.
 		secretsRotationColl, closer := w.db.GetCollection(secretRotateC)
 		defer closer()
-		err := secretsRotationColl.Find(bson.D{{"_id", change.Id}, {"owner-tag", w.owner}}).One(&doc)
+		err := secretsRotationColl.Find(bson.D{{"_id", change.Id}, secretOwnerTerm(w.owners)}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -1867,8 +1908,15 @@ func (w *secretsRotationWatcher) loop() (err error) {
 
 // WatchSecretRevisionsExpiryChanges returns a watcher for expiry time updates to
 // secret revisions with the specified owner.
-func (st *State) WatchSecretRevisionsExpiryChanges(owner string) SecretsTriggerWatcher {
-	return newSecretsExpiryWatcher(st, owner)
+func (st *State) WatchSecretRevisionsExpiryChanges(ownerTags []names.Tag) (SecretsTriggerWatcher, error) {
+	if len(ownerTags) == 0 {
+		return nil, errors.New("missing secret owners")
+	}
+	owners := make([]string, len(ownerTags))
+	for i, owner := range ownerTags {
+		owners[i] = owner.String()
+	}
+	return newSecretsExpiryWatcher(st, owners), nil
 }
 
 type expiryWatcherDetails struct {
@@ -1882,16 +1930,16 @@ type secretsExpiryWatcher struct {
 	commonWatcher
 	out chan []corewatcher.SecretTriggerChange
 
-	owner string
-	known map[string]expiryWatcherDetails
+	owners []string
+	known  map[string]expiryWatcherDetails
 }
 
-func newSecretsExpiryWatcher(backend modelBackend, owner string) *secretsExpiryWatcher {
+func newSecretsExpiryWatcher(backend modelBackend, owners []string) *secretsExpiryWatcher {
 	w := &secretsExpiryWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		out:           make(chan []corewatcher.SecretTriggerChange),
 		known:         make(map[string]expiryWatcherDetails),
-		owner:         owner,
+		owners:        owners,
 	}
 	w.tomb.Go(func() error {
 		defer close(w.out)
@@ -1913,7 +1961,7 @@ func (w *secretsExpiryWatcher) initial() ([]corewatcher.SecretTriggerChange, err
 	secretRevisionCollection, closer := w.db.GetCollection(secretRevisionsC)
 	defer closer()
 
-	iter := secretRevisionCollection.Find(bson.D{{"owner-tag", w.owner}}).Iter()
+	iter := secretRevisionCollection.Find(bson.D{secretOwnerTerm(w.owners)}).Iter()
 	for iter.Next(&doc) {
 		uriStr, _ := splitSecretChange(w.backend.localID(doc.DocID))
 		uri, err := secrets.ParseURI(uriStr)
@@ -1948,7 +1996,7 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 	if change.Revno >= 0 {
 		secretRevisionCollection, closer := w.db.GetCollection(secretRevisionsC)
 		defer closer()
-		err := secretRevisionCollection.Find(bson.D{{"_id", change.Id}, {"owner-tag", w.owner}}).One(&doc)
+		err := secretRevisionCollection.Find(bson.D{{"_id", change.Id}, secretOwnerTerm(w.owners)}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
