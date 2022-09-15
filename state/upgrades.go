@@ -1635,7 +1635,7 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 		ID string `bson:"_id"`
 	}
 	err = settingsColl.Find(bson.M{
-		"_id": bson.M{"$regex": bson.RegEx{"#application$", ""}}}).All(&applicationConfigIDs)
+		"_id": bson.M{"$regex": bson.RegEx{"application$", ""}}}).All(&applicationConfigIDs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -4580,4 +4580,41 @@ func CharmOriginChannelMustHaveTrack(pool *StatePool) error {
 		}
 		return nil
 	}))
+}
+
+// RemoveDefaultSeriesFromModelConfig removes the default series value from
+// each model's config. To allow users to set the value and be sure it's what
+// they want. Previously it was set by juju.
+func RemoveDefaultSeriesFromModelConfig(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var ops []txn.Op
+	coll, closer := st.db().GetRawCollection(settingsC)
+	defer closer()
+	pattern := fmt.Sprintf(":%s$", modelGlobalKey)
+	iter := coll.Find(bson.M{"_id": bson.M{"$regex": bson.RegEx{pattern, ""}}}).Iter()
+	defer func() { _ = iter.Close() }()
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		_, ok := doc.Settings[config.DefaultSeries]
+		if !ok {
+			continue
+		}
+		doc.Settings[config.DefaultSeries] = ""
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
 }
