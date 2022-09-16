@@ -216,9 +216,11 @@ func (k *kubernetesClient) deleteSecrets(appName string) error {
 	return errors.Trace(err)
 }
 
+var timeoutForSecretTokenGet = 10 * time.Second
+
 // GetSecretToken returns the token content for the specified secret name.
 func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), timeoutForSecretTokenGet)
 	defer cancel()
 
 	secret, err := proxy.FetchTokenReadySecret(
@@ -230,6 +232,5 @@ func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	logger.Criticalf("string(secret.Data[core.ServiceAccountTokenKey]) %q", string(secret.Data[core.ServiceAccountTokenKey]))
 	return string(secret.Data[core.ServiceAccountTokenKey]), nil
 }

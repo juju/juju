@@ -105,6 +105,7 @@ const (
 var (
 	// modelOperatorName is the model operator stack name used for deployment, service, RBAC resources.
 	modelOperatorName = "modeloperator"
+
 	// ExecRBACResourceName is the model's exec RBAC resource name.
 	ExecRBACResourceName = "model-exec"
 )
