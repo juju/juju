@@ -1570,11 +1570,20 @@ func (s *SecretsExpiryWatcherSuite) TestWatchRemoveRevision(c *gc.C) {
 	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
+	now := s.Clock.Now().Round(time.Second).UTC()
+	triggerTime := now.Add(time.Minute).Round(time.Second).UTC()
 	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar2"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri,
+		Revision:        1,
+		NextTriggerTime: triggerTime,
+	})
+	wc.AssertNoChange()
+
 	_, err = s.store.DeleteSecret(uri, []int{1})
 	c.Assert(err, jc.ErrorIsNil)
 

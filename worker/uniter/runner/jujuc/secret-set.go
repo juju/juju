@@ -17,8 +17,8 @@ type secretUpdateCommand struct {
 	secretURI *secrets.URI
 }
 
-// NewSecretUpdateCommand returns a command to create a secret.
-func NewSecretUpdateCommand(ctx Context) (cmd.Command, error) {
+// NewSecretSetCommand returns a command to create a secret.
+func NewSecretSetCommand(ctx Context) (cmd.Command, error) {
 	return &secretUpdateCommand{
 		secretUpsertCommand: secretUpsertCommand{ctx: ctx},
 	}, nil
@@ -27,30 +27,30 @@ func NewSecretUpdateCommand(ctx Context) (cmd.Command, error) {
 // Info implements cmd.Command.
 func (c *secretUpdateCommand) Info() *cmd.Info {
 	doc := `
-Update a secret with a list of key values.
+Update a secret with a list of key values, or set new metadata.
 If a value has the '#base64' suffix, it is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded
 prior to being stored.
 To just update selected metadata like rotate policy, do not specify any secret value.
 
 Examples:
-    secret-update secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
-    secret-update secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
-    secret-update secret:9m4e2mr0ui3e8a215n4g --rotate monthly token=s3cret 
-    secret-update secret:9m4e2mr0ui3e8a215n4g --expire 24h
-    secret-update secret:9m4e2mr0ui3e8a215n4g --expire 24h token=s3cret 
-    secret-update secret:9m4e2mr0ui3e8a215n4g --expire 2025-01-01T06:06:06 token=s3cret 
-    secret-update secret:9m4e2mr0ui3e8a215n4g --label db-password \
+    secret-set secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
+    secret-set secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
+    secret-set secret:9m4e2mr0ui3e8a215n4g --rotate monthly token=s3cret 
+    secret-set secret:9m4e2mr0ui3e8a215n4g --expire 24h
+    secret-set secret:9m4e2mr0ui3e8a215n4g --expire 24h token=s3cret 
+    secret-set secret:9m4e2mr0ui3e8a215n4g --expire 2025-01-01T06:06:06 token=s3cret 
+    secret-set secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --description "my database password" \
         data#base64 s3cret== 
-    secret-update secret:9m4e2mr0ui3e8a215n4g --label db-password \
+    secret-set secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --description "my database password"
-    secret-update secret:9m4e2mr0ui3e8a215n4g --label db-password \
+    secret-set secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --description "my database password" \
         --file=/path/to/file
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "secret-update",
+		Name:    "secret-set",
 		Args:    "<ID> [key[#base64]=value...]",
 		Purpose: "update an existing secret",
 		Doc:     doc,
