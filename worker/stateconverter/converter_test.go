@@ -72,7 +72,7 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 }
 
-func (s *converterSuite) TestHandleNoManageEnviron(c *gc.C) {
+func (s *converterSuite) TestHandleNotController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch().Return(nil, nil)
