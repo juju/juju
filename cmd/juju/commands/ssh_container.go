@@ -238,7 +238,7 @@ func (c *sshContainer) cleanupRun() {
 const charmContainerName = "charm"
 
 func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
-	if c.modelName == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
+	if modelNameWithoutUsername(c.modelName) == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
 		// TODO(caas): change here to controller unit tag once we refactored controller to an application.
 		if target != "0" {
 			// HA is not enabled on CaaS controller yet.
@@ -281,7 +281,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	if !isMetaV2 && !c.remote {
 		// We don't want to introduce CaaS broker here, but only use exec client.
 		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
-		modelName := c.modelName
+		modelName := modelNameWithoutUsername(c.modelName)
 		// Model name should always be set, but just in case...
 		if modelName == "" {
 			modelName = c.execClient.NameSpace()
@@ -414,12 +414,20 @@ func (c *sshContainer) expandSCPArg(arg string) (o k8sexec.FileResource, err err
 	return o, errors.New("target must match format: [pod[/container]:]path")
 }
 
+func modelNameWithoutUsername(modelName string) string {
+	parts := strings.Split(modelName, "/")
+	if len(parts) == 2 {
+		modelName = parts[1]
+	}
+	return modelName
+}
+
 func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	cloudSpec, err := c.getCloudSpec()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.execClientGetter(c.modelName, c.modelUUID, cloudSpec)
+	return c.execClientGetter(modelNameWithoutUsername(c.modelName), c.modelUUID, cloudSpec)
 }
 
 func (c *sshContainer) getCloudSpec() (cloudspec.CloudSpec, error) {
