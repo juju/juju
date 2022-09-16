@@ -40,19 +40,23 @@ ensure_subnet() {
 	if [ "$isolated_subnet_id" != "null" ]; then
 		cleanup_stale_nics
 		echo "$isolated_subnet_id"
-		exit 0
+		return
 	fi
 
 	# Create a subnet in the default vpc
 	vpc_id=$(aws ec2 describe-vpcs | jq -r ".Vpcs[0].VpcId")
 	subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block "172.31.254.0/24" | jq -r ".Subnet.SubnetId")
+	if [ -z "${subnet_id}" ] || [ "${subnet_id}" == "null" ]; then
+		echo "$(red "failed to create subnet in vpc $vpc_id")" 1>&2
+		exit 1
+	fi
 	echo "${subnet_id}"
 }
 
 setup_nic_for_space_tests() {
 	isolated_subnet_id=${1}
 	hotplug_nic_id=$(aws ec2 create-network-interface --subnet-id "$isolated_subnet_id" --description="hot-pluggable NIC for space tests" 2>/dev/null | jq -r '.NetworkInterface.NetworkInterfaceId')
-	if [ "$hotplug_nic_id" == "null" ]; then
+	if [ -z "$hotplug_nic_id" ] || [ "$hotplug_nic_id" == "null" ]; then
 		# shellcheck disable=SC2046
 		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs") 1>&2
 		exit 1
