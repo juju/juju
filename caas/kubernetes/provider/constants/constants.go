@@ -31,6 +31,10 @@ const (
 	// AgentHTTPPathStartup is the path used for startup probes on the agent
 	AgentHTTPPathStartup = "/startup"
 
+	// DefaultPebbleDir is the default directory Pebble considers when starting
+	// up.
+	DefaultPebbleDir = "/var/lib/pebble/default"
+
 	// JujuRunServerSocketPort is the port used by juju run callbacks.
 	JujuRunServerSocketPort = 30666
 
