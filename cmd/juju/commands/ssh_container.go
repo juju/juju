@@ -83,7 +83,6 @@ type SSHClientAPI interface {
 // ModelAPI defines model related APIs.
 type ModelAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 }
 

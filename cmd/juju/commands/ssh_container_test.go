@@ -26,6 +26,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -42,6 +43,7 @@ type sshContainerSuite struct {
 	execClient         *mocks.MockExecutor
 	mockPods           *k8smocks.MockPodInterface
 	mockNamespaces     *k8smocks.MockNamespaceInterface
+	mockSSHClient      *mocks.MockSSHClientAPI
 
 	sshC commands.SSHContainerInterfaceForTest
 }
@@ -86,6 +88,8 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 	mockCoreV1.EXPECT().Pods(gomock.Any()).AnyTimes().Return(s.mockPods)
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
+	s.mockSSHClient = mocks.NewMockSSHClientAPI(ctrl)
+
 	s.sshC = commands.NewSSHContainer(
 		s.modelUUID,
 		s.modelName,
@@ -94,6 +98,7 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 		s.applicationAPI,
 		s.charmAPI,
 		s.execClient,
+		s.mockSSHClient,
 		remote,
 		containerName,
 	)
@@ -109,6 +114,7 @@ func (s *sshContainerSuite) TestCleanupRun(c *gc.C) {
 		s.modelAPI.EXPECT().Close(),
 		s.applicationAPI.EXPECT().Close(),
 		s.charmAPI.EXPECT().Close(),
+		s.mockSSHClient.EXPECT().Close(),
 	)
 	s.sshC.CleanupRun()
 }
@@ -343,7 +349,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C)
 	c.Assert(err, gc.ErrorMatches, `container for unit "mariadb-k8s/0" is not ready yet`)
 }
 
-func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
+func (s *sshContainerSuite) TestGetExecClientLegacy(c *gc.C) {
 	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
@@ -353,6 +359,8 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 	gomock.InOrder(
 		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
 			Return(2),
+		s.mockSSHClient.EXPECT().BestAPIVersion().
+			Return(3),
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
 				{Result: &params.ModelInfo{
@@ -375,6 +383,24 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 				Type:      "kubernetes",
 				AuthTypes: jujucloud.AuthTypes{"certificate"},
 			}, nil),
+	)
+	execC, err := s.sshC.GetExecClient()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.sshC.ModelName(), gc.Equals, s.modelName)
+	c.Assert(execC, gc.DeepEquals, s.execClient)
+}
+
+func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
+	ctrl := s.setUpController(c, true, "")
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
+			Return(2),
+		s.mockSSHClient.EXPECT().BestAPIVersion().
+			Return(4),
+		s.mockSSHClient.EXPECT().ModelCredentialForSSH().
+			Return(cloudspec.CloudSpec{}, nil),
 	)
 	execC, err := s.sshC.GetExecClient()
 	c.Assert(err, jc.ErrorIsNil)
@@ -405,6 +431,8 @@ func (s *sshContainerSuite) TestGetExecClientFailedInvalidCredential(c *gc.C) {
 	gomock.InOrder(
 		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
 			Return(2),
+		s.mockSSHClient.EXPECT().BestAPIVersion().
+			Return(3),
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
 				{Result: &params.ModelInfo{CloudCredentialTag: "cloudcred-microk8s_admin_microk8s"}},
@@ -435,6 +463,8 @@ func (s *sshContainerSuite) TestGetExecClientFailedForNonCAASCloud(c *gc.C) {
 	gomock.InOrder(
 		s.cloudCredentialAPI.EXPECT().BestAPIVersion().
 			Return(2),
+		s.mockSSHClient.EXPECT().BestAPIVersion().
+			Return(3),
 		s.modelAPI.EXPECT().ModelInfo([]names.ModelTag{names.NewModelTag(s.modelUUID)}).
 			Return([]params.ModelInfoResult{
 				{Result: &params.ModelInfo{CloudCredentialTag: "cloudcred-microk8s_admin_microk8s"}},
