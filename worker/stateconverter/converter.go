@@ -57,6 +57,7 @@ func (w wrapper) Machine(tag names.MachineTag) (Machine, error) {
 // SetUp implements NotifyWatchHandler's SetUp method. It returns a watcher that
 // checks for changes to the current machine.
 func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
+	c.logger.Tracef("Calling SetUp for %s", c.machineTag)
 	m, err := c.machiner.Machine(c.machineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -69,6 +70,7 @@ func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
 // that the machine is now expected to manage the environment,
 // we throw a fatal error to instigate agent restart.
 func (c *converter) Handle(_ <-chan struct{}) error {
+	c.logger.Tracef("Calling Handle for %s", c.machineTag)
 	results, err := c.machine.Jobs()
 	if err != nil {
 		return errors.Annotate(err, "can't get jobs for machine")

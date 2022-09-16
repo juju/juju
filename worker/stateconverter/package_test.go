@@ -20,10 +20,11 @@ func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func NewConverterForTest(machine Machine, machiner Machiner) watcher.NotifyHandler {
+func NewConverterForTest(machine Machine, machiner Machiner, logger Logger) watcher.NotifyHandler {
 	return &converter{
 		machineTag: names.NewMachineTag("3"),
 		machiner:   machiner,
 		machine:    machine,
+		logger:     logger,
 	}
 }

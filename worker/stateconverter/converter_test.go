@@ -116,5 +116,6 @@ func (s *converterSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *converterSuite) newConverter() watcher.NotifyHandler {
-	return stateconverter.NewConverterForTest(s.machine, s.machiner)
+	logger := fakeLogger{}
+	return stateconverter.NewConverterForTest(s.machine, s.machiner, &logger)
 }

@@ -88,9 +88,6 @@ func (s *manifoldConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 type fakeLogger struct{}
 
-func (l *fakeLogger) Errorf(format string, args ...interface{})    {}
 func (l *fakeLogger) Debugf(format string, args ...interface{})    {}
-func (l *fakeLogger) Warningf(format string, args ...interface{})  {}
-func (l *fakeLogger) Infof(format string, args ...interface{})     {}
 func (l *fakeLogger) Criticalf(format string, args ...interface{}) {}
 func (l *fakeLogger) Tracef(format string, args ...interface{})    {}
