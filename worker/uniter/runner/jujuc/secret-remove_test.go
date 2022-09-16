@@ -18,7 +18,7 @@ type SecretRemoveSuite struct {
 
 var _ = gc.Suite(&SecretRemoveSuite{})
 
-func (s *SecretRemoveSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
+func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	for _, t := range []struct {
@@ -33,7 +33,7 @@ func (s *SecretRemoveSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR secret URI "foo" not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, "secret-update")
+		com, err := jujuc.NewCommand(hctx, "secret-remove")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
