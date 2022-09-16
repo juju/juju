@@ -10,10 +10,12 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
-// isControllerFlagManifold returns a dependency.Manifold that requires state
-// config.
+// isControllerFlagManifold returns a dependency.Manifold that indicates
+// the state config is present or not depending on the arg.
 // It returns a worker implementing engine.Flag, whose Check method returns
-// whether state config is present on the machine.
+// True in 2 cases:
+// 1) state config is present on the machine and arg is True
+// 2) state config is not present on the machine and arg is False.
 func isControllerFlagManifold(yes bool) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{stateConfigWatcherName},
