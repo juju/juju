@@ -9,7 +9,9 @@
 add_multi_nic_machine() {
 	hotplug_nic_id=$1
 
-	juju add-machine
+	# Ensure machine is deployed to the same az as our nic
+	az=$(aws ec2 describe-network-interfaces --filters Name=network-interface-id,Values="$hotplug_nic_id" | jq -r ".NetworkInterfaces[0].AvailabilityZone")
+	juju add-machine --constraints zones="${az}"
 	juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
 	echo "[+] waiting for machine ${juju_machine_id} to start..."
 
