@@ -31,7 +31,7 @@ type Logger interface {
 
 // SecretManagerFacade instances provide a watcher for secret revision expiry changes.
 type SecretManagerFacade interface {
-	WatchSecretRevisionsExpiryChanges(ownerTag string) (watcher.SecretTriggerWatcher, error)
+	WatchSecretRevisionsExpiryChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error)
 }
 
 // Config defines the operation of the Worker.
@@ -40,7 +40,7 @@ type Config struct {
 	Logger              Logger
 	Clock               clock.Clock
 
-	SecretOwner     names.Tag
+	SecretOwners    []names.Tag
 	ExpireRevisions chan<- []string
 }
 
@@ -55,8 +55,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.SecretOwner == nil {
-		return errors.NotValidf("nil SecretOwner")
+	if len(config.SecretOwners) == 0 {
+		return errors.NotValidf("empty SecretOwners")
 	}
 	if config.ExpireRevisions == nil {
 		return errors.NotValidf("nil ExpireRevisionsChannel")
@@ -71,8 +71,8 @@ func New(config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		config:  config,
-		secrets: make(map[string]secretRevisionExpiryInfo),
+		config:          config,
+		secretRevisions: make(map[string]secretRevisionExpiryInfo),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -89,7 +89,11 @@ type secretRevisionExpiryInfo struct {
 }
 
 func (s secretRevisionExpiryInfo) GoString() string {
-	return fmt.Sprintf("%s expiry: in %v at %s", expiryKey(s.uri, s.revision), s.expireTime.Sub(time.Now()), s.expireTime.Format(time.RFC3339))
+	interval := s.expireTime.Sub(time.Now())
+	if interval < 0 {
+		return fmt.Sprintf("%s expiry: %v ago at %s", expiryKey(s.uri, s.revision), -interval, s.expireTime.Format(time.RFC3339))
+	}
+	return fmt.Sprintf("%s expiry: in %v at %s", expiryKey(s.uri, s.revision), interval, s.expireTime.Format(time.RFC3339))
 }
 
 // Worker fires events when secret revisions should be expired.
@@ -97,7 +101,7 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	secrets map[string]secretRevisionExpiryInfo
+	secretRevisions map[string]secretRevisionExpiryInfo
 
 	timer       clock.Timer
 	nextTrigger time.Time
@@ -114,7 +118,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretManagerFacade.WatchSecretRevisionsExpiryChanges(w.config.SecretOwner.String())
+	changes, err := w.config.SecretManagerFacade.WatchSecretRevisionsExpiryChanges(w.config.SecretOwners...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -141,10 +145,10 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) expire(now time.Time) {
-	w.config.Logger.Debugf("processing secret expiry for %q at %s", w.config.SecretOwner, now)
+	w.config.Logger.Debugf("processing secret expiry for %q at %s", w.config.SecretOwners, now)
 
 	var toExpire []string
-	for id, info := range w.secrets {
+	for id, info := range w.secretRevisions {
 		w.config.Logger.Debugf("expire %s at %s... time diff %s", id, info.expireTime, info.expireTime.Sub(now))
 		// A one minute granularity is acceptable for secret expiry.
 		if info.expireTime.Truncate(time.Minute).Before(now) {
@@ -158,7 +162,7 @@ func (w *Worker) expire(now time.Time) {
 			newInfo := info
 			newInfo.expireTime = info.expireTime.Add(secrets.ExpireRetryDelay)
 			newInfo.retryCount++
-			w.secrets[id] = newInfo
+			w.secretRevisions[id] = newInfo
 		}
 	}
 
@@ -186,10 +190,10 @@ func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTrigg
 		// Next trigger time of 0 means the expiry has been deleted.
 		if ch.NextTriggerTime.IsZero() {
 			w.config.Logger.Debugf("secret revision %d no longer expires: %v", ch.URI.String(), ch.Revision)
-			delete(w.secrets, expiryKey(ch.URI, ch.Revision))
+			delete(w.secretRevisions, expiryKey(ch.URI, ch.Revision))
 			continue
 		}
-		w.secrets[expiryKey(ch.URI, ch.Revision)] = secretRevisionExpiryInfo{
+		w.secretRevisions[expiryKey(ch.URI, ch.Revision)] = secretRevisionExpiryInfo{
 			uri:        ch.URI,
 			revision:   ch.Revision,
 			expireTime: ch.NextTriggerTime,
@@ -199,18 +203,25 @@ func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTrigg
 }
 
 func (w *Worker) computeNextExpireTime() {
-	w.config.Logger.Debugf("computing next expire time for secret revisions %#v", w.secrets)
+	w.config.Logger.Debugf("computing next expire time for secret revisions %#v", w.secretRevisions)
 
-	if len(w.secrets) == 0 {
+	if len(w.secretRevisions) == 0 {
 		w.timer = nil
 		return
 	}
 
 	// Find the minimum (next) expireTime from all the secrets.
 	var soonestExpireTime time.Time
-	for _, info := range w.secrets {
+	now := w.config.Clock.Now()
+	for id, info := range w.secretRevisions {
 		if !soonestExpireTime.IsZero() && info.expireTime.After(soonestExpireTime) {
 			continue
+		}
+		// Account for the worker not running when a secret
+		// revision should have been expired.
+		if info.expireTime.Before(now) {
+			info.expireTime = now
+			w.secretRevisions[id] = info
 		}
 		soonestExpireTime = info.expireTime
 	}
@@ -219,15 +230,8 @@ func (w *Worker) computeNextExpireTime() {
 		return
 	}
 
-	// Account for the worker not running when a secret
-	// revision should have been expired.
-	now := w.config.Clock.Now()
-	if soonestExpireTime.Before(now) {
-		soonestExpireTime = now
-	}
-
 	nextDuration := soonestExpireTime.Sub(now)
-	w.config.Logger.Debugf("next secret revision for %q will expire in %v at %s", w.config.SecretOwner, nextDuration, soonestExpireTime)
+	w.config.Logger.Debugf("next secret revision for %q will expire in %v at %s", w.config.SecretOwners, nextDuration, soonestExpireTime)
 
 	w.nextTrigger = soonestExpireTime
 	if w.timer == nil {

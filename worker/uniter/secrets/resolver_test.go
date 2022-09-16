@@ -40,8 +40,7 @@ var _ = gc.Suite(&triggerSecretsSuite{})
 
 func (s *triggerSecretsSuite) SetUpTest(_ *gc.C) {
 	s.remoteState = remotestate.Snapshot{
-		Leader: true,
-		Life:   life.Alive,
+		Life: life.Alive,
 	}
 
 	s.rotatedSecret = nil
@@ -79,19 +78,6 @@ func (s *triggerSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 			Kind: operation.Continue,
 		},
 	}
-	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-}
-
-func (s *triggerSecretsSuite) TestNextOpNotLeader(c *gc.C) {
-	localState := resolver.LocalState{
-		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-		},
-	}
-	s.remoteState.Leader = false
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)

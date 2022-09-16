@@ -416,7 +416,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), machPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-	owner := f.unit.ApplicationTag().String()
+	owner := f.unit.Tag().String()
 	info, err := ctx.secretsClient.SecretMetadata(secrets.Filter{
 		OwnerTag: &owner,
 	})
@@ -430,9 +430,14 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		for rev, id := range v.ProviderIds {
 			providerIds[rev] = id
 		}
+		ownerTag, err := names.ParseTag(md.OwnerTag)
+		if err != nil {
+			return err
+		}
 		ctx.secretMetadata[md.URI.ID] = jujuc.SecretMetadata{
 			Description:      md.Description,
 			Label:            md.Label,
+			Owner:            ownerTag,
 			RotatePolicy:     md.RotatePolicy,
 			LatestRevision:   md.LatestRevision,
 			LatestExpireTime: md.LatestExpireTime,

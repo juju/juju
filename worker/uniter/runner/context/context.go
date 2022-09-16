@@ -773,19 +773,17 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, update, pe
 }
 
 // CreateSecret creates a secret with the specified data.
-func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (*coresecrets.URI, error) {
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		return nil, ErrIsNotLeader
+func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets.URI, error) {
+	if args.OwnerTag.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return nil, ErrIsNotLeader
+		}
 	}
 	uris, err := ctx.secretsClient.CreateSecretURIs(1)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	appName, err := names.UnitApplication(ctx.unitName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -798,23 +796,22 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretUpsertArgs) (*coresecrets
 			Label:        args.Label,
 			Value:        args.Value,
 		},
-		OwnerTag: names.NewApplicationTag(appName),
+		OwnerTag: args.OwnerTag,
 	})
 	return uris[0], nil
 }
 
 // UpdateSecret creates a secret with the specified data.
-func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpsertArgs) error {
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		return ErrIsNotLeader
-	}
+func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
 	md, ok := ctx.secretMetadata[uri.ID]
-	if !ok {
-		return errors.NotFoundf("secret %q", uri.String())
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
 	}
 	ctx.secretChanges.update(uniter.SecretUpdateArg{
 		SecretUpsertArg: uniter.SecretUpsertArg{
@@ -832,12 +829,15 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUps
 
 // RemoveSecret removes a secret with the specified uri.
 func (ctx *HookContext) RemoveSecret(uri *coresecrets.URI, revision *int) error {
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		return ErrIsNotLeader
+	md, ok := ctx.secretMetadata[uri.ID]
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
 	}
 	ctx.secretChanges.remove(uri, revision)
 	return nil
@@ -881,12 +881,15 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 
 // GrantSecret grants access to a specified secret.
 func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		return ErrIsNotLeader
+	md, ok := ctx.secretMetadata[uri.ID]
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
 	}
 	ctx.secretChanges.grant(uniter.SecretGrantRevokeArgs{
 		URI:             uri,
@@ -900,12 +903,15 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGran
 
 // RevokeSecret revokes access to a specified secret.
 func (ctx *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		return ErrIsNotLeader
+	md, ok := ctx.secretMetadata[uri.ID]
+	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
 	}
 	ctx.secretChanges.revoke(uniter.SecretGrantRevokeArgs{
 		URI:             uri,

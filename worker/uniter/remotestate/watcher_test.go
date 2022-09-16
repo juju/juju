@@ -197,7 +197,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		EnforcedCharmModifiedVersion: s.enforcedCharmModifiedVersion,
 		LeadershipTracker:            s.leadership,
 		SecretsClient:                s.secretsClient,
-		SecretRotateWatcherFunc: func(u names.UnitTag, rotateCh chan []string) (worker.Worker, error) {
+		SecretRotateWatcherFunc: func(u names.UnitTag, isLeader bool, rotateCh chan []string) (worker.Worker, error) {
 			select {
 			case s.rotateSecretWatcherEvent <- u.Id():
 			default:
@@ -208,7 +208,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 			}
 			return s.rotateSecretWatcher, nil
 		},
-		SecretExpiryWatcherFunc: func(u names.UnitTag, expireCh chan []string) (worker.Worker, error) {
+		SecretExpiryWatcherFunc: func(u names.UnitTag, isLeader bool, expireCh chan []string) (worker.Worker, error) {
 			select {
 			case s.expireRevisionWatcherEvent <- u.Id():
 			default:
@@ -321,7 +321,6 @@ func (s *WatcherSuite) signalAll() {
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.applicationWatcher.changes <- struct{}{}
 	s.secretsClient.secretsWatcher.changes <- []string{}
-	s.secretsClient.secretsRevisionsWatcher.changes <- []string{}
 	if s.st.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		s.st.unit.instanceDataWatcher.changes <- struct{}{}

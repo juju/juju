@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v4"
 )
 
 // MockSecretTriggers is a mock of SecretTriggers interface.
@@ -51,11 +52,12 @@ func (mr *MockSecretTriggersMockRecorder) SecretRotated(arg0, arg1 interface{}) 
 }
 
 // WatchSecretRevisionsExpiryChanges mocks base method.
-func (m *MockSecretTriggers) WatchSecretRevisionsExpiryChanges(arg0 string) state.SecretsTriggerWatcher {
+func (m *MockSecretTriggers) WatchSecretRevisionsExpiryChanges(arg0 []names.Tag) (state.SecretsTriggerWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchSecretRevisionsExpiryChanges", arg0)
 	ret0, _ := ret[0].(state.SecretsTriggerWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchSecretRevisionsExpiryChanges indicates an expected call of WatchSecretRevisionsExpiryChanges.
@@ -65,11 +67,12 @@ func (mr *MockSecretTriggersMockRecorder) WatchSecretRevisionsExpiryChanges(arg0
 }
 
 // WatchSecretsRotationChanges mocks base method.
-func (m *MockSecretTriggers) WatchSecretsRotationChanges(arg0 string) state.SecretsTriggerWatcher {
+func (m *MockSecretTriggers) WatchSecretsRotationChanges(arg0 []names.Tag) (state.SecretsTriggerWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchSecretsRotationChanges", arg0)
 	ret0, _ := ret[0].(state.SecretsTriggerWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchSecretsRotationChanges indicates an expected call of WatchSecretsRotationChanges.

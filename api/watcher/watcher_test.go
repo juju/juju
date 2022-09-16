@@ -515,11 +515,14 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	c *gc.C,
 ) (*secrets.URI, func(corewatcher.SecretTriggerChange), func(), func()) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	nexRotateTime := time.Now().Add(time.Hour)
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
-		Owner: "application-mysql",
+		Owner: unit.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -531,9 +534,6 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
-	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
-		Application: app,
-	})
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password
@@ -543,7 +543,7 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := secretsmanager.NewClient(apiConn)
-	w, err := client.WatchSecretsRotationChanges("application-mysql")
+	w, err := client.WatchSecretsRotationChanges(unit.Tag())
 	if !c.Check(err, jc.ErrorIsNil) {
 		_ = apiConn.Close()
 		c.FailNow()
@@ -622,11 +622,14 @@ func (s *watcherSuite) setupSecretExpiryWatcher(
 	c *gc.C,
 ) (*secrets.URI, func(corewatcher.SecretTriggerChange), func(), func()) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	nexRotateTime := time.Now().Add(time.Hour)
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
-		Owner: "application-mysql",
+		Owner: unit.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -638,9 +641,6 @@ func (s *watcherSuite) setupSecretExpiryWatcher(
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
-	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
-		Application: app,
-	})
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password
@@ -650,7 +650,7 @@ func (s *watcherSuite) setupSecretExpiryWatcher(
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := secretsmanager.NewClient(apiConn)
-	w, err := client.WatchSecretsRotationChanges("application-mysql")
+	w, err := client.WatchSecretsRotationChanges(unit.Tag())
 	if !c.Check(err, jc.ErrorIsNil) {
 		_ = apiConn.Close()
 		c.FailNow()

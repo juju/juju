@@ -40,13 +40,13 @@ type Logger interface {
 }
 
 // SecretTriggerWatcherFunc is a function returning a secrets trigger watcher.
-type SecretTriggerWatcherFunc func(names.UnitTag, chan []string) (worker.Worker, error)
+type SecretTriggerWatcherFunc func(names.UnitTag, bool, chan []string) (worker.Worker, error)
 
 // SecretsClient provides access to the secrets manager facade.
 type SecretsClient interface {
-	WatchConsumedSecretsChanges(string) (watcher.StringsWatcher, error)
+	WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error)
 	GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error)
-	WatchObsolete(appName string) (watcher.StringsWatcher, error)
+	WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error)
 }
 
 // RemoteStateWatcher collects unit, application, and application config information
@@ -85,6 +85,9 @@ type RemoteStateWatcher struct {
 	secretExpiryWatcherFunc SecretTriggerWatcherFunc
 	secretExpiryWatcher     worker.Worker
 	expireSecretsChanges    chan []string
+
+	obsoleteRevisionWatcher worker.Worker
+	obsoleteRevisionChanges watcher.StringsChannel
 
 	catacomb catacomb.Catacomb
 
@@ -440,17 +443,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
-	var seenSecretRevisionsChange bool
-	secretRevisionChangesw, err := w.secretsClient.WatchObsolete(w.application.Tag().Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	secretRevisionsChanges := secretRevisionChangesw.Changes()
-	if err := w.catacomb.Add(secretRevisionChangesw); err != nil {
-		return errors.Trace(err)
-	}
-	requiredEvents++
-
 	var (
 		seenApplicationChange   bool
 		seenInstanceDataChange  bool
@@ -621,16 +613,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenSecretsChange)
 
-		case secretRevisions, ok := <-secretRevisionsChanges:
-			w.logger.Debugf("got obsolete secret revisions change for %s: %s", w.application.Tag().Id(), secretRevisions)
-			if !ok {
-				return errors.New("secret revisions watcher closed")
-			}
-			if err := w.secretObsoleteRevisionsChanged(secretRevisions); err != nil {
-				return errors.Trace(err)
-			}
-			observedEvent(&seenSecretRevisionsChange)
-
 		case _, ok := <-instanceDataChannel:
 			w.logger.Debugf("got instance data change for %s", w.unit.Tag().Id())
 			if !ok {
@@ -795,6 +777,15 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			w.logger.Debugf("got expired secret revisions: %q", revisions)
 			w.expireSecretRevisions(revisions)
+
+		case secretRevisions, ok := <-w.obsoleteRevisionChanges:
+			w.logger.Debugf("got obsolete secret revisions change for %s: %s", w.application.Tag().Id(), secretRevisions)
+			if !ok {
+				return errors.New("secret revisions watcher closed")
+			}
+			if err := w.secretObsoleteRevisionsChanged(secretRevisions); err != nil {
+				return errors.Trace(err)
+			}
 
 		case change := <-w.storageAttachmentChanges:
 			w.logger.Debugf("storage attachment change for %s: %v", w.unit.Tag().Id(), change)
@@ -1066,51 +1057,71 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	defer w.mu.Unlock()
 
 	w.current.Leader = isLeader
-	if !isLeader {
-		if w.secretRotateWatcher != nil {
-			_ = worker.Stop(w.secretRotateWatcher)
-		}
-		w.secretRotateWatcher = nil
-		w.rotateSecretsChanges = nil
-		w.current.SecretRotations = nil
+	if w.secretRotateWatcher != nil {
+		_ = worker.Stop(w.secretRotateWatcher)
+	}
+	w.secretRotateWatcher = nil
+	w.rotateSecretsChanges = nil
+	w.current.SecretRotations = nil
 
-		if w.secretExpiryWatcher != nil {
-			_ = worker.Stop(w.secretExpiryWatcher)
-		}
-		w.secretExpiryWatcher = nil
-		w.expireSecretsChanges = nil
-		w.current.ExpiredSecretRevisions = nil
+	if w.secretExpiryWatcher != nil {
+		_ = worker.Stop(w.secretExpiryWatcher)
+	}
+	w.secretExpiryWatcher = nil
+	w.expireSecretsChanges = nil
+	w.current.ExpiredSecretRevisions = nil
 
-		return nil
+	if w.obsoleteRevisionWatcher != nil {
+		_ = worker.Stop(w.obsoleteRevisionWatcher)
 	}
-	if w.secretRotateWatcher == nil {
-		// Allow a generous buffer so a slow unit agent does not
-		// block the upstream worker.
-		w.rotateSecretsChanges = make(chan []string, 100)
-		w.logger.Debugf("starting secrets rotation watcher")
-		watcher, err := w.secretRotateWatcherFunc(w.unit.Tag(), w.rotateSecretsChanges)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(watcher); err != nil {
-			return errors.Trace(err)
-		}
-		w.secretRotateWatcher = watcher
+	w.obsoleteRevisionWatcher = nil
+	w.obsoleteRevisionChanges = nil
+
+	// Allow a generous buffer so a slow unit agent does not
+	// block the upstream worker.
+	w.rotateSecretsChanges = make(chan []string, 100)
+	w.logger.Debugf("starting secrets rotation watcher")
+	rotateWatcher, err := w.secretRotateWatcherFunc(w.unit.Tag(), isLeader, w.rotateSecretsChanges)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if w.secretExpiryWatcher == nil {
-		// Allow a generous buffer so a slow unit agent does not
-		// block the upstream worker.
-		w.expireSecretsChanges = make(chan []string, 100)
-		w.logger.Debugf("starting secret revisions expiry watcher")
-		watcher, err := w.secretExpiryWatcherFunc(w.unit.Tag(), w.expireSecretsChanges)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(watcher); err != nil {
-			return errors.Trace(err)
-		}
-		w.secretExpiryWatcher = watcher
+	if err := w.catacomb.Add(rotateWatcher); err != nil {
+		return errors.Trace(err)
 	}
+	w.secretRotateWatcher = rotateWatcher
+
+	// Allow a generous buffer so a slow unit agent does not
+	// block the upstream worker.
+	w.expireSecretsChanges = make(chan []string, 100)
+	w.logger.Debugf("starting secret revisions expiry watcher")
+	expiryWatcher, err := w.secretExpiryWatcherFunc(w.unit.Tag(), isLeader, w.expireSecretsChanges)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(expiryWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	w.secretExpiryWatcher = expiryWatcher
+
+	// Allow a generous buffer so a slow unit agent does not
+	// block the upstream worker.
+	w.obsoleteRevisionChanges = make(chan []string, 100)
+	w.logger.Debugf("starting obsolete secret revisions watcher")
+	owners := []names.Tag{w.unit.Tag()}
+	if isLeader {
+		appName, _ := names.UnitApplication(w.unit.Tag().Id())
+		owners = append(owners, names.NewApplicationTag(appName))
+	}
+	obsoleteRevisionsWatcher, err := w.secretsClient.WatchObsolete(owners...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(obsoleteRevisionsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	w.obsoleteRevisionWatcher = obsoleteRevisionsWatcher
+	w.obsoleteRevisionChanges = obsoleteRevisionsWatcher.Changes()
+
 	return nil
 }
 

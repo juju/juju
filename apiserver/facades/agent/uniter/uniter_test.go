@@ -4581,7 +4581,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 			LeaderToken: &token{isLeader: true},
 			Data:        map[string]string{"foo2": "bar"},
 		},
-		Owner: s.wordpress.Tag().String(),
+		Owner: s.wordpress.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri2, state.SecretAccessParams{
@@ -4597,7 +4597,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 			LeaderToken: &token{isLeader: true},
 			Data:        map[string]string{"foo3": "bar"},
 		},
-		Owner: s.wordpress.Tag().String(),
+		Owner: s.wordpress.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri3, state.SecretAccessParams{

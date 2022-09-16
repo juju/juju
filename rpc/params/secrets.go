@@ -191,12 +191,6 @@ type SecretTriggerWatchResult struct {
 	Error     *Error                `json:"error,omitempty"`
 }
 
-// SecretTriggerWatchResults holds the results for any API call which ends up
-// returning a list of SecretTriggerWatchResult.
-type SecretTriggerWatchResults struct {
-	Results []SecretTriggerWatchResult `json:"results"`
-}
-
 // SecretRotatedArgs holds the args for updating rotated secret info.
 type SecretRotatedArgs struct {
 	Args []SecretRotatedArg `json:"args"`

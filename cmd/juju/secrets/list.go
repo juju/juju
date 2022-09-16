@@ -128,7 +128,11 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 
 	filter := secrets.Filter{}
 	if c.owner != "" {
-		owner := names.NewApplicationTag(c.owner).String()
+		ownerTag, err := names.ParseTag(c.owner)
+		if err != nil {
+			return errors.Maskf(err, "invalid owner %q", c.owner)
+		}
+		owner := ownerTag.String()
 		filter.OwnerTag = &owner
 	}
 	result, err := api.ListSecrets(c.revealSecrets, filter)

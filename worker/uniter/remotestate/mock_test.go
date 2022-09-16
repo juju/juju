@@ -422,7 +422,7 @@ type mockSecretsClient struct {
 	secretsWatcher          *mockStringsWatcher
 	secretsRevisionsWatcher *mockStringsWatcher
 	unitName                string
-	appName                 string
+	owners                  []names.Tag
 }
 
 func (m *mockSecretsClient) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
@@ -447,7 +447,7 @@ func (m *mockSecretsClient) GetConsumerSecretsRevisionInfo(unitName string, uris
 	return result, nil
 }
 
-func (m *mockSecretsClient) WatchObsolete(appName string) (watcher.StringsWatcher, error) {
-	m.appName = appName
+func (m *mockSecretsClient) WatchObsolete(owners ...names.Tag) (watcher.StringsWatcher, error) {
+	m.owners = owners
 	return m.secretsRevisionsWatcher, nil
 }

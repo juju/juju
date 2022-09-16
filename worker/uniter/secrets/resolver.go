@@ -106,11 +106,6 @@ func (s *secretsResolver) rotateOp(
 		return nil, resolver.ErrNoOperation
 	}
 
-	// Nothing to do if we're no longer the leader.
-	if !remoteState.Leader {
-		return nil, resolver.ErrNoOperation
-	}
-
 	uri := remoteState.SecretRotations[0]
 	op, err := opFactory.NewRunHook(hook.Info{
 		Kind:      hooks.SecretRotate,
@@ -140,11 +135,6 @@ func (s *secretsResolver) expireOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	if len(remoteState.ExpiredSecretRevisions) == 0 {
-		return nil, resolver.ErrNoOperation
-	}
-
-	// Nothing to do if we're no longer the leader.
-	if !remoteState.Leader {
 		return nil, resolver.ErrNoOperation
 	}
 

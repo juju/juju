@@ -56,7 +56,7 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 		Clock:               s.clock,
 		SecretManagerFacade: s.facade,
 		Logger:              loggo.GetLogger("test"),
-		SecretOwner:         names.NewApplicationTag("mariadb"),
+		SecretOwners:        []names.Tag{names.NewApplicationTag("mariadb")},
 		ExpireRevisions:     s.expiredSecrets,
 	}
 	return ctrl
@@ -70,8 +70,8 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	}, `nil Facade not valid`)
 
 	s.testValidateConfig(c, func(config *secretexpire.Config) {
-		config.SecretOwner = nil
-	}, `nil SecretOwner not valid`)
+		config.SecretOwners = nil
+	}, `empty SecretOwners not valid`)
 
 	s.testValidateConfig(c, func(config *secretexpire.Config) {
 		config.ExpireRevisions = nil
@@ -93,7 +93,7 @@ func (s *workerSuite) testValidateConfig(c *gc.C, f func(*secretexpire.Config), 
 }
 
 func (s *workerSuite) expectWorker() {
-	s.facade.EXPECT().WatchSecretRevisionsExpiryChanges(s.config.SecretOwner.String()).Return(s.triggerWatcher, nil)
+	s.facade.EXPECT().WatchSecretRevisionsExpiryChanges(s.config.SecretOwners).Return(s.triggerWatcher, nil)
 	s.triggerWatcher.EXPECT().Changes().AnyTimes().Return(s.expiryConfigChanges)
 	s.triggerWatcher.EXPECT().Kill().MaxTimes(1)
 	s.triggerWatcher.EXPECT().Wait().Return(nil).MinTimes(1)
