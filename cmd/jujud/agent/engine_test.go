@@ -118,6 +118,8 @@ var (
 		"deployer",
 		"disk-manager",
 		"fan-configurer",
+		"is-controller-flag",
+		"is-not-controller-flag",
 		// "host-key-reporter", not stable, exits when done
 		"log-sender",
 		"logging-config-updater",
@@ -126,6 +128,7 @@ var (
 		"proxy-config-updater",
 		"reboot-executor",
 		"ssh-authkeys-updater",
+		"state-converter",
 		"storage-provisioner",
 		"upgrade-series",
 		"unconverted-api-workers",
