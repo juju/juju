@@ -8,6 +8,9 @@ env:
   DOCKER_USERNAME: jujuqabot
   JUJU_BUILD_NUMBER: 888
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Test Kubeflow
