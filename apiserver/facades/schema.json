@@ -40486,8 +40486,8 @@
     },
     {
         "Name": "SSHClient",
-        "Description": "TODO: use this !!!!\nFacade implements the API required by the sshclient worker.",
-        "Version": 3,
+        "Description": "Facade implements the API required by the sshclient worker.",
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
