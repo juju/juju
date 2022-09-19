@@ -136,6 +136,32 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
 }
 
+func (s *charmHubRepositorySuite) TestResolveWithSeriesNoOS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectCharmRefreshInstallOneFromChannel(c)
+
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := corecharm.Origin{
+		Source: "charm-hub",
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			Series:       "focal",
+		},
+	}
+
+	repo := NewCharmHubRepository(s.logger, s.client)
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl.Revision = 16
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
+	c.Assert(obtainedOrigin.Platform.Series, gc.Equals, "focal")
+	c.Assert(obtainedOrigin.Platform.OS, gc.Equals, "ubuntu")
+	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+}
+
 func (s *charmHubRepositorySuite) TestResolveWithoutSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectCharmRefreshInstallOneFromChannel(c)
