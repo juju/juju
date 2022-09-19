@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
 	osseries "github.com/juju/os/v2/series"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // DeduceOrigin attempts to deduce the origin from a channel and a platform.
@@ -27,7 +28,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 	// Arch is ultimately determined for non-local cases in the API call
 	// to `ResolveCharm`. To ensure we always have an architecture, even if
 	// somehow the DeducePlatform doesn't find one fill one in.
-	// Additionally `ResolveCharm` is not called for local charms, which are
+	// Additionally, `ResolveCharm` is not called for local charms, which are
 	// simply uploaded and deployed. We satisfy the requirement for
 	// non-empty platform architecture by making our best guess here.
 	architecture := platform.Architecture
@@ -35,21 +36,23 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		architecture = arch.DefaultArchitecture
 	}
 
+	var origin commoncharm.Origin
 	switch url.Schema {
 	case "cs":
-		return commoncharm.Origin{
+		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginCharmStore,
 			Risk:         string(channel.Risk),
 			Architecture: architecture,
+			OS:           platform.OS,
 			Series:       platform.Series,
-		}, nil
+		}
 	case "local":
-		return commoncharm.Origin{
+		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
 			OS:           platform.OS,
 			Series:       platform.Series,
-		}, nil
+		}
 	default:
 		var track *string
 		if channel.Track != "" {
@@ -63,7 +66,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		if url.Revision != -1 {
 			revision = &url.Revision
 		}
-		return commoncharm.Origin{
+		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginCharmHub,
 			Revision:     revision,
 			Risk:         string(channel.Risk),
@@ -72,8 +75,18 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Architecture: architecture,
 			OS:           platform.OS,
 			Series:       platform.Series,
-		}, nil
+		}
 	}
+
+	// If there is a series, ensure there is an OS.
+	if origin.Series != "" && origin.OS == "" {
+		os, err := coreseries.GetOSFromSeries(origin.Series)
+		if err != nil {
+			return commoncharm.Origin{}, err
+		}
+		origin.OS = strings.ToLower(os.String())
+	}
+	return origin, nil
 }
 
 // DeducePlatform attempts to create a Platform (architecture, os and series)
