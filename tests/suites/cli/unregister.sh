@@ -39,6 +39,12 @@ EOF
 		exit 1
 	fi
 
+	echo "Check 'juju switch' returns the error"
+	if ! JUJU_DATA="${TEST_DIR}/juju" juju switch "unregister-test"; then
+		echo "'juju switch' returned the error as expected"
+		exit 0
+	fi
+
 }
 
 test_unregister() {
