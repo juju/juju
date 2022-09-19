@@ -16,7 +16,6 @@ test_controller() {
 	test_enable_ha
 	# Leave this one last, as it can cause mongo to slowdown to a snails pace.
 	test_mongo_memory_profile
-	test_unregister
 
 	destroy_controller "test-controller"
 }
