@@ -4,6 +4,7 @@
 package juju
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 
@@ -66,6 +67,10 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	apiInfo, controller, err := connectionInfo(args)
 	if err != nil {
 		if errors.Is(errors.Cause(err), errors.NotValid) {
+			err = errors.NewNotValid(nil, fmt.Sprintf("%v\n"+
+				"A user name may contain any case alpha-numeric characters, '+', '.', and '-'; \n"+
+				"'@' to specify an optional domain. The user name and domain must begin and end \n"+
+				"with alpha-numeric characters. Examples of valid users include bob, Bob@local, bob@somewhere-else, 0-a-f@123", err))
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Annotatef(err, "cannot work out how to connect")
@@ -200,7 +205,7 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 	}
 	account := args.AccountDetails
 	if account.User != "" {
-		if !names.IsValidUserName(account.User) {
+		if !names.IsValidUser(account.User) {
 			return nil, nil, errors.NotValidf("user name %q", account.User)
 		}
 		userTag := names.NewUserTag(account.User)
