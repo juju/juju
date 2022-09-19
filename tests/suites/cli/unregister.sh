@@ -33,7 +33,7 @@ EOF
 
 	echo "Check that temporary controllers.yaml has no controllers' data"
 	EXPECTED="controllers: {}"
-	OUT=$(cat "${TEST_DIR}/juju/controllers.yaml" )
+	OUT=$(cat "${TEST_DIR}/juju/controllers.yaml")
 	if [ "${OUT}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${OUT}"
 		exit 1
