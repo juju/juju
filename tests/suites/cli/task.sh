@@ -11,7 +11,7 @@ test_cli() {
 
 	file="${TEST_DIR}/test-cli.log"
 
-	#	bootstrap "test-cli" "${file}"
+	bootstrap "test-cli" "${file}"
 
 	test_display_clouds
 	test_local_charms
@@ -19,5 +19,5 @@ test_cli() {
 	test_model_defaults
 	test_unregister
 
-	#	destroy_controller "test-cli"
+	destroy_controller "test-cli"
 }
