@@ -12,12 +12,8 @@ run_unregister() {
 	juju controllers --format=json | jq -r ".\"controllers\" | has(\"${controller_name}\")" | check true
 
 	echo "Backup controller info before unregister"
-	if [[ -f "${HOME}/.local/share/juju/controllers.yaml" ]]; then
-		cp "${HOME}/.local/share/juju/controllers.yaml" "${HOME}/.local/share/juju/controllers.yaml.bak"
-	fi
-	if [[ -f "${HOME}/.local/share/juju/accounts.yaml" ]]; then
-		cp "${HOME}/.local/share/juju/accounts.yaml" "${HOME}/.local/share/juju/accounts.yaml.bak"
-	fi
+	cp "${HOME}/.local/share/juju/controllers.yaml" "${HOME}/.local/share/juju/controllers.yaml.bak"
+	cp "${HOME}/.local/share/juju/accounts.yaml" "${HOME}/.local/share/juju/accounts.yaml.bak"
 
 	echo "Unregister controller"
 	juju unregister --yes "${controller_name}"
@@ -29,12 +25,8 @@ run_unregister() {
 	check_not_contains "$(juju controllers --format=json | jq -r '."current-controller"')" "${controller_name}"
 
 	echo "Restore controller info after unregister"
-	if [[ -f "${HOME}/.local/share/juju/controllers.yaml.bak" ]]; then
-		mv "${HOME}/.local/share/juju/controllers.yaml.bak" "${HOME}/.local/share/juju/controllers.yaml"
-	fi
-	if [[ -f "${HOME}/.local/share/juju/accounts.yaml.ba"k ]]; then
-		mv "${HOME}/.local/share/juju/accounts.yaml.bak" "${HOME}/.local/share/juju/accounts.yaml"
-	fi
+	mv "${HOME}/.local/share/juju/controllers.yaml.bak" "${HOME}/.local/share/juju/controllers.yaml"
+	mv "${HOME}/.local/share/juju/accounts.yaml.bak" "${HOME}/.local/share/juju/accounts.yaml"
 
 	juju controllers --format=json | jq -r '."current-controller"' | check "${controller_name}"
 
