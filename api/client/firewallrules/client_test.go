@@ -73,6 +73,8 @@ func (s *FirewallRulesSuite) TestSetFirewallRuleInvalid(c *gc.C) {
 
 	err := client.SetFirewallRule("foo", []string{"192.168.1.0/32"})
 	errors.Is(err, errors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `service "foo" not valid`)
+
 }
 
 func (s *FirewallRulesSuite) TestList(c *gc.C) {
