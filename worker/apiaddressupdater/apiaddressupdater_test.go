@@ -5,7 +5,6 @@ package apiaddressupdater_test
 
 import (
 	"io/ioutil"
-	"net"
 	"path/filepath"
 	"time"
 
@@ -37,7 +36,7 @@ func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
 	err := s.State.SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// By default mock these to better isolate the test from the real machine.
-	s.PatchValue(&network.InterfaceByNameAddrs, func(string) ([]net.Addr, error) {
+	s.PatchValue(&network.AddressesForInterfaceName, func(string) ([]string, error) {
 		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
@@ -211,22 +210,20 @@ anything else ignored
 LXC_BRIDGE="ignored"`[1:])
 	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
+	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
 		if name == "foobar" {
-			// The addresses on the LXC bridge
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+			return []string{
+				"10.0.3.1",
+				"10.0.3.4",
 			}, nil
 		} else if name == network.DefaultLXDBridge {
-			// The addresses on the LXD bridge
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
-				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
+			return []string{
+				"10.0.4.1",
+				"10.0.4.4",
 			}, nil
 		} else if name == network.DefaultKVMBridge {
-			return []net.Addr{
-				&net.IPAddr{IP: net.IPv4(192, 168, 122, 1)},
+			return []string{
+				"192.168.122.1",
 			}, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
