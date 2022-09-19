@@ -27,19 +27,13 @@ type OptionFactory struct {
 	interfaceAddrs func() ([]net.Addr, error)
 }
 
-// NewOptionFactoryWithDefaults returns a new OptionFactory reference
-// based on the input config, but otherwise using defaults.
-func NewOptionFactoryWithDefaults(cfg agent.Config) *OptionFactory {
-	return NewOptionFactory(cfg, dqlitePort, net.InterfaceAddrs)
-}
-
 // NewOptionFactory returns a new OptionFactory reference
-// based on the input arguments.
-func NewOptionFactory(cfg agent.Config, port int, interfaceAddrs func() ([]net.Addr, error)) *OptionFactory {
+// based on the input agent configuration.
+func NewOptionFactory(cfg agent.Config) *OptionFactory {
 	return &OptionFactory{
 		cfg:            cfg,
-		port:           port,
-		interfaceAddrs: interfaceAddrs,
+		port:           dqlitePort,
+		interfaceAddrs: net.InterfaceAddrs,
 	}
 }
 
@@ -51,7 +45,7 @@ func (f *OptionFactory) EnsureDataDir() (string, error) {
 	return dir, errors.Annotatef(err, "creating directory for Dqlite data")
 }
 
-// WithAddressOption returns a Dqlite application option
+// WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
 // TODO (manadart 2022-09-07): We will need to consider what happens with
 // juju-ha-space controller configuration as it relates to this address.

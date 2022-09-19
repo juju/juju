@@ -113,7 +113,7 @@ func InitializeState(
 		return nil, errors.Trace(err)
 	}
 
-	if err := database.BootstrapDqlite(database.NewOptionFactoryWithDefaults(c), logger); err != nil {
+	if err := database.BootstrapDqlite(database.NewOptionFactory(c), logger); err != nil {
 		return nil, errors.Trace(err)
 	}
 

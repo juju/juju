@@ -26,8 +26,7 @@ func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := dummyAgentConfig{dataDir: "/tmp/" + subDir}
-
-	f := NewOptionFactory(cfg, dqlitePort, nil)
+	f := NewOptionFactory(cfg)
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(expected) })
@@ -45,12 +44,14 @@ func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
 }
 
 func (s *optionSuite) TestWithAddressOption(c *gc.C) {
-	f := NewOptionFactory(nil, dqlitePort, func() ([]net.Addr, error) {
+	f := NewOptionFactory(nil)
+
+	f.interfaceAddrs = func() ([]net.Addr, error) {
 		return []net.Addr{
 			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
 			&net.IPAddr{IP: net.ParseIP("127.0.0.1")},
 		}, nil
-	})
+	}
 
 	// We can not actually test the realisation of this option,
 	// as the options type from the go-dqlite is not exported.
