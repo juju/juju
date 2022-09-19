@@ -4,7 +4,7 @@
 # The default timeout is 10 seconds.
 #
 # ```
-# wait_for <command> <expect_script>
+# wait_for <command> <expect_script> [<timeout>]
 # ```
 expect_command() {
 	local command expect_script
@@ -12,13 +12,14 @@ expect_command() {
 	command=${1}
 	filename=$(echo "${command}" | tr ' ' '-')
 	expect_script=${2}
+	timeout=${3:-10} # default timeout: 10s
 
-	cat > "${TEST_DIR}/${filename}.exp" <<EOF
+	cat >"${TEST_DIR}/${filename}.exp" <<EOF
 #!/usr/bin/expect
 proc abort { } { send_user \"\rTimeout Error!\" ; exit 2 }
 expect_before timeout abort
 
-set timeout 10
+set timeout ${timeout}
 spawn ${command}
 match_max 100000
 
