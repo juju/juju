@@ -40,7 +40,7 @@ EOF
 	fi
 
 	echo "Check 'juju switch' returns the error"
-	EXPECTED="ERROR \"unregister-test\" is not the name of a model or controller"
+	EXPECTED='ERROR "unregister-test" is not the name of a model or controller'
 	if ! OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju switch "unregister-test" 2>&1); then
 		if [ "${OUT}" != "${EXPECTED}" ]; then
 			echo "expected ${EXPECTED}, got ${OUT}"
