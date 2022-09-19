@@ -345,3 +345,18 @@ func SupportedNonLegacyAuthTypes() cloud.AuthTypes {
 	sort.Sort(ats)
 	return ats
 }
+
+// UpdateCredentialWithToken patches the credential with the provided k8s secret token.
+func UpdateCredentialWithToken(cred cloud.Credential, token string) (cloud.Credential, error) {
+	if cred.AuthType() == "" {
+		return cloud.Credential{}, errors.NotValidf("credential %q has empty auth type", cred.Label)
+	}
+	attributes := cred.Attributes()
+	if attributes == nil {
+		attributes = make(map[string]string)
+	}
+	attributes[CredAttrUsername] = ""
+	attributes[CredAttrPassword] = ""
+	attributes[CredAttrToken] = token
+	return cloud.NewNamedCredential(cred.Label, cred.AuthType(), attributes, cred.Revoked), nil
+}

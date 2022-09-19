@@ -12,6 +12,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
@@ -253,12 +254,12 @@ func (facade *Facade) Leader(entity params.Entity) (params.StringResult, error) 
 // ModelCredentialForSSH did not exist prior to v4.
 func (*FacadeV3) ModelCredentialForSSH(_, _ struct{}) {}
 
-// ModelCredentialForSSH returns a cloud spec for ssh purpuse.
-// This facade is only used for k8s model.
+// ModelCredentialForSSH returns a cloud spec for ssh purpose.
+// This facade call is only used for k8s model.
 func (facade *Facade) ModelCredentialForSSH() (params.CloudSpecResult, error) {
 	var result params.CloudSpecResult
 
-	canModifyModel, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
+	isModelAdmin, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -266,7 +267,7 @@ func (facade *Facade) ModelCredentialForSSH() (params.CloudSpecResult, error) {
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if !canModifyModel && !isSuperUser {
+	if !isModelAdmin && !isSuperUser {
 		return result, apiservererrors.ErrPerm
 	}
 
@@ -276,7 +277,7 @@ func (facade *Facade) ModelCredentialForSSH() (params.CloudSpecResult, error) {
 		return result, nil
 	}
 	if model.Type() != state.ModelTypeCAAS {
-		result.Error = apiservererrors.ServerError(errors.NotImplementedf("facade ModelCredentialForSSH for non %q model", state.ModelTypeCAAS))
+		result.Error = apiservererrors.ServerError(errors.NotSupportedf("facade ModelCredentialForSSH for non %q model", state.ModelTypeCAAS))
 		return result, nil
 	}
 
@@ -296,7 +297,7 @@ func (facade *Facade) ModelCredentialForSSH() (params.CloudSpecResult, error) {
 		return result, nil
 	}
 
-	cred, err := k8sprovider.PatchCloudCredentialForCloudSpec(*spec.Credential, token)
+	cred, err := k8scloud.UpdateCredentialWithToken(*spec.Credential, token)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil

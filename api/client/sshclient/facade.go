@@ -154,8 +154,8 @@ func countError(count int) error {
 	return errors.Errorf("expected 1 result, got %d", count)
 }
 
-// ModelCredentialForSSH returns a cloud spec for ssh purpuse.
-// This facade is only used for k8s model.
+// ModelCredentialForSSH returns a cloud spec for ssh purpose.
+// This facade call is only used for k8s model.
 func (facade *Facade) ModelCredentialForSSH() (cloudspec.CloudSpec, error) {
 	var result params.CloudSpecResult
 

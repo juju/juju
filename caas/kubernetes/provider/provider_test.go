@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
@@ -130,45 +129,4 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(config.AllAttrs(), gc.DeepEquals, validAttrs)
-}
-
-func (s *providerSuite) TestPatchCloudCredentialForCloudSpec(c *gc.C) {
-	credential := cloud.NewCredential(
-		"auth-type",
-		map[string]string{
-			k8scloud.CredAttrUsername: "foo",
-			k8scloud.CredAttrPassword: "pwd",
-		},
-	)
-	updatedCredential, err := provider.PatchCloudCredentialForCloudSpec(credential, "token")
-	c.Check(err, jc.ErrorIsNil)
-
-	c.Check(updatedCredential.AuthType(), gc.Equals, cloud.AuthType("auth-type"))
-	c.Check(updatedCredential.Attributes(), gc.DeepEquals, map[string]string{
-		k8scloud.CredAttrUsername: "",
-		k8scloud.CredAttrPassword: "",
-		k8scloud.CredAttrToken:    "token",
-	})
-
-	credential = cloud.NewCredential("auth-type", nil)
-	updatedCredential, err = provider.PatchCloudCredentialForCloudSpec(credential, "token")
-	c.Check(err, jc.ErrorIsNil)
-
-	c.Check(updatedCredential.AuthType(), gc.Equals, cloud.AuthType("auth-type"))
-	c.Check(updatedCredential.Attributes(), gc.DeepEquals, map[string]string{
-		k8scloud.CredAttrUsername: "",
-		k8scloud.CredAttrPassword: "",
-		k8scloud.CredAttrToken:    "token",
-	})
-}
-
-func (s *providerSuite) TestPatchCloudCredentialForCloudSpecFailedInValid(c *gc.C) {
-	credential := cloud.NewNamedCredential(
-		"foo", "", map[string]string{
-			k8scloud.CredAttrUsername: "foo",
-			k8scloud.CredAttrPassword: "pwd",
-		}, false,
-	)
-	_, err := provider.PatchCloudCredentialForCloudSpec(credential, "token")
-	c.Assert(err, gc.ErrorMatches, `credential "foo" has empty auth type not valid`)
 }

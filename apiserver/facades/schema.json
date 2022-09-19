@@ -40528,7 +40528,7 @@
                             "$ref": "#/definitions/CloudSpecResult"
                         }
                     },
-                    "description": "ModelCredentialForSSH returns a cloud spec for ssh purpuse.\nThis facade is only used for k8s model."
+                    "description": "ModelCredentialForSSH returns a cloud spec for ssh purpose.\nThis facade call is only used for k8s model."
                 },
                 "PrivateAddress": {
                     "type": "object",

@@ -310,7 +310,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := facade.ModelCredentialForSSH()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `facade ModelCredentialForSSH for non "caas" model not implemented`)
+	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `facade ModelCredentialForSSH for non "caas" model not supported`)
 	c.Assert(result.Result, gc.IsNil)
 }
 
