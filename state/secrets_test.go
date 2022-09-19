@@ -73,9 +73,11 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	}
 	md, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.URI.String(), gc.Equals, uri.String())
-	md.URI = nil
-	c.Assert(md, jc.DeepEquals, &secrets.SecretMetadata{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(md, mc, &secrets.SecretMetadata{
+		URI:              uri,
 		Version:          1,
 		Description:      "my secret",
 		Label:            "foobar",
@@ -230,7 +232,10 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		OwnerTags: []names.Tag{s.owner.Tag(), names.NewApplicationTag("mariadb")},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
 		NextRotateTime:   ptr(next),
@@ -284,7 +289,10 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 		URI: uri,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
 		NextRotateTime:   ptr(next),
@@ -334,7 +342,10 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 		ConsumerTags: []names.Tag{subject},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:            uri,
 		LatestRevision: 1,
 		Version:        1,
@@ -1581,7 +1592,7 @@ func (s *SecretsExpiryWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	for _, r := range revs {
 		if r.ExpireTime != nil && r.ExpireTime.Equal(update.ExpireTime.Round(time.Second).UTC()) {
-			c.Assert(r.UpdateTime, jc.DeepEquals, updated)
+			c.Assert(r.UpdateTime, jc.Almost, updated)
 			return
 		}
 	}
