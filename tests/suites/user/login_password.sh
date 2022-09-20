@@ -1,12 +1,12 @@
-# expect_command the ability to work with interactive commands with expect tool.
+# expect_that the ability to work with interactive commands with expect tool.
 # The output is "OK", if tests passes successfully.
 # The expect_script argument is a expect script body.
 # The default timeout is 10 seconds.
 #
 # ```
-# wait_for <command> <expect_script> [<timeout>]
+# expect_that <command> <expect_script> [<timeout>]
 # ```
-expect_command() {
+expect_that() {
 	local command expect_script
 
 	command=${1}
@@ -41,7 +41,7 @@ run_user_change_password() {
 	ensure "user-change-password" "${file}"
 
 	echo "Change admin password"
-	expect_command "juju change-user-password" "
+	expect_that "juju change-user-password" "
 expect \"new password: \" {
 	send \"test-password\r\"
 	expect \"type new password again: \" {
@@ -53,13 +53,13 @@ expect \"new password: \" {
 	juju logout
 
 	echo "Login as admin"
-	expect_command "juju login" "
+	expect_that "juju login" "
 expect \"Enter username: \" {
 	send \"admin\r\"
 	expect \"please enter password for admin*\" {
 		send \"test-password\r\"
 	}
-}" | check "OK"
+}" 15 | check "OK"
 
 	destroy_model "user-change-password"
 }
