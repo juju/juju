@@ -354,10 +354,51 @@ test_model_migration() {
 		cd .. || exit
 
 		run "run_model_migration"
+	)
+}
+
+test_model_migration_version() {
+	if [ -n "$(skip 'test_model_migration_version')" ]; then
+		echo "==> SKIP: Asked to skip model migration version tests"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
 		run "run_model_migration_version"
+	)
+}
+
+test_model_migration_saas_common() {
+	if [ -n "$(skip 'test_model_migration_saas_common')" ]; then
+		echo "==> SKIP: Asked to skip model migration saas common tests"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
 		run "run_model_migration_saas_common"
+	)
+}
+
+test_model_migration_saas_external() {
+	if [ -n "$(skip 'test_model_migration_saas_external')" ]; then
+		echo "==> SKIP: Asked to skip model migration saas external tests"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
 		run "run_model_migration_saas_external"
-		run "run_model_migration_saas_consumer"
 	)
 }
 
