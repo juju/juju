@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -71,7 +70,7 @@ func testDetachFilesystems(
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(etcDir, "fstab"))
+	data, err := os.ReadFile(filepath.Join(etcDir, "fstab"))
 	if os.IsNotExist(err) {
 		c.Assert(fstab, gc.Equals, "")
 		return

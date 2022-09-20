@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -55,7 +54,7 @@ func (*osDirFuncs) lstat(path string) (fi os.FileInfo, err error) {
 }
 
 func (*osDirFuncs) fileCount(path string) (int, error) {
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return 0, errors.Annotate(err, "could not read directory")
 	}
