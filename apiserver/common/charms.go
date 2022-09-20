@@ -6,7 +6,6 @@ package common
 import (
 	"archive/zip"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -33,7 +32,7 @@ func ReadCharmFromStorage(store storage.Storage, dataDir, storagePath string) (s
 	}
 	defer reader.Close()
 
-	charmFile, err := ioutil.TempFile(tmpDir, "charm")
+	charmFile, err := os.CreateTemp(tmpDir, "charm")
 	if err != nil {
 		return "", errors.Annotate(err, "cannot create charm archive file")
 	}
@@ -71,7 +70,7 @@ func CharmArchiveEntry(charmPath, entryPath string, wantIcon bool) ([]byte, erro
 			return nil, errors.Annotatef(err, "unable to read file %q", entryPath)
 		}
 		defer contents.Close()
-		return ioutil.ReadAll(contents)
+		return io.ReadAll(contents)
 	}
 	if wantIcon {
 		// An icon was requested but none was found in the archive so
