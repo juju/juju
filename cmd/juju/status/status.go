@@ -75,9 +75,6 @@ type statusCommand struct {
 
 	// watch indicates the time to wait between consecutive status queries
 	watch time.Duration
-
-	// viddy indicates the time to wait between consecutive status queries (with viddy tool)
-	viddy time.Duration
 }
 
 var usageSummary = `
@@ -407,13 +404,11 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 
 // statusArgsWithoutWatchFlag returns all args cut off '--watch' flag of status commands
 // and the value of '--watch' flag
-func (c *statusCommand) statusArgsWithoutWatchFlag(args []string) ([]string, string) {
+func (c *statusCommand) statusArgsWithoutWatchFlag(args []string) []string {
 	var jujuStatusArgsWithoutWatchFlag []string
-	var watchFlagValue string
 
 	for i := range args {
 		if args[i] == "--watch" {
-			watchFlagValue = args[i+1]
 			jujuStatusArgsWithoutWatchFlag = append(args[:i], args[i+2:]...)
 			if !c.noColor {
 				jujuStatusArgsWithoutWatchFlag = append(jujuStatusArgsWithoutWatchFlag, "--color")
@@ -422,17 +417,16 @@ func (c *statusCommand) statusArgsWithoutWatchFlag(args []string) ([]string, str
 		}
 	}
 
-	return jujuStatusArgsWithoutWatchFlag, watchFlagValue
+	return jujuStatusArgsWithoutWatchFlag
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		jujuStatusArgs, viddyFlagValue := c.statusArgsWithoutWatchFlag(os.Args)
+		jujuStatusArgs := c.statusArgsWithoutWatchFlag(os.Args)
 
-		// Prepare Viddy args
-		viddyArgs := append([]string{"--no-title", "--interval", viddyFlagValue}, jujuStatusArgs...)
+		viddyArgs := append([]string{"--no-title", "--interval", c.watch.String()}, jujuStatusArgs...)
 
 		// Define tview styles and launch preconfiged Viddy watcher
 		app := viddy.NewPreconfigedViddy(viddyArgs)
