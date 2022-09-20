@@ -19,7 +19,11 @@ import (
 // connections to the specified application. This assume the presence of a
 // corresponding service for the application.
 func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy.Proxier, error) {
-	svc, err := k.findServiceForApplication(appName)
+	svc, err := findServiceForApplication(
+		context.TODO(),
+		k.client().CoreV1().Services(k.namespace),
+		appName,
+		k.IsLegacyLabels())
 	if err != nil {
 		return nil, errors.Annotatef(err, "finding service to proxy to for application %s", appName)
 	}
