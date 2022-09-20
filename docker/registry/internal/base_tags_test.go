@@ -4,7 +4,7 @@
 package internal_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -35,7 +35,7 @@ func (s *baseSuite) TestTagsPublicRegistry(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -52,7 +52,7 @@ func (s *baseSuite) TestTagsPublicRegistry(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -63,7 +63,7 @@ func (s *baseSuite) TestTagsPublicRegistry(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -95,7 +95,7 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -112,7 +112,7 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -123,7 +123,7 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -154,7 +154,7 @@ func (s *baseSuite) TestTagsErrorResponse(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -171,7 +171,7 @@ func (s *baseSuite) TestTagsErrorResponse(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -182,7 +182,7 @@ func (s *baseSuite) TestTagsErrorResponse(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),

@@ -6,7 +6,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -255,7 +255,7 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 		return resp, nil
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
 	}

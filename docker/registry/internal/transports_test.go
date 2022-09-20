@@ -5,7 +5,7 @@ package internal_test
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -38,7 +38,7 @@ func (s *transportSuite) TestErrorTransport(c *gc.C) {
 		resps := &http.Response{
 			Request:    req,
 			StatusCode: http.StatusForbidden,
-			Body:       ioutil.NopCloser(strings.NewReader(`invalid input`)),
+			Body:       io.NopCloser(strings.NewReader(`invalid input`)),
 		}
 		return resps, nil
 	})
@@ -62,7 +62,7 @@ func (s *transportSuite) TestBasicTransport(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(``)),
+				Body:       io.NopCloser(strings.NewReader(``)),
 			}, nil
 		},
 	)
@@ -80,7 +80,7 @@ func (s *transportSuite) TestBasicTransport(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(``)),
+				Body:       io.NopCloser(strings.NewReader(``)),
 			}, nil
 		},
 	)
@@ -98,7 +98,7 @@ func (s *transportSuite) TestBasicTransport(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(``)),
+				Body:       io.NopCloser(strings.NewReader(``)),
 			}, nil
 		},
 	)
@@ -123,7 +123,7 @@ func (s *transportSuite) TestTokenTransportOAuthTokenProvided(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 	)
@@ -152,7 +152,7 @@ func (s *transportSuite) TestTokenTransportTokenRefresh(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -169,7 +169,7 @@ func (s *transportSuite) TestTokenTransportTokenRefresh(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -178,7 +178,7 @@ func (s *transportSuite) TestTokenTransportTokenRefresh(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 	)
@@ -206,7 +206,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedRealmMissing(c *gc.
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Bearer service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -240,7 +240,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Bearer realm="https://auth.example.com/token",scope="repository:jujuqa/jujud-operator:pull"`,

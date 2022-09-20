@@ -5,7 +5,7 @@ package docker_test
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/testing"
@@ -45,7 +45,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromFile(c *gc.C) {
 	filename := "my-caas-image-repo-config.json"
 	dir := c.MkDir()
 	fullpath := filepath.Join(dir, filename)
-	err := ioutil.WriteFile(fullpath, []byte(quayContent), 0644)
+	err := os.WriteFile(fullpath, []byte(quayContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	imageRepoDetails, err := docker.NewImageRepoDetails(fullpath)
 	c.Assert(err, jc.ErrorIsNil)
