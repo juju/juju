@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	stdos "os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -513,7 +513,7 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	}
 
 	logger.Infof("preparing to upload juju-db snap from %v", snapPath)
-	snapData, err := ioutil.ReadFile(snapPath)
+	snapData, err := stdos.ReadFile(snapPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -521,7 +521,7 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapName), snapData, 0644)
 
 	logger.Infof("preparing to upload juju-db assertions from %v", assertionsPath)
-	snapAssertionsData, err := ioutil.ReadFile(assertionsPath)
+	snapAssertionsData, err := stdos.ReadFile(assertionsPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -560,7 +560,7 @@ func (w *unixConfigure) addLocalControllerCharmsUpload() error {
 		}
 		charmData = buf.Bytes()
 	} else {
-		charmData, err = ioutil.ReadFile(charmPath)
+		charmData, err = stdos.ReadFile(charmPath)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -573,7 +573,7 @@ func (w *unixConfigure) addLocalControllerCharmsUpload() error {
 func (w *unixConfigure) addDownloadToolsCmds() error {
 	tools := w.icfg.ToolsList()[0]
 	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
-		toolsData, err := ioutil.ReadFile(tools.URL[len(fileSchemePrefix):])
+		toolsData, err := stdos.ReadFile(tools.URL[len(fileSchemePrefix):])
 		if err != nil {
 			return err
 		}

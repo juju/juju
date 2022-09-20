@@ -1,7 +1,6 @@
 package cloudconfig_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -230,7 +229,7 @@ func (s *fromHostSuite) newMachineInitReader(series string) cloudconfig.InitRead
 }
 
 func seedData(c *gc.C, dir, name, data string) {
-	c.Assert(ioutil.WriteFile(path.Join(dir, name), []byte(data), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(path.Join(dir, name), []byte(data), 0644), jc.ErrorIsNil)
 }
 
 var dpkgLocalCloudConfig = `
