@@ -4,6 +4,9 @@
 package application
 
 import (
+	"fmt"
+	"github.com/juju/juju/core/model"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -35,6 +38,7 @@ type removeApplicationCommand struct {
 
 	newAPIFunc func() (RemoveApplicationAPI, error)
 
+	assumeYes        bool
 	ApplicationNames []string
 	DestroyStorage   bool
 	Force            bool
@@ -69,9 +73,21 @@ without delay waiting for each step to complete.
 
 Examples:
     juju remove-application hadoop
-    juju remove-application --force hadoop
-    juju remove-application --force --no-wait hadoop
-    juju remove-application -m test-model mariadb`[1:]
+    juju remove-application -y --force hadoop
+    juju remove-application -y --force --no-wait hadoop
+    juju remove-application -y -m test-model mariadb`[1:]
+
+var removeIAASApplicationMsg = `
+WARNING! This command will remove the application%s %q.
+This includes all machines, data and other resources.
+
+Continue [y/N]? `[1:]
+
+var removeCAASApplicationMsg = `
+WARNING! This command will remove the application%s %q.
+This includes all containers, data and other resources.
+
+Continue [y/N]? `[1:]
 
 func (c *removeApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -84,6 +100,8 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
+	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
@@ -178,6 +196,25 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 	})
 	if !forceSet && noWaitSet {
 		return errors.NotValidf("--no-wait without --force")
+	}
+
+	if !c.assumeYes {
+		modelType, err := c.ModelType()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		msg := removeIAASApplicationMsg
+		if modelType == model.CAAS {
+			msg = removeCAASApplicationMsg
+		}
+		if len(c.ApplicationNames) > 1 {
+			fmt.Fprintf(ctx.Stdout, msg, "s", strings.Join(c.ApplicationNames, ","))
+		} else {
+			fmt.Fprintf(ctx.Stdout, msg, "", strings.Join(c.ApplicationNames, ","))
+		}
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "application removal")
+		}
 	}
 
 	client, err := c.newAPIFunc()
