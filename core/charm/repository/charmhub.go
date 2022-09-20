@@ -199,7 +199,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 // validateFixOrigin, validate the origin and maybe fix as follows:
 //
 //	Platform must have an architecture.
-//	Platform can have empty series AND os.
+//	Platform can have both an empty series AND os.
 //	If series defined and os an empty string, add data.
 //	Platform must have series if os defined.
 func (c *CharmHubRepository) validateFixOrigin(origin corecharm.Origin) (corecharm.Origin, error) {
