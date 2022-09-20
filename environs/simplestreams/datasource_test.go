@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
@@ -34,7 +33,7 @@ func (s *datasourceSuite) assertFetch(c *gc.C, compressed bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = rc.Close() }()
 	c.Assert(url, gc.Equals, fmt.Sprintf("%s/streams/v1/tools_metadata.json", server.URL))
-	data, err := ioutil.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, testing.Product_v1, url, imagemetadata.ImageMetadata{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +169,7 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	// However, the urlDataSource abstraction hides that as a simple NotFound
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = reader.Close() }()
-	byteContent, err := ioutil.ReadAll(reader)
+	byteContent, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(byteContent), gc.Equals, "Greetings!\n")
 }

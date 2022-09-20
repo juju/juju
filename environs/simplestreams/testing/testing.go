@@ -7,7 +7,7 @@ package testing
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -571,7 +571,7 @@ func AddSignedFiles(c *gc.C, files map[string]string) map[string]string {
 		all[name] = content
 		// Sign file content
 		r := strings.NewReader(content)
-		bytes, err := ioutil.ReadAll(r)
+		bytes, err := io.ReadAll(r)
 		c.Assert(err, jc.ErrorIsNil)
 		signedName, signedContent, err := SignMetadata(name, bytes)
 		c.Assert(err, jc.ErrorIsNil)

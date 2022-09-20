@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -868,7 +867,7 @@ func userPublicSigningKey() (string, error) {
 		if err != nil {
 			return "", errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
 		}
-		b, err := ioutil.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
 			return "", errors.Annotatef(err, "invalid public key file: %s", path)
 		}

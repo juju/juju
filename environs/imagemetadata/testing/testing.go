@@ -5,7 +5,7 @@ package testing
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"path"
 	"sort"
 
@@ -68,7 +68,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 	r, err := stor.Get(path.Join("images", imageIndexMetadata.ProductsFilePath))
 	defer func() { _ = r.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Parse the products file metadata.
