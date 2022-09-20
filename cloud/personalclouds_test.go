@@ -4,7 +4,7 @@
 package cloud_test
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -47,7 +47,7 @@ func (s *personalCloudSuite) TestWritePersonalClouds(c *gc.C) {
 	}
 	err := cloud.WritePersonalCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
 clouds:
@@ -142,6 +142,6 @@ clouds:
       local:
         endpoint: http://azurestack.local
 `[1:]
-	err := ioutil.WriteFile(destPath, []byte(data), 0600)
+	err := os.WriteFile(destPath, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
