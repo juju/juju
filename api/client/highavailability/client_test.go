@@ -4,66 +4,51 @@
 package highavailability_test
 
 import (
-	stdtesting "testing"
-
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/highavailability"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/rpc/params"
 )
 
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
 type clientSuite struct {
-	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&clientSuite{})
 
-type KillerForTesting interface {
-	KillForTesting() error
-}
-
-func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = m.SetMachineAddresses(
-		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
-		network.NewSpaceAddress("cloud-local0.internal", network.WithScope(network.ScopeCloudLocal)),
-		network.NewSpaceAddress("fc00::1", network.WithScope(network.ScopePublic)),
-	)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *clientSuite) TestClientEnableHA(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	emptyCons := constraints.Value{}
-	client := highavailability.NewClient(s.APIState)
+
+	args := params.ControllersSpecs{Specs: []params.ControllersSpec{{
+		Constraints:    emptyCons,
+		NumControllers: 3,
+		Placement:      nil,
+	},
+	}}
+	res := new(params.ControllersChangeResults)
+	results := params.ControllersChangeResults{
+		Results: []params.ControllersChangeResult{{
+			Result: params.ControllersChanges{
+				Maintained: []string{"machine-0"},
+				Added:      []string{"machine-1", "machine-2"},
+				Removed:    []string{},
+			}},
+		}}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("EnableHA", args, res).SetArg(2, results).Return(nil)
+	client := highavailability.NewClientFromCaller(mockFacadeCaller)
+
 	result, err := client.EnableHA(3, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(result.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(result.Removed, gc.HasLen, 0)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	c.Assert(machines[1].Series(), gc.Equals, "quantal")
-	c.Assert(machines[2].Series(), gc.Equals, "quantal")
-}
-
-func (s *clientSuite) TestClientEnableHA(c *gc.C) {
-	assertEnableHA(c, &s.JujuConnSuite)
-}
-
-func (s *clientSuite) TestClientEnableHAVersion(c *gc.C) {
-	client := highavailability.NewClient(s.APIState)
-	c.Assert(client.BestAPIVersion(), gc.Equals, 2)
 }
