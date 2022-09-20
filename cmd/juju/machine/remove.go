@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -27,6 +29,7 @@ func NewRemoveCommand() cmd.Command {
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
 	baseMachinesCommand
+	assumeYes    bool
 	apiRoot      api.Connection
 	machineAPI   RemoveMachineAPI
 	MachineIds   []string
@@ -57,13 +60,19 @@ without delay waiting for each step to complete.
 Examples:
 
     juju remove-machine 5
-    juju remove-machine 6 --force
-    juju remove-machine 6 --force --no-wait
-    juju remove-machine 7 --keep-instance
+    juju remove-machine -y 6 --force
+    juju remove-machine -y 6 --force --no-wait
+    juju remove-machine -y 7 --keep-instance
 
 See also:
     add-machine
 `
+
+var removeIAASMachineMsg = `
+WARNING! This command will remove the machine%s %s.
+This includes all applications, data and other resources.
+
+Continue [y/N]? `[1:]
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
@@ -78,6 +87,8 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
+	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")
@@ -139,6 +150,18 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		if c.NoWait {
 			zeroSec := 0 * time.Second
 			maxWait = &zeroSec
+		}
+	}
+
+	if !c.assumeYes {
+		msg := removeIAASMachineMsg
+		if len(c.MachineIds) > 1 {
+			fmt.Fprintf(ctx.Stdout, msg, "s", strings.Join(c.MachineIds, ","))
+		} else {
+			fmt.Fprintf(ctx.Stdout, msg, "", strings.Join(c.MachineIds, ","))
+		}
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "machine(s) removal")
 		}
 	}
 
