@@ -7,7 +7,7 @@ import (
 	"context"
 	"crypto"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -663,7 +663,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		if c.Check(submatch, gc.NotNil, gc.Commentf("%s", sshArgs)) {
 			knownHostsFile := submatch[1]
 			knownHostsFile = strings.Replace(knownHostsFile, `\"`, ``, -1)
-			knownHostsBytes, err := ioutil.ReadFile(knownHostsFile)
+			knownHostsBytes, err := os.ReadFile(knownHostsFile)
 			if err != nil {
 				return err
 			}

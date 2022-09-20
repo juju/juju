@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -46,7 +46,7 @@ func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 
 	reader, err := storage.Get(stor, common.StateFile)
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, "")
 	c.Assert(url, gc.NotNil)
@@ -86,7 +86,7 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 
 	loadedState, err := storage.Get(stor, common.StateFile)
 	c.Assert(err, jc.ErrorIsNil)
-	content, err := ioutil.ReadAll(loadedState)
+	content, err := io.ReadAll(loadedState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(content, gc.DeepEquals, marshaledState)
 }
@@ -97,7 +97,7 @@ func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) common.Bootstr
 	}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dataDir, common.StateFile), content, 0644)
+	err = os.WriteFile(filepath.Join(dataDir, common.StateFile), content, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return state
 }
