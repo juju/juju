@@ -4,8 +4,8 @@
 package network_test
 
 import (
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/collections/set"
@@ -125,7 +125,7 @@ LXC_ADDR = "fooo"
  LXC_BRIDGE = " foobar " # detected, spaces stripped
 anything else ignored
 LXC_BRIDGE="ignored"`[1:])
-	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
+	err := os.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
 		if name == "foobar" {
