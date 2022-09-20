@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -188,7 +187,7 @@ func (t *apiRequester) doOnce(req *http.Request) (*http.Response, error) {
 		potentialInvalidURL = true
 	} else if resp.StatusCode >= http.StatusInternalServerError && resp.StatusCode <= http.StatusNetworkAuthenticationRequired {
 		defer func() {
-			_, _ = io.Copy(ioutil.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}()
 		return nil, errors.Errorf(`server error %q`, req.URL.String())
@@ -200,7 +199,7 @@ func (t *apiRequester) doOnce(req *http.Request) (*http.Response, error) {
 	// Everything will be incorrectly formatted.
 	if contentType := resp.Header.Get("Content-Type"); contentType != jsonContentType {
 		defer func() {
-			_, _ = io.Copy(ioutil.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}()
 

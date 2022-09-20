@@ -6,7 +6,7 @@ package charmhub
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/golang/mock/gomock"
@@ -138,7 +138,7 @@ func (t *metadataHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
-		Body:          ioutil.NopCloser(bytes.NewBufferString(t.responseBody)),
+		Body:          io.NopCloser(bytes.NewBufferString(t.responseBody)),
 		ContentLength: int64(len(t.responseBody)),
 		Request:       req,
 		Header:        http.Header{"Content-Type": []string{"application/json"}},
