@@ -58,5 +58,5 @@ func (v KnownServiceValue) Validate() error {
 	case SSHRule, JujuControllerRule, JujuApplicationOfferRule:
 		return nil
 	}
-	return errors.NotValidf("known service %q", v)
+	return errors.NotValidf("service %q", v)
 }
