@@ -10,7 +10,6 @@ package dumplogs
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,7 +148,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *dumpLogsCommand) findAgentTag(dataDir string) (names.Tag, error) {
-	entries, err := ioutil.ReadDir(agent.BaseDir(dataDir))
+	entries, err := os.ReadDir(agent.BaseDir(dataDir))
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read agent configuration base directory")
 	}

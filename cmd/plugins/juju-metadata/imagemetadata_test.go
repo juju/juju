@@ -6,7 +6,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -76,7 +75,7 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Image metadata files have been written to.*`)
 	indexpath := filepath.Join(s.dir, "images", "streams", "v1", indexFileName)
-	data, err := ioutil.ReadFile(indexpath)
+	data, err := os.ReadFile(indexpath)
 	c.Assert(err, jc.ErrorIsNil)
 	content := string(data)
 	var indices interface{}
@@ -92,7 +91,7 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	c.Assert(content, jc.Contains, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName))
 
 	imagepath := filepath.Join(s.dir, "images", "streams", "v1", imageFileName)
-	data, err = ioutil.ReadFile(imagepath)
+	data, err = os.ReadFile(imagepath)
 	c.Assert(err, jc.ErrorIsNil)
 	content = string(data)
 	var images interface{}

@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -137,7 +136,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
+	err = os.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 
@@ -161,7 +160,7 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := json.Marshal(tools)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
+	err = os.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -659,7 +658,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
+	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "private-key")
 }
@@ -838,15 +837,15 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 func (s *BootstrapSuite) writeBootstrapParamsFile(c *gc.C) {
 	data, err := s.bootstrapParams.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(s.bootstrapParamsFile, data, 0600)
+	err = os.WriteFile(s.bootstrapParamsFile, data, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func nullContext() environs.BootstrapContext {
 	ctx, _ := cmd.DefaultContext()
 	ctx.Stdin = io.LimitReader(nil, 0)
-	ctx.Stdout = ioutil.Discard
-	ctx.Stderr = ioutil.Discard
+	ctx.Stdout = io.Discard
+	ctx.Stderr = io.Discard
 	return modelcmd.BootstrapContext(context.Background(), ctx)
 }
 

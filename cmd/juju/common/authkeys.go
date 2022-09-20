@@ -5,7 +5,6 @@ package common
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -102,7 +101,7 @@ func ReadAuthorizedKeys(ctx *cmd.Context, path string) (string, error) {
 		if !filepath.IsAbs(f) {
 			f = filepath.Join(utils.Home(), ".ssh", f)
 		}
-		data, err := ioutil.ReadFile(f)
+		data, err := os.ReadFile(f)
 		if err != nil {
 			if firstError == nil && !os.IsNotExist(err) {
 				firstError = err

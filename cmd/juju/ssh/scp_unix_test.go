@@ -7,7 +7,7 @@
 package ssh
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -207,7 +207,7 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
 			// installed by SSHMachineSuite generates.
 			c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 			c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
-			actual, err := ioutil.ReadFile(filepath.Join(s.binDir, "scp.args"))
+			actual, err := os.ReadFile(filepath.Join(s.binDir, "scp.args"))
 			c.Assert(err, jc.ErrorIsNil)
 			t.expected.check(c, string(actual))
 		}

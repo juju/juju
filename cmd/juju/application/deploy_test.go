@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -334,7 +333,7 @@ func (s *DeploySuite) TestInvalidPath(c *gc.C) {
 
 func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "bundle.yaml")
-	err := ioutil.WriteFile(path, []byte(":"), 0600)
+	err := os.WriteFile(path, []byte(":"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeploy(c, path)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot unmarshal bundle contents:.* yaml:.*`)
@@ -593,7 +592,7 @@ func (s *DeploySuite) TestConfigValues(c *gc.C) {
 	withAliasedCharmDeployable(s.fakeAPI, curl, "dummy-name", "jammy", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	confPath := filepath.Join(c.MkDir(), "include.txt")
-	c.Assert(ioutil.WriteFile(confPath, []byte("lorem\nipsum"), os.ModePerm), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(confPath, []byte("lorem\nipsum"), os.ModePerm), jc.ErrorIsNil)
 
 	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--config", "title=@"+confPath, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1564,7 +1563,7 @@ func setupConfigFile(c *gc.C, dir string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte("dummy-application:\n  skill-level: 9000\n  username: admin001\n\n")
-	err := ioutil.WriteFile(path, content, 0666)
+	err := os.WriteFile(path, content, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

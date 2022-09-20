@@ -6,7 +6,6 @@ package initialize_test
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/golang/mock/gomock"
@@ -92,11 +91,11 @@ apiport: 17070`[1:])
 	containerAgentWritten := bytes.NewBuffer(nil)
 	jujucWritten := bytes.NewBuffer(nil)
 
-	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0755)).Return(NopWriteCloser(containerAgentWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
 
 	gomock.InOrder(
@@ -136,11 +135,11 @@ func (s *initCommandSuit) TestRunConfExists(c *gc.C) {
 	containerAgentWritten := bytes.NewBuffer(nil)
 	jujucWritten := bytes.NewBuffer(nil)
 
-	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedPebble)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(io.NopCloser(bytes.NewReader(expectedPebble)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/containeragent").Times(1).Return(io.NopCloser(bytes.NewReader(expectedContainerAgent)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/containeragent", os.FileMode(0755)).Return(NopWriteCloser(containerAgentWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedJujuc)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(io.NopCloser(bytes.NewReader(expectedJujuc)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
 	s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, nil)
 

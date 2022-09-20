@@ -5,7 +5,7 @@ package application
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -332,7 +332,7 @@ Consider using a CharmStore bundle instead.`
 	// GetBundle creates the directory so we actually want to create a temp
 	// directory then add a namespace (bundle name) so that charmhub get
 	// bundle can create it.
-	dir, err := ioutil.TempDir("", "diff-bundle-")
+	dir, err := os.MkdirTemp("", "diff-bundle-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

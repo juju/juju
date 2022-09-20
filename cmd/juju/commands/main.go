@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 
@@ -581,7 +580,7 @@ func registerCommands(r commandRegistry) {
 type cloudToCommandAdapter struct{}
 
 func (cloudToCommandAdapter) ReadCloudData(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 func (cloudToCommandAdapter) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
 	return cloudfile.ParseOneCloud(data)

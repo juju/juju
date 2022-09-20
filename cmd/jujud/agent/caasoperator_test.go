@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -165,7 +164,7 @@ func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	templateFile := filepath.Join(agentDir, "template-agent.conf")
 
-	err = ioutil.WriteFile(templateFile, []byte(agentConfigContents), 0600)
+	err = os.WriteFile(templateFile, []byte(agentConfigContents), 0600)
 	c.Assert(err, gc.IsNil)
 
 	a := &CaasOperatorAgent{

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -219,7 +218,7 @@ type descriptionModel struct {
 
 // readPlan reads, parses and returns a planModel struct representation.
 func readPlan(r io.Reader) (plan *planModel, err error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return
 	}

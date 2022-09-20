@@ -4,7 +4,7 @@
 package modelcmd
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -113,7 +113,7 @@ func FinalizeFileContent(credential *cloud.Credential, provider environs.Environ
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return ioutil.ReadFile(f)
+		return os.ReadFile(f)
 	}
 
 	var err error
