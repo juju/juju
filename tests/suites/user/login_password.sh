@@ -7,7 +7,7 @@
 # expect_that <command> <expect_script> [<timeout>]
 # ```
 expect_that() {
-	local command expect_script timeout, filename
+	local command expect_script timeout filename
 
 	command=${1}
 	filename=$(echo "${command}" | tr ' ' '-')
