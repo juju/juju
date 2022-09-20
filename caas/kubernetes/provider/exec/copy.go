@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -221,7 +220,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 			return err
 		}
 		if stat.IsDir() {
-			files, err := ioutil.ReadDir(fpath)
+			files, err := os.ReadDir(fpath)
 			if err != nil {
 				return err
 			}
