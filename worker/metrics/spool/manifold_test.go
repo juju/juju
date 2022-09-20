@@ -4,7 +4,7 @@
 package spool_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/testing"
@@ -85,7 +85,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestCannotCreateSpoolDir(c *gc.C) {
-	c.Assert(ioutil.WriteFile(filepath.Join(s.spoolDir, "x"), nil, 0666), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(filepath.Join(s.spoolDir, "x"), nil, 0666), jc.ErrorIsNil)
 	spoolDir := filepath.Join(s.spoolDir, "x", "y")
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent-name": &dummyAgent{spoolDir: spoolDir},

@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
@@ -49,7 +49,7 @@ func (s *ContextSuite) TestDownloadOutOfDate(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "Read", "Read", "Close")
 	c.Assert(path, gc.Equals, filepath.Join(resourceDir, "spam.tgz"))
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "some data")
 }
@@ -61,7 +61,7 @@ func (s *ContextSuite) TestContextDownloadUpToDate(c *gc.C) {
 
 	resourceDir := c.MkDir()
 	existing := filepath.Join(resourceDir, "spam.tgz")
-	err := ioutil.WriteFile(existing, []byte("some data"), 0755)
+	err := os.WriteFile(existing, []byte("some data"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := mocks.NewMockOpenedResourceClient(ctrl)

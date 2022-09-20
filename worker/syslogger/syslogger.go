@@ -5,14 +5,13 @@ package syslogger
 
 import (
 	"io"
-	"io/ioutil"
 )
 
 // NewDiscard creates a new WriteCloser that discards all writes and the close
 // is a noop.
 func NewDiscard(priority Priority, tag string) (io.WriteCloser, error) {
 	return nopCloser{
-		Writer: ioutil.Discard,
+		Writer: io.Discard,
 	}, nil
 }
 

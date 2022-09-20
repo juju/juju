@@ -4,7 +4,7 @@
 package resources_test
 
 import (
-	"io/ioutil"
+	"io"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/testing"
@@ -72,7 +72,7 @@ func (s *OpenedResourceSuite) TestDockerImage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opened.Path, gc.Equals, "content.yaml")
 	content := opened.Content()
-	data, err := ioutil.ReadAll(content.Data)
+	data, err := io.ReadAll(content.Data)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
 registrypath: image-name

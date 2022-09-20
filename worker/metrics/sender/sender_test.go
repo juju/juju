@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 	"path"
 	"path/filepath"
 	"time"
@@ -183,7 +183,7 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 }
 
 func (s *senderSuite) TestDataErrorIgnored(c *gc.C) {
-	err := ioutil.WriteFile(filepath.Join(s.spoolDir, "foo.meta"), []byte{}, 0644)
+	err := os.WriteFile(filepath.Join(s.spoolDir, "foo.meta"), []byte{}, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	apiSender := newTestAPIMetricSender()
 
