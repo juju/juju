@@ -5,7 +5,7 @@ package state
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time" // Only used for time types.
@@ -356,11 +356,11 @@ bases:
   channel: "18.04"
 `
 			manifestYAML := filepath.Join(path, "manifest.yaml")
-			err := ioutil.WriteFile(manifestYAML, []byte(manifestContent), 0644)
+			err := os.WriteFile(manifestYAML, []byte(manifestContent), 0644)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		config := filepath.Join(path, filename)
-		err := ioutil.WriteFile(config, []byte(content), 0644)
+		err := os.WriteFile(config, []byte(content), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch, err := charm.ReadCharmDir(path)

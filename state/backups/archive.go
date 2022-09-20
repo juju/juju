@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -84,7 +83,7 @@ type ArchiveWorkspace struct {
 }
 
 func newArchiveWorkspace() (*ArchiveWorkspace, error) {
-	rootdir, err := ioutil.TempDir("", "juju-backups-")
+	rootdir, err := os.MkdirTemp("", "juju-backups-")
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating workspace dir")
 	}
@@ -200,7 +199,7 @@ func NewArchiveDataReader(r io.Reader) (*ArchiveData, error) {
 	}
 	defer func() { _ = gzr.Close() }()
 
-	data, err := ioutil.ReadAll(gzr)
+	data, err := io.ReadAll(gzr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
