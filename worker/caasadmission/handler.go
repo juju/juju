@@ -68,6 +68,7 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper, legacyLabels bool) h
 				http.StatusText(http.StatusBadRequest)), http.StatusBadRequest)
 			return
 		}
+		logger.Infof("admissionHandler req.Body ========> %s", string(data))
 
 		if req.Header.Get(HeaderContentType) != ExpectedContentType {
 			http.Error(res, fmt.Sprintf("%s: supported content types = [%s]",
