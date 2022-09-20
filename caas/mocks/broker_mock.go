@@ -360,6 +360,21 @@ func (mr *MockBrokerMockRecorder) GetNamespace(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespace", reflect.TypeOf((*MockBroker)(nil).GetNamespace), arg0)
 }
 
+// GetSecretToken mocks base method.
+func (m *MockBroker) GetSecretToken(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretToken", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretToken indicates an expected call of GetSecretToken.
+func (mr *MockBrokerMockRecorder) GetSecretToken(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockBroker)(nil).GetSecretToken), arg0)
+}
+
 // GetService mocks base method.
 func (m *MockBroker) GetService(arg0 string, arg1 caas.DeploymentMode, arg2 bool) (*caas.Service, error) {
 	m.ctrl.T.Helper()

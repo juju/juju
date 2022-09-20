@@ -71,6 +71,7 @@ func NewSSHContainer(
 	applicationAPI ApplicationAPI,
 	charmsAPI CharmsAPI,
 	execClient k8sexec.Executor,
+	sshClient SSHClientAPI,
 	remote bool,
 	containerName string,
 ) SSHContainerInterfaceForTest {
@@ -82,6 +83,7 @@ func NewSSHContainer(
 		applicationAPI:     applicationAPI,
 		charmsAPI:          charmsAPI,
 		execClient:         execClient,
+		sshClient:          sshClient,
 		execClientGetter: func(string, string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 			return execClient, nil
 		},

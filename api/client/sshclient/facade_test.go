@@ -13,7 +13,11 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/sshclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
+	"github.com/juju/juju/cloud"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/testing"
 )
 
 type FacadeSuite struct {
@@ -295,4 +299,60 @@ func (s *FacadeSuite) TestLeader(c *gc.C) {
 	obtainedUnit, err := facade.Leader("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedUnit, gc.Equals, "ubuntu/42")
+}
+
+func (s *FacadeSuite) TestModelCredentialForSSH(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SSHClient")
+		c.Check(request, gc.Equals, "ModelCredentialForSSH")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.CloudSpecResult{})
+
+		*(result.(*params.CloudSpecResult)) = params.CloudSpecResult{
+			Result: &params.CloudSpec{
+				Type:             "type",
+				Name:             "name",
+				Region:           "region",
+				Endpoint:         "endpoint",
+				IdentityEndpoint: "identity-endpoint",
+				StorageEndpoint:  "storage-endpoint",
+				Credential: &params.CloudCredential{
+					AuthType: "auth-type",
+					Attributes: map[string]string{
+						k8scloud.CredAttrUsername: "",
+						k8scloud.CredAttrPassword: "",
+						k8scloud.CredAttrToken:    "token",
+					},
+				},
+				CACertificates: []string{testing.CACert},
+				SkipTLSVerify:  true,
+			},
+		}
+		return nil
+	})
+
+	facade := sshclient.NewFacade(apiCaller)
+	spec, err := facade.ModelCredentialForSSH()
+	c.Assert(err, jc.ErrorIsNil)
+
+	credential := cloud.NewCredential(
+		"auth-type",
+		map[string]string{
+			k8scloud.CredAttrUsername: "",
+			k8scloud.CredAttrPassword: "",
+			k8scloud.CredAttrToken:    "token",
+		},
+	)
+	cloudSpec := environscloudspec.CloudSpec{
+		Type:             "type",
+		Name:             "name",
+		Region:           "region",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+		Credential:       &credential,
+		CACertificates:   []string{testing.CACert},
+		SkipTLSVerify:    true,
+	}
+	c.Assert(spec, gc.DeepEquals, cloudSpec)
 }
