@@ -5,7 +5,7 @@ package http_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -51,7 +51,7 @@ func (s *httpSuite) TestOpenURI(c *gc.C) {
 	resultResp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader("2.6.6-ubuntu-amd64")),
+		Body:       io.NopCloser(strings.NewReader("2.6.6-ubuntu-amd64")),
 	}
 	resultResp.Header.Add("Content-Type", "application/json")
 	ctx := context.TODO()
@@ -66,7 +66,7 @@ func (s *httpSuite) TestOpenURI(c *gc.C) {
 	defer reader.Close()
 
 	// The fake tools content will be the version number.
-	content, err := ioutil.ReadAll(reader)
+	content, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "2.6.6-ubuntu-amd64")
 }

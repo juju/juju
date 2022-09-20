@@ -6,7 +6,7 @@ package resources_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -65,13 +65,13 @@ func (m reqMatcher) Matches(x interface{}) bool {
 		return false
 	}
 	obtainedCopy := *obtained
-	obtainedBody, err := ioutil.ReadAll(obtainedCopy.Body)
+	obtainedBody, err := io.ReadAll(obtainedCopy.Body)
 	m.c.Assert(err, jc.ErrorIsNil)
 	obtainedCopy.Body = nil
 	obtainedCopy.GetBody = nil
 
 	reqCopy := *m.req
-	reqBody, err := ioutil.ReadAll(reqCopy.Body)
+	reqBody, err := io.ReadAll(reqCopy.Body)
 	m.c.Assert(err, jc.ErrorIsNil)
 	reqCopy.Body = nil
 	reqCopy.GetBody = nil
