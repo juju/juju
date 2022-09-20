@@ -6,7 +6,7 @@ package systemd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -137,7 +137,7 @@ func serialize(name string, conf common.Conf, renderer shell.Renderer) ([]byte, 
 	unitOptions = append(unitOptions, serializeInstall(conf)...)
 	// Don't use unit.Serialize because it has map ordering issues.
 	// Serialize copied locally, and outputs sections in alphabetical order.
-	data, err := ioutil.ReadAll(UnitSerialize(unitOptions))
+	data, err := io.ReadAll(UnitSerialize(unitOptions))
 	return data, errors.Trace(err)
 }
 
