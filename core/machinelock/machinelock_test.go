@@ -4,7 +4,6 @@
 package machinelock_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -227,7 +226,7 @@ func (s *lockSuite) TestLogfileOutput(c *gc.C) {
 	s.addHistory(c, "uniter", "update-status", "2018-07-21 15:42:11", time.Second, short)
 	s.addHistory(c, "uniter", "update-status", "2018-07-21 15:47:13", time.Second, short)
 
-	content, err := ioutil.ReadFile(s.logfile)
+	content, err := os.ReadFile(s.logfile)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(content), gc.Equals, `

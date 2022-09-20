@@ -6,7 +6,6 @@ package bundlechanges_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -3559,7 +3558,7 @@ series:
     - focal
     - bionic
 `[1:]
-	err = ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	err = os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "jammy")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "jammy")
@@ -3582,7 +3581,7 @@ series:
     - focal
     - bionic
 `[1:]
-	err := ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	err := os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "focal")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "focal")
