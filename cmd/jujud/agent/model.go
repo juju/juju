@@ -132,7 +132,7 @@ func (m *ModelCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Stop implements worker
-func (m *ModelCommand) Stop() (err error) {
+func (m *ModelCommand) Stop() error {
 	m.runner.Kill()
 	return m.Wait()
 }

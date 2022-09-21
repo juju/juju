@@ -98,9 +98,8 @@ func NewAdmissionCreator(
 				Rules: []admission.RuleWithOperations{
 					{
 						Operations: []admission.OperationType{
-							// admission.Create,
-							// admission.Update,
-							admission.OperationAll,
+							admission.Create,
+							admission.Update,
 						},
 						Rule: admission.Rule{
 							APIGroups:   anyMatch,

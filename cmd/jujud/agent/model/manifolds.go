@@ -520,14 +520,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			BrokerName:    caasBrokerTrackerName,
-			Logger:        loggo.GetLogger("juju.worker.caasmodeloperator"),
+			Logger:        config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
 			ModelUUID:     agentConfig.Model().Id(),
 		})),
 
 		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
 			APICallerName: apiCallerName,
 			BrokerName:    caasBrokerTrackerName,
-			Logger:        loggo.GetLogger("juju.worker.caasmodelconfigmanager"),
+			Logger:        config.LoggingContext.GetLogger("juju.worker.caasmodelconfigmanager"),
 			NewWorker:     caasmodelconfigmanager.NewWorker,
 			NewFacade:     caasmodelconfigmanager.NewFacade,
 			Clock:         config.Clock,
