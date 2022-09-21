@@ -68,7 +68,7 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
 	c.logger.Tracef("Resolving CharmHub charm %q with origin %v", charmURL, argOrigin)
 
-	requestedOrigin, err := c.validateFixOrigin(argOrigin)
+	requestedOrigin, err := c.validateAndFixOrigin(argOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, err
 	}
@@ -196,13 +196,13 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	return resCurl, outputOrigin, supportedSeries, nil
 }
 
-// validateFixOrigin, validate the origin and maybe fix as follows:
+// validateAndFixOrigin, validate the origin and maybe fix as follows:
 //
 //	Platform must have an architecture.
 //	Platform can have both an empty series AND os.
-//	If series defined and os an empty string, add data.
+//	If series defined and OS an empty string, add data.
 //	Platform must have series if os defined.
-func (c *CharmHubRepository) validateFixOrigin(origin corecharm.Origin) (corecharm.Origin, error) {
+func (c *CharmHubRepository) validateAndFixOrigin(origin corecharm.Origin) (corecharm.Origin, error) {
 	p := origin.Platform
 
 	if p.Architecture == "" {
