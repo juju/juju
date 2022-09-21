@@ -4,7 +4,7 @@ maintainer:
   - Burton Swan <burton.swan@canonical.com>
   - Evanson Mwangi <evanson.wainaina@canonical.com>
 summary: Dummy charm that utilises storage.
-description: This dummy-storage-fs charm is used for testing charm storage.
+description: This dummy-storage charm is used for testing persistent storage.
 categories:
   - misc
 series:

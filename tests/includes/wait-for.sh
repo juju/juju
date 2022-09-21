@@ -70,11 +70,10 @@ idle_subordinate_condition() {
 }
 
 active_condition() {
-	local name app_index unit_index
+	local name app_index
 
 	name=${1}
 	app_index=${2:-0}
-	unit_index=${3:-0}
 
 	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }

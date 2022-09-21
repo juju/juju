@@ -193,6 +193,9 @@ type Broker interface {
 	// APIVersion returns the version of the container orchestration layer.
 	APIVersion() (string, error)
 
+	// GetSecretToken returns the token content for the specified secret name.
+	GetSecretToken(name string) (string, error)
+
 	// ClusterVersionGetter provides methods to get cluster version information.
 	ClusterVersionGetter
 

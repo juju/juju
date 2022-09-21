@@ -38163,7 +38163,7 @@
     {
         "Name": "SSHClient",
         "Description": "Facade implements the API required by the sshclient worker.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -38184,6 +38184,15 @@
                         }
                     },
                     "description": "AllAddresses reports all addresses that might have SSH listening for each\nentity in args. The result is sorted with public addresses first.\nMachines and units are supported as entity types."
+                },
+                "ModelCredentialForSSH": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/CloudSpecResult"
+                        }
+                    },
+                    "description": "ModelCredentialForSSH returns a cloud spec for ssh purpose.\nThis facade call is only used for k8s model."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -38232,6 +38241,87 @@
                 }
             },
             "definitions": {
+                "CloudCredential": {
+                    "type": "object",
+                    "properties": {
+                        "attrs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "auth-type": {
+                            "type": "string"
+                        },
+                        "redacted": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "auth-type"
+                    ]
+                },
+                "CloudSpec": {
+                    "type": "object",
+                    "properties": {
+                        "cacertificates": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "credential": {
+                            "$ref": "#/definitions/CloudCredential"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "identity-endpoint": {
+                            "type": "string"
+                        },
+                        "is-controller-cloud": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "region": {
+                            "type": "string"
+                        },
+                        "skip-tls-verify": {
+                            "type": "boolean"
+                        },
+                        "storage-endpoint": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "name"
+                    ]
+                },
+                "CloudSpecResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/CloudSpec"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
