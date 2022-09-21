@@ -13,9 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -63,6 +65,11 @@ func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 type StatusSuite struct {
 	testing.JujuConnSuite
 }
+
+type StatusSuiteGoMock struct {
+}
+
+var _ = gc.Suite(&StatusSuiteGoMock{})
 
 var _ = gc.Suite(&StatusSuite{})
 
@@ -3868,6 +3875,22 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
 
+//func (s *StatusSuiteGoMock) addOneMachine(c *gc.C, machineId int) {
+//	ctrl := gomock.NewController(c)
+//	defer ctrl.Finish()
+//
+//	emptyCons := constraints.Value{}
+//	backend := mocks.NewMockBackend(ctrl)
+//	backend.AddOneMachine(state.MachineTemplate{
+//		Series:      "quantal",
+//		Constraints: emptyCons,
+//		Jobs:        []state.MachineJob{state.JobManageModel},
+//	})
+//
+//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(m.Id(), gc.Equals, am.machineId)
+//}
+
 type recordAgentStartInformation struct {
 	machineId string
 	hostname  string
@@ -6314,4 +6337,87 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 
 	_, _, stderr = runStatus(c, "cannot", "match", "me")
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filters.\n")
+}
+
+func (s *StatusSuiteGoMock) TestBootstrapAddMachine0(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	since := time.Date(2015, time.April, 1, 1, 23, 10, 00, time.UTC)
+	results := params.FullStatus{
+		Model: params.ModelStatusInfo{
+			Name:        "model",
+			Type:        "iaas",
+			Version:     "1.2.3",
+			CloudTag:    "dummy",
+			CloudRegion: "dummy-region",
+			ModelStatus: params.DetailedStatus{
+				Version: "1.2.3",
+				Since:   &since,
+				Status:  "available",
+			},
+			SLA: "unsupported",
+		},
+		Machines: map[string]params.MachineStatus{
+			"0": params.MachineStatus{
+				Series:     "quantal",
+				HasVote:    false,
+				WantsVote:  true,
+				InstanceId: instance.Id("pending"),
+				AgentStatus: params.DetailedStatus{
+					Status: "pending",
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "idle",
+					Since:  &since,
+				},
+				InstanceStatus: params.DetailedStatus{
+					Since: &since,
+				},
+			},
+		},
+		Applications: map[string]params.ApplicationStatus{},
+	}
+
+	args := params.StatusParams{Patterns: []string{""}}
+	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("FullStatus", args, results)
+
+	//st := mocks.NewMockstatusAPI(ctrl)
+	//st.EXPECT().Status("controller").Return(&output, nil)
+
+	for _, format := range statusFormats {
+		c.Logf("format %q", format.name)
+		// Run command with the required format.
+		args := []string{"--format", format.name}
+		//if ctx.expectIsoTime {
+		//	args = append(args, "--utc")
+		//}
+		//args = append(args, e.scope...)
+		c.Logf("running status %s", strings.Join(args, " "))
+		code, stdout, stderr := runStatus(c, args...)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(string(stderr), gc.Equals, "")
+
+		// Prepare the output in the same format.
+		buf, err := format.marshal(results)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// we have to force the timestamp into the correct format as the model
+		// is in string.
+		buf = substituteFakeTimestamp(c, buf, true)
+
+		expected := make(M)
+		err = format.unmarshal(buf, &expected)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Check the output is as expected.
+		actual := make(M)
+		out := substituteFakeTime(c, "since", stdout, true)
+		out = substituteFakeTimestamp(c, out, true)
+		err = format.unmarshal(out, &actual)
+		c.Assert(err, jc.ErrorIsNil)
+		pretty.Ldiff(c, actual, expected)
+		c.Assert(actual, jc.DeepEquals, expected)
+	}
+
 }
