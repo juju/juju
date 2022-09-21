@@ -956,7 +956,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesAllowsParentBridgeDe
 	// when deciding which host bridges to use for the container NICs.
 	s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, network.DefaultLXDBridge, "vethX", 1)
 	s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, network.DefaultKVMBridge, "vethY", 1)
-	s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, network.DefaultLXCBridge, "vethZ", 1)
 	parentDevice, _ := s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, "br-eth1.250", "eth", 1)
 	childDevice, err := s.containerMachine.LinkLayerDevice("eth0")
 	c.Assert(err, jc.ErrorIsNil)

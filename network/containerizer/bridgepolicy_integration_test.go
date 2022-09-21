@@ -170,8 +170,6 @@ func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerize
 func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *gc.C, machine containerizer.Machine) {
 	// loopback
 	s.createLoopbackNIC(c, machine)
-	// container.DefaultLxcBridge
-	s.createBridgeWithIP(c, machine, "lxcbr0", "10.0.3.1/24")
 	// container.DefaultLxdBridge
 	s.createBridgeWithIP(c, machine, "lxdbr0", "10.0.4.1/24")
 	// container.DefaultKvmBridge
