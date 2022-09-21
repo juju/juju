@@ -89,6 +89,13 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		relationNetworksC,
 		remoteEntitiesC,
 		externalControllersC,
+
+		// secrets
+		secretMetadataC,
+		secretRevisionsC,
+		secretRotateC,
+		secretConsumersC,
+		secretPermissionsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -214,13 +221,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// sure the leader units' leases are claimed in the target
 		// controller when leases are managed in raft.
 		leaseHoldersC,
-
-		// secrets
-		secretMetadataC,
-		secretRevisionsC,
-		secretConsumersC,
-		secretRotateC,
-		secretPermissionsC,
 	)
 
 	modelCollections := set.NewStrings()
@@ -934,4 +934,68 @@ func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields s
 	// doc without thinking about the migration implications.
 	c.Check(unknown, gc.HasLen, 0)
 	c.Assert(removed, gc.HasLen, 0)
+}
+
+func (s *MigrationSuite) TestSecretMetadataDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+
+		// These are not exported but instead
+		// calculated from the revisions.
+		"LatestRevision",
+		"LatestExpireTime",
+	)
+	migrated := set.NewStrings(
+		"Version",
+		"OwnerTag",
+		"Description",
+		"Label",
+		"RotatePolicy",
+		"CreateTime",
+		"UpdateTime",
+	)
+	s.AssertExportedFields(c, secretMetadataDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestSecretRevisionDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"TxnRevno",
+	)
+	migrated := set.NewStrings(
+		"Revision",
+		"CreateTime",
+		"UpdateTime",
+		"ExpireTime",
+		"Obsolete",
+		"ProviderId",
+		"Data",
+		"OwnerTag",
+	)
+	s.AssertExportedFields(c, secretRevisionDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestSecretRotationDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"TxnRevno",
+	)
+	migrated := set.NewStrings(
+		"NextRotateTime",
+		"OwnerTag",
+	)
+	s.AssertExportedFields(c, secretRotationDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestSecretConsumerDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"ConsumerTag",
+		"Label",
+		"CurrentRevision",
+		"LatestRevision",
+	)
+	s.AssertExportedFields(c, secretConsumerDoc{}, migrated.Union(ignored))
 }

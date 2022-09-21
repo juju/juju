@@ -233,7 +233,7 @@ func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*se
 	modelUUID := m.UUID()
 	var policies []string
 	if adminUser {
-		// For admin users, add secrets for the model can be read.
+		// For admin users, all secrets for the model can be read.
 		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, modelUUID)
 		policyName := fmt.Sprintf("model-%s-read", modelUUID)
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)

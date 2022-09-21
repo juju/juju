@@ -757,6 +757,20 @@ func (s *secretsStore) listConsumedSecrets(consumers []string) ([]string, error)
 	return ids, nil
 }
 
+// allSecretPermissions is used for model export.
+func (s *secretsStore) allSecretPermissions() ([]secretPermissionDoc, error) {
+	secretPermissionCollection, closer := s.st.db().GetCollection(secretPermissionsC)
+	defer closer()
+
+	var docs []secretPermissionDoc
+
+	err := secretPermissionCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 // ListSecretRevisions returns the revision metadata for the given secret.
 func (s *secretsStore) ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {
 	return s.listSecretRevisions(uri, nil)
@@ -788,7 +802,7 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	} else {
 		q = bson.D{{"_id", secretRevisionKey(uri, *revision)}}
 	}
-	err := secretRevisionCollection.Find(q).All(&docs)
+	err := secretRevisionCollection.Find(q).Sort("_id").All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -805,13 +819,31 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	return result, nil
 }
 
+// allSecretRevisions is used for model export.
+func (s *secretsStore) allSecretRevisions() ([]secretRevisionDoc, error) {
+	secretRevisionCollection, closer := s.st.db().GetCollection(secretRevisionsC)
+	defer closer()
+
+	var docs []secretRevisionDoc
+
+	err := secretRevisionCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 type secretConsumerDoc struct {
 	DocID string `bson:"_id"`
 
 	ConsumerTag     string `bson:"consumer-tag"`
 	Label           string `bson:"label"`
 	CurrentRevision int    `bson:"current-revision"`
-	LatestRevision  int    `bson:"latest-revision"`
+
+	// LatestRevision is denormalised here so that the
+	// consumer watcher can be triggered when a new
+	// secret revision is added.
+	LatestRevision int `bson:"latest-revision"`
 }
 
 func secretConsumerKey(id, consumer string) string {
@@ -1004,6 +1036,20 @@ func (st *State) secretUpdateConsumersOps(uri *secrets.URI, newRevision int) ([]
 	return ops, nil
 }
 
+// allSecretConsumers is used for model export.
+func (s *secretsStore) allSecretConsumers() ([]secretConsumerDoc, error) {
+	secretConsumerCollection, closer := s.st.db().GetCollection(secretConsumersC)
+	defer closer()
+
+	var docs []secretConsumerDoc
+
+	err := secretConsumerCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 // WatchConsumedSecretsChanges returns a watcher for updates and deletes
 // of secrets that have been previously read by the specified consumer.
 func (st *State) WatchConsumedSecretsChanges(consumer names.Tag) (StringsWatcher, error) {
@@ -1179,13 +1225,13 @@ func newObsoleteSecretsWatcher(st modelBackend, owners []string) *obsoleteSecret
 
 			return doc.Obsolete
 		},
-		idconv: func(id string) string {
-			parts := strings.Split(id, "/")
-			if len(parts) < 2 {
-				return id
+		idconv: func(idStr string) string {
+			id, rev := splitSecretRevision(idStr)
+			if rev == 0 {
+				return idStr
 			}
-			uri := secrets.URI{ID: parts[0]}
-			return uri.String() + "/" + parts[1]
+			uri := secrets.URI{ID: id}
+			return uri.String() + fmt.Sprintf("/%d", rev)
 		},
 	})
 
@@ -1225,7 +1271,7 @@ func (w *obsoleteSecretsWatcher) initial() error {
 	return errors.Trace(iter.Close())
 }
 
-func splitSecretChange(c string) (string, int) {
+func splitSecretRevision(c string) (string, int) {
 	parts := strings.Split(c, "/")
 	if len(parts) < 2 {
 		return parts[0], 0
@@ -1254,7 +1300,7 @@ func (w *obsoleteSecretsWatcher) mergedOwnedChanges(currentChanges []string, cha
 		// longer relevant.
 		var newChanges []string
 		for _, c := range currentChanges {
-			id, _ := splitSecretChange(c)
+			id, _ := splitSecretRevision(c)
 			if id != uri.String() {
 				newChanges = append(newChanges, c)
 			}
@@ -1666,7 +1712,7 @@ type secretRotationDoc struct {
 	// These fields are denormalised here so that the watcher
 	// only needs to access this collection.
 	NextRotateTime time.Time `bson:"next-rotate-time"`
-	Owner          string    `bson:"owner-tag"`
+	OwnerTag       string    `bson:"owner-tag"`
 }
 
 func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotatePolicy *secrets.RotatePolicy, nextRotateTime *time.Time) ([]txn.Op, error) {
@@ -1694,7 +1740,7 @@ func (s *secretsStore) secretRotationOps(uri *secrets.URI, owner string, rotateP
 			Insert: secretRotationDoc{
 				DocID:          secretKey,
 				NextRotateTime: (*nextRotateTime).Round(time.Second).UTC(),
-				Owner:          owner,
+				OwnerTag:       owner,
 			},
 		}}, nil
 	} else if err != nil {
@@ -1963,7 +2009,7 @@ func (w *secretsExpiryWatcher) initial() ([]corewatcher.SecretTriggerChange, err
 
 	iter := secretRevisionCollection.Find(bson.D{secretOwnerTerm(w.owners)}).Iter()
 	for iter.Next(&doc) {
-		uriStr, _ := splitSecretChange(w.backend.localID(doc.DocID))
+		uriStr, _ := splitSecretRevision(w.backend.localID(doc.DocID))
 		uri, err := secrets.ParseURI(uriStr)
 		if err != nil {
 			_ = iter.Close()
@@ -2031,7 +2077,7 @@ func (w *secretsExpiryWatcher) merge(details []corewatcher.SecretTriggerChange, 
 		return details, nil
 	}
 	if doc.TxnRevno > knownDetails.txnRevNo {
-		uriStr, _ := splitSecretChange(w.backend.localID(doc.DocID))
+		uriStr, _ := splitSecretRevision(w.backend.localID(doc.DocID))
 		uri, err := secrets.ParseURI(uriStr)
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid secret URI %q", uriStr)
