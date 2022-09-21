@@ -17,7 +17,9 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/juju/api/base/mocks"
+	"github.com/juju/juju/cmd/juju/status/mocks"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -49,6 +51,10 @@ import (
 	coreversion "github.com/juju/juju/version"
 )
 
+const (
+	ControllerName = "kontroll"
+)
+
 var (
 	currentVersion = version.Number{Major: 1, Minor: 2, Patch: 3}
 	nextVersion    = version.Number{Major: 1, Minor: 2, Patch: 4}
@@ -65,11 +71,6 @@ func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 type StatusSuite struct {
 	testing.JujuConnSuite
 }
-
-type StatusSuiteGoMock struct {
-}
-
-var _ = gc.Suite(&StatusSuiteGoMock{})
 
 var _ = gc.Suite(&StatusSuite{})
 
@@ -6339,9 +6340,43 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filters.\n")
 }
 
-func (s *StatusSuiteGoMock) TestBootstrapAddMachine0(c *gc.C) {
+type StatusSuiteGoMock struct {
+	coretesting.BaseSuite
+	api              *mocks.MockstatusAPI
+	controllerStore  jujuclient.ClientStore
+	ControllerConfig controller.Config
+	configAttrs      map[string]interface{}
+}
+
+var _ = gc.Suite(&StatusSuiteGoMock{})
+
+func (s *StatusSuiteGoMock) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+
+	s.api = mocks.NewMockstatusAPI(ctrl)
+	s.controllerStore = jujuclient.NewFileClientStore()
+	s.controllerStore.AddController(ControllerName, jujuclient.ControllerDetails{})
+	err := s.controllerStore.SetCurrentController(ControllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.controllerStore.CurrentController()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return ctrl
+}
+
+func (s *StatusSuiteGoMock) runnStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
+	ctx := cmdtesting.Context(c)
+	code = cmd.Main(NewTestStatusCommand(s.api, nil, nil), ctx, args)
+	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
+	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
+	//statusCmd := NewTestStatusCommand(s.api, nil, nil)
+	//return cmdtesting.RunCommand(c, statusCmd, args...)
+	return
+}
+
+func (s *StatusSuiteGoMock) TestBootstrapAddMachine0(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	since := time.Date(2015, time.April, 1, 1, 23, 10, 00, time.UTC)
 	results := params.FullStatus{
 		Model: params.ModelStatusInfo{
@@ -6358,7 +6393,7 @@ func (s *StatusSuiteGoMock) TestBootstrapAddMachine0(c *gc.C) {
 			SLA: "unsupported",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": params.MachineStatus{
+			"0": {
 				Series:     "quantal",
 				HasVote:    false,
 				WantsVote:  true,
@@ -6378,28 +6413,26 @@ func (s *StatusSuiteGoMock) TestBootstrapAddMachine0(c *gc.C) {
 		Applications: map[string]params.ApplicationStatus{},
 	}
 
-	args := params.StatusParams{Patterns: []string{""}}
-	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("FullStatus", args, results)
+	s.PatchValue(&newAPIClientForStatus, func(_ *statusCommand) (statusAPI, error) {
+		return s.api, nil
+	})
+	s.api.EXPECT().Status([]string{""}).Return(&results, nil)
+	status, err := s.api.Status([]string{""})
 
-	//st := mocks.NewMockstatusAPI(ctrl)
-	//st.EXPECT().Status("controller").Return(&output, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
 		args := []string{"--format", format.name}
-		//if ctx.expectIsoTime {
-		//	args = append(args, "--utc")
-		//}
-		//args = append(args, e.scope...)
 		c.Logf("running status %s", strings.Join(args, " "))
-		code, stdout, stderr := runStatus(c, args...)
-		c.Assert(code, gc.Equals, 0)
+		code, stdout, stderr := s.runnStatus(c, args...)
+		c.Assert(code, gc.Equals, 2)
 		c.Assert(string(stderr), gc.Equals, "")
 
 		// Prepare the output in the same format.
-		buf, err := format.marshal(results)
+		buf, err := format.marshal(status)
+		c.Log(string(buf))
 		c.Assert(err, jc.ErrorIsNil)
 
 		// we have to force the timestamp into the correct format as the model
