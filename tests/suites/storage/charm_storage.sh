@@ -48,9 +48,10 @@ run_charm_storage() {
 	assert_storage "dummy-storage-fs/0" "$(unit_attachment "data" 0 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "data" 0 "dummy-storage-fs" 0)"
+	wait_for_storage "attached" "$(filesystem_status 0 0).current"
 	# assert the filesystem size
 	requested_storage=1024
-	acquired_storage=$(juju storage --format json | jq '.filesystems | .["0/0"] | select(.pool=="rootfs") | .size')
+	acquired_storage=$(juju storage --format json | jq '.filesystems | .["0/0"] | select(.pool=="rootfs") | .size ')
 	if [ "$requested_storage" -gt "$acquired_storage" ]; then
 		echo "acquired storage size $acquired_storage should be greater than the requested storage $requested_storage"
 		exit 1
@@ -124,14 +125,15 @@ run_charm_storage() {
 	echo "Multiple filesystem, block, rootfs, loop PASSED"
 
 	# remove the application
-	juju remove-application dummy-storage-fs
-	juju remove-application dummy-storage-lp
-	juju remove-application dummy-storage-tp
-	juju remove-application dummy-storage-np
-	juju remove-application dummy-storage-mp
-
+	juju remove-application dummy-storage-fs --destroy-storage
+	juju remove-application dummy-storage-lp --destroy-storage
+	juju remove-application dummy-storage-tp --destroy-storage
+	juju remove-application dummy-storage-np --destroy-storage
+	juju remove-application dummy-storage-mp --destroy-storage
 	echo "All charm storage tests PASSED"
 
+	# wait for all storage units to removed
+	wait_for "{}" ".storage"
 	destroy_model "${model_name}"
 }
 
