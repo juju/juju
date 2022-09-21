@@ -81,7 +81,6 @@ import (
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	workercommon "github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
@@ -799,19 +798,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		if result.Code != 0 {
 			return nil, errors.New(fmt.Sprintf("cannot patch /etc/update-manager/release-upgrades: %s", result.Stderr))
 		}
-	} else {
-		_ = runner.StartWorker("stateconverter", func() (worker.Worker, error) {
-			// TODO(fwereade): this worker needs its own facade.
-			facade := apimachiner.NewState(apiConn)
-			handler := conv2state.New(facade, a)
-			w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
-				Handler: handler,
-			})
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start controller promoter worker")
-			}
-			return w, nil
-		})
 	}
 	return runner, nil
 }

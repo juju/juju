@@ -4,18 +4,26 @@
 package sshclient
 
 import (
+	stdcontext "context"
 	"sort"
 
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
+
+type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (Broker, error)
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
@@ -24,14 +32,24 @@ type Facade struct {
 	callContext context.ProviderCallContext
 
 	leadershipReader leadership.Reader
+	getBroker        newCaasBrokerFunc
 }
 
-func internalFacade(backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {
+func internalFacade(
+	backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, callCtx context.ProviderCallContext,
+	getBroker newCaasBrokerFunc,
+) (*Facade, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	return &Facade{backend: backend, authorizer: auth, callContext: callCtx, leadershipReader: leadershipReader}, nil
+	return &Facade{
+		backend:          backend,
+		authorizer:       auth,
+		callContext:      callCtx,
+		leadershipReader: leadershipReader,
+		getBroker:        getBroker,
+	}, nil
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
@@ -199,4 +217,87 @@ func (facade *Facade) Proxy() (params.SSHProxyResult, error) {
 		return params.SSHProxyResult{}, err
 	}
 	return params.SSHProxyResult{UseProxy: config.ProxySSH()}, nil
+}
+
+// ModelCredentialForSSH returns a cloud spec for ssh purpose.
+// This facade call is only used for k8s model.
+func (facade *Facade) ModelCredentialForSSH() (params.CloudSpecResult, error) {
+	var result params.CloudSpecResult
+
+	isModelAdmin, err := facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	isSuperUser, err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isModelAdmin && !isSuperUser {
+		return result, apiservererrors.ErrPerm
+	}
+
+	model, err := facade.backend.Model()
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	if model.Type() != state.ModelTypeCAAS {
+		result.Error = apiservererrors.ServerError(errors.NotSupportedf("facade ModelCredentialForSSH for non %q model", state.ModelTypeCAAS))
+		return result, nil
+	}
+
+	spec, err := facade.backend.CloudSpec()
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	if spec.Credential == nil {
+		result.Error = apiservererrors.ServerError(errors.NotValidf("cloud spec %q has empty credential", spec.Name))
+		return result, nil
+	}
+
+	token, err := facade.getExecSecretToken(spec, model)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	cred, err := k8scloud.UpdateCredentialWithToken(*spec.Credential, token)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	result.Result = &params.CloudSpec{
+		Type:             spec.Type,
+		Name:             spec.Name,
+		Region:           spec.Region,
+		Endpoint:         spec.Endpoint,
+		IdentityEndpoint: spec.IdentityEndpoint,
+		StorageEndpoint:  spec.StorageEndpoint,
+		Credential: &params.CloudCredential{
+			AuthType:   string(cred.AuthType()),
+			Attributes: cred.Attributes(),
+		},
+		CACertificates:    spec.CACertificates,
+		SkipTLSVerify:     spec.SkipTLSVerify,
+		IsControllerCloud: spec.IsControllerCloud,
+	}
+	return result, nil
+}
+
+func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, model Model) (string, error) {
+	cfg, err := model.Config()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	broker, err := facade.getBroker(stdcontext.TODO(), environs.OpenParams{
+		ControllerUUID: model.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         cfg,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "failed to open kubernetes client")
+	}
+	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
 }

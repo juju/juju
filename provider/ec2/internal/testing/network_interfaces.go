@@ -42,6 +42,55 @@ func (srv *Server) DescribeNetworkInterfaces(ctx context.Context, in *ec2.Descri
 	return resp, nil
 }
 
+// AddNetworkInterface inserts a given network interface in the test server, as
+// if it were created using the simulated AWS API. the Id field of inIface is
+// ignored and replaced by the next ifaceId counter value, prefixed by "interface-".
+// The VpcId, AvailabilityZone, Attachment.InstanceId, and SubnetIf fields must
+// contain an existing vpc, AZ, instance and subnet (resp.).
+// The interface will also be attached to the instance specified
+func (srv *Server) AddNetworkInterface(inIface types.NetworkInterface) (types.NetworkInterface, error) {
+	zeroIface := types.NetworkInterface{}
+
+	vpcId := aws.ToString(inIface.VpcId)
+	availZone := aws.ToString(inIface.AvailabilityZone)
+	attachmentInstId := aws.ToString(inIface.Attachment.InstanceId)
+	subnetId := aws.ToString(inIface.SubnetId)
+	if vpcId == "" {
+		return zeroIface, fmt.Errorf("empty VPCId field")
+	}
+	if availZone == "" {
+		return zeroIface, fmt.Errorf("empty AvailZone field")
+	}
+	if attachmentInstId == "" {
+		return zeroIface, fmt.Errorf("empty Attachment InstanceId field")
+	}
+	if subnetId == "" {
+		return zeroIface, fmt.Errorf("empty SubnetId field")
+	}
+
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	if _, found := srv.vpcs[vpcId]; !found {
+		return zeroIface, fmt.Errorf("no such VPC %q", vpcId)
+	}
+	if _, found := srv.zones[availZone]; !found {
+		return zeroIface, fmt.Errorf("no such availability zone %q", availZone)
+	}
+	if _, found := srv.instances[attachmentInstId]; !found {
+		return zeroIface, fmt.Errorf("no such instance %q", attachmentInstId)
+	}
+	if _, found := srv.subnets[subnetId]; !found {
+		return zeroIface, fmt.Errorf("no such subnet %q", subnetId)
+	}
+
+	added := &iface{inIface}
+	added.NetworkInterfaceId = aws.String(fmt.Sprintf("interface-%d", srv.ifaceId.next()))
+	srv.ifaces[aws.ToString(added.NetworkInterfaceId)] = added
+	srv.instances[attachmentInstId].ifaces = append(srv.instances[attachmentInstId].ifaces, added.NetworkInterface)
+	return added.NetworkInterface, nil
+}
+
 type iface struct {
 	types.NetworkInterface
 }
