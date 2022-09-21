@@ -4,12 +4,14 @@ great.
 Contents
 ========
 
-1. [Building Juju](#building-juju)
-2. [Getting started](#getting-started)
-3. [Dependency management](#dependency-management)
-4. [Code formatting](#code-formatting)
-5. [Workflow](#workflow)
-6. [Community](#community)
+- [Quick links](#quick-links)
+- [Building Juju](#building-juju)
+- [Getting started](#getting-started)
+- [Dependency management](#dependency-management)
+- [Code formatting](#code-formatting)
+- [Workflow](#workflow)
+   - [Contributor licence agreement](#contributor-licence-agreement)
+- [Community](#community)
 
 Quick links
 ===========
@@ -29,17 +31,17 @@ Building Juju
 
 ## Installing Go
 
-`juju` is written in Go (http://golang.org), a modern, compiled, statically typed,
+`juju` is written in [Go](https://go.dev/), a modern, compiled, statically typed,
 concurrent language.
 
 Generally, Juju is built against the most recent version of Go, with the caveat that Go versions are not incremented during a release cycle. This means that `develop` will typically be using the latest version of Go, but any given release branch may lag by one version or so.  Check the `go.mod` file at the root of the project for the targeted version of Go, as this is authoritative.
 
-For example, the following indicates that Go 1.18 is targeted:
+For example, the following indicates that Go 1.19 is targeted:
 
 ```
 module github.com/juju/juju
 
-go 1.18
+go 1.19
 ```
 
 ### Official distribution
@@ -50,7 +52,7 @@ Go can be [installed](https://golang.org/doc/install#install) from the official 
 
 [Snap](https://snapcraft.io/go) may also be used to install Go on Linux.
 
-    snap install go --channel=1.18/stable --classic
+    snap install go --channel=1.19/stable --classic
 
 ## Build Juju and its dependencies
 
@@ -150,7 +152,7 @@ running the check as a pre-commit hook also works.
 Staying in sync
 ---------------
 
-Make sure your local copy and github fork stay in sync with upstream:
+Make sure your local copy and GitHub fork stay in sync with upstream:
 
 ```bash
 cd juju
@@ -169,7 +171,8 @@ external repositories so that Juju is insulated from changes to those repos.
 go mod
 ------
 
-Juju uses Go modules to manage dependencies. Therfore you don't need to do anything to ensure you are building with the correct versions.
+Juju uses Go modules to manage dependencies. Your Go installation will ensure
+you are building with the correct version - you don't need to do anything. 
 
 Updating dependencies
 ---------------------
@@ -353,6 +356,44 @@ Be sure to have a look at:
 
 https://help.github.com/articles/using-pull-requests
 
+
+Contributor licence agreement
+----------------------
+
+We welcome external contributions to Juju, but in order to incorporate these
+into the codebase, we will need you to sign the
+[Canonical contributor licence agreement (CLA)](https://ubuntu.com/legal/contributors).
+This just gives us permission to use your contributions - you still retain full
+copyright of your code.
+
+We have a GitHub Action which checks if you have signed the CLA. To ensure this
+passes, please follow these steps:
+
+1. Ensure your Git commits are signed by an email that you can access
+   (you can't use the `@users.noreply.github.com` email that GitHub provides).
+2. Create an account on [Launchpad](https://launchpad.net/), if you don't
+   already have one.
+3. Ensure the email you used for Git commits is a **verified** email on your
+   Launchpad account. To do this:
+   - Go to your Launchpad homepage (`launchpad.net/~[username]`).
+   - Check the addresses listed under the **Email** heading. If your Git email
+     is listed, you're good.
+   - If not, click "Change email settings".
+   - Add your Git email as a new address.
+   - Follow the instructions to verify your email.
+4. Visit the [CLA website](https://ubuntu.com/legal/contributors), scroll down
+   and press "Sign the contributor agreement".
+5. Read the agreement and fill in your contact details. Ensure that you provide
+   your Launchpad username in the "Launchpad id" box.
+6. Press "I agree" to sign the CLA.
+
+Eventually, your Launchpad account should be added to the
+["Canonical Contributor Agreement" team](https://launchpad.net/~contributor-agreement-canonical).
+You will see it listed under "Memberships" on your Launchpad homepage.
+Once this happens, the CLA check will pass, and we will happily review
+your contribution.
+
+
 Sanity checking PRs and unit tests
 ----------------------
 
@@ -360,7 +401,7 @@ All PRs run pre-merge check - unit tests and a small but representative sample
 of functional tests. This check is re-run anytime the PR changes, for example
 when a new commit is added.
 
-You can also initiate this check by commenting /build in the PR.
+You can also initiate this check by commenting `/build` in the PR.
 
 Code review
 -----------
