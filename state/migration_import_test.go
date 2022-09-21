@@ -32,6 +32,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -2913,6 +2914,93 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	exportedOrigin := application.CharmOrigin()
 	exportedOrigin.Channel.Track = "latest"
 	c.Assert(importedApp.CharmOrigin(), gc.DeepEquals, exportedOrigin)
+}
+
+func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	createTime := time.Now().UTC().Round(time.Second)
+	next := createTime.Add(time.Minute).Round(time.Second).UTC()
+	expire := createTime.Add(2 * time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	updateTime := time.Now().UTC().Round(time.Second)
+	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ProviderId:  ptr("provider-id"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       owner.Tag(),
+		Subject:     owner.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	err = s.State.SaveSecretConsumer(uri, consumer.Tag(), &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	store = state.NewSecrets(newSt)
+	all, err := store.ListSecrets(state.SecretsFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 1)
+	c.Assert(all[0], jc.DeepEquals, md)
+
+	revs, err := store.ListSecretRevisions(md.URI)
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
+		Revision:   1,
+		ProviderId: nil,
+		CreateTime: createTime,
+		UpdateTime: updateTime,
+		ExpireTime: &expire,
+	}, {
+		Revision:   2,
+		ProviderId: ptr("provider-id"),
+		CreateTime: createTime,
+		UpdateTime: createTime,
+	}})
+
+	access, err := newSt.SecretAccess(uri, owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleManage)
+
+	info, err := newSt.GetSecretConsumer(uri, consumer.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 666,
+		LatestRevision:  2,
+	})
 }
 
 // newModel replaces the uuid and name of the config attributes so we

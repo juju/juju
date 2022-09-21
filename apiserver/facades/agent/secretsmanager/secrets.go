@@ -538,7 +538,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		willExpire := md.LatestExpireTime != nil && md.LatestExpireTime.Before(nextRotateTime)
 		forcedRotateTime := lastRotateTime.Add(coresecrets.RotateRetryDelay)
 		if willExpire {
-			logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.String(), md.LatestExpireTime.UTC().Format(time.RFC3339))
+			logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.String(), md.LatestRevision)
 		}
 		if willExpire && forcedRotateTime.Before(*md.LatestExpireTime) || !arg.Skip && md.LatestRevision == arg.OriginalRevision {
 			nextRotateTime = forcedRotateTime
