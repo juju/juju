@@ -1141,9 +1141,22 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotate(err, "invalid constraints for machine")
 	}
+	var base *params.Base
+	if p.Series != "" && h.deployAPI.BestAPIVersion() >= 8 {
+		info, err := series.GetOSVersionFromSeries(p.Series)
+		if err != nil {
+			return errors.NotValidf("machine series %q", p.Series)
+		}
+		p.Series = ""
+		base = &params.Base{
+			Name:    info.Name,
+			Channel: info.Channel,
+		}
+	}
 	machineParams := params.AddMachineParams{
 		Constraints: cons,
 		Series:      p.Series,
+		Base:        base,
 		Jobs:        []model.MachineJob{model.JobHostUnits},
 	}
 	if ct := p.ContainerType; ct != "" {

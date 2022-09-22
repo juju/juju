@@ -237,7 +237,9 @@ func (s *DestroyMachineManagerSuite) apiV4() machinemanager.MachineManagerAPIV4 
 		MachineManagerAPIV5: &machinemanager.MachineManagerAPIV5{
 			MachineManagerAPIV6: &machinemanager.MachineManagerAPIV6{
 				MachineManagerAPIV7: &machinemanager.MachineManagerAPIV7{
-					MachineManagerAPI: s.api,
+					MachineManagerAPIV8: &machinemanager.MachineManagerAPIV8{
+						MachineManagerAPI: s.api,
+					},
 				},
 			},
 		},
@@ -1566,6 +1568,6 @@ func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, seri
 
 		isLessThan, err := machinemanager.IsSeriesLessThan(s1, s2)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(isLessThan, jc.IsTrue)
+		c.Assert(isLessThan, jc.IsTrue, gc.Commentf("%q < %q", s1, s2))
 	}
 }

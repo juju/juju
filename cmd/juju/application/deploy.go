@@ -120,6 +120,10 @@ type deployAPIAdapter struct {
 	legacyClient *apiClient
 }
 
+func (a *deployAPIAdapter) BestAPIVersion() int {
+	return a.machineManagerClient.BestAPIVersion()
+}
+
 func (a *deployAPIAdapter) ModelUUID() (string, bool) {
 	tag, ok := a.ModelTag()
 	return tag.Id(), ok

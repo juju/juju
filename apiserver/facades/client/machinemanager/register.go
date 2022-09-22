@@ -31,6 +31,9 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("MachineManager", 7, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV7(ctx) // Move provisioning apis from client facade.
 	}, reflect.TypeOf((*MachineManagerAPIV7)(nil)))
+	registry.MustRegister("MachineManager", 8, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV8(ctx) // Use base not series.
+	}, reflect.TypeOf((*MachineManagerAPIV8)(nil)))
 }
 
 // newFacade creates a new server-side MachineManager API facade.
@@ -67,9 +70,18 @@ func newFacadeV6(ctx facade.Context) (*MachineManagerAPIV6, error) {
 
 // newFacadeV7 creates a new server-side MachineManager API facade.
 func newFacadeV7(ctx facade.Context) (*MachineManagerAPIV7, error) {
+	machineManagerAPIV8, err := newFacadeV8(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &MachineManagerAPIV7{machineManagerAPIV8}, nil
+}
+
+// newFacadeV8 creates a new server-side MachineManager API facade.
+func newFacadeV8(ctx facade.Context) (*MachineManagerAPIV8, error) {
 	machineManagerAPI, err := newFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &MachineManagerAPIV7{machineManagerAPI}, nil
+	return &MachineManagerAPIV8{machineManagerAPI}, nil
 }

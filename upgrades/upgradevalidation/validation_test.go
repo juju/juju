@@ -153,6 +153,7 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 			"groovy",
 			"hirsute",
 			"impish",
+			"kinetic",
 			"precise",
 			"quantal",
 			"raring",
