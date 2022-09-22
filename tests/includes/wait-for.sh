@@ -278,3 +278,36 @@ wait_for_systemd_service_files_to_appear() {
 	echo $(red "Timed out waiting for the systemd unit files for ${unit} to appear")
 	exit 1
 }
+7# wait_for_storage is like wait_for but for storage formats. Used to wait for a certain condition in charm storage.
+wait_for_storage() {
+	local name query timeout
+
+	name=${1}
+	query=${2}
+	timeout=${3:-600} # default timeout: 600s = 10m
+
+	attempt=0
+	start_time="$(date -u +%s)"
+	# shellcheck disable=SC2046,SC2143
+	until [[ "$(juju storage --format=json 2>/dev/null | jq -S "${query}" | grep "${name}")" ]]; do
+		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
+		juju storage 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
+			echo "[-] $(red 'timed out waiting for')" "$(red "${name}")"
+			exit 1
+		fi
+
+		attempt=$((attempt + 1))
+	done
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling status for')" "$(green "${name}")"
+		juju storage 2>&1 | sed 's/^/    | /g'
+		# Although juju reports as an idle condition, some charms require a
+		# breathe period to ensure things have actually settled.
+		sleep "${SHORT_TIMEOUT}"
+	fi
+}
