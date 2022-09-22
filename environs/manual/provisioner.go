@@ -82,6 +82,7 @@ type WinrmClientAPI interface {
 // provisioning of machines.  An interface is used here to decouple the API
 // consumer from the actual API implementation type.
 type ProvisioningClientAPI interface {
+	BestAPIVersion() int
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)

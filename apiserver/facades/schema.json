@@ -15351,8 +15351,7 @@
                         "url",
                         "charm-origin",
                         "macaroon",
-                        "force",
-                        "series"
+                        "force"
                     ]
                 },
                 "AddCharmWithOrigin": {
@@ -15375,8 +15374,7 @@
                     "required": [
                         "url",
                         "charm-origin",
-                        "force",
-                        "series"
+                        "force"
                     ]
                 },
                 "ApplicationCharmPlacement": {
@@ -16853,6 +16851,9 @@
                                 "$ref": "#/definitions/Address"
                             }
                         },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "constraints": {
                             "$ref": "#/definitions/Value"
                         },
@@ -16892,7 +16893,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "series",
                         "constraints",
                         "jobs",
                         "parent-id",
@@ -17159,6 +17159,22 @@
                         "workload-version",
                         "endpoint-bindings",
                         "public-address"
+                    ]
+                },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
                     ]
                 },
                 "Binary": {
@@ -28547,8 +28563,8 @@
     },
     {
         "Name": "MachineManager",
-        "Description": "MachineManagerAPIV7 defines the Version 7 of Machine Manager API.\nAdds provisioning methods moved from client facade.",
-        "Version": 7,
+        "Description": "MachineManagerAPIV8 defines the Version 8 of Machine Manager API.",
+        "Version": 8,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -28568,7 +28584,7 @@
                             "$ref": "#/definitions/AddMachinesResults"
                         }
                     },
-                    "description": "AddMachines adds new machines with the supplied parameters."
+                    "description": "AddMachines adds new machines with the supplied parameters.\nThe args will contain Base info."
                 },
                 "DestroyMachine": {
                     "type": "object",
@@ -28713,6 +28729,9 @@
                                 "$ref": "#/definitions/Address"
                             }
                         },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "constraints": {
                             "$ref": "#/definitions/Value"
                         },
@@ -28752,7 +28771,6 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "series",
                         "constraints",
                         "jobs",
                         "parent-id",
@@ -28841,6 +28859,22 @@
                         "value",
                         "type",
                         "scope"
+                    ]
+                },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
                     ]
                 },
                 "Constraints": {

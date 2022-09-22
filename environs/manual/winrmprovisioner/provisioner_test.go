@@ -19,6 +19,10 @@ import (
 
 type TestClientAPI struct{}
 
+func (t TestClientAPI) BestAPIVersion() int {
+	return 7
+}
+
 func (t TestClientAPI) AddMachines(p []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	return make([]params.AddMachinesResult, 1, 1), nil
 }

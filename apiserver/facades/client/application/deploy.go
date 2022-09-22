@@ -92,9 +92,16 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
+	// TODO(juju3) - remove
+	// We still store series in state for now.
+	series := args.Series
+	if args.Series == "" {
+		series = args.CharmOrigin.Platform.Series
+	}
+
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
-		Series:            args.Series,
+		Series:            series,
 		Charm:             args.Charm,
 		CharmOrigin:       stateCharmOrigin(args.CharmOrigin),
 		Channel:           args.Channel,

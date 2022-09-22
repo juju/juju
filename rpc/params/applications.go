@@ -50,7 +50,8 @@ type CharmOrigin struct {
 // ApplicationDeploy holds the parameters for making the application Deploy
 // call.
 type ApplicationDeploy struct {
-	ApplicationName  string                         `json:"application"`
+	ApplicationName string `json:"application"`
+	// TODO(juju3) - remove, only used in facade 12 or earlier
 	Series           string                         `json:"series"`
 	CharmURL         string                         `json:"charm-url"`
 	CharmOrigin      *CharmOrigin                   `json:"charm-origin,omitempty"`
@@ -338,7 +339,7 @@ type ApplicationGetResults struct {
 	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
 }
 
-// ApplicationConfigSetArgsV12 holds the parameters for
+// ApplicationConfigSetArgs holds the parameters for
 // setting application config values for specified applications.
 type ApplicationConfigSetArgs struct {
 	Args []ApplicationConfigSet

@@ -162,8 +162,12 @@ type MachineManagerAPIV6 struct {
 }
 
 // MachineManagerAPIV7 defines the Version 7 of Machine Manager API.
-// Adds provisioning methods moved from client facade.
 type MachineManagerAPIV7 struct {
+	*MachineManagerAPIV8
+}
+
+// MachineManagerAPIV8 defines the Version 8 of Machine Manager API.
+type MachineManagerAPIV8 struct {
 	*MachineManagerAPI
 }
 
@@ -201,6 +205,27 @@ func NewMachineManagerAPI(
 }
 
 // AddMachines adds new machines with the supplied parameters.
+// The args will contain machine series.
+func (mm *MachineManagerAPIV7) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	for i, arg := range args.MachineParams {
+		if arg.Series == "" {
+			continue
+		}
+		base, err := series.GetOSVersionFromSeries(arg.Series)
+		if err != nil {
+			continue
+		}
+		arg.Base = &params.Base{
+			Name:    base.Name,
+			Channel: base.Channel,
+		}
+		args.MachineParams[i] = arg
+	}
+	return mm.MachineManagerAPI.AddMachines(args)
+}
+
+// AddMachines adds new machines with the supplied parameters.
+// The args will contain Base info.
 func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
@@ -248,16 +273,29 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		p.Addrs = nil
 	}
 
+	// TODO(wallyworld) - from here on we still expect series.
+	// Future work will convert downstream to use Base.
 	if p.Series == "" {
-		model, err := mm.st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
+		if p.Base == nil {
+			model, err := mm.st.Model()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			conf, err := model.Config()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			p.Series = config.PreferredSeries(conf)
+		} else {
+			var err error
+			p.Series, err = series.GetSeriesFromOSVersion(series.Base{
+				Name:    p.Base.Name,
+				Channel: p.Base.Channel,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		conf, err := model.Config()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		p.Series = config.PreferredSeries(conf)
 	}
 
 	var placementDirective string

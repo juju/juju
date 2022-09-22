@@ -120,6 +120,7 @@ type DeployerAPI interface {
 }
 
 type ApplicationAPI interface {
+	BestAPIVersion() int
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
 	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)

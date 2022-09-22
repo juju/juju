@@ -1443,6 +1443,7 @@ func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	}
 	s.stdOut.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes().Do(logOutput)
 	s.stdErr.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes().Do(logOutput)
+	s.deployerAPI.EXPECT().BestAPIVersion().Return(7).AnyTimes()
 	return ctrl
 }
 

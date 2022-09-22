@@ -182,6 +182,20 @@ func (mr *MockDeployerAPIMockRecorder) BakeryClient() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BakeryClient", reflect.TypeOf((*MockDeployerAPI)(nil).BakeryClient))
 }
 
+// BestAPIVersion mocks base method.
+func (m *MockDeployerAPI) BestAPIVersion() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BestAPIVersion")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// BestAPIVersion indicates an expected call of BestAPIVersion.
+func (mr *MockDeployerAPIMockRecorder) BestAPIVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestAPIVersion", reflect.TypeOf((*MockDeployerAPI)(nil).BestAPIVersion))
+}
+
 // BestFacadeVersion mocks base method.
 func (m *MockDeployerAPI) BestFacadeVersion(arg0 string) int {
 	m.ctrl.T.Helper()
