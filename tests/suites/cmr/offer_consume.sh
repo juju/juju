@@ -21,36 +21,98 @@ run_offer_consume() {
 	file="${TEST_DIR}/test-offer-consume.log"
 	ensure "model-offer" "${file}"
 
+	echo "Deploy consumed workload and create the offer"
 	juju deploy juju-qa-dummy-source
 	juju offer dummy-source:sink
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
+	echo "Deploy workload in consume model"
 	juju add-model "model-consume"
 	juju switch "model-consume"
 	juju deploy juju-qa-dummy-sink
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
+	echo "Relate workload in consume model with offer"
 	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-source"
 	juju --show-log relate dummy-sink dummy-source
 	# wait for relation joined before migrate.
 	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
-	sleep 30
 
+	echo "Provide config if offered workload and change the status of consumed offer"
 	# Change the dummy-source config for "token" and check that the change
 	# is represented in the consuming model's dummy-sink unit.
 	juju switch "model-offer"
 	juju config dummy-source token=yeah-boi
 	juju switch "model-consume"
-	wait_for "active" ".\"application-endpoints\"[\"dummy-source\"].\"application-status\".current"
+	wait_for "active" '."application-endpoints"["dummy-source"]."application-status".current'
 
+	echo "Remove offer"
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "model-offer"
 	juju remove-offer "admin/model-offer.dummy-source" --force -y
 
-	# Clean up.
+	echo "Clean up"
+	destroy_model "model-offer"
+	destroy_model "model-consume"
+}
+
+# Previous test's features will be run on multiple controllers
+# where each controller is in a different cloud.
+run_offer_consume_cross_controller() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# The following ensures that a bootstrap juju exists.
+	file="${TEST_DIR}/test-offer-consume-cross-controller.log"
+	ensure "model-offer" "${file}"
+
+	offer_controller="$(juju controllers --format=json | jq -r '."current-controller"')"
+
+	# Ensure we have another controller available.
+	echo "Bootstrap consume offer controller"
+	bootstrap_alt_controller "controller-consume"
+
+	echo "Deploy consumed workload and create the offer"
+	juju switch "${offer_controller}"
+	juju deploy juju-qa-dummy-source
+	juju offer dummy-source:sink
+
+	wait_for "dummy-source" "$(idle_condition "dummy-source")"
+
+	echo "Deploy workload in consume controller"
+	juju switch "controller-consume"
+	juju add-model "model-consume"
+	juju switch "model-consume"
+	juju deploy juju-qa-dummy-sink
+
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+	echo "Relate workload in consume controller with offer"
+	juju --show-log consume "${offer_controller}:admin/model-offer.dummy-source"
+	juju --show-log relate dummy-sink dummy-source
+	# wait for relation joined before migrate.
+	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+
+	echo "Provide config if offered workload and change the status of consumed offer"
+	# Change the dummy-source config for "token" and check that the change
+	# is represented in the consuming model's dummy-sink unit.
+	juju switch "${offer_controller}:model-offer"
+	juju config dummy-source token=yeah-boi
+	juju switch "controller-consume:model-consume"
+	wait_for "active" '."application-endpoints"["dummy-source"]."application-status".current'
+
+	echo "Remove offer"
+	# The offer must be removed before model/controller destruction will work.
+	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+	juju switch "${offer_controller}:model-offer"
+	juju remove-offer "${offer_controller}:admin/model-offer.dummy-source" --force -y
+
+	echo "Clean up"
+	destroy_controller "controller-consume"
+
 	destroy_model "model-offer"
 	destroy_model "model-consume"
 }
@@ -67,5 +129,6 @@ test_offer_consume() {
 		cd .. || exit
 
 		run "run_offer_consume"
+		run "run_offer_consume_cross_controller"
 	)
 }
