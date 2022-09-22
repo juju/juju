@@ -170,12 +170,6 @@ func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
-var versionFromSeries = func(s string) string {
-	// For testing purposes only, there will not be an error :D
-	v, _ := series.SeriesVersion(s)
-	return v
-}
-
 func (s *imagemetadataSuite) TestDelete(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
