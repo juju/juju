@@ -278,7 +278,8 @@ wait_for_systemd_service_files_to_appear() {
 	echo $(red "Timed out waiting for the systemd unit files for ${unit} to appear")
 	exit 1
 }
-7# wait_for_storage is like wait_for but for storage formats. Used to wait for a certain condition in charm storage.
+
+# wait_for_storage is like wait_for but for storage formats. Used to wait for a certain condition in charm storage.
 wait_for_storage() {
 	local name query timeout
 
