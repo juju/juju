@@ -23,7 +23,7 @@ run_offer_consume() {
 
 	echo "Deploy consumed workload and create the offer"
 	juju deploy juju-qa-dummy-source
-	juju offer dummy-source:sink
+	juju offer dummy-source:sink dummy-offer
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
@@ -35,10 +35,10 @@ run_offer_consume() {
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
 	echo "Relate workload in consume model with offer"
-	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-source"
-	juju --show-log relate dummy-sink dummy-source
+	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
+	juju --show-log relate dummy-sink dummy-offer
 	# wait for relation joined before migrate.
-	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
+	wait_for "dummy-offer" '.applications["dummy-sink"] | .relations.source[0]'
 
 	echo "Provide config if offered workload and change the status of consumed offer"
 	# Change the dummy-source config for "token" and check that the change
@@ -46,13 +46,13 @@ run_offer_consume() {
 	juju switch "model-offer"
 	juju config dummy-source token=yeah-boi
 	juju switch "model-consume"
-	wait_for "active" '."application-endpoints"["dummy-source"]."application-status".current'
+	wait_for "active" '."application-endpoints"["dummy-offer"]."application-status".current'
 
 	echo "Remove offer"
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "model-offer"
-	juju remove-offer "admin/model-offer.dummy-source" --force -y
+	juju remove-offer "admin/model-offer.dummy-offer" --force -y
 
 	echo "Clean up"
 	destroy_model "model-offer"
