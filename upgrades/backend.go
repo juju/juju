@@ -4,8 +4,6 @@
 package upgrades
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -49,50 +47,6 @@ func NewStateBackend(pool *state.StatePool) StateBackend {
 
 type stateBackend struct {
 	pool *state.StatePool
-}
-
-func (s stateBackend) StripLocalUserDomain() error {
-	return state.StripLocalUserDomain(s.pool)
-}
-
-func (s stateBackend) RenameAddModelPermission() error {
-	return state.RenameAddModelPermission(s.pool)
-}
-
-func (s stateBackend) AddMigrationAttempt() error {
-	return state.AddMigrationAttempt(s.pool)
-}
-
-func (s stateBackend) AddLocalCharmSequences() error {
-	return state.AddLocalCharmSequences(s.pool)
-}
-
-func (s stateBackend) UpdateLegacyLXDCloudCredentials(endpoint string, credential cloud.Credential) error {
-	systemState, err := s.pool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return state.UpdateLegacyLXDCloudCredentials(systemState, endpoint, credential)
-}
-
-func (s stateBackend) UpgradeNoProxyDefaults() error {
-	return state.UpgradeNoProxyDefaults(s.pool)
-}
-
-func (s stateBackend) AddNonDetachableStorageMachineId() error {
-	return state.AddNonDetachableStorageMachineId(s.pool)
-}
-
-func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
-	return state.AddControllerLogCollectionsSizeSettings(s.pool)
-}
-
-func (s stateBackend) AddStatusHistoryPruneSettings() error {
-	return state.AddStatusHistoryPruneSettings(s.pool)
-}
-
-func (s stateBackend) AddActionPruneSettings() error {
-	return state.AddActionPruneSettings(s.pool)
 }
 
 func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {

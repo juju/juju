@@ -3107,7 +3107,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 	test( // 19
@@ -3464,7 +3464,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 	test( // 25
@@ -3493,7 +3493,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 	test( //26
@@ -3732,7 +3732,7 @@ var statusTests = []testCase{
 					"timestamp": "15:04:05+07:00",
 				},
 			},
-			stderr: "Model \"controller\" is empty.\n",
+			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
 }
@@ -4815,7 +4815,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	for _, format := range statusFormats {
 		code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
-		c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+		c.Assert(string(stderr), gc.Equals, "\nModel \"hosted\" is empty.\n")
 
 		stdout = substituteFakeTime(c, "since", stdout, false)
 		stdout = substituteFakeTimestamp(c, stdout, false)
@@ -4843,7 +4843,7 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 	defer st.Close()
 	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+	c.Assert(string(stderr), gc.Equals, "\nModel \"hosted\" is empty.\n")
 
 	output := substituteFakeTimestamp(c, stdout, false)
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
@@ -4866,7 +4866,7 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 
 	code, stdout, stderr := runStatus(c, "--no-color", "-m", "hosted", "--format", "tabular")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+	c.Assert(string(stderr), gc.Equals, "\nModel \"hosted\" is empty.\n")
 
 	output := substituteFakeTimestamp(c, stdout, false)
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
@@ -6391,7 +6391,7 @@ func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
 	code, stdout, stderr := runStatus(c, "--no-color")
 	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "Model \"controller\" is empty.\n")
+	c.Check(string(stderr), gc.Equals, "\nModel \"controller\" is empty.\n")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00

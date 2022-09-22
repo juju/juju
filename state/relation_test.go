@@ -716,7 +716,7 @@ func (s *RelationSuite) TestRemoveAlsoDeletesSecretPermissions(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   app.Tag().String(),
+		Owner:   app.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},

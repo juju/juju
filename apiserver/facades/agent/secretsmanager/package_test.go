@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
@@ -20,20 +21,23 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstore.go github.com/juju/juju/state SecretsStore
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsBackend
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsconsumer.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsConsumer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationservice.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretsRotation
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secrettriggers.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretTriggers
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsrotationwatcher.go github.com/juju/juju/state SecretsRotationWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsriggerwatcher.go github.com/juju/juju/state SecretsTriggerWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretStoreProvider
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	leadership leadership.Checker,
-	store SecretsStore,
+	backend SecretsBackend,
 	consumer SecretsConsumer,
-	secretsRotation SecretsRotation,
+	secretTriggers SecretTriggers,
+	storeConfigGetter commonsecrets.StoreConfigGetter,
+	providerGetter commonsecrets.ProviderInfoGetter,
 	authTag names.Tag,
 	clock clock.Clock,
 ) (*SecretsManagerAPI, error) {
@@ -43,13 +47,14 @@ func NewTestAPI(
 
 	return &SecretsManagerAPI{
 		authTag:           authTag,
-		controllerUUID:    coretesting.ControllerTag.Id(),
 		modelUUID:         coretesting.ModelTag.Id(),
 		resources:         resources,
 		leadershipChecker: leadership,
-		secretsStore:      store,
+		secretsBackend:    backend,
 		secretsConsumer:   consumer,
-		secretsRotation:   secretsRotation,
+		secretsTriggers:   secretTriggers,
+		storeConfigGetter: storeConfigGetter,
+		providerGetter:    providerGetter,
 		clock:             clock,
 	}, nil
 }

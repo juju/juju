@@ -10,16 +10,19 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/apiserver/facades/client/secrets SecretsBackend
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/secretsstore.go github.com/juju/juju/secrets/provider SecretsStore
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
 func NewTestAPI(
-	store state.SecretsStore,
+	backend SecretsBackend,
+	storeGetter func() (provider.SecretsStore, error),
 	authorizer facade.Authorizer,
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
@@ -30,6 +33,7 @@ func NewTestAPI(
 		authorizer:     authorizer,
 		controllerUUID: coretesting.ControllerTag.Id(),
 		modelUUID:      coretesting.ModelTag.Id(),
-		backend:        store,
+		backend:        backend,
+		storeGetter:    storeGetter,
 	}, nil
 }

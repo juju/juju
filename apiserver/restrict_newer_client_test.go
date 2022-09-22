@@ -121,7 +121,7 @@ func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 
 func (r *restrictNewerClientSuite) TestWhitelistedClient(c *gc.C) {
 	r.assertWhitelistedClient(c, "2.9.32", false)
-	r.assertWhitelistedClient(c, "2.9.33", true)
+	r.assertWhitelistedClient(c, "2.9.35", true)
 }
 
 func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers string, allowed bool) {

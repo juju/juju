@@ -34,18 +34,6 @@ func (s *stateShim) ModelTag() names.ModelTag {
 	return s.modelTag
 }
 
-func (s *stateShim) AddSubnet(info networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error) {
-	_, err := s.State.AddSubnet(network.SubnetInfo{
-		CIDR:              info.CIDR,
-		VLANTag:           info.VLANTag,
-		ProviderId:        info.ProviderId,
-		ProviderNetworkId: info.ProviderNetworkId,
-		AvailabilityZones: info.AvailabilityZones,
-		SpaceID:           info.SpaceID,
-	})
-	return nil, err // Drop the first result, as it's unused.
-}
-
 func (s *stateShim) AllSubnets() ([]networkingcommon.BackingSubnet, error) {
 	results, err := s.State.AllSubnets()
 	if err != nil {

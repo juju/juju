@@ -6,6 +6,7 @@ package caasoperatorprovisioner
 import (
 	"fmt"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -131,12 +132,24 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		modelConfig,
 	)
 
+	imageRepo := cfg.CAASImageRepo()
 	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageRepo := params.NewDockerImageInfo(cfg.CAASImageRepo(), registryPath)
-	logger.Tracef("imageRepo %v", imageRepo)
+	imageInfo := params.NewDockerImageInfo(imageRepo, registryPath)
+	logger.Tracef("image info %v", imageInfo)
+
+	// PodSpec charms now use focal as the operator base until PodSpec is removed.
+	baseRegistryPath, err := podcfg.ImageForBase(imageRepo.Repository, charm.Base{
+		Name:    "ubuntu",
+		Channel: charm.Channel{Track: "20.04", Risk: charm.Stable},
+	})
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	baseImageInfo := params.NewDockerImageInfo(imageRepo, baseRegistryPath)
+	logger.Tracef("base image info %v", baseImageInfo)
 
 	apiAddresses, err := a.APIAddresses()
 	if err == nil && apiAddresses.Error != nil {
@@ -165,11 +178,12 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 			}
 		}
 		return params.OperatorProvisioningInfo{
-			ImageDetails: imageRepo,
-			Version:      vers,
-			APIAddresses: apiAddresses.Result,
-			CharmStorage: charmStorageParams,
-			Tags:         resourceTags,
+			ImageDetails:     imageInfo,
+			BaseImageDetails: baseImageInfo,
+			Version:          vers,
+			APIAddresses:     apiAddresses.Result,
+			CharmStorage:     charmStorageParams,
+			Tags:             resourceTags,
 		}
 	}
 	result.Results = make([]params.OperatorProvisioningInfo, len(args.Entities))

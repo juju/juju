@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,22 +29,6 @@ func NewAPI(caller base.APICallCloser) *API {
 		ClientFacade: clientFacade,
 		facade:       facadeCaller,
 	}
-}
-
-// AddSubnet adds an existing subnet to the model.
-func (api *API) AddSubnet(cidr string, providerId network.Id, space names.SpaceTag, zones []string) error {
-	var response params.ErrorResults
-	// Prefer ProviderId when set over CIDR.
-	if providerId != "" {
-		cidr = ""
-	}
-
-	var args = makeAddSubnetsParams(cidr, providerId, space, zones)
-	err := api.facade.FacadeCall("AddSubnets", args, &response)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return response.OneError()
 }
 
 // ListSubnets fetches all the subnets known by the model.
@@ -86,15 +69,4 @@ func (api *API) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
 	}
 
 	return result.Results, nil
-}
-
-func makeAddSubnetsParams(cidr string, providerId network.Id, space names.SpaceTag, zones []string) params.AddSubnetsParams {
-	return params.AddSubnetsParams{
-		Subnets: []params.AddSubnetParams{{
-			CIDR:             cidr,
-			SubnetProviderId: string(providerId),
-			SpaceTag:         space.String(),
-			Zones:            zones,
-		}},
-	}
 }

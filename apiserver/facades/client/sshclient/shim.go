@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/network"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -20,6 +21,20 @@ type Backend interface {
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 	ModelTag() names.ModelTag
 	ControllerTag() names.ControllerTag
+	Model() (Model, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
+}
+
+// Model defines a point of use interface for the model from state.
+type Model interface {
+	ControllerUUID() string
+	Config() (*config.Config, error)
+	Type() state.ModelType
+}
+
+// Broker is a subset of caas broker.
+type Broker interface {
+	GetSecretToken(name string) (string, error)
 }
 
 // SSHMachine specifies the methods on State.Machine of interest to
@@ -71,6 +86,14 @@ type backend struct {
 // ModelTag returns the model tag of the backend.
 func (b *backend) ModelTag() names.ModelTag {
 	return b.modelTag
+}
+
+func (b *backend) Model() (Model, error) {
+	return b.State.Model()
+}
+
+func (b *backend) CloudSpec() (environscloudspec.CloudSpec, error) {
+	return b.EnvironConfigGetter.CloudSpec()
 }
 
 // ControllerTag returns the controller tag of the backend.

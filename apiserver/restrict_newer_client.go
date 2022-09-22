@@ -22,7 +22,7 @@ var minAgentVersions = map[int]version.Number{
 // or the minimum controller version needed to accept a call from a
 // client with the major version.
 var minClientVersions = map[int]version.Number{
-	3: version.MustParse("2.9.33"),
+	3: version.MustParse("2.9.35"),
 }
 
 func checkClientVersion(userLogin bool, callerVersion, serverVersion version.Number) func(facadeName, methodName string) error {

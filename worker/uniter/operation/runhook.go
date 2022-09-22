@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
@@ -51,7 +52,11 @@ func (rh *runHook) String() string {
 	case rh.info.Kind.IsStorage():
 		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
 	case rh.info.Kind.IsSecret():
-		suffix = fmt.Sprintf(" (%s)", rh.info.SecretURI)
+		if rh.info.SecretRevision == 0 {
+			suffix = fmt.Sprintf(" (%s)", rh.info.SecretURI)
+		} else {
+			suffix = fmt.Sprintf(" (%s/%d)", rh.info.SecretURI, rh.info.SecretRevision)
+		}
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
@@ -68,8 +73,20 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 		return nil, err
 	}
 
-	switch hooks.Kind(name) {
-	case hooks.LeaderElected, hooks.SecretRotate:
+	kind := hooks.Kind(name)
+	leaderNeeded := kind == hooks.LeaderElected
+	if kind == hooks.SecretRotate || kind == hooks.SecretExpired || kind == hooks.SecretRemove {
+		secretMetadata, err := rnr.Context().SecretMetadata()
+		if err != nil {
+			return nil, err
+		}
+		if uri, err := secrets.ParseURI(rh.info.SecretURI); err == nil {
+			md, ok := secretMetadata[uri.ID]
+			leaderNeeded = ok && md.Owner.Kind() != names.UnitTagKind
+		}
+	}
+
+	if leaderNeeded {
 		// Check if leadership has changed between queueing of the hook and
 		// Actual execution. Skip execution if we are no longer the leader.
 		var isLeader bool
@@ -103,7 +120,11 @@ func RunningHookMessage(hookName string, info hook.Info) string {
 		return fmt.Sprintf("running %s hook for %s", hookName, info.RemoteUnit)
 	}
 	if info.Kind.IsSecret() {
-		return fmt.Sprintf("running %s hook for %s", hookName, info.SecretURI)
+		revMsg := ""
+		if info.SecretRevision > 0 {
+			revMsg = fmt.Sprintf("/%d", info.SecretRevision)
+		}
+		return fmt.Sprintf("running %s hook for %s%s", hookName, info.SecretURI, revMsg)
 	}
 	return fmt.Sprintf("running %s hook", hookName)
 }

@@ -3,5 +3,5 @@ parts:
     bundle:
         prime: ["bundle.yaml", "README.md"]
 charmhub:
-    api_url: https://api.charmhub.io
-    storage_url: https://storage.snapcraftcontent.com
+    api-url: https://api.charmhub.io
+    storage-url: https://storage.snapcraftcontent.com

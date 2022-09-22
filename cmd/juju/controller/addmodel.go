@@ -248,6 +248,11 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	addModelClient := c.newAddModelAPI(root)
 	model, err := addModelClient.CreateModel(c.Name, modelOwner, cloudTag.Id(), cloudRegion, credentialTag, attrs)
 	if err != nil {
+		if strings.HasPrefix(errors.Cause(err).Error(), "getting credential") {
+			err = errors.NewNotFound(nil,
+				fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloudTag.Id()))
+			return errors.Trace(err)
+		}
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "add a model")
 		}

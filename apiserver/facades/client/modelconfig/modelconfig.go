@@ -78,11 +78,34 @@ func (c *ModelConfigAPI) canReadModel() error {
 	return nil
 }
 
+func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
+	isAdmin, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if isAdmin {
+		return true, nil
+	}
+	isAdmin, err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return isAdmin, nil
+}
+
 // ModelGet implements the server-side part of the
 // model-config CLI command.
 func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.canReadModel(); err != nil {
+		return result, errors.Trace(err)
+	}
+	isAdmin, err := c.isModelAdmin()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	defaultSchema, err := config.Schema(nil)
+	if err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -97,6 +120,10 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 		// juju ssh-keys and including them here just
 		// clutters everything.
 		if attr == config.AuthorizedKeysKey {
+			continue
+		}
+		// Only admins get to see attributes marked as secret.
+		if attr, ok := defaultSchema[attr]; ok && attr.Secret && !isAdmin {
 			continue
 		}
 		result.Config[attr] = params.ConfigValue{
@@ -116,6 +143,20 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
+	}
+	isAdmin, err := c.isModelAdmin()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defaultSchema, err := config.Schema(nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Only admins get to set attributes marked as secret.
+	for attr := range args.Config {
+		if attr, ok := defaultSchema[attr]; ok && attr.Secret && !isAdmin {
+			return apiservererrors.ErrPerm
+		}
 	}
 
 	// Make sure we don't allow changing agent-version.

@@ -9,6 +9,12 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
+// SecretStoreConfig holds config for creating a secret store client.
+type SecretStoreConfig struct {
+	StoreType string                 `json:"type"`
+	Params    map[string]interface{} `json:"params,omitempty"`
+}
+
 // SecretContentParams holds params for representing the content of a secret.
 type SecretContentParams struct {
 	// Data is the key values of the secret value itself.
@@ -68,15 +74,15 @@ type UpdateSecretArg struct {
 	URI string `json:"uri"`
 }
 
-// SecretURIArgs holds args for identifying secrets.
-type SecretURIArgs struct {
-	Args []SecretURIArg `json:"args"`
+// DeleteSecretArgs holds args for deleting secrets.
+type DeleteSecretArgs struct {
+	Args []DeleteSecretArg `json:"args"`
 }
 
-// SecretURIArg holds the args for identifying a secret.
-type SecretURIArg struct {
-	// URI identifies the secret.
-	URI string `json:"uri"`
+// DeleteSecretArg holds the args for deleting a secret.
+type DeleteSecretArg struct {
+	URI       string `json:"uri"`
+	Revisions []int  `json:"revisions,omitempty"`
 }
 
 // GetSecretConsumerInfoArgs holds the args for getting secret
@@ -148,8 +154,9 @@ type ListSecretResults struct {
 
 type SecretRevision struct {
 	Revision   int        `json:"revision"`
-	CreateTime time.Time  `json:"create-time"`
-	UpdateTime time.Time  `json:"update-time"`
+	ProviderId *string    `json:"provider-id,omitempty"`
+	CreateTime time.Time  `json:"create-time,omitempty"`
+	UpdateTime time.Time  `json:"update-time,omitempty"`
 	ExpireTime *time.Time `json:"expire-time,omitempty"`
 }
 
@@ -158,7 +165,6 @@ type ListSecretResult struct {
 	URI              string             `json:"uri"`
 	Version          int                `json:"version"`
 	OwnerTag         string             `json:"owner-tag"`
-	ProviderID       string             `json:"provider-id,omitempty"`
 	RotatePolicy     string             `json:"rotate-policy,omitempty"`
 	NextRotateTime   *time.Time         `json:"next-rotate-time,omitempty"`
 	Description      string             `json:"description,omitempty"`
@@ -174,7 +180,8 @@ type ListSecretResult struct {
 // SecretTriggerChange describes a change to a secret trigger.
 type SecretTriggerChange struct {
 	URI             string    `json:"uri"`
-	NextTriggerTime time.Time `json:"next-trugger-time"`
+	Revision        int       `json:"revision,omitempty"`
+	NextTriggerTime time.Time `json:"next-trigger-time"`
 }
 
 // SecretTriggerWatchResult holds secret trigger change events.
@@ -182,12 +189,6 @@ type SecretTriggerWatchResult struct {
 	WatcherId string                `json:"watcher-id"`
 	Changes   []SecretTriggerChange `json:"changes"`
 	Error     *Error                `json:"error,omitempty"`
-}
-
-// SecretTriggerWatchResults holds the results for any API call which ends up
-// returning a list of SecretTriggerWatchResult.
-type SecretTriggerWatchResults struct {
-	Results []SecretTriggerWatchResult `json:"results"`
 }
 
 // SecretRotatedArgs holds the args for updating rotated secret info.

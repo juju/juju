@@ -12,7 +12,6 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/subnets"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 )
 

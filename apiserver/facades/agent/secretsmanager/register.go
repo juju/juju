@@ -9,8 +9,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 )
 
@@ -26,20 +28,35 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	secretsStore := state.NewSecrets(context.State())
+	secretsBackend := state.NewSecrets(context.State())
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	secretStoreConfigGetter := func() (*provider.StoreConfig, error) {
+		model, err := context.State().Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return secrets.StoreConfig(model, context.Auth().GetAuthTag(), leadershipChecker)
+	}
+	providerGetter := func() (provider.SecretStoreProvider, provider.Model, error) {
+		model, err := context.State().Model()
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		return secrets.ProviderInfoForModel(model)
+	}
 	return &SecretsManagerAPI{
 		authTag:           context.Auth().GetAuthTag(),
-		controllerUUID:    context.State().ControllerUUID(),
 		modelUUID:         context.State().ModelUUID(),
 		leadershipChecker: leadershipChecker,
-		secretsStore:      secretsStore,
+		secretsBackend:    secretsBackend,
 		resources:         context.Resources(),
-		secretsRotation:   context.State(),
+		secretsTriggers:   context.State(),
 		secretsConsumer:   context.State(),
 		clock:             clock.WallClock,
+		storeConfigGetter: secretStoreConfigGetter,
+		providerGetter:    providerGetter,
 	}, nil
 }

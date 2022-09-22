@@ -76,6 +76,8 @@ type ApplicationSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	modelType  state.ModelType
 
+	allSpaceInfos network.SpaceInfos
+
 	deployParams               map[string]application.DeployApplicationParams
 	addRemoteApplicationParams state.AddRemoteApplicationParams
 	consumeApplicationArgs     params.ConsumeApplicationArgs
@@ -117,6 +119,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.changeAllowed = nil
 	s.removeAllowed = nil
 
+	s.allSpaceInfos = network.SpaceInfos{}
+
 	testMac := apitesting.MustNewMacaroon("test")
 	s.addRemoteApplicationParams = state.AddRemoteApplicationParams{
 		Name:        "hosted-mysql",
@@ -151,6 +155,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}),
 	).AnyTimes()
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
+	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
@@ -219,11 +224,13 @@ func (s *ApplicationSuite) expectCharm(
 	return ch
 }
 
+var defaultCharmConfig = &charm.Config{Options: map[string]charm.Option{
+	"stringOption": {Type: "string"},
+	"intOption":    {Type: "int", Default: int(123)},
+}}
+
 func (s *ApplicationSuite) expectDefaultCharm(ctrl *gomock.Controller) *mocks.MockCharm {
-	return s.expectCharm(ctrl, &charm.Meta{Name: "charm-postgresql"}, &charm.Manifest{}, &charm.Config{Options: map[string]charm.Option{
-		"stringOption": {Type: "string"},
-		"intOption":    {Type: "int", Default: int(123)},
-	}})
+	return s.expectCharm(ctrl, &charm.Meta{Name: "charm-postgresql"}, &charm.Manifest{}, defaultCharmConfig)
 }
 
 func (s *ApplicationSuite) expectLxdProfilerCharm(ctrl *gomock.Controller, lxdProfile *charm.LXDProfile) *mockLXDProfilerCharm {
@@ -1049,7 +1056,6 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1086,7 +1092,6 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	track := "latest"
 	args := params.ApplicationsDeploy{
@@ -1124,6 +1129,266 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
 	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
 	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
+}
+
+func createCharmOriginFromURL(c *gc.C, curl *charm.URL) *params.CharmOrigin {
+	switch curl.Schema {
+	case "cs":
+		return &params.CharmOrigin{Source: "charm-store"}
+	case "local":
+		return &params.CharmOrigin{Source: "local"}
+	default:
+		return &params.CharmOrigin{Source: "charm-hub"}
+	}
+}
+
+func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(ctrl, &charm.Meta{Storage: map[string]charm.Storage{
+		"data":    {Type: charm.StorageBlock},
+		"allecto": {Type: charm.StorageBlock},
+	}}, nil, &charm.Config{})
+	curl := charm.MustParseURL("cs:utopic/storage-block-10")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	storageConstraints := map[string]storage.Constraints{
+		"data": {
+			Count: 1,
+			Size:  1024,
+			Pool:  "modelscoped-block",
+		},
+	}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+		Storage:         storageConstraints,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].Storage, gc.DeepEquals, storageConstraints)
+}
+
+func (s *ApplicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(ctrl, &charm.Meta{Storage: map[string]charm.Storage{
+		"data": {Type: charm.StorageFilesystem, ReadOnly: true},
+	}}, nil, &charm.Config{})
+	curl := charm.MustParseURL("cs:utopic/storage-filesystem-1")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:precise/dummy-42")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
+	machine.EXPECT().IsParentLockedForSeriesUpgrade().Return(false, nil)
+	s.backend.EXPECT().Machine("valid").Return(machine, nil)
+
+	placement := []*instance.Placement{
+		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
+	}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+		Placement:       placement,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, placement)
+}
+
+func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
+	s.backend.EXPECT().Machine("0").Return(machine, nil).MinTimes(1)
+	containerMachine := mocks.NewMockMachine(ctrl)
+	containerMachine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil).MinTimes(1)
+	containerMachine.EXPECT().IsParentLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
+	s.backend.EXPECT().Machine("0/lxd/0").Return(containerMachine, nil).MinTimes(1)
+
+	curl := charm.MustParseURL("cs:precise/dummy-42")
+	args := []params.ApplicationDeploy{{
+		ApplicationName: "machine-placement",
+		CharmURL:        curl.String(),
+		Placement:       []*instance.Placement{{Scope: "#", Directive: "0"}},
+	}, {
+		ApplicationName: "container-placement",
+		CharmURL:        curl.String(),
+		Placement:       []*instance.Placement{{Scope: "lxd", Directive: "0"}},
+	}, {
+		ApplicationName: "container-placement-locked-parent",
+		CharmURL:        curl.String(),
+		Placement:       []*instance.Placement{{Scope: "#", Directive: "0/lxd/0"}},
+	}}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: args,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".*: machine is locked for series upgrade")
+	c.Assert(results.Results[1].Error.Error(), gc.Matches, ".*: machine is locked for series upgrade")
+	c.Assert(results.Results[2].Error.Error(), gc.Matches, ".*: parent machine is locked for series upgrade")
+}
+
+func (s *ApplicationSuite) TestApplicationDeployFailCharmOrigin(c *gc.C) {
+	originId := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	originId.ID = "testingID"
+	originHash := createCharmOriginFromURL(c, charm.MustParseURL("cs:jammy/test-42"))
+	originHash.Hash = "testing-hash"
+
+	args := []params.ApplicationDeploy{{
+		CharmOrigin: originId,
+	}, {
+		CharmOrigin: originHash,
+	}}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: args,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error.Code, gc.Equals, "bad request")
+	c.Assert(results.Results[1].Error.Code, gc.Equals, "bad request")
+}
+
+func (s *ApplicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFailure(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	resources := map[string]string{"dummy": "pending-id"}
+	resourcesManager := mocks.NewMockResources(ctrl)
+	resourcesManager.EXPECT().RemovePendingAppResources("my-app", resources).Return(nil)
+	s.backend.EXPECT().Resources().Return(resourcesManager)
+
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			// CharmURL is missing to ensure deployApplication fails
+			// so that we can assert pending app resources are removed
+			ApplicationName: "my-app",
+			Resources:       resources,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *ApplicationSuite) TestApplicationDeploymentTrust(c *gc.C) {
+	// This test should fail if the configuration parsing does not
+	// understand the "trust" configuration parameter
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:precise/dummy-42")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+
+	withTrust := map[string]string{"trust": "true"}
+	args := params.ApplicationDeploy{
+		ApplicationName: "my-app",
+		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
+		NumUnits:        1,
+		Config:          withTrust,
+	}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["my-app"].ApplicationConfig.Attributes().GetBool("trust", false), gc.Equals, true)
+}
+
+func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
+	s.allSpaceInfos = network.SpaceInfos{{ID: "42", Name: "a-space"}}
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:utopic/riak-42")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
+
+	args := []params.ApplicationDeploy{{
+		ApplicationName: "old",
+		CharmURL:        curl.String(),
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+		NumUnits:        1,
+		EndpointBindings: map[string]string{
+			"endpoint": "a-space",
+			"ring":     "",
+			"admin":    "",
+		},
+	}, {
+		ApplicationName: "regular",
+		CharmURL:        curl.String(),
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+		NumUnits:        1,
+		EndpointBindings: map[string]string{
+			"endpoint": "42",
+		},
+	}}
+	results, err := s.api.Deploy(params.ApplicationsDeploy{
+		Applications: args,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["old"].EndpointBindings, gc.DeepEquals, map[string]string{
+		"endpoint": "42",
+		"ring":     network.AlphaSpaceId,
+		"admin":    network.AlphaSpaceId,
+	})
+	c.Assert(s.deployParams["regular"].EndpointBindings, gc.DeepEquals, map[string]string{
+		"endpoint": "42",
+	})
 }
 
 func (s *ApplicationSuite) expectDefaultK8sModelConfig() {
@@ -1191,7 +1456,6 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 		},
 	)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(4)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 	s.expectDefaultK8sModelConfig()
 
 	args := params.ApplicationsDeploy{
@@ -1324,7 +1588,6 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		MinJujuVersion: version.MustParse("2.8.0"),
 	}, &charm.Manifest{}, &charm.Config{})
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
@@ -1357,7 +1620,6 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 		"workload-storage": "k8s-storage",
 	})
 	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1380,7 +1642,6 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 	s.expectDefaultK8sModelConfig()
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
 	s.storagePoolManager.EXPECT().Get("k8s-operator-storage").Return(nil, errors.NotFoundf("pool"))
@@ -1480,7 +1741,6 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 		map[string]interface{}{"foo": "bar"}),
 	)
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any()).Return(nil)
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2308,8 +2568,6 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
-
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
 		Channel: &state.Channel{Track: "2.0", Risk: "candidate"},
@@ -2343,10 +2601,9 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) {
+	s.allSpaceInfos = network.SpaceInfos{{ID: "42", Name: "non-euclidean-geometry"}}
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{ID: "42", Name: "non-euclidean-geometry"}}, nil).MinTimes(1)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().CharmOrigin().Return(nil).MinTimes(1)
@@ -2393,8 +2650,6 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
-
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().CharmConfig("master").Return(nil, errors.Errorf("boom"))
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
@@ -2409,8 +2664,6 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
@@ -2428,8 +2681,6 @@ func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
-
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil).MinTimes(1)
 
 	// postgresql
 	app := s.expectDefaultApplication(ctrl)
@@ -2471,8 +2722,6 @@ func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.backend.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil)
-
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().MergeBindings(gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -2489,12 +2738,6 @@ func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(req.Args))
 	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
-}
-
-func (s *ApplicationSuite) expectMachine(ctrl *gomock.Controller, publicAddress string) *mocks.MockMachine {
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().PublicAddress().Return(network.SpaceAddress{MachineAddress: network.MachineAddress{Value: publicAddress}}, nil).AnyTimes()
-	return machine
 }
 
 func (s *ApplicationSuite) expectCloudContainer(ctrl *gomock.Controller) *mocks.MockCloudContainer {
@@ -2528,6 +2771,12 @@ func (s *ApplicationSuite) expectRelationUnit(ctrl *gomock.Controller, name stri
 	return relUnit
 }
 
+func (s *ApplicationSuite) expectMachineWithIP(ctrl *gomock.Controller, publicAddress string) *mocks.MockMachine {
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().PublicAddress().Return(network.SpaceAddress{MachineAddress: network.MachineAddress{Value: publicAddress}}, nil).MinTimes(1)
+	return machine
+}
+
 func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -2548,7 +2797,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	s.backend.EXPECT().Machine("0").Return(s.expectMachine(ctrl, "10.0.0.1"), nil)
+	s.backend.EXPECT().Machine("0").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
 
 	s.model.EXPECT().OpenedPortRangesForMachine("0").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/0", "100-102/tcp"), nil)
 
@@ -2611,8 +2860,8 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
-	s.backend.EXPECT().Machine("0").Return(s.expectMachine(ctrl, "10.0.0.1"), nil)
-	s.backend.EXPECT().Machine("1").Return(s.expectMachine(ctrl, "10.0.0.1"), nil)
+	s.backend.EXPECT().Machine("0").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
+	s.backend.EXPECT().Machine("1").Return(s.expectMachineWithIP(ctrl, "10.0.0.1"), nil)
 
 	s.model.EXPECT().OpenedPortRangesForMachine("0").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/0", "100-102/tcp"), nil)
 	s.model.EXPECT().OpenedPortRangesForMachine("1").Return(s.expectMachineUnitPortRange(ctrl, "postgresql/1", "100-102/tcp"), nil)
@@ -2766,4 +3015,222 @@ func (s *ApplicationSuite) TestLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, "postgresql/0")
+}
+
+func (s *ApplicationSuite) setupConfigTest(ctrl *gomock.Controller) {
+	ch := s.expectCharm(ctrl, nil, nil, &charm.Config{Options: map[string]charm.Option{
+		"outlook":     {Type: "string", Description: "No default outlook."},
+		"skill-level": {Type: "int", Description: "A number indicating skill."},
+		"title":       {Type: "string", Default: "My Title", Description: "A descriptive title used for the application."},
+		"username":    {Type: "string", Default: "admin001", Description: "The name of the initial account (given admin permissions)."},
+	}})
+
+	foo := s.expectApplicationWithCharm(ctrl, ch, "foo")
+	foo.EXPECT().CharmConfig(gomock.Any()).Return(map[string]interface{}{
+		"title":       "foo",
+		"skill-level": 42,
+	}, nil)
+	s.backend.EXPECT().Application("foo").Return(foo, nil)
+
+	bar := s.expectApplicationWithCharm(ctrl, ch, "bar")
+	bar.EXPECT().CharmConfig(gomock.Any()).Return(map[string]interface{}{
+		"title":   "bar",
+		"outlook": "fantastic",
+	}, nil)
+	s.backend.EXPECT().Application("bar").Return(bar, nil)
+
+	s.backend.EXPECT().Application(gomock.Any()).DoAndReturn(func(name string) (application.Application, error) {
+		return nil, errors.NotFoundf("application %q", name)
+	}).AnyTimes()
+}
+
+func (s *ApplicationSuite) TestCharmConfig(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.setupConfigTest(ctrl)
+
+	branch := "test-branch"
+	results, err := s.api.CharmConfig(params.ApplicationGetArgs{
+		Args: []params.ApplicationGet{
+			{ApplicationName: "foo", BranchName: branch},
+			{ApplicationName: "bar", BranchName: branch},
+			{ApplicationName: "wat", BranchName: branch},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertConfigTest(c, results, []params.ConfigResult{})
+}
+
+func (s *ApplicationSuite) TestGetConfig(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.setupConfigTest(ctrl)
+
+	results, err := s.api.GetConfig(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
+			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertConfigTest(c, results, []params.ConfigResult{
+		{Error: &params.Error{Message: `"wat" is not a valid tag`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got machine`}},
+		{Error: &params.Error{Message: `unexpected tag type, expected application, got user`}},
+	})
+
+}
+
+func assertConfigTest(c *gc.C, results params.ApplicationGetConfigResults, resPrefix []params.ConfigResult) {
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetConfigResults{
+		Results: append(resPrefix, []params.ConfigResult{
+			{
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "unset",
+						"type":        "string",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "user",
+						"type":        "int",
+						"value":       42,
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "foo",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
+			}, {
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "fantastic",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "unset",
+						"type":        "int",
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "bar",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
+			}, {
+				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
+			},
+		}...)})
+}
+
+func (s *ApplicationSuite) TestSetMetricCredentialsOneArg(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectApplication(ctrl, "mysql")
+	app.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
+	s.backend.EXPECT().Application("mysql").Return(app, nil)
+
+	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+		ApplicationName:   "mysql",
+		MetricCredentials: []byte("creds 1234"),
+	}}})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
+}
+
+func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsBothPass(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app0 := s.expectApplication(ctrl, "mysql")
+	app0.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
+	s.backend.EXPECT().Application("mysql").Return(app0, nil)
+
+	app1 := s.expectApplication(ctrl, "wordpress")
+	app1.EXPECT().SetMetricCredentials([]byte("creds 4567")).Return(nil)
+	s.backend.EXPECT().Application("wordpress").Return(app1, nil)
+
+	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+		ApplicationName:   "mysql",
+		MetricCredentials: []byte("creds 1234"),
+	}, {
+		ApplicationName:   "wordpress",
+		MetricCredentials: []byte("creds 4567"),
+	}}})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+}
+
+func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsSecondFails(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	app := s.expectApplication(ctrl, "mysql")
+	app.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
+	s.backend.EXPECT().Application("mysql").Return(app, nil)
+	s.backend.EXPECT().Application("not-an-application").Return(nil, errors.NotFoundf(`application "not-an-application"`))
+
+	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+		ApplicationName:   "mysql",
+		MetricCredentials: []byte("creds 1234"),
+	}, {
+		ApplicationName:   "not-an-application",
+		MetricCredentials: []byte("creds 4567"),
+	}}})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
+		{},
+		{Error: &params.Error{Message: `application "not-an-application" not found`, Code: "not found"}},
+	}})
+}
+
+func (s *ApplicationSuite) TestCompatibleSettingsParsing(c *gc.C) {
+	settings, err := application.ParseSettingsCompatible(defaultCharmConfig, map[string]string{
+		"stringOption": "",
+		"intOption":    "27",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"stringOption": nil,
+		"intOption":    int64(27),
+	})
+}
+
+func (s *ApplicationSuite) TestIllegalSettingsParsing(c *gc.C) {
+	_, err := application.ParseSettingsCompatible(defaultCharmConfig, map[string]string{
+		"yummy": "didgeridoo",
+	})
+	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }

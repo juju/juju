@@ -50,8 +50,8 @@ func (u *UpgraderSuite) TestUpgradePodTemplateSpec(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		podTempl, err := upgradePodTemplateSpec(&test.PodTemplateSpec, test.ImagePath, test.Version)
+		containers, err := upgradePodTemplateSpec(test.PodTemplateSpec.Spec.Containers, test.ImagePath, test.Version)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(test.ExpectedPodTemplateSpec.Spec.Containers[0].Image, gc.Equals, podTempl.Spec.Containers[0].Image)
+		c.Assert(test.ExpectedPodTemplateSpec.Spec.Containers[0].Image, gc.Equals, containers[0].Image)
 	}
 }

@@ -890,13 +890,13 @@ type secretsTriggerWatcher struct {
 	out       chan []watcher.SecretTriggerChange
 }
 
-// NewSecretsRotationWatcher returns a new secrets rotation watcher.
-func NewSecretsRotationWatcher(
+// NewSecretsTriggerWatcher returns a new secrets trigger watcher.
+func NewSecretsTriggerWatcher(
 	caller base.APICaller, result params.SecretTriggerWatchResult,
 ) watcher.SecretTriggerWatcher {
 	w := &secretsTriggerWatcher{
 		caller:    caller,
-		apiFacade: "SecretsRotationWatcher",
+		apiFacade: "SecretsTriggerWatcher",
 		watcherId: result.WatcherId,
 		out:       make(chan []watcher.SecretTriggerChange),
 	}
@@ -941,6 +941,7 @@ func (w *secretsTriggerWatcher) loop(initialChanges []params.SecretTriggerChange
 			}
 			result[i] = watcher.SecretTriggerChange{
 				URI:             uri,
+				Revision:        ch.Revision,
 				NextTriggerTime: ch.NextTriggerTime,
 			}
 		}

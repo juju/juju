@@ -33,9 +33,6 @@ type Backing interface {
 	// zones with the given zones.
 	SetAvailabilityZones(network.AvailabilityZones) error
 
-	// AddSubnet creates a backing subnet for an existing subnet.
-	AddSubnet(networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error)
-
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]networkingcommon.BackingSubnet, error)
 
@@ -52,7 +49,7 @@ type Backing interface {
 	ModelTag() names.ModelTag
 }
 
-// API provides the subnets API facade for version 4.
+// API provides the subnets API facade for version 5.
 type API struct {
 	backing    Backing
 	resources  facade.Resources
@@ -105,30 +102,6 @@ func (api *API) AllZones() (params.ZoneResults, error) {
 		return params.ZoneResults{}, err
 	}
 	return allZones(api.context, api.backing)
-}
-
-// AddSubnets adds existing subnets to Juju.
-func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, err
-	}
-
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Subnets)),
-	}
-
-	if len(args.Subnets) == 0 {
-		return results, nil
-	}
-
-	cache := NewAddSubnetsCache(api.backing)
-	for i, arg := range args.Subnets {
-		err := addOneSubnet(api.context, api.backing, arg, cache)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return results, nil
 }
 
 // ListSubnets returns the matching subnets after applying

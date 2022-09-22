@@ -30,7 +30,7 @@ type Logger interface {
 
 // SecretManagerFacade instances provide a watcher for secret rotation changes.
 type SecretManagerFacade interface {
-	WatchSecretsRotationChanges(ownerTag string) (watcher.SecretTriggerWatcher, error)
+	WatchSecretsRotationChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error)
 }
 
 // Config defines the operation of the Worker.
@@ -39,7 +39,7 @@ type Config struct {
 	Logger              Logger
 	Clock               clock.Clock
 
-	SecretOwner   names.Tag
+	SecretOwners  []names.Tag
 	RotateSecrets chan<- []string
 }
 
@@ -54,8 +54,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.SecretOwner == nil {
-		return errors.NotValidf("nil SecretOwner")
+	if len(config.SecretOwners) == 0 {
+		return errors.NotValidf("empty SecretOwners")
 	}
 	if config.RotateSecrets == nil {
 		return errors.NotValidf("nil RotateSecretsChannel")
@@ -111,7 +111,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretManagerFacade.WatchSecretsRotationChanges(w.config.SecretOwner.String())
+	changes, err := w.config.SecretManagerFacade.WatchSecretsRotationChanges(w.config.SecretOwners...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -138,14 +138,14 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) rotate(now time.Time) {
-	w.config.Logger.Debugf("processing secret rotation for %q at %s", w.config.SecretOwner, now)
+	w.config.Logger.Debugf("processing secret rotation for %q at %s", w.config.SecretOwners, now)
 
 	var toRotate []string
 	for id, info := range w.secrets {
 		w.config.Logger.Debugf("rotate %s at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
 		// A one minute granularity is acceptable for secret rotation.
 		if info.rotateTime.Truncate(time.Minute).Before(now) {
-			toRotate = append(toRotate, info.URI.ShortString())
+			toRotate = append(toRotate, info.URI.String())
 			// Once secret has been queued for rotation, delete it here since
 			// it will re-appear via the watcher after the rotation is actually
 			// performed and the last rotated time is updated.
@@ -172,7 +172,7 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 	for _, ch := range changes {
 		// Next rotate time of 0 means the rotation has been deleted.
 		if ch.NextTriggerTime.IsZero() {
-			w.config.Logger.Debugf("secret no longer rotated: %v", ch.URI.ShortString())
+			w.config.Logger.Debugf("secret no longer rotated: %v", ch.URI.String())
 			delete(w.secrets, ch.URI.ID)
 			continue
 		}
@@ -213,7 +213,7 @@ func (w *Worker) computeNextRotateTime() {
 	}
 
 	nextDuration := soonestRotateTime.Sub(now)
-	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwner, nextDuration, soonestRotateTime)
+	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwners, nextDuration, soonestRotateTime)
 
 	w.nextTrigger = soonestRotateTime
 	if w.timer == nil {

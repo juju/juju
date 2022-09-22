@@ -472,6 +472,22 @@ func (s *UniterSuite) TestUniterRotateSecretHook(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterSecretExpiredHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"secret expired hook runs when there are secret revisions to be expired",
+			createCharm{},
+			serveCharm{},
+			createUniter{},
+			waitHooks(startupHooks(false)),
+			waitUnitAgent{status: status.Idle},
+			createSecret{},
+			expireSecret{},
+			waitHooks{"secret-expired"},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterSecretChangedHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(

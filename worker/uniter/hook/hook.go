@@ -51,6 +51,9 @@ type Info struct {
 	// SecretURI is the secret URI relevant to the hook.
 	SecretURI string `yaml:"secret-uri,omitempty"`
 
+	// SecretRevision is the secret revision relevant to the hook.
+	SecretRevision int `yaml:"secret-revision,omitempty"`
+
 	// SecretLabel is the secret label to expose to the hook.
 	SecretLabel string `yaml:"secret-label,omitempty"`
 }
@@ -104,6 +107,9 @@ func (hi Info) Validate() error {
 		}
 		if _, err := secrets.ParseURI(hi.SecretURI); err != nil {
 			return errors.Errorf("invalid secret URI %q", hi.SecretURI)
+		}
+		if (hi.Kind == hooks.SecretRemove || hi.Kind == hooks.SecretExpired) && hi.SecretRevision <= 0 {
+			return errors.Errorf("%q hook requires a secret revision", hi.Kind)
 		}
 		return nil
 	}

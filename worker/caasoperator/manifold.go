@@ -32,10 +32,9 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	jujusecrets "github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/secretexpire"
 	"github.com/juju/juju/worker/secretrotate"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -203,18 +202,35 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 			jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
-			secretsClient, err := secrets.NewClient(jujuSecretsAPI, jujusecrets.Store, provider.StoreConfig{})
-			if err != nil {
-				return nil, err
+			secretsStoreGetter := func() (secrets.Store, error) {
+				return secrets.NewClient(jujuSecretsAPI)
 			}
-			secretRotateWatcherFunc := func(unitTag names.UnitTag, rotateSecrets chan []string) (worker.Worker, error) {
-				appName, _ := names.UnitApplication(unitTag.Id())
+			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {
+				owners := []names.Tag{unitTag}
+				if isLeader {
+					appName, _ := names.UnitApplication(unitTag.Id())
+					owners = append(owners, names.NewApplicationTag(appName))
+				}
 				return secretrotate.New(secretrotate.Config{
 					SecretManagerFacade: jujuSecretsAPI,
 					Clock:               clock,
 					Logger:              config.Logger.Child("secretsrotate"),
-					SecretOwner:         names.NewApplicationTag(appName),
+					SecretOwners:        owners,
 					RotateSecrets:       rotateSecrets,
+				})
+			}
+			secretExpiryWatcherFunc := func(unitTag names.UnitTag, isLeader bool, expireRevisions chan []string) (worker.Worker, error) {
+				owners := []names.Tag{unitTag}
+				if isLeader {
+					appName, _ := names.UnitApplication(unitTag.Id())
+					owners = append(owners, names.NewApplicationTag(appName))
+				}
+				return secretexpire.New(secretexpire.Config{
+					SecretManagerFacade: jujuSecretsAPI,
+					Clock:               clock,
+					Logger:              config.Logger.Child("secretsexpire"),
+					SecretOwners:        owners,
+					ExpireRevisions:     expireRevisions,
 				})
 			}
 
@@ -265,8 +281,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
 				HookRetryStrategy:       hookRetryStrategy,
 				TranslateResolverErr:    config.TranslateResolverErr,
-				SecretsClient:           secretsClient,
+				SecretsClient:           jujuSecretsAPI,
+				SecretsStoreGetter:      secretsStoreGetter,
 				SecretRotateWatcherFunc: secretRotateWatcherFunc,
+				SecretExpiryWatcherFunc: secretExpiryWatcherFunc,
 				Logger:                  wCfg.Logger.Child("uniter"),
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)

@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update Homebrew formulae
-        uses: dawidd6/action-homebrew-bump-formula@b1f4659559bcc32ab942f0b0f851e3c856d05253 # master
+        uses: dawidd6/action-homebrew-bump-formula@dd221ff435f42fa8102b5871bb1929af9d76476c # master
         with:
           token: "${{ secrets.TOKEN }}"
           formula: juju

@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -4580,7 +4581,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 			LeaderToken: &token{isLeader: true},
 			Data:        map[string]string{"foo2": "bar"},
 		},
-		Owner: s.wordpress.Tag().String(),
+		Owner: s.wordpress.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri2, state.SecretAccessParams{
@@ -4596,7 +4597,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 			LeaderToken: &token{isLeader: true},
 			Data:        map[string]string{"foo3": "bar"},
 		},
-		Owner: s.wordpress.Tag().String(),
+		Owner: s.wordpress.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri3, state.SecretAccessParams{
@@ -4624,7 +4625,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Label:        ptr("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
 	}})
-	b.AddSecretDeletes([]*secrets.URI{uri3})
+	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
 	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
 		ApplicationName: ptr(s.mysql.Name()),
@@ -4656,7 +4657,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	c.Assert(md.Description, gc.Equals, "a secret")
 	c.Assert(md.Label, gc.Equals, "foobar")
 	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
-	val, err := store.GetSecretValue(uri, 2)
+	val, _, err := store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
 	access, err := s.State.SecretAccess(uri, s.mysql.Tag())

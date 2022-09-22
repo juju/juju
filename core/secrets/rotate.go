@@ -23,6 +23,10 @@ const (
 	// RotateRetryDelay is how long to wait to re-run the rotate hook
 	// if the secret was not updated.
 	RotateRetryDelay = 5 * time.Minute
+
+	// ExpireRetryDelay is how long to wait to re-run the expire hook
+	// if the expired secret revision was not removed.
+	ExpireRetryDelay = 5 * time.Minute
 )
 
 func (p RotatePolicy) String() string {

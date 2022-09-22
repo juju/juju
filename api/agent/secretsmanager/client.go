@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/secrets/provider"
 )
 
 // Client is the api client for the SecretsManager facade.
@@ -26,6 +27,19 @@ func NewClient(caller base.APICaller) *Client {
 	return &Client{
 		facade: base.NewFacadeCaller(caller, "SecretsManager"),
 	}
+}
+
+// GetSecretStoreConfig fetches the config needed to make a secret store client.
+func (c *Client) GetSecretStoreConfig() (*provider.StoreConfig, error) {
+	var result params.SecretStoreConfig
+	err := c.facade.FacadeCall("GetSecretStoreConfig", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &provider.StoreConfig{
+		StoreType: result.StoreType,
+		Params:    result.Params,
+	}, nil
 }
 
 // CreateSecretURIs generates new secret URIs.
@@ -55,96 +69,6 @@ func (c *Client) CreateSecretURIs(count int) ([]*coresecrets.URI, error) {
 		uris[i] = uri
 	}
 	return uris, nil
-}
-
-// Create creates a new secret.
-func (c *Client) Create(uri *coresecrets.URI, p secrets.CreateParams) (*coresecrets.URI, error) {
-	var results params.StringResults
-
-	content := params.SecretContentParams{ProviderId: p.Content.ProviderId}
-	if p.Content.SecretValue != nil {
-		content.Data = p.Content.SecretValue.EncodedValues()
-	}
-	arg := params.CreateSecretArg{
-		OwnerTag: p.Owner.String(),
-		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: p.RotatePolicy,
-			ExpireTime:   p.ExpireTime,
-			Description:  p.Description,
-			Label:        p.Label,
-			Params:       p.Params,
-			Content:      content,
-		},
-	}
-	// If uri is nil, one will be generated but we also allow it to be
-	// generated ahead of time and passed in.
-	if uri != nil {
-		uriStr := uri.String()
-		arg.URI = &uriStr
-	}
-	if err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{arg},
-	}, &results); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if n := len(results.Results); n != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", n)
-	}
-	if err := results.Results[0].Error; err != nil {
-		return nil, errors.Trace(err)
-	}
-	uri, err := coresecrets.ParseURI(results.Results[0].Result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return uri, nil
-}
-
-// Update updates an existing secret value and/or config like rotate interval.
-func (c *Client) Update(uri *coresecrets.URI, p secrets.UpdateParams) error {
-	var results params.ErrorResults
-
-	content := params.SecretContentParams{ProviderId: p.Content.ProviderId}
-	if p.Content.SecretValue != nil && len(p.Content.SecretValue.EncodedValues()) > 0 {
-		content.Data = p.Content.SecretValue.EncodedValues()
-	}
-	arg := params.UpdateSecretArg{
-		URI: uri.String(),
-		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: p.RotatePolicy,
-			ExpireTime:   p.ExpireTime,
-			Description:  p.Description,
-			Label:        p.Label,
-			Params:       p.Params,
-			Content:      content,
-		},
-	}
-	if err := c.facade.FacadeCall("UpdateSecrets", params.UpdateSecretArgs{
-		Args: []params.UpdateSecretArg{arg},
-	}, &results); err != nil {
-		return errors.Trace(err)
-	}
-	return results.OneError()
-}
-
-// Remove removes the specified secret.
-func (c *Client) Remove(uri *coresecrets.URI) error {
-	args := params.SecretURIArgs{
-		Args: []params.SecretURIArg{{URI: uri.String()}},
-	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("RemoveSecrets", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
 }
 
 // GetContentInfo returns info about the content of a secret.
@@ -178,14 +102,14 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, update, peek
 	return content, nil
 }
 
-// WatchSecretsChanges returns a watcher which serves changes to
+// WatchConsumedSecretsChanges returns a watcher which serves changes to
 // secrets payloads for any secrets consumed by the specified unit.
-func (c *Client) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
 	}
-	err := c.facade.FacadeCall("WatchSecretsChanges", args, &results)
+	err := c.facade.FacadeCall("WatchConsumedSecretsChanges", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +117,30 @@ func (c *Client) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, e
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
+	if result.Error != nil {
+		return nil, apiservererrors.RestoreError(result.Error)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchObsolete returns a watcher for notifying when:
+//   - a secret owned by the entity is deleted
+//   - a secret revision owed by the entity no longer
+//     has any consumers
+//
+// Obsolete revisions results are "uri/revno" and deleted
+// secret results are "uri".
+func (c *Client) WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
+	for i, tag := range ownerTags {
+		args.Entities[i] = params.Entity{Tag: tag.String()}
+	}
+	err := c.facade.FacadeCall("WatchObsolete", args, &result)
+	if err != nil {
+		return nil, err
+	}
 	if result.Error != nil {
 		return nil, apiservererrors.RestoreError(result.Error)
 	}
@@ -234,7 +182,7 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 }
 
 // SecretMetadata returns metadata for the specified secrets.
-func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.SecretMetadata, error) {
+func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.SecretOwnerMetadata, error) {
 	arg := params.ListSecretsArgs{
 		Filter: params.SecretsFilter{
 			OwnerTag: filter.OwnerTag,
@@ -250,20 +198,32 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result []coresecrets.SecretMetadata
+	var result []coresecrets.SecretOwnerMetadata
 	for _, info := range results.Results {
 		uri, err := coresecrets.ParseURI(info.URI)
 		if err != nil {
 			return nil, errors.NotValidf("secret URI %q", info.URI)
 		}
-		result = append(result, coresecrets.SecretMetadata{
+		md := coresecrets.SecretMetadata{
 			URI:              uri,
+			OwnerTag:         info.OwnerTag,
 			Description:      info.Description,
 			Label:            info.Label,
 			RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),
 			LatestRevision:   info.LatestRevision,
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
+		}
+		providerIds := make(map[int]string)
+		for _, r := range info.Revisions {
+			if r.ProviderId == nil {
+				continue
+			}
+			providerIds[r.Revision] = *r.ProviderId
+		}
+		result = append(result, coresecrets.SecretOwnerMetadata{
+			Metadata:    md,
+			ProviderIds: providerIds,
 		})
 	}
 	return result, nil
@@ -271,23 +231,20 @@ func (c *Client) SecretMetadata(filter coresecrets.Filter) ([]coresecrets.Secret
 
 // WatchSecretsRotationChanges returns a watcher which serves changes to
 // secrets rotation config for any secrets managed by the specified owner.
-func (c *Client) WatchSecretsRotationChanges(ownerTag string) (watcher.SecretTriggerWatcher, error) {
-	var results params.SecretTriggerWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: ownerTag}},
+func (c *Client) WatchSecretsRotationChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error) {
+	var result params.SecretTriggerWatchResult
+	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
+	for i, tag := range ownerTags {
+		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
-	err := c.facade.FacadeCall("WatchSecretsRotationChanges", args, &results)
+	err := c.facade.FacadeCall("WatchSecretsRotationChanges", args, &result)
 	if err != nil {
 		return nil, err
 	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewSecretsRotationWatcher(c.facade.RawAPICaller(), result)
+	w := apiwatcher.NewSecretsTriggerWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -317,6 +274,25 @@ func (c *Client) SecretRotated(uri string, oldRevision int) error {
 		return result.Error
 	}
 	return nil
+}
+
+// WatchSecretRevisionsExpiryChanges returns a watcher which serves changes to
+// secret revision expiry config for any secrets managed by the specified owner.
+func (c *Client) WatchSecretRevisionsExpiryChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error) {
+	var result params.SecretTriggerWatchResult
+	args := params.Entities{Entities: make([]params.Entity, len(ownerTags))}
+	for i, tag := range ownerTags {
+		args.Entities[i] = params.Entity{Tag: tag.String()}
+	}
+	err := c.facade.FacadeCall("WatchSecretRevisionsExpiryChanges", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewSecretsTriggerWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }
 
 // SecretRevokeGrantArgs holds the args used to grant or revoke access to a secret.

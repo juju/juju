@@ -368,3 +368,44 @@ func (s *credentialSuite) TestCredentialMigrationToLegacy(c *gc.C) {
 		c.Assert(rval, jc.DeepEquals, test.PostCred)
 	}
 }
+
+func (s *credentialSuite) TestPatchCloudCredentialForCloudSpec(c *gc.C) {
+	credential := cloud.NewCredential(
+		"auth-type",
+		map[string]string{
+			k8scloud.CredAttrUsername: "foo",
+			k8scloud.CredAttrPassword: "pwd",
+		},
+	)
+	updatedCredential, err := k8scloud.UpdateCredentialWithToken(credential, "token")
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(updatedCredential.AuthType(), gc.Equals, cloud.AuthType("auth-type"))
+	c.Check(updatedCredential.Attributes(), gc.DeepEquals, map[string]string{
+		k8scloud.CredAttrUsername: "",
+		k8scloud.CredAttrPassword: "",
+		k8scloud.CredAttrToken:    "token",
+	})
+
+	credential = cloud.NewCredential("auth-type", nil)
+	updatedCredential, err = k8scloud.UpdateCredentialWithToken(credential, "token")
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(updatedCredential.AuthType(), gc.Equals, cloud.AuthType("auth-type"))
+	c.Check(updatedCredential.Attributes(), gc.DeepEquals, map[string]string{
+		k8scloud.CredAttrUsername: "",
+		k8scloud.CredAttrPassword: "",
+		k8scloud.CredAttrToken:    "token",
+	})
+}
+
+func (s *credentialSuite) TestPatchCloudCredentialForCloudSpecFailedInValid(c *gc.C) {
+	credential := cloud.NewNamedCredential(
+		"foo", "", map[string]string{
+			k8scloud.CredAttrUsername: "foo",
+			k8scloud.CredAttrPassword: "pwd",
+		}, false,
+	)
+	_, err := k8scloud.UpdateCredentialWithToken(credential, "token")
+	c.Assert(err, gc.ErrorMatches, `credential "foo" has empty auth type not valid`)
+}

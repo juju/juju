@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"time" // only uses time.Time values
 
@@ -31,6 +32,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -1986,25 +1988,127 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationID, err := m.EnqueueOperation("a test", 2)
+	// pending action.
+	operationIDPending, err := m.EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, true, "group", nil)
+	actionPending, err := m.EnqueueAction(operationIDPending, machine.MachineTag(), "action-pending", nil, true, "group", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionPending.Status(), gc.Equals, state.ActionPending)
+
+	// running action.
+	operationIDRunning, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionRunning, err := m.EnqueueAction(operationIDRunning, machine.MachineTag(), "action-running", nil, true, "group", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionRunning.Status(), gc.Equals, state.ActionPending)
+	actionRunning, err = actionRunning.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionRunning.Status(), gc.Equals, state.ActionRunning)
+
+	// aborting action.
+	operationIDAborting, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionAborting, err := m.EnqueueAction(operationIDAborting, machine.MachineTag(), "action-aborting", nil, true, "group", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborting.Status(), gc.Equals, state.ActionPending)
+	actionAborting, err = actionAborting.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborting.Status(), gc.Equals, state.ActionRunning)
+	actionAborting, err = actionAborting.Finish(state.ActionResults{Status: state.ActionAborting})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborting.Status(), gc.Equals, state.ActionAborting)
+
+	// aborted action.
+	operationIDAborted, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionAborted, err := m.EnqueueAction(operationIDAborted, machine.MachineTag(), "action-aborted", nil, true, "group", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborted.Status(), gc.Equals, state.ActionPending)
+	actionAborted, err = actionAborted.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborted.Status(), gc.Equals, state.ActionRunning)
+	actionAborted, err = actionAborted.Finish(state.ActionResults{Status: state.ActionAborted})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionAborted.Status(), gc.Equals, state.ActionAborted)
+
+	// completed action.
+	operationIDCompleted, err := m.EnqueueOperation("another test", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	actionCompleted, err := m.EnqueueAction(operationIDCompleted, machine.MachineTag(), "action-completed", nil, true, "group", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionCompleted.Status(), gc.Equals, state.ActionPending)
+	actionCompleted, err = actionCompleted.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionCompleted.Status(), gc.Equals, state.ActionRunning)
+	actionCompleted, err = actionCompleted.Finish(state.ActionResults{Status: state.ActionCompleted})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionCompleted.Status(), gc.Equals, state.ActionCompleted)
 
 	newModel, newState := s.importModel(c, s.State)
 	defer func() {
 		c.Assert(newState.Close(), jc.ErrorIsNil)
 	}()
 
-	actions, _ := newModel.AllActions()
-	c.Assert(actions, gc.HasLen, 1)
-	action := actions[0]
-	c.Check(action.Receiver(), gc.Equals, machine.Id())
-	c.Check(action.Name(), gc.Equals, "foo")
-	c.Check(state.ActionOperationId(action), gc.Equals, operationID)
-	c.Check(action.Status(), gc.Equals, state.ActionPending)
-	c.Check(action.Parallel(), jc.IsTrue)
-	c.Check(action.ExecutionGroup(), gc.Equals, "group")
+	actions, err := newModel.AllActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 5)
+
+	actionPending, err = newModel.ActionByTag(actionPending.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionPending.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionPending.Name(), gc.Equals, "action-pending")
+	c.Check(state.ActionOperationId(actionPending), gc.Equals, operationIDPending)
+	c.Check(actionPending.Status(), gc.Equals, state.ActionPending)
+	c.Check(actionPending.Parallel(), jc.IsTrue)
+	c.Check(actionPending.ExecutionGroup(), gc.Equals, "group")
+
+	actionRunning, err = newModel.ActionByTag(actionRunning.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionRunning.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionRunning.Name(), gc.Equals, "action-running")
+	c.Check(state.ActionOperationId(actionRunning), gc.Equals, operationIDRunning)
+	c.Check(actionRunning.Status(), gc.Equals, state.ActionRunning)
+	c.Check(actionRunning.Parallel(), jc.IsTrue)
+	c.Check(actionRunning.ExecutionGroup(), gc.Equals, "group")
+
+	actionAborting, err = newModel.ActionByTag(actionAborting.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionAborting.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionAborting.Name(), gc.Equals, "action-aborting")
+	c.Check(state.ActionOperationId(actionAborting), gc.Equals, operationIDAborting)
+	c.Check(actionAborting.Status(), gc.Equals, state.ActionAborting)
+	c.Check(actionAborting.Parallel(), jc.IsTrue)
+	c.Check(actionAborting.ExecutionGroup(), gc.Equals, "group")
+
+	actionAborted, err = newModel.ActionByTag(actionAborted.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionAborted.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionAborted.Name(), gc.Equals, "action-aborted")
+	c.Check(state.ActionOperationId(actionAborted), gc.Equals, operationIDAborted)
+	c.Check(actionAborted.Status(), gc.Equals, state.ActionAborted)
+	c.Check(actionAborted.Parallel(), jc.IsTrue)
+	c.Check(actionAborted.ExecutionGroup(), gc.Equals, "group")
+
+	actionCompleted, err = newModel.ActionByTag(actionCompleted.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actionCompleted.Receiver(), gc.Equals, machine.Id())
+	c.Check(actionCompleted.Name(), gc.Equals, "action-completed")
+	c.Check(state.ActionOperationId(actionCompleted), gc.Equals, operationIDCompleted)
+	c.Check(actionCompleted.Status(), gc.Equals, state.ActionCompleted)
+	c.Check(actionCompleted.Parallel(), jc.IsTrue)
+	c.Check(actionCompleted.ExecutionGroup(), gc.Equals, "group")
+
+	// Only pending/running/aborting actions will have action notification docs imported.
+	actionIDs, err := newModel.AllActionIDsHasActionNotifications()
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Strings(actionIDs)
+	expectedIDs := []string{
+		actionRunning.Id(),
+		actionPending.Id(),
+		actionAborting.Id(),
+	}
+	sort.Strings(expectedIDs)
+	c.Check(actionIDs, gc.DeepEquals, expectedIDs)
 }
 
 func (s *MigrationImportSuite) TestOperation(c *gc.C) {
@@ -2810,6 +2914,93 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	exportedOrigin := application.CharmOrigin()
 	exportedOrigin.Channel.Track = "latest"
 	c.Assert(importedApp.CharmOrigin(), gc.DeepEquals, exportedOrigin)
+}
+
+func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	createTime := time.Now().UTC().Round(time.Second)
+	next := createTime.Add(time.Minute).Round(time.Second).UTC()
+	expire := createTime.Add(2 * time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	updateTime := time.Now().UTC().Round(time.Second)
+	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ProviderId:  ptr("provider-id"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       owner.Tag(),
+		Subject:     owner.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	err = s.State.SaveSecretConsumer(uri, consumer.Tag(), &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	store = state.NewSecrets(newSt)
+	all, err := store.ListSecrets(state.SecretsFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 1)
+	c.Assert(all[0], jc.DeepEquals, md)
+
+	revs, err := store.ListSecretRevisions(md.URI)
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(revs, mc, []*secrets.SecretRevisionMetadata{{
+		Revision:   1,
+		ProviderId: nil,
+		CreateTime: createTime,
+		UpdateTime: updateTime,
+		ExpireTime: &expire,
+	}, {
+		Revision:   2,
+		ProviderId: ptr("provider-id"),
+		CreateTime: createTime,
+		UpdateTime: createTime,
+	}})
+
+	access, err := newSt.SecretAccess(uri, owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleManage)
+
+	info, err := newSt.GetSecretConsumer(uri, consumer.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 666,
+		LatestRevision:  2,
+	})
 }
 
 // newModel replaces the uuid and name of the config attributes so we

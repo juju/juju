@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -87,7 +88,7 @@ func (u *upgradeCAASOperatorBridge) Namespace() string {
 	return u.namespaceFn()
 }
 
-func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBroker) (func() (bool, error), error) {
+func workloadInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBroker) (func() (bool, error), error) {
 	deploymentName := broker.DeploymentName(appName, true)
 
 	var selector labels.Set
@@ -189,8 +190,24 @@ func operatorUpgrade(
 		return errors.NotValidf("no resource is upgradable for application %q", appName)
 	}
 
-	podChecker, err := operatorInitUpgrade(appName, operatorImagePath, broker)
+	repo, err := podcfg.RecoverRepoFromOperatorPath(operator.Config.ImageDetails.RegistryPath)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	// PodSpec charms now use focal as the operator base until PodSpec is removed.
+	baseImagePath, err := podcfg.ImageForBase(repo, charm.Base{
+		Name:    "ubuntu",
+		Channel: charm.Channel{Track: "20.04", Risk: charm.Stable},
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	podChecker, err := workloadInitUpgrade(appName, operatorImagePath, broker)
+	if errors.Is(err, errors.NotFound) {
+		// If there is no workload for this operator yet, just continue.
+		podChecker = func() (bool, error) { return true, nil }
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -207,9 +224,12 @@ func operatorUpgrade(
 			}
 			if ready {
 				logger.Infof("init container has been upgraded to %q, now the operator for %q starts to upgrade", operatorImagePath, appName)
-				return errors.Trace(upgradeStatefulSet(
+				return errors.Trace(upgradeOperatorOrControllerStatefulSet(
+					appName,
 					broker.OperatorName(appName),
+					true,
 					operatorImagePath,
+					baseImagePath,
 					vers,
 					broker.IsLegacyLabels(),
 					broker.Client().AppsV1().StatefulSets(broker.Namespace())))

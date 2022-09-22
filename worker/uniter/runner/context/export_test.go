@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
+	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -36,6 +36,8 @@ type HookContextParams struct {
 	AssignedMachineTag  names.MachineTag
 	Storage             StorageContextAccessor
 	StorageTag          names.StorageTag
+	SecretsClient       SecretsAccessor
+	SecretsStore        jujusecrets.Store
 	SecretMetadata      map[string]jujuc.SecretMetadata
 	Paths               Paths
 	Clock               Clock
@@ -68,6 +70,8 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		assignedMachineTag:  hcParams.AssignedMachineTag,
 		storage:             hcParams.Storage,
 		storageTag:          hcParams.StorageTag,
+		secretsClient:       hcParams.SecretsClient,
+		secretsStoreGetter:  func() (jujusecrets.Store, error) { return hcParams.SecretsStore, nil },
 		secretMetadata:      hcParams.SecretMetadata,
 		clock:               hcParams.Clock,
 		logger:              loggo.GetLogger("test"),
@@ -130,10 +134,15 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 }
 
 // SetEnvironmentHookContextSecret exists purely to set the fields used in hookVars.
-func SetEnvironmentHookContextSecret(context *HookContext, secretURI string, client SecretsAccessor) {
+func SetEnvironmentHookContextSecret(
+	context *HookContext, secretURI string, metadata map[string]jujuc.SecretMetadata, client SecretsAccessor, store jujusecrets.Store,
+) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
-	context.secrets = client
+	context.secretRevision = 666
+	context.secretsClient = client
+	context.secretsStore = store
+	context.secretMetadata = metadata
 }
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
@@ -284,7 +293,7 @@ func (ctx *HookContext) SLALevel() string {
 	return ctx.slaLevel
 }
 
-func (ctx *HookContext) PendingSecretRemoves() []*secrets.URI {
+func (ctx *HookContext) PendingSecretRemoves() []uniter.SecretDeleteArg {
 	return ctx.secretChanges.pendingDeletes
 }
 
@@ -292,7 +301,7 @@ func (ctx *HookContext) PendingSecretCreates() []uniter.SecretCreateArg {
 	return ctx.secretChanges.pendingCreates
 }
 
-func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpsertArg {
+func (ctx *HookContext) PendingSecretUpdates() []uniter.SecretUpdateArg {
 	return ctx.secretChanges.pendingUpdates
 }
 

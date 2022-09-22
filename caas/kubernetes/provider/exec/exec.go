@@ -83,7 +83,7 @@ func NewInCluster(namespace string) (Executor, error) {
 
 // NewForJujuCloudSpec returns a exec client.
 func NewForJujuCloudSpec(
-	modelName string,
+	modelName, modelUUID string,
 	cloudSpec cloudspec.CloudSpec,
 ) (Executor, error) {
 	restCfg, err := provider.CloudSpecToK8sRestConfig(cloudSpec)
@@ -102,7 +102,7 @@ func NewForJujuCloudSpec(
 
 	namespace := modelName
 	if modelName == environsbootstrap.ControllerModelName {
-		namespace, err = modelNameToNameSpace(modelName, legacyLabels, c.CoreV1().Namespaces())
+		namespace, err = modelNameToNameSpace(modelName, modelUUID, legacyLabels, c.CoreV1().Namespaces())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -111,7 +111,7 @@ func NewForJujuCloudSpec(
 }
 
 func modelNameToNameSpace(
-	modelName string,
+	modelName, modelUUID string,
 	legacyLabels bool,
 	client typedcorev1.NamespaceInterface,
 ) (string, error) {
@@ -128,8 +128,19 @@ func modelNameToNameSpace(
 	if len(out.Items) == 1 {
 		return out.Items[0].GetName(), nil
 	}
+
+	// Got multiple results - probably we're trying to get the namespace for a
+	// "controller" model. Use UUID to find the correct one
+	for _, ns := range out.Items {
+		key := k8sutils.AnnotationModelUUIDKey(legacyLabels)
+		uuid, ok := ns.Annotations[key]
+		if ok && uuid == modelUUID {
+			return ns.GetName(), nil
+		}
+	}
+
 	// This should never happen.
-	return "", errors.New("multiple controllers running on the cluster")
+	return "", errors.Errorf("cannot get namespace for model %q", modelName)
 }
 
 // New contructs an executor.

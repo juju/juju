@@ -297,6 +297,13 @@ const (
 
 	// DefaultSeriesKey is a key for the default Ubuntu series to use for the model.
 	DefaultSeriesKey = "default-series"
+
+	// SecretStoreKey is used to specify the secret store backend.
+	SecretStoreKey = "secret-store"
+
+	// SecretStoreConfigKey is used to configure the secret store backend.
+	// The config is provider dependent and is expected to be json or yaml.
+	SecretStoreConfigKey = "secret-store-config"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -560,6 +567,10 @@ var defaultConfigValues = map[string]interface{}{
 	MaxStatusHistorySize: DefaultStatusHistorySize,
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
+
+	// By default the Juju backend is used.
+	SecretStoreKey:       "",
+	SecretStoreConfigKey: "",
 }
 
 // defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
@@ -971,6 +982,20 @@ func (c *Config) DefaultSeries() (string, bool) {
 		logger.Errorf("invalid default-series: %q", s)
 		return "", false
 	}
+}
+
+// SecretStore returns the secret store name.
+func (c *Config) SecretStore() string {
+	value, _ := c.defined[SecretStoreKey].(string)
+	return value
+}
+
+// SecretStoreConfig returns the secret store config,
+// expected to be a json or yaml encoded config struct
+// relevant to the configured secret store type.
+func (c *Config) SecretStoreConfig() string {
+	value, _ := c.defined[SecretStoreConfigKey].(string)
+	return value
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -1753,6 +1778,8 @@ var alwaysOptional = schema.Defaults{
 	DefaultSpace:                    schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
+	SecretStoreKey:                  schema.Omit,
+	SecretStoreConfigKey:            schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1787,6 +1814,7 @@ var immutableAttributes = []string{
 	UUIDKey,
 	"firewall-mode",
 	CharmHubURLKey,
+	SecretStoreKey,
 }
 
 var (
@@ -2298,5 +2326,16 @@ where possible. (default "")`,
 		Description: `The logging output destination: database and/or syslog. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
+	},
+	SecretStoreKey: {
+		Description: `The name of the secret store backend. (default "" which implies Juju)`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SecretStoreConfigKey: {
+		Description: `The json or yaml secret store config. (default "")`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+		Secret:      true,
 	},
 }

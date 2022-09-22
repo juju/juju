@@ -6,6 +6,8 @@ package provider
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -14,10 +16,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/secrets"
 )
 
 func getSecretLabels(appName string, legacy bool) map[string]string {
@@ -212,4 +217,68 @@ func (k *kubernetesClient) deleteSecrets(appName string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+var timeoutForSecretTokenGet = 10 * time.Second
+
+// GetSecretToken returns the token content for the specified secret name.
+func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.TODO(), timeoutForSecretTokenGet)
+	defer cancel()
+
+	secret, err := proxy.FetchTokenReadySecret(
+		ctx, name, k.client().CoreV1().Secrets(k.namespace), k.clock,
+	)
+	if k8serrors.IsNotFound(err) {
+		return "", errors.NotFoundf("secret %q", name)
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return string(secret.Data[core.ServiceAccountTokenKey]), nil
+}
+
+// GetJujuSecret implements SecretsStore.
+func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string) (secrets.SecretValue, error) {
+	// providerId is the secret name.
+	secret, err := k.getSecret(providerId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return secrets.NewSecretBytes(secret.Data), nil
+}
+
+// SaveJujuSecret implements SecretsStore.
+func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
+	name := fmt.Sprintf("%s-%d", uri.ID, revision)
+	labels := utils.LabelsMerge(
+		utils.LabelsForModel(k.CurrentModel(), false),
+		utils.LabelsJuju)
+	in := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Labels:      labels,
+			Annotations: k.annotations,
+		},
+		Type:       core.SecretTypeOpaque,
+		StringData: value.EncodedValues(),
+	}
+	secret := resources.NewSecret(name, k.namespace, in)
+	err := secret.Apply(ctx, k.client())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return name, nil
+}
+
+// DeleteJujuSecret implements SecretsStore.
+func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, providerId string) error {
+	// providerId is the secret name.
+	secret, err := k.getSecret(providerId)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.client())
 }

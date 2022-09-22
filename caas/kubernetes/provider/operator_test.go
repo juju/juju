@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -62,10 +63,30 @@ func operatorPodSpec(serviceAccountName string, withStorage bool) core.PodSpec {
 	spec := core.PodSpec{
 		ServiceAccountName:           serviceAccountName,
 		AutomountServiceAccountToken: pointer.BoolPtr(true),
+		InitContainers: []core.Container{{
+			Name:            "juju-init",
+			ImagePullPolicy: core.PullIfNotPresent,
+			Image:           "/path/to/image",
+			Command: []string{
+				"/bin/sh",
+			},
+			Args: []string{
+				"-c",
+				fmt.Sprintf(
+					caas.JujudCopySh,
+					"/opt/juju",
+					"",
+				),
+			},
+			VolumeMounts: []core.VolumeMount{{
+				Name:      "juju-bins",
+				MountPath: "/opt/juju",
+			}},
+		}},
 		Containers: []core.Container{{
 			Name:            "juju-operator",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "/path/to/image",
+			Image:           "/path/to/base-image",
 			WorkingDir:      "/var/lib/juju",
 			Command: []string{
 				"/bin/sh",
@@ -77,7 +98,7 @@ export JUJU_DATA_DIR=/var/lib/juju
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
-cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+cp /opt/juju/jujud $JUJU_TOOLS_DIR/jujud
 
 $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 `[1:],
@@ -110,6 +131,9 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 				Name:      "test-operator-config",
 				MountPath: "path/to/agent/agents/application-test/operator.yaml",
 				SubPath:   "operator.yaml",
+			}, {
+				Name:      "juju-bins",
+				MountPath: "/opt/juju",
 			}},
 		}},
 		Volumes: []core.Volume{{
@@ -127,6 +151,11 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 						Path: "operator.yaml",
 					}},
 				},
+			},
+		}, {
+			Name: "juju-bins",
+			VolumeSource: core.VolumeSource{
+				EmptyDir: &core.EmptyDirVolumeSource{},
 			},
 		}},
 	}
@@ -197,6 +226,7 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	pod, err := provider.OperatorPod(
 		"gitlab", "gitlab", "10666", "/var/lib/juju",
 		coreresources.DockerImageDetails{RegistryPath: "jujusolutions/jujud-operator"},
+		coreresources.DockerImageDetails{RegistryPath: "jujusolutions/charm-base:ubuntu-20.04"},
 		labels, tags, "operator-service-account",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,11 +239,16 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 		"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 	})
 	c.Assert(pod.Spec.ServiceAccountName, gc.Equals, "operator-service-account")
+	c.Assert(pod.Spec.InitContainers, gc.HasLen, 1)
+	c.Assert(pod.Spec.InitContainers[0].VolumeMounts, gc.HasLen, 1)
+	c.Assert(pod.Spec.InitContainers[0].Image, gc.Equals, "jujusolutions/jujud-operator")
+	c.Assert(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath, gc.Equals, "/opt/juju")
 	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
-	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/jujud-operator")
-	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 2)
+	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/charm-base:ubuntu-20.04")
+	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 3)
 	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
 	c.Assert(pod.Spec.Containers[0].VolumeMounts[1].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/operator.yaml")
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[2].MountPath, gc.Equals, "/opt/juju")
 
 	podEnv := make(map[string]string)
 	for _, env := range pod.Spec.Containers[0].Env {
@@ -339,31 +374,32 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(gomock.Any(), operatorServiceArg, v1.UpdateOptions{}).
+		s.mockServices.EXPECT().Update(gomock.Any(), eq(operatorServiceArg), v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(gomock.Any(), operatorServiceArg, v1.CreateOptions{}).
+		s.mockServices.EXPECT().Create(gomock.Any(), eq(operatorServiceArg), v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockServices.EXPECT().Get(gomock.Any(), "test-operator", v1.GetOptions{}).
 			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
 
 		// ensure RBAC resources.
-		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
+		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), eq(svcAccount), v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(role, nil),
 		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
-		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
+		s.mockRoleBindings.EXPECT().Create(gomock.Any(), eq(rb), v1.CreateOptions{}).Return(rb, nil),
 
 		s.mockConfigMaps.EXPECT().Get(gomock.Any(), "test-operator-config", v1.GetOptions{}).
 			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-operator-storage", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
-		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), eq(statefulSetArg), v1.CreateOptions{}).
 			Return(statefulSetArg, nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
-		Version:      version.MustParse("2.99.0"),
+		ImageDetails:     coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		BaseImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/base-image"},
+		Version:          version.MustParse("2.99.0"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -481,11 +517,16 @@ func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo 
 	if isPrivateImageRepo {
 		imageDetails.BasicAuthConfig.Auth = docker.NewToken("xxxxxxxx===")
 	}
+	baseImageDetails := coreresources.DockerImageDetails{RegistryPath: "/path/to/base-image"}
+	if isPrivateImageRepo {
+		baseImageDetails.BasicAuthConfig.Auth = docker.NewToken("xxxxxxxx===")
+	}
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: imageDetails,
-		Version:      version.MustParse("2.99.0"),
-		AgentConf:    []byte("agent-conf-data"),
-		OperatorInfo: []byte("operator-info-data"),
+		ImageDetails:     imageDetails,
+		BaseImageDetails: baseImageDetails,
+		Version:          version.MustParse("2.99.0"),
+		AgentConf:        []byte("agent-conf-data"),
+		OperatorInfo:     []byte("operator-info-data"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -620,10 +661,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	errChan := make(chan error)
 	go func() {
 		errChan <- s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-			ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
-			Version:      version.MustParse("2.99.0"),
-			AgentConf:    []byte("agent-conf-data"),
-			OperatorInfo: []byte("operator-info-data"),
+			ImageDetails:     coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
+			BaseImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/base-image"},
+			Version:          version.MustParse("2.99.0"),
+			AgentConf:        []byte("agent-conf-data"),
+			OperatorInfo:     []byte("operator-info-data"),
 			ResourceTags: map[string]string{
 				"fred":                 "mary",
 				"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -768,10 +810,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
-		Version:      version.MustParse("2.99.0"),
-		AgentConf:    []byte("agent-conf-data"),
-		OperatorInfo: []byte("operator-info-data"),
+		ImageDetails:     coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		BaseImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/base-image"},
+		Version:          version.MustParse("2.99.0"),
+		AgentConf:        []byte("agent-conf-data"),
+		OperatorInfo:     []byte("operator-info-data"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -883,10 +926,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
-		Version:      version.MustParse("2.99.0"),
-		AgentConf:    []byte("agent-conf-data"),
-		OperatorInfo: []byte("operator-info-data"),
+		ImageDetails:     coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		BaseImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/base-image"},
+		Version:          version.MustParse("2.99.0"),
+		AgentConf:        []byte("agent-conf-data"),
+		OperatorInfo:     []byte("operator-info-data"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -983,8 +1027,9 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
-		Version:      version.MustParse("2.99.0"),
+		ImageDetails:     coreresources.DockerImageDetails{RegistryPath: "/path/to/image"},
+		BaseImageDetails: coreresources.DockerImageDetails{RegistryPath: "/path/to/base-image"},
+		Version:          version.MustParse("2.99.0"),
 		ResourceTags: map[string]string{
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -1010,9 +1055,13 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 			},
 		},
 		Spec: core.PodSpec{
+			InitContainers: []core.Container{{
+				Name:  "juju-init",
+				Image: "test-repo/jujud-operator:2.99.0",
+			}},
 			Containers: []core.Container{{
 				Name:  "juju-operator",
-				Image: "test-image",
+				Image: "test-repo/charm-base:20.04",
 			}},
 		},
 		Status: core.PodStatus{
@@ -1038,9 +1087,13 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 		Spec: apps.StatefulSetSpec{
 			Template: core.PodTemplateSpec{
 				Spec: core.PodSpec{
+					InitContainers: []core.Container{{
+						Name:  "juju-init",
+						Image: "test-repo/jujud-operator:2.99.0",
+					}},
 					Containers: []core.Container{{
 						Name:  "juju-operator",
-						Image: "test-image",
+						Image: "test-repo/charm-base:20.04",
 					}},
 				},
 			},
@@ -1069,7 +1122,8 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	c.Assert(operator.Status.Status, gc.Equals, status.Allocating)
 	c.Assert(operator.Status.Message, gc.Equals, "test message")
 	c.Assert(operator.Config.Version, gc.Equals, version.MustParse("2.99.0"))
-	c.Assert(operator.Config.ImageDetails.RegistryPath, gc.Equals, "test-image")
+	c.Assert(operator.Config.ImageDetails.RegistryPath, gc.Equals, "test-repo/jujud-operator:2.99.0")
+	c.Assert(operator.Config.BaseImageDetails.RegistryPath, gc.Equals, "test-repo/charm-base:20.04")
 	c.Assert(operator.Config.AgentConf, gc.DeepEquals, []byte("agent-conf-data"))
 	c.Assert(operator.Config.OperatorInfo, gc.DeepEquals, []byte("operator-info-data"))
 }
