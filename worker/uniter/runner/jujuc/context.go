@@ -166,9 +166,17 @@ type ContextUnit interface {
 	CloudSpec() (*params.CloudSpec, error)
 }
 
-// SecretUpsertArgs specifies args used to create or update a secret.
+// SecretCreateArgs specifies args used to create a secret.
+// Nil values are not included in the create.
+type SecretCreateArgs struct {
+	SecretUpdateArgs
+
+	OwnerTag names.Tag
+}
+
+// SecretUpdateArgs specifies args used to update a secret.
 // Nil values are not included in the update.
-type SecretUpsertArgs struct {
+type SecretUpdateArgs struct {
 	// Value is the new secret value or nil to not update.
 	Value secrets.SecretValue
 
@@ -189,13 +197,14 @@ type SecretGrantRevokeArgs struct {
 
 // SecretMetadata holds a secret's metadata.
 type SecretMetadata struct {
+	Owner            names.Tag
 	Description      string
 	Label            string
 	RotatePolicy     secrets.RotatePolicy
 	LatestRevision   int
 	LatestExpireTime *time.Time
 	NextRotateTime   *time.Time
-	ProviderIds      []string
+	ProviderIds      map[int]string
 }
 
 // ContextSecrets is the part of a hook context related to secrets.
@@ -204,13 +213,13 @@ type ContextSecrets interface {
 	GetSecret(*secrets.URI, string, bool, bool) (secrets.SecretValue, error)
 
 	// CreateSecret creates a secret with the specified data.
-	CreateSecret(*SecretUpsertArgs) (*secrets.URI, error)
+	CreateSecret(*SecretCreateArgs) (*secrets.URI, error)
 
 	// UpdateSecret creates a secret with the specified data.
-	UpdateSecret(*secrets.URI, *SecretUpsertArgs) error
+	UpdateSecret(*secrets.URI, *SecretUpdateArgs) error
 
 	// RemoveSecret removes a secret with the specified uri.
-	RemoveSecret(*secrets.URI) error
+	RemoveSecret(*secrets.URI, *int) error
 
 	// GrantSecret grants access to the specified secret.
 	GrantSecret(*secrets.URI, *SecretGrantRevokeArgs) error

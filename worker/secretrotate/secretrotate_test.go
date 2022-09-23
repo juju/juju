@@ -55,7 +55,7 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 		Clock:               s.clock,
 		SecretManagerFacade: s.facade,
 		Logger:              loggo.GetLogger("test"),
-		SecretOwner:         names.NewApplicationTag("mariadb"),
+		SecretOwners:        []names.Tag{names.NewApplicationTag("mariadb")},
 		RotateSecrets:       s.rotatedSecrets,
 	}
 	return ctrl
@@ -69,8 +69,8 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	}, `nil Facade not valid`)
 
 	s.testValidateConfig(c, func(config *secretrotate.Config) {
-		config.SecretOwner = nil
-	}, `nil SecretOwner not valid`)
+		config.SecretOwners = nil
+	}, `empty SecretOwners not valid`)
 
 	s.testValidateConfig(c, func(config *secretrotate.Config) {
 		config.RotateSecrets = nil
@@ -92,7 +92,7 @@ func (s *workerSuite) testValidateConfig(c *gc.C, f func(*secretrotate.Config), 
 }
 
 func (s *workerSuite) expectWorker() {
-	s.facade.EXPECT().WatchSecretsRotationChanges(s.config.SecretOwner.String()).Return(s.rotateWatcher, nil)
+	s.facade.EXPECT().WatchSecretsRotationChanges(s.config.SecretOwners).Return(s.rotateWatcher, nil)
 	s.rotateWatcher.EXPECT().Changes().AnyTimes().Return(s.rotateConfigChanges)
 	s.rotateWatcher.EXPECT().Kill().MaxTimes(1)
 	s.rotateWatcher.EXPECT().Wait().Return(nil).MinTimes(1)

@@ -4,12 +4,14 @@
 package uniter_test
 
 import (
+	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
-	"github.com/juju/names/v4"
 )
 
 type dummyStorageAccessor struct {
@@ -17,6 +19,18 @@ type dummyStorageAccessor struct {
 }
 
 func (*dummyStorageAccessor) UnitStorageAttachments(_ names.UnitTag) ([]params.StorageAttachmentId, error) {
+	return nil, nil
+}
+
+type dummySecretsAccessor struct {
+	remotestate.SecretsClient
+}
+
+func (a *dummySecretsAccessor) SecretMetadata(filter secrets.Filter) ([]secrets.SecretOwnerMetadata, error) {
+	return nil, nil
+}
+
+func (*dummySecretsAccessor) GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error) {
 	return nil, nil
 }
 

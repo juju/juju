@@ -329,7 +329,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
 		},
-		Owner: s.application.Tag().String(),
+		Owner: s.application.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
@@ -345,7 +345,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo2": "bar"},
 		},
-		Owner: s.application.Tag().String(),
+		Owner: s.application.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri2, state.SecretAccessParams{
@@ -357,18 +357,18 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.secretMetadata = map[string]jujuc.SecretMetadata{
-		uri.ID: {Description: "some secret", LatestRevision: 1},
+		uri.ID: {Description: "some secret", LatestRevision: 1, Owner: names.NewApplicationTag("mariadb")},
 	}
 	ctx := s.context(c)
 
-	err = ctx.UpdateSecret(uri, &jujuc.SecretUpsertArgs{
+	err = ctx.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
 		RotatePolicy: ptr(secrets.RotateDaily),
 		Description:  ptr("a secret"),
 		Label:        ptr("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.RemoveSecret(uri2)
+	err = ctx.RemoveSecret(uri2, ptr(1))
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: ptr(s.application.Name()),

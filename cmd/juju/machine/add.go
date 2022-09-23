@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -317,9 +318,20 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	jobs := []model.MachineJob{model.JobHostUnits}
 
+	var base *params.Base
+	if c.Series != "" {
+		info, err := series.GetOSVersionFromSeries(c.Series)
+		if err != nil {
+			return errors.NotValidf("machine series %q", c.Series)
+		}
+		base = &params.Base{
+			Name:    info.Name,
+			Channel: info.Channel,
+		}
+	}
 	machineParams := params.AddMachineParams{
 		Placement:   c.Placement,
-		Series:      c.Series,
+		Base:        base,
 		Constraints: c.Constraints,
 		Jobs:        jobs,
 		Disks:       c.Disks,

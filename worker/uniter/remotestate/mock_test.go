@@ -401,12 +401,12 @@ func (t *mockTicket) Wait() bool {
 	return t.result
 }
 
-type mockRotateSecretsWatcher struct {
-	rotateCh chan []string
-	stopCh   chan struct{}
+type mockSecretTriggerWatcher struct {
+	ch     chan []string
+	stopCh chan struct{}
 }
 
-func (w *mockRotateSecretsWatcher) Kill() {
+func (w *mockSecretTriggerWatcher) Kill() {
 	select {
 	case <-w.stopCh:
 	default:
@@ -414,16 +414,18 @@ func (w *mockRotateSecretsWatcher) Kill() {
 	}
 }
 
-func (*mockRotateSecretsWatcher) Wait() error {
+func (*mockSecretTriggerWatcher) Wait() error {
 	return nil
 }
 
 type mockSecretsClient struct {
-	secretsWatcher *mockStringsWatcher
-	unitName       string
+	secretsWatcher          *mockStringsWatcher
+	secretsRevisionsWatcher *mockStringsWatcher
+	unitName                string
+	owners                  []names.Tag
 }
 
-func (m *mockSecretsClient) WatchSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
+func (m *mockSecretsClient) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error) {
 	m.unitName = unitName
 	return m.secretsWatcher, nil
 }
@@ -434,10 +436,18 @@ func (m *mockSecretsClient) GetConsumerSecretsRevisionInfo(unitName string, uris
 	}
 	result := make(map[string]secrets.SecretRevisionInfo)
 	for i, uri := range uris {
+		if i == 0 {
+			continue
+		}
 		result[uri] = secrets.SecretRevisionInfo{
-			Revision: 666 + i,
+			Revision: 665 + i,
 			Label:    "label-" + uri,
 		}
 	}
 	return result, nil
+}
+
+func (m *mockSecretsClient) WatchObsolete(owners ...names.Tag) (watcher.StringsWatcher, error) {
+	m.owners = owners
+	return m.secretsRevisionsWatcher, nil
 }

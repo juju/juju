@@ -112,7 +112,6 @@ type bundleInfoOutput struct {
 	Description string `yaml:"description,omitempty"`
 	StoreURL    string `yaml:"store-url,omitempty"`
 	ID          string `yaml:"bundle-id,omitempty"`
-	Supports    string `yaml:"supports,omitempty"`
 	Tags        string `yaml:"tags,omitempty"`
 	Charms      string `yaml:"charms,omitempty"`
 	Channels    string `yaml:"channels,omitempty"`

@@ -254,3 +254,9 @@ func (s *FactorySuite) TestNewActionUnauthorised(c *gc.C) {
 	c.Assert(rnr, gc.IsNil)
 	c.Assert(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }
+
+func (s *FactorySuite) TestNewNoOpSecretsRemoved(c *gc.C) {
+	op, err := s.factory.NewNoOpSecretsRemoved([]string{"secreturi"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "process removed secrets: [secreturi]")
+}

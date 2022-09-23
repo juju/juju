@@ -50,7 +50,7 @@ type deployCharm struct {
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
-	series           string
+	seriesFlag       string
 	steps            []DeployStep
 	storage          map[string]storage.Constraints
 	trust            bool
@@ -206,7 +206,6 @@ func (d *deployCharm) deploy(
 		CharmOrigin:      id.Origin,
 		Cons:             d.constraints,
 		ApplicationName:  applicationName,
-		Series:           d.series,
 		NumUnits:         numUnits,
 		ConfigYAML:       string(configYAML),
 		Config:           appConfig,
@@ -330,7 +329,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		URL:    d.userCharmURL,
 		Origin: origin,
 	}
-	d.series = userCharmURL.Series
 	return d.deploy(ctx, deployAPI)
 }
 
@@ -376,7 +374,6 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		Origin: origin,
 		// Local charms don't need a channel.
 	}
-	l.series = l.curl.Series
 	return l.deploy(ctx, deployAPI)
 }
 
@@ -437,7 +434,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 	selector := seriesSelector{
 		charmURLSeries:      userRequestedURL.Series,
-		seriesFlag:          c.series,
+		seriesFlag:          c.seriesFlag,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		force:               c.force,
@@ -515,7 +512,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	c.series = series
 	c.csMac = csMac
 	c.id = application.CharmID{
 		URL:    curl,

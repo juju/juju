@@ -515,11 +515,14 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	c *gc.C,
 ) (*secrets.URI, func(corewatcher.SecretTriggerChange), func(), func()) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	nexRotateTime := time.Now().Add(time.Hour)
 	_, err := store.CreateSecret(uri, state.CreateSecretParams{
-		Owner: "application-mysql",
+		Owner: unit.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -531,9 +534,6 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
-	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
-		Application: app,
-	})
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password
@@ -543,7 +543,7 @@ func (s *watcherSuite) setupSecretRotationWatcher(
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := secretsmanager.NewClient(apiConn)
-	w, err := client.WatchSecretsRotationChanges("application-mysql")
+	w, err := client.WatchSecretsRotationChanges(unit.Tag())
 	if !c.Check(err, jc.ErrorIsNil) {
 		_ = apiConn.Close()
 		c.FailNow()
@@ -588,6 +588,107 @@ func (t *fakeToken) Check(int, interface{}) error {
 
 func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 	uri, assertChange, assertNoChange, stop := s.setupSecretRotationWatcher(c)
+	defer stop()
+
+	store := state.NewSecrets(s.State)
+
+	nexRotateTime := time.Now().Add(24 * time.Hour).Round(time.Second)
+	_, err := store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:    &fakeToken{},
+		NextRotateTime: ptr(nexRotateTime),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime,
+	})
+	assertNoChange()
+
+	_, err = store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken:  &fakeToken{},
+		RotatePolicy: ptr(secrets.RotateNever),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: time.Time{},
+	})
+	assertNoChange()
+}
+
+func (s *watcherSuite) setupSecretExpiryWatcher(
+	c *gc.C,
+) (*secrets.URI, func(corewatcher.SecretTriggerChange), func(), func()) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	unit, password := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Application: app,
+	})
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	nexRotateTime := time.Now().Add(time.Hour)
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
+		Owner: unit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(nexRotateTime),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = s.Model.ModelTag()
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := secretsmanager.NewClient(apiConn)
+	w, err := client.WatchSecretsRotationChanges(unit.Tag())
+	if !c.Check(err, jc.ErrorIsNil) {
+		_ = apiConn.Close()
+		c.FailNow()
+	}
+	stop := func() {
+		workertest.CleanKill(c, w)
+		_ = apiConn.Close()
+	}
+
+	assertNoChange := func() {
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(change corewatcher.SecretTriggerChange) {
+		select {
+		case changes, ok := <-w.Changes():
+			c.Check(ok, jc.IsTrue)
+			c.Assert(changes, gc.HasLen, 1)
+			c.Assert(changes[0], jc.DeepEquals, change)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+	}
+
+	// Initial event.
+	assertChange(corewatcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: nexRotateTime.Round(time.Second).UTC(),
+	})
+	return uri, assertChange, assertNoChange, stop
+}
+
+func (s *watcherSuite) TestSecretsExpiryWatcher(c *gc.C) {
+	uri, assertChange, assertNoChange, stop := s.setupSecretExpiryWatcher(c)
 	defer stop()
 
 	store := state.NewSecrets(s.State)

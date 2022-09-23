@@ -34,7 +34,6 @@ var (
 // charm.
 type DeployApplicationParams struct {
 	ApplicationName   string
-	Series            string
 	Charm             *state.Charm
 	CharmOrigin       corecharm.Origin
 	Channel           csparams.Channel
@@ -102,7 +101,7 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
-		Series:            args.Series,
+		Series:            args.CharmOrigin.Platform.Series,
 		Charm:             args.Charm,
 		CharmOrigin:       StateCharmOrigin(args.CharmOrigin),
 		Channel:           args.Channel,

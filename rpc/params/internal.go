@@ -262,6 +262,8 @@ type UnitStateResult struct {
 	RelationState map[int]string `json:"relation-state,omitempty"`
 	// StorageState is a internal storage state for this unit.
 	StorageState string `json:"storage-state,omitempty"`
+	// SecretState is internal secret state for this unit.
+	SecretState string `json:"secret-state,omitempty"`
 	// MeterStatusState encodes the meter status state for this unit.
 	MeterStatusState string `json:"meter-status-state,omitempty"`
 }
@@ -290,6 +292,7 @@ type SetUnitStateArg struct {
 	UniterState      *string            `json:"uniter-state,omitempty"`
 	RelationState    *map[int]string    `json:"relation-state,omitempty"`
 	StorageState     *string            `json:"storage-state,omitempty"`
+	SecretState      *string            `json:"secret-state,omitempty"`
 	MeterStatusState *string            `json:"meter-status-state,omitempty"`
 }
 
@@ -316,7 +319,7 @@ type CommitHookChangesArg struct {
 	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
 	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
 	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`
-	SecretDeletes        []SecretURIArg         `json:"secret-deletes,omitempty"`
+	SecretDeletes        []DeleteSecretArg      `json:"secret-deletes,omitempty"`
 }
 
 // ModelConfig holds a model configuration.

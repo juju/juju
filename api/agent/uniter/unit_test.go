@@ -734,6 +734,7 @@ func (s *unitSuite) TestUnitState(c *gc.C) {
 	unitState := params.UnitStateResult{
 		MeterStatusState: "meter",
 		StorageState:     "storage",
+		SecretState:      "secret",
 		UniterState:      "uniter",
 		CharmState:       map[string]string{"foo": "bar"},
 		RelationState:    map[int]string{666: "666"},

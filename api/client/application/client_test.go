@@ -91,7 +91,6 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 			c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
 			c.Assert(app.CharmOrigin, gc.DeepEquals, &params.CharmOrigin{Source: "charm-store"})
 			c.Assert(app.ApplicationName, gc.Equals, "applicationA")
-			c.Assert(app.Series, gc.Equals, "series")
 			c.Assert(app.NumUnits, gc.Equals, 1)
 			c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
 			c.Assert(app.Config, gc.DeepEquals, map[string]string{"foo": "bar"})
@@ -116,7 +115,6 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 			Source: apicharm.OriginCharmStore,
 		},
 		ApplicationName:  "applicationA",
-		Series:           "series",
 		NumUnits:         1,
 		ConfigYAML:       "configYAML",
 		Config:           map[string]string{"foo": "bar"},
@@ -161,7 +159,6 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *gc.C) {
 			Source: apicharm.OriginCharmStore,
 		},
 		ApplicationName:  "applicationA",
-		Series:           "series",
 		NumUnits:         1,
 		ConfigYAML:       "configYAML",
 		Config:           map[string]string{"foo": "bar"},

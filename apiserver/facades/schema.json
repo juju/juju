@@ -2413,9 +2413,6 @@
                                 }
                             }
                         },
-                        "series": {
-                            "type": "string"
-                        },
                         "storage": {
                             "type": "object",
                             "patternProperties": {
@@ -2428,7 +2425,6 @@
                     "additionalProperties": false,
                     "required": [
                         "application",
-                        "series",
                         "charm-url",
                         "channel",
                         "num-units",
@@ -14530,9 +14526,6 @@
                         "macaroon": {
                             "$ref": "#/definitions/Macaroon"
                         },
-                        "series": {
-                            "type": "string"
-                        },
                         "url": {
                             "type": "string"
                         }
@@ -14542,8 +14535,7 @@
                         "url",
                         "charm-origin",
                         "macaroon",
-                        "force",
-                        "series"
+                        "force"
                     ]
                 },
                 "AddCharmWithOrigin": {
@@ -14555,9 +14547,6 @@
                         "force": {
                             "type": "boolean"
                         },
-                        "series": {
-                            "type": "string"
-                        },
                         "url": {
                             "type": "string"
                         }
@@ -14566,8 +14555,7 @@
                     "required": [
                         "url",
                         "charm-origin",
-                        "force",
-                        "series"
+                        "force"
                     ]
                 },
                 "ApplicationCharmPlacement": {
@@ -23160,9 +23148,6 @@
                             "items": {
                                 "type": "string"
                             }
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -26421,7 +26406,7 @@
     {
         "Name": "MachineManager",
         "Description": "MachineManagerAPI provides access to the MachineManager API facade.",
-        "Version": 7,
+        "Version": 8,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -26562,6 +26547,9 @@
                                 "$ref": "#/definitions/Address"
                             }
                         },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "constraints": {
                             "$ref": "#/definitions/Value"
                         },
@@ -26594,14 +26582,10 @@
                         },
                         "placement": {
                             "$ref": "#/definitions/Placement"
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "series",
                         "constraints",
                         "jobs",
                         "parent-id",
@@ -26690,6 +26674,22 @@
                         "value",
                         "type",
                         "scope"
+                    ]
+                },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
                     ]
                 },
                 "Constraints": {
@@ -28448,6 +28448,9 @@
                                 }
                             }
                         },
+                        "secret-state": {
+                            "type": "string"
+                        },
                         "storage-state": {
                             "type": "string"
                         },
@@ -28502,6 +28505,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "secret-state": {
+                            "type": "string"
                         },
                         "storage-state": {
                             "type": "string"
@@ -38157,7 +38163,7 @@
     {
         "Name": "SSHClient",
         "Description": "Facade implements the API required by the sshclient worker.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -38178,6 +38184,15 @@
                         }
                     },
                     "description": "AllAddresses reports all addresses that might have SSH listening for each\nentity in args. The result is sorted with public addresses first.\nMachines and units are supported as entity types."
+                },
+                "ModelCredentialForSSH": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/CloudSpecResult"
+                        }
+                    },
+                    "description": "ModelCredentialForSSH returns a cloud spec for ssh purpose.\nThis facade call is only used for k8s model."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -38226,6 +38241,87 @@
                 }
             },
             "definitions": {
+                "CloudCredential": {
+                    "type": "object",
+                    "properties": {
+                        "attrs": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "auth-type": {
+                            "type": "string"
+                        },
+                        "redacted": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "auth-type"
+                    ]
+                },
+                "CloudSpec": {
+                    "type": "object",
+                    "properties": {
+                        "cacertificates": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "credential": {
+                            "$ref": "#/definitions/CloudCredential"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "identity-endpoint": {
+                            "type": "string"
+                        },
+                        "is-controller-cloud": {
+                            "type": "boolean"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "region": {
+                            "type": "string"
+                        },
+                        "skip-tls-verify": {
+                            "type": "boolean"
+                        },
+                        "storage-endpoint": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "name"
+                    ]
+                },
+                "CloudSpecResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/CloudSpec"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -38669,7 +38765,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SecretURIArgs"
+                            "$ref": "#/definitions/DeleteSecretArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -38725,7 +38821,7 @@
                     },
                     "description": "UpdateSecrets updates the specified secrets."
                 },
-                "WatchSecretsChanges": {
+                "WatchConsumedSecretsChanges": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -38735,7 +38831,31 @@
                             "$ref": "#/definitions/StringsWatchResults"
                         }
                     },
-                    "description": "WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                    "description": "WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                },
+                "WatchObsolete": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
+                },
+                "WatchSecretRevisionsExpiryChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
+                        }
+                    },
+                    "description": "WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config."
                 },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
@@ -38744,7 +38864,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
                     "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
@@ -38820,6 +38940,39 @@
                     "additionalProperties": false,
                     "required": [
                         "count"
+                    ]
+                },
+                "DeleteSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "DeleteSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeleteSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "Entities": {
@@ -39238,9 +39391,12 @@
                 "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "next-trugger-time": {
+                        "next-trigger-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -39249,7 +39405,7 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "next-trugger-time"
+                        "next-trigger-time"
                     ]
                 },
                 "SecretTriggerWatchResult": {
@@ -39272,48 +39428,6 @@
                     "required": [
                         "watcher-id",
                         "changes"
-                    ]
-                },
-                "SecretTriggerWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretTriggerWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "SecretURIArg": {
-                    "type": "object",
-                    "properties": {
-                        "uri": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uri"
-                    ]
-                },
-                "SecretURIArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretURIArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
                     ]
                 },
                 "SecretValueResult": {
@@ -39490,8 +39604,8 @@
         }
     },
     {
-        "Name": "SecretsRotationWatcher",
-        "Description": "srvSecretRotationWatcher defines the API wrapping a SecretsRotationWatcher.",
+        "Name": "SecretsTriggerWatcher",
+        "Description": "srvSecretTriggerWatcher defines the API wrapping a SecretsTriggerWatcher.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -39545,9 +39659,12 @@
                 "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "next-trugger-time": {
+                        "next-trigger-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -39556,7 +39673,7 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "next-trugger-time"
+                        "next-trigger-time"
                     ]
                 },
                 "SecretTriggerWatchResult": {
@@ -43177,8 +43294,8 @@
     },
     {
         "Name": "Subnets",
-        "Description": "API provides the subnets API facade for version 4.",
-        "Version": 4,
+        "Description": "API provides the subnets API facade for version 5.",
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -43188,18 +43305,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "AddSubnets": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/AddSubnetsParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "AddSubnets adds existing subnets to Juju."
-                },
                 "AllZones": {
                     "type": "object",
                     "properties": {
@@ -43235,51 +43340,6 @@
                 }
             },
             "definitions": {
-                "AddSubnetParams": {
-                    "type": "object",
-                    "properties": {
-                        "cidr": {
-                            "type": "string"
-                        },
-                        "provider-network-id": {
-                            "type": "string"
-                        },
-                        "space-tag": {
-                            "type": "string"
-                        },
-                        "subnet-provider-id": {
-                            "type": "string"
-                        },
-                        "vlan-tag": {
-                            "type": "integer"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "space-tag"
-                    ]
-                },
-                "AddSubnetsParams": {
-                    "type": "object",
-                    "properties": {
-                        "subnets": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AddSubnetParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "subnets"
-                    ]
-                },
                 "CIDRParams": {
                     "type": "object",
                     "properties": {
@@ -43318,30 +43378,6 @@
                     "required": [
                         "message",
                         "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "ListSubnetsResults": {
@@ -44662,7 +44698,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SecretURIArgs"
+                            "$ref": "#/definitions/DeleteSecretArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -45000,6 +45036,18 @@
                     },
                     "description": "WatchConfigSettingsHash returns a StringsWatcher that yields a hash\nof the config values every time the config changes. The uniter can\nsave this hash and use it to decide whether the config-changed hook\nneeds to be run (or whether this was just an agent restart with no\nsubstantive config change)."
                 },
+                "WatchConsumedSecretsChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                },
                 "WatchForModelConfigChanges": {
                     "type": "object",
                     "properties": {
@@ -45044,6 +45092,18 @@
                         }
                     }
                 },
+                "WatchObsolete": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
+                },
                 "WatchRelationUnits": {
                     "type": "object",
                     "properties": {
@@ -45056,17 +45116,17 @@
                     },
                     "description": "WatchRelationUnits returns a RelationUnitsWatcher for observing\nchanges to every unit in the supplied relation that is visible to\nthe supplied unit. See also state/watcher.go:RelationUnit.Watch()."
                 },
-                "WatchSecretsChanges": {
+                "WatchSecretRevisionsExpiryChanges": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/StringsWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
-                    "description": "WatchSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                    "description": "WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config."
                 },
                 "WatchSecretsRotationChanges": {
                     "type": "object",
@@ -45075,7 +45135,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SecretTriggerWatchResults"
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
                         }
                     },
                     "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
@@ -45631,7 +45691,7 @@
                         "secret-deletes": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/SecretURIArg"
+                                "$ref": "#/definitions/DeleteSecretArg"
                             }
                         },
                         "secret-grants": {
@@ -45791,6 +45851,39 @@
                     "additionalProperties": false,
                     "required": [
                         "count"
+                    ]
+                },
+                "DeleteSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "DeleteSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeleteSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "Endpoint": {
@@ -47360,9 +47453,12 @@
                 "SecretTriggerChange": {
                     "type": "object",
                     "properties": {
-                        "next-trugger-time": {
+                        "next-trigger-time": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
                         },
                         "uri": {
                             "type": "string"
@@ -47371,7 +47467,7 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
-                        "next-trugger-time"
+                        "next-trigger-time"
                     ]
                 },
                 "SecretTriggerWatchResult": {
@@ -47394,48 +47490,6 @@
                     "required": [
                         "watcher-id",
                         "changes"
-                    ]
-                },
-                "SecretTriggerWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretTriggerWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "SecretURIArg": {
-                    "type": "object",
-                    "properties": {
-                        "uri": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uri"
-                    ]
-                },
-                "SecretURIArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretURIArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
                     ]
                 },
                 "SecretValueResult": {
@@ -47491,6 +47545,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "secret-state": {
+                            "type": "string"
                         },
                         "storage-state": {
                             "type": "string"
@@ -47955,6 +48012,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "secret-state": {
+                            "type": "string"
                         },
                         "storage-state": {
                             "type": "string"
@@ -48818,6 +48878,9 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "secret-state": {
+                            "type": "string"
                         },
                         "storage-state": {
                             "type": "string"

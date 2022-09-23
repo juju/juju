@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -288,7 +287,6 @@ var commandNames = []string{
 	"add-space",
 	"add-ssh-key",
 	"add-storage",
-	"add-subnet",
 	"add-unit",
 	"add-user",
 	"agree",
@@ -371,6 +369,7 @@ var commandNames = []string{
 	"list-plans",
 	"list-regions",
 	"list-resources",
+	"list-secrets",
 	"list-spaces",
 	"list-ssh-keys",
 	"list-storage",
@@ -425,6 +424,7 @@ var commandNames = []string{
 	"run",
 	"scale-application",
 	"scp",
+	"secrets",
 	"set-credential",
 	"set-constraints",
 	"set-default-credential",
@@ -445,6 +445,7 @@ var commandNames = []string{
 	"show-model",
 	"show-offer",
 	"show-operation",
+	"show-secret",
 	"show-status",
 	"show-status-log",
 	"show-storage",
@@ -487,9 +488,7 @@ var commandNames = []string{
 }
 
 // optionalFeatures are feature flags that impact registration of commands.
-var optionalFeatures = []string{
-	feature.Secrets,
-}
+var optionalFeatures = []string{}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(

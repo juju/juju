@@ -65,23 +65,21 @@ type SSHContainerInterfaceForTest interface {
 
 func NewSSHContainer(
 	modelUUID, modelName string,
-	cloudCredentialAPI CloudCredentialAPI,
-	modelAPI ModelAPI,
 	applicationAPI ApplicationAPI,
 	charmsAPI CharmsAPI,
 	execClient k8sexec.Executor,
+	sshClient SSHClientAPI,
 	remote bool,
 	containerName string,
 ) SSHContainerInterfaceForTest {
 	return &sshContainer{
-		modelUUID:          modelUUID,
-		modelName:          modelName,
-		cloudCredentialAPI: cloudCredentialAPI,
-		modelAPI:           modelAPI,
-		applicationAPI:     applicationAPI,
-		charmsAPI:          charmsAPI,
-		execClient:         execClient,
-		execClientGetter: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
+		modelUUID:      modelUUID,
+		modelName:      modelName,
+		applicationAPI: applicationAPI,
+		charmsAPI:      charmsAPI,
+		execClient:     execClient,
+		sshClient:      sshClient,
+		execClientGetter: func(string, string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 			return execClient, nil
 		},
 		remote:    remote,

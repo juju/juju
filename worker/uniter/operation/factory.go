@@ -120,6 +120,14 @@ func (f *factory) NewSkipHook(hookInfo hook.Info) (Operation, error) {
 	return &skipOperation{hookOp}, nil
 }
 
+// NewNoOpSecretsRemoved is part of the Factory interface.
+func (f *factory) NewNoOpSecretsRemoved(uris []string) (Operation, error) {
+	return &noOpSecretsRemoved{
+		Operation: &skipOperation{}, uris: uris,
+		callbacks: f.config.Callbacks,
+	}, nil
+}
+
 // NewAction is part of the Factory interface.
 func (f *factory) NewAction(actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {

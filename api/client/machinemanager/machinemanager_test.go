@@ -44,11 +44,11 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.AddMachines{
 			MachineParams: []params.AddMachineParams{
 				{
-					Series: "jammy",
-					Disks:  []storage.Constraints{{Pool: "loop", Size: 1}},
+					Base:  &params.Base{Name: "ubuntu", Channel: "22.04"},
+					Disks: []storage.Constraints{{Pool: "loop", Size: 1}},
 				},
 				{
-					Series: "focal",
+					Base: &params.Base{Name: "ubuntu", Channel: "20.04"},
 				},
 			},
 		})
@@ -61,10 +61,10 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 	})
 
 	machines := []params.AddMachineParams{{
-		Series: "jammy",
-		Disks:  []storage.Constraints{{Pool: "loop", Size: 1}},
+		Base:  &params.Base{Name: "ubuntu", Channel: "22.04"},
+		Disks: []storage.Constraints{{Pool: "loop", Size: 1}},
 	}, {
-		Series: "focal",
+		Base: &params.Base{Name: "ubuntu", Channel: "20.04"},
 	}}
 	result, err := st.AddMachines(machines)
 	c.Check(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *MachinemanagerSuite) TestAddMachinesClientError(c *gc.C) {
 	st := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("blargh")
 	})
-	_, err := st.AddMachines([]params.AddMachineParams{{Series: "focal"}})
+	_, err := st.AddMachines([]params.AddMachineParams{{Base: &params.Base{Name: "ubuntu", Channel: "20.04"}}})
 	c.Check(err, gc.ErrorMatches, "blargh")
 }
 
@@ -92,7 +92,7 @@ func (s *MachinemanagerSuite) TestAddMachinesServerError(c *gc.C) {
 		return nil
 	})
 	machines := []params.AddMachineParams{{
-		Series: "jammy",
+		Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 	}}
 	results, err := st.AddMachines(machines)
 	c.Check(err, jc.ErrorIsNil)
@@ -112,7 +112,7 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *gc.C) {
 			return nil
 		})
 		machines := []params.AddMachineParams{{
-			Series: "jammy",
+			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}}
 		_, err := st.AddMachines(machines)
 		c.Check(err, gc.ErrorMatches, fmt.Sprintf("expected 1 result, got %d", n))

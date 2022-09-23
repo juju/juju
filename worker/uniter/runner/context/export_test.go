@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
@@ -140,6 +139,7 @@ func SetEnvironmentHookContextSecret(
 ) {
 	context.secretURI = secretURI
 	context.secretLabel = "label-" + secretURI
+	context.secretRevision = 666
 	context.secretsClient = client
 	context.secretsStore = store
 	context.secretMetadata = metadata
@@ -293,7 +293,7 @@ func (ctx *HookContext) SLALevel() string {
 	return ctx.slaLevel
 }
 
-func (ctx *HookContext) PendingSecretRemoves() []*secrets.URI {
+func (ctx *HookContext) PendingSecretRemoves() []uniter.SecretDeleteArg {
 	return ctx.secretChanges.pendingDeletes
 }
 

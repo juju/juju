@@ -59,7 +59,7 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
 	p := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -73,9 +73,11 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	}
 	md, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.URI.String(), gc.Equals, uri.String())
-	md.URI = nil
-	c.Assert(md, jc.DeepEquals, &secrets.SecretMetadata{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(md, mc, &secrets.SecretMetadata{
+		URI:              uri,
 		Version:          1,
 		Description:      "my secret",
 		Label:            "foobar",
@@ -97,7 +99,7 @@ func (s *SecretsSuite) TestCreateProviderId(c *gc.C) {
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			ProviderId:  ptr("provider-id"),
@@ -119,7 +121,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabel(c *gc.C) {
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
 	p := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -145,7 +147,7 @@ func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -165,7 +167,7 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -189,7 +191,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
 	p := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -204,18 +206,36 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	_, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create another secret to ensure it is excluded.
+	another := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mariadb"}),
+	})
+	now2 := s.Clock.Now().Round(time.Second).UTC()
 	uri2 := secrets.NewURI()
-	p.Owner = "application-wordpress"
-	_, err = s.store.CreateSecret(uri2, p)
+	p2 := state.CreateSecretParams{
+		Version: 1,
+		Owner:   another.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri2, p2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	owner := s.owner.Tag().String()
+	// Create another secret to ensure it is excluded.
+	uri3 := secrets.NewURI()
+	p.Owner = names.NewApplicationTag("wordpress")
+	_, err = s.store.CreateSecret(uri3, p)
+	c.Assert(err, jc.ErrorIsNil)
+
 	list, err := s.store.ListSecrets(state.SecretsFilter{
-		OwnerTag: &owner,
+		OwnerTags: []names.Tag{s.owner.Tag(), names.NewApplicationTag("mariadb")},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
 		NextRotateTime:   ptr(next),
@@ -227,6 +247,13 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		Label:            "foobar",
 		CreateTime:       now,
 		UpdateTime:       now,
+	}, {
+		URI:            uri2,
+		LatestRevision: 1,
+		Version:        1,
+		OwnerTag:       another.Tag().String(),
+		CreateTime:     now2,
+		UpdateTime:     now2,
 	}})
 }
 
@@ -237,7 +264,7 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	expire := now.Add(time.Hour).Round(time.Second).UTC()
 	p := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -254,7 +281,7 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 
 	// Create another secret to ensure it is excluded.
 	uri2 := secrets.NewURI()
-	p.Owner = "application-wordpress"
+	p.Owner = names.NewApplicationTag("wordpress")
 	_, err = s.store.CreateSecret(uri2, p)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -262,7 +289,10 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 		URI: uri,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:              uri,
 		RotatePolicy:     secrets.RotateDaily,
 		NextRotateTime:   ptr(next),
@@ -284,7 +314,7 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Description: ptr("my secret"),
@@ -304,15 +334,18 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 
 	// Create another secret to ensure it is excluded.
 	uri2 := secrets.NewURI()
-	cp.Owner = "application-wordpress"
+	cp.Owner = names.NewApplicationTag("wordpress")
 	_, err = s.store.CreateSecret(uri2, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{
-		ConsumerTags: []string{subject.String()},
+		ConsumerTags: []names.Tag{subject},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list, jc.DeepEquals, []*secrets.SecretMetadata{{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
 		URI:            uri,
 		LatestRevision: 1,
 		Version:        1,
@@ -336,7 +369,7 @@ func (s *SecretsSuite) TestUpdateAll(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -365,7 +398,7 @@ func (s *SecretsSuite) TestUpdateRotateInterval(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -388,7 +421,7 @@ func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -402,13 +435,18 @@ func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		ExpireTime:  ptr(next),
 	})
+
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(time.Time{}),
+	})
 }
 
 func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Label:       ptr("label"),
@@ -441,7 +479,7 @@ func (s *SecretsSuite) TestUpdateData(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -464,7 +502,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -478,14 +516,14 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 		Label:           "foobar",
 		CurrentRevision: 1,
 	}
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", cmd)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	newData := map[string]string{"foo": "bar", "hello": "world"}
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
-	cmd, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd, jc.DeepEquals, &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
@@ -499,7 +537,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 	now := s.Clock.Now().Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -513,11 +551,11 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 		Label:           "foobar",
 		CurrentRevision: 1,
 	}
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", cmd)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.SetBeforeHooks(c, s.State, func() {
-		err = s.State.SaveSecretConsumer(uri, "unit-mysql-0", cmd)
+		err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 		c.Assert(err, jc.ErrorIsNil)
 	})
 
@@ -526,10 +564,10 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
-	cmd, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.LatestRevision, gc.Equals, 2)
-	cmd, err = s.State.GetSecretConsumer(uri, "unit-mysql-0")
+	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.LatestRevision, gc.Equals, 2)
 }
@@ -540,7 +578,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -554,9 +592,9 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 		Label:           "foobar",
 		CurrentRevision: 1,
 	}
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", cmd)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SaveSecretConsumer(uri, "unit-mysql-0", cmd)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mysql/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.SetBeforeHooks(c, s.State, func() {
@@ -574,10 +612,10 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 		LeaderToken: &fakeToken{},
 		Data:        newData,
 	})
-	cmd, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.LatestRevision, gc.Equals, 2)
-	_, err = s.State.GetSecretConsumer(uri, "unit-mysql-0")
+	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -594,7 +632,7 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	if update.Label != nil {
 		expected.Label = *update.Label
 	}
-	if update.ExpireTime != nil {
+	if update.ExpireTime != nil && !update.ExpireTime.IsZero() {
 		expected.LatestExpireTime = update.ExpireTime
 	}
 
@@ -627,11 +665,21 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 		revs, err := s.store.ListSecretRevisions(md.URI)
 		c.Assert(err, jc.ErrorIsNil)
 		for _, r := range revs {
+			if r.ExpireTime == nil && update.ExpireTime.IsZero() {
+				return
+			}
 			if r.ExpireTime != nil && r.ExpireTime.Equal(update.ExpireTime.Round(time.Second).UTC()) {
 				return
 			}
 		}
 		c.Fatalf("expire time not set for secret revision %d", expectedRevision)
+		md, err := s.store.GetSecret(original.URI)
+		c.Assert(err, jc.ErrorIsNil)
+		if update.ExpireTime.IsZero() {
+			c.Assert(md.LatestExpireTime, gc.IsNil)
+		} else {
+			c.Assert(md.LatestExpireTime, gc.Equals, update.ExpireTime.Round(time.Second).UTC())
+		}
 	}
 	if update.NextRotateTime != nil {
 		nextTime := state.GetSecretNextRotateTime(c, s.State, md.URI.ID)
@@ -646,7 +694,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -682,7 +730,7 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -729,7 +777,7 @@ func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -758,7 +806,7 @@ func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -768,25 +816,25 @@ func (s *SecretsSuite) TestGetSecretConsumer(c *gc.C) {
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
 		CurrentRevision: 666,
 	}
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
-	_, err = s.State.GetSecretConsumer(uri, "unit-mysql-0")
+	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -799,15 +847,15 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 		Label:           "foobar",
 		CurrentRevision: 666,
 	}
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 	md.CurrentRevision = 668
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err = s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	md2, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 }
@@ -815,7 +863,7 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -829,12 +877,12 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 		CurrentRevision: 666,
 	}
 	state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.SaveSecretConsumer(uri, "unit-mariadb-0", &secrets.SecretConsumerMetadata{CurrentRevision: 668})
+		err := s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 668})
 		c.Assert(err, jc.ErrorIsNil)
 	})
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", md)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
-	md2, err := s.State.GetSecretConsumer(uri, "unit-mariadb-0")
+	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
 }
@@ -852,7 +900,7 @@ func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -898,7 +946,7 @@ func (s *SecretsSuite) TestSecretGrantCrossModel(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -920,7 +968,7 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -955,7 +1003,7 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingSubject(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -990,7 +1038,7 @@ func (s *SecretsSuite) TestSecretRevokeAccess(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -1029,17 +1077,18 @@ func (s *SecretsSuite) TestSecretRevokeAccess(c *gc.C) {
 
 func (s *SecretsSuite) TestDelete(c *gc.C) {
 	subject := names.NewApplicationTag("wordpress")
-	create := func() *secrets.URI {
+	create := func(label string) *secrets.URI {
 		uri := secrets.NewURI()
 		now := s.Clock.Now().Round(time.Second).UTC()
 		next := now.Add(time.Minute).Round(time.Second).UTC()
 		cp := state.CreateSecretParams{
 			Version: 1,
-			Owner:   s.owner.Tag().String(),
+			Owner:   s.owner.Tag(),
 			UpdateSecretParams: state.UpdateSecretParams{
 				LeaderToken:    &fakeToken{},
 				RotatePolicy:   ptr(secrets.RotateDaily),
 				NextRotateTime: ptr(next),
+				Label:          ptr(label),
 				Data:           map[string]string{"foo": "bar"},
 			},
 		}
@@ -1049,7 +1098,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 			Label:           "foobar",
 			CurrentRevision: 1,
 		}
-		err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", cmd)
+		err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
 			LeaderToken: &fakeToken{},
@@ -1060,15 +1109,17 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		return uri
 	}
-	uri1 := create()
-	uri2 := create()
+	uri1 := create("label1")
+	uri2 := create("label2")
 
-	err := s.store.DeleteSecret(uri1)
+	removed, err := s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsTrue)
 	_, _, err = s.store.GetSecretValue(uri1, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = s.store.DeleteSecret(uri1)
+	removed, err = s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsTrue)
 
 	// Check that other secret info remains intact.
 	secretRevisionsCollection, closer := state.GetCollection(s.State, "secretRevisions")
@@ -1115,6 +1166,53 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 	n, err = refCountsCollection.FindId(uri1.ID + "#consumer").Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 0)
+
+	// Check we can now reuse the label.
+	create("label1")
+}
+
+func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar3"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	removed, err := s.store.DeleteSecret(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
+	_, _, err = s.store.GetSecretValue(uri, 1)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	val, _, err := s.store.GetSecretValue(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
+	val, _, err = s.store.GetSecretValue(uri, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar3"})
+
+	removed, err = s.store.DeleteSecret(uri, 1, 2, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsTrue)
+	_, _, err = s.store.GetSecretValue(uri, 3)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.store.GetSecret(uri)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
@@ -1124,7 +1222,7 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -1149,7 +1247,7 @@ func (s *SecretsSuite) TestSecretRotatedConcurrent(c *gc.C) {
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -1178,7 +1276,8 @@ type SecretsRotationWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore
 
-	owner *state.Application
+	ownerApp  *state.Application
+	ownerUnit *state.Unit
 }
 
 var _ = gc.Suite(&SecretsRotationWatcherSuite{})
@@ -1186,16 +1285,17 @@ var _ = gc.Suite(&SecretsRotationWatcherSuite{})
 func (s *SecretsRotationWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
-	s.owner = s.Factory.MakeApplication(c, nil)
+	s.ownerApp = s.Factory.MakeApplication(c, nil)
+	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
 }
 
-func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotationWatcher, *secrets.URI) {
+func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsTriggerWatcher, *secrets.URI) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.ownerApp.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
@@ -1205,9 +1305,11 @@ func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsRotati
 	}
 	md, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	w := s.State.WatchSecretsRotationChanges(s.owner.Tag().String())
+	w, err := s.State.WatchSecretsRotationChanges(
+		[]names.Tag{s.ownerApp.Tag(), s.ownerUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
 
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	wc.AssertChange(watcher.SecretTriggerChange{
 		URI:             md.URI,
 		NextTriggerTime: next,
@@ -1223,7 +1325,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchInitialEvent(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -1240,7 +1342,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
@@ -1257,7 +1359,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchDelete(c *gc.C) {
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
@@ -1282,7 +1384,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecret(c *gc.C
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
@@ -1308,7 +1410,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdatesSameSecretDeleted(
 
 func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	w, uri := s.setupWatcher(c)
-	wc := testing.NewSecretsRotationWatcherC(c, w)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
 	// TODO(quiescence): these two changes should be one event.
@@ -1325,7 +1427,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	next2 := now.Add(time.Minute).Round(time.Second).UTC()
 	md2, err := s.store.CreateSecret(uri2, state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.ownerApp.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateHourly),
@@ -1351,26 +1453,368 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-type SecretsWatcherSuite struct {
+func (s *SecretsRotationWatcherSuite) TestWatchRestartChangeOwners(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next1 := now.Add(time.Minute).Round(time.Second).UTC()
+	next2 := now.Add(time.Minute).Round(time.Second).UTC()
+
+	uri2 := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateHourly),
+			NextRotateTime: ptr(next2),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	next3 := now.Add(time.Minute).Round(time.Second).UTC()
+	anotherUnit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
+
+	uri3 := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   anotherUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateHourly),
+			NextRotateTime: ptr(next3),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri3, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri2,
+		NextTriggerTime: next2,
+	})
+
+	wc.AssertNoChange()
+	testing.AssertStop(c, w)
+
+	w, err = s.State.WatchSecretsRotationChanges(
+		[]names.Tag{s.ownerApp.Tag(), anotherUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc = testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri,
+		NextTriggerTime: next1,
+	}, watcher.SecretTriggerChange{
+		URI:             uri3,
+		NextTriggerTime: next3,
+	})
+	wc.AssertNoChange()
+}
+
+type SecretsExpiryWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+
+	ownerApp  *state.Application
+	ownerUnit *state.Unit
+}
+
+var _ = gc.Suite(&SecretsExpiryWatcherSuite{})
+
+func (s *SecretsExpiryWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecrets(s.State)
+	s.ownerApp = s.Factory.MakeApplication(c, nil)
+	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
+}
+
+func (s *SecretsExpiryWatcherSuite) setupWatcher(c *gc.C) (state.SecretsTriggerWatcher, *secrets.URI) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerApp.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ExpireTime:  ptr(next),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.State.WatchSecretRevisionsExpiryChanges(
+		[]names.Tag{s.ownerApp.Tag(), s.ownerUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             md.URI,
+		Revision:        1,
+		NextTriggerTime: next,
+	})
+	wc.AssertNoChange()
+	return w, uri
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchInitialEvent(c *gc.C) {
+	w, _ := s.setupWatcher(c)
+	testing.AssertStop(c, w)
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(2 * time.Hour).Round(time.Second).UTC()
+
+	s.Clock.Advance(time.Hour)
+	updated := s.Clock.Now().Round(time.Second).UTC()
+	update := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(next),
+	}
+	md, err := s.store.UpdateSecret(uri, update)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.LatestExpireTime, gc.NotNil)
+	c.Assert(*md.LatestExpireTime, gc.Equals, next)
+
+	revs, err := s.store.ListSecretRevisions(md.URI)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, r := range revs {
+		if r.ExpireTime != nil && r.ExpireTime.Equal(update.ExpireTime.Round(time.Second).UTC()) {
+			c.Assert(r.UpdateTime, jc.Almost, updated)
+			return
+		}
+	}
+	c.Fatalf("expire time not set for secret revision %d", 2)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri,
+		Revision:        3,
+		NextTriggerTime: next,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchSetExpiryToNil(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(time.Time{}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      md.URI,
+		Revision: 1,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	md, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(time.Time{}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	next := now.Add(2 * time.Hour).Round(time.Second).UTC()
+	update := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ExpireTime:  ptr(next),
+	}
+	_, err = s.store.UpdateSecret(uri, update)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      md.URI,
+		Revision: 1,
+	}, watcher.SecretTriggerChange{
+		URI:             md.URI,
+		Revision:        1,
+		NextTriggerTime: next,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchRemoveSecret(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	_, err := s.store.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      uri,
+		Revision: 1,
+	})
+	wc.AssertNoChange()
+
+	uri2 := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ExpireTime:  ptr(next),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri2,
+		Revision:        1,
+		NextTriggerTime: next,
+	})
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      uri2,
+		Revision: 1,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchRemoveRevision(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	triggerTime := now.Add(time.Minute).Round(time.Second).UTC()
+	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri,
+		Revision:        1,
+		NextTriggerTime: triggerTime,
+	})
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:      uri,
+		Revision: 1,
+	})
+	wc.AssertNoChange()
+}
+
+func (s *SecretsExpiryWatcherSuite) TestWatchRestartChangeOwners(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next1 := now.Add(time.Minute).Round(time.Second).UTC()
+	next2 := now.Add(time.Minute).Round(time.Second).UTC()
+
+	uri2 := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ExpireTime:  ptr(next2),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	next3 := now.Add(time.Minute).Round(time.Second).UTC()
+
+	anotherUnit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
+	uri3 := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   anotherUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			ExpireTime:  ptr(next3),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri3, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri2,
+		Revision:        1,
+		NextTriggerTime: next2,
+	})
+
+	wc.AssertNoChange()
+	testing.AssertStop(c, w)
+
+	w, err = s.State.WatchSecretRevisionsExpiryChanges(
+		[]names.Tag{s.ownerApp.Tag(), anotherUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc = testing.NewSecretsTriggerWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	wc.AssertChange(watcher.SecretTriggerChange{
+		URI:             uri,
+		Revision:        1,
+		NextTriggerTime: next1,
+	}, watcher.SecretTriggerChange{
+		URI:             uri3,
+		Revision:        1,
+		NextTriggerTime: next3,
+	})
+	wc.AssertNoChange()
+}
+
+type SecretsConsumedWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore
 
 	owner *state.Application
 }
 
-var _ = gc.Suite(&SecretsWatcherSuite{})
+var _ = gc.Suite(&SecretsConsumedWatcherSuite{})
 
-func (s *SecretsWatcherSuite) SetUpTest(c *gc.C) {
+func (s *SecretsConsumedWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
 	s.owner = s.Factory.MakeApplication(c, nil)
 }
 
-func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
+func (s *SecretsConsumedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -1378,24 +1822,25 @@ func (s *SecretsWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secr
 	}
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	w := s.State.WatchConsumedSecretsChanges("unit-mariadb-0")
+	w, err := s.State.WatchConsumedSecretsChanges(names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
 
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 
-	err = s.State.SaveSecretConsumer(uri, "unit-mariadb-0", &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	// No event until rev > 1.
 	wc.AssertNoChange()
 	return w, uri
 }
 
-func (s *SecretsWatcherSuite) TestWatcherStartStop(c *gc.C) {
+func (s *SecretsConsumedWatcherSuite) TestWatcherStartStop(c *gc.C) {
 	w, _ := s.setupWatcher(c)
 	testing.AssertStop(c, w)
 }
 
-func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
+func (s *SecretsConsumedWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
@@ -1410,7 +1855,7 @@ func (s *SecretsWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *SecretsWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
+func (s *SecretsConsumedWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	w, uri := s.setupWatcher(c)
 	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
@@ -1418,7 +1863,7 @@ func (s *SecretsWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	uri2 := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.owner.Tag().String(),
+		Owner:   s.owner.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo2": "bar"},
@@ -1427,7 +1872,7 @@ func (s *SecretsWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	_, err := s.store.CreateSecret(uri2, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSecretConsumer(uri2, "unit-mariadb-0", &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	err = s.State.SaveSecretConsumer(uri2, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
 	c.Assert(err, jc.ErrorIsNil)
 	// No event until rev > 1.
 	wc.AssertNoChange()
@@ -1448,5 +1893,212 @@ func (s *SecretsWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(uri2.String())
+	wc.AssertNoChange()
+}
+
+func (s *SecretsConsumedWatcherSuite) TestWatchConsumedDeleted(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("baz"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+}
+
+type SecretsObsoleteWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+
+	ownerApp  *state.Application
+	ownerUnit *state.Unit
+}
+
+var _ = gc.Suite(&SecretsObsoleteWatcherSuite{})
+
+func (s *SecretsObsoleteWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecrets(s.State)
+	s.ownerApp = s.Factory.MakeApplication(c, nil)
+	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
+}
+
+func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerApp.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.store.WatchObsolete(
+		[]names.Tag{s.ownerApp.Tag(), s.ownerUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+	return w, uri
+}
+
+func (s *SecretsObsoleteWatcherSuite) TestWatcherStartStop(c *gc.C) {
+	w, _ := s.setupWatcher(c)
+	testing.AssertStop(c, w)
+}
+
+func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	p := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo2"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
+	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String() + "/1")
+	wc.AssertNoChange()
+
+	// The latest added revision is never obsolete.
+	p = state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar3"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String() + "/1")
+	wc.AssertNoChange()
+
+	// New revision 4 added, so rev 3 is now also obsolete.
+	p = state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar4"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String()+"/1", uri.String()+"/3")
+	wc.AssertNoChange()
+}
+
+func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	owner2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	uri2 := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner2.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri3 := secrets.NewURI()
+	cp = state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.ownerUnit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = s.store.CreateSecret(uri3, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri2)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = s.store.DeleteSecret(uri3)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri3.String())
+	wc.AssertNoChange()
+}
+
+func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C) {
+	w, uri := s.setupWatcher(c)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	p := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo2"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
+	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Deleting the secret removes any pending orphaned changes.
+	_, err = s.store.DeleteSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String())
 	wc.AssertNoChange()
 }

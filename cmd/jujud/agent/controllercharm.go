@@ -35,7 +35,7 @@ import (
 
 const controllerCharmURL = "ch:juju-controller"
 
-func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmRisk string, isCAAS bool, unitPassword string) (resultErr error) {
+func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath, charmRisk string, isCAAS bool, unitPassword string) (resultErr error) {
 	arch := corearch.DefaultArchitecture
 	series := coreseries.LatestLTS()
 	if cons.HasArch() {
@@ -90,7 +90,7 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	// If no local charm, use the one from charmhub.
 	if err != nil {
 		source = "store"
-		if curl, origin, err = populateStoreControllerCharm(st, charmRisk, series, arch); err != nil {
+		if curl, origin, err = populateStoreControllerCharm(st, charmPath, charmRisk, series, arch); err != nil {
 			return errors.Annotate(err, "deploying charmhub controller charm")
 		}
 	}
@@ -129,7 +129,7 @@ var (
 )
 
 // populateStoreControllerCharm downloads and stores the controller charm from charmhub.
-func populateStoreControllerCharm(st *state.State, charmRisk, series, arch string) (*charm.URL, *corecharm.Origin, error) {
+func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, series, arch string) (*charm.URL, *corecharm.Origin, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, nil, err
@@ -148,7 +148,12 @@ func populateStoreControllerCharm(st *state.State, charmRisk, series, arch strin
 		return nil, nil, err
 	}
 
-	curl := charm.MustParseURL(controllerCharmURL)
+	var curl *charm.URL
+	if charmPath == "" {
+		curl = charm.MustParseURL(controllerCharmURL)
+	} else {
+		curl = charm.MustParseURL(charmPath)
+	}
 	channel, err := charm.ParseChannelNormalize(charmRisk)
 	if err != nil {
 		return nil, nil, err

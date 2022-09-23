@@ -104,12 +104,11 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		},
 		id: application.CharmID{
 			URL:    s.url,
-			Origin: commoncharm.Origin{},
+			Origin: commoncharm.Origin{Series: "focal"},
 		},
 		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,
 		numUnits: 0,
-		series:   "focal",
 		steps:    []DeployStep{},
 	}
 }

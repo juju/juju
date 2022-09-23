@@ -4581,7 +4581,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 			LeaderToken: &token{isLeader: true},
 			Data:        map[string]string{"foo2": "bar"},
 		},
-		Owner: s.wordpress.Tag().String(),
+		Owner: s.wordpress.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri2, state.SecretAccessParams{
@@ -4597,7 +4597,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 			LeaderToken: &token{isLeader: true},
 			Data:        map[string]string{"foo3": "bar"},
 		},
-		Owner: s.wordpress.Tag().String(),
+		Owner: s.wordpress.Tag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.GrantSecretAccess(uri3, state.SecretAccessParams{
@@ -4625,7 +4625,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Label:        ptr("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
 	}})
-	b.AddSecretDeletes([]*secrets.URI{uri3})
+	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
 	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
 		ApplicationName: ptr(s.mysql.Name()),

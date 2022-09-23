@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/core/secrets"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -2665,4 +2666,80 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc
 			c.Check(exEp.AllSettings(), gc.HasLen, 0)
 		}
 	}
+}
+
+func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	createTime := time.Now().UTC().Round(time.Second)
+	next := createTime.Add(time.Minute).Round(time.Second).UTC()
+	expire := createTime.Add(2 * time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ProviderId:  ptr("provider-id"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       owner.Tag(),
+		Subject:     owner.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	err = s.State.SaveSecretConsumer(uri, consumer.Tag(), &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	allSecrets := model.Secrets()
+	c.Assert(allSecrets, gc.HasLen, 1)
+	secret := allSecrets[0]
+	c.Assert(secret.Id(), gc.Equals, uri.ID)
+	c.Assert(secret.Description(), gc.Equals, "my secret")
+	c.Assert(secret.NextRotateTime(), jc.DeepEquals, ptr(next))
+	entity, err := secret.Owner()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity.Id(), gc.Equals, "mysql")
+	access, ok := secret.ACL()["application-mysql"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(access.Role(), gc.Equals, "manage")
+	revisions := secret.Revisions()
+	c.Assert(revisions, gc.HasLen, 2)
+	c.Assert(revisions[0].Content(), jc.DeepEquals, map[string]string{"foo": "bar"})
+	c.Assert(revisions[0].ExpireTime(), jc.DeepEquals, ptr(expire))
+	c.Assert(revisions[1].ProviderId(), jc.DeepEquals, ptr("provider-id"))
+	consumers := secret.Consumers()
+	c.Assert(consumers, gc.HasLen, 1)
+	info := consumers[0]
+	entity, err = info.Consumer()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity.Id(), gc.Equals, "wordpress")
+	c.Assert(info.CurrentRevision(), gc.Equals, 666)
 }
