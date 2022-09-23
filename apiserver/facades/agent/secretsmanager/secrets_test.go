@@ -33,16 +33,16 @@ type SecretsManagerSuite struct {
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
 
-	provider               *mocks.MockSecretStoreProvider
-	leadership             *mocks.MockChecker
-	token                  *mocks.MockToken
-	secretsBackend         *mocks.MockSecretsBackend
-	secretsConsumer        *mocks.MockSecretsConsumer
-	secretsWatcher         *mocks.MockStringsWatcher
-	secretsRotationService *mocks.MockSecretsRotation
-	secretsRotationWatcher *mocks.MockSecretsRotationWatcher
-	authTag                names.Tag
-	clock                  clock.Clock
+	provider              *mocks.MockSecretStoreProvider
+	leadership            *mocks.MockChecker
+	token                 *mocks.MockToken
+	secretsBackend        *mocks.MockSecretsBackend
+	secretsConsumer       *mocks.MockSecretsConsumer
+	secretsWatcher        *mocks.MockStringsWatcher
+	secretTriggers        *mocks.MockSecretTriggers
+	secretsTriggerWatcher *mocks.MockSecretsTriggerWatcher
+	authTag               names.Tag
+	clock                 clock.Clock
 
 	facade *secretsmanager.SecretsManagerAPI
 }
@@ -69,8 +69,8 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsBackend = mocks.NewMockSecretsBackend(ctrl)
 	s.secretsConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.secretsWatcher = mocks.NewMockStringsWatcher(ctrl)
-	s.secretsRotationService = mocks.NewMockSecretsRotation(ctrl)
-	s.secretsRotationWatcher = mocks.NewMockSecretsRotationWatcher(ctrl)
+	s.secretTriggers = mocks.NewMockSecretTriggers(ctrl)
+	s.secretsTriggerWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
 	s.authTag = names.NewUnitTag("mariadb/0")
 	s.expectAuthUnitAgent()
 
@@ -87,7 +87,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	}
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
-		s.authorizer, s.resources, s.leadership, s.secretsBackend, s.secretsConsumer, s.secretsRotationService,
+		s.authorizer, s.resources, s.leadership, s.secretsBackend, s.secretsConsumer, s.secretTriggers,
 		storeConfigGetter, providerGetter, s.authTag, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -149,7 +149,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 
 	p := state.CreateSecretParams{
 		Version: secrets.Version,
-		Owner:   "application-mariadb",
+		Owner:   names.NewApplicationTag("mariadb"),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken:    s.token,
 			RotatePolicy:   ptr(coresecrets.RotateDaily),
@@ -221,7 +221,7 @@ func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
 
 	p := state.CreateSecretParams{
 		Version: secrets.Version,
-		Owner:   "application-mariadb",
+		Owner:   names.NewApplicationTag("mariadb"),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: s.token,
 			Label:       ptr("foobar"),
@@ -363,15 +363,38 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.secretsBackend.EXPECT().DeleteSecret(&expectURI).Return(nil)
+	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(true, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check(0, nil).Return(nil)
 	s.expectSecretAccessQuery(1)
 	s.provider.EXPECT().CleanupSecrets(mockModel{}, []*coresecrets.URI{uri}).Return(nil)
 
-	results, err := s.facade.RemoveSecrets(params.SecretURIArgs{
-		Args: []params.SecretURIArg{{
-			URI: expectURI.String(),
+	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(false, nil)
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.expectSecretAccessQuery(1)
+
+	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,7 +408,7 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfo(c *gc.C) {
 
 	s.expectSecretAccessQuery(1)
 	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, "application-mariadb").Return(
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewApplicationTag("mariadb")).Return(
 		&coresecrets.SecretConsumerMetadata{
 			LatestRevision: 666,
 			Label:          "label",
@@ -407,13 +430,17 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfo(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+
 	now := time.Now()
 	uri := coresecrets.NewURI()
 	s.secretsBackend.EXPECT().ListSecrets(
 		state.SecretsFilter{
-			OwnerTag: ptr("application-mariadb"),
+			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
 		}).Return([]*coresecrets.SecretMetadata{{
 		URI:              uri,
+		OwnerTag:         "application-mariadb",
 		Description:      "description",
 		Label:            "label",
 		RotatePolicy:     coresecrets.RotateHourly,
@@ -433,6 +460,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
 			URI:              uri.String(),
+			OwnerTag:         "application-mariadb",
 			Description:      "description",
 			Label:            "label",
 			RotatePolicy:     coresecrets.RotateHourly.String(),
@@ -456,19 +484,19 @@ func (s *SecretsManagerSuite) TestGetSecretContent(c *gc.C) {
 	data := map[string]string{"foo": "bar"}
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, "unit-mariadb-0").Return(
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/0")).Return(
 		&coresecrets.SecretConsumerMetadata{CurrentRevision: 666}, nil)
 
 	// Secret 2 has not been consumed before.
 	data2 := map[string]string{"foo": "bar2"}
 	val2 := coresecrets.NewSecretValue(data2)
 	uri2 := coresecrets.NewURI()
-	s.secretsConsumer.EXPECT().GetSecretConsumer(uri2, "unit-mariadb-0").Return(
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri2, names.NewUnitTag("mariadb/0")).Return(
 		nil, errors.NotFoundf("secret"))
 	s.expectSecretAccessQuery(2)
 	s.secretsBackend.EXPECT().GetSecret(uri2).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
-		uri2, "unit-mariadb-0", &coresecrets.SecretConsumerMetadata{
+		uri2, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: 668,
 			LatestRevision:  668,
 		}).Return(nil)
@@ -496,11 +524,11 @@ func (s *SecretsManagerSuite) TestGetSecretContent(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestWatchSecretsChanges(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges("unit-mariadb-0").Return(
-		s.secretsWatcher,
+	s.secretsConsumer.EXPECT().WatchConsumedSecretsChanges(names.NewUnitTag("mariadb/0")).Return(
+		s.secretsWatcher, nil,
 	)
 	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
 
@@ -509,7 +537,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsChanges(c *gc.C) {
 	watchChan <- []string{uri.String()}
 	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
 
-	result, err := s.facade.WatchSecretsChanges(params.Entities{
+	result, err := s.facade.WatchConsumedSecretsChanges(params.Entities{
 		Entities: []params.Entity{{
 			Tag: "unit-mariadb-0",
 		}, {
@@ -527,13 +555,46 @@ func (s *SecretsManagerSuite) TestWatchSecretsChanges(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.secretsBackend.EXPECT().WatchObsolete(
+		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
+		s.secretsWatcher, nil,
+	)
+	s.resources.EXPECT().Register(s.secretsWatcher).Return("1")
+
+	uri := coresecrets.NewURI()
+	watchChan := make(chan []string, 1)
+	watchChan <- []string{uri.String()}
+	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
+
+	result, err := s.facade.WatchObsolete(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "unit-mariadb-0",
+		}, {
+			Tag: "application-mariadb",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{uri.String()},
+	})
+}
+
 func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsRotationService.EXPECT().WatchSecretsRotationChanges("application-mariadb").Return(
-		s.secretsRotationWatcher,
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.secretTriggers.EXPECT().WatchSecretsRotationChanges(
+		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
+		s.secretsTriggerWatcher, nil,
 	)
-	s.resources.EXPECT().Register(s.secretsRotationWatcher).Return("1")
+	s.resources.EXPECT().Register(s.secretsTriggerWatcher).Return("1")
 
 	next := time.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()
@@ -542,25 +603,21 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		URI:             uri,
 		NextTriggerTime: next,
 	}}
-	s.secretsRotationWatcher.EXPECT().Changes().Return(rotateChan)
+	s.secretsTriggerWatcher.EXPECT().Changes().Return(rotateChan)
 
 	result, err := s.facade.WatchSecretsRotationChanges(params.Entities{
 		Entities: []params.Entity{{
-			Tag: "application-mariadb",
+			Tag: "unit-mariadb-0",
 		}, {
-			Tag: "application-foo",
+			Tag: "application-mariadb",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResults{
-		Results: []params.SecretTriggerWatchResult{{
-			WatcherId: "1",
-			Changes: []params.SecretTriggerChange{{
-				URI:             uri.String(),
-				NextTriggerTime: next,
-			}},
-		}, {
-			Error: &params.Error{Code: "unauthorized access", Message: "permission denied"},
+	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResult{
+		WatcherId: "1",
+		Changes: []params.SecretTriggerChange{{
+			URI:             uri.String(),
+			NextTriggerTime: next,
 		}},
 	})
 }
@@ -570,7 +627,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	nextRotateTime := s.clock.Now().Add(time.Hour)
-	s.secretsRotationService.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
+	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
 	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:       "application-mariadb",
 		RotatePolicy:   coresecrets.RotateHourly,
@@ -603,11 +660,40 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	nextRotateTime := s.clock.Now().Add(coresecrets.RotateRetryDelay)
-	s.secretsRotationService.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
+	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
 	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		OwnerTag:       "application-mariadb",
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 666,
+	}, nil)
+
+	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+		Args: []params.SecretRotatedArg{{
+			URI:              uri.String(),
+			OriginalRevision: 666,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{
+				Error: &params.Error{Code: "", Message: `boom`},
+			},
+		},
+	})
+}
+
+func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	nextRotateTime := s.clock.Now().Add(coresecrets.RotateRetryDelay)
+	s.secretTriggers.EXPECT().SecretRotated(uri, nextRotateTime).Return(errors.New("boom"))
+	s.secretsBackend.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+		OwnerTag:         "application-mariadb",
+		RotatePolicy:     coresecrets.RotateHourly,
+		LatestExpireTime: ptr(s.clock.Now().Add(50 * time.Minute)),
+		LatestRevision:   667,
 	}, nil)
 
 	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
@@ -648,10 +734,49 @@ func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
 	})
 }
 
+func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.secretTriggers.EXPECT().WatchSecretRevisionsExpiryChanges(
+		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
+		s.secretsTriggerWatcher, nil,
+	)
+	s.resources.EXPECT().Register(s.secretsTriggerWatcher).Return("1")
+
+	next := time.Now().Add(time.Hour)
+	uri := coresecrets.NewURI()
+	expiryChan := make(chan []corewatcher.SecretTriggerChange, 1)
+	expiryChan <- []corewatcher.SecretTriggerChange{{
+		URI:             uri,
+		Revision:        666,
+		NextTriggerTime: next,
+	}}
+	s.secretsTriggerWatcher.EXPECT().Changes().Return(expiryChan)
+
+	result, err := s.facade.WatchSecretRevisionsExpiryChanges(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "unit-mariadb-0",
+		}, {
+			Tag: "application-mariadb",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.SecretTriggerWatchResult{
+		WatcherId: "1",
+		Changes: []params.SecretTriggerChange{{
+			URI:             uri.String(),
+			Revision:        666,
+			NextTriggerTime: next,
+		}},
+	})
+}
+
 func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectSecretAccessQuery(2)
+	s.expectSecretAccessQuery(1)
 	uri := coresecrets.NewURI()
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")
@@ -695,7 +820,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectSecretAccessQuery(2)
+	s.expectSecretAccessQuery(1)
 	uri := coresecrets.NewURI()
 	subjectTag := names.NewUnitTag("wordpress/0")
 	scopeTag := names.NewRelationTag("wordpress:db mysql:server")

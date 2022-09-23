@@ -276,7 +276,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 						Spec: *podSpec,
 					},
 					PodManagementPolicy: appsv1.ParallelPodManagement,
-					ServiceName:         headlessServiceName(a.name),
+					ServiceName:         HeadlessServiceName(a.name),
 				},
 			},
 		}
@@ -534,7 +534,7 @@ type annotationUpdater interface {
 }
 
 func (a *app) upgradeHeadlessService(applier resources.Applier, ver version.Number) error {
-	r := resources.NewService(headlessServiceName(a.name), a.namespace, nil)
+	r := resources.NewService(HeadlessServiceName(a.name), a.namespace, nil)
 	if err := r.Get(context.Background(), a.client); err != nil {
 		return errors.Trace(err)
 	}
@@ -629,12 +629,14 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 	return state, nil
 }
 
-func headlessServiceName(appName string) string {
+// HeadlessServiceName is an idempotent function for returning the name of the
+// endpoints service juju make for applications.
+func HeadlessServiceName(appName string) string {
 	return fmt.Sprintf("%s-endpoints", appName)
 }
 
 func (a *app) configureHeadlessService(name string, annotation annotations.Annotation) error {
-	svc := resources.NewService(headlessServiceName(name), a.namespace, &corev1.Service{
+	svc := resources.NewService(HeadlessServiceName(name), a.namespace, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: a.labels(),
 			Annotations: annotation.
@@ -932,7 +934,7 @@ func (a *app) Delete() error {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		applier.Delete(resources.NewStatefulSet(a.name, a.namespace, nil))
-		applier.Delete(resources.NewService(headlessServiceName(a.name), a.namespace, nil))
+		applier.Delete(resources.NewService(HeadlessServiceName(a.name), a.namespace, nil))
 	case caas.DeploymentStateless:
 		applier.Delete(resources.NewDeployment(a.name, a.namespace, nil))
 	case caas.DeploymentDaemon:

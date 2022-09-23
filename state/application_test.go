@@ -3211,7 +3211,7 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.mysql.Tag().String(),
+		Owner:   s.mysql.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
@@ -3242,7 +3242,7 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
-		Owner:   s.mysql.Tag().String(),
+		Owner:   s.mysql.Tag(),
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Label:       ptr("label"),
@@ -3254,6 +3254,9 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = store.GetSecret(uri)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	// Create again, no label clash.
 	s.AddTestingApplication(c, "mysql", s.charm)
 	_, err = store.CreateSecret(uri, cp)

@@ -1294,14 +1294,14 @@ func (w *SrvModelSummaryWatcher) translateMessages(messages []cache.ModelSummary
 	return result
 }
 
-// srvSecretRotationWatcher defines the API wrapping a SecretsRotationWatcher.
-type srvSecretRotationWatcher struct {
+// srvSecretTriggerWatcher defines the API wrapping a SecretsTriggerWatcher.
+type srvSecretTriggerWatcher struct {
 	watcherCommon
 	st      *state.State
-	watcher state.SecretsRotationWatcher
+	watcher state.SecretsTriggerWatcher
 }
 
-func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
+func newSecretsTriggerWatcher(context facade.Context) (facade.Facade, error) {
 	id := context.ID()
 	auth := context.Auth()
 	resources := context.Resources()
@@ -1311,11 +1311,11 @@ func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(state.SecretsRotationWatcher)
+	watcher, ok := resources.Get(id).(state.SecretsTriggerWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
-	return &srvSecretRotationWatcher{
+	return &srvSecretTriggerWatcher{
 		watcherCommon: newWatcherCommon(context),
 		st:            st,
 		watcher:       watcher,
@@ -1325,7 +1325,7 @@ func newSecretsRotationWatcher(context facade.Context) (facade.Facade, error) {
 // Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvSecretRotationWatcher.
-func (w *srvSecretRotationWatcher) Next() (params.SecretTriggerWatchResult, error) {
+func (w *srvSecretTriggerWatcher) Next() (params.SecretTriggerWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
 		return params.SecretTriggerWatchResult{
 			Changes: w.translateChanges(changes),
@@ -1338,7 +1338,7 @@ func (w *srvSecretRotationWatcher) Next() (params.SecretTriggerWatchResult, erro
 	return params.SecretTriggerWatchResult{}, err
 }
 
-func (w *srvSecretRotationWatcher) translateChanges(changes []corewatcher.SecretTriggerChange) []params.SecretTriggerChange {
+func (w *srvSecretTriggerWatcher) translateChanges(changes []corewatcher.SecretTriggerChange) []params.SecretTriggerChange {
 	if changes == nil {
 		return nil
 	}
@@ -1346,6 +1346,7 @@ func (w *srvSecretRotationWatcher) translateChanges(changes []corewatcher.Secret
 	for i, c := range changes {
 		result[i] = params.SecretTriggerChange{
 			URI:             c.URI.String(),
+			Revision:        c.Revision,
 			NextTriggerTime: c.NextTriggerTime,
 		}
 	}

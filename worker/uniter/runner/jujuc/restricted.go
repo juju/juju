@@ -259,16 +259,16 @@ func (ctx *RestrictedContext) GetSecret(*secrets.URI, string, bool, bool) (secre
 }
 
 // CreateSecret implements runner.Context.
-func (ctx *RestrictedContext) CreateSecret(*SecretUpsertArgs) (*secrets.URI, error) {
+func (ctx *RestrictedContext) CreateSecret(args *SecretCreateArgs) (*secrets.URI, error) {
 	return nil, ErrRestrictedContext
 }
 
 // UpdateSecret implements runner.Context.
-func (ctx *RestrictedContext) UpdateSecret(*secrets.URI, *SecretUpsertArgs) error {
+func (ctx *RestrictedContext) UpdateSecret(*secrets.URI, *SecretUpdateArgs) error {
 	return ErrRestrictedContext
 }
 
-func (ctx *RestrictedContext) RemoveSecret(*secrets.URI) error {
+func (ctx *RestrictedContext) RemoveSecret(*secrets.URI, *int) error {
 	return ErrRestrictedContext
 }
 

@@ -74,15 +74,15 @@ type UpdateSecretArg struct {
 	URI string `json:"uri"`
 }
 
-// SecretURIArgs holds args for identifying secrets.
-type SecretURIArgs struct {
-	Args []SecretURIArg `json:"args"`
+// DeleteSecretArgs holds args for deleting secrets.
+type DeleteSecretArgs struct {
+	Args []DeleteSecretArg `json:"args"`
 }
 
-// SecretURIArg holds the args for identifying a secret.
-type SecretURIArg struct {
-	// URI identifies the secret.
-	URI string `json:"uri"`
+// DeleteSecretArg holds the args for deleting a secret.
+type DeleteSecretArg struct {
+	URI       string `json:"uri"`
+	Revisions []int  `json:"revisions,omitempty"`
 }
 
 // GetSecretConsumerInfoArgs holds the args for getting secret
@@ -180,7 +180,8 @@ type ListSecretResult struct {
 // SecretTriggerChange describes a change to a secret trigger.
 type SecretTriggerChange struct {
 	URI             string    `json:"uri"`
-	NextTriggerTime time.Time `json:"next-trugger-time"`
+	Revision        int       `json:"revision,omitempty"`
+	NextTriggerTime time.Time `json:"next-trigger-time"`
 }
 
 // SecretTriggerWatchResult holds secret trigger change events.
@@ -188,12 +189,6 @@ type SecretTriggerWatchResult struct {
 	WatcherId string                `json:"watcher-id"`
 	Changes   []SecretTriggerChange `json:"changes"`
 	Error     *Error                `json:"error,omitempty"`
-}
-
-// SecretTriggerWatchResults holds the results for any API call which ends up
-// returning a list of SecretTriggerWatchResult.
-type SecretTriggerWatchResults struct {
-	Results []SecretTriggerWatchResult `json:"results"`
 }
 
 // SecretRotatedArgs holds the args for updating rotated secret info.

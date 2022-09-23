@@ -6,7 +6,6 @@ package common
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -14,8 +13,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/network"
-	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -279,64 +276,6 @@ func (f *toolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 		}
 	}
 	return fullList, nil
-}
-
-// TODO: Remove for Juju 3/4.
-func (f *toolsFinder) resultForOSTools(list coretools.List, osType string) coretools.List {
-	added := make(map[version.Binary]bool)
-	var matched coretools.List
-	for _, t := range list {
-		converted := *t
-
-		// t might be for a series so convert to an OS type.
-		if !coreos.IsValidOSTypeName(t.Version.Release) {
-			osTypeName, err := coreseries.GetOSFromSeries(t.Version.Release)
-			if err != nil {
-				continue
-			}
-			converted.Version.Release = strings.ToLower(osTypeName.String())
-		}
-
-		if converted.Version.Release != osType {
-			continue
-		}
-		if added[converted.Version] {
-			continue
-		}
-
-		matched = append(matched, &converted)
-		added[converted.Version] = true
-	}
-
-	return matched
-}
-
-// TODO: Remove for Juju 3/4.
-func (f *toolsFinder) resultForSeriesTools(list coretools.List, series string) coretools.List {
-	osType := coreseries.DefaultOSTypeNameFromSeries(series)
-
-	added := make(map[version.Binary]bool)
-	var matched coretools.List
-	for _, t := range list {
-		converted := *t
-
-		if coreos.IsValidOSTypeName(t.Version.Release) {
-			if osType != t.Version.Release {
-				continue
-			}
-			converted.Version.Release = series
-		} else if series != t.Version.Release {
-			continue
-		}
-		if added[converted.Version] {
-			continue
-		}
-
-		matched = append(matched, &converted)
-		added[converted.Version] = true
-	}
-
-	return matched
 }
 
 // findMatchingTools searches tools storage and simplestreams for tools

@@ -11,7 +11,9 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -111,9 +113,14 @@ func (k *kubernetesClient) deleteServices(appName string) error {
 	return nil
 }
 
-func (k *kubernetesClient) findServiceForApplication(appName string) (*core.Service, error) {
-	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
-	servicesList, err := k.client().CoreV1().Services(k.namespace).List(context.TODO(), meta.ListOptions{
+func findServiceForApplication(
+	ctx context.Context,
+	serviceI corev1.ServiceInterface,
+	appName string,
+	legacyLabels bool,
+) (*core.Service, error) {
+	labels := utils.LabelsForApp(appName, legacyLabels)
+	servicesList, err := serviceI.List(context.TODO(), meta.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 
@@ -123,9 +130,21 @@ func (k *kubernetesClient) findServiceForApplication(appName string) (*core.Serv
 
 	if len(servicesList.Items) == 0 {
 		return nil, errors.NotFoundf("finding service for application %s", appName)
-	} else if len(servicesList.Items) != 1 {
+	}
+
+	services := []core.Service{}
+	endpointSvcName := application.HeadlessServiceName(appName)
+	// We want to filter out the endpoints services made by juju as they should
+	// not be considered.
+	for _, svc := range servicesList.Items {
+		if svc.Name != endpointSvcName {
+			services = append(services, svc)
+		}
+	}
+
+	if len(services) != 1 {
 		return nil, errors.NotValidf("unable to handle mutiple services %d for application %s", len(servicesList.Items), appName)
 	}
 
-	return &servicesList.Items[0], nil
+	return &services[0], nil
 }

@@ -198,6 +198,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UniterParams.NewDeployer = nil
 	config.UniterParams.NewProcessRunner = nil
 	config.UniterParams.SecretRotateWatcherFunc = nil
+	config.UniterParams.SecretExpiryWatcherFunc = nil
 	config.UniterParams.SecretsStoreGetter = nil
 	config.Logger = nil
 	config.ExecClientGetter = nil

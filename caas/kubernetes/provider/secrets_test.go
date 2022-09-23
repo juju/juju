@@ -35,6 +35,32 @@ func (s *secretsSuite) TestProcessSecretData(c *gc.C) {
 	})
 }
 
+func (s *secretsSuite) TestGetSecretToken(c *gc.C) {
+	secret := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "secret-1",
+			Annotations: map[string]string{
+				core.ServiceAccountNameKey: "secret-1",
+			},
+		},
+		Type: core.SecretTypeServiceAccountToken,
+		Data: map[string][]byte{
+			core.ServiceAccountTokenKey: []byte("token"),
+		},
+	}
+	_, err := s.mockSecrets.Create(context.Background(), secret, v1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.broker.GetSecretToken("secret-1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, "token")
+
+	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Items, gc.HasLen, 1)
+	c.Assert(result.Items[0].Name, gc.Equals, "secret-1")
+}
+
 func (s *secretsSuite) TestGetJujuSecret(c *gc.C) {
 	secret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{

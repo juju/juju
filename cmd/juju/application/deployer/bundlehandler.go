@@ -396,10 +396,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				ch = ch.WithRevision(*spec.Revision)
 			}
 		}
-		urlForOrigin := ch
-		if spec.Revision != nil && *spec.Revision != -1 {
-			urlForOrigin = urlForOrigin.WithRevision(*spec.Revision)
-		}
 
 		channel, origin, err := h.constructChannelAndOrigin(ch, spec.Series, spec.Channel, cons)
 		if err != nil {
@@ -419,6 +415,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				Revision: -1,
 			}
 			origin = origin.WithSeries("")
+			origin.OS = ""
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
@@ -732,6 +729,9 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		if url.Schema != charm.CharmStore.String() {
+			url = url.WithSeries(resolvedOrigin.Series)
+		}
 		logger.Tracef("Using series %s from %v to deploy %v", resolvedOrigin.Series, supportedSeries, url)
 	}
 
@@ -931,12 +931,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	// Figure out what series we need to deploy with.
-	selectedSeries, err := h.selectedSeries(charmInfo.Charm(), chID, curl, p.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Only Kubernetes bundles send the unit count and placement with the deploy API call.
 	numUnits := 0
 	var placement []*instance.Placement
@@ -949,30 +943,40 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	// charmhub).
 	// We should remove this when charmstore charms are defunct and remove this
 	// specialization.
-	if charm.CharmStore.Matches(chID.URL.Schema) {
-		var track string
-		if origin.Track != nil {
-			track = *origin.Track
+	switch {
+	case charm.Local.Matches(chID.URL.Schema):
+		// Figure out what series we need to deploy with. For Local charms,
+		// this was determined when addcharm was called.
+		selectedSeries, err := h.selectedSeries(charmInfo.Charm(), chID, curl, p.Series)
+		if err != nil {
+			return errors.Trace(err)
 		}
+		origin.Series = selectedSeries
+	case charm.CharmStore.Matches(chID.URL.Schema):
+		// Figure out what series we need to deploy with. For CharmHub charms,
+		// this was determined when addcharm was called.
+		selectedSeries, err := h.selectedSeries(charmInfo.Charm(), chID, curl, p.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		platform, err := utils.DeducePlatform(cons, selectedSeries, h.modelConstraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		// A channel is needed whether the risk is valid or not.
-		channel, _ := charm.MakeChannel(track, origin.Risk, "")
+		channel, _ := charm.MakeChannel("", origin.Risk, "")
 		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	// Deploy the application.
-	if err := h.deployAPI.Deploy(application.DeployArgs{
+	args := application.DeployArgs{
 		CharmID:          chID,
 		CharmOrigin:      origin,
 		Cons:             cons,
 		ApplicationName:  p.Application,
-		Series:           selectedSeries,
 		NumUnits:         numUnits,
 		Placement:        placement,
 		ConfigYAML:       configYAML,
@@ -981,7 +985,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		Resources:        resNames2IDs,
 		EndpointBindings: p.EndpointBindings,
 		Force:            h.force,
-	}); err != nil {
+	}
+	// Deploy the application.
+	if err := h.deployAPI.Deploy(args); err != nil {
 		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}
 	h.writeAddedResources(resNames2IDs)
@@ -1135,9 +1141,21 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotate(err, "invalid constraints for machine")
 	}
+	var base *params.Base
+	if p.Series != "" {
+		info, err := series.GetOSVersionFromSeries(p.Series)
+		if err != nil {
+			return errors.NotValidf("machine series %q", p.Series)
+		}
+		p.Series = ""
+		base = &params.Base{
+			Name:    info.Name,
+			Channel: info.Channel,
+		}
+	}
 	machineParams := params.AddMachineParams{
 		Constraints: cons,
-		Series:      p.Series,
+		Base:        base,
 		Jobs:        []model.MachineJob{model.JobHostUnits},
 	}
 	if ct := p.ContainerType; ct != "" {

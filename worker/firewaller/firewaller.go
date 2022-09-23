@@ -471,7 +471,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			delete(fw.machineds, tag)
-			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
+			return errors.Annotatef(err, "cannot respond to units changes for %q, %q", tag, fw.modelUUID)
 		}
 	}
 
@@ -843,7 +843,8 @@ func (fw *Firewaller) ingressRulesForMachineUnit(machine *machineData, unit *uni
 	if unit.applicationd.exposed {
 		rules = fw.ingressRulesForExposedMachineUnit(machine, unit, unitPortRanges)
 	} else {
-		if rules, err = fw.ingressRulesForNonExposedMachineUnit(unit.applicationd.application.Tag(), unitPortRanges); err != nil {
+		if rules, err = fw.ingressRulesForNonExposedMachineUnit(unit.applicationd.application.Tag(),
+			unitPortRanges); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -855,7 +856,8 @@ func (fw *Firewaller) ingressRulesForMachineUnit(machine *machineData, unit *uni
 	return rules, nil
 }
 
-func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(appTag names.ApplicationTag, openUnitPortRanges network.GroupedPortRanges) (firewall.IngressRules, error) {
+func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(appTag names.ApplicationTag,
+	openUnitPortRanges network.GroupedPortRanges) (firewall.IngressRules, error) {
 	// Not exposed, so add any ingress rules required by remote relations.
 	srcCIDRs, err := fw.updateForRemoteRelationIngress(appTag)
 	if err != nil || len(srcCIDRs) == 0 {
@@ -870,7 +872,8 @@ func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(appTag names.Applicat
 	return rules, nil
 }
 
-func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, unit *unitData, openUnitPortRanges network.GroupedPortRanges) firewall.IngressRules {
+func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, unit *unitData,
+	openUnitPortRanges network.GroupedPortRanges) firewall.IngressRules {
 	var (
 		exposedEndpoints = unit.applicationd.exposedEndpoints
 		rules            firewall.IngressRules
@@ -891,9 +894,11 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, un
 
 			if len(sp.Subnets) == 0 {
 				if exposedEndpoint == "" {
-					fw.logger.Warningf("all endpoints of application %q are exposed to space %q which contains no subnets", unit.applicationd.application.Name(), sp.Name)
+					fw.logger.Warningf("all endpoints of application %q are exposed to space %q which contains no subnets",
+						unit.applicationd.application.Name(), sp.Name)
 				} else {
-					fw.logger.Warningf("endpoint %q application %q are exposed to space %q which contains no subnets", exposedEndpoint, unit.applicationd.application.Name(), sp.Name)
+					fw.logger.Warningf("endpoint %q application %q are exposed to space %q which contains no subnets",
+						exposedEndpoint, unit.applicationd.application.Name(), sp.Name)
 				}
 			}
 			for _, subnet := range sp.Subnets {
@@ -1071,7 +1076,8 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	fwInstance, ok := envInstances[0].(instances.InstanceFirewaller)
 	if !ok {
-		fw.logger.Infof("flushInstancePorts called on an instance of type %T which doesn't support firewall.", envInstances[0])
+		fw.logger.Infof("flushInstancePorts called on an instance of type %T which doesn't support firewall.",
+			envInstances[0])
 		return nil
 	}
 
@@ -1284,10 +1290,12 @@ func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[st
 				return errors.Trace(err)
 			}
 			if curExposed == newExposed && equalExposedEndpoints(curExposedEndpoints, newExposedEndpoints) {
-				ad.fw.logger.Tracef("application(%q) expose settings unchanged: exposed: %v, exposedEndpoints: %v", ad.application.Name(), curExposed, curExposedEndpoints)
+				ad.fw.logger.Tracef("application(%q) expose settings unchanged: exposed: %v, exposedEndpoints: %v",
+					ad.application.Name(), curExposed, curExposedEndpoints)
 				continue
 			}
-			ad.fw.logger.Tracef("application(%q) expose settings changed: exposed: %v, exposedEndpoints: %v", ad.application.Name(), newExposed, newExposedEndpoints)
+			ad.fw.logger.Tracef("application(%q) expose settings changed: exposed: %v, exposedEndpoints: %v",
+				ad.application.Name(), newExposed, newExposedEndpoints)
 
 			curExposed, curExposedEndpoints = newExposed, newExposedEndpoints
 			select {
@@ -1506,7 +1514,8 @@ func (rd *remoteRelationData) requirerEndpointLoop() error {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
 		case cidrs := <-egressAddressWatcher.Changes():
-			rd.fw.logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			rd.fw.logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID,
+				cidrs)
 			if err := rd.updateProviderModel(cidrs); err != nil {
 				return errors.Trace(err)
 			}
@@ -1534,7 +1543,8 @@ func (rd *remoteRelationData) providerEndpointLoop() error {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
 		case cidrs := <-ingressAddressWatcher.Changes():
-			rd.fw.logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			rd.fw.logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID,
+				cidrs)
 			if err := rd.updateIngressNetworks(cidrs); err != nil {
 				return errors.Trace(err)
 			}
@@ -1679,7 +1689,8 @@ type remoteRelationPoller struct {
 
 // startRelationPoller creates a new worker which waits until a remote
 // relation is registered in both models.
-func (fw *Firewaller) startRelationPoller(relationKey, remoteAppName string, relationReady chan remoteRelationInfo) error {
+func (fw *Firewaller) startRelationPoller(relationKey, remoteAppName string,
+	relationReady chan remoteRelationInfo) error {
 	poller := &remoteRelationPoller{
 		fw:             fw,
 		relationTag:    names.NewRelationTag(relationKey),

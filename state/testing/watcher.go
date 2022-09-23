@@ -338,29 +338,29 @@ func (c RelationUnitsWatcherC) AssertClosed() {
 	}
 }
 
-// SecretsRotationWatcherC embeds a gocheck.C and adds methods to help
+// SecretsTriggerWatcherC embeds a gocheck.C and adds methods to help
 // verify the behaviour of any watcher that uses a
 // <-chan []SecretTriggerChange
-type SecretsRotationWatcherC struct {
+type SecretsTriggerWatcherC struct {
 	*gc.C
-	Watcher SecretsRotationWatcher
+	Watcher SecretsTriggerWatcher
 }
 
-// NewSecretsRotationWatcherC returns a SecretsRotationWatcherC that
+// NewSecretsTriggerWatcherC returns a SecretsTriggerWatcherC that
 // checks for aggressive event coalescence.
-func NewSecretsRotationWatcherC(c *gc.C, w SecretsRotationWatcher) SecretsRotationWatcherC {
-	return SecretsRotationWatcherC{
+func NewSecretsTriggerWatcherC(c *gc.C, w SecretsTriggerWatcher) SecretsTriggerWatcherC {
+	return SecretsTriggerWatcherC{
 		C:       c,
 		Watcher: w,
 	}
 }
 
-type SecretsRotationWatcher interface {
+type SecretsTriggerWatcher interface {
 	Stop() error
 	Changes() watcher.SecretTriggerChannel
 }
 
-func (c SecretsRotationWatcherC) AssertNoChange() {
+func (c SecretsTriggerWatcherC) AssertNoChange() {
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
@@ -370,13 +370,13 @@ func (c SecretsRotationWatcherC) AssertNoChange() {
 
 // AssertChange asserts the given changes was reported by the watcher,
 // but does not assume there are no following changes.
-func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretTriggerChange) {
+func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChange) {
 	var received []watcher.SecretTriggerChange
 	timeout := time.After(testing.LongWait)
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		select {
 		case actual, ok := <-c.Watcher.Changes():
-			c.Logf("Watcher.Changes() => %# v", actual)
+			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
 			c.Assert(ok, jc.IsTrue)
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
@@ -391,7 +391,7 @@ func (c SecretsRotationWatcherC) AssertChange(expect ...watcher.SecretTriggerCha
 	}
 }
 
-func (c SecretsRotationWatcherC) AssertClosed() {
+func (c SecretsTriggerWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, jc.IsFalse)

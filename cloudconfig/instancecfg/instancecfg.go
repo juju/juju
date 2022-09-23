@@ -295,6 +295,9 @@ type StateInitializationParams struct {
 	// to a controller.
 	ControllerConfig controller.Config
 
+	// ControllerCharmPath points to a controller charm on Charmhub.
+	ControllerCharmPath string
+
 	// ControllerCharmRisk is used when deploying the controller charm.
 	ControllerCharmRisk string
 
@@ -359,6 +362,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCloudRegion                   string                            `yaml:"controller-cloud-region"`
 	ControllerCloudCredentialName           string                            `yaml:"controller-cloud-credential-name,omitempty"`
 	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
+	ControllerCharmPath                     string                            `yaml:"controller-charm-path,omitempty"`
 	ControllerCharmRisk                     string                            `yaml:"controller-charm-risk,omitempty"`
 }
 
@@ -390,6 +394,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerCloudRegion:                   p.ControllerCloudRegion,
 		ControllerCloudCredentialName:           p.ControllerCloudCredentialName,
 		ControllerCloudCredential:               p.ControllerCloudCredential,
+		ControllerCharmPath:                     p.ControllerCharmPath,
 		ControllerCharmRisk:                     p.ControllerCharmRisk,
 	}
 	return yaml.Marshal(&internal)
@@ -432,6 +437,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCloudRegion:                   internal.ControllerCloudRegion,
 		ControllerCloudCredentialName:           internal.ControllerCloudCredentialName,
 		ControllerCloudCredential:               internal.ControllerCloudCredential,
+		ControllerCharmPath:                     internal.ControllerCharmPath,
 		ControllerCharmRisk:                     internal.ControllerCharmRisk,
 	}
 	return nil

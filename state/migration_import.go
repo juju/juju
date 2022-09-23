@@ -217,6 +217,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.storage(); err != nil {
 		return nil, nil, errors.Annotate(err, "storage")
 	}
+	if err := restore.secrets(); err != nil {
+		return nil, nil, errors.Annotate(err, "secrets")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -1657,7 +1660,7 @@ func (i *importer) firewallRules() error {
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)
 	}
-	i.logger.Debugf("importing remote applications succeeded")
+	i.logger.Debugf("importing firewall rules succeeded")
 	return nil
 }
 
@@ -2186,22 +2189,27 @@ func (i *importer) addAction(action description.Action) error {
 		Parallel:       action.Parallel(),
 		ExecutionGroup: action.ExecutionGroup(),
 	}
-	prefix := ensureActionMarker(action.Receiver())
-	notificationDoc := &actionNotificationDoc{
-		DocId:     i.st.docID(prefix + action.Id()),
-		ModelUUID: modelUUID,
-		Receiver:  action.Receiver(),
-		ActionID:  action.Id(),
-	}
+
 	ops := []txn.Op{{
 		C:      actionsC,
 		Id:     newDoc.DocId,
 		Insert: newDoc,
-	}, {
-		C:      actionNotificationsC,
-		Id:     notificationDoc.DocId,
-		Insert: notificationDoc,
 	}}
+
+	if activeStatus.Contains(string(newDoc.Status)) {
+		prefix := ensureActionMarker(action.Receiver())
+		notificationDoc := &actionNotificationDoc{
+			DocId:     i.st.docID(prefix + action.Id()),
+			ModelUUID: modelUUID,
+			Receiver:  action.Receiver(),
+			ActionID:  action.Id(),
+		}
+		ops = append(ops, txn.Op{
+			C:      actionNotificationsC,
+			Id:     notificationDoc.DocId,
+			Insert: notificationDoc,
+		})
+	}
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -2746,5 +2754,25 @@ func (i *importer) storagePools() error {
 			return errors.Annotatef(err, "creating pool %q", pool.Name())
 		}
 	}
+	return nil
+}
+
+func (i *importer) secrets() error {
+	i.logger.Debugf("importing secrets")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
+	}
+	migration.Add(func() error {
+		m := ImportSecrets{}
+		return m.Execute(stateModelNamspaceShim{
+			Model: migration.src,
+			st:    i.st,
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing secrets succeeded")
 	return nil
 }

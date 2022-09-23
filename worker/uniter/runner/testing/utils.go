@@ -156,11 +156,12 @@ func (s SecretsContextAccessor) SecretMetadata(filter secrets.Filter) ([]secrets
 		Metadata: secrets.SecretMetadata{
 			URI:            uri,
 			LatestRevision: 666,
+			OwnerTag:       "application-mariadb",
 			Description:    "description",
 			RotatePolicy:   secrets.RotateHourly,
 			Label:          "label",
 		},
-		ProviderIds: []string{"provider-id"},
+		ProviderIds: map[int]string{666: "provider-id"},
 	}}, nil
 }
 
@@ -169,5 +170,5 @@ func (s SecretsContextAccessor) SaveContent(uri *secrets.URI, revision int, valu
 }
 
 func (s SecretsContextAccessor) DeleteContent(providerId string) error {
-	return nil
+	return errors.NotSupportedf("")
 }

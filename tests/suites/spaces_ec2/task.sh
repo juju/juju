@@ -4,22 +4,26 @@ test_spaces_ec2() {
 		return
 	fi
 
+	# Ensure that the aws cli and juju both use the same aws region
+	export AWS_DEFAULT_REGION="${BOOTSTRAP_REGION}"
+
 	set_verbosity
 
 	echo "==> Checking for dependencies"
 	check_dependencies juju aws
 
-	echo "==> Checking for stale NIC resources"
-	cleanup_stale_nics
+	echo "==> Ensure subnet for alternative space exists"
+	subnet_id=$(ensure_subnet)
 
 	echo "==> Setting up additional EC2 resources for tests"
-	hotplug_nic_id=$(setup_nic_for_space_tests)
+	hotplug_nic_id=$(setup_nic_for_space_tests "${subnet_id}")
 	echo "[+] created secondary NIC with ID ${hotplug_nic_id}"
 
 	file="${TEST_DIR}/test-spaces-ec2.log"
 
 	bootstrap "test-spaces-ec2" "${file}"
 
+	test_machines_in_spaces
 	test_upgrade_charm_with_bind "$hotplug_nic_id"
 	test_juju_bind "$hotplug_nic_id"
 
@@ -31,18 +35,30 @@ test_spaces_ec2() {
 	aws ec2 delete-network-interface --network-interface-id "$hotplug_nic_id" 2>/dev/null
 }
 
-setup_nic_for_space_tests() {
+ensure_subnet() {
 	isolated_subnet_id=$(aws ec2 describe-subnets --filters Name=cidr-block,Values=172.31.254.0/24 2>/dev/null | jq -r '.Subnets[0].SubnetId')
-	if [ -z "$isolated_subnet_id" ]; then
-		# shellcheck disable=SC2046
-		echo $(red 'To run these tests you need to create a subnet with name "isolated" and CIDR "172.31.254/24"')
-		exit 1
+	if [ "$isolated_subnet_id" != "null" ]; then
+		cleanup_stale_nics
+		echo "$isolated_subnet_id"
+		return
 	fi
 
+	# Create a subnet in the default vpc
+	vpc_id=$(aws ec2 describe-vpcs | jq -r ".Vpcs[0].VpcId")
+	subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block "172.31.254.0/24" | jq -r ".Subnet.SubnetId")
+	if [ -z "${subnet_id}" ] || [ "${subnet_id}" == "null" ]; then
+		echo "$(red "failed to create subnet in vpc $vpc_id")" 1>&2
+		exit 1
+	fi
+	echo "${subnet_id}"
+}
+
+setup_nic_for_space_tests() {
+	isolated_subnet_id=${1}
 	hotplug_nic_id=$(aws ec2 create-network-interface --subnet-id "$isolated_subnet_id" --description="hot-pluggable NIC for space tests" 2>/dev/null | jq -r '.NetworkInterface.NetworkInterfaceId')
-	if [ -z "$hotplug_nic_id" ]; then
+	if [ -z "$hotplug_nic_id" ] || [ "$hotplug_nic_id" == "null" ]; then
 		# shellcheck disable=SC2046
-		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs")
+		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs") 1>&2
 		exit 1
 	fi
 

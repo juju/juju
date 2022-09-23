@@ -237,7 +237,8 @@ func CreateControllerProxy(
 	return nil
 }
 
-func fetchTokenReadySecret(name string, api core.SecretInterface, clock clock.Clock) (*corev1.Secret, error) {
+// FetchTokenReadySecret fetches and returns the secret when the token field gets populated.
+func FetchTokenReadySecret(ctx context.Context, name string, api core.SecretInterface, clock clock.Clock) (*corev1.Secret, error) {
 	var (
 		secret *corev1.Secret
 		err    error
@@ -249,6 +250,7 @@ func fetchTokenReadySecret(name string, api core.SecretInterface, clock clock.Cl
 	retryCallArgs := retry.CallArgs{
 		Delay:       time.Second,
 		MaxDuration: 120 * time.Second,
+		Stop:        ctx.Done(),
 		Clock:       clock,
 		Func: func() error {
 			secret, err = api.Get(context.TODO(), name, meta.GetOptions{})
@@ -298,7 +300,13 @@ func EnsureSecretForServiceAccount(
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, errors.Trace(err)
 	}
-	secret, err := fetchTokenReadySecret(objMeta.GetName(), secretAPI, clock)
+	// NOTE (tlm) Increased the max duration here to 120 seconds to deal with
+	// microk8s bootstrapping. Microk8s is taking a significant amoutn of time
+	// to be Kubernetes ready while still reporting that it is ready to go.
+	// See lp:1937282
+	ctx, cancel := context.WithTimeout(context.TODO(), 120*time.Second)
+	defer cancel()
+	secret, err := FetchTokenReadySecret(ctx, objMeta.GetName(), secretAPI, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -324,9 +332,16 @@ func EnsureSecretForServiceAccount(
 
 func isSecretIncluded(secret corev1.Secret, secrets []corev1.ObjectReference) bool {
 	for _, item := range secrets {
-		if secret.Kind == item.Kind && secret.Name == item.Name && secret.Namespace == item.Namespace {
-			return true
+		if item.Kind != "" && item.Kind != secret.Kind {
+			continue
 		}
+		if item.Namespace != "" && item.Namespace != secret.Namespace {
+			continue
+		}
+		if item.Name != "" && item.Name != secret.Name {
+			continue
+		}
+		return true
 	}
 	return false
 }

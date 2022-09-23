@@ -5,6 +5,8 @@ package remotestate
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,15 +36,17 @@ var _ logger = struct{}{}
 type Logger interface {
 	Warningf(string, ...interface{})
 	Debugf(string, ...interface{})
+	Criticalf(string, ...interface{})
 }
 
-// SecretRotateWatcherFunc is a function returning a secrets rotation watcher.
-type SecretRotateWatcherFunc func(names.UnitTag, chan []string) (worker.Worker, error)
+// SecretTriggerWatcherFunc is a function returning a secrets trigger watcher.
+type SecretTriggerWatcherFunc func(names.UnitTag, bool, chan []string) (worker.Worker, error)
 
 // SecretsClient provides access to the secrets manager facade.
 type SecretsClient interface {
-	WatchSecretsChanges(string) (watcher.StringsWatcher, error)
+	WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error)
 	GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error)
+	WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error)
 }
 
 // RemoteStateWatcher collects unit, application, and application config information
@@ -74,9 +78,16 @@ type RemoteStateWatcher struct {
 	secretsClient  SecretsClient
 	secretsChanges chan []string
 
-	secretRotateWatcherFunc SecretRotateWatcherFunc
+	secretRotateWatcherFunc SecretTriggerWatcherFunc
 	secretRotateWatcher     worker.Worker
 	rotateSecretsChanges    chan []string
+
+	secretExpiryWatcherFunc SecretTriggerWatcherFunc
+	secretExpiryWatcher     worker.Worker
+	expireSecretsChanges    chan []string
+
+	obsoleteRevisionWatcher worker.Worker
+	obsoleteRevisionChanges watcher.StringsChannel
 
 	catacomb catacomb.Catacomb
 
@@ -102,7 +113,8 @@ type ContainerRunningStatusFunc func(providerID string) (*ContainerRunningStatus
 type WatcherConfig struct {
 	State                         State
 	LeadershipTracker             leadership.Tracker
-	SecretRotateWatcherFunc       SecretRotateWatcherFunc
+	SecretRotateWatcherFunc       SecretTriggerWatcherFunc
+	SecretExpiryWatcherFunc       SecretTriggerWatcherFunc
 	SecretsClient                 SecretsClient
 	UpdateStatusChannel           UpdateStatusTimerFunc
 	CommandChannel                <-chan string
@@ -151,6 +163,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		storageAttachmentChanges:      make(chan storageAttachmentChange),
 		leadershipTracker:             config.LeadershipTracker,
 		secretRotateWatcherFunc:       config.SecretRotateWatcherFunc,
+		secretExpiryWatcherFunc:       config.SecretExpiryWatcherFunc,
 		secretsClient:                 config.SecretsClient,
 		updateStatusChannel:           config.UpdateStatusChannel,
 		commandChannel:                config.CommandChannel,
@@ -166,13 +179,14 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		// so that we coalesce events while the observer is busy.
 		out: make(chan struct{}, 1),
 		current: Snapshot{
-			Relations:           make(map[int]RelationSnapshot),
-			Storage:             make(map[names.StorageTag]StorageSnapshot),
-			ActionsBlocked:      config.ContainerRunningStatusChannel != nil,
-			ActionChanged:       make(map[string]int),
-			UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
-			WorkloadEvents:      config.InitialWorkloadEventIDs,
-			SecretInfo:          make(map[string]secrets.SecretRevisionInfo),
+			Relations:               make(map[int]RelationSnapshot),
+			Storage:                 make(map[names.StorageTag]StorageSnapshot),
+			ActionsBlocked:          config.ContainerRunningStatusChannel != nil,
+			ActionChanged:           make(map[string]int),
+			UpgradeSeriesStatus:     model.UpgradeSeriesNotStarted,
+			WorkloadEvents:          config.InitialWorkloadEventIDs,
+			ConsumedSecretInfo:      make(map[string]secrets.SecretRevisionInfo),
+			ObsoleteSecretRevisions: make(map[string][]int),
 		},
 		sidecar:                      config.Sidecar,
 		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
@@ -241,10 +255,18 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	}
 	snapshot.SecretRotations = make([]string, len(w.current.SecretRotations))
 	copy(snapshot.SecretRotations, w.current.SecretRotations)
-	snapshot.SecretInfo = make(map[string]secrets.SecretRevisionInfo)
-	for u, r := range w.current.SecretInfo {
-		snapshot.SecretInfo[u] = r
+	snapshot.ConsumedSecretInfo = make(map[string]secrets.SecretRevisionInfo)
+	for u, r := range w.current.ConsumedSecretInfo {
+		snapshot.ConsumedSecretInfo[u] = r
 	}
+	snapshot.ObsoleteSecretRevisions = make(map[string][]int)
+	for u, r := range w.current.ObsoleteSecretRevisions {
+		rCopy := make([]int, len(r))
+		copy(rCopy, r)
+		snapshot.ObsoleteSecretRevisions[u] = rCopy
+	}
+	snapshot.DeletedSecrets = make([]string, len(w.current.DeletedSecrets))
+	copy(snapshot.DeletedSecrets, w.current.DeletedSecrets)
 	return snapshot
 }
 
@@ -296,6 +318,23 @@ func (w *RemoteStateWatcher) RotateSecretCompleted(rotatedURL string) {
 		w.current.SecretRotations = append(
 			w.current.SecretRotations[:i],
 			w.current.SecretRotations[i+1:]...,
+		)
+		break
+	}
+}
+
+// ExpireRevisionCompleted is called when a secret revision
+// has been expired.
+func (w *RemoteStateWatcher) ExpireRevisionCompleted(expiredRevision string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i, rev := range w.current.ExpiredSecretRevisions {
+		if rev != expiredRevision {
+			continue
+		}
+		w.current.ExpiredSecretRevisions = append(
+			w.current.ExpiredSecretRevisions[:i],
+			w.current.ExpiredSecretRevisions[i+1:]...,
 		)
 		break
 	}
@@ -394,7 +433,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenSecretsChange bool
-	secretsw, err := w.secretsClient.WatchSecretsChanges(w.unit.Tag().Id())
+	secretsw, err := w.secretsClient.WatchConsumedSecretsChanges(w.unit.Tag().Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -732,6 +771,22 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			w.logger.Debugf("got rotate secret URIs: %q", uris)
 			w.rotateSecretURIs(uris)
 
+		case revisions, ok := <-w.expireSecretsChanges:
+			if !ok || len(revisions) == 0 {
+				continue
+			}
+			w.logger.Debugf("got expired secret revisions: %q", revisions)
+			w.expireSecretRevisions(revisions)
+
+		case secretRevisions, ok := <-w.obsoleteRevisionChanges:
+			w.logger.Debugf("got obsolete secret revisions change for %s: %s", w.application.Tag().Id(), secretRevisions)
+			if !ok {
+				return errors.New("secret revisions watcher closed")
+			}
+			if err := w.secretObsoleteRevisionsChanged(secretRevisions); err != nil {
+				return errors.Trace(err)
+			}
+
 		case change := <-w.storageAttachmentChanges:
 			w.logger.Debugf("storage attachment change for %s: %v", w.unit.Tag().Id(), change)
 			w.storageAttachmentChanged(change)
@@ -923,11 +978,40 @@ func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
 	w.logger.Debugf("got latest secret info: %#v", info)
 	for _, uri := range secretURIs {
 		if latest, ok := info[uri]; ok {
-			w.current.SecretInfo[uri] = latest
+			w.current.ConsumedSecretInfo[uri] = latest
 		} else {
-			delete(w.current.SecretInfo, uri)
+			delete(w.current.ConsumedSecretInfo, uri)
+			deleted := set.NewStrings(w.current.DeletedSecrets...)
+			deleted.Add(uri)
+			w.current.DeletedSecrets = deleted.SortedValues()
 		}
 	}
+	w.logger.Debugf("deleted secrets: %v", w.current.DeletedSecrets)
+	return nil
+}
+
+func (w *RemoteStateWatcher) secretObsoleteRevisionsChanged(secretRevisions []string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, revInfo := range secretRevisions {
+		parts := strings.Split(revInfo, "/")
+		uri := parts[0]
+		if len(parts) < 2 {
+			deleted := set.NewStrings(w.current.DeletedSecrets...)
+			deleted.Add(uri)
+			w.current.DeletedSecrets = deleted.SortedValues()
+			continue
+		}
+		rev, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return errors.NotValidf("secret revision %q for %q", parts[1], uri)
+		}
+		obsolete := set.NewInts(w.current.ObsoleteSecretRevisions[uri]...)
+		obsolete.Add(rev)
+		w.current.ObsoleteSecretRevisions[uri] = obsolete.SortedValues()
+	}
+	w.logger.Debugf("obsolete secret revisions: %v", w.current.ObsoleteSecretRevisions)
+	w.logger.Debugf("deleted secrets: %v", w.current.DeletedSecrets)
 	return nil
 }
 
@@ -973,30 +1057,71 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	defer w.mu.Unlock()
 
 	w.current.Leader = isLeader
-	if !isLeader {
-		if w.secretRotateWatcher != nil {
-			_ = worker.Stop(w.secretRotateWatcher)
-		}
-		w.secretRotateWatcher = nil
-		w.rotateSecretsChanges = nil
-		w.current.SecretRotations = nil
-		return nil
-	}
 	if w.secretRotateWatcher != nil {
-		return nil
+		_ = worker.Stop(w.secretRotateWatcher)
 	}
+	w.secretRotateWatcher = nil
+	w.rotateSecretsChanges = nil
+	w.current.SecretRotations = nil
+
+	if w.secretExpiryWatcher != nil {
+		_ = worker.Stop(w.secretExpiryWatcher)
+	}
+	w.secretExpiryWatcher = nil
+	w.expireSecretsChanges = nil
+	w.current.ExpiredSecretRevisions = nil
+
+	if w.obsoleteRevisionWatcher != nil {
+		_ = worker.Stop(w.obsoleteRevisionWatcher)
+	}
+	w.obsoleteRevisionWatcher = nil
+	w.obsoleteRevisionChanges = nil
+
 	// Allow a generous buffer so a slow unit agent does not
 	// block the upstream worker.
 	w.rotateSecretsChanges = make(chan []string, 100)
 	w.logger.Debugf("starting secrets rotation watcher")
-	watcher, err := w.secretRotateWatcherFunc(w.unit.Tag(), w.rotateSecretsChanges)
+	rotateWatcher, err := w.secretRotateWatcherFunc(w.unit.Tag(), isLeader, w.rotateSecretsChanges)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(watcher); err != nil {
+	if err := w.catacomb.Add(rotateWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	w.secretRotateWatcher = watcher
+	w.secretRotateWatcher = rotateWatcher
+
+	// Allow a generous buffer so a slow unit agent does not
+	// block the upstream worker.
+	w.expireSecretsChanges = make(chan []string, 100)
+	w.logger.Debugf("starting secret revisions expiry watcher")
+	expiryWatcher, err := w.secretExpiryWatcherFunc(w.unit.Tag(), isLeader, w.expireSecretsChanges)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(expiryWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	w.secretExpiryWatcher = expiryWatcher
+
+	// Allow a generous buffer so a slow unit agent does not
+	// block the upstream worker.
+	w.obsoleteRevisionChanges = make(chan []string, 100)
+	w.logger.Debugf("starting obsolete secret revisions watcher")
+	owners := []names.Tag{w.unit.Tag()}
+	if isLeader {
+		appName, _ := names.UnitApplication(w.unit.Tag().Id())
+		owners = append(owners, names.NewApplicationTag(appName))
+	}
+	obsoleteRevisionsWatcher, err := w.secretsClient.WatchObsolete(owners...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(obsoleteRevisionsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	w.obsoleteRevisionWatcher = obsoleteRevisionsWatcher
+	w.obsoleteRevisionChanges = obsoleteRevisionsWatcher.Changes()
+
 	return nil
 }
 
@@ -1011,6 +1136,21 @@ func (w *RemoteStateWatcher) rotateSecretURIs(uris []string) {
 		if !pending.Contains(uri) {
 			pending.Add(uri)
 			w.current.SecretRotations = append(w.current.SecretRotations, uri)
+		}
+	}
+}
+
+// expireSecretRevisions adds the specified secret revisions
+// to those that need to be expired.
+func (w *RemoteStateWatcher) expireSecretRevisions(revisions []string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	pending := set.NewStrings(w.current.ExpiredSecretRevisions...)
+	for _, rev := range revisions {
+		if !pending.Contains(rev) {
+			pending.Add(rev)
+			w.current.ExpiredSecretRevisions = append(w.current.ExpiredSecretRevisions, rev)
 		}
 	}
 }

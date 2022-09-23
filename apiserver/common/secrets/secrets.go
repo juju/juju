@@ -6,9 +6,11 @@ package secrets
 import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/secrets/provider"
@@ -16,6 +18,8 @@ import (
 	"github.com/juju/juju/secrets/provider/kubernetes"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.common.secrets")
 
 // StoreConfigGetter is a func used to get secret store config.
 type StoreConfigGetter func() (*provider.StoreConfig, error)
@@ -55,7 +59,7 @@ func providerForModel(model *state.Model) (provider.SecretStoreProvider, error) 
 // needs to access secrets. The authTag is the agent which needs access.
 // The client is expected to be restricted to write only those secrets
 // owned by the agent, and read only those secrets shared with the agent.
-func StoreConfig(model *state.Model, authTag names.Tag) (*provider.StoreConfig, error) {
+func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.StoreConfig, error) {
 	ma := &modelAdaptor{
 		model,
 	}
@@ -69,18 +73,24 @@ func StoreConfig(model *state.Model, authTag names.Tag) (*provider.StoreConfig, 
 	}
 	backend := state.NewSecrets(model.State())
 
-	// Find secrets owned by the agent.
-	authApp := authTag
-	// TODO(wallyworld) - support unit ownership as well
-	if authTag.Kind() == names.UnitTagKind {
-		// TODO(wallyworld) - only do this for leader units
-		appName, _ := names.UnitApplication(authTag.Id())
-		authApp = names.NewApplicationTag(appName)
+	// Find secrets owned by the agent
+	// (or its app if the agent is a leader).
+	filter := state.SecretsFilter{
+		OwnerTags: []names.Tag{authTag},
 	}
-	ownerTag := authApp.String()
-	owned, err := backend.ListSecrets(state.SecretsFilter{
-		OwnerTag: &ownerTag,
-	})
+	appName, _ := names.UnitApplication(authTag.Id())
+	authApp := names.NewApplicationTag(appName)
+	if authTag.Kind() == names.UnitTagKind {
+		token := leadershipChecker.LeadershipCheck(appName, authTag.Id())
+		err := token.Check(0, nil)
+		if err != nil && !leadership.IsNotLeaderError(err) {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			filter.OwnerTags = append(filter.OwnerTags, authApp)
+		}
+	}
+	owned, err := backend.ListSecrets(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -92,7 +102,7 @@ func StoreConfig(model *state.Model, authTag names.Tag) (*provider.StoreConfig, 
 	// Find secrets shared with the agent.
 	// We include secrets shared with the app or just the specified unit.
 	read, err := backend.ListSecrets(state.SecretsFilter{
-		ConsumerTags: []string{authApp.String(), authTag.String()},
+		ConsumerTags: []names.Tag{authApp, authTag},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -101,6 +111,7 @@ func StoreConfig(model *state.Model, authTag names.Tag) (*provider.StoreConfig, 
 	for i, md := range read {
 		readURIs[i] = md.URI
 	}
+	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedURIs, readURIs)
 	cfg, err := p.StoreConfig(ma, false, ownedURIs, readURIs)
 	return cfg, errors.Trace(err)
 }

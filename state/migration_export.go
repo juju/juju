@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
@@ -75,6 +76,7 @@ type ExportConfig struct {
 	SkipApplicationOffers    bool
 	SkipOfferConnections     bool
 	SkipExternalControllers  bool
+	SkipSecrets              bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -222,6 +224,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := export.externalControllers(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.secrets(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1417,6 +1422,9 @@ func (s externalControllerShim) AllRemoteApplications() ([]migrations.MigrationR
 }
 
 func (e *exporter) externalControllers() error {
+	if e.cfg.SkipExternalControllers {
+		return nil
+	}
 	e.logger.Debugf("reading external controllers")
 	migration := &ExportStateMigration{
 		src: e.st,
@@ -1713,6 +1721,100 @@ func (e *exporter) operations() error {
 			Id:                op.Id(),
 		}
 		e.model.AddOperation(arg)
+	}
+	return nil
+}
+
+func (e *exporter) secrets() error {
+	if e.cfg.SkipSecrets {
+		return nil
+	}
+	store := NewSecrets(e.st)
+
+	allSecrets, err := store.ListSecrets(SecretsFilter{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d secrets", len(allSecrets))
+	allRevisions, err := store.allSecretRevisions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	revisionArgsByID := make(map[string][]description.SecretRevisionArgs)
+	for _, rev := range allRevisions {
+		id, _ := splitSecretRevision(e.st.localID(rev.DocID))
+		revArg := description.SecretRevisionArgs{
+			Number:     rev.Revision,
+			Created:    rev.CreateTime,
+			Updated:    rev.UpdateTime,
+			ExpireTime: rev.ExpireTime,
+			ProviderId: rev.ProviderId,
+		}
+		if len(rev.Data) > 0 {
+			revArg.Content = make(secrets.SecretData)
+			for k, v := range rev.Data {
+				revArg.Content[k] = fmt.Sprintf("%v", v)
+			}
+		}
+		revisionArgsByID[id] = append(revisionArgsByID[id], revArg)
+	}
+	allPermissions, err := store.allSecretPermissions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accessArgsByID := make(map[string]map[string]description.SecretAccessArgs)
+	for _, perm := range allPermissions {
+		id := strings.Split(e.st.localID(perm.DocID), "#")[0]
+		accessArg := description.SecretAccessArgs{
+			Scope: perm.Scope,
+			Role:  perm.Role,
+		}
+		access, ok := accessArgsByID[id]
+		if !ok {
+			access = make(map[string]description.SecretAccessArgs)
+			accessArgsByID[id] = access
+		}
+		access[perm.Subject] = accessArg
+	}
+	allConsumers, err := store.allSecretConsumers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	consumersByID := make(map[string][]description.SecretConsumerArgs)
+	for _, info := range allConsumers {
+		consumer, err := names.ParseTag(info.ConsumerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		id := strings.Split(e.st.localID(info.DocID), "#")[0]
+		consumerArg := description.SecretConsumerArgs{
+			Consumer:        consumer,
+			Label:           info.Label,
+			CurrentRevision: info.CurrentRevision,
+		}
+		consumersByID[id] = append(consumersByID[id], consumerArg)
+	}
+
+	for _, md := range allSecrets {
+		owner, err := names.ParseTag(md.OwnerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		arg := description.SecretArgs{
+			ID:             md.URI.ID,
+			Version:        md.Version,
+			Description:    md.Description,
+			Label:          md.Label,
+			RotatePolicy:   md.RotatePolicy.String(),
+			Owner:          owner,
+			Created:        md.CreateTime,
+			Updated:        md.UpdateTime,
+			NextRotateTime: md.NextRotateTime,
+			Revisions:      revisionArgsByID[md.URI.ID],
+			ACL:            accessArgsByID[md.URI.ID],
+			Consumers:      consumersByID[md.URI.ID],
+		}
+		e.model.AddSecret(arg)
 	}
 	return nil
 }

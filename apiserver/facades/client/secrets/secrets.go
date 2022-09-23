@@ -71,10 +71,17 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
 	}
-	metadata, err := s.backend.ListSecrets(state.SecretsFilter{
-		URI:      uri,
-		OwnerTag: arg.Filter.OwnerTag,
-	})
+	filter := state.SecretsFilter{
+		URI: uri,
+	}
+	if arg.Filter.OwnerTag != nil {
+		tag, err := names.ParseTag(*arg.Filter.OwnerTag)
+		if err != nil {
+			return params.ListSecretResults{}, errors.Trace(err)
+		}
+		filter.OwnerTags = []names.Tag{tag}
+	}
+	metadata, err := s.backend.ListSecrets(filter)
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}

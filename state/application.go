@@ -384,15 +384,12 @@ func (op *DestroyApplicationOperation) eraseHistory() error {
 }
 
 func (op *DestroyApplicationOperation) deleteSecrets() error {
-	store := NewSecrets(op.app.st)
 	ownedURIs, err := op.app.st.referencedSecrets(op.app.Tag(), "owner-tag")
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, uri := range ownedURIs {
-		if err := store.DeleteSecret(uri); err != nil {
-			return errors.Annotatef(err, "deleting owned secret %q", uri.String())
-		}
+	if _, err := op.app.st.deleteSecrets(ownedURIs); err != nil {
+		return errors.Annotatef(err, "deleting owned secrets for %q", op.app.Name())
 	}
 	return nil
 }

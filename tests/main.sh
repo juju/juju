@@ -47,6 +47,7 @@ TEST_NAMES="agents \
             cli \
             constraints \
             controller \
+            credential \
             ck \
             deploy \
             expose_ec2 \
@@ -63,8 +64,10 @@ TEST_NAMES="agents \
             smoke \
             spaces_ec2 \
             static_analysis \
+            storage \
             unit \
-            upgrade"
+            upgrade \
+            user"
 
 # Show test suites, can be used to test if a test suite is available or not.
 show_test_suites() {

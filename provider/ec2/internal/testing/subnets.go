@@ -40,11 +40,11 @@ func (srv *Server) DescribeSubnets(ctx context.Context, in *ec2.DescribeSubnetsI
 }
 
 // AddSubnet inserts the given subnet in the test server, as if it was
-// created using the simulated AWS API. The Id field of v is ignored
+// created using the simulated AWS API. The Id field of sub is ignored
 // and replaced by the next subnetId counter value, prefixed by
 // "subnet-". The VPCId field of sub must be contain an existing VPC
-// id, and the AvailZone field must contain an existing AZ, otherwise
-// errors are returned. Finally, if AvailableIPCount is negative it is
+// id, and the AvailabilityZone field must contain an existing AZ,
+// otherwise errors are returned.
 func (srv *Server) AddSubnet(sub types.Subnet) (types.Subnet, error) {
 	zeroSubnet := types.Subnet{}
 

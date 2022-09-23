@@ -133,6 +133,7 @@ func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
 	return []string{
 		"JUJU_SECRET_ID=" + url.String(),
 		"JUJU_SECRET_LABEL=label-" + url.String(),
+		"JUJU_SECRET_REVISION=666",
 	}
 }
 

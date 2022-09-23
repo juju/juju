@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
@@ -110,16 +111,16 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machine:         "0",
-			machineSeries:   "xenial",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machine:         "1",
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "16.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -211,18 +212,18 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"jammy"},
-			curl:            mysqlCurl,
-			force:           true,
-			machine:         "0",
-			machineSeries:   "focal",
+			charmMetaSeries:      []string{"jammy"},
+			curl:                 mysqlCurl,
+			force:                true,
+			machine:              "0",
+			machineUbuntuVersion: "20.04",
 		},
 		{
-			charmMetaSeries: []string{"focal", "jammy"},
-			curl:            wordpressCurl,
-			force:           true,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"focal", "jammy"},
+			curl:                 wordpressCurl,
+			force:                true,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -267,60 +268,16 @@ applications:
   training-operator:
     charm: training-operator
     channel: 1.3/edge
-    revision: 12`
+`
 
 func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	s.bundleResolver.EXPECT().ResolveCharm(
-		gomock.AssignableToTypeOf(&charm.URL{}),
-		gomock.AssignableToTypeOf(commoncharm.Origin{}),
-		false,
-	).DoAndReturn(
-		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			return curl, origin, []string{"focal"}, nil
-		}).AnyTimes()
-	s.deployerAPI.EXPECT().AddCharm(
-		gomock.AssignableToTypeOf(&charm.URL{}),
-		gomock.AssignableToTypeOf(commoncharm.Origin{}),
-		false,
-	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			c.Assert(origin.Series, gc.Not(gc.Equals), "", gc.Commentf("series must be supplied"))
-			return origin, nil
-		}).AnyTimes()
-
-	istioGateway := charm.MustParseURL("ch:istio-gateway")
-	s.expectCharmInfo(istioGateway.String(), &apicharms.CharmInfo{
-		Revision: 74,
-		URL:      istioGateway.String(),
-		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
-		},
-	})
-	trainingOperator := charm.MustParseURL("ch:training-operator")
-	s.expectCharmInfo(trainingOperator.String(), &apicharms.CharmInfo{
-		Revision: 12,
-		URL:      trainingOperator.String(),
-		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
-		},
-	})
-	istioPilot := charm.MustParseURL("ch:istio-pilot")
-	s.expectCharmInfo(istioPilot.String(), &apicharms.CharmInfo{
-		Revision: 95,
-		URL:      istioPilot.String(),
-		Meta: &charm.Meta{
-			Series: []string{"kubernetes"},
-		},
-	})
-
-	s.expectDeploy()
-	s.expectDeploy()
-	s.expectDeploy()
+	fullGatewayURL := s.expectK8sCharmByRevision(charm.MustParseURL("ch:istio-gateway"), 74)
+	fullTrainingURL := s.expectK8sCharm(charm.MustParseURL("ch:training-operator"), 12)
+	fullPilotURL := s.expectK8sCharmByRevision(charm.MustParseURL("ch:istio-pilot"), 95)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(multiApplicationBundle))
 	c.Assert(err, jc.ErrorIsNil)
@@ -328,6 +285,9 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasSeries(c *gc.C) {
 	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 3)
+	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "focal")
+	s.assertDeployArgs(c, fullTrainingURL.String(), "training-operator", "focal")
+	s.assertDeployArgs(c, fullPilotURL.String(), "istio-pilot", "focal")
 }
 
 func (s *BundleDeployRepositorySuite) setupCharmUnitsNew(charmUnits []charmUnit) {
@@ -352,8 +312,8 @@ func (s *BundleDeployRepositorySuite) setupCharmUnitsNew(charmUnits []charmUnit)
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()
-		if chUnit.machineSeries != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+		if chUnit.machineUbuntuVersion != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
 			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
 		}
 	}
@@ -391,14 +351,14 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	gitlabCurl := charm.MustParseURL("cs:~juju/gitlab-k8s")
 	chUnits := []charmUnit{
 		{
-			curl:            mariadbCurl,
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
+			curl:                 mariadbCurl,
+			charmMetaSeries:      []string{"kubernetes"},
+			machineUbuntuVersion: "kubernetes",
 		},
 		{
-			charmMetaSeries: []string{"kubernetes"},
-			curl:            gitlabCurl,
-			machineSeries:   "kubernetes",
+			charmMetaSeries:      []string{"kubernetes"},
+			curl:                 gitlabCurl,
+			machineUbuntuVersion: "kubernetes",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -449,26 +409,15 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mariadbCurl := charm.MustParseURL("mariadb-k8s")
-	gitlabCurl := charm.MustParseURL("gitlab-k8s")
-	chUnits := []charmUnit{
-		{
-			curl:          mariadbCurl,
-			machineSeries: "kubernetes",
-		},
-		{
-			curl:          gitlabCurl,
-			machineSeries: "kubernetes",
-		},
-	}
-	s.setupMetadataV2CharmUnits(chUnits)
+	fullGitlabCurl := s.expectK8sCharm(charm.MustParseURL("gitlab-k8s"), 4)
+	fullMariadbCurl := s.expectK8sCharm(charm.MustParseURL("mariadb-k8s"), 7)
 	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
 
 	s.runDeploy(c, kubernetesCharmhubGitlabBundle)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
-	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
+	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "focal")
+	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "focal")
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"+
@@ -498,53 +447,196 @@ relations:
     - mariadb:server
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevisionCharmhub(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
+func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *charm.URL {
+	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
+	s.bundleResolver.EXPECT().ResolveCharm(
+		curl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		// Ensure the same curl that is provided, is returned.
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
+			origin.Series = "focal"
+			origin.Revision = &rev
+			origin.OS = "ubuntu"
+			origin.Type = "charm"
+			return curl, origin, []string{"focal"}, nil
+		}).Times(3)
 
-	mariadbCurl := charm.MustParseURL("mariadb-k8s")
-	gitlabCurl := charm.MustParseURL("gitlab-k8s")
-	chUnits := []charmUnit{
-		{
-			curl:          mariadbCurl,
-			machineSeries: "kubernetes",
+	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
+	s.deployerAPI.EXPECT().AddCharm(
+		fullCurl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+			origin.OS = "ubuntu"
+			return origin, nil
+		})
+
+	charmInfo := &apicharms.CharmInfo{
+		Revision: fullCurl.Revision,
+		URL:      fullCurl.String(),
+		Meta: &charm.Meta{
+			Series: []string{"kubernetes"},
 		},
-		{
-			curl:          gitlabCurl,
-			machineSeries: "kubernetes",
+		Manifest: &charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Track: "20.04", Risk: "stable", Branch: ""},
+					Architectures: []string{"amd64"},
+				},
+			},
 		},
 	}
-	s.setupMetadataV2CharmUnits(chUnits)
-	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
-
-	s.runDeploy(c, kubernetesCharmhubGitlabRevisionBundle)
-	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "focal")
-	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "focal")
-
-	str := s.output.String()
-	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), jc.IsTrue)
-	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), jc.IsTrue)
-	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 8 with architecture=amd64\n"), jc.IsTrue)
+	s.expectCharmInfo(fullCurl.String(), charmInfo)
+	s.expectDeploy()
+	return fullCurl
 }
 
-const kubernetesCharmhubGitlabRevisionBundle = `
+func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int) *charm.URL {
+	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
+	s.bundleResolver.EXPECT().ResolveCharm(
+		curl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		// Ensure the same curl that is provided, is returned.
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
+			origin.Series = "focal"
+			origin.Revision = &rev
+			origin.OS = "ubuntu"
+			origin.Type = "charm"
+			return curl, origin, []string{"kubernetes"}, nil
+		}).Times(3)
+
+	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
+	s.deployerAPI.EXPECT().AddCharm(
+		fullCurl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+			origin.OS = "ubuntu"
+			return origin, nil
+		})
+
+	charmInfo := &apicharms.CharmInfo{
+		Revision: fullCurl.Revision,
+		URL:      fullCurl.String(),
+		Meta: &charm.Meta{
+			Series: []string{"kubernetes"},
+		},
+		Manifest: &charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Track: "20.04", Risk: "stable", Branch: ""},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+	}
+	s.expectCharmInfo(fullCurl.String(), charmInfo)
+	s.expectDeploy()
+	return fullCurl
+}
+
+const kubernetesCharmhubGitlabBundleWithRevision = `
 bundle: kubernetes
 applications:
   mariadb:
     charm: mariadb-k8s
+    revision: 4
     scale: 2
-    revision: 8
     channel: old/stable
   gitlab:
     charm: gitlab-k8s
+    revision: 7
     scale: 1
     channel: new/edge
 relations:
   - - gitlab:mysql
     - mariadb:server
 `
+
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevisionCharmhub(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	fullGitlabCurl := s.expectK8sCharmByRevision(charm.MustParseURL("gitlab-k8s"), 7)
+	fullMariadbCurl := s.expectK8sCharmByRevision(charm.MustParseURL("mariadb-k8s"), 4)
+	s.expectAddRelation([]string{"gitlab:mysql", "mariadb:server"})
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundleWithRevision))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.deployArgs, gc.HasLen, 2)
+	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "focal")
+	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "focal")
+
+	str := s.output.String()
+	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "Located charm \"mariadb-k8s\" in charm-hub, channel old/stable\n"), jc.IsTrue)
+	c.Check(strings.Contains(str, "- upload charm mariadb-k8s from charm-hub with revision 4 with architecture=amd64\n"), jc.IsTrue)
+}
+
+func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, rev int) *charm.URL {
+	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
+	s.bundleResolver.EXPECT().ResolveCharm(
+		curl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		// Ensure the same curl that is provided, is returned.
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+			curl = curl.WithRevision(rev)
+			curl = curl.WithSeries("focal")
+			curl = curl.WithArchitecture("amd64")
+			origin.Series = "focal"
+			origin.Revision = &rev
+			origin.OS = "ubuntu"
+			origin.Type = "charm"
+			return curl, origin, []string{"focal"}, nil
+		}).Times(2)
+
+	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
+	s.deployerAPI.EXPECT().AddCharm(
+		fullCurl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+			origin.OS = "ubuntu"
+			return origin, nil
+		})
+
+	charmInfo := &apicharms.CharmInfo{
+		Revision: fullCurl.Revision,
+		URL:      fullCurl.String(),
+		Meta: &charm.Meta{
+			Series: []string{"kubernetes"},
+		},
+		Manifest: &charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Track: "20.04", Risk: "stable", Branch: ""},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+	}
+	s.expectCharmInfo(fullCurl.String(), charmInfo)
+	s.expectDeploy()
+	return fullCurl
+}
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -555,16 +647,16 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machine:         "0",
-			machineSeries:   "bionic",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -621,40 +713,25 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	bitcoinCurl := charm.MustParseURL("cs:bitcoin-miner")
-	dashboardCurl := charm.MustParseURL("cs:dashboard4miner")
-	chUnits := []charmUnit{
-		{
-			curl:            bitcoinCurl,
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
-		},
-		{
-			charmMetaSeries: []string{"kubernetes"},
-			curl:            dashboardCurl,
-			machineSeries:   "kubernetes",
-		},
-	}
-	s.setupCharmUnits(chUnits)
+	bitcoinCurl := s.expectCharmstoreK8sCharm(charm.MustParseURL("cs:bitcoin-miner"), 3)
+	dashboardCurl := s.expectCharmstoreK8sCharm(charm.MustParseURL("cs:dashboard4miner"), 43)
 	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
 
 	spec := s.bundleDeploySpec()
-	spec.bundleDevices = map[string]map[string]devices.Constraints{
-		"bitcoin-miner": {
-			"bitcoinminer": {
-				Count: 10, Type: "nvidia.com/gpu",
-			},
+	devConstraints := map[string]devices.Constraints{
+		"bitcoinminer": {
+			Count: 10, Type: "nvidia.com/gpu",
 		},
+	}
+	spec.bundleDevices = map[string]map[string]devices.Constraints{
+		"bitcoin-miner": devConstraints,
 	}
 	s.runDeployWithSpec(c, kubernetesBitcoinBundle, spec)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
 	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
-	s.assertDeployArgsDevices(c, bitcoinCurl.Name,
-		map[string]devices.Constraints{
-			"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10}},
-	)
+	s.assertDeployArgsDevices(c, bitcoinCurl.Name, devConstraints)
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"bitcoin-miner\" in charm-store\n"+
@@ -666,6 +743,68 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 		"- deploy application dashboard4miner from charm-store with 1 unit\n"+
 		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
 		"Deploy of bundle completed.\n")
+}
+
+func (s *BundleDeployRepositorySuite) expectCharmstoreK8sCharm(curl *charm.URL, rev int) *charm.URL {
+	fullCurl := curl.WithRevision(rev)
+	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
+	s.bundleResolver.EXPECT().ResolveCharm(
+		curl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		// Ensure the same curl that is provided, is returned.
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+			origin.Type = "charm"
+			return fullCurl, origin, []string{"kubernetes"}, nil
+		}).Times(1)
+
+	s.bundleResolver.EXPECT().ResolveCharm(
+		fullCurl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		// Ensure the same curl that is provided, is returned.
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
+			origin.Type = "charm"
+			return curl, origin, []string{"kubernetes"}, nil
+		}).Times(1)
+
+	s.deployerAPI.EXPECT().AddCharm(
+		fullCurl,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		false,
+	).DoAndReturn(
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+			origin.OS = "kubernetes"
+			origin.Series = "kubernetes"
+			return origin, nil
+		})
+
+	charmInfo := &apicharms.CharmInfo{
+		Revision: fullCurl.Revision,
+		URL:      fullCurl.String(),
+		Meta: &charm.Meta{
+			Series: []string{"kubernetes"},
+		},
+		Manifest: &charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Track: "20.04", Risk: "stable", Branch: ""},
+					Architectures: []string{"amd64"},
+				},
+				{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Track: "22.04", Risk: "stable", Branch: ""},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+	}
+	s.expectCharmInfo(fullCurl.String(), charmInfo)
+	s.expectDeploy()
+	return fullCurl
 }
 
 const kubernetesBitcoinBundle = `
@@ -692,12 +831,12 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
 	dashboardCurl := charm.MustParseURL("dashboard4miner")
 	chUnits := []charmUnit{
 		{
-			curl:          bitcoinCurl,
-			machineSeries: "kubernetes",
+			curl:                 bitcoinCurl,
+			machineUbuntuVersion: "kubernetes",
 		},
 		{
-			curl:          dashboardCurl,
-			machineSeries: "kubernetes",
+			curl:                 dashboardCurl,
+			machineUbuntuVersion: "kubernetes",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -708,46 +847,6 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "focal")
 	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "focal")
-
-	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"bitcoin-miner\" in charm-hub\n"+
-		"Located charm \"dashboard4miner\" in charm-hub\n"+
-		"Executing changes:\n"+
-		"- upload charm bitcoin-miner from charm-hub for series focal with architecture=amd64\n"+
-		"- deploy application bitcoin-miner from charm-hub with 1 unit on focal\n"+
-		"- upload charm dashboard4miner from charm-hub for series focal with architecture=amd64\n"+
-		"- deploy application dashboard4miner from charm-hub with 1 unit on focal\n"+
-		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
-		"Deploy of bundle completed.\n")
-}
-
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesV1BundleWithResolveCharmFocal(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
-
-	bitcoinCurl := charm.MustParseURL("bitcoin-miner")
-	dashboardCurl := charm.MustParseURL("dashboard4miner")
-	chUnits := []charmUnit{
-		{
-			curl:            bitcoinCurl,
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
-		},
-		{
-			curl:            dashboardCurl,
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
-		},
-	}
-	s.setupCharmUnits(chUnits)
-	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
-
-	s.runDeploy(c, kubernetesBitcoinBundleWithoutDevices)
-
-	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
-	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"bitcoin-miner\" in charm-hub\n"+
@@ -776,103 +875,6 @@ relations:
     - ["dashboard4miner:miner", "bitcoin-miner:miner"]
 `
 
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesV1Bundle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
-
-	bitcoinCurl := charm.MustParseURL("bitcoin-miner")
-	dashboardCurl := charm.MustParseURL("dashboard4miner")
-	chUnits := []charmUnit{
-		{
-			curl:            bitcoinCurl,
-			resolveSeries:   []string{"focal"},
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
-		},
-		{
-			curl:            dashboardCurl,
-			resolveSeries:   []string{"focal"},
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
-		},
-	}
-	s.setupCharmUnits(chUnits)
-	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
-
-	s.runDeploy(c, kubernetesBitcoinBundleWithoutSeriesAndDevices)
-
-	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
-	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
-
-	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"bitcoin-miner\" in charm-hub\n"+
-		"Located charm \"dashboard4miner\" in charm-hub\n"+
-		"Executing changes:\n"+
-		"- upload charm bitcoin-miner from charm-hub with architecture=amd64\n"+
-		"- deploy application bitcoin-miner from charm-hub with 1 unit\n"+
-		"- upload charm dashboard4miner from charm-hub with architecture=amd64\n"+
-		"- deploy application dashboard4miner from charm-hub with 1 unit\n"+
-		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
-		"Deploy of bundle completed.\n")
-}
-
-func (s *BundleDeployRepositorySuite) TestDeployKubernetesV1BundleWithKubernetesResolved(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
-
-	bitcoinCurl := charm.MustParseURL("bitcoin-miner")
-	dashboardCurl := charm.MustParseURL("dashboard4miner")
-	chUnits := []charmUnit{
-		{
-			curl:            bitcoinCurl,
-			resolveSeries:   []string{"kubernetes"},
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
-		},
-		{
-			curl:            dashboardCurl,
-			resolveSeries:   []string{"kubernetes"},
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
-		},
-	}
-	s.setupCharmUnits(chUnits)
-	s.expectAddRelation([]string{"dashboard4miner:miner", "bitcoin-miner:miner"})
-
-	s.runDeploy(c, kubernetesBitcoinBundleWithoutSeriesAndDevices)
-
-	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
-	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
-
-	c.Check(s.output.String(), gc.Equals, ""+
-		"Located charm \"bitcoin-miner\" in charm-hub\n"+
-		"Located charm \"dashboard4miner\" in charm-hub\n"+
-		"Executing changes:\n"+
-		"- upload charm bitcoin-miner from charm-hub with architecture=amd64\n"+
-		"- deploy application bitcoin-miner from charm-hub with 1 unit\n"+
-		"- upload charm dashboard4miner from charm-hub with architecture=amd64\n"+
-		"- deploy application dashboard4miner from charm-hub with 1 unit\n"+
-		"- add relation dashboard4miner:miner - bitcoin-miner:miner\n"+
-		"Deploy of bundle completed.\n")
-}
-
-const kubernetesBitcoinBundleWithoutSeriesAndDevices = `
-bundle: kubernetes
-applications:
-    dashboard4miner:
-        charm: dashboard4miner
-        num_units: 1
-    bitcoin-miner:
-        charm: bitcoin-miner
-        num_units: 1
-relations:
-    - ["dashboard4miner:miner", "bitcoin-miner:miner"]
-`
-
 func (s *BundleDeployRepositorySuite) TestExistingModelIdempotent(c *gc.C) {
 	s.testExistingModel(c, false)
 }
@@ -890,16 +892,16 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machine:         "0",
-			machineSeries:   "bionic",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1150,10 +1152,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
 	varnishCurl := charm.MustParseURL("cs:varnish")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            varnishCurl,
-			machine:         "2",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 varnishCurl,
+			machine:              "2",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1202,11 +1204,11 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	s.expectAddMachine("0", "xenial")
-	s.expectAddMachine("1", "xenial")
-	s.expectAddMachine("2", "xenial")
-	s.expectAddContainer("0", "0/lxd/0", "xenial", "lxd")
-	s.expectAddContainer("1", "1/lxd/0", "xenial", "lxd")
+	s.expectAddMachine("0", "16.04")
+	s.expectAddMachine("1", "16.04")
+	s.expectAddMachine("2", "16.04")
+	s.expectAddContainer("0", "0/lxd/0", "16.04", "lxd")
+	s.expectAddContainer("1", "1/lxd/0", "16.04", "lxd")
 
 	wordpressCurl := charm.MustParseURL("cs:wordpress")
 	s.expectResolveCharm(nil)
@@ -1279,14 +1281,14 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 			Constraints:   constraints.MustParse("cores=4 mem=4G"),
 			ContainerType: instance.ContainerType(""),
 			Jobs:          []model.MachineJob{model.JobHostUnits},
-			Series:        "xenial",
+			Base:          &params.Base{Name: "ubuntu", Channel: "16.04"},
 		},
 	}
 	results := []params.AddMachinesResult{
 		{Machine: "0"},
 	}
 	s.deployerAPI.EXPECT().AddMachines(args).Return(results, nil)
-	s.expectAddMachine("1", "xenial")
+	s.expectAddMachine("1", "16.04")
 	s.expectDeploy()
 	s.expectAddOneUnit("django", "0", "0")
 	s.expectAddOneUnit("django", "1", "1")
@@ -1489,14 +1491,14 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	s.expectWatchAll()
 
 	// Setup Machines and Containers
-	s.expectAddMachine("0", "xenial")
-	s.expectAddMachine("1", "xenial")
-	s.expectAddMachine("2", "xenial")
-	s.expectAddMachine("3", "xenial")
-	s.expectAddContainer("1", "1/lxd/0", "xenial", "lxd")
-	s.expectAddContainer("2", "2/lxd/0", "xenial", "lxd")
-	s.expectAddContainer("3", "3/kvm/0", "xenial", "kvm")
-	s.expectAddContainer("0", "0/kvm/0", "xenial", "kvm")
+	s.expectAddMachine("0", "16.04")
+	s.expectAddMachine("1", "16.04")
+	s.expectAddMachine("2", "16.04")
+	s.expectAddMachine("3", "16.04")
+	s.expectAddContainer("1", "1/lxd/0", "16.04", "lxd")
+	s.expectAddContainer("2", "2/lxd/0", "16.04", "lxd")
+	s.expectAddContainer("3", "3/kvm/0", "16.04", "kvm")
+	s.expectAddContainer("0", "0/kvm/0", "16.04", "kvm")
 
 	// Setup for mem charm
 	memCurl := charm.MustParseURL("cs:mem-47")
@@ -1625,16 +1627,16 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	memCurl := charm.MustParseURL("cs:mem-47")
 	chUnits := []charmUnit{
 		{
-			curl:            memCurl,
-			charmMetaSeries: []string{"bionic", "focal"},
-			machine:         "0",
-			machineSeries:   "bionic",
+			curl:                 memCurl,
+			charmMetaSeries:      []string{"bionic", "focal"},
+			machine:              "0",
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            djangoCurl,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 djangoCurl,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1723,7 +1725,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectDeploy()
-	s.expectAddMachine("1", "bionic")
+	s.expectAddMachine("1", "18.04")
 
 	quickBundle := `
        series: bionic
@@ -1771,14 +1773,14 @@ func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectDeploy()
-	s.expectAddMachine("0", "bionic")
-	s.expectAddContainer("0", "0/lxd/0", "bionic", "lxd")
-	s.expectAddMachine("1", "bionic")
-	s.expectAddContainer("1", "1/kvm/0", "bionic", "kvm")
-	s.expectAddMachine("2", "bionic")
-	s.expectAddContainer("", "3/lxd/0", "bionic", "lxd")
-	s.expectAddContainer("", "4/lxd/0", "bionic", "lxd")
-	s.expectAddContainer("", "5/lxd/0", "bionic", "lxd")
+	s.expectAddMachine("0", "18.04")
+	s.expectAddContainer("0", "0/lxd/0", "18.04", "lxd")
+	s.expectAddMachine("1", "18.04")
+	s.expectAddContainer("1", "1/kvm/0", "18.04", "kvm")
+	s.expectAddMachine("2", "18.04")
+	s.expectAddContainer("", "3/lxd/0", "18.04", "lxd")
+	s.expectAddContainer("", "4/lxd/0", "18.04", "lxd")
+	s.expectAddContainer("", "5/lxd/0", "18.04", "lxd")
 	s.expectAddOneUnit("wp", "2", "0")
 	s.expectAddOneUnit("wp", "0", "1")
 	s.expectAddOneUnit("wp", "1/kvm/0", "2")
@@ -1837,9 +1839,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1876,24 +1878,24 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
 	varnishCurl := charm.MustParseURL("cs:xenial/varnish")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            mysqlCurl,
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 mysqlCurl,
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            pgresCurl,
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 pgresCurl,
+			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            varnishCurl,
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 varnishCurl,
+			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1952,18 +1954,18 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mysqlCurl := charm.MustParseURL("local:xenial/mysql-1")
-	wordpressCurl := charm.MustParseURL("local:xenial/wordpress-3")
+	mysqlCurl := charm.MustParseURL("local:jammy/mysql-1")
+	wordpressCurl := charm.MustParseURL("local:jammy/wordpress-3")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machineSeries:   "xenial",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"focal", "jammy"},
+			machineUbuntuVersion: "20.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"focal", "jammy"},
+			curl:                 wordpressCurl,
+			machineUbuntuVersion: "20.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1971,7 +1973,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	s.expectAddRelation([]string{"wordpress:db", "mysql:server"})
 
 	content := `
-      series: xenial
+      series: focal
       applications:
           wordpress:
               charm: %s
@@ -1986,17 +1988,19 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
 	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
 	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
+	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.runDeploy(c, bundle)
-
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "xenial")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "xenial")
+	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "focal")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "focal")
 	expectedOutput := "" +
 		"Executing changes:\n" +
-		"- upload charm %s for series xenial with architecture=amd64\n" +
-		"- deploy application mysql on xenial\n" +
-		"- upload charm %s for series xenial with architecture=amd64\n" +
-		"- deploy application wordpress on xenial\n" +
+		"- upload charm %s for series focal with architecture=amd64\n" +
+		"- deploy application mysql on focal\n" +
+		"- upload charm %s for series focal with architecture=amd64\n" +
+		"- deploy application wordpress on focal\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
 		"- add unit mysql/1 to new machine 1\n" +
@@ -2056,10 +2060,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 	grafanaCurl, err := charm.ParseURL("ch:grafana")
 	c.Assert(err, jc.ErrorIsNil)
 	chUnits := []charmUnit{{
-		curl:            grafanaCurl,
-		charmMetaSeries: []string{"bionic", "xenial"},
-		machine:         "0",
-		machineSeries:   "bionic",
+		curl:                 grafanaCurl,
+		charmMetaSeries:      []string{"bionic", "xenial"},
+		machine:              "0",
+		machineUbuntuVersion: "18.04",
 	}}
 	s.setupCharmUnits(chUnits)
 
@@ -2131,9 +2135,9 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 
 func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, series string) {
 	arg, found := s.deployArgs[appName]
-	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
+	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args %s", appName))
 	c.Assert(arg.CharmID.URL.String(), gc.Equals, curl)
-	c.Assert(arg.Series, gc.Equals, series)
+	c.Assert(arg.CharmOrigin.Series, gc.Equals, series, gc.Commentf("%s", pretty.Sprint(arg)))
 }
 
 func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Constraints) {
@@ -2158,12 +2162,12 @@ func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *gc.C, appName s
 }
 
 type charmUnit struct {
-	curl            *charm.URL
-	resolveSeries   []string
-	charmMetaSeries []string
-	force           bool
-	machine         string
-	machineSeries   string
+	curl                 *charm.URL
+	resolveSeries        []string
+	charmMetaSeries      []string
+	force                bool
+	machine              string
+	machineUbuntuVersion string
 }
 
 func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
@@ -2188,8 +2192,8 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()
-		if chUnit.machineSeries != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+		if chUnit.machineUbuntuVersion != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
 			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
 		}
 	}
@@ -2216,8 +2220,8 @@ func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []cha
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()
-		if chUnit.machineSeries != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+		if chUnit.machineUbuntuVersion != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
 			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
 		}
 	}
@@ -2485,21 +2489,23 @@ func (s *BundleDeployRepositorySuite) expectExpose(app string) {
 	s.deployerAPI.EXPECT().Expose(app, gomock.Any()).Return(nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectAddMachine(machine, series string) {
+func (s *BundleDeployRepositorySuite) expectAddMachine(machine, channel string) {
 	if machine == "" {
 		return
 	}
-	s.expectAddContainer("", machine, series, "")
+	s.expectAddContainer("", machine, channel, "")
 }
 
-func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, series, container string) {
+func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, channel, container string) {
 	args := []params.AddMachineParams{
 		{
 			ContainerType: instance.ContainerType(container),
 			Jobs:          []model.MachineJob{model.JobHostUnits},
-			Series:        series,
 			ParentId:      parent,
 		},
+	}
+	if channel != "" {
+		args[0].Base = &params.Base{Name: "ubuntu", Channel: channel}
 	}
 	results := []params.AddMachinesResult{
 		{Machine: machine},

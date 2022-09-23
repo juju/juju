@@ -253,7 +253,6 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 		Origin:             args.Origin,
 		CharmStoreMacaroon: nil,
 		Force:              args.Force,
-		Series:             args.Series,
 	})
 }
 
