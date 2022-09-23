@@ -1966,10 +1966,12 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 			}
 			os = strings.ToLower(sys.String())
 		}
+		// TODO(wallyworld) - we need to update description to support channel
+		// For now, the serialised string is the same regardless.
 		platform = corecharm.Platform{
 			Architecture: pArch,
 			OS:           os,
-			Series:       origin.Platform.Series,
+			Channel:      origin.Platform.Series,
 		}
 	}
 

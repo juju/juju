@@ -106,20 +106,16 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 		// Note: we can be sure these have at least one, because of the
 		// validation logic in retry method.
 		requestedOrigin.Platform.OS = resolvableBases[0].OS
-		requestedOrigin.Platform.Series = resolvableBases[0].Series
+		requestedOrigin.Platform.Channel = resolvableBases[0].Channel
 
 		effectiveChannel = res.EffectiveChannel
 	case requestedOrigin.Revision != nil && *requestedOrigin.Revision != -1:
 		if len(res.Entity.Bases) > 0 {
 			for _, v := range res.Entity.Bases {
-				series, err := coreseries.VersionSeries(v.Channel)
-				if err != nil {
-					return nil, corecharm.Origin{}, nil, errors.Trace(err)
-				}
 				resolvableBases = append(resolvableBases, corecharm.NormalisePlatformSeries(corecharm.Platform{
 					Architecture: v.Architecture,
 					OS:           v.Name,
-					Series:       series,
+					Channel:      v.Channel,
 				}))
 			}
 		}
@@ -147,9 +143,16 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	// Ensure we send the updated charmURL back, with all the correct segments.
 	revision := res.Entity.Revision
 	resCurl := charmURL.
-		WithSeries(chSuggestedOrigin.Platform.Series).
 		WithArchitecture(chSuggestedOrigin.Platform.Architecture).
 		WithRevision(revision)
+	// TODO(wallyworld) - does charm url still need a series?
+	if chSuggestedOrigin.Platform.Channel != "" {
+		series, err := coreseries.VersionSeries(chSuggestedOrigin.Platform.Channel)
+		if err != nil {
+			return nil, corecharm.Origin{}, nil, errors.Trace(err)
+		}
+		resCurl = resCurl.WithSeries(series)
+	}
 
 	// Create a resolved origin.  Keep the original values for ID and Hash, if
 	// any were passed in.  ResolveWithPreferredChannel is called for both
@@ -183,13 +186,25 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	// bases can be passed back as a slice of supported series. The callee can
 	// then determine which base they want to use and deploy that accordingly,
 	// without another API request.
+	// TODO(juju3) - we should use supported channels not series
+	var series string
+	if outputOrigin.Platform.Channel != "" {
+		series, err = coreseries.VersionSeries(outputOrigin.Platform.Channel)
+		if err != nil {
+			return nil, corecharm.Origin{}, nil, errors.Trace(err)
+		}
+	}
 	supportedSeries := []string{
-		outputOrigin.Platform.Series,
+		series,
 	}
 	if len(resolvableBases) > 0 {
 		supportedSeries = make([]string, len(resolvableBases))
 		for k, base := range resolvableBases {
-			supportedSeries[k] = base.Series
+			series, err = coreseries.VersionSeries(base.Channel)
+			if err != nil {
+				return nil, corecharm.Origin{}, nil, errors.Trace(err)
+			}
+			supportedSeries[k] = series
 		}
 	}
 
@@ -199,9 +214,9 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 // validateAndFixOrigin, validate the origin and maybe fix as follows:
 //
 //	Platform must have an architecture.
-//	Platform can have both an empty series AND os.
-//	If series defined and OS an empty string, add data.
-//	Platform must have series if os defined.
+//	Platform can have both an empty Channel AND os.
+//	If channel defined and OS an empty string, add data.
+//	Platform must have channel if os defined.
 func (c *CharmHubRepository) validateAndFixOrigin(origin corecharm.Origin) (corecharm.Origin, error) {
 	p := origin.Platform
 
@@ -209,17 +224,21 @@ func (c *CharmHubRepository) validateAndFixOrigin(origin corecharm.Origin) (core
 		return corecharm.Origin{}, errors.BadRequestf("origin.Platform requires an Architecture")
 	}
 
-	if p.OS != "" && p.Series == "" {
-		return corecharm.Origin{}, errors.BadRequestf("origin.Platform requires a Series, if OS set")
+	if p.OS != "" && p.Channel == "" {
+		return corecharm.Origin{}, errors.BadRequestf("origin.Platform requires a Channel, if OS set")
 	}
 
-	if p.Series != "" && p.OS == "" {
-		os, err := coreseries.GetOSFromSeries(origin.Platform.Series)
+	if p.Channel != "" && p.OS == "" {
+		series, err := coreseries.VersionSeries(origin.Platform.Channel)
+		if err != nil {
+			return corecharm.Origin{}, errors.NewBadRequest(err, "")
+		}
+		os, err := coreseries.GetOSFromSeries(series)
 		if err != nil {
 			return corecharm.Origin{}, errors.NewBadRequest(err, "")
 		}
 		p.OS = strings.ToLower(os.String())
-		c.logger.Tracef("origin.platform is missing os value, though series provided, setting to %q", p.OS)
+		c.logger.Tracef("origin.platform is missing os value, though channel provided, setting to %q", p.OS)
 		origin.Platform = p
 	}
 
@@ -266,12 +285,12 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 
 	p := origin.Platform
 	p.OS = base.OS
-	p.Series = base.Series
+	p.Channel = base.Channel
 
 	origin.Platform = corecharm.NormalisePlatformSeries(p)
 
-	if origin.Platform.Series == "" {
-		return nil, errors.NotValidf("series for %s", charmURL.Name)
+	if origin.Platform.Channel == "" {
+		return nil, errors.NotValidf("channel for %s", charmURL.Name)
 	}
 
 	c.logger.Tracef("Refresh again with %q %v", charmURL, origin)
@@ -545,16 +564,9 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 		platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
 			Architecture: base.Architecture,
 			OS:           base.Name,
-			Series:       track,
+			Channel:      track,
 		})
-
-		series, err := coreseries.VersionSeries(platform.Series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		p := platform
-		p.Series = series
-		results[k] = p
+		results[k] = platform
 	}
 
 	return results, nil
@@ -564,9 +576,9 @@ func (c *CharmHubRepository) selectNextBasesFromReleases(releases []transport.Re
 	if len(releases) == 0 {
 		return nil, errors.Errorf("no releases available")
 	}
-	if origin.Platform.Series == "" {
+	if origin.Platform.Channel == "" {
 		// If the user passed in a branch, but not enough information about the
-		// arch and series, then we can help by giving a better error message.
+		// arch and channel, then we can help by giving a better error message.
 		if origin.Channel != nil && origin.Channel.Branch != "" {
 			return nil, errors.Errorf("ambiguous arch and series with channel %q, specify both arch and series along with channel", origin.Channel.String())
 		}
@@ -673,7 +685,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		base = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      corecharm.ComputeBaseChannel(origin.Platform).Series,
+			Channel:      origin.Platform.Channel,
 		}
 	)
 	switch method {
@@ -702,12 +714,12 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 		base := corecharm.NormalisePlatformSeries(corecharm.Platform{
 			Architecture: release.Base.Architecture,
 			OS:           release.Base.Name,
-			Series:       release.Base.Channel,
+			Channel:      release.Base.Channel,
 		})
 		arch := base.Architecture
-		track, err := corecharm.ChannelTrack(base.Series)
+		track, err := corecharm.ChannelTrack(base.Channel)
 		if err != nil {
-			c.logger.Errorf("invalid base channel %v: %s", base.Series, err)
+			c.logger.Errorf("invalid base channel %v: %s", base.Channel, err)
 			continue
 		}
 		series, err := coreseries.VersionSeries(track)
@@ -722,7 +734,11 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			continue
 		}
 		if series == "all" {
-			series = origin.Platform.Series
+			var err error
+			if series, err = coreseries.VersionSeries(origin.Platform.Channel); err != nil {
+				c.logger.Errorf("converting version to series: %s", err)
+				continue
+			}
 		}
 		channelSeries[release.Channel] = append(channelSeries[release.Channel], series)
 	}
@@ -764,17 +780,10 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
 			Architecture: origin.Platform.Architecture,
 			OS:           os,
-			Series:       track,
+			Channel:      track,
 		})
-		series, err := coreseries.VersionSeries(platform.Series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
-			p := platform
-			p.Series = series
-
-			results = append(results, p)
+			results = append(results, platform)
 		}
 	}
 	return results, nil

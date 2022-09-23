@@ -211,7 +211,7 @@ func (mm *MachineManagerAPIV7) AddMachines(args params.AddMachines) (params.AddM
 		if arg.Series == "" {
 			continue
 		}
-		base, err := series.GetOSVersionFromSeries(arg.Series)
+		base, err := series.GetBaseFromSeries(arg.Series)
 		if err != nil {
 			continue
 		}
@@ -288,7 +288,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 			p.Series = config.PreferredSeries(conf)
 		} else {
 			var err error
-			p.Series, err = series.GetSeriesFromOSVersion(series.Base{
+			p.Series, err = series.GetSeriesFromBase(series.Base{
 				Name:    p.Base.Name,
 				Channel: p.Base.Channel,
 			})

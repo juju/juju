@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"time"
 
@@ -130,9 +131,20 @@ func includeChannel(p []corecharm.Platform, architecture, series string) bool {
 func channelSeries(platforms []corecharm.Platform) set.Strings {
 	series := set.NewStrings()
 	for _, v := range platforms {
-		series.Add(v.Series)
+		s, err := coreseries.VersionSeries(v.Channel)
+		if err == nil {
+			series.Add(s)
+		}
 	}
 	return series
+}
+
+func channelBases(platforms []corecharm.Platform) set.Strings {
+	bases := set.NewStrings()
+	for _, v := range platforms {
+		bases.Add(fmt.Sprintf("%s/%s", v.OS, v.Channel))
+	}
+	return bases
 }
 
 func channelArches(platforms []corecharm.Platform) set.Strings {
@@ -312,7 +324,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, ser
 			trackList = append(trackList, ch.Track)
 		}
 
-		platforms := convertBasesToPlatforms(cm.Revision.Bases, isKub)
+		platforms := convertBasesToPlatforms(cm.Revision.Bases)
 		if !includeChannel(platforms, arch, series) {
 			continue
 		}
@@ -325,7 +337,13 @@ func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, ser
 			Size:       cm.Revision.Download.Size,
 			Version:    cm.Revision.Version,
 			Arches:     channelArches(platforms).SortedValues(),
-			Series:     channelSeries(platforms).SortedValues(),
+			Bases:      channelBases(platforms).SortedValues(),
+		}
+		// TODO(juju3) - remove series
+		if isKub {
+			currentCh.Series = []string{"kubernetes"}
+		} else {
+			currentCh.Series = channelSeries(platforms).SortedValues()
 		}
 
 		chName := ch.Track + "/" + ch.Risk
@@ -350,20 +368,13 @@ func filterChannels(channelMap []transport.InfoChannelMap, isKub bool, arch, ser
 	return trackList, channels, nil
 }
 
-func convertBasesToPlatforms(in []transport.Base, isKub bool) []corecharm.Platform {
+func convertBasesToPlatforms(in []transport.Base) []corecharm.Platform {
 	out := make([]corecharm.Platform, len(in))
 	for i, v := range in {
-		var series string
-		if isKub {
-			series = "kubernetes"
-		} else {
-			series, _ = coreseries.VersionSeries(v.Channel)
-		}
-		os, _ := coreseries.GetOSFromSeries(series)
 		out[i] = corecharm.Platform{
 			Architecture: v.Architecture,
-			OS:           strings.ToLower(os.String()),
-			Series:       series,
+			OS:           strings.ToLower(v.Name),
+			Channel:      v.Channel,
 		}
 	}
 	return out

@@ -61,19 +61,7 @@ type Origin struct {
 type Platform struct {
 	Architecture string
 	OS           string
-	Series       string
-}
-
-// MakePlatform creates a core charm Platform from a set of component parts.
-func MakePlatform(arch, os, series string) (Platform, error) {
-	if arch == "" {
-		return Platform{}, errors.NotValidf("arch %q", arch)
-	}
-	return Platform{
-		Architecture: arch,
-		OS:           os,
-		Series:       series,
-	}, nil
+	Channel      string
 }
 
 // MustParsePlatform parses a given string or returns a panic.
@@ -97,7 +85,7 @@ func MustParsePlatform(s string) Platform {
 //
 // Examples:
 //
-//  1. `<arch>/<os>/<series>`
+//  1. `<arch>/<os>/<channel>`
 //  2. `<arch>`
 //  3. `<arch>/<series>`
 //  4. `<arch>/unknown/<series>`
@@ -108,17 +96,17 @@ func ParsePlatform(s string) (Platform, error) {
 
 	p := strings.Split(s, "/")
 
-	var arch, os, series *string
+	var arch, os, channel *string
 	switch len(p) {
 	case 1:
 		arch = &p[0]
 	case 2:
 		arch = &p[0]
-		series = &p[1]
+		channel = &p[1]
 	case 3:
-		arch, os, series = &p[0], &p[1], &p[2]
+		arch, os, channel = &p[0], &p[1], &p[2]
 	case 4:
-		arch, os, series = &p[0], &p[1], strptr(fmt.Sprintf("%s/%s", p[2], p[3]))
+		arch, os, channel = &p[0], &p[1], strptr(fmt.Sprintf("%s/%s", p[2], p[3]))
 	default:
 		return Platform{}, errors.Errorf("platform is malformed and has too many components %q", s)
 	}
@@ -136,11 +124,25 @@ func ParsePlatform(s string) (Platform, error) {
 		}
 		platform.OS = *os
 	}
-	if series != nil {
-		if *series == "" {
-			return Platform{}, errors.NotValidf("series in platform %q", s)
+	if channel != nil {
+		if *channel == "" {
+			return Platform{}, errors.NotValidf("channel in platform %q", s)
 		}
-		platform.Series = *series
+		if *channel != "unknown" {
+			// Channel might be a series, eg "jammy" or an os version, eg "22.04".
+			// We are transitioning away from series but still need to support it.
+			// If an os version is specified, os is mandatory.
+			series := *channel
+			vers, err := coreseries.SeriesVersion(series)
+			if err == nil {
+				osType, _ := coreseries.GetOSFromSeries(series)
+				platform.OS = strings.ToLower(osType.String())
+				*channel = vers
+			} else if platform.OS == "" {
+				return Platform{}, errors.NotValidf("channel without os name in platform %q", s)
+			}
+			platform.Channel = *channel
+		}
 	}
 
 	return platform, nil
@@ -160,23 +162,23 @@ func ParsePlatformNormalize(s string) (Platform, error) {
 	return platform.Normalize(), nil
 }
 
-// Normalize the platform with normalized architecture, os and series.
+// Normalize the platform with normalized architecture, os and channel.
 func (p Platform) Normalize() Platform {
 	os := p.OS
 	if os == "unknown" {
 		os = ""
 	}
 
-	series := p.Series
-	if series == "unknown" {
+	channel := p.Channel
+	if channel == "unknown" {
 		os = ""
-		series = ""
+		channel = ""
 	}
 
 	return Platform{
 		Architecture: p.Architecture,
 		OS:           os,
-		Series:       series,
+		Channel:      channel,
 	}
 }
 
@@ -185,48 +187,38 @@ func (p Platform) String() string {
 	if os := p.OS; os != "" {
 		path = fmt.Sprintf("%s/%s", path, os)
 	}
-	if series := p.Series; series != "" {
-		path = fmt.Sprintf("%s/%s", path, series)
+	if channel := p.Channel; channel != "" {
+		path = fmt.Sprintf("%s/%s", path, channel)
 	}
 
 	return path
 }
 
-// ComputeBaseChannel origin.Platform.Series could be a series or a version.
-// In reality it will be a series (focal, groovy), but to be on the safe side
-// we should validate and fallback if it really isn't a version.
-// The refresh will fail if it's wrong with a revision not found, which
-// will be fine for now
+// ComputeBaseChannel ensure that the platform has a valid charmhub
+// channel for centos versions.
 func ComputeBaseChannel(platform Platform) Platform {
-	track, _ := ChannelTrack(platform.Series)
+	track, _ := ChannelTrack(platform.Channel)
 	switch strings.ToLower(platform.OS) {
 	case "centos":
 		p := platform
-		p.Series = strings.TrimPrefix(track, "centos")
+		p.Channel = strings.TrimPrefix(track, "centos")
 		return p
 	}
-
-	baseChannel, err := coreseries.SeriesVersion(track)
-	if err != nil {
-		baseChannel = platform.Series
-	}
-	p := platform
-	p.Series = baseChannel
-	return p
+	return platform
 }
 
-// NormalisePlatformSeries origin.Platform.Series returns a valid Juju series and
+// NormalisePlatformSeries origin.Platform.Channel returns a valid Juju series and
 // not a charmhub series, ensuring we correctly normalize the base channel.
 func NormalisePlatformSeries(platform Platform) Platform {
 	switch strings.ToLower(platform.OS) {
 	case "centos":
 		// If the platform has already a "centos" prefix, don't double prefix it.
-		if strings.HasPrefix(strings.ToLower(platform.Series), "centos") {
+		if strings.HasPrefix(strings.ToLower(platform.Channel), "centos") {
 			return platform
 		}
 
 		p := platform
-		p.Series = fmt.Sprintf("centos%s", platform.Series)
+		p.Channel = fmt.Sprintf("centos%s", platform.Channel)
 		return p
 	}
 	return platform

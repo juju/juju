@@ -437,8 +437,9 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
-		Series: "bionic",
+		Source:  commoncharm.OriginCharmHub,
+		Series:  "bionic",
+		Channel: "18.04",
 	}
 	actualOrigin := origin
 	actualOrigin.ID = "charmid"
@@ -449,7 +450,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref, "bionic")
+	cfg := refresherConfigWithOrigin(curl, ref, "18.04")
 	cfg.DeployedSeries = "bionic"
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -472,8 +473,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
-		Series: "bionic",
+		Source:  commoncharm.OriginCharmHub,
+		Series:  "bionic",
+		Channel: "18.04",
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
@@ -482,7 +484,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref, "bionic")
+	cfg := refresherConfigWithOrigin(curl, ref, "18.04")
 	cfg.DeployedSeries = "bionic"
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -753,13 +755,13 @@ func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {
 	}
 }
 
-func refresherConfigWithOrigin(curl *charm.URL, ref, series string) RefresherConfig {
+func refresherConfigWithOrigin(curl *charm.URL, ref, channel string) RefresherConfig {
 	rc := basicRefresherConfig(curl, ref)
 	rc.CharmOrigin = corecharm.Origin{
 		Source:  corecharm.CharmHub,
 		Channel: &charm.Channel{},
 		Platform: corecharm.Platform{
-			Series: series,
+			Channel: channel,
 		},
 	}
 	return rc

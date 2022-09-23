@@ -33,6 +33,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
@@ -44,6 +45,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"bionic"},
+				Bases:  []string{"ubuntu/18.04"},
 			},
 		},
 	}, {
@@ -54,6 +56,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
@@ -65,6 +68,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"bionic"},
+				Bases:  []string{"ubuntu/18.04"},
 			},
 		},
 	}, {
@@ -75,6 +79,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
@@ -86,6 +91,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: []string{"amd64"},
 				Series: []string{"bionic"},
+				Bases:  []string{"ubuntu/18.04"},
 			},
 		},
 	}, {
@@ -95,6 +101,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		Input: []transport.InfoChannelMap{{
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
@@ -109,6 +116,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
@@ -120,6 +128,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"bionic"},
+				Bases:  []string{"ubuntu/18.04"},
 			},
 		},
 	}, {
@@ -130,6 +139,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
@@ -144,6 +154,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
@@ -152,6 +163,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "20.04",
 					Architecture: "all",
 				}},
@@ -163,6 +175,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"focal"},
+				Bases:  []string{"ubuntu/20.04"},
 			},
 		},
 	}, {
@@ -173,6 +186,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
@@ -181,6 +195,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "20.04",
 					Architecture: "all",
 				}},
@@ -192,6 +207,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: []string{"amd64"},
 				Series: []string{"bionic"},
+				Bases:  []string{"ubuntu/18.04"},
 			},
 		},
 	}, {
@@ -202,6 +218,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "arm64",
 				}},
@@ -210,6 +227,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "ppc64",
 				}},
@@ -253,6 +271,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Revision:   522,
 				Arches:     []string{"amd64"},
 				Series:     []string{"focal"},
+				Bases:      []string{"ubuntu/20.04"},
 			},
 		},
 	}}

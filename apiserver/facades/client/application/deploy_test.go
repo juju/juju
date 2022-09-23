@@ -28,7 +28,7 @@ import (
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
 // test, because DeployApplication demands that a charm already exists in state,
-// and that's is the simplest way to get one in there.
+// and that is the simplest way to get one in there.
 type DeployLocalSuite struct {
 	testing.JujuConnSuite
 	charm *state.Charm

@@ -1687,6 +1687,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 		Source:       "charm-hub",
 		OS:           "ubuntu",
 		Series:       "focal",
+		Channel:      "20.04",
 		Risk:         "stable",
 		Architecture: "arm64",
 	})
@@ -1707,6 +1708,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 		Source:       "charm-hub",
 		OS:           "ubuntu",
 		Series:       "focal",
+		Channel:      "20.04",
 		Risk:         "stable",
 		Architecture: "amd64",
 	})
@@ -1730,6 +1732,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 		Source:       "charm-hub",
 		OS:           "ubuntu",
 		Series:       "focal",
+		Channel:      "20.04",
 		Architecture: "arm64",
 	})
 }
@@ -1762,6 +1765,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 		Risk:         charmChannel,
 		OS:           "ubuntu",
 		Series:       charmSeries,
+		Channel:      "20.04",
 	}
 	resolvedOrigin := origin
 	resolvedOrigin.Revision = &rev
@@ -1795,6 +1799,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 		Risk:         charmChannel,
 		OS:           "ubuntu",
 		Series:       charmSeries,
+		Channel:      "20.04",
 	}
 	resolvedOrigin := origin
 

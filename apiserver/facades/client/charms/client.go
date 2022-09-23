@@ -202,9 +202,13 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
+	dlorigin, err := convertOrigin(origin)
+	if err != nil {
+		return params.DownloadInfoResult{}, errors.Trace(err)
+	}
 	return params.DownloadInfoResult{
 		URL:    url.String(),
-		Origin: convertOrigin(origin),
+		Origin: dlorigin,
 	}, nil
 }
 
@@ -316,8 +320,12 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 			return params.CharmOriginResult{}, errors.Trace(err)
 		}
 
+		origin, err := convertOrigin(actualOrigin)
+		if err != nil {
+			return params.CharmOriginResult{}, errors.Trace(err)
+		}
 		return params.CharmOriginResult{
-			Origin: convertOrigin(actualOrigin),
+			Origin: origin,
 		}, nil
 	}
 
@@ -344,8 +352,12 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 
+	origin, err := convertOrigin(actualOrigin)
+	if err != nil {
+		return params.CharmOriginResult{}, errors.Trace(err)
+	}
 	return params.CharmOriginResult{
-		Origin: convertOrigin(actualOrigin),
+		Origin: origin,
 	}, nil
 }
 
@@ -495,7 +507,11 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	}
 	result.URL = resultURL.String()
 
-	apiOrigin := convertOrigin(origin)
+	apiOrigin, err := convertOrigin(origin)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
 
 	// The charmhub API can return "all" for architecture as it's not a real
 	// arch we don't know how to correctly model it. "all " doesn't mean use the

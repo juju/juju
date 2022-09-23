@@ -279,7 +279,8 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		Source:       commoncharm.OriginLocal,
 		Architecture: platform.Architecture,
 		OS:           platform.OS,
-		Series:       platform.Series,
+		Channel:      platform.Channel,
+		Series:       d.series,
 	}
 	return &localBundle{deployBundle: db}, nil
 }

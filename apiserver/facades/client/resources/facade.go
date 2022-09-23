@@ -18,6 +18,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -285,6 +286,9 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 	if origin.Track != nil {
 		track = *origin.Track
 	}
+	if origin.Channel == "" && origin.Series != "" {
+		origin.Channel, _ = series.VersionSeries(origin.Series)
+	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),
 		Type:     origin.Type,
@@ -298,7 +302,7 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,
 			OS:           origin.OS,
-			Series:       origin.Series,
+			Channel:      origin.Channel,
 		},
 		InstanceKey: origin.InstanceKey,
 	}

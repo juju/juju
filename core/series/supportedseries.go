@@ -128,8 +128,8 @@ type Base struct {
 	Channel string
 }
 
-// GetOSVersionFromSeries returns the Base infor for a series.
-func GetOSVersionFromSeries(series string) (Base, error) {
+// GetBaseFromSeries returns the Base infor for a series.
+func GetBaseFromSeries(series string) (Base, error) {
 	var result Base
 	osName, err := GetOSFromSeries(series)
 	if err != nil {
@@ -144,17 +144,25 @@ func GetOSVersionFromSeries(series string) (Base, error) {
 	return result, nil
 }
 
-// GetSeriesFromOSVersion returns the series name for a
+// GetSeriesFromBase returns the series name for a
 // given Base. This is needed to support legacy series.
-func GetSeriesFromOSVersion(v Base) (string, error) {
+func GetSeriesFromBase(v Base) (string, error) {
 	var osSeries map[SeriesName]seriesVersion
 	switch strings.ToLower(v.Name) {
 	case "ubuntu":
 		osSeries = ubuntuSeries
 	case "centos":
 		osSeries = centosSeries
+	// TODO(juju3) - remove
+	case "opensuse":
+		osSeries = opensuseSeries
 	case "windows":
 		for _, vers := range windowsVersions {
+			if vers.Version == v.Channel {
+				return v.Channel, nil
+			}
+		}
+		for _, vers := range windowsNanoVersions {
 			if vers.Version == v.Channel {
 				return v.Channel, nil
 			}

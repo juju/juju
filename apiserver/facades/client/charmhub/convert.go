@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/charmhub/transport"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/os"
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
@@ -180,16 +181,21 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap, isKub bool) 
 func convertBasesToPlatforms(in []transport.Base, isKub bool) []params.Platform {
 	out := make([]params.Platform, len(in))
 	for i, v := range in {
-		var series string
+		// isKub is only for older podspec charms
 		if isKub {
-			series = "kubernetes"
-		} else {
-			series, _ = coreseries.VersionSeries(v.Channel)
+			out[i] = params.Platform{
+				Architecture: v.Architecture,
+				OS:           strings.ToLower(os.Kubernetes.String()),
+				Series:       "kubernetes",
+			}
+			continue
 		}
-		os, _ := coreseries.GetOSFromSeries(series)
+		// TODO(juju3) - remove series
+		series, _ := coreseries.VersionSeries(v.Channel)
 		out[i] = params.Platform{
 			Architecture: v.Architecture,
-			OS:           strings.ToLower(os.String()),
+			OS:           strings.ToLower(v.Name),
+			Channel:      v.Channel,
 			Series:       series,
 		}
 	}

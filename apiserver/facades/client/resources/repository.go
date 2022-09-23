@@ -152,7 +152,7 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 		refBase = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      origin.Platform.Series,
+			Channel:      origin.Platform.Channel,
 		}
 	)
 
@@ -207,7 +207,7 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 	return charmresource.Resource{}, errors.NotFoundf("charm resource %q at revision %d", name, revision)
 }
 
-// ResolveResources, looks at the provided, charmhub and backend (already
+// ResolveResources looks at the provided charmhub and backend (already
 // downloaded) resources to determine which to use. Provided (uploaded) take
 // precedence. If charmhub has a newer resource than the back end, use that.
 func (ch *charmHubClient) ResolveResources(resources []charmresource.Resource, id CharmID) ([]charmresource.Resource, error) {
@@ -266,7 +266,7 @@ func (ch *charmHubClient) listResources(id CharmID) (map[string]charmresource.Re
 	refBase := charmhub.RefreshBase{
 		Architecture: origin.Platform.Architecture,
 		Name:         origin.Platform.OS,
-		Channel:      origin.Platform.Series,
+		Channel:      origin.Platform.Channel,
 	}
 	var cfg charmhub.RefreshConfig
 	var err error
