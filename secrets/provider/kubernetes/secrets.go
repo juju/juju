@@ -9,8 +9,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/caas"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs"
@@ -43,13 +45,58 @@ func (p k8sProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets is not used.
-func (p k8sProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
-	return nil
+func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed []*secrets.URI) error {
+	if tag == nil {
+		// This should never happen.
+		// Because this method is used for uniter facade only.
+		return errors.New("empty tag")
+	}
+	if len(removed) == 0 {
+		return nil
+	}
+	cloudSpec, err := cloudSpecForModel(m)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cfg, err := m.Config()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	broker, err := NewCaas(context.TODO(), environs.OpenParams{
+		ControllerUUID: m.ControllerUUID(),
+		Cloud:          cloudSpec,
+		Config:         cfg,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return broker.RemoveAccessToken(tag.String())
+}
+
+func cloudSpecToStoreConfig(controllerUUID string, cfg *config.Config, spec cloudspec.CloudSpec) (*provider.StoreConfig, error) {
+	cred, err := json.Marshal(spec.Credential)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &provider.StoreConfig{
+		StoreType: Store,
+		Params: map[string]interface{}{
+			"controller-uuid":     controllerUUID,
+			"model-name":          cfg.Name(),
+			"model-type":          cfg.Type(),
+			"model-uuid":          cfg.UUID(),
+			"endpoint":            spec.Endpoint,
+			"ca-certs":            spec.CACertificates,
+			"is-controller-cloud": spec.IsControllerCloud,
+			"credential":          string(cred),
+		},
+	}, nil
 }
 
 // StoreConfig returns the config needed to create a k8s secrets store.
 // TODO(wallyworld) - only allow access to the specified secrets
-func (p k8sProvider) StoreConfig(m provider.Model, admin bool, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
+func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
 	cloudSpec, err := cloudSpecForModel(m)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -58,25 +105,29 @@ func (p k8sProvider) StoreConfig(m provider.Model, admin bool, owned []*secrets.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cred, err := json.Marshal(cloudSpec.Credential)
+	controllerUUID := m.ControllerUUID()
+	if tag == nil {
+		return cloudSpecToStoreConfig(controllerUUID, cfg, cloudSpec)
+	}
+
+	broker, err := NewCaas(context.TODO(), environs.OpenParams{
+		ControllerUUID: controllerUUID,
+		Cloud:          cloudSpec,
+		Config:         cfg,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSpec.Credential = nil
-	storeCfg := &provider.StoreConfig{
-		StoreType: Store,
-		Params: map[string]interface{}{
-			"controller-uuid":     m.ControllerUUID(),
-			"model-name":          cfg.Name(),
-			"model-type":          cfg.Type(),
-			"model-uuid":          cfg.UUID(),
-			"endpoint":            cloudSpec.Endpoint,
-			"ca-certs":            cloudSpec.CACertificates,
-			"is-controller-cloud": cloudSpec.IsControllerCloud,
-			"credential":          string(cred),
-		},
+	token, err := broker.EnsureAccessToken(tag.String(), owned, read, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return storeCfg, nil
+	cred, err := k8scloud.UpdateCredentialWithToken(*cloudSpec.Credential, token)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudSpec.Credential = &cred
+	return cloudSpecToStoreConfig(controllerUUID, cfg, cloudSpec)
 }
 
 // NewCaas is patched for testing.
@@ -136,6 +187,9 @@ func cloudSpecForModel(m provider.Model) (cloudspec.CloudSpec, error) {
 	cloudCredential, err := m.CloudCredential()
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
+	}
+	if cloudCredential == nil {
+		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
 	}
 	return cloudspec.MakeCloudSpec(c, "", cloudCredential)
 }

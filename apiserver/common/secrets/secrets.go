@@ -112,7 +112,7 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 		readURIs[i] = md.URI
 	}
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedURIs, readURIs)
-	cfg, err := p.StoreConfig(ma, false, ownedURIs, readURIs)
+	cfg, err := p.StoreConfig(ma, authTag, ownedURIs, readURIs)
 	return cfg, errors.Trace(err)
 }
 
@@ -127,7 +127,7 @@ func StoreForInspect(model *state.Model) (provider.SecretsStore, error) {
 	ma := &modelAdaptor{
 		model,
 	}
-	cfg, err := p.StoreConfig(ma, true, nil, nil)
+	cfg, err := p.StoreConfig(ma, nil, nil, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secrets store config")
 	}

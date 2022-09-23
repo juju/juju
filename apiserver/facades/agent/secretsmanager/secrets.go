@@ -219,7 +219,7 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	if err := provider.CleanupSecrets(model, removedURIs); err != nil {
+	if err := provider.CleanupSecrets(model, s.authTag, removedURIs); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return result, nil

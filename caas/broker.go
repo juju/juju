@@ -210,6 +210,9 @@ type Broker interface {
 	// ServiceManager provides an API for creating and watching services.
 	ServiceManager
 
+	// SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
+	SecretsProvider
+
 	// SecretsStore provides an API for managing Juju secrets.
 	SecretsStore
 
@@ -253,6 +256,15 @@ type ApplicationBroker interface {
 	WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error)
 }
 
+// SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
+type SecretsProvider interface {
+	// EnsureAccessToken ensures the secret related RBAC resources for the provided unit.
+	EnsureAccessToken(unitName string, owned, read, removed []*secrets.URI) (string, error)
+	// RemoveAccessToken removes the secret related RBAC resources for the provided unit.
+	RemoveAccessToken(unitName string) error
+}
+
+// SecretsStore provides an API for managing Juju secrets.
 type SecretsStore interface {
 	// SaveJujuSecret saves a secret, returning an id used to access the secret later.
 	SaveJujuSecret(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/secrets"
 )
 
 // AppNameForServiceAccount returns the juju application name associated with a
@@ -593,4 +594,16 @@ func (k *kubernetesClient) listClusterRoleBindings(selector k8slabels.Selector) 
 		return nil, errors.NotFoundf("cluster role binding with selector %q", selector)
 	}
 	return cRBList.Items, nil
+}
+
+// EnsureAccessToken ensures the RBAC resources created and updated for the provided resource name.
+func (k *kubernetesClient) EnsureAccessToken(unitName string, owned, read, removed []*secrets.URI) (string, error) {
+	logger.Criticalf("kubernetesClient.EnsureAccessToken called")
+	return "", nil
+}
+
+// RemoveAccessToken removes the RBAC resources for the provided resource name.
+func (k *kubernetesClient) RemoveAccessToken(unitName string) error {
+	logger.Criticalf("kubernetesClient.RemoveAccessToken called")
+	return nil
 }

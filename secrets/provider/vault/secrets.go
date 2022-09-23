@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	vault "github.com/mittwald/vaultgo"
 	"gopkg.in/yaml.v2"
 
@@ -114,7 +115,7 @@ func (p vaultProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
-func (p vaultProvider) CleanupSecrets(m provider.Model, removed []*secrets.URI) error {
+func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed []*secrets.URI) error {
 	cfg, err := p.adminConfig(m)
 	if err != nil {
 		return errors.Trace(err)
@@ -217,7 +218,8 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 }
 
 // StoreConfig returns the config needed to create a vault secrets store client.
-func (p vaultProvider) StoreConfig(m provider.Model, adminUser bool, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
+func (p vaultProvider) StoreConfig(m provider.Model, tag names.Tag, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
+	adminUser := tag == nil
 	// Get an admin store client so we can set up the policies.
 	storeCfg, err := p.adminConfig(m)
 	if err != nil {

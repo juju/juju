@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/juju/juju/core/secrets"
 	provider "github.com/juju/juju/secrets/provider"
+	names "github.com/juju/names/v4"
 )
 
 // MockSecretStoreProvider is a mock of SecretStoreProvider interface.
@@ -50,17 +51,17 @@ func (mr *MockSecretStoreProviderMockRecorder) CleanupModel(arg0 interface{}) *g
 }
 
 // CleanupSecrets mocks base method.
-func (m *MockSecretStoreProvider) CleanupSecrets(arg0 provider.Model, arg1 []*secrets.URI) error {
+func (m *MockSecretStoreProvider) CleanupSecrets(arg0 provider.Model, arg1 names.Tag, arg2 []*secrets.URI) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1)
+	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CleanupSecrets indicates an expected call of CleanupSecrets.
-func (mr *MockSecretStoreProviderMockRecorder) CleanupSecrets(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockSecretStoreProviderMockRecorder) CleanupSecrets(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupSecrets", reflect.TypeOf((*MockSecretStoreProvider)(nil).CleanupSecrets), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupSecrets", reflect.TypeOf((*MockSecretStoreProvider)(nil).CleanupSecrets), arg0, arg1, arg2)
 }
 
 // Initialise mocks base method.
@@ -93,7 +94,7 @@ func (mr *MockSecretStoreProviderMockRecorder) NewStore(arg0 interface{}) *gomoc
 }
 
 // StoreConfig mocks base method.
-func (m *MockSecretStoreProvider) StoreConfig(arg0 provider.Model, arg1 bool, arg2, arg3 []*secrets.URI) (*provider.StoreConfig, error) {
+func (m *MockSecretStoreProvider) StoreConfig(arg0 provider.Model, arg1 names.Tag, arg2, arg3 []*secrets.URI) (*provider.StoreConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StoreConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*provider.StoreConfig)

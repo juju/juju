@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
@@ -28,7 +30,7 @@ type SecretStoreProvider interface {
 
 	// CleanupSecrets removes any ACLs / resources associated
 	// with the removed secrets.
-	CleanupSecrets(m Model, removed []*secrets.URI) error
+	CleanupSecrets(m Model, tag names.Tag, removed []*secrets.URI) error
 
 	// CleanupModel removes any secrets / ACLs / resources
 	// associated with the model.
@@ -36,7 +38,7 @@ type SecretStoreProvider interface {
 
 	// StoreConfig returns the config needed to create a vault secrets store client
 	// used to manage owned secrets and read shared secrets.
-	StoreConfig(m Model, adminUser bool, owned []*secrets.URI, read []*secrets.URI) (*StoreConfig, error)
+	StoreConfig(m Model, tag names.Tag, owned []*secrets.URI, read []*secrets.URI) (*StoreConfig, error)
 
 	// NewStore creates a secrets store client using the
 	// specified config.
