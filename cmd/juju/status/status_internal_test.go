@@ -18,8 +18,8 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/juju/cmd/juju/status/mocks"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/cmd/juju/storage"
+	jujumodel "github.com/juju/juju/core/model"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -3745,6 +3744,12 @@ var statusTests = []testCase{
 	),
 }
 
+func (s *StatusSuiteGoMock) TestSuspendedModel(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	//
+}
+
 func mysqlCharm(extras M) M {
 	charm := M{
 		"charm":        "cs:quantal/mysql-1",
@@ -3875,22 +3880,6 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
-
-//func (s *StatusSuiteGoMock) addOneMachine(c *gc.C, machineId int) {
-//	ctrl := gomock.NewController(c)
-//	defer ctrl.Finish()
-//
-//	emptyCons := constraints.Value{}
-//	backend := mocks.NewMockBackend(ctrl)
-//	backend.AddOneMachine(state.MachineTemplate{
-//		Series:      "quantal",
-//		Constraints: emptyCons,
-//		Jobs:        []state.MachineJob{state.JobManageModel},
-//	})
-//
-//	c.Assert(err, jc.ErrorIsNil)
-//	c.Assert(m.Id(), gc.Equals, am.machineId)
-//}
 
 type recordAgentStartInformation struct {
 	machineId string
@@ -4857,20 +4846,51 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	}
 }
 
-func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
+func (s *StatusSuiteGoMock) TestMigrationInProgressTabular(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.SetModelAndController(c, ControllerName, "admin/hosted")
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
 hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
 
 `[1:]
 
-	st := s.setupMigrationTest(c)
-	defer st.Close()
-	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+	results := params.FullStatus{
+		Model: params.ModelStatusInfo{
+			Name:        "hosted",
+			CloudTag:    names.NewCloudTag("dummy").String(),
+			ModelStatus: params.DetailedStatus{},
+		},
+		//Machines: map[string]params.MachineStatus{
+		//	"1": {
+		//		AgentStatus: params.DetailedStatus{
+		//			Status: "error",
+		//			Info:   "<error while provisioning>",
+		//		},
+		//		InstanceId: "pending",
+		//		Series:     "trusty",
+		//		Id:         "1",
+		//	},
+		//},
+	}
 
-	output := substituteFakeTimestamp(c, stdout, false)
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(&results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	//st := s.setupMigrationTest(c)
+	//defer st.Close()
+	ctx, err := s.runStatus(c, "-m", "hosted", "--format", "tabular")
+	c.Assert(err, jc.ErrorIsNil)
+	//c.Assert(code, gc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Model \"hosted\" is empty.\n")
+
+	output := substituteFakeTimestamp(c, ctx.Stdout.(*bytes.Buffer).Bytes(), false)
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
 	c.Assert(string(output), gc.Equals, expected)
 }
@@ -4879,7 +4899,6 @@ func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
 hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
-
 `[1:]
 
 	st := s.setupMigrationTest(c)
@@ -4898,7 +4917,6 @@ hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  mi
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
 	c.Assert(string(output), gc.Equals, expected)
 }
-
 func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 	const hostedModelName = "hosted"
 	const statusText = "foo bar"
@@ -4941,55 +4959,35 @@ func (a *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
-	ctx := s.newContext(c)
-	defer s.resetContext(c, ctx)
-	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewSpaceAddresses("localhost")},
-		startAliveMachine{"0", "snowflake"},
-		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"logging"},
-		addCharmStoreCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
-		addApplication{name: "wordpress", charm: "wordpress"},
-		setApplicationExposed{"wordpress", true},
-		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewSpaceAddresses("localhost")},
-		startAliveMachine{"1", ""},
-		setMachineStatus{"1", status.Started, ""},
-		addAliveUnit{"wordpress", "1"},
-		setAgentStatus{"wordpress/0", status.Idle, "", nil},
-		setUnitStatus{"wordpress/0", status.Active, "", nil},
-		addApplication{name: "mysql", charm: "mysql"},
-		setApplicationExposed{"mysql", true},
-		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
-		startAliveMachine{"2", ""},
-		setMachineStatus{"2", status.Started, ""},
-		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.Idle, "", nil},
-		setUnitStatus{"mysql/0", status.Active, "", nil},
-		addApplication{name: "logging", charm: "logging"},
-		setApplicationExposed{"logging", true},
-		relateApplications{"wordpress", "mysql", ""},
-		relateApplications{"wordpress", "logging", ""},
-		relateApplications{"mysql", "logging", ""},
-		addSubordinate{"wordpress/0", "logging"},
-		addSubordinate{"mysql/0", "logging"},
-		setAgentStatus{"logging/0", status.Idle, "", nil},
-		setUnitStatus{"logging/0", status.Active, "", nil},
-		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
+func (s *StatusSuiteGoMock) TestStatusWithFormatSummary(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	results := s.prepSummaryData()
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: ControllerName,
+		showRelations:  true,
 	}
-	for _, s := range steps {
-		s.step(c, ctx)
-	}
-	code, stdout, stderr := runStatus(c, "--format", "summary")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(string(stdout), gc.Equals, `
+	formatter := newStatusFormatter(formatterParams)
+	formatted, err := formatter.format()
+	var got strings.Builder
+	err = FormatOneline(&got, formatted)
+	got.WriteString("\n")
+
+	ctx, err := s.runStatus(c, "--format", "summary")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Running on subnets:  127.0.0.1/8, 10.0.2.1/8  
  Utilizing ports:                             
       # Machines:  (3)
@@ -5009,54 +5007,30 @@ Running on subnets:  127.0.0.1/8, 10.0.2.1/8
 
 `[1:])
 }
-func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
-	ctx := s.newContext(c)
-	defer s.resetContext(c, ctx)
-	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
-		startAliveMachine{"0", "snowflake"},
-		setMachineStatus{"0", status.Started, ""},
-		addCharmStoreCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"logging"},
+func (s *StatusSuiteGoMock) TestStatusWithFormatOneline(c *gc.C) {
+	defer s.setup(c).Finish()
 
-		addApplication{name: "wordpress", charm: "wordpress"},
-		setApplicationExposed{"wordpress", true},
-		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
-		startAliveMachine{"1", ""},
-		setMachineStatus{"1", status.Started, ""},
-		addAliveUnit{"wordpress", "1"},
-		setAgentStatus{"wordpress/0", status.Idle, "", nil},
-		setUnitStatus{"wordpress/0", status.Active, "", nil},
+	results := s.prepOnelineData()
 
-		addApplication{name: "mysql", charm: "mysql"},
-		setApplicationExposed{"mysql", true},
-		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
-		startAliveMachine{"2", ""},
-		setMachineStatus{"2", status.Started, ""},
-		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.Idle, "", nil},
-		setUnitStatus{"mysql/0", status.Active, "", nil},
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(4).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-		addApplication{name: "logging", charm: "logging"},
-		setApplicationExposed{"logging", true},
-
-		relateApplications{"wordpress", "mysql", ""},
-		relateApplications{"wordpress", "logging", ""},
-		relateApplications{"mysql", "logging", ""},
-
-		addSubordinate{"wordpress/0", "logging"},
-		addSubordinate{"mysql/0", "logging"},
-
-		setAgentStatus{"logging/0", status.Idle, "", nil},
-		setUnitStatus{"logging/0", status.Active, "", nil},
-		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: ControllerName,
+		showRelations:  true,
 	}
-
-	ctx.run(c, steps, s.WaitForModelWatchersIdle)
+	formatter := newStatusFormatter(formatterParams)
+	formatted, err := formatter.format()
+	var got strings.Builder
+	err = FormatOneline(&got, formatted)
+	got.WriteString("\n")
 
 	const expected = `
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
@@ -5064,115 +5038,32 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 - wordpress/0: 10.0.1.1 (agent:idle, workload:active)
   - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
-	assertOneLineStatus(c, expected)
+	s.assertOneLineStatus(c, expected)
 }
 
-func assertOneLineStatus(c *gc.C, expected string) {
-	code, stdout, stderr := runStatus(c, "--format", "oneline")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(string(stdout), gc.Equals, expected)
+func (s *StatusSuiteGoMock) assertOneLineStatus(c *gc.C, expected string) {
+
+	ctx, err := s.runStatus(c, "--format", "oneline")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 
 	c.Log(`Check that "short" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c, "--format", "short")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(string(stdout), gc.Equals, expected)
+	ctx, err = s.runStatus(c, "--format", "short")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 
 	c.Log(`Check that "line" is an alias for oneline.`)
-	code, stdout, stderr = runStatus(c, "--format", "line")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(string(stdout), gc.Equals, expected)
-}
-
-func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
-	ctx := s.newContext(c)
-	steps := []stepper{
-		setToolsUpgradeAvailable{},
-		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
-		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
-		setMachineStatus{"0", status.Started, ""},
-		addCharmHubCharm{"wordpress"},
-		addCharmStoreCharm{"mysql"},
-		addCharmStoreCharm{"logging"},
-		addCharmStoreCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
-		addApplication{name: "wordpress", charm: "wordpress"},
-		setApplicationExposed{"wordpress", true},
-		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
-		startAliveMachine{"1", "snowflake"},
-		setMachineStatus{"1", status.Started, ""},
-		addAliveUnit{"wordpress", "1"},
-		setAgentStatus{"wordpress/0", status.Idle, "", nil},
-		setUnitStatus{"wordpress/0", status.Active, "", nil},
-		setUnitTools{"wordpress/0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
-		addApplication{name: "mysql", charm: "mysql"},
-		setApplicationExposed{"mysql", true},
-		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
-		startAliveMachine{"2", ""},
-		setMachineStatus{"2", status.Started, ""},
-		addAliveUnit{"mysql", "2"},
-		setAgentStatus{"mysql/0", status.Idle, "", nil},
-		setUnitStatus{
-			"mysql/0",
-			status.Maintenance,
-			"installing all the things", nil},
-		addAliveUnit{"mysql", "1"},
-		setAgentStatus{"mysql/1", status.Idle, "", nil},
-		setUnitStatus{
-			"mysql/1",
-			status.Terminated,
-			"gooooone", nil},
-		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
-		addApplication{name: "logging", charm: "logging"},
-		setApplicationExposed{"logging", true},
-		relateApplications{"wordpress", "mysql", "suspended"},
-		relateApplications{"wordpress", "logging", ""},
-		relateApplications{"mysql", "logging", ""},
-		addSubordinate{"wordpress/0", "logging"},
-		addSubordinate{"mysql/0", "logging"},
-		setAgentStatus{"logging/0", status.Idle, "", nil},
-		setUnitStatus{"logging/0", status.Active, "", nil},
-		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
-		setUnitWorkloadVersion{"logging/1", "a bit too long, really"},
-		setUnitWorkloadVersion{"wordpress/0", "4.5.3"},
-		setUnitWorkloadVersion{"mysql/0", "5.7.13\nanother"},
-		setUnitAsLeader{"mysql/0"},
-		setUnitAsLeader{"logging/1"},
-		setUnitAsLeader{"wordpress/0"},
-		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
-		startAliveMachine{"3", ""},
-		setMachineStatus{"3", status.Started, ""},
-		setMachineInstanceStatus{"3", status.Started, "I am number three"},
-
-		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", owner: "admin", endpoints: []string{"server"}},
-		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
-		relateApplications{"remote-wordpress", "mysql", ""},
-		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},
-
-		// test modification status
-		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewSpaceAddresses("10.0.3.1")},
-		startAliveMachine{"4", ""},
-		setMachineStatus{"4", status.Started, ""},
-		setMachineInstanceStatus{"4", status.Started, "I am number four"},
-		setMachineModificationStatus{"4", status.Error, "I am an error"},
-	}
-	for _, s := range steps {
-		s.step(c, ctx)
-	}
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	return ctx
+	ctx, err = s.runStatus(c, "--format", "line")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 }
 
 var expectedTabularStatus = `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  upgrade available: 1.2.4
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  11:04:05+03:00  upgrade available: 1.2.4
 
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
@@ -5206,47 +5097,137 @@ wordpress:logging-dir  logging:logging-directory  logging    subordinate
 
 `[1:]
 
-func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
-	ctx := s.prepareTabularData(c)
-	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
+func (s *StatusSuiteGoMock) TestStatusWithFormatTabular(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	output := substituteFakeTimestamp(c, stdout, false)
-	output = substituteSpacingBetweenTimestampAndNotes(c, output)
-	c.Assert(string(output), gc.Equals, expectedTabularStatus)
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: ControllerName,
+		showRelations:  true,
+	}
+	formatter := newStatusFormatter(formatterParams)
+	formatted, err := formatter.format()
+	var got strings.Builder
+	err = FormatTabular(&got, false, formatted)
+	// we add a newline because output does not go through cmd.WriteFormatter, which is responsible for
+	// appending a newline delimiter when you use the default formatter (tabular).
+	got.WriteString("\n")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "--format", "tabular", "--relations")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, got.String())
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedTabularStatus)
 }
 
-func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
-	ctx := s.prepareTabularData(c)
-	defer s.resetContext(c, ctx)
+func (s *StatusSuiteGoMock) TestStatusWithFormatTabularValidModel(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations", "-m", s.Model.UUID())
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
+	results := s.prepTabularData(c)
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
 
-	output := substituteFakeTimestamp(c, stdout, false)
-	output = substituteSpacingBetweenTimestampAndNotes(c, output)
-	c.Assert(string(output), gc.Equals, expectedTabularStatus)
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: ControllerName,
+		showRelations:  true,
+	}
+	formatter := newStatusFormatter(formatterParams)
+	formatted, err := formatter.format()
+	var got strings.Builder
+	err = FormatTabular(&got, false, formatted)
+	got.WriteString("\n")
+	ctx, err := s.runStatus(c, "--format", "tabular", "--relations", "-m", "admin/controller")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, got.String())
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedTabularStatus)
 }
 
-func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
-	ctx := s.prepareTabularData(c)
-	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "yaml")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(string(stdout), jc.Contains, "display-name: snowflake")
+func (s *StatusSuiteGoMock) TestStatusWithFormatYaml(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: ControllerName,
+		storage:        &storage.CombinedStorage{},
+	}
+	formatter := newStatusFormatter(formatterParams)
+	formatted, err := formatter.format()
+
+	var got bytes.Buffer
+	err = cmd.FormatYaml(&got, formatted)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	out := substituteFakeTime(c, "since", got.Bytes(), false)
+	expectedOut := substituteFakeTime(c, "since", ctx.Stdout.(*bytes.Buffer).Bytes(), false)
+	c.Check(string(expectedOut), gc.Equals, string(out))
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, "display-name: snowflake")
 }
 
-func (s *StatusSuite) TestStatusWithFormatJson(c *gc.C) {
-	ctx := s.prepareTabularData(c)
-	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "json")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(string(stdout), jc.Contains, `"display-name":"snowflake"`)
+func (s *StatusSuiteGoMock) TestStatusWithFormatJson(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	results := s.prepTabularData(c)
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	formatterParams := newStatusFormatterParams{
+		status:         status,
+		controllerName: ControllerName,
+		storage:        &storage.CombinedStorage{},
+	}
+	formatter := newStatusFormatter(formatterParams)
+	formatted, err := formatter.format()
+
+	var got bytes.Buffer
+	err = cmd.FormatJson(&got, formatted)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	out := substituteFakeTime(c, "since", got.Bytes(), false)
+	expectedOut := substituteFakeTime(c, "since", ctx.Stdout.(*bytes.Buffer).Bytes(), false)
+	c.Check(string(expectedOut), gc.Equals, string(out))
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `"display-name":"snowflake"`)
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
@@ -6046,11 +6027,13 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 	}(statusTimeTest)
 }
 
-func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
+func (s *StatusSuiteGoMock) TestFormatProvisioningError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	now := time.Now()
-	status := &params.FullStatus{
+	results := params.FullStatus{
 		Model: params.ModelStatusInfo{
-			CloudTag: "cloud-dummy",
+			CloudTag: names.NewCloudTag("dummy").String(),
 		},
 		Machines: map[string]params.MachineStatus{
 			"1": {
@@ -6058,15 +6041,23 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 					Status: "error",
 					Info:   "<error while provisioning>",
 				},
-				InstanceId:     "pending",
-				InstanceStatus: params.DetailedStatus{},
-				Series:         "trusty",
-				Id:             "1",
-				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
+				InstanceId: "pending",
+				Series:     "trusty",
+				Id:         "1",
 			},
 		},
 		ControllerTimestamp: &now,
 	}
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(1).Return(&results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	isoTime := true
 	formatter := NewStatusFormatter(status, isoTime)
 	formatted, err := formatter.format()
@@ -6097,10 +6088,11 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 	})
 }
 
-func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
-	status := &params.FullStatus{
+func (s *StatusSuiteGoMock) TestMissingControllerTimestampInFullStatus(c *gc.C) {
+	defer s.setup(c).Finish()
+	results := params.FullStatus{
 		Model: params.ModelStatusInfo{
-			CloudTag: "cloud-dummy",
+			CloudTag: names.NewCloudTag("dummy").String(),
 		},
 		Machines: map[string]params.MachineStatus{
 			"1": {
@@ -6108,14 +6100,22 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 					Status: "error",
 					Info:   "<error while provisioning>",
 				},
-				InstanceId:     "pending",
-				InstanceStatus: params.DetailedStatus{},
-				Series:         "trusty",
-				Id:             "1",
-				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
+				InstanceId: "pending",
+				Series:     "trusty",
+				Id:         "1",
 			},
 		},
 	}
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(1).Return(&results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	isoTime := true
 	formatter := NewStatusFormatter(status, isoTime)
 	formatted, err := formatter.format()
@@ -6143,11 +6143,12 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 	})
 }
 
-func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
+func (s *StatusSuiteGoMock) TestControllerTimestampInFullStatus(c *gc.C) {
+	defer s.setup(c).Finish()
 	now := time.Now()
-	status := &params.FullStatus{
+	results := params.FullStatus{
 		Model: params.ModelStatusInfo{
-			CloudTag: "cloud-dummy",
+			CloudTag: names.NewCloudTag("dummy").String(),
 		},
 		Machines: map[string]params.MachineStatus{
 			"1": {
@@ -6155,15 +6156,23 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 					Status: "error",
 					Info:   "<error while provisioning>",
 				},
-				InstanceId:     "pending",
-				InstanceStatus: params.DetailedStatus{},
-				Series:         "trusty",
-				Id:             "1",
-				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
+				InstanceId: "pending",
+				Series:     "trusty",
+				Id:         "1",
 			},
 		},
 		ControllerTimestamp: &now,
 	}
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(1).Return(&results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	status, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	isoTime := true
 	formatter := NewStatusFormatter(status, isoTime)
 	formatted, err := formatter.format()
@@ -6194,63 +6203,124 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 	})
 }
 
-func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
-	ctx := s.FilteringTestSetup(c)
-	defer s.resetContext(c, ctx)
+func (s *StatusSuiteGoMock) TestTabularNoRelations(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	_, stdout, stderr := runStatus(c)
-	c.Assert(stderr, gc.IsNil)
-	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsFalse)
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "Relation provider"), jc.IsFalse)
 }
 
-func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
-	ctx := s.FilteringTestSetup(c)
-	defer s.resetContext(c, ctx)
+func (s *StatusSuiteGoMock) TestTabularDisplayRelations(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	_, stdout, stderr := runStatus(c, "--relations")
-	c.Assert(stderr, gc.IsNil)
-	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsTrue)
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "--relations")
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "Relation provider"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
-	ctx := s.FilteringTestSetup(c)
-	defer s.resetContext(c, ctx)
+func (s *StatusSuiteGoMock) TestNonTabularDisplayRelations(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
-	c.Assert(string(stderr), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
-	logger.Debugf("stdout -> \n%q", stdout)
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "--format=yaml", "--relations")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "storage:"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
-	ctx := s.FilteringTestSetup(c)
-	defer s.resetContext(c, ctx)
+func (s *StatusSuiteGoMock) TestNonTabularDisplayStorage(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--storage")
-	c.Assert(string(stderr), gc.Equals, "provided storage option is always enabled in non tabular formats\n")
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "--format=yaml", "--storage")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "provided storage option is always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "storage:"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
-	ctx := s.FilteringTestSetup(c)
-	defer s.resetContext(c, ctx)
+func (s *StatusSuiteGoMock) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations", "--storage")
-	c.Assert(string(stderr), gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := s.runStatus(c, "--format=yaml", "--relations", "--storage")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "storage:"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
-	ctx := s.FilteringTestSetup(c)
-	defer s.resetContext(c, ctx)
+func (s *StatusSuiteGoMock) TestNonTabularRelations(c *gc.C) {
+	defer s.setup(c).Finish()
 
-	_, stdout, stderr := runStatus(c, "--format=yaml")
-	c.Assert(stderr, gc.IsNil)
-	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
-	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+	results := s.prepTabularData(c)
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "--format=yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "    relations:"), jc.IsTrue)
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "storage:"), jc.IsTrue)
 }
 
 func (s *StatusSuite) PrepareBranchesOutput(c *gc.C) *context {
@@ -6291,6 +6361,41 @@ func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
 	c.Assert(strings.Contains(string(stdout), "test*"), jc.IsFalse)
 }
 
+//func (s *StatusSuiteGoMock) TestBranchesOutputTabularr(c *gc.C) {
+//	defer s.setup(c).Finish()
+//
+//	s.SetFeatureFlags(feature.Branches)
+//	results := s.prepTabularData(c)
+//
+//	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(results, nil)
+//	s.statusAPI.EXPECT().Close().AnyTimes()
+//	s.storageAPI.EXPECT().Close().AnyTimes()
+//	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+//	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+//	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+//	status, err := s.statusAPI.Status(nil)
+//	c.Assert(err, jc.ErrorIsNil)
+//
+//	formatterParams := newStatusFormatterParams{
+//		status:         status,
+//		controllerName: ControllerName,
+//		isoTime:        s.isoTime,
+//		showRelations:  true,
+//		activeBranch:   "bla",
+//	}
+//	formatter := newStatusFormatter(formatterParams)
+//	formatted, err := formatter.format()
+//	var got strings.Builder
+//	err = FormatTabular(&got, false, formatted)
+//	got.WriteString("\n")
+//
+//	ctx, err := s.runStatus(c)
+//	c.Assert(err, jc.ErrorIsNil)
+//	c.Logf("%v\n", got.String())
+//	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "bla*"), jc.IsTrue)
+//	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), "test*"), jc.IsFalse)
+//}
+
 func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
 	c.Skip("bug: #1862376 - can't always read our own writes. Model-cache may be too slow")
 	ctx := s.PrepareBranchesOutput(c)
@@ -6311,146 +6416,1245 @@ func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
 	c.Assert(strings.Contains(string(stdout), "active: true"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
-	code, stdout, stderr := runStatus(c)
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "Model \"controller\" is empty.\n")
+func (s *StatusSuiteGoMock) TestStatusFormatTabularEmptyModel(c *gc.C) {
+	defer s.setup(c).Finish()
+	results := params.FullStatus{
+		Model: params.ModelStatusInfo{
+			Name:        "controller",
+			Type:        "iaas",
+			Version:     currentVersion.String(),
+			CloudTag:    names.NewCloudTag("dummy").String(),
+			CloudRegion: "dummy-region",
+			ModelStatus: params.DetailedStatus{
+				Version: currentVersion.String(),
+				Since:   &s.since,
+				Status:  "available",
+			},
+			SLA: "unsupported",
+		},
+		ControllerTimestamp: &s.since,
+	}
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(2).Return(&results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Model \"admin/controller\" is empty.\n")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 
 `[1:]
-	output := substituteFakeTimestamp(c, stdout, false)
+	output := substituteFakeTimestamp(c, ctx.Stdout.(*bytes.Buffer).Bytes(), false)
 	c.Assert(string(output), gc.Equals, expected)
 }
 
-func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
-	code, stdout, stderr := runStatus(c, "unmatched")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "Nothing matched specified filter.\n")
+func (s *StatusSuiteGoMock) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	results := params.FullStatus{
+		Model: params.ModelStatusInfo{
+			Name:        "controller",
+			Type:        "iaas",
+			Version:     currentVersion.String(),
+			CloudTag:    names.NewCloudTag("dummy").String(),
+			CloudRegion: "dummy-region",
+			ModelStatus: params.DetailedStatus{
+				Version: currentVersion.String(),
+				Since:   &s.since,
+				Status:  "available",
+			},
+			SLA: "unsupported",
+		},
+		ControllerTimestamp: &s.since,
+	}
+
+	s.statusAPI.EXPECT().Status(gomock.Any()).Times(3).Return(&results, nil)
+	s.statusAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().Close().AnyTimes()
+	s.storageAPI.EXPECT().ListFilesystems([]string{}).AnyTimes().Return([]params.FilesystemDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListVolumes([]string{}).AnyTimes().Return([]params.VolumeDetailsListResult{}, nil)
+	s.storageAPI.EXPECT().ListStorageDetails().AnyTimes().Return([]params.StorageDetails{}, nil)
+	_, err := s.statusAPI.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.runStatus(c, "unmatch")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Nothing matched specified filter.\n")
+
+	ctx, err = s.runStatus(c, "cannot", "match", "me")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Nothing matched specified filters.\n")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 
 `[1:]
-	output := substituteFakeTimestamp(c, stdout, false)
+	output := substituteFakeTimestamp(c, ctx.Stdout.(*bytes.Buffer).Bytes(), false)
 	c.Assert(string(output), gc.Equals, expected)
-
-	_, _, stderr = runStatus(c, "cannot", "match", "me")
-	c.Check(string(stderr), gc.Equals, "Nothing matched specified filters.\n")
 }
 
 type StatusSuiteGoMock struct {
 	coretesting.BaseSuite
-	api              *mocks.MockstatusAPI
-	controllerStore  jujuclient.ClientStore
-	ControllerConfig controller.Config
-	configAttrs      map[string]interface{}
+	statusAPI  *mocks.MockstatusAPI
+	storageAPI *mocks.MockStorageListAPI
+	clock      *mocks.MockClock
+	since      time.Time
+	//isoTime    bool
 }
 
 var _ = gc.Suite(&StatusSuiteGoMock{})
 
 func (s *StatusSuiteGoMock) setup(c *gc.C) *gomock.Controller {
+	s.BaseSuite.SetUpTest(c)
 	ctrl := gomock.NewController(c)
 
-	s.api = mocks.NewMockstatusAPI(ctrl)
-	s.controllerStore = jujuclient.NewFileClientStore()
-	s.controllerStore.AddController(ControllerName, jujuclient.ControllerDetails{})
-	err := s.controllerStore.SetCurrentController(ControllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.controllerStore.CurrentController()
-	c.Assert(err, jc.ErrorIsNil)
-
+	s.statusAPI = mocks.NewMockstatusAPI(ctrl)
+	s.storageAPI = mocks.NewMockStorageListAPI(ctrl)
+	s.clock = mocks.NewMockClock(ctrl)
+	s.since = time.Date(2022, 9, 26, 8, 4, 5, 11, time.UTC)
+	s.SetModelAndController(c, ControllerName, "admin/controller")
 	return ctrl
 }
 
-func (s *StatusSuiteGoMock) runnStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
-	ctx := cmdtesting.Context(c)
-	code = cmd.Main(NewTestStatusCommand(s.api, nil, nil), ctx, args)
-	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
-	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
-	//statusCmd := NewTestStatusCommand(s.api, nil, nil)
-	//return cmdtesting.RunCommand(c, statusCmd, args...)
-	return
+func (s *StatusSuiteGoMock) newCommand() cmd.Command {
+	return NewTestStatusCommand(s.statusAPI, s.storageAPI, s.clock)
 }
 
-func (s *StatusSuiteGoMock) TestBootstrapAddMachine0(c *gc.C) {
-	defer s.setup(c).Finish()
+func (s *StatusSuiteGoMock) runStatus(c *gc.C, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, s.newCommand(), args...)
+}
 
-	since := time.Date(2015, time.April, 1, 1, 23, 10, 00, time.UTC)
+func (s *StatusSuiteGoMock) prepOnelineData() *params.FullStatus {
 	results := params.FullStatus{
 		Model: params.ModelStatusInfo{
-			Name:        "model",
+			Name:        "controller",
 			Type:        "iaas",
-			Version:     "1.2.3",
-			CloudTag:    "dummy",
+			Version:     currentVersion.String(),
+			CloudTag:    names.NewCloudTag("dummy").String(),
 			CloudRegion: "dummy-region",
 			ModelStatus: params.DetailedStatus{
-				Version: "1.2.3",
-				Since:   &since,
+				Version: currentVersion.String(),
+				Since:   &s.since,
 				Status:  "available",
 			},
-			SLA: "unsupported",
+			AvailableVersion: nextVersion.String(),
+			SLA:              "unsupported",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {
-				Series:     "quantal",
-				HasVote:    false,
-				WantsVote:  true,
-				InstanceId: instance.Id("pending"),
+			"0": {AgentStatus: params.DetailedStatus{
+				Status:  "started",
+				Since:   &s.since,
+				Version: currentVersion.String(),
+			},
+				InstanceStatus: params.DetailedStatus{
+					Status: "started",
+					Since:  &s.since,
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "applied",
+					Since:  &s.since,
+				},
+				Hostname:    "controller-0",
+				DNSName:     "10.0.1.1",
+				IPAddresses: []string{"10.0.1.1"},
+				InstanceId:  "snowflake",
+				DisplayName: "snowflake",
+				Series:      "quantal",
+				Id:          "0",
+				NetworkInterfaces: map[string]params.NetworkInterface{
+					"eth0": {
+						IPAddresses: []string{"10.0.1.1"},
+						MACAddress:  "00:16:3e:23:1f:1f ",
+						Gateway:     "10.0.0.1",
+						Space:       "alpha",
+						IsUp:        true,
+					},
+				},
+				Hardware:    "availability-zone=us-east-1a",
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobManageModel},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+			"1": {
 				AgentStatus: params.DetailedStatus{
-					Status: "pending",
+					Status:  "started",
+					Since:   &s.since,
+					Version: currentVersion.String(),
+				},
+				InstanceStatus: params.DetailedStatus{
+					Status: "starting",
+					Since:  &s.since,
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "applied",
+					Since:  &s.since,
+				},
+				Hostname:    "snowflake",
+				DNSName:     "10.0.1.1",
+				IPAddresses: []string{"10.0.1.1"},
+				Series:      "quantal",
+				Id:          "1",
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.1.1"},
+					MACAddress:  "00:16:3e:23:f2:25",
+					Gateway:     "10.0.0.0",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+			"2": {
+				AgentStatus: params.DetailedStatus{
+					Status:  "started",
+					Since:   &s.since,
+					Version: currentVersion.String(),
+				},
+				InstanceStatus: params.DetailedStatus{
+					Status: "started",
+					Since:  &s.since,
+				}, ModificationStatus: params.DetailedStatus{Status: "applied",
+					Since: &s.since,
+				},
+				Hostname:    "controller-2",
+				DNSName:     "10.0.2.1",
+				IPAddresses: []string{"10.0.2.1"},
+				InstanceId:  "controller-2",
+				Series:      "quantal",
+				Id:          "2",
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.2.1"},
+					MACAddress:  "00:16:3e:0f:76:de",
+					Gateway:     "10.0.0.0",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+		},
+		Applications: map[string]params.ApplicationStatus{
+			"logging": {
+				Charm:   "local:focal/logging-1",
+				Series:  "quantal",
+				Exposed: true,
+				Relations: map[string][]string{
+					"logging-directory": {"wordpress"},
+				},
+				SubordinateTo: []string{"wordpress"},
+				Status: params.DetailedStatus{
+					Info:   "somehow lost in all those logs",
+					Status: "error",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{
+					"":                  "alpha",
+					"info":              "alpha",
+					"logging-client":    "alpha",
+					"logging-directory": "alpha",
+				},
+				Scale:           0,
+				WorkloadVersion: "a bit too lo...",
+			},
+			"mysql": {
+				Charm:           "local:focal/mysql-1",
+				WorkloadVersion: "5.7.13",
+				Series:          "quantal",
+				Exposed:         true,
+				Relations: map[string][]string{
+					"server": {"wordpress"},
+				},
+				Units: map[string]params.UnitStatus{
+					"mysql/0": {
+						AgentStatus: params.DetailedStatus{
+							Status:  "idle",
+							Since:   &s.since,
+							Version: currentVersion.String(),
+						},
+						WorkloadStatus: params.DetailedStatus{
+							Status: "active",
+							Info:   "installing all the things",
+							Since:  &s.since,
+						},
+						Machine:       "2",
+						PublicAddress: "10.0.2.1",
+						Subordinates: map[string]params.UnitStatus{
+							"logging/1": {
+								AgentStatus: params.DetailedStatus{
+									Status:  "idle",
+									Since:   &s.since,
+									Version: currentVersion.String(),
+								},
+								WorkloadStatus: params.DetailedStatus{
+									Info:   "somehow lost in all those logs",
+									Status: "error",
+									Since:  &s.since,
+								},
+								PublicAddress: "10.0.2.1",
+								Leader:        true,
+							},
+						},
+						Leader: true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "maintenance",
+					Info:   "installing all the things",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{
+					"":               "alpha",
+					"metrics-client": "alpha",
+					"server":         "alpha",
+					"server-admin":   "alpha",
+				},
+				Scale: 0,
+			},
+			"wordpress": {
+				Charm:           "local:focal/wordpress-3",
+				WorkloadVersion: "4.5.3",
+				Series:          "quantal",
+				Exposed:         true,
+				Relations:       map[string][]string{"db": {"mysql"}, "logging-dir": {"logging"}},
+				Units: map[string]params.UnitStatus{
+					"wordpress/0": {
+						AgentStatus: params.DetailedStatus{
+							Status:  "idle",
+							Since:   &s.since,
+							Version: currentVersion.String(),
+						},
+						WorkloadStatus: params.DetailedStatus{
+							Status: "active",
+							Since:  &s.since,
+						},
+						Machine:       "1",
+						PublicAddress: "10.0.1.1",
+						Subordinates: map[string]params.UnitStatus{
+							"logging/0": {
+								AgentStatus: params.DetailedStatus{
+									Status:  "idle",
+									Since:   &s.since,
+									Version: currentVersion.String(),
+								},
+								WorkloadStatus: params.DetailedStatus{
+									Status: "active",
+									Since:  &s.since,
+								},
+								PublicAddress: "10.0.1.1",
+								Leader:        false,
+							},
+						},
+						Leader: true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "active",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{"": "alpha",
+					"admin-api":       "alpha",
+					"cache":           "alpha",
+					"db":              "alpha",
+					"db-client":       "alpha",
+					"foo-bar":         "alpha",
+					"logging-dir":     "alpha",
+					"monitoring-port": "alpha",
+					"url":             "alpha"},
+				Scale: 0,
+			},
+		},
+		Relations: []params.RelationStatus{
+			{
+				Id:        0,
+				Key:       "logging:info mysql:juju-info",
+				Interface: "juju-info",
+				Scope:     "container",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "mysql",
+						Name:            "juju-info",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "logging",
+						Name:            "info",
+						Role:            "requirer",
+						Subordinate:     true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "joined",
+					Since:  &s.since,
+				},
+			},
+			{
+				Id:        1,
+				Key:       "wordpress:db mysql:server",
+				Interface: "mysql",
+				Scope:     "global",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "wordpress",
+						Name:            "db",
+						Role:            "requirer",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "mysql",
+						Name:            "server",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "suspended",
+					Since:  &s.since,
+				},
+			},
+		},
+		ControllerTimestamp: &s.since,
+	}
+
+	return &results
+}
+
+func (s *StatusSuiteGoMock) prepTabularData(c *gc.C) *params.FullStatus {
+
+	results := params.FullStatus{
+		Model: params.ModelStatusInfo{
+			Name:        "controller",
+			Type:        "iaas",
+			Version:     currentVersion.String(),
+			CloudTag:    names.NewCloudTag("dummy").String(),
+			CloudRegion: "dummy-region",
+			ModelStatus: params.DetailedStatus{
+				Version: currentVersion.String(),
+				Since:   &s.since,
+				Status:  "available",
+			},
+			AvailableVersion: nextVersion.String(),
+			SLA:              "unsupported",
+		},
+		Machines: map[string]params.MachineStatus{
+			"0": {AgentStatus: params.DetailedStatus{
+				Status:  "started",
+				Since:   &s.since,
+				Version: currentVersion.String(),
+			},
+				InstanceStatus: params.DetailedStatus{
+					Status: "started",
+					Since:  &s.since,
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "applied",
+					Since:  &s.since,
+				},
+				Hostname:    "controller-0",
+				DNSName:     "10.0.0.1",
+				IPAddresses: []string{"10.0.0.1"},
+				InstanceId:  "controller-0",
+				DisplayName: "controller-0",
+				Series:      "quantal",
+				Id:          "0",
+				NetworkInterfaces: map[string]params.NetworkInterface{
+					"eth0": {
+						IPAddresses: []string{"10.0.0.1"},
+						MACAddress:  "00:16:3e:23:1f:1f ",
+						Gateway:     "10.0.0.1",
+						Space:       "alpha",
+						IsUp:        true,
+					},
+				},
+				Hardware:    "availability-zone=us-east-1a",
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+			"1": {
+				AgentStatus: params.DetailedStatus{
+					Status:  "started",
+					Since:   &s.since,
+					Version: currentVersion.String(),
+				},
+				InstanceStatus: params.DetailedStatus{
+					Status: "starting",
+					Since:  &s.since,
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "applied",
+					Since:  &s.since,
+				},
+				Hostname:    "snowflake",
+				DNSName:     "10.0.1.1",
+				IPAddresses: []string{"10.0.1.1"},
+				InstanceId:  "snowflake",
+				DisplayName: "snowflake",
+				Series:      "quantal",
+				Id:          "1",
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.1.1"},
+					MACAddress:  "00:16:3e:23:f2:25",
+					Gateway:     "10.0.0.0",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+			"2": {
+				AgentStatus: params.DetailedStatus{
+					Status:  "started",
+					Since:   &s.since,
+					Version: currentVersion.String(),
+				},
+				InstanceStatus: params.DetailedStatus{
+					Status: "started",
+					Since:  &s.since,
+				}, ModificationStatus: params.DetailedStatus{Status: "applied",
+					Since: &s.since,
+				},
+				Hostname:    "controller-2",
+				DNSName:     "10.0.2.1",
+				IPAddresses: []string{"10.0.2.1"},
+				InstanceId:  "controller-2",
+				Series:      "quantal",
+				Id:          "2",
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.2.1"},
+					MACAddress:  "00:16:3e:0f:76:de",
+					Gateway:     "10.0.0.0",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+			"3": {
+				AgentStatus: params.DetailedStatus{
+					Status:  "started",
+					Since:   &s.since,
+					Version: currentVersion.String(),
+				},
+				InstanceStatus: params.DetailedStatus{
+					Status: "started",
+					Info:   "I am number three",
+					Since:  &s.since,
 				},
 				ModificationStatus: params.DetailedStatus{
 					Status: "idle",
-					Since:  &since,
+					Since:  &s.since,
+				},
+				Hostname:    "controller-3",
+				DNSName:     "10.0.3.1",
+				IPAddresses: []string{"10.0.3.1"},
+				InstanceId:  "controller-3",
+				DisplayName: "controller-3",
+				Series:      "quantal",
+				Id:          "3",
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.3.1"},
+					MACAddress:  "00:16:3e:98:f9:19",
+					Gateway:     "10.0.0.0",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				Hardware:  "arch=amd64 cores=0 mem=0M",
+				Jobs:      []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:   false,
+				WantsVote: false,
+			},
+			"4": {
+				AgentStatus: params.DetailedStatus{
+					Status: "error",
+					Since:  &s.since,
 				},
 				InstanceStatus: params.DetailedStatus{
-					Since: &since,
+					Status: "error",
+					Info:   "I am an error",
+					Since:  &s.since,
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "applied",
+					Since:  &s.since,
+				},
+				Hostname:    "controller-4",
+				DNSName:     "10.0.3.1",
+				IPAddresses: []string{"10.0.3.1"},
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.3.1"},
+					MACAddress:  "00:16:3e:98:f9:19",
+					Gateway:     "10.0.0.0",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				InstanceId:  "controller-4",
+				Series:      "quantal",
+				Id:          "4",
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+		},
+		Applications: map[string]params.ApplicationStatus{
+			"logging": {
+				Charm:   "local:focal/logging-1",
+				Series:  "quantal",
+				Exposed: true,
+				Relations: map[string][]string{
+					"logging-directory": {"wordpress"},
+				},
+				SubordinateTo: []string{"wordpress"},
+				Status: params.DetailedStatus{
+					Info:   "somehow lost in all those logs",
+					Status: "error",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{
+					"":                  "alpha",
+					"info":              "alpha",
+					"logging-client":    "alpha",
+					"logging-directory": "alpha",
+				},
+				Scale:           0,
+				WorkloadVersion: "a bit too lo...",
+			},
+			"mysql": {
+				Charm:           "local:focal/mysql-1",
+				WorkloadVersion: "5.7.13",
+				Series:          "quantal",
+				Exposed:         true,
+				Relations: map[string][]string{
+					"server": {"wordpress"},
+				},
+				Units: map[string]params.UnitStatus{
+					"mysql/0": {
+						AgentStatus: params.DetailedStatus{
+							Status:  "idle",
+							Since:   &s.since,
+							Version: currentVersion.String(),
+						},
+						WorkloadStatus: params.DetailedStatus{
+							Status: "maintenance",
+							Info:   "installing all the things",
+							Since:  &s.since,
+						},
+						Machine:       "2",
+						PublicAddress: "10.0.2.1",
+						Subordinates: map[string]params.UnitStatus{
+							"logging/1": {
+								AgentStatus: params.DetailedStatus{
+									Status:  "idle",
+									Since:   &s.since,
+									Version: currentVersion.String(),
+								},
+								WorkloadStatus: params.DetailedStatus{
+									Info:   "somehow lost in all those logs",
+									Status: "error",
+									Since:  &s.since,
+								},
+								PublicAddress: "10.0.2.1",
+								Leader:        true,
+							},
+						},
+						Leader: true,
+					},
+					"mysql/1": {
+						AgentStatus: params.DetailedStatus{
+							Status:  "idle",
+							Since:   &s.since,
+							Version: currentVersion.String(),
+						},
+						WorkloadStatus: params.DetailedStatus{
+							Status: "terminated",
+							Info:   "gooooone",
+							Since:  &s.since,
+						},
+						Machine:       "1",
+						PublicAddress: "10.0.1.1",
+						Leader:        false,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "maintenance",
+					Info:   "installing all the things",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{
+					"":               "alpha",
+					"metrics-client": "alpha",
+					"server":         "alpha",
+					"server-admin":   "alpha",
+				},
+				Scale: 0,
+			},
+			"wordpress": {
+				Charm:           "local:focal/wordpress-3",
+				WorkloadVersion: "4.5.3",
+				Series:          "quantal",
+				Exposed:         true,
+				Relations:       map[string][]string{"db": {"mysql"}, "logging-dir": {"logging"}},
+				Units: map[string]params.UnitStatus{
+					"wordpress/0": {
+						AgentStatus: params.DetailedStatus{
+							Status:  "idle",
+							Since:   &s.since,
+							Version: currentVersion.String(),
+						},
+						WorkloadStatus: params.DetailedStatus{
+							Status: "active",
+							Since:  &s.since,
+						},
+						Machine:       "1",
+						PublicAddress: "10.0.1.1",
+						Subordinates: map[string]params.UnitStatus{
+							"logging/0": {
+								AgentStatus: params.DetailedStatus{
+									Status:  "idle",
+									Since:   &s.since,
+									Version: currentVersion.String(),
+								},
+								WorkloadStatus: params.DetailedStatus{
+									Status: "active",
+									Since:  &s.since,
+								},
+								PublicAddress: "10.0.1.1",
+								Leader:        false,
+							},
+						},
+						Leader: true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "active",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{"": "alpha",
+					"admin-api":       "alpha",
+					"cache":           "alpha",
+					"db":              "alpha",
+					"db-client":       "alpha",
+					"foo-bar":         "alpha",
+					"logging-dir":     "alpha",
+					"monitoring-port": "alpha",
+					"url":             "alpha"},
+				Scale: 0,
+			},
+		},
+		RemoteApplications: map[string]params.RemoteApplicationStatus{
+			"hosted-riak": {
+				OfferURL:  "me/model.riak",
+				OfferName: "hosted-riak",
+				Endpoints: []params.RemoteEndpoint{
+					{
+						Name:      "server",
+						Role:      charm.RelationRole("provider"),
+						Interface: "mysql",
+						Limit:     0,
+					},
+				},
+				Relations: map[string][]string{
+					"server": {
+						"remote-wordpress",
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "unknown",
+					Since:  &s.since,
 				},
 			},
 		},
-		Applications: map[string]params.ApplicationStatus{},
+		Offers: map[string]params.ApplicationOfferStatus{
+			"hosted-mysql": {
+				OfferName:       "hosted-mysql",
+				ApplicationName: "mysql",
+				CharmURL:        "local:focal/mysql-1",
+				Endpoints: map[string]params.RemoteEndpoint{
+					"server": {
+						Name:      "server",
+						Role:      charm.RelationRole("provider"),
+						Interface: "mysql",
+						Limit:     0,
+					},
+				},
+				ActiveConnectedCount: 1,
+				TotalConnectedCount:  1,
+			},
+		},
+		Relations: []params.RelationStatus{
+			{
+				Id:        0,
+				Key:       "logging:info mysql:juju-info",
+				Interface: "juju-info",
+				Scope:     "container",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "mysql",
+						Name:            "juju-info",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "logging",
+						Name:            "info",
+						Role:            "requirer",
+						Subordinate:     true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "joined",
+					Since:  &s.since,
+				},
+			},
+			{
+				Id:        1,
+				Key:       "wordpress:db mysql:server",
+				Interface: "mysql",
+				Scope:     "global",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "wordpress",
+						Name:            "db",
+						Role:            "requirer",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "mysql",
+						Name:            "server",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "suspended",
+					Since:  &s.since,
+				},
+			},
+			{
+				Id:        2,
+				Key:       "logging:logging-directory wordpress:logging-dir",
+				Interface: "logging",
+				Scope:     "container",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "wordpress",
+						Name:            "logging-dir",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "logging",
+						Name:            "logging-directory",
+						Role:            "requirer",
+						Subordinate:     true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "joined",
+					Since:  &s.since,
+				},
+			},
+		},
+		ControllerTimestamp: &s.since,
 	}
 
-	s.PatchValue(&newAPIClientForStatus, func(_ *statusCommand) (statusAPI, error) {
-		return s.api, nil
-	})
-	s.api.EXPECT().Status([]string{""}).Return(&results, nil)
-	status, err := s.api.Status([]string{""})
+	return &results
+}
 
-	c.Assert(err, jc.ErrorIsNil)
+func (s *StatusSuiteGoMock) prepSummaryData() *params.FullStatus {
 
-	for _, format := range statusFormats {
-		c.Logf("format %q", format.name)
-		// Run command with the required format.
-		args := []string{"--format", format.name}
-		c.Logf("running status %s", strings.Join(args, " "))
-		code, stdout, stderr := s.runnStatus(c, args...)
-		c.Assert(code, gc.Equals, 2)
-		c.Assert(string(stderr), gc.Equals, "")
-
-		// Prepare the output in the same format.
-		buf, err := format.marshal(status)
-		c.Log(string(buf))
-		c.Assert(err, jc.ErrorIsNil)
-
-		// we have to force the timestamp into the correct format as the model
-		// is in string.
-		buf = substituteFakeTimestamp(c, buf, true)
-
-		expected := make(M)
-		err = format.unmarshal(buf, &expected)
-		c.Assert(err, jc.ErrorIsNil)
-
-		// Check the output is as expected.
-		actual := make(M)
-		out := substituteFakeTime(c, "since", stdout, true)
-		out = substituteFakeTimestamp(c, out, true)
-		err = format.unmarshal(out, &actual)
-		c.Assert(err, jc.ErrorIsNil)
-		pretty.Ldiff(c, actual, expected)
-		c.Assert(actual, jc.DeepEquals, expected)
+	results := params.FullStatus{
+		Model: params.ModelStatusInfo{
+			Name:        "controller",
+			Type:        "iaas",
+			Version:     currentVersion.String(),
+			CloudTag:    names.NewCloudTag("dummy").String(),
+			CloudRegion: "dummy-region",
+			ModelStatus: params.DetailedStatus{
+				Version: currentVersion.String(),
+				Since:   &s.since,
+				Status:  "available",
+			},
+			AvailableVersion: nextVersion.String(),
+			SLA:              "unsupported",
+		},
+		Machines: map[string]params.MachineStatus{
+			"0": {AgentStatus: params.DetailedStatus{
+				Status:  "started",
+				Since:   &s.since,
+				Version: currentVersion.String(),
+			},
+				InstanceStatus: params.DetailedStatus{
+					Status: "started",
+					Since:  &s.since,
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "applied",
+					Since:  &s.since,
+				},
+				Hostname:    "controller-0",
+				DNSName:     "localhost",
+				IPAddresses: []string{"localhost"},
+				InstanceId:  "controller-0",
+				DisplayName: "controller-0",
+				Series:      "quantal",
+				Id:          "0",
+				NetworkInterfaces: map[string]params.NetworkInterface{
+					"eth0": {
+						IPAddresses: []string{"localhost"},
+						MACAddress:  "00:16:3e:23:1f:1f ",
+						Space:       "alpha",
+						IsUp:        true,
+					},
+				},
+				Hardware:    "availability-zone=us-east-1a",
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+			"1": {
+				AgentStatus: params.DetailedStatus{
+					Status:  "started",
+					Since:   &s.since,
+					Version: currentVersion.String(),
+				},
+				InstanceStatus: params.DetailedStatus{
+					Status: "starting",
+					Since:  &s.since,
+				},
+				ModificationStatus: params.DetailedStatus{
+					Status: "applied",
+					Since:  &s.since,
+				},
+				Hostname:    "snowflake",
+				DNSName:     "10.0.2.1",
+				IPAddresses: []string{"10.0.2.1"},
+				InstanceId:  "snowflake",
+				DisplayName: "snowflake",
+				Series:      "quantal",
+				Id:          "1",
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.2.1"},
+					MACAddress:  "00:16:3e:23:f2:25",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+			"2": {
+				AgentStatus: params.DetailedStatus{
+					Status:  "started",
+					Since:   &s.since,
+					Version: currentVersion.String(),
+				},
+				InstanceStatus: params.DetailedStatus{
+					Status: "started",
+					Since:  &s.since,
+				}, ModificationStatus: params.DetailedStatus{Status: "applied",
+					Since: &s.since,
+				},
+				Hostname:    "controller-2",
+				DNSName:     "10.0.2.1",
+				IPAddresses: []string{"10.0.2.1"},
+				InstanceId:  "controller-2",
+				Series:      "quantal",
+				Id:          "2",
+				NetworkInterfaces: map[string]params.NetworkInterface{"eth0": {
+					IPAddresses: []string{"10.0.2.1"},
+					MACAddress:  "00:16:3e:0f:76:de",
+					Gateway:     "10.0.0.0",
+					Space:       "alpha",
+					IsUp:        true,
+				},
+				},
+				Constraints: "arch=amd64 Hardware:arch=amd64 cores=0 mem=0M",
+				Jobs:        []jujumodel.MachineJob{jujumodel.JobHostUnits},
+				HasVote:     false,
+				WantsVote:   false,
+			},
+		},
+		Applications: map[string]params.ApplicationStatus{
+			"logging": {
+				Charm:   "local:focal/logging-1",
+				Series:  "quantal",
+				Exposed: true,
+				Relations: map[string][]string{
+					"logging-directory": {"wordpress"},
+				},
+				SubordinateTo: []string{"wordpress"},
+				Status: params.DetailedStatus{
+					Info:   "somehow lost in all those logs",
+					Status: "error",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{
+					"":                  "alpha",
+					"info":              "alpha",
+					"logging-client":    "alpha",
+					"logging-directory": "alpha",
+				},
+				Scale:           0,
+				WorkloadVersion: "a bit too lo...",
+			},
+			"mysql": {
+				Charm:           "local:focal/mysql-1",
+				WorkloadVersion: "5.7.13",
+				Series:          "quantal",
+				Exposed:         true,
+				Relations: map[string][]string{
+					"server": {"wordpress"},
+				},
+				Units: map[string]params.UnitStatus{
+					"mysql/0": {
+						AgentStatus: params.DetailedStatus{
+							Status:  "idle",
+							Since:   &s.since,
+							Version: currentVersion.String(),
+						},
+						WorkloadStatus: params.DetailedStatus{
+							Status: "error",
+							Info:   "oops I errored",
+							Since:  &s.since,
+						},
+						Machine:       "2",
+						PublicAddress: "10.0.2.1",
+						Subordinates: map[string]params.UnitStatus{
+							"logging/1": {
+								AgentStatus: params.DetailedStatus{
+									Status:  "idle",
+									Since:   &s.since,
+									Version: currentVersion.String(),
+								},
+								WorkloadStatus: params.DetailedStatus{
+									Info:   "somehow lost in all those logs",
+									Status: "active",
+									Since:  &s.since,
+								},
+								PublicAddress: "10.0.2.1",
+								Leader:        true,
+							},
+						},
+						Leader: true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "maintenance",
+					Info:   "installing all the things",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{
+					"":               "alpha",
+					"metrics-client": "alpha",
+					"server":         "alpha",
+					"server-admin":   "alpha",
+				},
+				Scale: 0,
+			},
+			"wordpress": {
+				Charm:           "local:focal/wordpress-3",
+				WorkloadVersion: "4.5.3",
+				Series:          "quantal",
+				Exposed:         true,
+				Relations:       map[string][]string{"db": {"mysql"}, "logging-dir": {"logging"}},
+				Units: map[string]params.UnitStatus{
+					"wordpress/0": {
+						AgentStatus: params.DetailedStatus{
+							Status:  "idle",
+							Since:   &s.since,
+							Version: currentVersion.String(),
+						},
+						WorkloadStatus: params.DetailedStatus{
+							Status: "active",
+							Since:  &s.since,
+						},
+						Machine:       "1",
+						PublicAddress: "10.0.2.1",
+						Subordinates: map[string]params.UnitStatus{
+							"logging/0": {
+								AgentStatus: params.DetailedStatus{
+									Status:  "idle",
+									Since:   &s.since,
+									Version: currentVersion.String(),
+								},
+								WorkloadStatus: params.DetailedStatus{
+									Status: "active",
+									Since:  &s.since,
+								},
+								PublicAddress: "10.0.2.1",
+								Leader:        false,
+							},
+						},
+						Leader: true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "active",
+					Since:  &s.since,
+				},
+				EndpointBindings: map[string]string{"": "alpha",
+					"admin-api":       "alpha",
+					"cache":           "alpha",
+					"db":              "alpha",
+					"db-client":       "alpha",
+					"foo-bar":         "alpha",
+					"logging-dir":     "alpha",
+					"monitoring-port": "alpha",
+					"url":             "alpha"},
+				Scale: 0,
+			},
+		},
+		RemoteApplications: map[string]params.RemoteApplicationStatus{
+			"hosted-riak": {
+				OfferURL:  "me/model.riak",
+				OfferName: "hosted-riak",
+				Endpoints: []params.RemoteEndpoint{
+					{
+						Name:      "server",
+						Role:      charm.RelationRole("provider"),
+						Interface: "mysql",
+						Limit:     0,
+					},
+				},
+				Relations: map[string][]string{
+					"server": {
+						"remote-wordpress",
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "unknown",
+					Since:  &s.since,
+				},
+			},
+		},
+		Offers: map[string]params.ApplicationOfferStatus{
+			"hosted-mysql": {
+				OfferName:       "hosted-mysql",
+				ApplicationName: "mysql",
+				CharmURL:        "local:focal/mysql-1",
+				Endpoints: map[string]params.RemoteEndpoint{
+					"server": {
+						Name:      "server",
+						Role:      charm.RelationRole("provider"),
+						Interface: "mysql",
+						Limit:     0,
+					},
+				},
+				ActiveConnectedCount: 1,
+				TotalConnectedCount:  1,
+			},
+		},
+		Relations: []params.RelationStatus{
+			{
+				Id:        0,
+				Key:       "logging:info mysql:juju-info",
+				Interface: "juju-info",
+				Scope:     "container",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "mysql",
+						Name:            "juju-info",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "logging",
+						Name:            "info",
+						Role:            "requirer",
+						Subordinate:     true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "joined",
+					Since:  &s.since,
+				},
+			},
+			{
+				Id:        1,
+				Key:       "wordpress:db mysql:server",
+				Interface: "mysql",
+				Scope:     "global",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "wordpress",
+						Name:            "db",
+						Role:            "requirer",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "mysql",
+						Name:            "server",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "suspended",
+					Since:  &s.since,
+				},
+			},
+			{
+				Id:        2,
+				Key:       "logging:logging-directory wordpress:logging-dir",
+				Interface: "logging",
+				Scope:     "container",
+				Endpoints: []params.EndpointStatus{
+					{
+						ApplicationName: "wordpress",
+						Name:            "logging-dir",
+						Role:            "provider",
+						Subordinate:     false,
+					},
+					{
+						ApplicationName: "logging",
+						Name:            "logging-directory",
+						Role:            "requirer",
+						Subordinate:     true,
+					},
+				},
+				Status: params.DetailedStatus{
+					Status: "joined",
+					Since:  &s.since,
+				},
+			},
+		},
+		ControllerTimestamp: &s.since,
+		Branches: map[string]params.BranchStatus{
+			"bla": {
+				AssignedUnits: nil,
+				Created:       0,
+				CreatedBy:     "",
+			},
+		},
 	}
 
+	return &results
 }
