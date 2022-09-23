@@ -1,4 +1,4 @@
-# run_user_change_password changes the admin password, logout and tries to login with new password
+# run_user_change_password changes the 'admin' user password, logout and tries to login with new password
 run_user_change_password() {
 	# Echo out to ensure nice output to the test suite.
 	echo

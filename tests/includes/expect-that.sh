@@ -2,6 +2,8 @@
 # The output is "OK", if tests passes successfully.
 # The expect_script argument is a expect script body.
 # The default timeout is 10 seconds.
+# NOTE: The expect tool must (!) be install via apt, because strictly-confined expect-snap
+# does not allow to execute scripts in tests folder.
 #
 # ```
 # expect_that <command> <expect_script> [<timeout>]
