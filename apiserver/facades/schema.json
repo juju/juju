@@ -2413,9 +2413,6 @@
                                 }
                             }
                         },
-                        "series": {
-                            "type": "string"
-                        },
                         "storage": {
                             "type": "object",
                             "patternProperties": {
@@ -2428,7 +2425,6 @@
                     "additionalProperties": false,
                     "required": [
                         "application",
-                        "series",
                         "charm-url",
                         "channel",
                         "num-units",
@@ -14530,9 +14526,6 @@
                         "macaroon": {
                             "$ref": "#/definitions/Macaroon"
                         },
-                        "series": {
-                            "type": "string"
-                        },
                         "url": {
                             "type": "string"
                         }
@@ -14542,8 +14535,7 @@
                         "url",
                         "charm-origin",
                         "macaroon",
-                        "force",
-                        "series"
+                        "force"
                     ]
                 },
                 "AddCharmWithOrigin": {
@@ -14555,9 +14547,6 @@
                         "force": {
                             "type": "boolean"
                         },
-                        "series": {
-                            "type": "string"
-                        },
                         "url": {
                             "type": "string"
                         }
@@ -14566,8 +14555,7 @@
                     "required": [
                         "url",
                         "charm-origin",
-                        "force",
-                        "series"
+                        "force"
                     ]
                 },
                 "ApplicationCharmPlacement": {
@@ -23160,9 +23148,6 @@
                             "items": {
                                 "type": "string"
                             }
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -26421,7 +26406,7 @@
     {
         "Name": "MachineManager",
         "Description": "MachineManagerAPI provides access to the MachineManager API facade.",
-        "Version": 7,
+        "Version": 8,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -26562,6 +26547,9 @@
                                 "$ref": "#/definitions/Address"
                             }
                         },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "constraints": {
                             "$ref": "#/definitions/Value"
                         },
@@ -26594,14 +26582,10 @@
                         },
                         "placement": {
                             "$ref": "#/definitions/Placement"
-                        },
-                        "series": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "series",
                         "constraints",
                         "jobs",
                         "parent-id",
@@ -26690,6 +26674,22 @@
                         "value",
                         "type",
                         "scope"
+                    ]
+                },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
                     ]
                 },
                 "Constraints": {

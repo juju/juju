@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -90,7 +91,7 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "aseries",
+			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{Series: "aseries"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

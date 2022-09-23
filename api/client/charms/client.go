@@ -151,9 +151,6 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 		URL:    curl.String(),
 		Origin: origin.ParamsCharmOrigin(),
 		Force:  force,
-		// Deprecated: Series is used here to communicate with older
-		// controllers and instead we use Origin to describe the platform.
-		Series: origin.Series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
@@ -179,9 +176,6 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Orig
 		Origin:             origin.ParamsCharmOrigin(),
 		CharmStoreMacaroon: csMac,
 		Force:              force,
-		// Deprecated: Series is used here to communicate with older
-		// controllers and instead we use Origin to describe the platform.
-		Series: origin.Series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {

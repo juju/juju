@@ -190,7 +190,6 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),
 		Origin: origin.ParamsCharmOrigin(),
-		Series: "bionic",
 	}
 	result := new(params.CharmOriginResult)
 	actualResult := params.CharmOriginResult{
@@ -226,7 +225,6 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		URL:                curl.String(),
 		CharmStoreMacaroon: &macaroon.Macaroon{},
 		Origin:             origin.ParamsCharmOrigin(),
-		Series:             "bionic",
 	}
 	result := new(params.CharmOriginResult)
 	actualResult := params.CharmOriginResult{

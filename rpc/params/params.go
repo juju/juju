@@ -174,10 +174,6 @@ type AddCharmWithOrigin struct {
 	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
 	Force  bool        `json:"force"`
-
-	// Deprecated, series has moved into Origin and this should only be used
-	// to talk to older controllers.
-	Series string `json:"series"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an
@@ -196,10 +192,6 @@ type AddCharmWithAuth struct {
 	Origin             CharmOrigin        `json:"charm-origin"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 	Force              bool               `json:"force"`
-
-	// Deprecated, series has moved into Origin and this should only be used
-	// to talk to older controllers.
-	Series string `json:"series"`
 }
 
 // CharmOriginResult holds the results of AddCharms calls where
@@ -216,11 +208,17 @@ type CharmURLOriginResult struct {
 	Error  *Error      `json:"error,omitempty"`
 }
 
+// Base holds the name of an OS and its version.
+type Base struct {
+	Name    string `json:"name"`
+	Channel string `json:"channel"`
+}
+
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	Series      string             `json:"series"`
+	Base        *Base              `json:"base,omitempty"`
 	Constraints constraints.Value  `json:"constraints"`
 	Jobs        []model.MachineJob `json:"jobs"`
 
@@ -337,13 +335,13 @@ type UpgradeCharmProfileStatusResults struct {
 	Results []UpgradeCharmProfileStatusResult `json:"results,omitempty"`
 }
 
-// ConfigResults holds configuration values for an entity.
+// ConfigResult holds configuration values for an entity.
 type ConfigResult struct {
 	Config map[string]interface{} `json:"config"`
 	Error  *Error                 `json:"error,omitempty"`
 }
 
-// ModelOperatorInfo
+// ModelOperatorInfo holds infor needed for a model operator.
 type ModelOperatorInfo struct {
 	APIAddresses []string        `json:"api-addresses"`
 	ImageDetails DockerImageInfo `json:"image-details"`
@@ -904,19 +902,16 @@ type LoginResult struct {
 	ServerVersion string `json:"server-version,omitempty"`
 }
 
-// ControllersServersSpec contains arguments for
+// ControllersSpec contains arguments for
 // the EnableHA client API call.
 type ControllersSpec struct {
 	NumControllers int               `json:"num-controllers"`
 	Constraints    constraints.Value `json:"constraints,omitempty"`
-	// Series is the series to associate with new controller machines.
-	// If this is empty, then the model's default series is used.
-	Series string `json:"series,omitempty"`
 	// Placement defines specific machines to become new controller machines.
 	Placement []string `json:"placement,omitempty"`
 }
 
-// ControllersServersSpecs contains all the arguments
+// ControllersSpecs contains all the arguments
 // for the EnableHA API call.
 type ControllersSpecs struct {
 	Specs []ControllersSpec `json:"specs"`
@@ -1298,7 +1293,7 @@ type UpgradeSeriesUnitsResults struct {
 	Results []UpgradeSeriesUnitsResult
 }
 
-// UpgradeSeriesUnitsResults contains the units affected by a series for
+// UpgradeSeriesUnitsResult contains the units affected by a series for
 // a given machine.
 type UpgradeSeriesUnitsResult struct {
 	Error     *Error   `json:"error,omitempty"`

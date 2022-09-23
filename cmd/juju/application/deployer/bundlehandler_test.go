@@ -111,16 +111,16 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machine:         "0",
-			machineSeries:   "xenial",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machine:         "1",
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "16.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -212,18 +212,18 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"jammy"},
-			curl:            mysqlCurl,
-			force:           true,
-			machine:         "0",
-			machineSeries:   "focal",
+			charmMetaSeries:      []string{"jammy"},
+			curl:                 mysqlCurl,
+			force:                true,
+			machine:              "0",
+			machineUbuntuVersion: "20.04",
 		},
 		{
-			charmMetaSeries: []string{"focal", "jammy"},
-			curl:            wordpressCurl,
-			force:           true,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"focal", "jammy"},
+			curl:                 wordpressCurl,
+			force:                true,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -312,8 +312,8 @@ func (s *BundleDeployRepositorySuite) setupCharmUnitsNew(charmUnits []charmUnit)
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()
-		if chUnit.machineSeries != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+		if chUnit.machineUbuntuVersion != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
 			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
 		}
 	}
@@ -351,14 +351,14 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	gitlabCurl := charm.MustParseURL("cs:~juju/gitlab-k8s")
 	chUnits := []charmUnit{
 		{
-			curl:            mariadbCurl,
-			charmMetaSeries: []string{"kubernetes"},
-			machineSeries:   "kubernetes",
+			curl:                 mariadbCurl,
+			charmMetaSeries:      []string{"kubernetes"},
+			machineUbuntuVersion: "kubernetes",
 		},
 		{
-			charmMetaSeries: []string{"kubernetes"},
-			curl:            gitlabCurl,
-			machineSeries:   "kubernetes",
+			charmMetaSeries:      []string{"kubernetes"},
+			curl:                 gitlabCurl,
+			machineUbuntuVersion: "kubernetes",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -647,16 +647,16 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machine:         "0",
-			machineSeries:   "bionic",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -831,12 +831,12 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
 	dashboardCurl := charm.MustParseURL("dashboard4miner")
 	chUnits := []charmUnit{
 		{
-			curl:          bitcoinCurl,
-			machineSeries: "kubernetes",
+			curl:                 bitcoinCurl,
+			machineUbuntuVersion: "kubernetes",
 		},
 		{
-			curl:          dashboardCurl,
-			machineSeries: "kubernetes",
+			curl:                 dashboardCurl,
+			machineUbuntuVersion: "kubernetes",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -892,16 +892,16 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"bionic", "xenial"},
-			machine:         "0",
-			machineSeries:   "bionic",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			machine:              "0",
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1152,10 +1152,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
 	varnishCurl := charm.MustParseURL("cs:varnish")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            varnishCurl,
-			machine:         "2",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 varnishCurl,
+			machine:              "2",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1204,11 +1204,11 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	s.expectAddMachine("0", "xenial")
-	s.expectAddMachine("1", "xenial")
-	s.expectAddMachine("2", "xenial")
-	s.expectAddContainer("0", "0/lxd/0", "xenial", "lxd")
-	s.expectAddContainer("1", "1/lxd/0", "xenial", "lxd")
+	s.expectAddMachine("0", "16.04")
+	s.expectAddMachine("1", "16.04")
+	s.expectAddMachine("2", "16.04")
+	s.expectAddContainer("0", "0/lxd/0", "16.04", "lxd")
+	s.expectAddContainer("1", "1/lxd/0", "16.04", "lxd")
 
 	wordpressCurl := charm.MustParseURL("cs:wordpress")
 	s.expectResolveCharm(nil)
@@ -1281,14 +1281,14 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 			Constraints:   constraints.MustParse("cores=4 mem=4G"),
 			ContainerType: instance.ContainerType(""),
 			Jobs:          []model.MachineJob{model.JobHostUnits},
-			Series:        "xenial",
+			Base:          &params.Base{Name: "ubuntu", Channel: "16.04"},
 		},
 	}
 	results := []params.AddMachinesResult{
 		{Machine: "0"},
 	}
 	s.deployerAPI.EXPECT().AddMachines(args).Return(results, nil)
-	s.expectAddMachine("1", "xenial")
+	s.expectAddMachine("1", "16.04")
 	s.expectDeploy()
 	s.expectAddOneUnit("django", "0", "0")
 	s.expectAddOneUnit("django", "1", "1")
@@ -1491,14 +1491,14 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	s.expectWatchAll()
 
 	// Setup Machines and Containers
-	s.expectAddMachine("0", "xenial")
-	s.expectAddMachine("1", "xenial")
-	s.expectAddMachine("2", "xenial")
-	s.expectAddMachine("3", "xenial")
-	s.expectAddContainer("1", "1/lxd/0", "xenial", "lxd")
-	s.expectAddContainer("2", "2/lxd/0", "xenial", "lxd")
-	s.expectAddContainer("3", "3/kvm/0", "xenial", "kvm")
-	s.expectAddContainer("0", "0/kvm/0", "xenial", "kvm")
+	s.expectAddMachine("0", "16.04")
+	s.expectAddMachine("1", "16.04")
+	s.expectAddMachine("2", "16.04")
+	s.expectAddMachine("3", "16.04")
+	s.expectAddContainer("1", "1/lxd/0", "16.04", "lxd")
+	s.expectAddContainer("2", "2/lxd/0", "16.04", "lxd")
+	s.expectAddContainer("3", "3/kvm/0", "16.04", "kvm")
+	s.expectAddContainer("0", "0/kvm/0", "16.04", "kvm")
 
 	// Setup for mem charm
 	memCurl := charm.MustParseURL("cs:mem-47")
@@ -1627,16 +1627,16 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	memCurl := charm.MustParseURL("cs:mem-47")
 	chUnits := []charmUnit{
 		{
-			curl:            memCurl,
-			charmMetaSeries: []string{"bionic", "focal"},
-			machine:         "0",
-			machineSeries:   "bionic",
+			curl:                 memCurl,
+			charmMetaSeries:      []string{"bionic", "focal"},
+			machine:              "0",
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            djangoCurl,
-			machine:         "1",
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 djangoCurl,
+			machine:              "1",
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1725,7 +1725,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectDeploy()
-	s.expectAddMachine("1", "bionic")
+	s.expectAddMachine("1", "18.04")
 
 	quickBundle := `
        series: bionic
@@ -1773,14 +1773,14 @@ func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectDeploy()
-	s.expectAddMachine("0", "bionic")
-	s.expectAddContainer("0", "0/lxd/0", "bionic", "lxd")
-	s.expectAddMachine("1", "bionic")
-	s.expectAddContainer("1", "1/kvm/0", "bionic", "kvm")
-	s.expectAddMachine("2", "bionic")
-	s.expectAddContainer("", "3/lxd/0", "bionic", "lxd")
-	s.expectAddContainer("", "4/lxd/0", "bionic", "lxd")
-	s.expectAddContainer("", "5/lxd/0", "bionic", "lxd")
+	s.expectAddMachine("0", "18.04")
+	s.expectAddContainer("0", "0/lxd/0", "18.04", "lxd")
+	s.expectAddMachine("1", "18.04")
+	s.expectAddContainer("1", "1/kvm/0", "18.04", "kvm")
+	s.expectAddMachine("2", "18.04")
+	s.expectAddContainer("", "3/lxd/0", "18.04", "lxd")
+	s.expectAddContainer("", "4/lxd/0", "18.04", "lxd")
+	s.expectAddContainer("", "5/lxd/0", "18.04", "lxd")
 	s.expectAddOneUnit("wp", "2", "0")
 	s.expectAddOneUnit("wp", "0", "1")
 	s.expectAddOneUnit("wp", "1/kvm/0", "2")
@@ -1839,9 +1839,9 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("cs:wordpress-47")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1878,24 +1878,24 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
 	varnishCurl := charm.MustParseURL("cs:xenial/varnish")
 	chUnits := []charmUnit{
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            mysqlCurl,
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 mysqlCurl,
+			machineUbuntuVersion: "18.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            pgresCurl,
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 pgresCurl,
+			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            varnishCurl,
-			machineSeries:   "xenial",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 varnishCurl,
+			machineUbuntuVersion: "16.04",
 		},
 		{
-			charmMetaSeries: []string{"bionic", "xenial"},
-			curl:            wordpressCurl,
-			machineSeries:   "bionic",
+			charmMetaSeries:      []string{"bionic", "xenial"},
+			curl:                 wordpressCurl,
+			machineUbuntuVersion: "18.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1958,14 +1958,14 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("local:jammy/wordpress-3")
 	chUnits := []charmUnit{
 		{
-			curl:            mysqlCurl,
-			charmMetaSeries: []string{"focal", "jammy"},
-			machineSeries:   "focal",
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"focal", "jammy"},
+			machineUbuntuVersion: "20.04",
 		},
 		{
-			charmMetaSeries: []string{"focal", "jammy"},
-			curl:            wordpressCurl,
-			machineSeries:   "focal",
+			charmMetaSeries:      []string{"focal", "jammy"},
+			curl:                 wordpressCurl,
+			machineUbuntuVersion: "20.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -2060,10 +2060,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 	grafanaCurl, err := charm.ParseURL("ch:grafana")
 	c.Assert(err, jc.ErrorIsNil)
 	chUnits := []charmUnit{{
-		curl:            grafanaCurl,
-		charmMetaSeries: []string{"bionic", "xenial"},
-		machine:         "0",
-		machineSeries:   "bionic",
+		curl:                 grafanaCurl,
+		charmMetaSeries:      []string{"bionic", "xenial"},
+		machine:              "0",
+		machineUbuntuVersion: "18.04",
 	}}
 	s.setupCharmUnits(chUnits)
 
@@ -2137,7 +2137,7 @@ func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, s
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args %s", appName))
 	c.Assert(arg.CharmID.URL.String(), gc.Equals, curl)
-	c.Assert(arg.Series, gc.Equals, series, gc.Commentf("%s", pretty.Sprint(arg)))
+	c.Assert(arg.CharmOrigin.Series, gc.Equals, series, gc.Commentf("%s", pretty.Sprint(arg)))
 }
 
 func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Constraints) {
@@ -2162,12 +2162,12 @@ func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *gc.C, appName s
 }
 
 type charmUnit struct {
-	curl            *charm.URL
-	resolveSeries   []string
-	charmMetaSeries []string
-	force           bool
-	machine         string
-	machineSeries   string
+	curl                 *charm.URL
+	resolveSeries        []string
+	charmMetaSeries      []string
+	force                bool
+	machine              string
+	machineUbuntuVersion string
 }
 
 func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
@@ -2192,8 +2192,8 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()
-		if chUnit.machineSeries != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+		if chUnit.machineUbuntuVersion != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
 			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
 		}
 	}
@@ -2220,8 +2220,8 @@ func (s *BundleDeployRepositorySuite) setupMetadataV2CharmUnits(charmUnits []cha
 		}
 		s.expectCharmInfo(chUnit.curl.String(), charmInfo)
 		s.expectDeploy()
-		if chUnit.machineSeries != "kubernetes" {
-			s.expectAddMachine(chUnit.machine, chUnit.machineSeries)
+		if chUnit.machineUbuntuVersion != "kubernetes" {
+			s.expectAddMachine(chUnit.machine, chUnit.machineUbuntuVersion)
 			s.expectAddOneUnit(chUnit.curl.Name, chUnit.machine, "0")
 		}
 	}
@@ -2489,21 +2489,23 @@ func (s *BundleDeployRepositorySuite) expectExpose(app string) {
 	s.deployerAPI.EXPECT().Expose(app, gomock.Any()).Return(nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectAddMachine(machine, series string) {
+func (s *BundleDeployRepositorySuite) expectAddMachine(machine, channel string) {
 	if machine == "" {
 		return
 	}
-	s.expectAddContainer("", machine, series, "")
+	s.expectAddContainer("", machine, channel, "")
 }
 
-func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, series, container string) {
+func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, channel, container string) {
 	args := []params.AddMachineParams{
 		{
 			ContainerType: instance.ContainerType(container),
 			Jobs:          []model.MachineJob{model.JobHostUnits},
-			Series:        series,
 			ParentId:      parent,
 		},
+	}
+	if channel != "" {
+		args[0].Base = &params.Base{Name: "ubuntu", Channel: channel}
 	}
 	results := []params.AddMachinesResult{
 		{Machine: machine},

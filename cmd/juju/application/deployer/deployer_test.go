@@ -216,7 +216,7 @@ func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 
 	charmStoreDeployer := deployer.(*repositoryCharm)
-	c.Assert(charmStoreDeployer.series, gc.Equals, "bionic")
+	c.Assert(charmStoreDeployer.id.Origin.Series, gc.Equals, "bionic")
 }
 
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {

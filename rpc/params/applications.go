@@ -51,7 +51,6 @@ type CharmOrigin struct {
 // call.
 type ApplicationDeploy struct {
 	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
 	CharmURL         string                         `json:"charm-url"`
 	CharmOrigin      *CharmOrigin                   `json:"charm-origin,omitempty"`
 	Channel          string                         `json:"channel"`

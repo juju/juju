@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/muxhttpserver"
 )
 
@@ -29,6 +30,9 @@ type ManifoldConfig struct {
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
+
+	// LogSource will be read from by the logsender component.
+	LogSource logsender.LogRecordCh
 
 	// AgentConfigChanged is set whenever the unit agent's config
 	// is updated.
@@ -72,6 +76,14 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 			APIConfigWatcherName: apiConfigWatcherName,
 			NewConnection:        apicaller.OnlyConnect,
 			Logger:               loggo.GetLogger("juju.worker.apicaller"),
+		}),
+
+		// The log sender is a leaf worker that sends log messages to some
+		// API server, when configured so to do. We should only need one of
+		// these in a consolidated agent.
+		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+			APICallerName: apiCallerName,
+			LogSource:     config.LogSource,
 		}),
 
 		caasAdmissionName: caasadmission.Manifold(caasadmission.ManifoldConfig{
@@ -147,4 +159,5 @@ const (
 	modelHTTPServerName      = "model-http-server"
 	upgraderName             = "upgrader"
 	upgradeStepsGateName     = "upgrade-steps-gate"
+	logSenderName            = "log-sender"
 )

@@ -122,8 +122,8 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Series: "jammy",
-			Jobs:   []model.MachineJob{model.JobHostUnits},
+			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
@@ -176,8 +176,8 @@ func (s *AddMachineManagerSuite) TestAddMachinesUnSupportedSeries(c *gc.C) {
 			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
-	apiParams[0].Series = "jammy"
-	apiParams[1].Series = "bionic"
+	apiParams[0].Base = &params.Base{Name: "ubuntu", Channel: "22.04"}
+	apiParams[1].Base = &params.Base{Name: "ubuntu", Channel: "18.04"}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
 
@@ -214,7 +214,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 
 	results, err := s.api.AddMachines(params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Series: "jammy",
+			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1494,6 +1494,6 @@ func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, seri
 
 		isLessThan, err := machinemanager.IsSeriesLessThan(s1, s2)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(isLessThan, jc.IsTrue)
+		c.Assert(isLessThan, jc.IsTrue, gc.Commentf("%q < %q", s1, s2))
 	}
 }

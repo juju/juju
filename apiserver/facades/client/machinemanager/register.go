@@ -13,14 +13,14 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("MachineManager", 7, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV7(ctx)
+	registry.MustRegister("MachineManager", 8, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV8(ctx)
 	}, reflect.TypeOf((*MachineManagerAPI)(nil)))
 }
 
-// newFacadeV7 creates a new server-side MachineManager API facade.
-func newFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
-	machineManagerAPI, err := NewFacadeV7(ctx)
+// newFacadeV8 creates a new server-side MachineManager API facade.
+func newFacadeV8(ctx facade.Context) (*MachineManagerAPI, error) {
+	machineManagerAPI, err := NewFacadeV8(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
