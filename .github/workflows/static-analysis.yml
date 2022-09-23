@@ -83,6 +83,10 @@ jobs:
         go-version: ${{ steps.go-version.outputs.version }}
       id: go
 
+    - name: Install Dependencies
+      run: |
+        sudo apt install expect
+
     - name: Schema Check
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
