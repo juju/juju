@@ -65,8 +65,13 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 //
 // When charmstore goes, we could potentially rework how the client requests
 // the store.
-func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
-	c.logger.Tracef("Resolving CharmHub charm %q with origin %v", charmURL, requestedOrigin)
+func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, argOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+	c.logger.Tracef("Resolving CharmHub charm %q with origin %v", charmURL, argOrigin)
+
+	requestedOrigin, err := c.validateAndFixOrigin(argOrigin)
+	if err != nil {
+		return nil, corecharm.Origin{}, nil, err
+	}
 
 	// First attempt to find the charm based on the only input provided.
 	res, err := c.refreshOne(charmURL, requestedOrigin, macaroons)
@@ -189,6 +194,36 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, re
 	}
 
 	return resCurl, outputOrigin, supportedSeries, nil
+}
+
+// validateAndFixOrigin, validate the origin and maybe fix as follows:
+//
+//	Platform must have an architecture.
+//	Platform can have both an empty series AND os.
+//	If series defined and OS an empty string, add data.
+//	Platform must have series if os defined.
+func (c *CharmHubRepository) validateAndFixOrigin(origin corecharm.Origin) (corecharm.Origin, error) {
+	p := origin.Platform
+
+	if p.Architecture == "" {
+		return corecharm.Origin{}, errors.BadRequestf("origin.Platform requires an Architecture")
+	}
+
+	if p.OS != "" && p.Series == "" {
+		return corecharm.Origin{}, errors.BadRequestf("origin.Platform requires a Series, if OS set")
+	}
+
+	if p.Series != "" && p.OS == "" {
+		os, err := coreseries.GetOSFromSeries(origin.Platform.Series)
+		if err != nil {
+			return corecharm.Origin{}, errors.NewBadRequest(err, "")
+		}
+		p.OS = strings.ToLower(os.String())
+		c.logger.Tracef("origin.platform is missing os value, though series provided, setting to %q", p.OS)
+		origin.Platform = p
+	}
+
+	return origin, nil
 }
 
 type retryResolveResult struct {
