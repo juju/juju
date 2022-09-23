@@ -253,6 +253,7 @@ const (
 	Hirsute SeriesName = "hirsute"
 	Impish  SeriesName = "impish"
 	Jammy   SeriesName = "jammy"
+	Kinetic SeriesName = "kinetic"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
@@ -348,6 +349,10 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		LTS:          true,
 		Supported:    true,
 		ESMSupported: true,
+	},
+	Kinetic: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "22.10",
 	},
 }
 

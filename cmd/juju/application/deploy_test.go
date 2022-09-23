@@ -853,7 +853,6 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		},
 		CharmOrigin:     origin,
 		ApplicationName: inURL.Name,
-		Series:          "jammy",
 		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
 	}).Returns(error(nil))
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
@@ -863,7 +862,6 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		},
 		CharmOrigin:     origin,
 		ApplicationName: inURL.Name,
-		Series:          "jammy",
 	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
@@ -1629,7 +1627,6 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		},
 		CharmOrigin:     originWithSeries,
 		ApplicationName: curl.Name,
-		Series:          "bionic",
 		NumUnits:        1,
 	}).Returns(error(nil))
 	s.fakeAPI.Call("AddCharm", curl, originWithSeries, false).Returns(originWithSeries, error(nil))
@@ -1675,7 +1672,6 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 		},
 		CharmOrigin:     origin,
 		ApplicationName: "metered",
-		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 	s.fakeAPI.Call("IsMetered", meteredCharmURL.String()).Returns(true, error(nil))
@@ -1724,7 +1720,6 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: meteredURL.Name,
-		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 
@@ -1775,7 +1770,6 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: meteredURL.Name,
-		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 
@@ -1817,7 +1811,6 @@ func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C
 			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: charmURL.Name,
-		Series:          charmURL.Series,
 		NumUnits:        1,
 	}).Returns(error(nil))
 
@@ -1871,7 +1864,6 @@ pings:
 		},
 		CharmOrigin:     defaultLocalOrigin,
 		ApplicationName: curl.Name,
-		Series:          "jammy",
 		NumUnits:        1,
 	}).Returns(error(nil))
 
@@ -1922,7 +1914,6 @@ pings:
 		},
 		CharmOrigin:     defaultLocalOrigin,
 		ApplicationName: curl.Name,
-		Series:          curl.Series,
 		NumUnits:        1,
 	}).Returns(error(nil))
 
@@ -2252,7 +2243,6 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 			Series:       "jammy",
 		},
 		ApplicationName: curl.Name,
-		Series:          "jammy",
 		NumUnits:        1,
 		EndpointBindings: map[string]string{
 			"db":        "db",
@@ -3122,7 +3112,6 @@ func withCharmDeployableWithDevicesAndStorage(
 		},
 		CharmOrigin:     origin,
 		ApplicationName: appName,
-		Series:          series,
 		NumUnits:        numUnits,
 		AttachStorage:   attachStorage,
 		Config:          config,

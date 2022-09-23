@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
@@ -81,9 +81,9 @@ type MachineManagerAPI struct {
 	callContext environscontext.ProviderCallContext
 }
 
-// NewFacadeV7 create a new server-side MachineManager API facade. This
+// NewFacadeV8 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacadeV7(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV8(ctx facade.Context) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -186,7 +186,7 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	return results, nil
 }
 
-var supportedJujuSeries = series.WorkloadSeries
+var supportedJujuSeries = coreseries.WorkloadSeries
 
 func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
 	if p.ParentId != "" && p.ContainerType == "" {
@@ -215,7 +215,8 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		p.Addrs = nil
 	}
 
-	if p.Series == "" {
+	var series string
+	if p.Base == nil {
 		model, err := mm.st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -224,14 +225,23 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		p.Series = config.PreferredSeries(conf)
+		series = config.PreferredSeries(conf)
+	} else {
+		var err error
+		series, err = coreseries.GetSeriesFromOSVersion(coreseries.Base{
+			Name:    p.Base.Name,
+			Channel: p.Base.Channel,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	supportedSeries, err := supportedJujuSeries(time.Now(), p.Series, "")
+	supportedSeries, err := supportedJujuSeries(time.Now(), series, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !supportedSeries.Contains(p.Series) {
-		return nil, errors.NotSupportedf("series %q", p.Series)
+	if !supportedSeries.Contains(series) {
+		return nil, errors.NotSupportedf("series %q", series)
 	}
 
 	var placementDirective string
@@ -278,7 +288,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return nil, errors.Trace(err)
 	}
 	template := state.MachineTemplate{
-		Series:                  p.Series,
+		Series:                  series,
 		Constraints:             p.Constraints,
 		Volumes:                 volumes,
 		InstanceId:              p.InstanceId,
@@ -751,11 +761,11 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 // that the series represents an older version of the operating system. The
 // output is only valid for Ubuntu series.
 func isSeriesLessThan(series1, series2 string) (bool, error) {
-	version1, err := series.SeriesVersion(series1)
+	version1, err := coreseries.SeriesVersion(series1)
 	if err != nil {
 		return false, err
 	}
-	version2, err := series.SeriesVersion(series2)
+	version2, err := coreseries.SeriesVersion(series2)
 	if err != nil {
 		return false, err
 	}

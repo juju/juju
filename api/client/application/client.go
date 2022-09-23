@@ -74,9 +74,6 @@ type DeployArgs struct {
 	// ApplicationName is the name to give the application.
 	ApplicationName string
 
-	// Series to be used for the machine.
-	Series string
-
 	// NumUnits is the number of units to deploy.
 	NumUnits int
 
@@ -155,7 +152,6 @@ func (c *Client) Deploy(args DeployArgs) error {
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName:  args.ApplicationName,
-			Series:           args.Series,
 			CharmURL:         args.CharmID.URL.String(),
 			CharmOrigin:      &origin,
 			Channel:          origin.Risk,

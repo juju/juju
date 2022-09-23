@@ -332,9 +332,8 @@ func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "precise"},
 			ApplicationName: "application",
-			Series:          "precise",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -353,9 +352,8 @@ func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "precise"},
 			ApplicationName: "application",
-			Series:          "precise",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -393,9 +391,8 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "precise"},
 			ApplicationName: "application",
-			Series:          "precise",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

@@ -546,7 +546,6 @@ func deployApplication(
 	}
 	_, err = deployApplicationFunc(backend, model, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
-		Series:            args.Series,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
 		Channel:           csparams.Channel(args.Channel),

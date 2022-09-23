@@ -259,7 +259,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	jujud.Register(agentcmd.NewBootstrapCommand())
 	jujud.Register(agentcmd.NewCAASUnitInitCommand())
-	jujud.Register(agentcmd.NewModelCommand())
+	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the

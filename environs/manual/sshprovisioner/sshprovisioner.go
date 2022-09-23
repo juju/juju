@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
@@ -236,9 +237,17 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, manual.ErrProvisioned
 	}
 
-	hc, series, err := DetectSeriesAndHardwareCharacteristics(hostname)
+	hc, machineSeries, err := DetectSeriesAndHardwareCharacteristics(hostname)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
+	}
+	info, err := series.GetOSVersionFromSeries(machineSeries)
+	if err != nil {
+		return nil, errors.NotValidf("machine series %q", machineSeries)
+	}
+	base := &params.Base{
+		Name:    info.Name,
+		Channel: info.Channel,
 	}
 
 	// There will never be a corresponding "instance" that any provider
@@ -249,7 +258,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	machineParams := &params.AddMachineParams{
-		Series:                  series,
+		Base:                    base,
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
