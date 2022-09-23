@@ -560,8 +560,6 @@ func (manager *Manager) handleCheck(check check) error {
 		}
 
 		response = lease.ErrNotHeld
-	} else if check.trapdoorKey != nil {
-		response = info.Trapdoor(check.attempt, check.trapdoorKey)
 	}
 	check.respond(errors.Trace(response))
 	return nil

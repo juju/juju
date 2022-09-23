@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -166,12 +165,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	args = s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, raftlease.StoreConfig{})
-	storeConfig := args[0].(raftlease.StoreConfig)
 
-	systemState, err := s.stateTracker.pool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	assertTrapdoorFuncsEqual(c, storeConfig.Trapdoor, systemState.LeaseTrapdoorFunc())
-	storeConfig.Trapdoor = nil
+	storeConfig := args[0].(raftlease.StoreConfig)
 	storeConfig.Client = nil
 	storeConfig.MetricsCollector = nil
 
@@ -234,19 +229,6 @@ func (s *manifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
 
 	s.stateTracker.waitDone(c)
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
-}
-
-func assertTrapdoorFuncsEqual(c *gc.C, actual, expected raftlease.TrapdoorFunc) {
-	if actual == nil {
-		c.Assert(expected, gc.Equals, nil)
-		return
-	}
-	var actualOps, expectedOps []txn.Op
-	err := actual(corelease.Key{"ns", "model", "lease"}, "holder")(0, &actualOps)
-	c.Assert(err, jc.ErrorIsNil)
-	err = expected(corelease.Key{"ns", "model", "lease"}, "holder")(0, &expectedOps)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualOps, gc.DeepEquals, expectedOps)
 }
 
 type mockAgent struct {

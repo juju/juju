@@ -185,7 +185,6 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 
 	s.store = s.config.NewStore(raftlease.StoreConfig{
 		FSM:              s.config.FSM,
-		Trapdoor:         st.LeaseTrapdoorFunc(),
 		Client:           client,
 		Clock:            clock,
 		MetricsCollector: metrics,
