@@ -132,8 +132,6 @@ run_charm_storage() {
 	juju remove-application dummy-storage-mp --destroy-storage
 	echo "All charm storage tests PASSED"
 
-	# wait for all storage units to removed
-	wait_for "{}" ".storage"
 	destroy_model "${model_name}"
 }
 
