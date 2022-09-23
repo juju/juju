@@ -10,10 +10,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/juju/juju/agent"
+	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type optionSuite struct {
@@ -25,7 +29,7 @@ var _ = gc.Suite(&optionSuite{})
 func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
-	cfg := dummyAgentConfig{dataDir: "/tmp/" + subDir}
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
 	f := NewOptionFactory(cfg)
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
@@ -67,12 +71,38 @@ func (s *optionSuite) TestWithAddressOption(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type dummyAgentConfig struct {
+func (s *optionSuite) TestWithTLSOption(c *gc.C) {
+	cfg := fakeAgentConfig{}
+	f := NewOptionFactory(cfg)
+
+	withTLS, err := f.WithTLSOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqlite, err := app.New(c.MkDir(), withTLS)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = dqlite.Close()
+}
+
+type fakeAgentConfig struct {
 	agent.Config
+
 	dataDir string
 }
 
 // DataDir implements agent.AgentConfig.
-func (cfg dummyAgentConfig) DataDir() string {
+func (cfg fakeAgentConfig) DataDir() string {
 	return cfg.dataDir
+}
+
+func (cfg fakeAgentConfig) CACert() string {
+	return jujutesting.CACert
+}
+
+func (cfg fakeAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+	return controller.StateServingInfo{
+		CAPrivateKey: jujutesting.CAKey,
+		Cert:         jujutesting.ServerCert,
+		PrivateKey:   jujutesting.ServerKey,
+	}, true
 }

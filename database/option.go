@@ -1,6 +1,8 @@
 package database
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
@@ -76,7 +78,7 @@ func (f *OptionFactory) WithAddressOption() (app.Option, error) {
 
 	cloudLocal := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
 	if len(cloudLocal) == 0 {
-		return nil, errors.NewNotFound(nil, "no suitable local address for advertising to Dqlite peers")
+		return nil, errors.NewNotFound(nil, "suitable local address for advertising to Dqlite peers")
 	}
 
 	// Sort to ensure that the same address is returned for multi-nic/address
@@ -84,4 +86,36 @@ func (f *OptionFactory) WithAddressOption() (app.Option, error) {
 	values := cloudLocal.Values()
 	sort.Strings(values)
 	return app.WithAddress(fmt.Sprintf("%s:%d", values[0], f.port)), nil
+}
+
+// WithTLSOption returns a Dqlite application Option for TLS encryption
+// of traffic between clients and clustered application nodes.
+func (f *OptionFactory) WithTLSOption() (app.Option, error) {
+	stateInfo, ok := f.cfg.StateServingInfo()
+	if !ok {
+		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
+	}
+
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM([]byte(f.cfg.CACert()))
+
+	controllerCert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing controller certificate")
+	}
+
+	listen := &tls.Config{
+		ClientCAs:    caCertPool,
+		Certificates: []tls.Certificate{controllerCert},
+	}
+
+	dial := &tls.Config{
+		RootCAs:      caCertPool,
+		Certificates: []tls.Certificate{controllerCert},
+		// We cannot provide a ServerName value here, so we rely on the
+		// server validating the controller's client certificate.
+		InsecureSkipVerify: true,
+	}
+
+	return app.WithTLS(listen, dial), nil
 }
