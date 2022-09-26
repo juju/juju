@@ -28,6 +28,7 @@ jobs:
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "/snap/bin" >> $GITHUB_PATH
         lxc network set lxdbr0 ipv6.address none
+        sudo apt install expect
 
     - name: Checkout
       uses: actions/checkout@v3
