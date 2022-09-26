@@ -396,7 +396,8 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			Risk: "edge",
 		},
 		Platform: corecharm.Platform{
-			Series: "focal",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 	}
 	resolvedOrigin := corecharm.Origin{
@@ -405,7 +406,8 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			Risk: "stable",
 		},
 		Platform: corecharm.Platform{
-			Series: "focal",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 	}
 
@@ -444,18 +446,20 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-hub",
-			Series: "focal",
-			Risk:   "edge",
+			Source:  "charm-hub",
+			OS:      "ubuntu",
+			Channel: "20.04",
+			Risk:    "edge",
 		},
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-hub",
-			Series: "focal",
-			Risk:   "stable",
+			Source:  "charm-hub",
+			OS:      "ubuntu",
+			Channel: "20.04",
+			Risk:    "stable",
 		},
 	})
 }
@@ -474,7 +478,8 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 			Risk: "stable",
 		},
 		Platform: corecharm.Platform{
-			Series: "focal",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 	}
 
@@ -487,9 +492,10 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-hub",
-			Risk:   "edge",
-			Series: "focal",
+			Source:  "charm-hub",
+			Risk:    "edge",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 		Force: false,
 	}
@@ -497,9 +503,10 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-hub",
-			Risk:   "stable",
-			Series: "focal",
+			Source:  "charm-hub",
+			Risk:    "stable",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 	}, gc.Commentf("expected to get back the origin recorded by the application"))
 }

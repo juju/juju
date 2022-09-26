@@ -7,6 +7,7 @@ import (
 	"github.com/juju/charm/v9"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -48,8 +49,8 @@ type Origin struct {
 	Architecture string
 	// OS describes the OS intended to be used by the charm.
 	OS string
-	// Series describes the series of the OS intended to be used by the charm.
-	Series string
+	// Channel describes the channel (version) of the OS intended to be used by the charm.
+	Channel string
 
 	// InstanceKey is a unique string associated with the application. To
 	// assist with keeping KPI data in charmhub, it must be the same for every
@@ -59,9 +60,16 @@ type Origin struct {
 }
 
 // WithSeries allows to update the series of an origin.
-func (o Origin) WithSeries(series string) Origin {
+// TODO(juju3) - remove, replace with os/channel
+func (o Origin) WithSeries(aseries string) Origin {
 	other := o
-	other.Series = series
+	other.Channel = ""
+	other.OS = ""
+	if aseries != "" {
+		base, _ := series.GetBaseFromSeries(aseries)
+		other.OS = base.Name
+		other.Channel = base.Channel
+	}
 	return other
 }
 
@@ -96,7 +104,7 @@ func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 		Branch:       o.Branch,
 		Architecture: o.Architecture,
 		OS:           o.OS,
-		Series:       o.Series,
+		Channel:      o.Channel,
 		InstanceKey:  o.InstanceKey,
 	}
 }
@@ -129,7 +137,7 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 		Platform: corecharm.Platform{
 			Architecture: o.Architecture,
 			OS:           o.OS,
-			Series:       o.Series,
+			Channel:      o.Channel,
 		},
 		InstanceKey: o.InstanceKey,
 	}
@@ -149,7 +157,7 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 		Branch:       origin.Branch,
 		Architecture: origin.Architecture,
 		OS:           origin.OS,
-		Series:       origin.Series,
+		Channel:      origin.Channel,
 		InstanceKey:  origin.InstanceKey,
 	}
 }
@@ -180,7 +188,7 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
 		OS:           origin.Platform.OS,
-		Series:       origin.Platform.Series,
+		Channel:      origin.Platform.Channel,
 		InstanceKey:  origin.InstanceKey,
 	}
 }

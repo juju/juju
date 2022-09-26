@@ -71,7 +71,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 		Channel: &channel,
 	}
@@ -92,7 +92,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 	origin.Revision = &curl.Revision
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
-	origin.Platform.Series = "focal"
+	origin.Platform.Channel = "20.04"
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
 
@@ -111,7 +111,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 		Channel: &charm.Channel{
 			Track: "latest",
@@ -132,7 +132,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
-	origin.Platform.Series = "focal"
+	origin.Platform.Channel = "20.04"
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
 
@@ -141,7 +141,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
 }
 
-func (s *charmHubRepositorySuite) TestResolveWithoutSeries(c *gc.C) {
+func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectCharmRefreshInstallOneFromChannel(c)
 
@@ -231,7 +231,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
-	origin.Platform.Series = "focal"
+	origin.Platform.Channel = "20.04"
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
 
@@ -270,7 +270,8 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		Source: "charm-hub",
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
-			Series:       "bionic",
+			OS:           "ubuntu",
+			Channel:      "18.04",
 		},
 	}
 
@@ -287,7 +288,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 	origin.Platform.OS = "ubuntu"
-	origin.Platform.Series = "focal"
+	origin.Platform.Channel = "20.04"
 
 	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
 
@@ -305,7 +306,7 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 		Channel: &charm.Channel{
 			Track: "latest",
@@ -319,7 +320,7 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 		Channel: &charm.Channel{
 			Track: "latest",
@@ -351,7 +352,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 		Channel: &charm.Channel{
 			Track: "latest",
@@ -365,7 +366,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 		Channel: &charm.Channel{
 			Track: "latest",
@@ -395,7 +396,7 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 		Channel: &charm.Channel{
 			Track: "latest",
@@ -774,14 +775,14 @@ func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 	}})
 }
 
@@ -795,14 +796,14 @@ func (selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "centos",
-		Series:       "centos7",
+		Channel:      "centos7",
 	}})
 }
 
@@ -1024,18 +1025,6 @@ func (selectReleaseByChannelSuite) TestNoReleases(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform(nil))
 }
 
-func (selectReleaseByChannelSuite) TestInvalidChannel(c *gc.C) {
-	_, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Base: transport.Base{
-			Name:         "os",
-			Channel:      "series",
-			Architecture: "arch",
-		},
-		Channel: "",
-	}}, corecharm.Origin{})
-	c.Assert(err, gc.ErrorMatches, `unknown series for version: "series"`)
-}
-
 func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 	release, err := selectReleaseByArchAndChannel([]transport.Release{{
 		Base: transport.Base{
@@ -1056,7 +1045,7 @@ func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "arch",
 		OS:           "os",
-		Series:       "focal",
+		Channel:      "20.04",
 	}})
 }
 
@@ -1080,7 +1069,7 @@ func (selectReleaseByChannelSuite) TestSelectionWithCentos(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "arch",
 		OS:           "centos",
-		Series:       "centos7",
+		Channel:      "centos7",
 	}})
 }
 
@@ -1104,7 +1093,7 @@ func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "arch",
 		OS:           "os",
-		Series:       "xenial",
+		Channel:      "16.04",
 	}})
 }
 
@@ -1150,11 +1139,11 @@ func (selectReleaseByChannelSuite) TestMultipleSelectionMultipleReturned(c *gc.C
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "h",
 		OS:           "f",
-		Series:       "bionic",
+		Channel:      "18.04",
 	}, {
 		Architecture: "h",
 		OS:           "g",
-		Series:       "focal",
+		Channel:      "20.04",
 	}})
 }
 
@@ -1193,6 +1182,6 @@ func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "h",
 		OS:           "f",
-		Series:       "bionic",
+		Channel:      "18.04",
 	}})
 }

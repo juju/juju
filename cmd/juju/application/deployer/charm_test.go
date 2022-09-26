@@ -104,7 +104,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		},
 		id: application.CharmID{
 			URL:    s.url,
-			Origin: commoncharm.Origin{Series: "focal"},
+			Origin: commoncharm.Origin{OS: "ubuntu", Channel: "20.04"},
 		},
 		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,

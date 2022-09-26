@@ -51,7 +51,7 @@ type Channel struct {
 	Size       int      `json:"size" yaml:"size"`
 	Version    string   `json:"version" yaml:"version"`
 	Arches     []string `json:"architectures" yaml:"architectures"`
-	Series     []string `json:"series" yaml:"series"`
+	Bases      []string `json:"bases" yaml:"bases"`
 }
 
 // Charm matches a params.CharmHubCharm

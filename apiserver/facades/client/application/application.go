@@ -574,7 +574,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		platform = corecharm.Platform{
 			Architecture: origin.Architecture,
 			OS:           origin.OS,
-			Series:       origin.Series,
+			Channel:      origin.Channel,
 		}
 	}
 
@@ -1218,12 +1218,15 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
 		return result, nil
 	}
-	result.Origin = makeParamsCharmOrigin(chOrigin)
+	if result.Origin, err = makeParamsCharmOrigin(chOrigin); err != nil {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
+		return result, nil
+	}
 	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), api.model.ModelTag())
 	return result, nil
 }
 
-func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
+func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error) {
 	retOrigin := params.CharmOrigin{
 		Source: origin.Source,
 		ID:     origin.ID,
@@ -1244,9 +1247,14 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
 		retOrigin.OS = origin.Platform.OS
-		retOrigin.Series = origin.Platform.Series
+		// TODO(juju3) - use channel not series in state
+		base, err := series.GetBaseFromSeries(origin.Platform.Series)
+		if err != nil {
+			return params.CharmOrigin{}, errors.Trace(err)
+		}
+		retOrigin.Channel = base.Channel
 	}
-	return retOrigin
+	return retOrigin, nil
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.

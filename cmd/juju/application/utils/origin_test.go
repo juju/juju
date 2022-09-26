@@ -26,7 +26,7 @@ func (*originSuite) TestDeducePlatform(c *gc.C) {
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 	})
 }
 
@@ -40,7 +40,7 @@ func (*originSuite) TestDeducePlatformWithFallbackArch(c *gc.C) {
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "s390x",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 	})
 }
 
@@ -54,7 +54,7 @@ func (*originSuite) TestDeducePlatformWithNoArch(c *gc.C) {
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 	})
 }
 
@@ -64,19 +64,5 @@ func (*originSuite) TestDeducePlatformWithInvalidSeries(c *gc.C) {
 	series := "bad"
 
 	_, err := utils.DeducePlatform(arch, series, fallback)
-	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "bad"`)
-}
-
-func (*originSuite) TestDeducePlatformWithNonUbuntuSeries(c *gc.C) {
-	arch := constraints.MustParse("arch=amd64")
-	fallback := constraints.MustParse("arch=amd64")
-	series := "win10"
-
-	platform, err := utils.DeducePlatform(arch, series, fallback)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
-		Architecture: "amd64",
-		OS:           "windows",
-		Series:       "win10",
-	})
+	c.Assert(err, gc.ErrorMatches, `series "bad" not valid`)
 }

@@ -407,7 +407,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 		if charm.CharmHub.Matches(url.Schema) {
 			// Although we've resolved the charm URL, we actually don't want the
-			// whole URL (architecture, series and revision), only the name is
+			// whole URL (architecture, channel and revision), only the name is
 			// verified that it exists.
 			url = &charm.URL{
 				Schema:   charm.CharmHub.String(),
@@ -415,7 +415,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				Revision: -1,
 			}
 			origin = origin.WithSeries("")
-			origin.OS = ""
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
@@ -710,7 +709,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	switch {
 	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
-	case resolvedOrigin.Series == "":
+	case resolvedOrigin.Channel == "":
 		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
 		if err != nil {
 			return errors.Trace(err)
@@ -725,14 +724,21 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 
 		// Get the series to use.
-		resolvedOrigin.Series, err = selector.charmSeries()
+		chSeries, err := selector.charmSeries()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if url.Schema != charm.CharmStore.String() {
-			url = url.WithSeries(resolvedOrigin.Series)
+			url = url.WithSeries(chSeries)
 		}
-		logger.Tracef("Using series %s from %v to deploy %v", resolvedOrigin.Series, supportedSeries, url)
+		// TODO(juju3) - use os/channel, not series
+		base, err := series.GetBaseFromSeries(chSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resolvedOrigin.OS = base.Name
+		resolvedOrigin.Channel = base.Channel
+		logger.Tracef("Using channel %s/%s from %v to deploy %v", resolvedOrigin.OS, resolvedOrigin.Channel, supportedSeries, url)
 	}
 
 	var macaroon *macaroon.Macaroon
@@ -951,7 +957,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		if err != nil {
 			return errors.Trace(err)
 		}
-		origin.Series = selectedSeries
+		// TODO(juju3) - use os/channel, not series
+		base, err := series.GetBaseFromSeries(selectedSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin.OS = base.Name
+		origin.Channel = base.Channel
 	case charm.CharmStore.Matches(chID.URL.Schema):
 		// Figure out what series we need to deploy with. For CharmHub charms,
 		// this was determined when addcharm was called.
@@ -1143,7 +1155,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	}
 	var base *params.Base
 	if p.Series != "" {
-		info, err := series.GetOSVersionFromSeries(p.Series)
+		info, err := series.GetBaseFromSeries(p.Series)
 		if err != nil {
 			return errors.NotValidf("machine series %q", p.Series)
 		}

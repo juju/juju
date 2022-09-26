@@ -2932,6 +2932,9 @@
                         "branch": {
                             "type": "string"
                         },
+                        "channel": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -2948,9 +2951,6 @@
                             "type": "integer"
                         },
                         "risk": {
-                            "type": "string"
-                        },
-                        "series": {
                             "type": "string"
                         },
                         "source": {
@@ -15003,6 +15003,9 @@
                         "branch": {
                             "type": "string"
                         },
+                        "channel": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -15019,9 +15022,6 @@
                             "type": "integer"
                         },
                         "risk": {
-                            "type": "string"
-                        },
-                        "series": {
                             "type": "string"
                         },
                         "source": {
@@ -26426,7 +26426,7 @@
                             "$ref": "#/definitions/AddMachinesResults"
                         }
                     },
-                    "description": "AddMachines adds new machines with the supplied parameters."
+                    "description": "AddMachines adds new machines with the supplied parameters.\nThe args will contain Base info."
                 },
                 "DestroyMachineWithParams": {
                     "type": "object",
@@ -37454,6 +37454,9 @@
                         "branch": {
                             "type": "string"
                         },
+                        "channel": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -37470,9 +37473,6 @@
                             "type": "integer"
                         },
                         "risk": {
-                            "type": "string"
-                        },
-                        "series": {
                             "type": "string"
                         },
                         "source": {

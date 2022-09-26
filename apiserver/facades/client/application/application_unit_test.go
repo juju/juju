@@ -1134,11 +1134,11 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 func createCharmOriginFromURL(c *gc.C, curl *charm.URL) *params.CharmOrigin {
 	switch curl.Schema {
 	case "cs":
-		return &params.CharmOrigin{Source: "charm-store"}
+		return &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"}
 	case "local":
-		return &params.CharmOrigin{Source: "local"}
+		return &params.CharmOrigin{Source: "local", OS: "ubuntu", Channel: "22.04"}
 	default:
-		return &params.CharmOrigin{Source: "charm-hub"}
+		return &params.CharmOrigin{Source: "charm-hub", OS: "ubuntu", Channel: "22.04"}
 	}
 }
 

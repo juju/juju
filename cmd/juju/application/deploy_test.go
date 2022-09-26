@@ -62,6 +62,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	jujuseries "github.com/juju/juju/core/series"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -78,7 +79,7 @@ var defaultLocalOrigin = commoncharm.Origin{
 	Source:       commoncharm.OriginLocal,
 	Architecture: arch.DefaultArchitecture,
 	OS:           "ubuntu",
-	Series:       "jammy",
+	Channel:      "22.04",
 }
 
 type DeploySuiteBase struct {
@@ -840,7 +841,8 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	origin := commoncharm.Origin{
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
-		Series:       "jammy",
+		OS:           "ubuntu",
+		Channel:      "22.04",
 	}
 
 	deployURL := *inURL
@@ -1578,7 +1580,8 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	origin := commoncharm.Origin{
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
-		Series:       "jammy",
+		OS:           "ubuntu",
+		Channel:      "22.04",
 	}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
 	s.fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
@@ -1605,7 +1608,8 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	originWithSeries := commoncharm.Origin{
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
-		Series:       "bionic",
+		OS:           "ubuntu",
+		Channel:      "18.04",
 		Risk:         "beta",
 	}
 	s.fakeAPI.Call("ResolveCharm", curl, origin, false).Returns(
@@ -2036,7 +2040,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAdd(c *gc.C, url, name, series stri
 	return s.setupCharmMaybeAddForce(c, url, name, series, arch.DefaultArchitecture, false, addToState)
 }
 
-func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series, arc string, force, addToState bool) charm.Charm {
+func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, aseries, arc string, force, addToState bool) charm.Charm {
 	baseURL := charm.MustParseURL(url)
 	baseURL.Series = ""
 	deployURL := charm.MustParseURL(url)
@@ -2049,8 +2053,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	noRevisionURL.Revision = -1
 	charmStoreURL := charm.MustParseURL(fmt.Sprintf("cs:%s", baseURL.Name))
 	seriesURL := charm.MustParseURL(url)
-	seriesURL.Series = series
-
+	seriesURL.Series = aseries
 	// In order to replicate what the charmstore does in terms of matching, we
 	// brute force (badly) the various types of charm urls.
 	// TODO (stickupkid): This is terrible, the fact that you're bruteforcing
@@ -2066,11 +2069,18 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 		seriesURL,
 	}
 	for _, url := range charmURLs {
-		for _, serie := range []string{"", url.Series, series} {
+		for _, serie := range []string{"", url.Series, aseries} {
+			var base series.Base
+			if serie != "" {
+				var err error
+				base, err = series.GetBaseFromSeries(serie)
+				c.Assert(err, jc.ErrorIsNil)
+			}
 			for _, a := range []string{"", arc, arch.DefaultArchitecture} {
 				platform := corecharm.Platform{
 					Architecture: a,
-					Series:       serie,
+					OS:           base.Name,
+					Channel:      base.Channel,
 				}
 				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
@@ -2078,7 +2088,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 					resolveURL,
 					origin,
-					[]string{series},
+					[]string{aseries},
 					error(nil),
 				)
 				s.fakeAPI.Call("AddCharm", resolveURL, origin, force).Returns(origin, error(nil))
@@ -2087,13 +2097,13 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	}
 
 	var chDir charm.Charm
-	chDir, err := charm.ReadCharmDir(testcharms.RepoWithSeries(series).CharmDirPath(name))
+	chDir, err := charm.ReadCharmDir(testcharms.RepoWithSeries(aseries).CharmDirPath(name))
 	if err != nil {
 		if !os.IsNotExist(errors.Cause(err)) {
 			c.Fatal(err)
 			return nil
 		}
-		chDir = testcharms.RepoForSeries(series).CharmArchive(c.MkDir(), "dummy")
+		chDir = testcharms.RepoForSeries(aseries).CharmArchive(c.MkDir(), "dummy")
 	}
 	if addToState {
 		_, err = jjtesting.AddCharm(s.State, resolveURL, chDir, force)
@@ -2102,17 +2112,24 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	return chDir
 }
 
-func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name string, series ...string) {
+func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name string, allSeries ...string) {
 	bundleResolveURL := charm.MustParseURL(url)
 	baseURL := *bundleResolveURL
 	baseURL.Revision = -1
 	withCharmRepoResolvable(s.fakeAPI, &baseURL, "")
-	bundleDir := testcharms.RepoWithSeries(series[0]).BundleArchive(c.MkDir(), name)
+	bundleDir := testcharms.RepoWithSeries(allSeries[0]).BundleArchive(c.MkDir(), name)
 
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
 	// GetBundle expects the url with revision.
-	for _, serie := range append([]string{"", baseURL.Series}, series...) {
-		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{Series: serie})
+	for _, serie := range append([]string{"", baseURL.Series}, allSeries...) {
+		var base series.Base
+		if serie != "" {
+			var err error
+			base, err = series.GetBaseFromSeries(serie)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{
+			OS: base.Name, Channel: base.Channel})
 		c.Assert(err, jc.ErrorIsNil)
 		s.fakeAPI.Call("ResolveBundleURL", &baseURL, origin).Returns(
 			bundleResolveURL,
@@ -2234,13 +2251,15 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 			Origin: commoncharm.Origin{
 				Source:       commoncharm.OriginCharmStore,
 				Architecture: arch.DefaultArchitecture,
-				Series:       "jammy",
+				OS:           "ubuntu",
+				Channel:      "22.04",
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
 			Source:       commoncharm.OriginCharmStore,
 			Architecture: arch.DefaultArchitecture,
-			Series:       "jammy",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		},
 		ApplicationName: curl.Name,
 		NumUnits:        1,
@@ -3130,7 +3149,7 @@ func withCharmDeployableWithDevicesAndStorage(
 func withCharmRepoResolvable(
 	fakeAPI *fakeDeployAPI,
 	url *charm.URL,
-	series string,
+	aseries string,
 ) {
 	// We have to handle all possible variations on the supplied URL.
 	// The real store can be queried with a base URL like "cs:foo" and
@@ -3154,12 +3173,14 @@ func withCharmRepoResolvable(
 		}
 		resolveURLs = append(resolveURLs, &inURL)
 	}
+	base, _ := series.GetBaseFromSeries(aseries)
 	for _, url := range resolveURLs {
 		for _, arch := range []string{"", arch.DefaultArchitecture} {
 			origin := commoncharm.Origin{
 				Source:       commoncharm.OriginCharmStore,
 				Architecture: arch,
-				Series:       series,
+				OS:           base.Name,
+				Channel:      base.Channel,
 			}
 			fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 				&resultURL,

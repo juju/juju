@@ -267,7 +267,7 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,
 			OS:           origin.OS,
-			Series:       origin.Series,
+			Channel:      origin.Channel,
 		},
 		InstanceKey: origin.InstanceKey,
 	}

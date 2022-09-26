@@ -13,11 +13,11 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"gopkg.in/macaroon.v2"
+
+	commoncharm "github.com/juju/juju/api/common/charm"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
@@ -192,9 +192,13 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
+	dlorigin, err := convertOrigin(origin)
+	if err != nil {
+		return params.DownloadInfoResult{}, errors.Trace(err)
+	}
 	return params.DownloadInfoResult{
 		URL:    url.String(),
-		Origin: convertOrigin(origin),
+		Origin: dlorigin,
 	}, nil
 }
 
@@ -212,21 +216,14 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	// know nor understands what all means, so we need to ensure it doesn't leak
 	// out.
 	var os string
-	var oSeries string
-	if origin.Series == "all" {
+	var oChannel string
+	if origin.OS == "all" || origin.Channel == "all" {
 		logger.Warningf("Release all detected, removing all from the origin. %s", origin.ID)
-	} else if origin.Series != "" {
-		// Always set the os from the series, so we know it's correctly
-		// normalized for the rest of Juju.
-		sys, err := series.GetOSFromSeries(origin.Series)
-		if err != nil {
-			return params.CharmOrigin{}, errors.Trace(err)
-		}
+	} else {
 		// Values passed to the api are case sensitive: ubuntu succeeds and
 		// Ubuntu returns `"code": "revision-not-found"`
-		os = strings.ToLower(sys.String())
-
-		oSeries = origin.Series
+		os = strings.ToLower(origin.OS)
+		oChannel = origin.Channel
 	}
 
 	arch := fallbackArch
@@ -238,7 +235,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 
 	o := origin
 	o.OS = os
-	o.Series = oSeries
+	o.Channel = oChannel
 	o.Architecture = arch
 	return o, nil
 }
@@ -272,8 +269,8 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
 
-	if args.Origin.Source == "charm-hub" && args.Origin.Series == "" {
-		return params.CharmOriginResult{}, errors.BadRequestf("series required for charm-hub charms")
+	if args.Origin.Source == "charm-hub" && (args.Origin.OS == "" || args.Origin.Channel == "") {
+		return params.CharmOriginResult{}, errors.BadRequestf("os/channel required for charm-hub charms")
 	}
 
 	if err := a.checkCanWrite(); err != nil {
@@ -288,8 +285,12 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 			return params.CharmOriginResult{}, errors.Trace(err)
 		}
 
+		origin, err := convertOrigin(actualOrigin)
+		if err != nil {
+			return params.CharmOriginResult{}, errors.Trace(err)
+		}
 		return params.CharmOriginResult{
-			Origin: convertOrigin(actualOrigin),
+			Origin: origin,
 		}, nil
 	}
 
@@ -319,8 +320,12 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 
+	origin, err := convertOrigin(actualOrigin)
+	if err != nil {
+		return params.CharmOriginResult{}, errors.Trace(err)
+	}
 	return params.CharmOriginResult{
-		Origin: convertOrigin(actualOrigin),
+		Origin: origin,
 	}, nil
 }
 
@@ -467,7 +472,11 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	}
 	result.URL = resultURL.String()
 
-	apiOrigin := convertOrigin(origin)
+	apiOrigin, err := convertOrigin(origin)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
 
 	// The charmhub API can return "all" for architecture as it's not a real
 	// arch we don't know how to correctly model it. "all " doesn't mean use the
