@@ -7,53 +7,51 @@ import (
 	"errors"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
+	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/metricsdebug"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type metricsdebugSuiteMock struct {
-	testing.BaseSuite
-	manager *metricsdebug.Client
+	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&metricsdebugSuiteMock{})
 
 func (s *metricsdebugSuiteMock) TestGetMetrics(c *gc.C) {
-	var called bool
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	now := time.Now()
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			c.Assert(request, gc.Equals, "GetMetrics")
-			result := response.(*params.MetricResults)
-			result.Results = []params.EntityMetrics{{
-				Metrics: []params.MetricResult{{
-					Key:    "pings",
-					Value:  "5",
-					Time:   now,
-					Labels: map[string]string{"foo": "bar"},
-				}},
-				Error: nil,
-			}}
-			called = true
-			return nil
-		})
-	client := metricsdebug.NewClient(apiCaller)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "unit-wordpress/0"}},
+	}
+	res := new(params.MetricResults)
+	ress := params.MetricResults{
+		Results: []params.EntityMetrics{{
+			Metrics: []params.MetricResult{{
+				Key:    "pings",
+				Value:  "5",
+				Time:   now,
+				Labels: map[string]string{"foo": "bar"},
+			}},
+			Error: nil,
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).SetArg(2, ress).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+
 	metrics, err := client.GetMetrics("unit-wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(metrics, gc.HasLen, 1)
 	c.Assert(metrics[0].Key, gc.Equals, "pings")
 	c.Assert(metrics[0].Value, gc.Equals, "5")
@@ -63,74 +61,69 @@ func (s *metricsdebugSuiteMock) TestGetMetrics(c *gc.C) {
 }
 
 func (s *metricsdebugSuiteMock) TestGetMetricsFails(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			c.Assert(request, gc.Equals, "GetMetrics")
-			result := response.(*params.MetricResults)
-			result.Results = []params.EntityMetrics{{
-				Error: apiservererrors.ServerError(errors.New("an error")),
-			}}
-			called = true
-			return nil
-		})
-	client := metricsdebug.NewClient(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "unit-wordpress/0"}},
+	}
+	res := new(params.MetricResults)
+	ress := params.MetricResults{
+		Results: []params.EntityMetrics{{
+			Error: apiservererrors.ServerError(errors.New("an error")),
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).SetArg(2, ress).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+
 	metrics, err := client.GetMetrics("unit-wordpress/0")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(metrics, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *metricsdebugSuiteMock) TestGetMetricsFacadeCallError(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			return errors.New("an error")
-		})
-	client := metricsdebug.NewClient(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "unit-wordpress/0"}},
+	}
+	res := new(params.MetricResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).Return(errors.New("an error"))
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+
 	metrics, err := client.GetMetrics("unit-wordpress/0")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(metrics, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *metricsdebugSuiteMock) TestGetMetricsForModel(c *gc.C) {
-	var called bool
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	now := time.Now()
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			requestParam, response interface{},
-		) error {
-			c.Assert(request, gc.Equals, "GetMetrics")
-			entities := requestParam.(params.Entities)
-			c.Assert(entities, gc.DeepEquals, params.Entities{Entities: []params.Entity{}})
-			result := response.(*params.MetricResults)
-			result.Results = []params.EntityMetrics{{
-				Metrics: []params.MetricResult{{
-					Key:   "pings",
-					Value: "5",
-					Time:  now,
-				}},
-				Error: nil,
-			}}
-			called = true
-			return nil
-		})
-	client := metricsdebug.NewClient(apiCaller)
+	args := params.Entities{
+		Entities: []params.Entity{},
+	}
+	res := new(params.MetricResults)
+	ress := params.MetricResults{
+		Results: []params.EntityMetrics{{
+			Metrics: []params.MetricResult{{
+				Key:   "pings",
+				Value: "5",
+				Time:  now,
+			}},
+			Error: nil,
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).SetArg(2, ress).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+
 	metrics, err := client.GetMetrics()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
 	c.Assert(metrics, gc.HasLen, 1)
 	c.Assert(metrics[0].Key, gc.Equals, "pings")
 	c.Assert(metrics[0].Value, gc.Equals, "5")
@@ -138,109 +131,20 @@ func (s *metricsdebugSuiteMock) TestGetMetricsForModel(c *gc.C) {
 }
 
 func (s *metricsdebugSuiteMock) TestGetMetricsForModelFails(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			requestParam, response interface{},
-		) error {
-			called = true
-			return errors.New("an error")
-		})
-	client := metricsdebug.NewClient(apiCaller)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.Entities{
+		Entities: []params.Entity{},
+	}
+	res := new(params.MetricResults)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).Return(errors.New("an error"))
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 	metrics, err := client.GetMetrics()
-	c.Assert(called, jc.IsTrue)
 	c.Assert(metrics, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "an error")
-}
-
-func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			c.Assert(request, gc.Equals, "SetMeterStatus")
-			c.Assert(a, gc.DeepEquals, params.MeterStatusParams{
-				Statuses: []params.MeterStatusParam{{
-					Tag:  "unit-metered/0",
-					Code: "RED",
-					Info: "test"},
-				},
-			})
-			result := response.(*params.ErrorResults)
-			result.Results = []params.ErrorResult{{
-				Error: nil,
-			}}
-			called = true
-			return nil
-		})
-	client := metricsdebug.NewClient(apiCaller)
-	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *metricsdebugSuiteMock) TestSetMeterStatusAPIServerError(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			c.Assert(request, gc.Equals, "SetMeterStatus")
-			c.Assert(a, gc.DeepEquals, params.MeterStatusParams{
-				Statuses: []params.MeterStatusParam{{
-					Tag:  "unit-metered/0",
-					Code: "RED",
-					Info: "test"},
-				},
-			})
-			result := response.(*params.ErrorResults)
-			result.Results = []params.ErrorResult{{
-				Error: apiservererrors.ServerError(errors.New("an error")),
-			}}
-			called = true
-			return nil
-		})
-	client := metricsdebug.NewClient(apiCaller)
-	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
-	c.Assert(err, gc.ErrorMatches, "an error")
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *metricsdebugSuiteMock) TestSetMeterStatusFacadeCallError(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, response interface{},
-		) error {
-			called = true
-			return errors.New("an error")
-		})
-	client := metricsdebug.NewClient(apiCaller)
-	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
-	c.Assert(err, gc.ErrorMatches, "an error")
-	c.Assert(called, jc.IsTrue)
-}
-
-type metricsdebugSuite struct {
-	jujutesting.JujuConnSuite
-	manager *metricsdebug.Client
-}
-
-var _ = gc.Suite(&metricsdebugSuite{})
-
-func (s *metricsdebugSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.manager = metricsdebug.NewClient(s.APIState)
-	c.Assert(s.manager, gc.NotNil)
 }
 
 func assertSameMetric(c *gc.C, a params.MetricResult, b *state.MetricBatch) {
@@ -249,18 +153,10 @@ func assertSameMetric(c *gc.C, a params.MetricResult, b *state.MetricBatch) {
 	c.Assert(a.Time, jc.TimeBetween(b.Metrics()[0].Time, b.Metrics()[0].Time))
 }
 
-func (s *metricsdebugSuite) TestFeatureGetMetrics(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
-	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit})
-	metrics, err := s.manager.GetMetrics("unit-metered/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 1)
-	assertSameMetric(c, metrics[0], metric)
-}
+func (s *metricsdebugSuiteMock) TestFeatureGetMultipleMetrics(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-func (s *metricsdebugSuite) TestFeatureGetMultipleMetrics(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
@@ -275,22 +171,86 @@ func (s *metricsdebugSuite) TestFeatureGetMultipleMetrics(c *gc.C) {
 		Unit: unit1,
 	})
 
-	metrics0, err := s.manager.GetMetrics("unit-metered/0")
+	args0 := params.Entities{
+		Entities: []params.Entity{{Tag: "unit-metered/0"}},
+	}
+	args1 := params.Entities{
+		Entities: []params.Entity{{Tag: "unit-metered/1"}},
+	}
+	argsBoth := params.Entities{
+		Entities: []params.Entity{{Tag: "unit-metered/0"}, {Tag: "unit-metered/1"}},
+	}
+	argsNone := params.Entities{
+		Entities: []params.Entity{},
+	}
+	res := new(params.MetricResults)
+	resMetric0 := metricUnit0.Metrics()[0]
+	resMetric1 := metricUnit1.Metrics()[0]
+	ress0 := params.MetricResults{
+		Results: []params.EntityMetrics{{
+			Metrics: []params.MetricResult{{
+				Key:   resMetric0.Key,
+				Value: resMetric0.Value,
+				Time:  resMetric0.Time,
+			}},
+		}},
+	}
+	ress1 := params.MetricResults{
+		Results: []params.EntityMetrics{{
+			Metrics: []params.MetricResult{{
+				Key:   resMetric1.Key,
+				Value: resMetric1.Value,
+				Time:  resMetric1.Time,
+			}},
+		}},
+	}
+	ressBoth := params.MetricResults{
+		Results: []params.EntityMetrics{{
+			Metrics: []params.MetricResult{{
+				Key:   resMetric0.Key,
+				Value: resMetric0.Value,
+				Time:  resMetric0.Time,
+			}, {
+				Key:   resMetric1.Key,
+				Value: resMetric1.Value,
+				Time:  resMetric1.Time,
+			}},
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args0, res).SetArg(2, ress0).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args1, res).SetArg(2, ress1).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", argsBoth, res).SetArg(2, ressBoth).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", argsNone, res).SetArg(2, ressBoth).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+
+	metrics0, err := client.GetMetrics("unit-metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics0, gc.HasLen, 1)
 	assertSameMetric(c, metrics0[0], metricUnit0)
 
-	metrics1, err := s.manager.GetMetrics("unit-metered/1")
+	metrics1, err := client.GetMetrics("unit-metered/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics1, gc.HasLen, 1)
 	assertSameMetric(c, metrics1[0], metricUnit1)
 
-	metrics2, err := s.manager.GetMetrics("unit-metered/0", "unit-metered/1")
+	metrics2, err := client.GetMetrics("unit-metered/0", "unit-metered/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics2, gc.HasLen, 2)
+	assertSameMetric(c, metrics2[0], metricUnit0)
+	assertSameMetric(c, metrics2[1], metricUnit1)
+
+	metrics3, err := client.GetMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics2, gc.HasLen, 2)
+	assertSameMetric(c, metrics3[0], metricUnit0)
+	assertSameMetric(c, metrics3[1], metricUnit1)
 }
 
-func (s *metricsdebugSuite) TestFeatureGetMetricsForModel(c *gc.C) {
+func (s *metricsdebugSuiteMock) TestFeatureGetMultipleMetricsWithApplication(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
@@ -305,36 +265,106 @@ func (s *metricsdebugSuite) TestFeatureGetMetricsForModel(c *gc.C) {
 		Unit: unit1,
 	})
 
-	metrics, err := s.manager.GetMetrics()
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "application-metered"}},
+	}
+	res := new(params.MetricResults)
+	resMetric0 := metricUnit0.Metrics()[0]
+	resMetric1 := metricUnit1.Metrics()[0]
+	ressBoth := params.MetricResults{
+		Results: []params.EntityMetrics{{
+			Metrics: []params.MetricResult{{
+				Key:   resMetric0.Key,
+				Value: resMetric0.Value,
+				Time:  resMetric0.Time,
+			}, {
+				Key:   resMetric1.Key,
+				Value: resMetric1.Value,
+				Time:  resMetric1.Time,
+			}},
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).SetArg(2, ressBoth).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+	metrics, err := client.GetMetrics("application-metered")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 2)
 	assertSameMetric(c, metrics[0], metricUnit0)
 	assertSameMetric(c, metrics[1], metricUnit1)
 }
 
-func (s *metricsdebugSuite) TestFeatureGetMultipleMetricsWithApplication(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: meteredCharm,
-	})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
+func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
-		Unit: unit0,
-	})
-	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
-		Unit: unit1,
-	})
-
-	metrics, err := s.manager.GetMetrics("application-metered")
+	args := params.MeterStatusParams{
+		Statuses: []params.MeterStatusParam{{
+			Tag:  "unit-metered/0",
+			Code: "RED",
+			Info: "test"},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: nil,
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 2)
-	assertSameMetric(c, metrics[0], metricUnit0)
-	assertSameMetric(c, metrics[1], metricUnit1)
 }
 
-func (s *metricsdebugSuite) TestSetMeterStatus(c *gc.C) {
+func (s *metricsdebugSuiteMock) TestSetMeterStatusAPIServerError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.MeterStatusParams{
+		Statuses: []params.MeterStatusParam{{
+			Tag:  "unit-metered/0",
+			Code: "RED",
+			Info: "test"},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(errors.New("an error")),
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, gc.ErrorMatches, "an error")
+}
+
+func (s *metricsdebugSuiteMock) TestSetMeterStatusFacadeCallError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.MeterStatusParams{
+		Statuses: []params.MeterStatusParam{{
+			Tag:  "unit-metered/0",
+			Code: "RED",
+			Info: "test"},
+		},
+	}
+	res := new(params.ErrorResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).Return(errors.New("an error"))
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, gc.ErrorMatches, "an error")
+}
+
+func (s *metricsdebugSuiteMock) TestSetMeterStatusMultiple(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	testCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	testApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: testCharm})
 	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testApp, SetCharmURL: true})
@@ -409,10 +439,40 @@ func (s *metricsdebugSuite) TestSetMeterStatus(c *gc.C) {
 		err:   "application \"missing\" not found",
 	},
 	}
-
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)
-		err := s.manager.SetMeterStatus(test.tag, test.code, test.info)
+
+		args := params.MeterStatusParams{
+			Statuses: []params.MeterStatusParam{{
+				Tag:  test.tag,
+				Code: test.code,
+				Info: test.info},
+			},
+		}
+		res := new(params.ErrorResults)
+		var ress params.ErrorResults
+		if test.err != "" {
+			ress = params.ErrorResults{
+				Results: []params.ErrorResult{{
+					Error: &params.Error{Message: test.err},
+				}},
+			}
+		} else {
+			ress = params.ErrorResults{
+				Results: []params.ErrorResult{{
+					Error: nil,
+				}},
+			}
+		}
+		mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).DoAndReturn(
+			func(arg0 string, args params.MeterStatusParams, results *params.ErrorResults) []error {
+				testUnit1.SetMeterStatus(test.code, test.info)
+				testUnit2.SetMeterStatus(test.code, test.info)
+				return nil
+			})
+		client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+		err := client.SetMeterStatus(test.tag, test.code, test.info)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			test.assert(c)
