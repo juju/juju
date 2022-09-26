@@ -14,7 +14,6 @@ import (
 const (
 	msgUserRequestedSeries = "with the user specified series %q"
 	msgBundleSeries        = "with the series %q defined by the bundle"
-	msgDefaultModelSeries  = "with the configured model default series %q"
 	msgLatestLTSSeries     = "with the latest LTS series %q"
 )
 
