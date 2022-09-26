@@ -5,7 +5,7 @@ package deployer
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -112,7 +112,7 @@ func (d *deployCharm) deploy(
 		return errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
 	}
 	if len(files) == 1 {
-		configYAML, err = ioutil.ReadFile(files[0])
+		configYAML, err = os.ReadFile(files[0])
 		if err != nil {
 			return errors.Trace(err)
 		}

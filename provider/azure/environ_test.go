@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -496,7 +496,7 @@ func newAzureResponseError(code int, status string) error {
 			},
 			Header:     header,
 			StatusCode: code,
-			Body:       ioutil.NopCloser(bytes.NewBufferString(body)),
+			Body:       io.NopCloser(bytes.NewBufferString(body)),
 		},
 	}
 }
@@ -552,7 +552,7 @@ func makeToolsList(osType string) tools.List {
 }
 
 func unmarshalRequestBody(c *gc.C, req *http.Request, out interface{}) {
-	bytes, err := ioutil.ReadAll(req.Body)
+	bytes, err := io.ReadAll(req.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	err = json.Unmarshal(bytes, out)
 	c.Assert(err, jc.ErrorIsNil)

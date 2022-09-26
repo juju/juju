@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"time"
 
@@ -261,7 +260,7 @@ func (d *fakeDownloader) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
 	urlStr := curl.String()
 	d.charms = append(d.charms, urlStr)
 	// Return the charm URL string as the fake charm content
-	return ioutil.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
+	return io.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
 }
 
 func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
@@ -270,13 +269,13 @@ func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, e
 	}
 	d.uris = append(d.uris, uri)
 	// Return the URI string as fake content
-	return ioutil.NopCloser(bytes.NewReader([]byte(uri))), nil
+	return io.NopCloser(bytes.NewReader([]byte(uri))), nil
 }
 
 func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
 	d.resources = append(d.resources, app+"/"+name)
 	// Use the resource name as the content.
-	return ioutil.NopCloser(bytes.NewReader([]byte(name))), nil
+	return io.NopCloser(bytes.NewReader([]byte(name))), nil
 }
 
 type fakeUploader struct {
@@ -288,7 +287,7 @@ type fakeUploader struct {
 }
 
 func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.List, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -297,7 +296,7 @@ func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.Lis
 }
 
 func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -314,7 +313,7 @@ func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, e
 }
 
 func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) error {
-	body, err := ioutil.ReadAll(r)
+	body, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Trace(err)
 	}

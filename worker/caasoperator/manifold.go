@@ -6,7 +6,6 @@ package caasoperator
 import (
 	"crypto/tls"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -333,7 +332,7 @@ func socketConfig(info *caas.OperatorInfo) (*uniter.SocketConfig, error) {
 // LoadOperatorInfo loads the operator info file from the state dir.
 func LoadOperatorInfo(paths Paths) (*caas.OperatorInfo, error) {
 	filepath := path.Join(paths.State.BaseDir, caas.OperatorInfoFile)
-	data, err := ioutil.ReadFile(filepath)
+	data, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading operator info file %s", filepath)
 	}

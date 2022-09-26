@@ -4,7 +4,6 @@
 package gce_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -61,7 +60,7 @@ func (s *credentialsSuite) TestOAuth2HiddenAttributes(c *gc.C) {
 func (s *credentialsSuite) TestJSONFileCredentialsValid(c *gc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "somefile")
-	err := ioutil.WriteFile(filename, []byte("contents"), 0600)
+	err := os.WriteFile(filename, []byte("contents"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "jsonfile", map[string]string{
 		// For now at least, the contents of the file are not validated
@@ -78,7 +77,7 @@ func createCredsFile(c *gc.C, path string) string {
 	}
 	creds, err := google.NewCredentials(sampleCredentialAttributes)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(path, creds.JSONKey, 0644)
+	err = os.WriteFile(path, creds.JSONKey, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

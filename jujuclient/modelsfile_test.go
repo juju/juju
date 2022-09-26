@@ -4,7 +4,7 @@
 package jujuclient_test
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -91,7 +91,7 @@ var ctrlAdminModelDetails = jujuclient.ModelDetails{
 
 func (s *ModelsFileSuite) TestWriteFile(c *gc.C) {
 	writeTestModelsFile(c)
-	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("models.yaml"))
+	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("models.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, testModelsYAML[1:])
 }
@@ -103,7 +103,7 @@ func (s *ModelsFileSuite) TestReadNoFile(c *gc.C) {
 }
 
 func (s *ModelsFileSuite) TestReadEmptyFile(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("models.yaml"), []byte(""), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("models.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,13 +112,13 @@ func (s *ModelsFileSuite) TestReadEmptyFile(c *gc.C) {
 
 func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
 	s.SetFeatureFlags(feature.Branches)
-	err := ioutil.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
+	err := os.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
 
-	migratedData, err := ioutil.ReadFile(jujuclient.JujuModelsPath())
+	migratedData, err := os.ReadFile(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	migratedModels, err := jujuclient.ParseModels(migratedData)
 	c.Assert(err, jc.ErrorIsNil)

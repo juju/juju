@@ -4,7 +4,7 @@
 package jujuclient_test
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -58,7 +58,7 @@ var (
 
 func (s *AccountsFileSuite) TestWriteFile(c *gc.C) {
 	writeTestAccountsFile(c)
-	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("accounts.yaml"))
+	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("accounts.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, testAccountsYAML[1:])
 }
@@ -70,7 +70,7 @@ func (s *AccountsFileSuite) TestReadNoFile(c *gc.C) {
 }
 
 func (s *AccountsFileSuite) TestReadEmptyFile(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("accounts.yaml"), []byte(""), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("accounts.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,13 +78,13 @@ func (s *AccountsFileSuite) TestReadEmptyFile(c *gc.C) {
 }
 
 func (s *AccountsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
-	err := ioutil.WriteFile(jujuclient.JujuAccountsPath(), []byte(testLegacyAccountsYAML), 0644)
+	err := os.WriteFile(jujuclient.JujuAccountsPath(), []byte(testLegacyAccountsYAML), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
 	c.Assert(err, jc.ErrorIsNil)
 
-	migratedData, err := ioutil.ReadFile(jujuclient.JujuAccountsPath())
+	migratedData, err := os.ReadFile(jujuclient.JujuAccountsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	migratedAccounts, err := jujuclient.ParseAccounts(migratedData)
 	c.Assert(err, jc.ErrorIsNil)

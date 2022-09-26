@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"strings"
 	"time"
 
@@ -112,7 +111,7 @@ type mockResources struct {
 
 func (m *mockResources) OpenResource(applicationID string, name string) (resources.Resource, io.ReadCloser, error) {
 	out, err := json.Marshal(m.resource)
-	return resources.Resource{}, ioutil.NopCloser(bytes.NewBuffer(out)), err
+	return resources.Resource{}, io.NopCloser(bytes.NewBuffer(out)), err
 }
 
 type mockStorageRegistry struct {

@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"archive/zip"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -469,7 +468,7 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 	// from the charmstore we simply use the existing
 	// charmrepo.v4 API to read the base bundle and
 	// wrap it in a BundleDataSource for use by deployBundle.
-	dir, err := ioutil.TempDir("", bundleURL.Name)
+	dir, err := os.MkdirTemp("", bundleURL.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

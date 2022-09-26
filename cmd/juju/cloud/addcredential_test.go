@@ -6,7 +6,6 @@ package cloud_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -133,7 +132,7 @@ credentials:
 func (s *addCredentialSuite) createTestCredentialFile(c *gc.C, content string) string {
 	dir := c.MkDir()
 	credsFile := filepath.Join(dir, "cred.yaml")
-	err := ioutil.WriteFile(credsFile, []byte(content), 0600)
+	err := os.WriteFile(credsFile, []byte(content), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	return credsFile
 }
@@ -141,7 +140,7 @@ func (s *addCredentialSuite) createTestCredentialFile(c *gc.C, content string) s
 func (s *addCredentialSuite) TestAddFromFileWithInvalidCredentialNames(c *gc.C) {
 	dir := c.MkDir()
 	sourceFile := filepath.Join(dir, "cred.yaml")
-	err := ioutil.WriteFile(sourceFile, []byte(`
+	err := os.WriteFile(sourceFile, []byte(`
 credentials:
   somecloud:
     credential with spaces:
@@ -218,7 +217,7 @@ credentials:
       username: user
       password: password
 `[1:]
-	err := ioutil.WriteFile(credsFile, []byte(data), 0600)
+	err := os.WriteFile(credsFile, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	return credsFile
 }
@@ -624,7 +623,7 @@ Replace local credential? (y/N):
 func (s *addCredentialSuite) assertAddFileCredential(c *gc.C, input, fileKey string) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "jsonfile")
-	err := ioutil.WriteFile(filename, []byte{}, 0600)
+	err := os.WriteFile(filename, []byte{}, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	stdin := strings.NewReader(fmt.Sprintf(input, filename))

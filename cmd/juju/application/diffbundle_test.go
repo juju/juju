@@ -5,7 +5,7 @@ package application_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -476,7 +476,7 @@ func (s *diffSuite) writeLocalBundle(c *gc.C, content string) string {
 
 func (s *diffSuite) writeFile(c *gc.C, name, content string) string {
 	path := filepath.Join(s.dir, name)
-	err := ioutil.WriteFile(path, []byte(content), 0666)
+	err := os.WriteFile(path, []byte(content), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

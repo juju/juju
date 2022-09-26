@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -126,7 +125,7 @@ func (s *BaseBackupsSuite) setFailure(failure string) *fakeAPIClient {
 
 func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
 	client := s.setSuccess()
-	client.archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
+	client.archive = io.NopCloser(bytes.NewBufferString(s.data))
 	return client
 }
 
@@ -155,7 +154,7 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 		}
 	})
 
-	data, err := ioutil.ReadAll(archive)
+	data, err := io.ReadAll(archive)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, s.data)
 }

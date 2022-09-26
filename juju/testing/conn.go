@@ -6,7 +6,6 @@ package testing
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -696,7 +695,7 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 	switch ch := ch.(type) {
 	case *charm.CharmDir:
 		var err error
-		if f, err = ioutil.TempFile("", name); err != nil {
+		if f, err = os.CreateTemp("", name); err != nil {
 			return nil, err
 		}
 		defer os.Remove(f.Name())

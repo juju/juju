@@ -6,7 +6,7 @@ package binarystorage_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	stdtesting "testing"
 
@@ -104,7 +104,7 @@ func (s *binaryStorageSuite) testAdd(c *gc.C, content string) {
 	defer rc.Close()
 	c.Assert(metadata, gc.Equals, addedMetadata)
 
-	data, err := ioutil.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, content)
 }
@@ -181,7 +181,7 @@ func (s *binaryStorageSuite) TestOpen(c *gc.C) {
 		SHA256:  "hash(abc)",
 	})
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "blah")
 }
@@ -366,7 +366,7 @@ func (s *binaryStorageSuite) assertMetadataAndContent(c *gc.C, expected binaryst
 	defer r.Close()
 	c.Assert(metadata, gc.Equals, expected)
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, content)
 }

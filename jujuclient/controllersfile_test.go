@@ -5,7 +5,6 @@ package jujuclient_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -55,7 +54,7 @@ current-controller: mallards
 
 func (s *ControllersFileSuite) TestWriteFile(c *gc.C) {
 	writeTestControllersFile(c)
-	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("controllers.yaml"))
+	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("controllers.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, testControllersYAML[1:])
 }
@@ -70,7 +69,7 @@ func (s *ControllersFileSuite) TestReadNoFile(c *gc.C) {
 
 func (s *ControllersFileSuite) TestReadPermissionsError(c *gc.C) {
 	path := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
-	err := ioutil.WriteFile(path, []byte(""), 0377)
+	err := os.WriteFile(path, []byte(""), 0377)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = jujuclient.ReadControllersFile(path)
@@ -78,7 +77,7 @@ func (s *ControllersFileSuite) TestReadPermissionsError(c *gc.C) {
 }
 
 func (s *ControllersFileSuite) TestReadEmptyFile(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerStore := jujuclient.NewFileClientStore()
@@ -140,7 +139,7 @@ current-controller: aws-test
 	fileName := "controllers.yaml"
 
 	// Contains model-count.
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath(fileName), []byte(fmt.Sprintf(fileContent, modelCount)[1:]), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath(fileName), []byte(fmt.Sprintf(fileContent, modelCount)[1:]), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerStore := jujuclient.NewFileClientStore()
@@ -162,7 +161,7 @@ current-controller: aws-test
 	err = controllerStore.UpdateController("aws-test", expectedDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath(fileName))
+	data, err := os.ReadFile(osenv.JujuXDGDataHomePath(fileName))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Has no model-count reference.

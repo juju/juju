@@ -5,7 +5,7 @@ package cloud_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 
@@ -166,7 +166,7 @@ clouds:
 `[1:]
 	dir := c.MkDir()
 	cloudyamlfile := filepath.Join(dir, "public-clouds.yaml")
-	err := ioutil.WriteFile(cloudyamlfile, []byte(metadata), 0644)
+	err := os.WriteFile(cloudyamlfile, []byte(metadata), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	clouds, fallbackUsed, err := cloud.PublicCloudMetadata(cloudyamlfile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +182,7 @@ clouds:
 }
 
 func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
-	cloudData, err := ioutil.ReadFile("fallback-public-cloud.yaml")
+	cloudData, err := os.ReadFile("fallback-public-cloud.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	clouds, err := cloud.ParseCloudMetadata(cloudData)
 	c.Assert(err, jc.ErrorIsNil)

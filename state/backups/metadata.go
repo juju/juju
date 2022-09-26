@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"time"
@@ -338,7 +337,7 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 
 // NewMetadataJSONReader extracts a new metadata from the JSON file.
 func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
-	data, err := ioutil.ReadAll(in)
+	data, err := io.ReadAll(in)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

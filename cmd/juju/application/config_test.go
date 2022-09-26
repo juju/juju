@@ -5,7 +5,6 @@ package application_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -561,7 +560,7 @@ func setupValueFile(c *gc.C, dir, filename, value string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
-	err := ioutil.WriteFile(path, content, 0666)
+	err := os.WriteFile(path, content, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }
@@ -591,7 +590,7 @@ func setupConfigFile(c *gc.C, dir string) string {
 	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte(yamlConfigValue)
-	err := ioutil.WriteFile(path, content, 0666)
+	err := os.WriteFile(path, content, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

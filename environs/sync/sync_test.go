@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -350,7 +349,7 @@ func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 }
 
 func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
-	f, err := ioutil.TempFile("", "juju-tgz")
+	f, err := os.CreateTemp("", "juju-tgz")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = f.Close() }()
 	defer func() { _ = os.Remove(f.Name()) }()
@@ -392,7 +391,7 @@ func (s *badBuildSuite) SetUpTest(c *gc.C) {
 	testPath := c.MkDir()
 	s.PatchEnvPathPrepend(testPath)
 	path := filepath.Join(testPath, "go")
-	err := ioutil.WriteFile(path, []byte(badGo), 0755)
+	err := os.WriteFile(path, []byte(badGo), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check mocked go cmd errors
@@ -521,7 +520,7 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 		_, tr, err := tar.FindFile(gzr, names.Jujud)
 		c.Assert(err, jc.ErrorIsNil)
 
-		content, err := ioutil.ReadAll(tr)
+		content, err := io.ReadAll(tr)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(string(content), gc.Equals, fmt.Sprintf("jujud contents %s", vers))
 	}
@@ -585,7 +584,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 	r, err := stor.Get(path.Join(storage.BaseToolsPath, mirrorsPath))
 	if writeMirrors == envtools.WriteMirrors {
 		c.Assert(err, jc.ErrorIsNil)
-		data, err := ioutil.ReadAll(r)
+		data, err := io.ReadAll(r)
 		r.Close()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), jc.Contains, `"mirrors":`)

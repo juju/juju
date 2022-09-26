@@ -6,7 +6,6 @@ package google
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/mail"
 
 	"github.com/juju/errors"
@@ -86,7 +85,7 @@ func NewCredentials(values map[string]string) (*Credentials, error) {
 // ParseJSONKey returns a new Credentials with values based on the
 // provided JSON key file contents.
 func ParseJSONKey(jsonKeyFile io.Reader) (*Credentials, error) {
-	jsonKey, err := ioutil.ReadAll(jsonKeyFile)
+	jsonKey, err := io.ReadAll(jsonKeyFile)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

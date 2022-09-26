@@ -6,7 +6,6 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -179,7 +178,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
 		badrun(c, 0, test...)
-		content, err := ioutil.ReadFile(logpath)
+		content, err := os.ReadFile(logpath)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)

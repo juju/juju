@@ -4,7 +4,7 @@
 package jujuclient_test
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -45,7 +45,7 @@ credentials:
 
 func (s *CredentialsFileSuite) TestWriteFile(c *gc.C) {
 	writeTestCredentialsFile(c)
-	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("credentials.yaml"))
+	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("credentials.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var original map[string]interface{}
@@ -65,7 +65,7 @@ func (s *CredentialsFileSuite) TestReadNoFile(c *gc.C) {
 }
 
 func (s *CredentialsFileSuite) TestReadEmptyFile(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(""), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	credentialstore := jujuclient.NewFileCredentialStore()

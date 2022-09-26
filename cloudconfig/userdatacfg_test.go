@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -696,7 +695,7 @@ func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *gc.C) {
 	_ = f.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	content, err := ioutil.ReadFile(controllerCharmPath)
+	content, err := os.ReadFile(controllerCharmPath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := makeBootstrapConfig("precise", 0).setControllerCharm(controllerCharmPath)

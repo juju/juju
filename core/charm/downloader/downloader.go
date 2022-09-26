@@ -5,7 +5,6 @@ package downloader
 
 import (
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -147,7 +146,7 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 	}
 
 	// Download charm blob to a temp file
-	tmpFile, err := ioutil.TempFile("", charmURL.Name)
+	tmpFile, err := os.CreateTemp("", charmURL.Name)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}

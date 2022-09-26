@@ -5,7 +5,6 @@ package model_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -141,7 +140,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fakeBundle.filename))
-	output, err := ioutil.ReadFile(s.fakeBundle.filename)
+	output, err := os.ReadFile(s.fakeBundle.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "applications:\n"+
 		"  magic:\n"+
@@ -175,7 +174,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fakeBundle.filename))
-	output, err := ioutil.ReadFile(s.fakeBundle.filename)
+	output, err := os.ReadFile(s.fakeBundle.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "fake-data")
 }
@@ -191,7 +190,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *gc.C)
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fakeBundle.filename))
-	output, err := ioutil.ReadFile(s.fakeBundle.filename)
+	output, err := os.ReadFile(s.fakeBundle.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "fake-data")
 }

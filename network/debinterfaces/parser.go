@@ -4,7 +4,7 @@
 package debinterfaces
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -229,7 +229,7 @@ func (p parser) parseSourceDirectoryStanza() (*SourceDirectoryStanza, error) {
 		dir = filepath.Join(filepath.Dir(p.scanner.filename), dir)
 	}
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 
 	if err != nil {
 		return nil, newParseError(p.scanner, err.Error())

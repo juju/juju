@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -291,7 +290,7 @@ func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder p
 	baseDir := pathfinder(paths.CurrentOS())
 
 	// Closing this is deferred in Image.write.
-	fh, err := ioutil.TempFile("", fmt.Sprintf("juju-kvm-%s-", path.Base(dlURL.String())))
+	fh, err := os.CreateTemp("", fmt.Sprintf("juju-kvm-%s-", path.Base(dlURL.String())))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

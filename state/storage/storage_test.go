@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/juju/blobstore/v3"
@@ -62,7 +62,7 @@ func (s *StorageSuite) TestStorageGet(c *gc.C) {
 	defer r.Close()
 	c.Assert(length, gc.Equals, int64(3))
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "abc")
 }
@@ -76,7 +76,7 @@ func (s *StorageSuite) TestStoragePut(c *gc.C) {
 	defer r.Close()
 
 	c.Assert(length, gc.Equals, int64(3))
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "abc")
 }

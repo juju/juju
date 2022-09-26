@@ -5,7 +5,7 @@ package snap
 
 import (
 	"errors"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
@@ -92,7 +92,7 @@ func (*snapSuite) TestConfigOverride(c *gc.C) {
 	err = svc.ConfigOverride()
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(dir, "snap.juju-db.daemon.service.d/overrides.conf"))
+	data, err := os.ReadFile(filepath.Join(dir, "snap.juju-db.daemon.service.d/overrides.conf"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
 [Service]

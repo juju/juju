@@ -5,7 +5,6 @@ package migration
 
 import (
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"time"
@@ -191,7 +190,7 @@ func UploadBinaries(config UploadBinariesConfig) error {
 }
 
 func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err error) {
-	tempFile, err := ioutil.TempFile("", "juju-migrate-binary")
+	tempFile, err := os.CreateTemp("", "juju-migrate-binary")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

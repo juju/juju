@@ -6,7 +6,6 @@ package uniter_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1049,7 +1048,7 @@ type verifyCharm struct {
 func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
 	path := filepath.Join(ctx.path, "charm", "revision")
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
 	checkRevision := s.revision
@@ -1350,7 +1349,7 @@ func (s writeFile) step(c *gc.C, ctx *testContext) {
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(path, nil, s.mode)
+	err = os.WriteFile(path, nil, s.mode)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

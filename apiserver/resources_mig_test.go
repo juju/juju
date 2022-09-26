@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -160,7 +160,7 @@ func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
-	readContent, err := ioutil.ReadAll(reader)
+	readContent, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(readContent), gc.Equals, content)
 	c.Assert(res.ID, gc.Equals, outResp.ID)

@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -313,7 +312,7 @@ func (c *sshMachine) generateKnownHosts(targets []*resolvedTarget) (string, erro
 		return "", nil
 	}
 
-	f, err := ioutil.TempFile("", "ssh_known_hosts")
+	f, err := os.CreateTemp("", "ssh_known_hosts")
 	if err != nil {
 		return "", errors.Annotate(err, "creating known hosts file")
 	}

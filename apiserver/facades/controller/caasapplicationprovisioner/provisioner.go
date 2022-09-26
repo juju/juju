@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sort"
 	"time"
 
@@ -766,7 +765,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 
 func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 	var details resources.DockerImageDetails
-	contents, err := ioutil.ReadAll(reader)
+	contents, err := io.ReadAll(reader)
 	if err != nil {
 		return params.DockerImageInfo{}, errors.Trace(err)
 	}

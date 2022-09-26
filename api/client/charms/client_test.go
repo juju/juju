@@ -6,7 +6,7 @@ package charms_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -336,7 +336,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 
 func (s *charmsMockSuite) TestZipHasHooksOnly(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks only
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -350,7 +350,7 @@ func (s *charmsMockSuite) TestZipHasHooksOnly(c *gc.C) {
 
 func (s *charmsMockSuite) TestZipHasDispatchFileOnly(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category-dispatch") // has dispatch file only
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -364,7 +364,7 @@ func (s *charmsMockSuite) TestZipHasDispatchFileOnly(c *gc.C) {
 
 func (s *charmsMockSuite) TestZipHasNoHooksNorDispath(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category") // has no hooks nor dispatch file
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -415,7 +415,7 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -434,7 +434,7 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
-	resp.Body = ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-42"}`))
+	resp.Body = io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-42"}`))
 	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
 	err = charmDir.SetDiskRevision(42)
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,7 +443,7 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
-	resp.Body = ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-43"}`))
+	resp.Body = io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-43"}`))
 	savedURL, err = client.AddLocalCharm(curl, charmDir, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
@@ -484,7 +484,7 @@ func (s *charmsMockSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -548,7 +548,7 @@ func (s *charmsMockSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -605,7 +605,7 @@ func (s *charmsMockSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -651,7 +651,7 @@ func (s *charmsMockSuite) TestAddLocalCharmError(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -717,7 +717,7 @@ func testMinVer(t minverTest, c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(

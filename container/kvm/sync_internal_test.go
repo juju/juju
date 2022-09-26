@@ -6,7 +6,6 @@ package kvm
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -194,7 +193,7 @@ func newTestServer() *httptest.Server {
 // newTmpdir creates a tmpdir and returns pathfinder func that returns the
 // tmpdir.
 func newTmpdir() (string, pathfinderFunc, bool) {
-	td, err := ioutil.TempDir("", "juju-test-kvm-internalSuite")
+	td, err := os.MkdirTemp("", "juju-test-kvm-internalSuite")
 	if err != nil {
 		return "", nil, false
 	}

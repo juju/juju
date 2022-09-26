@@ -4,7 +4,7 @@
 package apiaddressupdater_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -203,7 +203,7 @@ LXC_ADDR = "fooo"
 LXC_BRIDGE="foobar" # detected
 anything else ignored
 LXC_BRIDGE="ignored"`[1:])
-	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
+	err := os.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
 		if name == "foobar" {

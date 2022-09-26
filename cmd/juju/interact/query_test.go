@@ -6,7 +6,7 @@ package interact
 import (
 	"bufio"
 	"bytes"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/juju/testing"
@@ -22,7 +22,7 @@ var _ = gc.Suite(Suite{})
 
 func (Suite) TestAnswer(c *gc.C) {
 	scanner := bufio.NewScanner(strings.NewReader("hi!\n"))
-	answer, err := QueryVerify("boo: ", scanner, ioutil.Discard, ioutil.Discard, nil)
+	answer, err := QueryVerify("boo: ", scanner, io.Discard, io.Discard, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, gc.Equals, "hi!")
 }
@@ -62,11 +62,11 @@ bob
 		}
 		return false, "No!", nil
 	}
-	answer, err := QueryVerify("boo: ", scanner, ioutil.Discard, ioutil.Discard, verify)
+	answer, err := QueryVerify("boo: ", scanner, io.Discard, io.Discard, verify)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, gc.Equals, "ok!")
 
-	answer, err = QueryVerify("name: ", scanner, ioutil.Discard, ioutil.Discard, nil)
+	answer, err = QueryVerify("name: ", scanner, io.Discard, io.Discard, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, gc.Equals, "bob")
 }

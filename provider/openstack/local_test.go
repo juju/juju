@@ -8,7 +8,7 @@ import (
 	stdcontext "context"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -2232,7 +2232,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	contentReader, imageURL, err := mappedSources["image-metadata-url"].Fetch(custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err := ioutil.ReadAll(contentReader)
+	content, err := io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, custom)
 	c.Check(imageURL[:8], gc.Equals, "https://")
@@ -2241,7 +2241,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	contentReader, imageURL, err = mappedSources["keystone catalog"].Fetch(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err = ioutil.ReadAll(contentReader)
+	content, err = io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, metadata)
 	c.Check(imageURL[:8], gc.Equals, "https://")
@@ -2292,7 +2292,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 	contentReader, imageURL, err := mappedSources["keystone catalog"].Fetch(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err := ioutil.ReadAll(contentReader)
+	content, err := io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, metadata)
 	c.Check(imageURL[:8], gc.Equals, "https://")
@@ -2340,7 +2340,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	contentReader, metadataURL, err := sources[0].Fetch(custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err := ioutil.ReadAll(contentReader)
+	content, err := io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, custom)
 	c.Check(metadataURL[:8], gc.Equals, "https://")
@@ -2350,7 +2350,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	contentReader, metadataURL, err = sources[1].Fetch(keystoneContainer + "/" + keystone)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
-	content, err = ioutil.ReadAll(contentReader)
+	content, err = io.ReadAll(contentReader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, keystone)
 	c.Check(metadataURL[:8], gc.Equals, "https://")

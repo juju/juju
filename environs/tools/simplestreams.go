@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"path"
 	"sort"
 	"time"
@@ -398,7 +397,7 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 		return false, nil
 	}
 	defer existingDataReader.Close()
-	existingData, err := ioutil.ReadAll(existingDataReader)
+	existingData, err := io.ReadAll(existingDataReader)
 	if err != nil {
 		return false, err
 	}

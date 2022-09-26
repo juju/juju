@@ -4,7 +4,7 @@
 package bundle
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -267,7 +267,7 @@ func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
 	s.overlayDir = c.MkDir()
 	s.overlayFile = filepath.Join(s.overlayDir, "config.yaml")
 	c.Assert(
-		ioutil.WriteFile(
+		os.WriteFile(
 			s.overlayFile, []byte(`
                 applications:
                     wordpress:
@@ -276,7 +276,7 @@ func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
             `), 0644),
 		jc.ErrorIsNil)
 	c.Assert(
-		ioutil.WriteFile(
+		os.WriteFile(
 			filepath.Join(s.overlayDir, "title"), []byte("magic bundle config"), 0644),
 		jc.ErrorIsNil)
 }

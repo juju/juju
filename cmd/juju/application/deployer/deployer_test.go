@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -455,9 +454,9 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
-	err := ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
+	err := os.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
+	err = os.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return bundlePath
 }

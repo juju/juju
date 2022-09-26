@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -76,7 +76,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 
 func AssertCloudInit(c *gc.C, filename string) []byte {
 	c.Assert(filename, jc.IsNonEmptyFile)
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
 	return data

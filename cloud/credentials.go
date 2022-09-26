@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -290,7 +289,7 @@ func ExpandFilePathsOfCredential(
 			return cred, fmt.Errorf("determining file path value for credential attribute: %w", err)
 		}
 
-		contents, err := ioutil.ReadFile(abs)
+		contents, err := os.ReadFile(abs)
 		if err != nil {
 			return cred, fmt.Errorf("reading file %q contents for credential attribute %q: %w", abs, credAttr.Name, err)
 		}

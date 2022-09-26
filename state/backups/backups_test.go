@@ -6,7 +6,7 @@ package backups_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 
@@ -76,7 +76,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	dataDir := c.MkDir()
 	backupDir := c.MkDir()
 	// Patch the internals.
-	archiveFile := ioutil.NopCloser(bytes.NewBufferString("<compressed tarball>"))
+	archiveFile := io.NopCloser(bytes.NewBufferString("<compressed tarball>"))
 	result := backups.NewTestCreateResult(
 		archiveFile,
 		10,
@@ -214,7 +214,7 @@ func (s *backupsSuite) TestGetFileName(c *gc.C) {
 	// Purpose for metadata here is for the checksum to be used by the
 	// caller, so check it here.
 	c.Assert(resultMeta.FileMetadata.Checksum(), gc.NotNil)
-	b, err := ioutil.ReadAll(resultArchive)
+	b, err := io.ReadAll(resultArchive)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), gc.Equals, "archive file testing")
 

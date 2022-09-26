@@ -6,7 +6,7 @@ package simplestreams
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -535,7 +535,7 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 	if requireSigned {
 		data, err = DecodeCheckSignature(rc, source.PublicSigningKey())
 	} else {
-		data, err = ioutil.ReadAll(rc)
+		data, err = io.ReadAll(rc)
 	}
 	if err != nil {
 		return nil, dataURL, errors.Annotatef(err, "cannot read data for source %q at URL %v", source.Description(), dataURL)
@@ -1124,7 +1124,7 @@ const SimplestreamsPublicKeyFile = "publicsimplestreamskey"
 // UserPublicSigningKey returns the public signing key (if defined).
 func UserPublicSigningKey() (string, error) {
 	signingKeyFile := filepath.Join(agent.DefaultPaths.ConfDir, SimplestreamsPublicKeyFile)
-	b, err := ioutil.ReadFile(signingKeyFile)
+	b, err := os.ReadFile(signingKeyFile)
 	if os.IsNotExist(err) {
 		// TODO (anastasiamac 2016-05-07)
 		// We should not swallow this error

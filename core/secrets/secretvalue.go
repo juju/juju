@@ -6,7 +6,7 @@ package secrets
 import (
 	"bytes"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/juju/errors"
@@ -101,7 +101,7 @@ func (v *secretValue) KeyValue(key string) (string, error) {
 		return string(val), nil
 	}
 	b64 := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(val))
-	result, err := ioutil.ReadAll(b64)
+	result, err := io.ReadAll(b64)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -5,7 +5,6 @@
 package reboot
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -32,7 +31,7 @@ func runCommand(args []string) error {
 }
 
 var tmpFile = func() (*os.File, error) {
-	f, err := ioutil.TempFile(os.TempDir(), "juju-reboot")
+	f, err := os.CreateTemp(os.TempDir(), "juju-reboot")
 	return f, errors.Trace(err)
 }
 

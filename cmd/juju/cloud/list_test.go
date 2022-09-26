@@ -5,7 +5,7 @@ package cloud_test
 
 import (
 	"errors"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -320,7 +320,7 @@ clouds:
       london:
         endpoint: http://london/1.0
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmd := cloud.NewListCloudCommandForTest(
@@ -348,7 +348,7 @@ clouds:
     auth-types: [access-key]
     endpoint: http://custom
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client")

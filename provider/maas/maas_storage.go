@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sort"
 	"strings"
 
@@ -53,7 +52,7 @@ func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return ioutil.NopCloser(bytes.NewReader(contents)), nil
+	return io.NopCloser(bytes.NewReader(contents)), nil
 }
 
 // List implements storage.StorageReader

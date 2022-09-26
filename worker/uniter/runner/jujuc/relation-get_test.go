@@ -6,7 +6,7 @@ package jujuc_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -297,7 +297,7 @@ func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
+	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "pew\npew\n\n")
 }

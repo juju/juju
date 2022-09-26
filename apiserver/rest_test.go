@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
@@ -175,7 +174,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	// Prepare the tests.
 	svgMimeType := mime.TypeByExtension(".svg")
 	iconPath := filepath.Join(testcharms.Repo.CharmDirPath("mysql"), "icon.svg")
-	icon, err := ioutil.ReadFile(iconPath)
+	icon, err := os.ReadFile(iconPath)
 	c.Assert(err, jc.ErrorIsNil)
 	tests := []struct {
 		about      string

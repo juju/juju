@@ -5,7 +5,7 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"text/template"
 	"time"
 
@@ -98,7 +98,7 @@ func main() {
 		panic(err)
 	}
 
-	err = ioutil.WriteFile("certs_generated.go", buf.Bytes(), 0664)
+	err = os.WriteFile("certs_generated.go", buf.Bytes(), 0664)
 	if err != nil {
 		panic(err)
 	}

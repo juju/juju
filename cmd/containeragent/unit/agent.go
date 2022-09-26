@@ -4,7 +4,6 @@
 package unit
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
@@ -134,7 +133,7 @@ func (c *containerUnitAgent) ensureAgentConf(dataDir string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := ioutil.WriteFile(configPath, configBytes, 0644); err != nil {
+	if err := os.WriteFile(configPath, configBytes, 0644); err != nil {
 		return errors.Annotate(err, "writing agent config file")
 	}
 

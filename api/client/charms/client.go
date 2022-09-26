@@ -6,7 +6,6 @@ package charms
 import (
 	"archive/zip"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -206,7 +205,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool, agen
 	switch ch := ch.(type) {
 	case *charm.CharmDir:
 		var err error
-		if archive, err = ioutil.TempFile("", "charm"); err != nil {
+		if archive, err = os.CreateTemp("", "charm"); err != nil {
 			return nil, errors.Annotate(err, "cannot create temp file")
 		}
 		defer os.Remove(archive.Name())

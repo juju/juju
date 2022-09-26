@@ -5,7 +5,7 @@ package resource_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v9"
@@ -72,7 +72,7 @@ func (s *CharmHubSuite) newCharmHubClient() *resource.CharmHubClient {
 }
 
 func (s *CharmHubSuite) expectDownloadResource() {
-	s.client.EXPECT().DownloadResource(gomock.Any(), gomock.Any()).Return(ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
+	s.client.EXPECT().DownloadResource(gomock.Any(), gomock.Any()).Return(io.NopCloser(bytes.NewBuffer([]byte{})), nil)
 }
 
 func (s *CharmHubSuite) expectRefresh() {

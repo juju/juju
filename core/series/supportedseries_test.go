@@ -4,7 +4,6 @@
 package series
 
 import (
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -317,7 +316,7 @@ func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
 }
 
 func makeTempFile(c *gc.C, content string) (*os.File, func()) {
-	tmpfile, err := ioutil.TempFile("", "distroinfo")
+	tmpfile, err := os.CreateTemp("", "distroinfo")
 	if err != nil {
 		c.Assert(err, jc.ErrorIsNil)
 	}

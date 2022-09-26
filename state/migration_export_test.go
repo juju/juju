@@ -6,7 +6,7 @@ package state_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"time"
 
@@ -2293,7 +2293,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 		_, reader, err := st.OpenResourceForUniter(u.Name(), "spam")
 		c.Assert(err, jc.ErrorIsNil)
 		defer reader.Close()
-		_, err = ioutil.ReadAll(reader) // Need to read the content to set the resource for the unit.
+		_, err = io.ReadAll(reader) // Need to read the content to set the resource for the unit.
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

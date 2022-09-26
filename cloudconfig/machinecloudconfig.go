@@ -2,7 +2,6 @@ package cloudconfig
 
 import (
 	"encoding/base64"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -129,11 +128,11 @@ func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 func (r *MachineInitReader) getMachineCloudCfgDirData() (map[string]interface{}, error) {
 	dir := r.config.CloudInitConfigDir
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, errors.Annotate(err, "determining files in CloudInitCfgDir for the machine")
 	}
-	sortedFiles := sortableFileInfos(files)
+	sortedFiles := sortableDirEntries(files)
 	sort.Sort(sortedFiles)
 
 	cloudInit := make(map[string]interface{})
@@ -196,7 +195,7 @@ func (r *MachineInitReader) unmarshallConfigFile(file string) (map[string]interf
 // fileAsConfigMap reads the file at the input path and returns its contents as
 // raw bytes, and if possible a map of config key-values.
 func fileAsConfigMap(file string) ([]byte, map[string]interface{}, error) {
-	raw, err := ioutil.ReadFile(file)
+	raw, err := os.ReadFile(file)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "reading config from %q", file)
 	}
@@ -264,17 +263,17 @@ func nestedAptConfig(key string, val interface{}, log loggo.Logger) map[string]i
 	return nil
 }
 
-type sortableFileInfos []os.FileInfo
+type sortableDirEntries []os.DirEntry
 
-func (fil sortableFileInfos) Len() int {
+func (fil sortableDirEntries) Len() int {
 	return len(fil)
 }
 
-func (fil sortableFileInfos) Less(i, j int) bool {
+func (fil sortableDirEntries) Less(i, j int) bool {
 	return fil[i].Name() < fil[j].Name()
 }
 
-func (fil sortableFileInfos) Swap(i, j int) {
+func (fil sortableDirEntries) Swap(i, j int) {
 	fil[i], fil[j] = fil[j], fil[i]
 }
 

@@ -4,7 +4,6 @@
 package clientconfig_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -175,7 +174,7 @@ func (s *k8sConfigSuite) SetUpTest(c *gc.C) {
 // The caller must close and remove the returned file.
 func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data string) (*os.File, error) {
 	fullpath := filepath.Join(s.dir, filename)
-	err := ioutil.WriteFile(fullpath, []byte(data), 0644)
+	err := os.WriteFile(fullpath, []byte(data), 0644)
 	if err != nil {
 		c.Fatal(err.Error())
 	}
@@ -365,7 +364,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestConfigWithExternalCA(c *gc.C) {
-	caFile, err := ioutil.TempFile("", "*")
+	caFile, err := os.CreateTemp("", "*")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = caFile.WriteString("QQ==")
 	c.Assert(err, jc.ErrorIsNil)
@@ -442,7 +441,7 @@ func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *gc.C) {
 	tempdir := c.MkDir()
 	divert := func(name string, data *[]byte, path *string) {
 		*path = filepath.Join(tempdir, name)
-		err := ioutil.WriteFile(*path, *data, 0644)
+		err := os.WriteFile(*path, *data, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 		*data = nil
 	}
