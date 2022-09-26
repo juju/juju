@@ -29,13 +29,17 @@ func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
 	f := NewOptionFactory(cfg)
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
-	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(expected) })
+	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
 
 	// Call twice to check both the creation and extant scenarios.
-	_, err := f.EnsureDataDir()
+	dir, err := f.EnsureDataDir()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(dir, gc.Equals, expected)
+
+	_, err = os.Stat(expected)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dir, err := f.EnsureDataDir()
+	dir, err = f.EnsureDataDir()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(dir, gc.Equals, expected)
 
