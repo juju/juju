@@ -41,8 +41,11 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		err    error
 	)
 	if platform.OS != "" && platform.Channel != "" {
+		// Legacy k8s charms - assume ubuntu focal.
 		if platform.OS == "kubernetes" || platform.Channel == "kubernetes" {
 			series = "kubernetes"
+			platform.OS = "ubuntu"
+			platform.Channel = "20.04"
 		} else {
 			series, err = coreseries.GetSeriesFromBase(coreseries.Base{Name: platform.OS, Channel: platform.Channel})
 			if err != nil {
