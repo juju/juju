@@ -1,8 +1,20 @@
 name: "Static Analysis"
 on:
   push:
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - '**.sh'
+      - '**.py'
+      - '.github/workflows/static-analysis.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - '**.sh'
+      - '**.py'
+      - '.github/workflows/static-analysis.yml'
   workflow_dispatch:
 permissions:
   contents: read

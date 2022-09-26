@@ -1,22 +1,16 @@
 name: "Build"
 on:
   push:
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - '.github/workflows/build.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
