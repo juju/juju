@@ -757,13 +757,13 @@ type selectNextBaseSuite struct {
 
 var _ = gc.Suite(&selectNextBaseSuite{})
 
-func (selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *gc.C) {
+func (*selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *gc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases(nil, corecharm.Origin{})
 	c.Assert(err, gc.ErrorMatches, `no bases available`)
 }
 
-func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
+func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "all",
@@ -775,7 +775,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `bases matching architecture "amd64" not found`)
 }
 
-func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
+func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
@@ -787,7 +787,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `base: empty channel not valid`)
 }
 
-func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
+func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 	repo := new(CharmHubRepository)
 	platform, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
@@ -808,7 +808,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 	}})
 }
 
-func (selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
+func (*selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
 	repo := new(CharmHubRepository)
 	platform, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
@@ -829,7 +829,7 @@ func (selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
 	}})
 }
 
-func (selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *gc.C) {
+func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *gc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBasesFromReleases([]transport.Release{}, corecharm.Origin{
@@ -838,7 +838,7 @@ func (selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *gc.
 	c.Assert(err, gc.ErrorMatches, `no releases available`)
 }
 
-func (selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c *gc.C) {
+func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c *gc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBasesFromReleases([]transport.Release{

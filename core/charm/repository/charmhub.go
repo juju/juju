@@ -722,6 +722,9 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			c.logger.Errorf("invalid base channel %v: %s", base.Channel, err)
 			continue
 		}
+		if track == "all" {
+			track = origin.Platform.Channel
+		}
 		series, err := coreseries.VersionSeries(track)
 		if err != nil {
 			c.logger.Errorf("converting version to series: %s", err)
@@ -732,13 +735,6 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 		}
 		if arch != origin.Platform.Architecture {
 			continue
-		}
-		if series == "all" {
-			var err error
-			if series, err = coreseries.VersionSeries(origin.Platform.Channel); err != nil {
-				c.logger.Errorf("converting version to series: %s", err)
-				continue
-			}
 		}
 		channelSeries[release.Channel] = append(channelSeries[release.Channel], series)
 	}
