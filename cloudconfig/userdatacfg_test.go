@@ -335,7 +335,7 @@ echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| echo .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -343,7 +343,7 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
 mkdir -p \$bin
 echo 'Fetching Juju agent version.*
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'
+.* curl .* --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'.*
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -379,7 +379,7 @@ echo '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| echo .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -387,7 +387,7 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64'
 mkdir -p \$bin
 echo 'Fetching Juju agent version.*
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz'
+curl .* --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3\.123-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -417,7 +417,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
 bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'
+curl .* --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
@@ -440,7 +440,7 @@ echo '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shu
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 echo 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| echo .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -448,7 +448,7 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-ubuntu-amd64'
 mkdir -p \$bin
 echo 'Fetching Juju agent version.*
-curl -sSfw '.*' --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64'
+.* curl -sSf --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64'.*
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -731,9 +731,9 @@ func (*cloudinitSuite) TestCloudInitWithLocalGUI(c *gc.C) {
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
 mkdir -p $gui
 install -D -m 644 /dev/null '/var/lib/juju/gui/gui.tar.bz2'
-printf %%s %s | base64 -d > '/var/lib/juju/gui/gui.tar.bz2'
+echo -n %s | base64 -d > '/var/lib/juju/gui/gui.tar.bz2'
 [ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
+[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && echo '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
 rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
 `, base64Content, guiJson))
 	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
@@ -747,7 +747,7 @@ func (*cloudinitSuite) TestCloudInitWithRemoteGUI(c *gc.C) {
 mkdir -p $gui
 curl -sSf -o $gui/gui.tar.bz2 --retry 10 'https://1.2.3.4/gui.tar.bz2' || echo Unable to retrieve Juju GUI
 [ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
+[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && echo '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
 rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
 `, guiJson))
 	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
@@ -1033,7 +1033,7 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 				pats = pats[1:]
 				scripts = scripts[1:]
 			} else if exact {
-				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d; expected %q; got %q; paths: %#v", scripts[0].index, pats[0].line, scripts[0].line, pats))
+				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d;\nexpected %q;\ngot %q;\npaths: %#v", scripts[0].index, pats[0].line, scripts[0].line, pats))
 			} else {
 				scripts = scripts[1:]
 			}
@@ -1306,7 +1306,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.RunCmds()
-	first := `[ -e /etc/profile.d/juju-proxy.sh ] || printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
+	first := `[ -e /etc/profile.d/juju-proxy.sh ] || echo '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
 	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
@@ -1328,11 +1328,12 @@ DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1:i+8], jc.DeepEquals, expected)
+			c.Assert(cmds[i+1:i+8], jc.DeepEquals, expected, gc.Commentf("obtained (%s)", cmds[i+1:i+8]))
 			found = true
 			break
 		}
 	}
+	c.Logf("\n%s\n", cmds)
 	c.Assert(found, jc.IsTrue)
 }
 
@@ -1361,7 +1362,7 @@ func (s *cloudinitSuite) TestProxyArgsAddedToCurlCommand(c *gc.C) {
 	// check to see that the first boot curl command to download tools
 	// respects the configured proxy settings.
 	cmds := cldcfg.RunCmds()
-	expectedCurlCommand := "curl -sSfw 'agent binaries from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s ' --retry 10 --proxy 0.1.2.3 -o $bin/tools.tar.gz"
+	expectedCurlCommand := "curl -sSf --retry 10 --proxy 0.1.2.3 -o $bin/tools.tar.gz"
 	assertCommandsContain(c, cmds, expectedCurlCommand)
 }
 
@@ -1476,13 +1477,13 @@ func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 n=1
 while true; do
 
-    printf "Attempt $n to download agent binaries from %s...\n" 'a'
+    echo "Attempt $n to download agent binaries from 'a'...\n"
     download 'a' && echo "Agent binaries downloaded successfully." && break
 
-    printf "Attempt $n to download agent binaries from %s...\n" 'b'
+    echo "Attempt $n to download agent binaries from 'b'...\n"
     download 'b' && echo "Agent binaries downloaded successfully." && break
 
-    printf "Attempt $n to download agent binaries from %s...\n" 'c'
+    echo "Attempt $n to download agent binaries from 'c'...\n"
     download 'c' && echo "Agent binaries downloaded successfully." && break
 
     echo "Download failed, retrying in 15s"
