@@ -410,7 +410,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 		if charm.CharmHub.Matches(url.Schema) {
 			// Although we've resolved the charm URL, we actually don't want the
-			// whole URL (architecture, series and revision), only the name is
+			// whole URL (architecture, channel and revision), only the name is
 			// verified that it exists.
 			url = &charm.URL{
 				Schema:   charm.CharmHub.String(),
@@ -418,7 +418,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				Revision: -1,
 			}
 			origin = origin.WithSeries("")
-			origin.OS = ""
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
@@ -1143,7 +1142,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	}
 	var base *params.Base
 	if p.Series != "" && h.deployAPI.BestAPIVersion() >= 8 {
-		info, err := series.GetOSVersionFromSeries(p.Series)
+		info, err := series.GetBaseFromSeries(p.Series)
 		if err != nil {
 			return errors.NotValidf("machine series %q", p.Series)
 		}

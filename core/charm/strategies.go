@@ -14,7 +14,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/arch"
@@ -249,16 +248,6 @@ func (p *Strategy) deferFunc(fn func() error) {
 }
 
 func (p *Strategy) normalizePlatform(platform Platform) (Platform, error) {
-	os := platform.OS
-	if platform.Series != "" {
-		sys, err := series.GetOSFromSeries(platform.Series)
-		if err != nil {
-			return Platform{}, errors.Trace(err)
-		}
-		// Values passed to the api are case sensitive: ubuntu succeeds and
-		// Ubuntu returns `"code": "revision-not-found"`
-		os = strings.ToLower(sys.String())
-	}
 	arc := platform.Architecture
 	if platform.Architecture == "" || platform.Architecture == "all" {
 		p.logger.Warningf("Received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, p.charmURL)
@@ -267,8 +256,10 @@ func (p *Strategy) normalizePlatform(platform Platform) (Platform, error) {
 
 	return Platform{
 		Architecture: arc,
-		OS:           os,
-		Series:       platform.Series,
+		// Values passed to the api are case sensitive: ubuntu succeeds and
+		// Ubuntu returns `"code": "revision-not-found"`
+		OS:      strings.ToLower(platform.OS),
+		Channel: platform.Channel,
 	}, nil
 }
 

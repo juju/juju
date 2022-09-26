@@ -7,6 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -48,6 +49,9 @@ type Origin struct {
 	Architecture string
 	// OS describes the OS intended to be used by the charm.
 	OS string
+	// Channel describes the channel (version) of the OS intended to be used by the charm.
+	Channel string
+	// TODO(juju3) - remove series
 	// Series describes the series of the OS intended to be used by the charm.
 	Series string
 
@@ -59,9 +63,16 @@ type Origin struct {
 }
 
 // WithSeries allows to update the series of an origin.
-func (o Origin) WithSeries(series string) Origin {
+func (o Origin) WithSeries(aseries string) Origin {
 	other := o
-	other.Series = series
+	other.Series = aseries
+	other.Channel = ""
+	other.OS = ""
+	if aseries != "" {
+		base, _ := series.GetBaseFromSeries(aseries)
+		other.OS = base.Name
+		other.Channel = base.Channel
+	}
 	return other
 }
 
@@ -96,8 +107,10 @@ func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 		Branch:       o.Branch,
 		Architecture: o.Architecture,
 		OS:           o.OS,
-		Series:       o.Series,
-		InstanceKey:  o.InstanceKey,
+		Channel:      o.Channel,
+		// TODO(juju3) - remove series
+		Series:      o.Series,
+		InstanceKey: o.InstanceKey,
 	}
 }
 
@@ -129,7 +142,7 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 		Platform: corecharm.Platform{
 			Architecture: o.Architecture,
 			OS:           o.OS,
-			Series:       o.Series,
+			Channel:      o.Channel,
 		},
 		InstanceKey: o.InstanceKey,
 	}
@@ -149,8 +162,10 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 		Branch:       origin.Branch,
 		Architecture: origin.Architecture,
 		OS:           origin.OS,
-		Series:       origin.Series,
-		InstanceKey:  origin.InstanceKey,
+		Channel:      origin.Channel,
+		// TODO(juju3) - remove series
+		Series:      origin.Series,
+		InstanceKey: origin.InstanceKey,
 	}
 }
 
@@ -169,6 +184,10 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 	if ch.Branch != "" {
 		branch = &ch.Branch
 	}
+	chSeries := ""
+	if origin.Platform.Channel != "" {
+		chSeries, _ = series.VersionSeries(origin.Platform.Channel)
+	}
 	return Origin{
 		Source:       OriginSource(origin.Source),
 		Type:         origin.Type,
@@ -180,7 +199,8 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
 		OS:           origin.Platform.OS,
-		Series:       origin.Platform.Series,
+		Channel:      origin.Platform.Channel,
+		Series:       chSeries,
 		InstanceKey:  origin.InstanceKey,
 	}
 }

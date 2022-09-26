@@ -3168,6 +3168,9 @@
                         "branch": {
                             "type": "string"
                         },
+                        "channel": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
@@ -15099,6 +15102,9 @@
                         "architecture": {
                             "type": "string"
                         },
+                        "channel": {
+                            "type": "string"
+                        },
                         "os": {
                             "type": "string"
                         },
@@ -15110,6 +15116,7 @@
                     "required": [
                         "architecture",
                         "os",
+                        "channel",
                         "series"
                     ]
                 },
@@ -15820,6 +15827,9 @@
                             "type": "string"
                         },
                         "branch": {
+                            "type": "string"
+                        },
+                        "channel": {
                             "type": "string"
                         },
                         "hash": {
@@ -39794,6 +39804,9 @@
                             "type": "string"
                         },
                         "branch": {
+                            "type": "string"
+                        },
+                        "channel": {
                             "type": "string"
                         },
                         "hash": {

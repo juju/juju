@@ -169,23 +169,23 @@ func boolPtr(b bool) *bool {
 }
 
 func (s *SupportedSeriesSuite) TestGetOSVersionFromSeries(c *gc.C) {
-	vers, err := GetOSVersionFromSeries("jammy")
+	vers, err := GetBaseFromSeries("jammy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, jc.DeepEquals, Base{Name: "ubuntu", Channel: "22.04"})
-	_, err = GetOSVersionFromSeries("unknown")
+	_, err = GetBaseFromSeries("unknown")
 	c.Assert(err, gc.ErrorMatches, `series "unknown" not valid`)
-	vers, err = GetOSVersionFromSeries("centos7")
+	vers, err = GetBaseFromSeries("centos7")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, jc.DeepEquals, Base{Name: "centos", Channel: "centos7"})
 }
 
 func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *gc.C) {
-	series, err := GetSeriesFromOSVersion(Base{Name: "ubuntu", Channel: "22.04"})
+	series, err := GetSeriesFromBase(Base{Name: "ubuntu", Channel: "22.04"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "jammy")
-	_, err = GetSeriesFromOSVersion(Base{Name: "bad", Channel: "22.04"})
+	_, err = GetSeriesFromBase(Base{Name: "bad", Channel: "22.04"})
 	c.Assert(err, gc.ErrorMatches, `os "bad" version "22.04" not found`)
-	series, err = GetSeriesFromOSVersion(Base{Name: "centos", Channel: "centos7"})
+	series, err = GetSeriesFromBase(Base{Name: "centos", Channel: "centos7"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "centos7")
 }

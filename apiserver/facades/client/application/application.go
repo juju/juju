@@ -708,10 +708,18 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	)
 	if origin != nil {
 		originType = origin.Type
+		channel := origin.Channel
+		if channel == "" && origin.Series != "" {
+			var err error
+			channel, err = series.SeriesVersion(origin.Series)
+			if err != nil {
+				return corecharm.Origin{}, errors.Trace(err)
+			}
+		}
 		platform = corecharm.Platform{
 			Architecture: origin.Architecture,
 			OS:           origin.OS,
-			Series:       origin.Series,
+			Channel:      channel,
 		}
 	}
 

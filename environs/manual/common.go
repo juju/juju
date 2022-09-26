@@ -19,7 +19,7 @@ const ManualInstancePrefix = "manual:"
 // RecordMachineInState records and saves into the state machine the provisioned machine
 func RecordMachineInState(client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
 	if client.BestAPIVersion() >= 8 && machineParams.Base == nil {
-		info, err := series.GetOSVersionFromSeries(machineParams.Series)
+		info, err := series.GetBaseFromSeries(machineParams.Series)
 		if err != nil {
 			return "", errors.NotValidf("machine series %q", machineParams.Series)
 		}

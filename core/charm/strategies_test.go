@@ -211,8 +211,8 @@ func (s strategySuite) TestRunWithPlatform(c *gc.C) {
 	}
 	_, alreadyExists, origin, err := strategy.Run(mockState, mockVersionValidator, Origin{
 		Platform: Platform{
-			Series: "focal",
-			OS:     "Ubuntu",
+			Channel: "20.04",
+			OS:      "Ubuntu",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -220,7 +220,7 @@ func (s strategySuite) TestRunWithPlatform(c *gc.C) {
 	c.Assert(origin, gc.DeepEquals, Origin{
 		Platform: Platform{
 			Architecture: "amd64",
-			Series:       "focal",
+			Channel:      "20.04",
 			OS:           "ubuntu", // notice lower case
 		},
 	})

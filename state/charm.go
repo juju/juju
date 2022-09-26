@@ -19,6 +19,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
@@ -101,10 +102,18 @@ func (o CharmOrigin) AsCoreCharmOrigin() corecharm.Origin {
 	}
 
 	if o.Platform != nil {
+		// TODO(juju3) - series will become channel in state
+		os := o.Platform.OS
+		channel := o.Platform.Series
+		base, err := coreseries.GetBaseFromSeries(o.Platform.Series)
+		if err == nil {
+			os = base.Name
+			channel = base.Channel
+		}
 		origin.Platform = corecharm.Platform{
 			Architecture: o.Platform.Architecture,
-			OS:           o.Platform.OS,
-			Series:       o.Platform.Series,
+			OS:           os,
+			Channel:      channel,
 		}
 	}
 

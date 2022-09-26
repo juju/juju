@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 	"gopkg.in/macaroon.v2"
 
@@ -119,10 +118,10 @@ func NewDownloader(logger Logger, storage Storage, repoGetter RepositoryGetter) 
 // The method ensures that all temporary resources are cleaned up before returning.
 func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (corecharm.Origin, error) {
 	var (
-		err          error
-		seriesOrigin = requestedOrigin
+		err           error
+		channelOrigin = requestedOrigin
 	)
-	seriesOrigin.Platform, err = d.normalizePlatform(charmURL, requestedOrigin.Platform)
+	channelOrigin.Platform, err = d.normalizePlatform(charmURL, requestedOrigin.Platform)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -163,7 +162,7 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
-	downloadedCharm, actualOrigin, err := d.downloadAndHash(charmURL, seriesOrigin, macaroons, repo, tmpFile.Name())
+	downloadedCharm, actualOrigin, err := d.downloadAndHash(charmURL, channelOrigin, macaroons, repo, tmpFile.Name())
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL, requestedOrigin)
 	}
@@ -227,26 +226,18 @@ func (d *Downloader) storeCharm(charmURL *charm.URL, dc DownloadedCharm, archive
 }
 
 func (d *Downloader) normalizePlatform(charmURL *charm.URL, platform corecharm.Platform) (corecharm.Platform, error) {
-	os := platform.OS
-	if platform.Series != "" {
-		sys, err := series.GetOSFromSeries(platform.Series)
-		if err != nil {
-			return corecharm.Platform{}, errors.Trace(err)
-		}
-		// Values passed to the api are case sensitive: ubuntu succeeds and
-		// Ubuntu returns `"code": "revision-not-found"`
-		os = strings.ToLower(sys.String())
-	}
 	arc := platform.Architecture
 	if platform.Architecture == "" || platform.Architecture == "all" {
 		d.logger.Warningf("received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, charmURL)
 		arc = arch.DefaultArchitecture
 	}
 
+	// Values passed to the api are case sensitive: ubuntu succeeds and
+	// Ubuntu returns `"code": "revision-not-found"`
 	return corecharm.Platform{
 		Architecture: arc,
-		OS:           os,
-		Series:       platform.Series,
+		OS:           strings.ToLower(platform.OS),
+		Channel:      platform.Channel,
 	}, nil
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	osseries "github.com/juju/os/v2/series"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/core/arch"
@@ -36,7 +35,32 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		architecture = arch.DefaultArchitecture
 	}
 
-	var origin commoncharm.Origin
+	var (
+		origin commoncharm.Origin
+		series string
+		err    error
+	)
+	if platform.OS != "" && platform.Channel != "" {
+		if platform.OS == "kubernetes" || platform.Channel == "kubernetes" {
+			series = "kubernetes"
+		} else {
+			series, err = coreseries.GetSeriesFromBase(coreseries.Base{Name: platform.OS, Channel: platform.Channel})
+			if err != nil {
+				return commoncharm.Origin{}, errors.Trace(err)
+			}
+		}
+	} else if platform.OS == "" && platform.Channel != "" {
+		// If there is a series, ensure there is an OS.
+		series, err = coreseries.VersionSeries(platform.Channel)
+		if err != nil {
+			return commoncharm.Origin{}, err
+		}
+		os, err := coreseries.GetOSFromSeries(series)
+		if err != nil {
+			return commoncharm.Origin{}, err
+		}
+		platform.OS = strings.ToLower(os.String())
+	}
 	switch url.Schema {
 	case "cs":
 		origin = commoncharm.Origin{
@@ -44,14 +68,16 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Risk:         string(channel.Risk),
 			Architecture: architecture,
 			OS:           platform.OS,
-			Series:       platform.Series,
+			Channel:      platform.Channel,
+			Series:       series,
 		}
 	case "local":
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
 			OS:           platform.OS,
-			Series:       platform.Series,
+			Channel:      platform.Channel,
+			Series:       series,
 		}
 	default:
 		var track *string
@@ -74,17 +100,9 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Branch:       branch,
 			Architecture: architecture,
 			OS:           platform.OS,
-			Series:       platform.Series,
+			Channel:      platform.Channel,
+			Series:       series,
 		}
-	}
-
-	// If there is a series, ensure there is an OS.
-	if origin.Series != "" && origin.OS == "" {
-		os, err := coreseries.GetOSFromSeries(origin.Series)
-		if err != nil {
-			return commoncharm.Origin{}, err
-		}
-		origin.OS = strings.ToLower(os.String())
 	}
 	return origin, nil
 }
@@ -92,18 +110,19 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 // DeducePlatform attempts to create a Platform (architecture, os and series)
 // from a set of constraints or a free style series.
 func DeducePlatform(cons constraints.Value, series string, modelCons constraints.Value) (corecharm.Platform, error) {
-	var os string
+	var os, channel string
 	if series != "" {
-		sys, err := osseries.GetOSFromSeries(series)
+		base, err := coreseries.GetBaseFromSeries(series)
 		if err != nil {
 			return corecharm.Platform{}, errors.Trace(err)
 		}
-		os = strings.ToLower(sys.String())
+		os = base.Name
+		channel = base.Channel
 	}
 
 	return corecharm.Platform{
 		Architecture: arch.ConstraintArch(cons, &modelCons),
 		OS:           os,
-		Series:       series,
+		Channel:      channel,
 	}, nil
 }
