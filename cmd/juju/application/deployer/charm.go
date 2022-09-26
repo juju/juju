@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
@@ -260,8 +261,8 @@ func (d *deployCharm) formatDeployingText() string {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
 
-	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s",
-		name, origin.Source, curl.Name, curl.Revision, channel, origin.Series)
+	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s/%s",
+		name, origin.Source, curl.Name, curl.Revision, channel, origin.OS, origin.Channel)
 }
 
 type predeployedLocalCharm struct {
@@ -465,12 +466,16 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// Ensure we save the origin.
 	origin = origin.WithSeries(series)
 
-	// In-order for the url to represent the following updates to the the origin
+	// In-order for the url to represent the following updates to the origin
 	// and machine, we need to ensure that the series is actually correct as
 	// well in the url.
 	deployableURL := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
-		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
+		series, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: origin.OS, Channel: origin.Channel})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		deployableURL = storeCharmOrBundleURL.WithSeries(series)
 	}
 
 	if c.dryRun {
@@ -483,8 +488,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			channel = fmt.Sprintf(" in channel %s", channel)
 		}
 
-		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
-			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Series))
+		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s/%s would be deployed",
+			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.OS, origin.Channel))
 		return nil
 	}
 

@@ -4,16 +4,14 @@
 package utils
 
 import (
-	"strings"
-
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/arch"
-	osseries "github.com/juju/os/v2/series"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // DeduceOrigin attempts to deduce the origin from a channel and a platform.
@@ -27,7 +25,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 	// Arch is ultimately determined for non-local cases in the API call
 	// to `ResolveCharm`. To ensure we always have an architecture, even if
 	// somehow the DeducePlatform doesn't find one fill one in.
-	// Additionally `ResolveCharm` is not called for local charms, which are
+	// Additionally, `ResolveCharm` is not called for local charms, which are
 	// simply uploaded and deployed. We satisfy the requirement for
 	// non-empty platform architecture by making our best guess here.
 	architecture := platform.Architecture
@@ -41,14 +39,15 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Source:       commoncharm.OriginCharmStore,
 			Risk:         string(channel.Risk),
 			Architecture: architecture,
-			Series:       platform.Series,
+			OS:           platform.OS,
+			Channel:      platform.Channel,
 		}, nil
 	case "local":
 		return commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
 			OS:           platform.OS,
-			Series:       platform.Series,
+			Channel:      platform.Channel,
 		}, nil
 	default:
 		var track *string
@@ -71,7 +70,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Branch:       branch,
 			Architecture: architecture,
 			OS:           platform.OS,
-			Series:       platform.Series,
+			Channel:      platform.Channel,
 		}, nil
 	}
 }
@@ -79,18 +78,19 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 // DeducePlatform attempts to create a Platform (architecture, os and series)
 // from a set of constraints or a free style series.
 func DeducePlatform(cons constraints.Value, series string, modelCons constraints.Value) (corecharm.Platform, error) {
-	var os string
+	var os, channel string
 	if series != "" {
-		sys, err := osseries.GetOSFromSeries(series)
+		base, err := coreseries.GetBaseFromSeries(series)
 		if err != nil {
 			return corecharm.Platform{}, errors.Trace(err)
 		}
-		os = strings.ToLower(sys.String())
+		os = base.Name
+		channel = base.Channel
 	}
 
 	return corecharm.Platform{
 		Architecture: arch.ConstraintArch(cons, &modelCons),
 		OS:           os,
-		Series:       series,
+		Channel:      channel,
 	}, nil
 }

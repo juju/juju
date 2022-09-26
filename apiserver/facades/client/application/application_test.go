@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -129,29 +130,29 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Branch:       &branch,
 		Architecture: "amd64",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.Model.ModelTag()),
 	})
 }
 
 func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	numUnits := 3
 	for i := 0; i < numUnits; i++ {
-		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		_, err := s.State.AddMachine("jammy", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.addCharmToState(c, "cs:precise/wordpress-3", "wordpress")
+	curl, _ = s.addCharmToState(c, "cs:jammy/wordpress-3", "wordpress")
 	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
@@ -175,16 +176,16 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 }
 
 func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	numUnits := 3
 	for i := 0; i < numUnits; i++ {
-		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		_, err := s.State.AddMachine("jammy", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
@@ -198,13 +199,13 @@ func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	})
 	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
 	c.Assert(err, jc.ErrorIsNil)
-	s.addCharmToState(c, "cs:precise/wordpress-3", "wordpress")
+	s.addCharmToState(c, "cs:jammy/wordpress-3", "wordpress")
 }
 
 func (s *applicationSuite) assertApplicationSetCharm(c *gc.C, forceUnits bool) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmURL:        "cs:~who/precise/wordpress-3",
+		CharmURL:        "cs:~who/jammy/wordpress-3",
 		ForceUnits:      forceUnits,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,13 +214,13 @@ func (s *applicationSuite) assertApplicationSetCharm(c *gc.C, forceUnits bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	charm, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charm.String(), gc.Equals, "cs:~who/precise/wordpress-3")
+	c.Assert(charm.String(), gc.Equals, "cs:~who/jammy/wordpress-3")
 }
 
 func (s *applicationSuite) assertApplicationSetCharmBlocked(c *gc.C, msg string) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmURL:        "cs:~who/precise/wordpress-3",
+		CharmURL:        "cs:~who/jammy/wordpress-3",
 	})
 	s.AssertBlocked(c, err, msg)
 }
@@ -243,23 +244,23 @@ func (s *applicationSuite) TestBlockChangesApplicationSetCharm(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	numUnits := 3
 	for i := 0; i < numUnits; i++ {
-		_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		_, err := s.State.AddMachine("jammy", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.addCharmToState(c, "cs:precise/wordpress-3", "wordpress")
+	curl, _ = s.addCharmToState(c, "cs:jammy/wordpress-3", "wordpress")
 	errs, err := unitassignerapi.New(s.APIState).AssignUnits([]names.UnitTag{
 		names.NewUnitTag("application/0"),
 		names.NewUnitTag("application/1"),
@@ -297,7 +298,7 @@ func (s *applicationSuite) TestBlockApplicationSetCharmForce(c *gc.C) {
 func (s *applicationSuite) TestApplicationSetCharmInvalidApplication(c *gc.C) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "badapplication",
-		CharmURL:        "cs:precise/wordpress-3",
+		CharmURL:        "cs:jammy/wordpress-3",
 		ForceSeries:     true,
 		ForceUnits:      true,
 	})
@@ -305,11 +306,11 @@ func (s *applicationSuite) TestApplicationSetCharmInvalidApplication(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"},
 			ApplicationName: "application",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,12 +328,12 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/trusty/dummy-1": cannot change an application's series`)
 }
 
-func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
+func (s *applicationSuite) TestApplicationSetCharmUnsupportedChannel(c *gc.C) {
 	curl, _ := s.addCharmToState(c, "cs:~who/multi-series", "multi-series")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "precise"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.04"},
 			ApplicationName: "application",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -347,22 +348,21 @@ func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-1": only these series are supported: trusty, wily`)
 }
 
-func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm, series string) {
+func (s *applicationSuite) assertApplicationSetCharmChannel(c *gc.C, upgradeCharm, channel string) {
 	curl, _ := s.addCharmToState(c, "cs:~who/multi-series", "multi-series")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "precise"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: channel},
 			ApplicationName: "application",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	url := upgradeCharm
-	if series != "" {
-		url = series + "/" + upgradeCharm
-	}
+	aSeries, err := series.GetSeriesFromBase(series.Base{Name: "ubuntu", Channel: channel})
+	c.Assert(err, jc.ErrorIsNil)
+	url := aSeries + "/" + upgradeCharm
 	curl, _ = s.addCharmToState(c, "cs:~who/"+url, upgradeCharm)
 
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
@@ -378,12 +378,12 @@ func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm
 	c.Assert(ch.String(), gc.Equals, "cs:~who/"+url+"-0")
 }
 
-func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
-	s.assertApplicationSetCharmSeries(c, "multi-series2", "")
+func (s *applicationSuite) TestApplicationSetCharmUnsupportedChannelForce(c *gc.C) {
+	s.assertApplicationSetCharmChannel(c, "multi-series2", "12.04")
 }
 
 func (s *applicationSuite) TestApplicationSetCharmNoExplicitSupportedSeries(c *gc.C) {
-	s.assertApplicationSetCharmSeries(c, "dummy", "precise")
+	s.assertApplicationSetCharmChannel(c, "dummy", "12.04")
 }
 
 func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
@@ -391,7 +391,7 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Series: "precise"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"},
 			ApplicationName: "application",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -408,7 +408,7 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
-	curl, ch := s.addCharmToState(c, "cs:precise/dummy-42", "dummy")
+	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-42", "dummy")
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
 }
@@ -493,7 +493,7 @@ func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Se
 }
 
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -518,7 +518,7 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-0", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -535,9 +535,9 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:precise/dummy-0", "dummy")
+	curl, ch := s.addCharmToState(c, "cs:jammy/dummy-0", "dummy")
 
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -583,9 +583,9 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:quantal/lxd-profile-0", "lxd-profile")
+	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-0", "lxd-profile")
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -637,9 +637,9 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
-	curl, ch := s.addCharmToState(c, "cs:quantal/lxd-profile-fail-0", "lxd-profile-fail")
+	curl, ch := s.addCharmToState(c, "cs:jammy/lxd-profile-fail-0", "lxd-profile-fail")
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -693,8 +693,8 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        "cs:precise/application-name-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmURL:        "cs:jammy/application-name-1",
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"},
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
@@ -708,7 +708,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
-	curl, _ := s.addCharmToState(c, "cs:precise/dummy-1", "dummy")
+	curl, _ := s.addCharmToState(c, "cs:jammy/dummy-1", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -723,7 +723,7 @@ func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
 
 func (s *applicationSuite) setupApplicationUpdate(c *gc.C) string {
 	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.addCharmToState(c, "cs:precise/wordpress-3", "wordpress")
+	curl, _ := s.addCharmToState(c, "cs:jammy/wordpress-3", "wordpress")
 	return curl.String()
 }
 
@@ -803,7 +803,7 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 
 func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.applicationAPI.AddUnits(params.AddApplicationUnits{
@@ -849,7 +849,7 @@ var addApplicationUnitTests = []struct {
 func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 	s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Add a machine for the units to be placed on.
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.AddMachine("jammy", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	for i, t := range addApplicationUnitTests {
 		c.Logf("test %d. %s", i, t.about)

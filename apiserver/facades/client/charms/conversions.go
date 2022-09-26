@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func convertOrigin(origin corecharm.Origin) params.CharmOrigin {
+func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 	var track *string
 	if origin.Channel != nil && origin.Channel.Track != "" {
 		track = &origin.Channel.Track
@@ -34,9 +34,9 @@ func convertOrigin(origin corecharm.Origin) params.CharmOrigin {
 		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
 		OS:           origin.Platform.OS,
-		Series:       origin.Platform.Series,
+		Channel:      origin.Platform.Channel,
 		InstanceKey:  origin.InstanceKey,
-	}
+	}, nil
 }
 
 func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
@@ -62,7 +62,7 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,
 			OS:           origin.OS,
-			Series:       origin.Series,
+			Channel:      origin.Channel,
 		},
 		InstanceKey: origin.InstanceKey,
 	}

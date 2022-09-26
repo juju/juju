@@ -129,8 +129,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	s.runDeploy(c, wordpressBundle)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "xenial")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "xenial")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "16.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "16.04")
 	s.assertDeployArgsConfig(c, "mysql", map[string]interface{}{"foo": "bar"})
 
 	c.Check(s.output.String(), gc.Equals, ""+
@@ -235,8 +235,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce
 	s.runDeployWithSpec(c, wordpressBundleInvalidSeries, spec)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "focal")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "18.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"mysql\" in charm-store, revision 42\n"+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
@@ -285,9 +285,9 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasSeries(c *gc.C) {
 	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 3)
-	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "focal")
-	s.assertDeployArgs(c, fullTrainingURL.String(), "training-operator", "focal")
-	s.assertDeployArgs(c, fullPilotURL.String(), "istio-pilot", "focal")
+	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "ubuntu", "20.04")
+	s.assertDeployArgs(c, fullTrainingURL.String(), "training-operator", "ubuntu", "20.04")
+	s.assertDeployArgs(c, fullPilotURL.String(), "istio-pilot", "ubuntu", "20.04")
 }
 
 func (s *BundleDeployRepositorySuite) setupCharmUnitsNew(charmUnits []charmUnit) {
@@ -367,8 +367,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.runDeploy(c, kubernetesGitlabBundle)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "kubernetes")
-	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "kubernetes")
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "kubernetes", "kubernetes")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "kubernetes", "kubernetes")
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Constraints{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
 
@@ -416,8 +416,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharm
 	s.runDeploy(c, kubernetesCharmhubGitlabBundle)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "focal")
-	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "focal")
+	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
+	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "ubuntu", "20.04")
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"+
@@ -457,9 +457,9 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
 			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
-			origin.Series = "focal"
-			origin.Revision = &rev
 			origin.OS = "ubuntu"
+			origin.Channel = "20.04"
+			origin.Revision = &rev
 			origin.Type = "charm"
 			return curl, origin, []string{"focal"}, nil
 		}).Times(3)
@@ -505,15 +505,15 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []string, error) {
-			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
-			origin.Series = "focal"
-			origin.Revision = &rev
+			curl = curl.WithRevision(rev).WithSeries("20.04").WithArchitecture("amd64")
 			origin.OS = "ubuntu"
+			origin.Channel = "20.04"
+			origin.Revision = &rev
 			origin.Type = "charm"
 			return curl, origin, []string{"kubernetes"}, nil
 		}).Times(3)
 
-	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
+	fullCurl := curl.WithSeries("20.04").WithRevision(rev).WithArchitecture("amd64")
 	s.deployerAPI.EXPECT().AddCharm(
 		fullCurl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
@@ -578,8 +578,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "focal")
-	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "focal")
+	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
+	s.assertDeployArgs(c, fullMariadbCurl.String(), "mariadb", "ubuntu", "20.04")
 
 	str := s.output.String()
 	c.Check(strings.Contains(str, "Located charm \"gitlab-k8s\" in charm-hub, channel new/edge\n"), jc.IsTrue)
@@ -599,9 +599,9 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 			curl = curl.WithRevision(rev)
 			curl = curl.WithSeries("focal")
 			curl = curl.WithArchitecture("amd64")
-			origin.Series = "focal"
-			origin.Revision = &rev
 			origin.OS = "ubuntu"
+			origin.Channel = "20.04"
+			origin.Revision = &rev
 			origin.Type = "charm"
 			return curl, origin, []string{"focal"}, nil
 		}).Times(2)
@@ -665,8 +665,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	s.runDeploy(c, wordpressBundleWithStorage)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "bionic")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "18.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "18.04")
 	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Constraints{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
@@ -729,8 +729,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	s.runDeployWithSpec(c, kubernetesBitcoinBundle, spec)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes")
-	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes")
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "kubernetes", "kubernetes")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "kubernetes", "kubernetes")
 	s.assertDeployArgsDevices(c, bitcoinCurl.Name, devConstraints)
 
 	c.Check(s.output.String(), gc.Equals, ""+
@@ -777,7 +777,6 @@ func (s *BundleDeployRepositorySuite) expectCharmstoreK8sCharm(curl *charm.URL, 
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
 			origin.OS = "kubernetes"
-			origin.Series = "kubernetes"
 			return origin, nil
 		})
 
@@ -845,8 +844,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
 	s.runDeploy(c, kubernetesBitcoinBundleWithoutDevices)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "focal")
-	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "focal")
+	s.assertDeployArgs(c, dashboardCurl.String(), dashboardCurl.Name, "ubuntu", "20.04")
+	s.assertDeployArgs(c, bitcoinCurl.String(), bitcoinCurl.Name, "ubuntu", "20.04")
 
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"bitcoin-miner\" in charm-hub\n"+
@@ -912,8 +911,8 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	s.runDeployWithSpec(c, wordpressBundleWithStorage, spec)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "bionic")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "18.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "18.04")
 
 	expectedOutput := "" +
 		"Located charm \"mysql\" in charm-store, revision 42\n" +
@@ -1856,7 +1855,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
    `
 	s.runDeploy(c, content)
 
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "18.04")
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"wordpress\" in charm-store, revision 47\n"+
 		"Executing changes:\n"+
@@ -1922,10 +1921,10 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
    `
 	s.runDeploy(c, content)
 
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "bionic")
-	s.assertDeployArgs(c, varnishCurl.String(), "varnish", "xenial")
-	s.assertDeployArgs(c, pgresCurl.String(), "postgres", "xenial")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "18.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "18.04")
+	s.assertDeployArgs(c, varnishCurl.String(), "varnish", "ubuntu", "16.04")
+	s.assertDeployArgs(c, pgresCurl.String(), "postgres", "ubuntu", "16.04")
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"mysql\" in charm-store, revision 32\n"+
 		"Located charm \"postgres\" in charm-store, revision 2\n"+
@@ -1993,8 +1992,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 
 	_, err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "focal")
-	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "focal")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
 	expectedOutput := "" +
 		"Executing changes:\n" +
 		"- upload charm %s for series focal with architecture=amd64\n" +
@@ -2133,11 +2132,12 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 	}
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, series string) {
+func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, os, channel string) {
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args %s", appName))
 	c.Assert(arg.CharmID.URL.String(), gc.Equals, curl)
-	c.Assert(arg.CharmOrigin.Series, gc.Equals, series, gc.Commentf("%s", pretty.Sprint(arg)))
+	c.Assert(arg.CharmOrigin.OS, gc.Equals, os)
+	c.Assert(arg.CharmOrigin.Channel, gc.Equals, channel, gc.Commentf("%s", pretty.Sprint(arg)))
 }
 
 func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Constraints) {
@@ -2627,7 +2627,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 		Risk:         "stable",
 		Architecture: "arm64",
 	})
@@ -2647,7 +2647,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 		Risk:         "stable",
 		Architecture: "amd64",
 	})
@@ -2670,7 +2670,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 		Architecture: "arm64",
 	})
 }
@@ -2702,7 +2702,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 		Architecture: arch,
 		Risk:         charmChannel,
 		OS:           "ubuntu",
-		Series:       charmSeries,
+		Channel:      "20.04",
 	}
 	resolvedOrigin := origin
 	resolvedOrigin.Revision = &rev
@@ -2735,7 +2735,7 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 		Architecture: arch,
 		Risk:         charmChannel,
 		OS:           "ubuntu",
-		Series:       charmSeries,
+		Channel:      "20.04",
 	}
 	resolvedOrigin := origin
 

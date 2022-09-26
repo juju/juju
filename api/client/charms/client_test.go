@@ -185,7 +185,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
-		Series:       "bionic",
+		Channel:      "18.04",
 	}
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),
@@ -219,7 +219,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
-		Series:       "bionic",
+		Channel:      "18.04",
 	}
 	facadeArgs := params.AddCharmWithAuth{
 		URL:                curl.String(),

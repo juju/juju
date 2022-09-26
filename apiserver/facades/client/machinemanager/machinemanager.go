@@ -166,6 +166,7 @@ func NewMachineManagerAPI(
 }
 
 // AddMachines adds new machines with the supplied parameters.
+// The args will contain Base info.
 func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
@@ -215,6 +216,8 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		p.Addrs = nil
 	}
 
+	// TODO(wallyworld) - from here on we still expect series.
+	// Future work will convert downstream to use Base.
 	var series string
 	if p.Base == nil {
 		model, err := mm.st.Model()
@@ -228,7 +231,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		series = config.PreferredSeries(conf)
 	} else {
 		var err error
-		series, err = coreseries.GetSeriesFromOSVersion(coreseries.Base{
+		series, err = coreseries.GetSeriesFromBase(coreseries.Base{
 			Name:    p.Base.Name,
 			Channel: p.Base.Channel,
 		})

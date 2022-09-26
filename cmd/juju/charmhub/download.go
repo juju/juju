@@ -177,18 +177,14 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if pSeries == "all" || pSeries == "" {
 		pSeries = version.DefaultSupportedLTS()
 	}
-	platform := fmt.Sprintf("%s/%s", pArch, pSeries)
-	normBase, err := corecharm.ParsePlatformNormalize(platform)
+	base, err := coreseries.GetBaseFromSeries(pSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if normBase.Series != "" {
-		sys, err := series.GetOSFromSeries(normBase.Series)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		normBase.OS = strings.ToLower(sys.String())
+	platform := fmt.Sprintf("%s/%s/%s", pArch, base.Name, base.Channel)
+	normBase, err := corecharm.ParsePlatformNormalize(platform)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Ensure we compute the base channel correctly.
@@ -197,7 +193,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
 		Architecture: computedNormBase.Architecture,
 		Name:         computedNormBase.OS,
-		Channel:      computedNormBase.Series,
+		Channel:      computedNormBase.Channel,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -215,7 +211,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	for _, res := range results {
 		if res.Error != nil {
 			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
-				return c.suggested(normBase.Series, normChannel.String(), res.Error.Extra.Releases, cmdContext)
+				return c.suggested(pSeries, normChannel.String(), res.Error.Extra.Releases, cmdContext)
 			}
 			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
 		}
@@ -241,13 +237,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		path = fmt.Sprintf("%s%s.%s", entity.Name, short, entityType)
 	}
 
-	base := normBase
-	base.Series, err = coreseries.SeriesVersion(normBase.Series)
-	if err != nil {
-		base.Series = normBase.Series
-	}
-
-	cmdContext.Infof("Fetching %s %q using %q channel and base %q", entityType, entity.Name, normChannel, base)
+	cmdContext.Infof("Fetching %s %q using %q channel and base %q", entityType, entity.Name, normChannel, normBase)
 
 	resourceURL, err := url.Parse(entity.Download.URL)
 	if err != nil {
@@ -295,16 +285,16 @@ Install the %q %s with:
 	return nil
 }
 
-func (c *downloadCommand) suggested(ser string, channel string, releases []transport.Release, cmdContext *cmd.Context) error {
+func (c *downloadCommand) suggested(requestedSeries string, channel string, releases []transport.Release, cmdContext *cmd.Context) error {
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
 			platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
 				Architecture: rel.Base.Architecture,
 				OS:           rel.Base.Name,
-				Series:       rel.Base.Channel,
+				Channel:      rel.Base.Channel,
 			})
-			s, err := coreseries.VersionSeries(platform.Series)
+			s, err := coreseries.VersionSeries(platform.Channel)
 			if err == nil {
 				series.Add(s)
 			} else {
@@ -321,7 +311,7 @@ for a list of supported channels.`,
 			c.charmOrBundle, channel, c.charmOrBundle)
 	}
 	return errors.Errorf("%q does not support series %q in channel %q.  Supported series are: %s.",
-		c.charmOrBundle, ser, channel, strings.Join(series.SortedValues(), ", "))
+		c.charmOrBundle, requestedSeries, channel, strings.Join(series.SortedValues(), ", "))
 }
 
 func (c *downloadCommand) calculateHash(path string) (string, error) {

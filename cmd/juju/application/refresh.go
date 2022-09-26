@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -392,11 +393,18 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
-		DeployedSeries:  applicationInfo.Series,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
 		Switch:          c.SwitchURL != "",
 		Logger:          ctx,
+	}
+	// TODO(juju3) - use base
+	if applicationInfo.Series != "" {
+		base, err := series.GetBaseFromSeries(applicationInfo.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cfg.DeployedBase = base
 	}
 	factory, err := c.getRefresherFactory(apiRoot)
 	if err != nil {

@@ -28,13 +28,13 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 		Branch:       &branch,
 		Architecture: "all",
 		OS:           "all",
-		Series:       "all",
+		Channel:      "all",
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
 	origin.OS = ""
-	origin.Series = ""
+	origin.Channel = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
 }
 
@@ -47,13 +47,13 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) 
 		Track:        &track,
 		Architecture: "",
 		OS:           "all",
-		Series:       "all",
+		Channel:      "all",
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Architecture = "amd64"
 	origin.OS = ""
-	origin.Series = ""
+	origin.Channel = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
 }
 
@@ -66,7 +66,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginLowerCase(c *gc.C) 
 		Track:        &track,
 		Architecture: "s390",
 		OS:           "Ubuntu",
-		Series:       "focal",
+		Channel:      "20.04",
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)

@@ -320,7 +320,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	var base *params.Base
 	if c.Series != "" {
-		info, err := series.GetOSVersionFromSeries(c.Series)
+		info, err := series.GetBaseFromSeries(c.Series)
 		if err != nil {
 			return errors.NotValidf("machine series %q", c.Series)
 		}

@@ -204,12 +204,13 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 		c.Skip("controller charm only supported on Ubuntu")
 	}
 
-	series, err := osseries.HostSeries()
-	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&osseries.HostSeries, func() (string, error) {
+		return "jammy", nil
+	})
 
 	// Remove the local controller charm so we use the store one.
 	controllerCharmPath := filepath.Join(s.dataDir, "charms", "controller.charm")
-	err = os.Remove(controllerCharmPath)
+	err := os.Remove(controllerCharmPath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrl := gomock.NewController(c)
@@ -231,19 +232,19 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       series,
+			Channel:      "22.04",
 		},
 	}
 
 	storeCurl := *curl
 	storeCurl.Revision = 666
-	storeCurl.Series = series
+	storeCurl.Series = "jammy"
 	storeCurl.Architecture = "amd64"
 	storeOrigin := origin
 	storeOrigin.Type = "charm"
 	repo.EXPECT().ResolveWithPreferredChannel(curl, origin, nil).Return(&storeCurl, storeOrigin, nil, nil)
 
-	origin.Platform.Series = series
+	origin.Platform.Channel = "22.04"
 	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, nil, false).
 		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, force bool) (*charm.CharmArchive, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")

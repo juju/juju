@@ -74,7 +74,10 @@ type Channel struct {
 type Platform struct {
 	Architecture string `json:"architecture"`
 	OS           string `json:"os"`
-	Series       string `json:"series"`
+	Channel      string `json:"channel"`
+	// Deprecated, remove in Juju 3.
+	// Retained in Juju 2.9 for compatibility with older clients.
+	Series string `json:"series"`
 }
 
 type CharmHubCharm struct {

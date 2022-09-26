@@ -181,28 +181,17 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 func (s downloaderSuite) TestNormalizePlatform(c *gc.C) {
 	curl := charm.MustParseURL("ch:ubuntu-lite")
 	requestedPlatform := corecharm.Platform{
-		Series: "focal",
-		OS:     "Ubuntu",
+		Channel: "20.04",
+		OS:      "Ubuntu",
 	}
 
 	gotPlatform, err := s.newDownloader().NormalizePlatform(curl, requestedPlatform)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotPlatform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
-		Series:       "focal",
+		Channel:      "20.04",
 		OS:           "ubuntu", // notice lower case
 	})
-}
-
-func (s downloaderSuite) TestNormalizePlatformError(c *gc.C) {
-	curl := charm.MustParseURL("ch:ubuntu-lite")
-	requestedPlatform := corecharm.Platform{
-		Series: "utopia-planetia",
-		OS:     "Ubuntu",
-	}
-
-	_, err := s.newDownloader().NormalizePlatform(curl, requestedPlatform)
-	c.Assert(err, gc.ErrorMatches, ".*unknown OS for series.*")
 }
 
 func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {

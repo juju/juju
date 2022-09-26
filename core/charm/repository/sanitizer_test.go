@@ -20,14 +20,14 @@ func (s *sanitizeCharmOriginSuite) TestSanitize(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "all",
 			OS:           "all",
-			Series:       "all",
+			Channel:      "all",
 		},
 	}
 	requested := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "Ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 	}
 	got, err := sanitizeCharmOrigin(received, requested)
@@ -36,7 +36,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitize(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 	})
 }
@@ -46,14 +46,14 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithValues(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "windows",
-			Series:       "win8",
+			Channel:      "win8",
 		},
 	}
 	requested := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "Ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 	}
 	got, err := sanitizeCharmOrigin(received, requested)
@@ -62,7 +62,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithValues(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "windows",
-			Series:       "win8",
+			Channel:      "win8",
 		},
 	})
 }
@@ -72,14 +72,14 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithEmptyValues(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	}
 	requested := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: arch.DefaultArchitecture,
 			OS:           "Ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 	}
 	got, err := sanitizeCharmOrigin(received, requested)
@@ -88,7 +88,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithEmptyValues(c *gc.C) {
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	})
 }
@@ -98,14 +98,14 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValues(c *gc.C)
 		Platform: corecharm.Platform{
 			Architecture: "all",
 			OS:           "all",
-			Series:       "all",
+			Channel:      "all",
 		},
 	}
 	requested := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	}
 	got, err := sanitizeCharmOrigin(received, requested)
@@ -114,7 +114,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValues(c *gc.C)
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	})
 }
@@ -123,15 +123,15 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesAlt(c *gc
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "all",
-			OS:           "all",
-			Series:       "focal",
+			OS:           "ubuntu",
+			Channel:      "20.04",
 		},
 	}
 	requested := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	}
 	got, err := sanitizeCharmOrigin(received, requested)
@@ -140,24 +140,24 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesAlt(c *gc
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 		},
 	})
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusSeries(c *gc.C) {
+func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusChannel(c *gc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "all",
 			OS:           "ubuntu",
-			Series:       "all",
+			Channel:      "all",
 		},
 	}
 	requested := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "",
-			Series:       "",
+			Channel:      "",
 		},
 	}
 	got, err := sanitizeCharmOrigin(received, requested)
@@ -166,7 +166,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusS
 		Platform: corecharm.Platform{
 			Architecture: "",
 			OS:           "ubuntu",
-			Series:       "",
+			Channel:      "",
 		},
 	})
 }
