@@ -28,7 +28,7 @@ type bootstrapOptFactory interface {
 // At this point we know there are no peers and that we are the only user
 // of Dqlite, so we can eschew external address and clustering concerns.
 // Those will be handled by the db-accessor worker.
-func BootstrapDqlite(opt bootstrapOptFactory, logger Logger) error {
+func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger) error {
 	dir, err := opt.EnsureDataDir()
 	if err != nil {
 		return errors.Trace(err)
@@ -51,8 +51,6 @@ func BootstrapDqlite(opt bootstrapOptFactory, logger Logger) error {
 			logger.Errorf("closing dqlite: %v", err)
 		}
 	}()
-
-	ctx := context.TODO()
 
 	if err := dqlite.Ready(ctx); err != nil {
 		return errors.Annotatef(err, "waiting for Dqlite readiness")

@@ -23,7 +23,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 	opt := &testOptFactory{c: c}
 
-	c.Assert(BootstrapDqlite(opt, stubLogger{}), jc.ErrorIsNil)
+	c.Assert(BootstrapDqlite(context.TODO(), opt, stubLogger{}), jc.ErrorIsNil)
 
 	// Now use the same options to reopen the controller database
 	// and check that we can see bootstrap side effects.
