@@ -171,7 +171,7 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 			Name:              "ubuntu",
 			Groups:            groups,
 			Shell:             "/bin/bash",
-			Sudo:              []string{"ALL=(ALL) NOPASSWD:ALL"},
+			Sudo:              "ALL=(ALL) NOPASSWD:ALL",
 			SSHAuthorizedKeys: authorizedKeys,
 		})
 	}
