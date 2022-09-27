@@ -1,7 +1,7 @@
 # Exercising the CMR Juju functionality which allows applications to
 # communicate between different models.
 # This test will exercise the following aspects:
-#  - Ensure a user is able to create an offer of an applications' endpoint
+#  - Ensure a user is able to create an offer of an application's endpoint
 #    including:
 #      - A user is able to consume and relate to the offer
 #      - Workload data successfully provided
@@ -40,7 +40,7 @@ run_offer_consume() {
 	# wait for relation joined before migrate.
 	wait_for "dummy-offer" '.applications["dummy-sink"] | .relations.source[0]'
 
-	echo "Provide config if offered workload and change the status of consumed offer"
+	echo "Provide config for offered workload and change the status of consumed offer"
 	# Change the dummy-source config for "token" and check that the change
 	# is represented in the consuming model's dummy-sink unit.
 	juju switch "model-offer"
@@ -52,7 +52,7 @@ run_offer_consume() {
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "model-offer"
-	juju remove-offer "admin/model-offer.dummy-offer" --force -y
+	juju remove-offer "admin/model-offer.dummy-offer" -y
 
 	echo "Clean up"
 	destroy_model "model-offer"
@@ -108,7 +108,7 @@ run_offer_consume_cross_controller() {
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "${offer_controller}:model-offer"
-	juju remove-offer "${offer_controller}:admin/model-offer.dummy-source" --force -y
+	juju remove-offer "${offer_controller}:admin/model-offer.dummy-source" -y
 
 	echo "Clean up"
 	destroy_controller "controller-consume"

@@ -13,7 +13,6 @@ test_cmr() {
 
 	bootstrap "test-cmr" "${file}"
 
-	# Tests that need to be run are added here.
 	test_offer_consume
 
 	destroy_controller "test-cmr"
