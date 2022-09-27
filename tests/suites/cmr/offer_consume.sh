@@ -27,6 +27,9 @@ run_offer_consume() {
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
+	echo "Check list-offer output"
+	juju list-offers --format=json | jq -r "has(\"dummy-offer\")" | check true
+
 	echo "Deploy workload in consume model"
 	juju add-model "model-consume"
 	juju switch "model-consume"
@@ -34,9 +37,12 @@ run_offer_consume() {
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
+	echo "Check find-offer output"
+	juju find-offers --format=json | jq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
+
 	echo "Relate workload in consume model with offer"
-	juju --show-log consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
-	juju --show-log relate dummy-sink dummy-offer
+	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
+	juju relate dummy-sink dummy-offer
 	# wait for relation joined before migrate.
 	wait_for "dummy-offer" '.applications["dummy-sink"] | .relations.source[0]'
 
@@ -49,6 +55,7 @@ run_offer_consume() {
 	wait_for "active" '."application-endpoints"["dummy-offer"]."application-status".current'
 
 	echo "Remove offer"
+	juju remove-relation dummy-sink dummy-offer
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "model-offer"
