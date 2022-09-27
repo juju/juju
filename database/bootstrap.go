@@ -68,7 +68,7 @@ func BootstrapDqlite(opt bootstrapOptFactory, logger Logger) error {
 		}
 	}()
 
-	if err := NewMigration(db, logger, schema.ControllerDDL()).Apply(); err != nil {
+	if err := NewDBMigration(db, logger, schema.ControllerDDL()).Apply(); err != nil {
 		return errors.Annotate(err, "creating controller database schema")
 	}
 

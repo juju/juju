@@ -9,18 +9,18 @@ import (
 	"github.com/juju/errors"
 )
 
-// Migration is used to apply a series of deltas to a database.
-type Migration struct {
+// DBMigration is used to apply a series of deltas to a database.
+type DBMigration struct {
 	db     *sql.DB
 	logger Logger
 	deltas [][]string
 }
 
-// NewMigration returns a reference to a new migration that
+// NewDBMigration returns a reference to a new migration that
 // is used to apply the input deltas to the input database.
 // The deltas are applied in the order supplied.
-func NewMigration(db *sql.DB, logger Logger, deltas ...[]string) *Migration {
-	return &Migration{
+func NewDBMigration(db *sql.DB, logger Logger, deltas ...[]string) *DBMigration {
+	return &DBMigration{
 		db:     db,
 		logger: logger,
 		deltas: deltas,
@@ -28,7 +28,7 @@ func NewMigration(db *sql.DB, logger Logger, deltas ...[]string) *Migration {
 }
 
 // Apply executes all deltas against the database inside a transaction.
-func (m *Migration) Apply() error {
+func (m *DBMigration) Apply() error {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return errors.Annotatef(err, "beginning migration transaction")
