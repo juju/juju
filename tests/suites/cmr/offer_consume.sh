@@ -28,7 +28,7 @@ run_offer_consume() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	echo "Check list-offer output"
-	juju list-offers --format=json | jq -r "has(\"dummy-offer\")" | check true
+	juju list-offers --format=json | jq -r 'has("dummy-offer")' | check true
 
 	echo "Deploy workload in consume model"
 	juju add-model "model-consume"
