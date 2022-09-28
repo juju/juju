@@ -418,10 +418,10 @@ def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
             device_replacements[hwaddr] = devices[hwaddr_clean]
         else:
             if fail_on_missing:
-                print( "Can't find device with MAC " + hwaddr_clean + ", will retry")
+                print( "Can not find device with MAC " + hwaddr_clean + ", will retry")
                 return False
             else:
-                print( "WARNING: Can't find device with MAC " + hwaddr_clean + " when expected")
+                print( "WARNING: Can not find device with MAC " + hwaddr_clean + " when expected")
                 device_replacements[hwaddr] = hwaddr
     formatted = interfaces.format(**device_replacements)
     print( "Used the values in: " + str(device_replacements) + "\nto fix the interfaces file:\n" + str(interfaces) + "\ninto\n" + str(formatted))
