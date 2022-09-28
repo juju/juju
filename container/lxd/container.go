@@ -233,7 +233,7 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress,
 
 	var results []corenetwork.ProviderAddress
 	for netName, net := range networks {
-		if netName == network.DefaultLXCBridge || netName == network.DefaultLXDBridge {
+		if netName == network.DefaultLXDBridge {
 			continue
 		}
 		for _, addr := range net.Addresses {
