@@ -684,7 +684,7 @@ func (w *unixConfigure) setUpGUI() (func(), error) {
 	w.conf.AddScripts(
 		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
 		fmt.Sprintf(
-			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && echo %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
+			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && echo -n %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
 			w.icfg.Bootstrap.GUI.SHA256, shquote(string(guiJson))),
 	)
 	return func() {

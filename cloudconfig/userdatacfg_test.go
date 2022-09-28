@@ -733,7 +733,7 @@ mkdir -p $gui
 install -D -m 644 /dev/null '/var/lib/juju/gui/gui.tar.bz2'
 echo -n %s | base64 -d > '/var/lib/juju/gui/gui.tar.bz2'
 [ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && echo '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
+[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && echo -n '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
 rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
 `, base64Content, guiJson))
 	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
@@ -747,7 +747,7 @@ func (*cloudinitSuite) TestCloudInitWithRemoteGUI(c *gc.C) {
 mkdir -p $gui
 curl -sSf -o $gui/gui.tar.bz2 --retry 10 'https://1.2.3.4/gui.tar.bz2' || echo Unable to retrieve Juju GUI
 [ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && echo '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
+[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && echo -n '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
 rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
 `, guiJson))
 	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
