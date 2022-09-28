@@ -177,6 +177,8 @@ func newK8sBroker(
 	randomPrefix utils.RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
+	logger.Criticalf("k8sRestConfig.BearerToken ==> %s", k8sRestConfig.BearerToken)
+	logger.Criticalf("k8sRestConfig.Host ==> %s", k8sRestConfig.Host)
 	k8sClient, apiextensionsClient, dynamicClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)

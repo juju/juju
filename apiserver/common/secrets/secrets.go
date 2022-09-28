@@ -8,6 +8,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
@@ -29,6 +30,7 @@ type ProviderInfoGetter func() (provider.SecretStoreProvider, provider.Model, er
 
 // ProviderInfoForModel returns the secret store provider for the specified model.
 func ProviderInfoForModel(model *state.Model) (provider.SecretStoreProvider, provider.Model, error) {
+	logger.Criticalf("ProviderInfoForModel")
 	p, err := providerForModel(model)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting configured secrets provider")
@@ -60,6 +62,7 @@ func providerForModel(model *state.Model) (provider.SecretStoreProvider, error) 
 // The client is expected to be restricted to write only those secrets
 // owned by the agent, and read only those secrets shared with the agent.
 func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.StoreConfig, error) {
+	logger.Criticalf("StoreConfig %q", authTag)
 	ma := &modelAdaptor{
 		model,
 	}
@@ -96,6 +99,7 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 	}
 	ownedURIs := make([]*secrets.URI, len(owned))
 	for i, md := range owned {
+		logger.Criticalf("owned => %d %s/%d", i, md.URI.ID, md.Version)
 		ownedURIs[i] = md.URI
 	}
 
@@ -109,10 +113,12 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 	}
 	readURIs := make([]*secrets.URI, len(read))
 	for i, md := range read {
+		logger.Criticalf("read => %d %s/%d", i, md.URI.ID, md.Version)
 		readURIs[i] = md.URI
 	}
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedURIs, readURIs)
 	cfg, err := p.StoreConfig(ma, authTag, ownedURIs, readURIs)
+	logger.Criticalf("StoreConfig =====> cfg %s", pretty.Sprint(cfg))
 	return cfg, errors.Trace(err)
 }
 
@@ -120,6 +126,7 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 // to read any secrets for that model.
 // This is called by the show-secret facade for admin users.
 func StoreForInspect(model *state.Model) (provider.SecretsStore, error) {
+	logger.Criticalf("StoreForInspect")
 	p, err := providerForModel(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets provider")

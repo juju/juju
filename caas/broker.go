@@ -258,10 +258,11 @@ type ApplicationBroker interface {
 
 // SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
 type SecretsProvider interface {
-	// EnsureAccessToken ensures the secret related RBAC resources for the provided unit.
-	EnsureAccessToken(unitName string, owned, read, removed []*secrets.URI) (string, error)
-	// RemoveAccessToken removes the secret related RBAC resources for the provided unit.
-	RemoveAccessToken(unitName string) error
+	// EnsureSecretAccessToken ensures the secret related RBAC resources for the provided entity.
+	EnsureSecretAccessToken(tag names.Tag, owned, read, removed []*secrets.URI) (string, error)
+
+	// RemoveSecretAccessToken removes the secret related RBAC resources for the provided entity.
+	RemoveSecretAccessToken(tag names.Tag) error
 }
 
 // SecretsStore provides an API for managing Juju secrets.

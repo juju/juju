@@ -15,13 +15,12 @@ import (
 func getDefaultApplicationNamespaceRules(namespace string) []rbacv1.PolicyRule {
 	return []rbacv1.PolicyRule{
 		{
-			APIGroups: []string{""},
-			Resources: []string{"namespaces"},
-			Verbs: []string{
-				"get",
-				"list",
-			},
+			APIGroups:     []string{""},
+			Resources:     []string{"namespaces"},
 			ResourceNames: []string{namespace},
+			Verbs: []string{
+				"list", "get",
+			},
 		},
 		{
 			APIGroups: []string{""},
