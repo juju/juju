@@ -1635,7 +1635,7 @@ func CreateMissingApplicationConfig(pool *StatePool) error {
 		ID string `bson:"_id"`
 	}
 	err = settingsColl.Find(bson.M{
-		"_id": bson.M{"$regex": bson.RegEx{"application$", ""}}}).All(&applicationConfigIDs)
+		"_id": bson.M{"$regex": bson.RegEx{"#application$", ""}}}).All(&applicationConfigIDs)
 	if err != nil {
 		return errors.Trace(err)
 	}
