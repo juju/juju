@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	jujusecrets "github.com/juju/juju/secrets"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
@@ -71,6 +70,13 @@ type RebootQuerier interface {
 	Query(tag names.Tag) (bool, error)
 }
 
+// SecretsClient provides methods used by the remote state watcher, hook context,
+// and op callbacks.
+type SecretsClient interface {
+	remotestate.SecretsClient
+	context.SecretsAccessor
+}
+
 // RemoteInitFunc is used to init remote state
 type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) error
 
@@ -78,7 +84,8 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 type Uniter struct {
 	catacomb                     catacomb.Catacomb
 	st                           *uniter.State
-	secrets                      jujusecrets.Client
+	secretsClient                SecretsClient
+	secretsStoreGetter           context.SecretsStoreGetter
 	paths                        Paths
 	unit                         *uniter.Unit
 	resources                    *uniter.ResourcesFacadeClient
@@ -90,6 +97,8 @@ type Uniter struct {
 	clock                        clock.Clock
 
 	relationStateTracker relation.RelationStateTracker
+
+	secretsTracker secrets.SecretStateTracker
 
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
@@ -111,8 +120,12 @@ type Uniter struct {
 	hookLock machinelock.Lock
 
 	// secretRotateWatcherFunc returns a watcher that triggers when secrets
-	// created by this unit's application should be rotated.
-	secretRotateWatcherFunc remotestate.SecretRotateWatcherFunc
+	// owned by this unit ot its application should be rotated.
+	secretRotateWatcherFunc remotestate.SecretTriggerWatcherFunc
+
+	// secretExpiryWatcherFunc returns a watcher that triggers when
+	// secret revisions owned by this unit or its application should be expired.
+	secretExpiryWatcherFunc remotestate.SecretTriggerWatcherFunc
 
 	Probe Probe
 
@@ -176,11 +189,13 @@ type UniterParams struct {
 	UniterFacade                  *uniter.State
 	ResourcesFacade               *uniter.ResourcesFacadeClient
 	PayloadFacade                 *uniter.PayloadFacadeClient
-	SecretsClient                 jujusecrets.Client
+	SecretsClient                 SecretsClient
+	SecretsStoreGetter            context.SecretsStoreGetter
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
-	SecretRotateWatcherFunc       remotestate.SecretRotateWatcherFunc
+	SecretRotateWatcherFunc       remotestate.SecretTriggerWatcherFunc
+	SecretExpiryWatcherFunc       remotestate.SecretTriggerWatcherFunc
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -251,12 +266,14 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			st:                            uniterParams.UniterFacade,
 			resources:                     uniterParams.ResourcesFacade,
 			payloads:                      uniterParams.PayloadFacade,
-			secrets:                       uniterParams.SecretsClient,
+			secretsClient:                 uniterParams.SecretsClient,
+			secretsStoreGetter:            uniterParams.SecretsStoreGetter,
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
 			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
 			secretRotateWatcherFunc:       uniterParams.SecretRotateWatcherFunc,
+			secretExpiryWatcherFunc:       uniterParams.SecretExpiryWatcherFunc,
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -387,8 +404,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			remotestate.WatcherConfig{
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
-				SecretsClient:                 u.secrets,
+				SecretsClient:                 u.secretsClient,
 				SecretRotateWatcherFunc:       u.secretRotateWatcherFunc,
+				SecretExpiryWatcherFunc:       u.secretExpiryWatcherFunc,
 				UnitTag:                       unitTag,
 				UpdateStatusChannel:           u.updateStatusAt,
 				CommandChannel:                u.commandChannel,
@@ -489,8 +507,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.commands, watcher.CommandCompleted,
 			),
 			Secrets: secrets.NewSecretsResolver(
-				u.logger.Child("secrets"),
+				u.logger.ChildWithLabels("secrets", corelogger.SECRETS),
+				u.secretsTracker,
 				watcher.RotateSecretCompleted,
+				watcher.ExpireRevisionCompleted,
 			),
 			Logger: u.logger,
 		}
@@ -798,6 +818,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.storage = storageAttachments
 
+	secretsTracker, err := secrets.NewSecrets(
+		u.secretsClient, unitTag, u.unit, u.logger.ChildWithLabels("secrets", corelogger.SECRETS),
+	)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create secrets tracker")
+	}
+	u.secretsTracker = secretsTracker
+
 	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
 		u.logger.Warningf(err.Error())
 	}
@@ -815,17 +843,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:            u.st,
-		Secrets:          u.secrets,
-		Unit:             u.unit,
-		Resources:        u.resources,
-		Payloads:         u.payloads,
-		Tracker:          u.leadershipTracker,
-		GetRelationInfos: u.relationStateTracker.GetInfo,
-		Storage:          u.storage,
-		Paths:            u.paths,
-		Clock:            u.clock,
-		Logger:           u.logger.Child("context"),
+		State:              u.st,
+		SecretsClient:      u.secretsClient,
+		SecretsStoreGetter: u.secretsStoreGetter,
+		Unit:               u.unit,
+		Resources:          u.resources,
+		Payloads:           u.payloads,
+		Tracker:            u.leadershipTracker,
+		GetRelationInfos:   u.relationStateTracker.GetInfo,
+		Storage:            u.storage,
+		Paths:              u.paths,
+		Clock:              u.clock,
+		Logger:             u.logger.Child("context"),
 	})
 	if err != nil {
 		return err
@@ -1009,6 +1038,9 @@ func (u *Uniter) Report() map[string]interface{} {
 	}
 	if u.relationStateTracker != nil {
 		result["relations"] = u.relationStateTracker.Report()
+	}
+	if u.secretsTracker != nil {
+		result["secrets"] = u.secretsTracker.Report()
 	}
 
 	return result

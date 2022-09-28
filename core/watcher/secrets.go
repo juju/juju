@@ -14,11 +14,25 @@ import (
 // eg rotation or expiry.
 type SecretTriggerChange struct {
 	URI             *secrets.URI
+	Revision        int
 	NextTriggerTime time.Time
 }
 
 func (s SecretTriggerChange) GoString() string {
-	return fmt.Sprintf("%s trigger: in %v at %s", s.URI.ID, s.NextTriggerTime.Sub(time.Now()), s.NextTriggerTime.Format(time.RFC3339))
+	revMsg := ""
+	if s.Revision > 0 {
+		revMsg = fmt.Sprintf("/%d", s.Revision)
+	}
+	whenMsg := "never"
+	if !s.NextTriggerTime.IsZero() {
+		interval := s.NextTriggerTime.Sub(time.Now())
+		if interval < 0 {
+			whenMsg = fmt.Sprintf("%v ago at %s", -interval, s.NextTriggerTime.Format(time.RFC3339))
+		} else {
+			whenMsg = fmt.Sprintf("in %v at %s", interval, s.NextTriggerTime.Format(time.RFC3339))
+		}
+	}
+	return fmt.Sprintf("%s%s trigger: %s", s.URI.ID, revMsg, whenMsg)
 }
 
 // SecretTriggerChannel is a change channel as described in the CoreWatcher docs.

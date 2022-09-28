@@ -89,6 +89,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
+	"github.com/juju/juju/worker/stateconverter"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
@@ -344,7 +345,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
-		isControllerFlagName: isControllerFlagManifold(),
+		isControllerFlagName: isControllerFlagManifold(true),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -999,11 +1000,17 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewContainerWorker,
 		})),
-
 		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
 			NewWorker: syslogger.NewWorker,
 			NewLogger: syslogger.NewSyslog,
 		}),
+		// isNotControllerFlagName is only used for the stateconverter,
+		isNotControllerFlagName: isControllerFlagManifold(false),
+		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.stateconverter"),
+		}))),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1081,6 +1088,12 @@ var ifController = engine.Housing{
 	},
 }.Decorate
 
+var ifNotController = engine.Housing{
+	Flags: []string{
+		isNotControllerFlagName,
+	},
+}.Decorate
+
 var ifRaftLeader = engine.Housing{
 	Flags: []string{
 		raftFlagName,
@@ -1154,6 +1167,7 @@ const (
 	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
+	isNotControllerFlagName       = "is-not-controller-flag"
 	instanceMutaterName           = "instance-mutater"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"
@@ -1165,6 +1179,7 @@ const (
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"
+	stateConverterName            = "state-converter"
 
 	upgradeSeriesWorkerName = "upgrade-series"
 

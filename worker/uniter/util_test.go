@@ -47,8 +47,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
 	jujusecrets "github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	jujusecretsprovider "github.com/juju/juju/secrets/provider/juju"
+	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -142,7 +141,9 @@ type testContext struct {
 	containerNames         []string
 	pebbleClients          map[string]*fakePebbleClient
 	secretsRotateCh        chan []string
-	secretsClient          jujusecrets.Client
+	secretsExpireCh        chan []string
+	secretsClient          *secretsmanager.Client
+	secretsStore           jujusecrets.Store
 	err                    string
 
 	wg             sync.WaitGroup
@@ -220,8 +221,8 @@ func (ctx *testContext) apiLogin(c *gc.C) {
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
-	jujuSecretsAPI := secretsmanager.NewClient(apiConn)
-	ctx.secretsClient, err = jujusecrets.NewClient(jujuSecretsAPI, jujusecretsprovider.Store, provider.StoreConfig{})
+	ctx.secretsClient = secretsmanager.NewClient(apiConn)
+	ctx.secretsStore, err = jujusecrets.NewClient(ctx.secretsClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -594,12 +595,20 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			}
 			return client, nil
 		},
-		SecretRotateWatcherFunc: func(u names.UnitTag, secretsChanged chan []string) (worker.Worker, error) {
+		SecretRotateWatcherFunc: func(u names.UnitTag, isLeader bool, secretsChanged chan []string) (worker.Worker, error) {
 			c.Assert(u.String(), gc.Equals, s.unitTag)
 			ctx.secretsRotateCh = secretsChanged
 			return watchertest.NewMockStringsWatcher(ctx.secretsRotateCh), nil
 		},
+		SecretExpiryWatcherFunc: func(u names.UnitTag, isLeader bool, secretsChanged chan []string) (worker.Worker, error) {
+			c.Assert(u.String(), gc.Equals, s.unitTag)
+			ctx.secretsExpireCh = secretsChanged
+			return watchertest.NewMockStringsWatcher(ctx.secretsExpireCh), nil
+		},
 		SecretsClient: ctx.secretsClient,
+		SecretsStoreGetter: func() (jujusecrets.Store, error) {
+			return ctx.secretsStore, nil
+		},
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1657,13 +1666,24 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 		s.applicationName = "u"
 	}
 
-	uri, err := ctx.secretsClient.Create(nil, jujusecrets.CreateParams{
-		SecretConfig: secrets.SecretConfig{
+	uri := secrets.NewURI()
+	store := state.NewSecrets(ctx.st)
+	_, err := store.CreateSecret(uri, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(time.Now().Add(time.Hour)),
+			Data:           map[string]string{"foo": "bar"},
 		},
-		Owner:   names.NewApplicationTag(s.applicationName),
-		Content: jujusecrets.ContentParams{SecretValue: secrets.NewSecretValue(map[string]string{"foo": "bar"})},
+		Owner: names.NewApplicationTag(s.applicationName),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	appTag := names.NewApplicationTag(s.applicationName)
+	err = ctx.st.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       appTag,
+		Subject:     appTag,
+		Role:        secrets.RoleManage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.createdSecretURI = uri
@@ -1689,7 +1709,7 @@ func (s changeSecret) step(c *gc.C, ctx *testContext) {
 type getSecret struct{}
 
 func (s getSecret) step(c *gc.C, ctx *testContext) {
-	val, err := ctx.secretsClient.GetContent(ctx.createdSecretURI, "foorbar", false, false)
+	val, err := ctx.secretsStore.GetContent(ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
 }
@@ -1701,6 +1721,16 @@ func (s rotateSecret) step(c *gc.C, ctx *testContext) {
 	case ctx.secretsRotateCh <- []string{ctx.createdSecretURI.String()}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("sending rotate secret change for %q", ctx.createdSecretURI)
+	}
+}
+
+type expireSecret struct{}
+
+func (s expireSecret) step(c *gc.C, ctx *testContext) {
+	select {
+	case ctx.secretsExpireCh <- []string{ctx.createdSecretURI.String() + "/1"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf(`sending expire secret change for "%s/1"`, ctx.createdSecretURI)
 	}
 }
 

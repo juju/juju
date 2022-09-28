@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -22,21 +24,21 @@ func (c *ContextSecrets) GetSecret(uri *secrets.URI, label string, update, peek 
 }
 
 // CreateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) CreateSecret(args *jujuc.SecretUpsertArgs) (*secrets.URI, error) {
+func (c *ContextSecrets) CreateSecret(args *jujuc.SecretCreateArgs) (*secrets.URI, error) {
 	c.stub.AddCall("CreateSecret", args)
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	return uri, nil
 }
 
 // UpdateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) UpdateSecret(uri *secrets.URI, args *jujuc.SecretUpsertArgs) error {
+func (c *ContextSecrets) UpdateSecret(uri *secrets.URI, args *jujuc.SecretUpdateArgs) error {
 	c.stub.AddCall("UpdateSecret", uri.String(), args)
 	return nil
 }
 
 // RemoveSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) RemoveSecret(uri *secrets.URI) error {
-	c.stub.AddCall("RemoveSecret", uri.String())
+func (c *ContextSecrets) RemoveSecret(uri *secrets.URI, revision *int) error {
+	c.stub.AddCall("RemoveSecret", uri.String(), revision)
 	return nil
 }
 
@@ -47,6 +49,7 @@ func (c *ContextSecrets) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 		"9m4e2mr0ui3e8a215n4g": {
 			LatestRevision: 666,
 			Label:          "label",
+			Owner:          names.NewApplicationTag("mariadb"),
 			Description:    "description",
 			RotatePolicy:   secrets.RotateHourly,
 		},

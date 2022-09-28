@@ -4,18 +4,22 @@
 package sshclient
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SSHClient", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacade(ctx) // v3 adds Leader() method.
+	registry.MustRegister("SSHClient", 4, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }
 
@@ -39,5 +43,9 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 		&facadeBackend,
 		leadershipReader,
 		ctx.Auth(),
-		context.CallContext(st))
+		context.CallContext(st),
+		func(ctx stdcontext.Context, args environs.OpenParams) (Broker, error) {
+			return caas.New(ctx, args)
+		},
+	)
 }

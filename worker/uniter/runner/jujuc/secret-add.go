@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/secrets"
 
@@ -20,6 +21,7 @@ type secretUpsertCommand struct {
 	cmd.CommandBase
 	ctx Context
 
+	owner        string
 	rotatePolicy string
 	description  string
 	label        string
@@ -46,13 +48,19 @@ func NewSecretAddCommand(ctx Context) (cmd.Command, error) {
 func (c *secretAddCommand) Info() *cmd.Info {
 	doc := `
 Add a secret with a list of key values.
+
 If a value has the '#base64' suffix, it is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded
 prior to being stored.
 
+By default, a secret is owned by the application, meaning only the unit
+leader can manage it. Use "--owner unit" to create a secret owned by the
+specific unit which created it.
+
 Examples:
     secret-add token=34ae35facd4
     secret-add key#base64 AA==
+    secret-add --owner unit token=s3cret 
     secret-add --rotate monthly token=s3cret 
     secret-add --expire 24h token=s3cret 
     secret-add --expire 2025-01-01T06:06:06 token=s3cret 
@@ -78,6 +86,7 @@ func (c *secretUpsertCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.description, "description", "", "the secret description")
 	f.StringVar(&c.label, "label", "", "a label used to identify the secret in hooks")
 	f.StringVar(&c.fileName, "file", "", "a YAML file containing secret key values")
+	f.StringVar(&c.owner, "owner", "application", "the owner of the secret, either the application or unit")
 }
 
 const rcf3339NoTZ = "2006-01-02T15:04:05"
@@ -104,6 +113,10 @@ func (c *secretUpsertCommand) Init(args []string) error {
 	if c.rotatePolicy != "" && !secrets.RotatePolicy(c.rotatePolicy).IsValid() {
 		return errors.NotValidf("rotate policy %q", c.rotatePolicy)
 	}
+	if c.owner != "application" && c.owner != "unit" {
+		return errors.NotValidf("secret owner %q", c.owner)
+	}
+
 	var err error
 	c.data, err = secrets.CreateSecretData(args)
 	if err != nil || c.fileName == "" {
@@ -119,9 +132,9 @@ func (c *secretUpsertCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *secretUpsertCommand) marshallArg() *SecretUpsertArgs {
+func (c *secretUpsertCommand) marshallArg() *SecretUpdateArgs {
 	value := secrets.NewSecretValue(c.data)
-	arg := &SecretUpsertArgs{
+	arg := &SecretUpdateArgs{
 		Value: value,
 	}
 	if c.rotatePolicy != "" {
@@ -150,10 +163,22 @@ func (c *secretAddCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *secretAddCommand) Run(ctx *cmd.Context) error {
-	uri, err := c.ctx.CreateSecret(c.marshallArg())
+	unitName := c.ctx.UnitName()
+	var ownerTag names.Tag
+	appName, _ := names.UnitApplication(unitName)
+	ownerTag = names.NewApplicationTag(appName)
+	if c.owner == "unit" {
+		ownerTag = names.NewUnitTag(unitName)
+	}
+	updateArgs := c.marshallArg()
+	arg := &SecretCreateArgs{
+		SecretUpdateArgs: *updateArgs,
+		OwnerTag:         ownerTag,
+	}
+	uri, err := c.ctx.CreateSecret(arg)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(ctx.Stdout, uri.ShortString())
+	fmt.Fprintln(ctx.Stdout, uri.String())
 	return nil
 }

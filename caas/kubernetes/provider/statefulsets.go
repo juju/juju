@@ -149,6 +149,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	existing.Spec.Template.Spec.Volumes = existingPodSpec.Volumes
 	existing.Spec.Template.SetAnnotations(spec.Spec.Template.GetAnnotations())
 	// TODO(caas) - allow storage `request` configurable - currently we only allow `limit`.
+	existing.Spec.Template.Spec.InitContainers = existingPodSpec.InitContainers
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
 	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken

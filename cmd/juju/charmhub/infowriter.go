@@ -107,13 +107,12 @@ func (iw infoWriter) writeClosedChannelToBuffer(w *UnicodeWriter, name string, h
 
 type bundleInfoOutput struct {
 	Name        string `yaml:"name,omitempty"`
-	ID          string `yaml:"bundle-id,omitempty"`
-	Summary     string `yaml:"summary,omitempty"`
 	Publisher   string `yaml:"publisher,omitempty"`
-	Supports    string `yaml:"supports,omitempty"`
-	Tags        string `yaml:"tags,omitempty"`
-	StoreURL    string `yaml:"store-url,omitempty"`
+	Summary     string `yaml:"summary,omitempty"`
 	Description string `yaml:"description,omitempty"`
+	StoreURL    string `yaml:"store-url,omitempty"`
+	ID          string `yaml:"bundle-id,omitempty"`
+	Tags        string `yaml:"tags,omitempty"`
 	Charms      string `yaml:"charms,omitempty"`
 	Channels    string `yaml:"channels,omitempty"`
 	Installed   string `yaml:"installed,omitempty"`
@@ -138,14 +137,14 @@ func (b bundleInfoWriter) Print() error {
 
 type charmInfoOutput struct {
 	Name        string                 `yaml:"name,omitempty"`
-	ID          string                 `yaml:"charm-id,omitempty"`
-	Summary     string                 `yaml:"summary,omitempty"`
 	Publisher   string                 `yaml:"publisher,omitempty"`
+	Summary     string                 `yaml:"summary,omitempty"`
+	Description string                 `yaml:"description,omitempty"`
+	StoreURL    string                 `yaml:"store-url,omitempty"`
+	ID          string                 `yaml:"charm-id,omitempty"`
 	Supports    string                 `yaml:"supports,omitempty"`
 	Tags        string                 `yaml:"tags,omitempty"`
 	Subordinate bool                   `yaml:"subordinate"`
-	StoreURL    string                 `yaml:"store-url,omitempty"`
-	Description string                 `yaml:"description,omitempty"`
 	Relations   relationOutput         `yaml:"relations,omitempty"`
 	Channels    string                 `yaml:"channels,omitempty"`
 	Installed   string                 `yaml:"installed,omitempty"`

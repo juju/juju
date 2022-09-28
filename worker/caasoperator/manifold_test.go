@@ -27,9 +27,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
-	jujusecrets "github.com/juju/juju/secrets/provider/juju"
+	_ "github.com/juju/juju/secrets/provider/all"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/caasoperator/mocks"
@@ -186,6 +184,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.UniterParams.NewProcessRunner, gc.NotNil)
 	c.Assert(config.UniterParams.NewDeployer, gc.NotNil)
 	c.Assert(config.UniterParams.SecretRotateWatcherFunc, gc.NotNil)
+	c.Assert(config.UniterParams.SecretsStoreGetter, gc.NotNil)
 	c.Assert(config.Logger, gc.NotNil)
 	c.Assert(config.ExecClientGetter, gc.NotNil)
 	config.LeadershipTrackerFunc = nil
@@ -199,6 +198,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UniterParams.NewDeployer = nil
 	config.UniterParams.NewProcessRunner = nil
 	config.UniterParams.SecretRotateWatcherFunc = nil
+	config.UniterParams.SecretExpiryWatcherFunc = nil
+	config.UniterParams.SecretsStoreGetter = nil
 	config.Logger = nil
 	config.ExecClientGetter = nil
 
@@ -206,8 +207,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UniterParams.SocketConfig.TLSConfig = nil
 
 	jujuSecretsAPI := secretsmanager.NewClient(s.apiCaller)
-	secretsClient, err := secrets.NewClient(jujuSecretsAPI, jujusecrets.Store, provider.StoreConfig{})
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
 		ModelUUID:             coretesting.ModelTag.Id(),
 		ModelName:             "gitlab-model",
@@ -226,7 +225,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		UniterParams: &uniter.UniterParams{
 			DataDir:       s.dataDir,
 			MachineLock:   &fakemachinelock{},
-			SecretsClient: secretsClient,
+			SecretsClient: jujuSecretsAPI,
 			CharmDirGuard: &mockCharmDirGuard{},
 			Clock:         s.clock,
 			SocketConfig: &uniter.SocketConfig{

@@ -888,6 +888,18 @@ func (s *RunHookSuite) TestRunningHookMessageForSecretsHooks(c *gc.C) {
 	c.Assert(msg, gc.Equals, `running secret-rotate hook for secret:9m4e2mr0ui3e8a215n4g`)
 }
 
+func (s *RunHookSuite) TestRunningHookMessageForSecretHooksWithRevision(c *gc.C) {
+	msg := operation.RunningHookMessage(
+		"secret-expired",
+		hook.Info{
+			Kind:           hooks.SecretExpired,
+			SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
+			SecretRevision: 666,
+		},
+	)
+	c.Assert(msg, gc.Equals, `running secret-expired hook for secret:9m4e2mr0ui3e8a215n4g/666`)
+}
+
 func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
@@ -919,9 +931,15 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 	c.Assert(callbacks.rotatedOldRevision, gc.Equals, 666)
 }
 
-func (s *RunHookSuite) TestPrepareHookError_SecretRotate_NotLeader(c *gc.C) {
+func (s *RunHookSuite) TestPrepareSecretHookError_NotLeader(c *gc.C) {
+	s.assertPrepareSecretHookErrorNotLeader(c, hooks.SecretRotate)
+	s.assertPrepareSecretHookErrorNotLeader(c, hooks.SecretExpired)
+	s.assertPrepareSecretHookErrorNotLeader(c, hooks.SecretRemove)
+}
+
+func (s *RunHookSuite) assertPrepareSecretHookErrorNotLeader(c *gc.C, kind hooks.Kind) {
 	callbacks := &PrepareHookCallbacks{
-		MockPrepareHook: &MockPrepareHook{nil, string(hooks.SecretRotate), nil},
+		MockPrepareHook: &MockPrepareHook{nil, string(kind), nil},
 	}
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{
@@ -933,7 +951,7 @@ func (s *RunHookSuite) TestPrepareHookError_SecretRotate_NotLeader(c *gc.C) {
 	factory := newOpFactory(runnerFactory, callbacks)
 
 	op, err := factory.NewRunHook(hook.Info{
-		Kind: hooks.SecretRotate, SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
+		Kind: kind, SecretURI: "secret:9m4e2mr0ui3e8a215n4g", SecretRevision: 666,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

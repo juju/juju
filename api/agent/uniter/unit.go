@@ -939,12 +939,25 @@ type SecretUpsertArg struct {
 	Description  *string
 	Label        *string
 	Value        secrets.SecretValue
+	ProviderId   *string
 }
 
 // SecretCreateArg holds parameters for creating a secret.
 type SecretCreateArg struct {
 	SecretUpsertArg
 	OwnerTag names.Tag
+}
+
+// SecretUpdateArg holds parameters for updating a secret.
+type SecretUpdateArg struct {
+	SecretUpsertArg
+	CurrentRevision int
+}
+
+// SecretDeleteArg holds parameters for deleting a secret.
+type SecretDeleteArg struct {
+	URI      *secrets.URI
+	Revision *int
 }
 
 // AddSecretCreates records requests to create secrets.
@@ -970,7 +983,10 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 				ExpireTime:   c.ExpireTime,
 				Description:  c.Description,
 				Label:        c.Label,
-				Content:      params.SecretContentParams{Data: data},
+				Content: params.SecretContentParams{
+					Data:       data,
+					ProviderId: c.ProviderId,
+				},
 			},
 			URI:      &uriStr,
 			OwnerTag: c.OwnerTag.String(),
@@ -1000,7 +1016,10 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 				ExpireTime:   u.ExpireTime,
 				Description:  u.Description,
 				Label:        u.Label,
-				Content:      params.SecretContentParams{Data: data},
+				Content: params.SecretContentParams{
+					Data:       data,
+					ProviderId: u.ProviderId,
+				},
 			},
 			URI: u.URI.String(),
 		}
@@ -1060,14 +1079,19 @@ func grantRevokeArgsToParams(p *SecretGrantRevokeArgs) params.GrantRevokeSecretA
 }
 
 // AddSecretDeletes records requests to delete secrets.
-func (b *CommitHookParamsBuilder) AddSecretDeletes(deletes []*secrets.URI) {
+func (b *CommitHookParamsBuilder) AddSecretDeletes(deletes []SecretDeleteArg) {
 	if len(deletes) == 0 {
 		return
 	}
-	b.arg.SecretDeletes = make([]params.SecretURIArg, len(deletes))
-	for i, u := range deletes {
-		b.arg.SecretDeletes[i] = params.SecretURIArg{
-			URI: u.String(),
+	b.arg.SecretDeletes = make([]params.DeleteSecretArg, len(deletes))
+	for i, d := range deletes {
+		var revs []int
+		if d.Revision != nil {
+			revs = []int{*d.Revision}
+		}
+		b.arg.SecretDeletes[i] = params.DeleteSecretArg{
+			URI:       d.URI.String(),
+			Revisions: revs,
 		}
 	}
 }

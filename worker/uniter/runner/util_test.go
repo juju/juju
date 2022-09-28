@@ -118,7 +118,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
-		Secrets:          s.secrets,
+		SecretsClient:    s.secrets,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
 		Logger:           loggo.GetLogger("test"),

@@ -37,7 +37,7 @@ func (m *MockSecretsConsumer) EXPECT() *MockSecretsConsumerMockRecorder {
 }
 
 // GetSecretConsumer mocks base method.
-func (m *MockSecretsConsumer) GetSecretConsumer(arg0 *secrets.URI, arg1 string) (*secrets.SecretConsumerMetadata, error) {
+func (m *MockSecretsConsumer) GetSecretConsumer(arg0 *secrets.URI, arg1 names.Tag) (*secrets.SecretConsumerMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretConsumer", arg0, arg1)
 	ret0, _ := ret[0].(*secrets.SecretConsumerMetadata)
@@ -80,7 +80,7 @@ func (mr *MockSecretsConsumerMockRecorder) RevokeSecretAccess(arg0, arg1 interfa
 }
 
 // SaveSecretConsumer mocks base method.
-func (m *MockSecretsConsumer) SaveSecretConsumer(arg0 *secrets.URI, arg1 string, arg2 *secrets.SecretConsumerMetadata) error {
+func (m *MockSecretsConsumer) SaveSecretConsumer(arg0 *secrets.URI, arg1 names.Tag, arg2 *secrets.SecretConsumerMetadata) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveSecretConsumer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -109,11 +109,12 @@ func (mr *MockSecretsConsumerMockRecorder) SecretAccess(arg0, arg1 interface{}) 
 }
 
 // WatchConsumedSecretsChanges mocks base method.
-func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(arg0 string) state.StringsWatcher {
+func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(arg0 names.Tag) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchConsumedSecretsChanges", arg0)
 	ret0, _ := ret[0].(state.StringsWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchConsumedSecretsChanges indicates an expected call of WatchConsumedSecretsChanges.

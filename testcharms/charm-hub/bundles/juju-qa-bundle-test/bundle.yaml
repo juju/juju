@@ -1,74 +1,37 @@
 name: juju-qa-bundle-test
-series: bionic
+series: jammy
 applications:
-  easyrsa:
-    charm: containers-easyrsa
-    channel: stable
-    num_units: 1
-    to:
-    - lxd:0
-    annotations:
-      gui-x: "450"
-      gui-y: "550"
-  etcd:
-    charm: etcd
-    channel: stable
-    num_units: 1
-    to:
-    - "0"
-    options:
-      channel: 3.2/stable
-    annotations:
-      gui-x: "800"
-      gui-y: "550"
-  flannel:
-    charm: containers-flannel
-    channel: stable
   juju-qa-test:
     charm: juju-qa-test
     channel: 2.0/stable
-  kubernetes-master:
-    charm: containers-kubernetes-master
-    channel: stable
     num_units: 1
     to:
     - "0"
-    expose: true
-    options:
-      channel: 1.12/stable
-  kubernetes-worker:
-    charm: containers-kubernetes-worker
-    channel: stable
+    constraints: arch=amd64
+  juju-qa-test-focal:
+    charm: juju-qa-test
+    channel: latest/candidate
     num_units: 1
+    series: focal
     to:
     - "1"
-    expose: true
-    options:
-      channel: 1.12/stable
-      proxy-extra-args: proxy-mode=userspace
+    constraints: arch=amd64
+  ntp:
+    charm: ntp
+    channel: stable
+  ntp-focal:
+    charm: ntp
+    channel: stable
+    series: focal
 machines:
   "0":
-    constraints: arch=amd64 cores=2 mem=4G root-disk=16G
-    series: bionic
+    constraints: arch=amd64
+    series: jammy
   "1":
-    constraints: arch=amd64 cores=4 mem=8G root-disk=20G
-    series: bionic
+    constraints: arch=amd64
+    series: focal
 relations:
-- - flannel:cni
-  - kubernetes-worker:cni
-- - flannel:cni
-  - kubernetes-master:cni
-- - kubernetes-worker:certificates
-  - easyrsa:client
-- - etcd:certificates
-  - easyrsa:client
-- - kubernetes-master:certificates
-  - easyrsa:client
-- - kubernetes-master:kube-control
-  - kubernetes-worker:kube-control
-- - kubernetes-master:kube-api-endpoint
-  - kubernetes-worker:kube-api-endpoint
-- - flannel:etcd
-  - etcd:db
-- - kubernetes-master:etcd
-  - etcd:db
+- - ntp:juju-info
+  - juju-qa-test:juju-info
+- - ntp-focal:juju-info
+  - juju-qa-test-focal:juju-info

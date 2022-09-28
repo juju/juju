@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -85,8 +86,8 @@ func (c Credential) Attributes() map[string]string {
 }
 
 type credentialInternal struct {
-	AuthType   AuthType          `yaml:"auth-type"`
-	Attributes map[string]string `yaml:",omitempty,inline"`
+	AuthType   AuthType          `yaml:"auth-type" json:"auth-type"`
+	Attributes map[string]string `yaml:",omitempty,inline" json:",omitempty,inline"`
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
@@ -98,6 +99,21 @@ func (c Credential) MarshalYAML() (interface{}, error) {
 func (c *Credential) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var internal credentialInternal
 	if err := unmarshal(&internal); err != nil {
+		return err
+	}
+	*c = Credential{authType: internal.AuthType, attributes: internal.Attributes}
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (c Credential) MarshalJSON() ([]byte, error) {
+	return json.Marshal(credentialInternal{c.authType, c.attributes})
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (c *Credential) UnmarshalJSON(b []byte) error {
+	var internal credentialInternal
+	if err := json.Unmarshal(b, &internal); err != nil {
 		return err
 	}
 	*c = Credential{authType: internal.AuthType, attributes: internal.Attributes}

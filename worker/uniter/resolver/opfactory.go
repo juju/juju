@@ -170,16 +170,6 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 				state.AddressesHash = addressesHash
 			}
 		}}
-	case hooks.SecretChanged:
-		latest, ok := s.RemoteState.SecretInfo[info.SecretURI]
-		op = onCommitWrapper{op, func(state *operation.State) {
-			if state != nil && ok {
-				if state.SecretRevisions == nil {
-					state.SecretRevisions = make(map[string]int)
-				}
-				state.SecretRevisions[info.SecretURI] = latest.Revision
-			}
-		}}
 	case hooks.LeaderSettingsChanged:
 		v := s.RemoteState.LeaderSettingsVersion
 		op = onCommitWrapper{op, func(*operation.State) {

@@ -16,12 +16,10 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -84,7 +82,7 @@ func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
 
 var secretCommands = map[string]creator{
 	"secret-add":    NewSecretAddCommand,
-	"secret-update": NewSecretUpdateCommand,
+	"secret-set":    NewSecretSetCommand,
 	"secret-remove": NewSecretRemoveCommand,
 	"secret-get":    NewSecretGetCommand,
 	"secret-grant":  NewSecretGrantCommand,
@@ -126,9 +124,7 @@ func allEnabledCommands() map[string]creator {
 	add(leaderCommands)
 	add(resourceCommands)
 	add(payloadCommands)
-	if featureflag.Enabled(feature.Secrets) {
-		add(secretCommands)
-	}
+	add(secretCommands)
 	return all
 }
 

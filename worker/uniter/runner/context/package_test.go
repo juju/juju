@@ -6,6 +6,7 @@ package context_test
 import (
 	stdtesting "testing"
 
+	_ "github.com/juju/juju/secrets/provider/all"
 	coretesting "github.com/juju/juju/testing"
 )
 

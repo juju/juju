@@ -11,10 +11,14 @@ import (
 
 // SecretsStore is an external secrets store like vault.
 type SecretsStore interface {
-	GetContent(_ context.Context, providerId string, revision int) (secrets.SecretValue, error)
-	SaveContent(_ context.Context, revision int, value secrets.SecretValue) (string, error)
+	SaveContent(_ context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error)
+	GetContent(_ context.Context, providerId string) (secrets.SecretValue, error)
+	DeleteContent(_ context.Context, providerId string) error
 }
 
 // StoreConfig is used when constructing a secrets store.
-// TODO(wallyworld) - use a schema
-type StoreConfig map[string]interface{}
+type StoreConfig struct {
+	StoreType string
+	// TODO(wallyworld) - use a schema
+	Params map[string]interface{}
+}

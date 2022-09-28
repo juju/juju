@@ -93,9 +93,9 @@ func (rs *Resources) Stop(id string) error {
 	if r == nil {
 		return nil
 	}
-	err := r.Stop()
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
+	err := r.Stop()
 	delete(rs.resources, id)
 	for pos := 0; pos < len(rs.stack); pos++ {
 		if rs.stack[pos] == id {

@@ -12,7 +12,6 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/subnets"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -40,85 +39,12 @@ func (s *SubnetsSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
-func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) (params.AddSubnetsParams, params.ErrorResults) {
-	spaceTag := names.NewSpaceTag(space).String()
-	if providerId != "" {
-		cidr = ""
-	}
-
-	expectArgs := params.AddSubnetsParams{
-		Subnets: []params.AddSubnetParams{{
-			SpaceTag:         spaceTag,
-			CIDR:             cidr,
-			SubnetProviderId: providerId,
-			Zones:            zones,
-		}}}
-
-	expectResults := params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	}
-
-	return expectArgs, expectResults
-}
-
 func makeListSubnetsArgs(space *names.SpaceTag, zone string) (params.SubnetsFilters, params.ListSubnetsResults) {
 	expectArgs := params.SubnetsFilters{
 		SpaceTag: space.String(),
 		Zone:     zone,
 	}
 	return expectArgs, params.ListSubnetsResults{}
-}
-
-func (s *SubnetsSuite) TestAddSubnet(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	cidr := "1.1.1.0/24"
-	providerId := "foo"
-	space := "bar"
-	zones := []string{"foo", "bar"}
-	args, results := makeAddSubnetsArgs(cidr, providerId, space, zones)
-	result := new(params.ErrorResults)
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddSubnets", args, result).SetArg(2, results).Return(nil)
-	client := subnets.NewAPIFromCaller(mockFacadeCaller)
-
-	err := client.AddSubnet(
-		cidr,
-		network.Id(providerId),
-		names.NewSpaceTag(space),
-		zones,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SubnetsSuite) TestAddSubnetFails(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	cidr := "1.1.1.0/24"
-	providerId := "foo"
-	space := "bar"
-	zones := []string{"foo", "bar"}
-	args, results := makeAddSubnetsArgs(cidr, providerId, space, zones)
-	results.Results[0].Error = &params.Error{
-		Message: "bang",
-		Code:    "500",
-	}
-	result := new(params.ErrorResults)
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddSubnets", args, result).SetArg(2, results).Return(nil)
-	client := subnets.NewAPIFromCaller(mockFacadeCaller)
-
-	err := client.AddSubnet(
-		cidr,
-		network.Id(providerId),
-		names.NewSpaceTag(space),
-		zones,
-	)
-	c.Assert(err, gc.ErrorMatches, "bang")
 }
 
 func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {
