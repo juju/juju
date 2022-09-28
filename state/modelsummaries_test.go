@@ -262,9 +262,6 @@ func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Check(summaryA.AgentVersion, gc.NotNil)
 	c.Check(*summaryA.AgentVersion, gc.Equals, version)
-	series, ok := conf.DefaultSeries()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(summaryA.DefaultSeries, gc.Equals, series)
 }
 
 func (s *ModelSummariesSuite) TestContainsProviderType(c *gc.C) {

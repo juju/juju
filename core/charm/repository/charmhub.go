@@ -634,9 +634,8 @@ const (
 
 // refreshConfig creates a RefreshConfig for the given input.
 // If the origin.ID is not set, a install refresh config is returned. For
-//
-//	install. Channel and Revision are mutually exclusive in the api, only
-//	one will be used.
+// install. Channel and Revision are mutually exclusive in the api, only
+// one will be used.
 //
 // If the origin.ID is set, a refresh config is returned.
 //

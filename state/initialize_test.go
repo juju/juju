@@ -287,7 +287,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
 	controllerInheritedConfigIn := map[string]interface{}{
-		"default-series": initial["default-series"],
+		"charmhub-url": initial["charmhub-url"],
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()

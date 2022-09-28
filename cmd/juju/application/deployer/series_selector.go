@@ -7,13 +7,13 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/version"
 )
 
 const (
 	msgUserRequestedSeries = "with the user specified series %q"
 	msgBundleSeries        = "with the series %q defined by the bundle"
-	msgDefaultModelSeries  = "with the configured model default series %q"
 	msgLatestLTSSeries     = "with the latest LTS series %q"
 )
 
@@ -53,11 +53,12 @@ type seriesSelector struct {
 
 // charmSeries determines what series to use with a charm.
 // Order of preference is:
-// - user requested with --series or defined by bundle when deploying
-// - user requested in charm's url (e.g. juju deploy precise/ubuntu)
-// - model default (if it matches supported series)
-// - default from charm metadata supported series / series in url
-// - default LTS
+//   - user requested with --series or defined by bundle when deploying
+//   - user requested in charm's url (e.g. juju deploy precise/ubuntu)
+//     old charmstore style urls only
+//   - model default, if set, acts like --series
+//   - default from charm metadata supported series / series in url
+//   - default LTS
 func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// TODO(sidecar): handle systems
 
@@ -75,14 +76,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// No series explicitly requested by the user.
 	// Use model default series, if explicitly set and supported by the charm.
 	if defaultSeries, explicit := s.conf.DefaultSeries(); explicit {
-		if _, err := charm.SeriesForCharm(defaultSeries, s.supportedSeries); err == nil {
-			// validate the series we get from the charm
-			if err := s.validateSeries(defaultSeries); err != nil {
-				return "", err
-			}
-			logger.Infof(msgDefaultModelSeries, defaultSeries)
-			return defaultSeries, nil
-		}
+		return s.userRequested(defaultSeries)
 	}
 
 	// Next fall back to the charm's list of series, filtered to what's supported
@@ -101,7 +95,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	}
 
 	// Charm hasn't specified a default (likely due to being a local charm
-	// deployed by path).  Last chance, best we can do is default to LTS.
+	// deployed by path). Last chance, best we can do is default to LTS.
 
 	// At this point, because we have no idea what series the charm supports,
 	// *everything* requires --force.
