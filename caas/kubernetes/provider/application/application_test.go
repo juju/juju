@@ -198,6 +198,15 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 		appRole.Rules = []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
+				Resources: []string{"namespaces"},
+				Verbs: []string{
+					"get",
+					"list",
+				},
+				ResourceNames: []string{s.namespace},
+			},
+			{
+				APIGroups: []string{""},
 				Resources: []string{"pods", "services"},
 				Verbs: []string{
 					"get",
