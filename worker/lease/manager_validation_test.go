@@ -132,7 +132,7 @@ func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("INVALID", "bar/0")
-		err := token.Check(0, nil)
+		err := token.Check()
 		c.Check(err, gc.ErrorMatches, `cannot check lease "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
@@ -142,7 +142,7 @@ func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("foo", "INVALID")
-		err := token.Check(0, nil)
+		err := token.Check()
 		c.Check(err, gc.ErrorMatches, `cannot check holder "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})

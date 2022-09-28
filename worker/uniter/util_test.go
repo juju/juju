@@ -1574,7 +1574,7 @@ func (s setLeaderSettings) step(c *gc.C, ctx *testContext) {
 
 type successToken struct{}
 
-func (successToken) Check(int, interface{}) error {
+func (successToken) Check() error {
 	return nil
 }
 
@@ -1690,7 +1690,7 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 
 type fakeToken struct{}
 
-func (t *fakeToken) Check(int, interface{}) error {
+func (t *fakeToken) Check() error {
 	return nil
 }
 

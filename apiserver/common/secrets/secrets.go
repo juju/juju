@@ -82,7 +82,7 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 	authApp := names.NewApplicationTag(appName)
 	if authTag.Kind() == names.UnitTagKind {
 		token := leadershipChecker.LeadershipCheck(appName, authTag.Id())
-		err := token.Check(0, nil)
+		err := token.Check()
 		if err != nil && !leadership.IsNotLeaderError(err) {
 			return nil, errors.Trace(err)
 		}
