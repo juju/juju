@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
@@ -257,6 +259,7 @@ func (s *ApplicationSuite) expectApplication(ctrl *gomock.Controller, name strin
 	}
 	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().Name().Return(name).AnyTimes()
+	app.EXPECT().ApplicationTag().Return(names.NewApplicationTag(name)).AnyTimes()
 	app.EXPECT().Series().Return(series).AnyTimes()
 	app.EXPECT().IsPrincipal().Return(true).AnyTimes()
 	app.EXPECT().IsExposed().Return(false).AnyTimes()
@@ -274,6 +277,8 @@ func (s *ApplicationSuite) expectDefaultApplication(ctrl *gomock.Controller) *mo
 func (s *ApplicationSuite) expectApplicationWithCharm(ctrl *gomock.Controller, ch application.Charm, name string) *mocks.MockApplication {
 	app := s.expectApplication(ctrl, name)
 	app.EXPECT().Charm().Return(ch, true, nil).AnyTimes()
+	curl := fmt.Sprintf("cs:%s-42", name)
+	app.EXPECT().CharmURL().Return(&curl, false).AnyTimes()
 	return app
 }
 
@@ -334,6 +339,95 @@ func (s *ApplicationSuite) TestSetCAASConfigSettingsInIAASModelTriggersError(c *
 			Message: "parsing settings for application: unknown option \"juju-external-hostname\"",
 		},
 	}}, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
+}
+
+func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:something-else")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().SetCharm(state.SetCharmConfig{
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-store",
+			Platform: &state.Platform{},
+		},
+	})
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:something-else",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestSetCharmWithBlockRemove(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	s.TestSetCharm(c)
+}
+
+func (s *ApplicationSuite) TestSetCharmWithBlockChange(c *gc.C) {
+	s.changeAllowed = errors.New("change blocked")
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:something-else",
+	})
+	c.Assert(err, gc.ErrorMatches, "change blocked")
+}
+
+func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectDefaultCharm(ctrl)
+	curl := charm.MustParseURL("cs:something-else")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().SetCharm(state.SetCharmConfig{
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-store",
+			Platform: &state.Platform{},
+		},
+		ForceUnits: true,
+	})
+
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:something-else",
+		ForceUnits:      true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestSetCharmWithBlocksAndForceUnits(c *gc.C) {
+	s.removeAllowed = errors.New("remove blocked")
+	s.changeAllowed = errors.New("change blocked")
+	s.TestSetCharmForceUnits(c)
+}
+
+func (s *ApplicationSuite) TestSetCharmInvalidApplication(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.backend.EXPECT().Application("badapplication").Return(nil, errors.NotFoundf(`application "badapplication"`))
+
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "badapplication",
+		CharmURL:        "cs:something-else",
+		ForceSeries:     true,
+		ForceUnits:      true,
+	})
+	c.Assert(err, gc.ErrorMatches, `application "badapplication" not found`)
 }
 
 func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
@@ -611,6 +705,88 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(
+		ctrl,
+		&charm.Meta{
+			Assumes: &assumes.ExpressionTree{
+				Expression: assumes.CompositeExpression{
+					ExprType: assumes.AllOfExpression,
+					SubExpressions: []assumes.Expression{
+						assumes.FeatureExpression{Name: "popcorn"},
+					},
+				},
+			},
+		},
+		nil,
+		&charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	)
+
+	curl := charm.MustParseURL("cs:postgresql")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	// Try to upgrade the charm
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+	})
+	c.Assert(err, gc.ErrorMatches, `(?m).*Charm feature requirements cannot be met.*`)
+}
+
+func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	ch := s.expectCharm(
+		ctrl,
+		&charm.Meta{
+			Assumes: &assumes.ExpressionTree{
+				Expression: assumes.CompositeExpression{
+					ExprType: assumes.AllOfExpression,
+					SubExpressions: []assumes.Expression{
+						assumes.FeatureExpression{Name: "popcorn"},
+					},
+				},
+			},
+		},
+		nil,
+		&charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	)
+
+	curl := charm.MustParseURL("cs:postgresql")
+	s.backend.EXPECT().Charm(curl).Return(ch, nil)
+
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().SetCharm(gomock.Any()).Return(nil)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	// Try to upgrade the charm
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+		ConfigSettings:  map[string]string{"stringOption": "value"},
+		Force:           true,
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to succeed when --force is set"))
 }
 
 func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
@@ -2787,8 +2963,6 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	s.backend.EXPECT().Unit("mysql/0").Return(nil, errors.NotFoundf(`unit "mysql/0"`))
 
 	app := s.expectDefaultApplication(ctrl)
-	curl := "cs:postgresql-42"
-	app.EXPECT().CharmURL().Return(&curl, true)
 
 	rel := s.expectRelation(ctrl, "postgresql:db gitlab:server", false)
 	rel.EXPECT().Id().Return(101)
@@ -2849,9 +3023,6 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 	unit0 := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), "postgresql/0")
 	unit1 := s.expectUnitWithCloudContainer(ctrl, s.expectCloudContainer(ctrl), "postgresql/1")
 	app.EXPECT().AllUnits().Return([]application.Unit{unit0, unit1}, nil)
-
-	curl := "cs:postgresql-42"
-	app.EXPECT().CharmURL().Return(&curl, true).MinTimes(1)
 
 	rel := s.expectRelation(ctrl, "postgresql:db gitlab:server", false)
 	rel.EXPECT().Id().Return(101).MinTimes(1)
@@ -2924,88 +3095,6 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 		ProviderId: "provider-id",
 		Address:    "192.168.1.1",
 	})
-}
-
-func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(
-		ctrl,
-		&charm.Meta{
-			Assumes: &assumes.ExpressionTree{
-				Expression: assumes.CompositeExpression{
-					ExprType: assumes.AllOfExpression,
-					SubExpressions: []assumes.Expression{
-						assumes.FeatureExpression{Name: "popcorn"},
-					},
-				},
-			},
-		},
-		nil,
-		&charm.Config{
-			Options: map[string]charm.Option{
-				"stringOption": {Type: "string"},
-				"intOption":    {Type: "int", Default: int(123)},
-			},
-		},
-	)
-
-	curl := charm.MustParseURL("cs:postgresql")
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Try to upgrade the charm
-	err := s.api.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "postgresql",
-		CharmURL:        "cs:postgresql",
-		ConfigSettings:  map[string]string{"stringOption": "value"},
-	})
-	c.Assert(err, gc.ErrorMatches, `(?m).*Charm feature requirements cannot be met.*`)
-}
-
-func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(
-		ctrl,
-		&charm.Meta{
-			Assumes: &assumes.ExpressionTree{
-				Expression: assumes.CompositeExpression{
-					ExprType: assumes.AllOfExpression,
-					SubExpressions: []assumes.Expression{
-						assumes.FeatureExpression{Name: "popcorn"},
-					},
-				},
-			},
-		},
-		nil,
-		&charm.Config{
-			Options: map[string]charm.Option{
-				"stringOption": {Type: "string"},
-				"intOption":    {Type: "int", Default: int(123)},
-			},
-		},
-	)
-
-	curl := charm.MustParseURL("cs:postgresql")
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(gomock.Any()).Return(nil)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	// Try to upgrade the charm
-	err := s.api.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "postgresql",
-		CharmURL:        "cs:postgresql",
-		ConfigSettings:  map[string]string{"stringOption": "value"},
-		Force:           true,
-	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("expected SetCharm to succeed when --force is set"))
 }
 
 func (s *ApplicationSuite) TestLeader(c *gc.C) {
@@ -3233,4 +3322,47 @@ func (s *ApplicationSuite) TestIllegalSettingsParsing(c *gc.C) {
 		"yummy": "didgeridoo",
 	})
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
+}
+
+func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	rev := 42
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Source:   "local",
+		Revision: &rev,
+		Channel: &state.Channel{
+			Track:  "latest",
+			Risk:   "stable",
+			Branch: "foo",
+		},
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+	})
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+
+	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.URL, gc.Equals, "cs:postgresql-42")
+
+	latest := "latest"
+	branch := "foo"
+
+	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+		Source:       "local",
+		Risk:         "stable",
+		Revision:     &rev,
+		Track:        &latest,
+		Branch:       &branch,
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Channel:      "20.04",
+		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), coretesting.ModelTag),
+	})
 }
