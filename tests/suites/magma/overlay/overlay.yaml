@@ -1,0 +1,11 @@
+applications:
+  orc8r-certifier:
+    options:
+      domain: magma-test
+  orc8r-nginx:
+    options:
+      domain: magma-test
+  tls-certificates-operator:
+    options:
+      generate-self-signed-certificates: true
+      ca-common-name: rootca.magma-test
