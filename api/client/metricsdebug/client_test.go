@@ -21,7 +21,6 @@ import (
 )
 
 type metricsdebugSuiteMock struct {
-	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&metricsdebugSuiteMock{})
@@ -147,13 +146,86 @@ func (s *metricsdebugSuiteMock) TestGetMetricsForModelFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "an error")
 }
 
+func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.MeterStatusParams{
+		Statuses: []params.MeterStatusParam{{
+			Tag:  "unit-metered/0",
+			Code: "RED",
+			Info: "test"},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: nil,
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *metricsdebugSuiteMock) TestSetMeterStatusAPIServerError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.MeterStatusParams{
+		Statuses: []params.MeterStatusParam{{
+			Tag:  "unit-metered/0",
+			Code: "RED",
+			Info: "test"},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(errors.New("an error")),
+		}},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, gc.ErrorMatches, "an error")
+}
+
+func (s *metricsdebugSuiteMock) TestSetMeterStatusFacadeCallError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.MeterStatusParams{
+		Statuses: []params.MeterStatusParam{{
+			Tag:  "unit-metered/0",
+			Code: "RED",
+			Info: "test"},
+		},
+	}
+	res := new(params.ErrorResults)
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).Return(errors.New("an error"))
+	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, gc.ErrorMatches, "an error")
+}
+
+type metricsdebugSuite struct {
+	jujutesting.JujuConnSuite
+}
+
+var _ = gc.Suite(&metricsdebugSuite{})
+
 func assertSameMetric(c *gc.C, a params.MetricResult, b *state.MetricBatch) {
 	c.Assert(a.Key, gc.Equals, b.Metrics()[0].Key)
 	c.Assert(a.Value, gc.Equals, b.Metrics()[0].Value)
 	c.Assert(a.Time, jc.TimeBetween(b.Metrics()[0].Time, b.Metrics()[0].Time))
 }
 
-func (s *metricsdebugSuiteMock) TestFeatureGetMultipleMetrics(c *gc.C) {
+func (s *metricsdebugSuite) TestFeatureGetMultipleMetrics(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -247,7 +319,7 @@ func (s *metricsdebugSuiteMock) TestFeatureGetMultipleMetrics(c *gc.C) {
 	assertSameMetric(c, metrics3[1], metricUnit1)
 }
 
-func (s *metricsdebugSuiteMock) TestFeatureGetMultipleMetricsWithApplication(c *gc.C) {
+func (s *metricsdebugSuite) TestFeatureGetMultipleMetricsWithApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -294,74 +366,7 @@ func (s *metricsdebugSuiteMock) TestFeatureGetMultipleMetricsWithApplication(c *
 	assertSameMetric(c, metrics[1], metricUnit1)
 }
 
-func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.MeterStatusParams{
-		Statuses: []params.MeterStatusParam{{
-			Tag:  "unit-metered/0",
-			Code: "RED",
-			Info: "test"},
-		},
-	}
-	res := new(params.ErrorResults)
-	ress := params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: nil,
-		}},
-	}
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
-	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *metricsdebugSuiteMock) TestSetMeterStatusAPIServerError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.MeterStatusParams{
-		Statuses: []params.MeterStatusParam{{
-			Tag:  "unit-metered/0",
-			Code: "RED",
-			Info: "test"},
-		},
-	}
-	res := new(params.ErrorResults)
-	ress := params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: apiservererrors.ServerError(errors.New("an error")),
-		}},
-	}
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
-	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
-	c.Assert(err, gc.ErrorMatches, "an error")
-}
-
-func (s *metricsdebugSuiteMock) TestSetMeterStatusFacadeCallError(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	args := params.MeterStatusParams{
-		Statuses: []params.MeterStatusParam{{
-			Tag:  "unit-metered/0",
-			Code: "RED",
-			Info: "test"},
-		},
-	}
-	res := new(params.ErrorResults)
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).Return(errors.New("an error"))
-	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
-	c.Assert(err, gc.ErrorMatches, "an error")
-}
-
-func (s *metricsdebugSuiteMock) TestSetMeterStatusMultiple(c *gc.C) {
+func (s *metricsdebugSuite) TestSetMeterStatusMultiple(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
