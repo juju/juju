@@ -4598,11 +4598,11 @@ func RemoveDefaultSeriesFromModelConfig(pool *StatePool) error {
 	defer func() { _ = iter.Close() }()
 	var doc settingsDoc
 	for iter.Next(&doc) {
-		_, ok := doc.Settings[config.DefaultSeries]
+		_, ok := doc.Settings[config.DefaultSeriesKey]
 		if !ok {
 			continue
 		}
-		doc.Settings[config.DefaultSeries] = ""
+		doc.Settings[config.DefaultSeriesKey] = ""
 		ops = append(ops, txn.Op{
 			C:      settingsC,
 			Id:     doc.DocID,
