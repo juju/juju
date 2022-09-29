@@ -247,8 +247,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 						"floppy", "netdev", "plugdev",
 						"sudo", "video"},
 					"shell":               "/bin/bash",
-					"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-					"ssh-authorized-keys": []interface{}{"wheredidileavemykeys"},
+					"sudo":                "ALL=(ALL) NOPASSWD:ALL",
+					"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
 				},
 			}
 		}

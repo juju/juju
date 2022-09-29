@@ -1498,13 +1498,13 @@ func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
 		"name":        "ubuntu",
 		"lock_passwd": true,
 		"shell":       "/bin/bash",
-		"sudo":        []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+		"sudo":        "ALL=(ALL) NOPASSWD:ALL",
 	}
 	if groups != nil {
 		user["groups"] = groups
 	}
 	if keys != nil {
-		user["ssh-authorized-keys"] = keys
+		user["ssh_authorized_keys"] = keys
 	}
 	return map[string]interface{}{
 		"users": []map[string]interface{}{user},

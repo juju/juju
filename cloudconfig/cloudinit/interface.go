@@ -391,7 +391,7 @@ type User struct {
 	SSHAuthorizedKeys string
 
 	// Sudo directives to add.
-	Sudo []string
+	Sudo string
 }
 
 // UsersConfig is the interface for managing user additions
