@@ -29,9 +29,15 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
-        sudo snap install lxd
+        
+        sudo apt-get remove lxd lxd-client
+        if snap info lxd | grep "installed"; then
+          sudo snap refresh lxd --channel=latest/stable
+        else
+          sudo snap install lxd --channel=latest/stable
+        fi
+        
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
@@ -75,7 +81,8 @@ jobs:
     - name: Smoke Test
       shell: bash
       run: |
-        cd tests && ./main.sh smoke
+        cd tests
+        ./main.sh -v smoke
 
   Upgrade:
     name: Upgrade
