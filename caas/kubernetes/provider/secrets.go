@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -249,9 +248,8 @@ func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string)
 }
 
 // SaveJujuSecret implements SecretsStore.
-func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
+func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (string, error) {
 	logger.Criticalf("kubernetesClient.SaveJujuSecret")
-	name := fmt.Sprintf("%s-%d", uri.ID, revision)
 	labels := utils.LabelsMerge(
 		utils.LabelsForModel(k.CurrentModel(), false),
 		utils.LabelsJuju)

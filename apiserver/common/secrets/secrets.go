@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -97,10 +96,10 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ownedURIs := make([]*secrets.URI, len(owned))
-	for i, md := range owned {
-		logger.Criticalf("owned => %d %s/%d", i, md.URI.ID, md.Version)
-		ownedURIs[i] = md.URI
+	ownedURIs := provider.NameMetaSlice{}
+	for _, md := range owned {
+		logger.Criticalf("owned => %s/%d", md.URI.ID, md.Version)
+		ownedURIs.Add(md.URI, md.Version)
 	}
 
 	// Find secrets shared with the agent.
@@ -111,10 +110,10 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	readURIs := make([]*secrets.URI, len(read))
-	for i, md := range read {
-		logger.Criticalf("read => %d %s/%d", i, md.URI.ID, md.Version)
-		readURIs[i] = md.URI
+	readURIs := provider.NameMetaSlice{}
+	for _, md := range read {
+		logger.Criticalf("read => %s/%d", md.URI.ID, md.Version)
+		readURIs.Add(md.URI, md.Version)
 	}
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedURIs, readURIs)
 	cfg, err := p.StoreConfig(ma, authTag, ownedURIs, readURIs)

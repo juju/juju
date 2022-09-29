@@ -6,7 +6,6 @@ package juju
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -34,13 +33,15 @@ func (p jujuProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed []*secrets.URI) error {
+func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.NameMetaSlice) error {
 	return nil
 }
 
 // StoreConfig returns nil config params since the Juju store saves
 // secret content to the Juju database.
-func (p jujuProvider) StoreConfig(m provider.Model, tag names.Tag, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
+func (p jujuProvider) StoreConfig(
+	m provider.Model, tag names.Tag, owned provider.NameMetaSlice, read provider.NameMetaSlice,
+) (*provider.StoreConfig, error) {
 	return &provider.StoreConfig{StoreType: Store}, nil
 }
 

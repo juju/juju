@@ -4,6 +4,9 @@
 package provider
 
 import (
+	"fmt"
+
+	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/cloud"
@@ -20,6 +23,30 @@ type Model interface {
 	UUID() string
 }
 
+// NameMetaSlice stores information for generating resource name for a list of secrets.
+type NameMetaSlice map[string]set.Ints
+
+// Add adds a secret with revisions.
+func (nm NameMetaSlice) Add(uri *secrets.URI, revisions ...int) {
+	if _, ok := nm[uri.ID]; !ok {
+		nm[uri.ID] = set.NewInts(revisions...)
+		return
+	}
+	for _, rev := range revisions {
+		nm[uri.ID].Add(rev)
+	}
+}
+
+// Names returns the names of the secrets.
+func (nm NameMetaSlice) Names() (names []string) {
+	for id, revisions := range nm {
+		for _, rev := range revisions.SortedValues() {
+			names = append(names, fmt.Sprintf("%s-%d", id, rev))
+		}
+	}
+	return names
+}
+
 // SecretStoreProvider instances create secret stores.
 type SecretStoreProvider interface {
 	// TODO(wallyworld) - add config schema methods
@@ -30,7 +57,7 @@ type SecretStoreProvider interface {
 
 	// CleanupSecrets removes any ACLs / resources associated
 	// with the removed secrets.
-	CleanupSecrets(m Model, tag names.Tag, removed []*secrets.URI) error
+	CleanupSecrets(m Model, tag names.Tag, removed NameMetaSlice) error
 
 	// CleanupModel removes any secrets / ACLs / resources
 	// associated with the model.
@@ -38,7 +65,7 @@ type SecretStoreProvider interface {
 
 	// StoreConfig returns the config needed to create a vault secrets store client
 	// used to manage owned secrets and read shared secrets.
-	StoreConfig(m Model, tag names.Tag, owned []*secrets.URI, read []*secrets.URI) (*StoreConfig, error)
+	StoreConfig(m Model, tag names.Tag, owned NameMetaSlice, read NameMetaSlice) (*StoreConfig, error)
 
 	// NewStore creates a secrets store client using the
 	// specified config.

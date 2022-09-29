@@ -51,7 +51,7 @@ func (p k8sProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
-func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed []*secrets.URI) error {
+func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.NameMetaSlice) error {
 	logger.Criticalf("CleanupSecret tag %q,  removed %#v", tag, removed)
 	if tag == nil {
 		// This should never happen.
@@ -78,7 +78,7 @@ func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed []*
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = broker.EnsureSecretAccessToken(tag, nil, nil, removed)
+	_, err = broker.EnsureSecretAccessToken(tag, nil, nil, removed.Names())
 	return errors.Trace(err)
 }
 
@@ -104,7 +104,7 @@ func cloudSpecToStoreConfig(controllerUUID string, cfg *config.Config, spec clou
 
 // StoreConfig returns the config needed to create a k8s secrets store.
 // TODO(wallyworld) - only allow access to the specified secrets
-func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned []*secrets.URI, read []*secrets.URI) (*provider.StoreConfig, error) {
+func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.NameMetaSlice, read provider.NameMetaSlice) (*provider.StoreConfig, error) {
 	cloudSpec, err := cloudSpecForModel(m)
 	logger.Criticalf("1 StoreConfig tag %q,  owned %#v, read %#v, cloudSpec %s", tag, owned, read, pretty.Sprint(cloudSpec))
 	if err != nil {
@@ -129,7 +129,7 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned []*secre
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	token, err := broker.EnsureSecretAccessToken(tag, owned, read, nil)
+	token, err := broker.EnsureSecretAccessToken(tag, owned.Names(), read.Names(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,16 +139,18 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned []*secre
 	}
 	cloudSpec.Credential = &cred
 
-	// TODO: !!!
-	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
-	if len(host) == 0 || len(port) == 0 {
-		return nil, errors.New("no address and port")
-	}
-	cloudSpec.Endpoint = "https://" + net.JoinHostPort(host, port)
+	if cloudSpec.IsControllerCloud {
+		// the cloudspec used for controller having fake endpoint(address and port)
+		// because we ignores these endpoint and loads in-cluster credential instead.
+		// So we have to clean up the endpoint here for uniter to use.
 
-	cloudSpec.IsControllerCloud = false // !!!!  If it's true, we will use incluster credentials!!
-	// TODO: currently we have kubeproxy setup, so the k8s apiserver addr sets to 127.0.0.1:16443 which is not reachable from uniter pod!!!
-	// TODO: instead of using []*secrets.URI, we should use []secrets.Filter because
+		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
+		if len(host) != 0 && len(port) != 0 {
+			cloudSpec.Endpoint = "https://" + net.JoinHostPort(host, port)
+			cloudSpec.IsControllerCloud = false
+		}
+	}
+	// TODO: instead of using provider.NameMetaSlice, we should use []secrets.Filter because
 	// we need the Version/Revision for the rules - the secret name format is <filter.URI.ID>-<filter.Version>.
 
 	logger.Criticalf("2 StoreConfig tag %q,  owned %#v, read %#v, cloudSpec %s", tag, owned, read, pretty.Sprint(cloudSpec))
@@ -239,5 +241,5 @@ func (k k8sStore) DeleteContent(ctx context.Context, providerId string) error {
 // SaveContent implements SecretsStore.
 func (k k8sStore) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
 	logger.Criticalf("SaveContent providerId %q %d", uri, revision)
-	return k.broker.SaveJujuSecret(ctx, uri, revision, value)
+	return k.broker.SaveJujuSecret(ctx, uri.Name(revision), value)
 }

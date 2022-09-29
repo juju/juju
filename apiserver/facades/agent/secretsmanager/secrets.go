@@ -18,6 +18,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -203,12 +204,12 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	var removedURIs []*coresecrets.URI
+	removedURIs := secretsprovider.NameMetaSlice{}
 	for i, d := range toDelete {
 		removed, err := s.removeSecret(d.uri, d.revisions...)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 		if err == nil && removed {
-			removedURIs = append(removedURIs, d.uri)
+			removedURIs.Add(d.uri, d.revisions...)
 		}
 	}
 	if len(removedURIs) == 0 {

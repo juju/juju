@@ -91,6 +91,10 @@ func NewURI() *URI {
 	}
 }
 
+func (u URI) Name(revision int) string {
+	return fmt.Sprintf("%s-%d", u.ID, revision)
+}
+
 // String prints the URI as a string.
 func (u *URI) String() string {
 	if u == nil {
