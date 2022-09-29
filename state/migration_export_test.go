@@ -1809,7 +1809,7 @@ func (s *MigrationExportSuite) TestOperations(c *gc.C) {
 type goodToken struct{}
 
 // Check implements leadership.Token
-func (*goodToken) Check(int, interface{}) error {
+func (*goodToken) Check() error {
 	return nil
 }
 

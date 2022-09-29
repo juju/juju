@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -29,10 +28,6 @@ const (
 	// fieldHolder identifies the holder field in a leaseHolderDoc.
 	fieldHolder = "holder"
 )
-
-// logger is only used when we need to update the database from within
-// a trapdoor function.
-var logger = loggo.GetLogger("juju.state.raftlease")
 
 // leaseHolderDoc is used to serialise lease holder info.
 type leaseHolderDoc struct {
@@ -281,48 +276,6 @@ func (t *notifyTarget) Expiries(expiries []raftlease.Expired) error {
 	}
 
 	return errors.Annotatef(err, "%v in db", docIds.SortedValues())
-}
-
-// MakeTrapdoorFunc returns a raftlease.TrapdoorFunc for the specified
-// collection.
-func MakeTrapdoorFunc(mongo Mongo, collection string) raftlease.TrapdoorFunc {
-	return func(key lease.Key, holder string) lease.Trapdoor {
-		return func(attempt int, out interface{}) error {
-			outPtr, ok := out.(*[]txn.Op)
-			if !ok {
-				return errors.NotValidf("expected *[]txn.Op; %T", out)
-			}
-			if attempt != 0 {
-				// If the assertion failed it may be because a claim
-				// notify failed in the past due to the DB not being
-				// available. Sync the lease holder - this is safe to
-				// do because raft is the arbiter of who really holds
-				// the lease, and we check that the lease is held in
-				// buildTxnWithLeadership each time before collecting
-				// the assertion ops.
-				docId := leaseHolderDocId(key.Namespace, key.ModelUUID, key.Lease)
-				writeNeeded, err := applyClaimed(mongo, collection, docId, key, holder)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if writeNeeded {
-					logger.Infof("trapdoor claimed lease %q for %q", docId, holder)
-				}
-			}
-			*outPtr = []txn.Op{{
-				C: collection,
-				Id: leaseHolderDocId(
-					key.Namespace,
-					key.ModelUUID,
-					key.Lease,
-				),
-				Assert: bson.M{
-					fieldHolder: holder,
-				},
-			}}
-			return nil
-		}
-	}
 }
 
 func getRecord(coll mongo.Collection, docId string) (leaseHolderDoc, error) {

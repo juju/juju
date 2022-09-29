@@ -1067,7 +1067,7 @@ func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error
 	target := st.LeaseNotifyTarget(
 		loggo.GetLogger("juju.state.raftlease"),
 	)
-	dummyStore := newLeaseStore(clock.WallClock, target, st.LeaseTrapdoorFunc())
+	dummyStore := newLeaseStore(clock.WallClock, target)
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
 		Store:                dummyStore,

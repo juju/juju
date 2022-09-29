@@ -72,15 +72,15 @@ func (m *MockToken) EXPECT() *MockTokenMockRecorder {
 }
 
 // Check mocks base method.
-func (m *MockToken) Check(arg0 int, arg1 interface{}) error {
+func (m *MockToken) Check() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Check", arg0, arg1)
+	ret := m.ctrl.Call(m, "Check")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Check indicates an expected call of Check.
-func (mr *MockTokenMockRecorder) Check(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockTokenMockRecorder) Check() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Check", reflect.TypeOf((*MockToken)(nil).Check), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Check", reflect.TypeOf((*MockToken)(nil).Check))
 }

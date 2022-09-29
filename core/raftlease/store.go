@@ -72,7 +72,6 @@ type ReadonlyFSM interface {
 type StoreConfig struct {
 	FSM              ReadonlyFSM
 	Client           Client
-	Trapdoor         TrapdoorFunc
 	Clock            clock.Clock
 	MetricsCollector MetricsCollector
 }
@@ -135,23 +134,12 @@ func (s *Store) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) 
 
 // Leases is part of lease.Store.
 func (s *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
-	leaseMap := s.fsm.Leases(s.config.Clock.Now, keys...)
-	s.addTrapdoors(leaseMap)
-	return leaseMap
+	return s.fsm.Leases(s.config.Clock.Now, keys...)
 }
 
 // LeaseGroup is part of Lease.Store.
 func (s *Store) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
-	leaseMap := s.fsm.LeaseGroup(s.config.Clock.Now, namespace, modelUUID)
-	s.addTrapdoors(leaseMap)
-	return leaseMap
-}
-
-func (s *Store) addTrapdoors(leaseMap map[lease.Key]lease.Info) {
-	for k, v := range leaseMap {
-		v.Trapdoor = s.config.Trapdoor(k, v.Holder)
-		leaseMap[k] = v
-	}
+	return s.fsm.LeaseGroup(s.config.Clock.Now, namespace, modelUUID)
 }
 
 // PinLease is part of lease.Store.
