@@ -107,12 +107,16 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo apt-get remove lxd lxd-client
         sudo snap install snapcraft --classic
-        sudo snap install lxd
         sudo snap install yq
         sudo snap install juju --classic --channel=${{ matrix.snap_version }}
-
+        
+        sudo apt-get remove lxd lxd-client
+        if snap info lxd | grep "installed"; then
+          sudo snap remove lxd --purge
+        fi
+        sudo snap install lxd --channel=4.0/candidate
+        
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
