@@ -156,17 +156,18 @@ func addressesToConfig(nic params.NetworkConfig, nicAddrs []network.ConfigSource
 			continue
 		}
 
-		addr := params.Address{
-			Value:       ip.String(),
-			ConfigType:  nic.ConfigType,
-			IsSecondary: nicAddr.IsSecondary(),
+		opts := []func(mutator network.AddressMutator){
+			network.WithConfigType(network.AddressConfigType(nic.ConfigType)),
+			network.WithSecondary(nicAddr.IsSecondary()),
 		}
 
 		if ipNet := nicAddr.IPNet(); ipNet != nil && ipNet.Mask != nil {
-			addr.CIDR = network.NetworkCIDRFromIPAndMask(ip, ipNet.Mask)
+			opts = append(opts, network.WithCIDR(network.NetworkCIDRFromIPAndMask(ip, ipNet.Mask)))
 		}
 
-		res = append(res, addr)
+		// Constructing a core network.Address like this first,
+		// then converting, populates the scope and type.
+		res = append(res, params.FromMachineAddress(network.NewMachineAddress(ip.String(), opts...)))
 	}
 
 	return res, nil

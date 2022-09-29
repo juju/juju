@@ -405,16 +405,12 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) ([]txn.Op, error)
 	cidrSet := set.NewStrings()
 	var isVLAN bool
 	for _, matching := range o.Incoming().GetByName(name) {
-		if matching.InterfaceType == network.LoopbackDevice {
-			continue
-		}
-
 		if matching.IsVLAN() {
 			isVLAN = true
 		}
 
 		for _, addr := range matching.Addresses {
-			if addr.CIDR != "" {
+			if addr.Scope != network.ScopeMachineLocal && addr.CIDR != "" {
 				cidrSet.Add(addr.CIDR)
 			}
 		}
