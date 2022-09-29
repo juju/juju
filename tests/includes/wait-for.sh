@@ -290,7 +290,7 @@ wait_for_storage() {
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
-	until [[ "$(juju storage --format=json 2>/dev/null | jq -S "${query}" | grep "${name}")" ]]; do
+	until [[ "$(juju storage --format=json 2>/dev/null | jq "${query}" | grep "${name}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
 		juju storage 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
