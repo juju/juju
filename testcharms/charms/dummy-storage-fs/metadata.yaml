@@ -20,6 +20,5 @@ storage:
   data:
     type: filesystem
     description: junk storage
-    minimum-size: 100M
     location: /srv/data
 
