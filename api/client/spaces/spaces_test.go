@@ -14,10 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/spaces"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // spacesSuite are using mocks instead of the apicaller stubs
@@ -240,67 +238,8 @@ func (s *spacesSuite) TestRenameSpaceError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bam")
 }
 
-type SpacesSuite struct {
-	coretesting.BaseSuite
-
-	apiCaller *apitesting.CallChecker
-	api       *spaces.API
-}
-
-var _ = gc.Suite(&SpacesSuite{})
-
-func (s *SpacesSuite) init(c *gc.C, args apitesting.APICall) {
-	s.apiCaller = apitesting.APICallChecker(c, args)
-	s.api = spaces.NewAPI(s.apiCaller.APICallerFunc)
-	c.Check(s.api, gc.NotNil)
-	c.Check(s.apiCaller.CallCount, gc.Equals, 0)
-}
-
-func (s *SpacesSuite) TestNewAPISuccess(c *gc.C) {
-	apiCaller := apitesting.APICallChecker(c)
-	api := spaces.NewAPI(apiCaller)
-	c.Check(api, gc.NotNil)
-	c.Check(apiCaller.CallCount, gc.Equals, 0)
-}
-
-func (s *SpacesSuite) TestNewAPIWithNilCaller(c *gc.C) {
-	panicFunc := func() { spaces.NewAPI(nil) }
-	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
-}
-
-func makeArgs(name string, cidrs []string) (string, []string, apitesting.APICall) {
-	spaceTag := names.NewSpaceTag(name).String()
-
-	expectArgs := params.CreateSpacesParams{
-		Spaces: []params.CreateSpaceParams{
-			{
-				SpaceTag: spaceTag,
-				CIDRs:    cidrs,
-				Public:   true,
-			}}}
-
-	expectResults := params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	}
-
-	args := apitesting.APICall{
-		Facade:  "Spaces",
-		Method:  "CreateSpaces",
-		Args:    expectArgs,
-		Results: expectResults,
-	}
-	return name, cidrs, args
-}
-
-func (s *SpacesSuite) testCreateSpace(c *gc.C, name string, subnets []string) {
-	_, _, args := makeArgs(name, subnets)
-	s.init(c, args)
-	err := s.api.CreateSpace(name, subnets, true)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
+func (s *spacesSuite) TestCreateSpace(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	name := "foo"
 	subnets := []string{}
 	r := rand.New(rand.NewSource(0xdeadbeef))
@@ -310,11 +249,74 @@ func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
 			newSubnet := fmt.Sprintf("%d.%d.%d.0/24", uint8(n>>16), uint8(n>>8), uint8(n))
 			subnets = append(subnets, newSubnet)
 		}
-		s.testCreateSpace(c, name, subnets)
+		args := params.CreateSpacesParams{
+			Spaces: []params.CreateSpaceParams{
+				{
+					SpaceTag: names.NewSpaceTag(name).String(),
+					CIDRs:    subnets,
+					Public:   true,
+				},
+			},
+		}
+		res := new(params.ErrorResults)
+		ress := params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		s.fCaller.EXPECT().FacadeCall("CreateSpaces", args, res).SetArg(2, ress).Return(nil)
+		err := s.API.CreateSpace(name, subnets, true)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
-func (s *SpacesSuite) testShowSpaces(c *gc.C, spaceName string, results []params.ShowSpaceResult, err error, expectErr string) {
+func (s *spacesSuite) TestCreateSpaceEmptyResults(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{
+			{
+				SpaceTag: names.NewSpaceTag("foo").String(),
+				CIDRs:    nil,
+				Public:   true,
+			},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{Message: "expected 1 result, got 0"},
+		}},
+	}
+
+	s.fCaller.EXPECT().FacadeCall("CreateSpaces", args, res).SetArg(2, ress).Return(nil)
+	err := s.API.CreateSpace("foo", nil, true)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
+}
+
+func (s *spacesSuite) TestCreateSpaceFails(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{
+			{
+				SpaceTag: names.NewSpaceTag("foo").String(),
+				CIDRs:    []string{"1.1.1.0/24"},
+				Public:   true,
+			},
+		},
+	}
+	res := new(params.ErrorResults)
+	ress := params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{Message: "bang"},
+		}},
+	}
+
+	s.fCaller.EXPECT().FacadeCall("CreateSpaces", args, res).SetArg(2, ress).Return(nil)
+	err := s.API.CreateSpace("foo", []string{"1.1.1.0/24"}, true)
+	c.Assert(err, gc.ErrorMatches, "bang")
+}
+
+func (s *spacesSuite) testShowSpaces(c *gc.C, spaceName string, results []params.ShowSpaceResult, err error, expectErr string) {
+	defer s.setUpMocks(c).Finish()
+
 	var expectResults params.ShowSpaceResults
 	if results != nil {
 		expectResults = params.ShowSpaceResults{
@@ -322,14 +324,13 @@ func (s *SpacesSuite) testShowSpaces(c *gc.C, spaceName string, results []params
 		}
 	}
 
-	s.init(c, apitesting.APICall{
-		Facade:  "Spaces",
-		Method:  "ShowSpace",
-		Results: expectResults,
-		Error:   err,
-	})
-	gotResults, gotErr := s.api.ShowSpace(spaceName)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewSpaceTag(spaceName).String()}},
+	}
+	res := new(params.ShowSpaceResults)
+
+	s.fCaller.EXPECT().FacadeCall("ShowSpace", args, res).SetArg(2, expectResults).Return(err)
+	gotResults, gotErr := s.API.ShowSpace(spaceName)
 	if expectErr != "" {
 		c.Assert(gotErr, gc.ErrorMatches, expectErr)
 		return
@@ -345,7 +346,7 @@ func (s *SpacesSuite) testShowSpaces(c *gc.C, spaceName string, results []params
 	}
 }
 
-func (s *SpacesSuite) TestShowSpaceTooManyResults(c *gc.C) {
+func (s *spacesSuite) TestShowSpaceTooManyResults(c *gc.C) {
 	s.testShowSpaces(c, "empty",
 		[]params.ShowSpaceResult{
 			{
@@ -357,11 +358,11 @@ func (s *SpacesSuite) TestShowSpaceTooManyResults(c *gc.C) {
 		}, nil, "expected 1 result, got 2")
 }
 
-func (s *SpacesSuite) TestShowSpaceNoResultsResults(c *gc.C) {
+func (s *spacesSuite) TestShowSpaceNoResultsResults(c *gc.C) {
 	s.testShowSpaces(c, "empty", nil, nil, "expected 1 result, got 0")
 }
 
-func (s *SpacesSuite) TestShowSpaceResult(c *gc.C) {
+func (s *spacesSuite) TestShowSpaceResult(c *gc.C) {
 	result := []params.ShowSpaceResult{{
 		Space:        params.Space{Id: "1", Name: "default"},
 		Applications: []string{},
@@ -370,53 +371,31 @@ func (s *SpacesSuite) TestShowSpaceResult(c *gc.C) {
 	s.testShowSpaces(c, "default", result, nil, "")
 }
 
-func (s *SpacesSuite) TestShowSpaceServerError(c *gc.C) {
+func (s *spacesSuite) TestShowSpaceServerError(c *gc.C) {
 	s.testShowSpaces(c, "nil", nil, errors.New("boom"), "boom")
 }
 
-func (s *SpacesSuite) TestShowSpaceError(c *gc.C) {
+func (s *spacesSuite) TestShowSpaceError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	arg := "space"
-	var called bool
-	apicaller := &apitesting.BestVersionCaller{
-		APICallerFunc: apitesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, result interface{}) error {
-				c.Check(objType, gc.Equals, "Spaces")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "ShowSpace")
-				c.Assert(result, gc.FitsTypeOf, &params.ShowSpaceResults{})
-				c.Assert(a, jc.DeepEquals, params.Entities{
-					Entities: []params.Entity{{Tag: names.NewSpaceTag(arg).String()}},
-				})
-				called = true
-				return nil
-			},
-		),
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewSpaceTag(arg).String()}},
 	}
-	api := spaces.NewAPI(apicaller)
-	_, err := api.ShowSpace(arg)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
-	c.Assert(called, jc.IsTrue)
-}
+	res := new(params.ShowSpaceResults)
+	ress := params.ShowSpaceResults{
+		Results: []params.ShowSpaceResult{},
+	}
 
-func (s *SpacesSuite) TestCreateSpaceEmptyResults(c *gc.C) {
-	_, _, args := makeArgs("foo", nil)
-	args.Results = params.ErrorResults{}
-	s.init(c, args)
-	err := s.api.CreateSpace("foo", nil, true)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	s.fCaller.EXPECT().FacadeCall("ShowSpace", args, res).SetArg(2, ress).Return(nil)
+
+	_, err := s.API.ShowSpace(arg)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
-func (s *SpacesSuite) TestCreateSpaceFails(c *gc.C) {
-	name, subnets, args := makeArgs("foo", []string{"1.1.1.0/24"})
-	args.Error = errors.New("bang")
-	s.init(c, args)
-	err := s.api.CreateSpace(name, subnets, true)
-	c.Check(s.apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(err, gc.ErrorMatches, "bang")
-}
+func (s *spacesSuite) testListSpaces(c *gc.C, results []params.Space, err error, expectErr string) {
+	defer s.setUpMocks(c).Finish()
 
-func (s *SpacesSuite) testListSpaces(c *gc.C, results []params.Space, err error, expectErr string) {
 	var expectResults params.ListSpacesResults
 	if results != nil {
 		expectResults = params.ListSpacesResults{
@@ -424,14 +403,10 @@ func (s *SpacesSuite) testListSpaces(c *gc.C, results []params.Space, err error,
 		}
 	}
 
-	s.init(c, apitesting.APICall{
-		Facade:  "Spaces",
-		Method:  "ListSpaces",
-		Results: expectResults,
-		Error:   err,
-	})
-	gotResults, gotErr := s.api.ListSpaces()
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	res := new(params.ListSpacesResults)
+
+	s.fCaller.EXPECT().FacadeCall("ListSpaces", nil, res).SetArg(2, expectResults).Return(err)
+	gotResults, gotErr := s.API.ListSpaces()
 	c.Assert(gotResults, jc.DeepEquals, results)
 	if expectErr != "" {
 		c.Assert(gotErr, gc.ErrorMatches, expectErr)
@@ -444,11 +419,11 @@ func (s *SpacesSuite) testListSpaces(c *gc.C, results []params.Space, err error,
 	}
 }
 
-func (s *SpacesSuite) TestListSpacesEmptyResults(c *gc.C) {
+func (s *spacesSuite) TestListSpacesEmptyResults(c *gc.C) {
 	s.testListSpaces(c, []params.Space{}, nil, "")
 }
 
-func (s *SpacesSuite) TestListSpacesManyResults(c *gc.C) {
+func (s *spacesSuite) TestListSpacesManyResults(c *gc.C) {
 	spaces := []params.Space{{
 		Name: "space1",
 		Subnets: []params.Subnet{{
@@ -465,30 +440,38 @@ func (s *SpacesSuite) TestListSpacesManyResults(c *gc.C) {
 	s.testListSpaces(c, spaces, nil, "")
 }
 
-func (s *SpacesSuite) TestListSpacesServerError(c *gc.C) {
+func (s *spacesSuite) TestListSpacesServerError(c *gc.C) {
 	s.testListSpaces(c, nil, errors.New("boom"), "boom")
 }
 
-func (s *SpacesSuite) testMoveSubnets(c *gc.C,
+func (s *spacesSuite) testMoveSubnets(c *gc.C,
 	space names.SpaceTag,
 	subnets []names.SubnetTag,
 	results []params.MoveSubnetsResult,
 	err error, expectErr string,
 ) {
+	defer s.setUpMocks(c).Finish()
+
 	var expectedResults params.MoveSubnetsResults
 	if results != nil {
 		expectedResults.Results = results
 	}
 
-	s.init(c, apitesting.APICall{
-		Facade:  "Spaces",
-		Method:  "MoveSubnets",
-		Results: expectedResults,
-		Error:   err,
-	})
+	subnetTags := make([]string, len(subnets))
+	for k, subnet := range subnets {
+		subnetTags[k] = subnet.String()
+	}
+	args := params.MoveSubnetsParams{
+		Args: []params.MoveSubnetsParam{{
+			SubnetTags: subnetTags,
+			SpaceTag:   space.String(),
+			Force:      false,
+		}},
+	}
+	res := new(params.MoveSubnetsResults)
 
-	gotResult, gotErr := s.api.MoveSubnets(space, subnets, false)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	s.fCaller.EXPECT().FacadeCall("MoveSubnets", args, res).SetArg(2, expectedResults).Return(err)
+	gotResult, gotErr := s.API.MoveSubnets(space, subnets, false)
 	if len(results) > 0 {
 		c.Assert(gotResult, jc.DeepEquals, results[0])
 	} else {
@@ -507,14 +490,14 @@ func (s *SpacesSuite) testMoveSubnets(c *gc.C,
 	}
 }
 
-func (s *SpacesSuite) TestMoveSubnetsEmptyResults(c *gc.C) {
+func (s *spacesSuite) TestMoveSubnetsEmptyResults(c *gc.C) {
 	space := names.NewSpaceTag("aaabbb")
 	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
 
 	s.testMoveSubnets(c, space, subnets, []params.MoveSubnetsResult{}, nil, "expected 1 result, got 0")
 }
 
-func (s *SpacesSuite) TestMoveSubnets(c *gc.C) {
+func (s *spacesSuite) TestMoveSubnets(c *gc.C) {
 	space := names.NewSpaceTag("aaabbb")
 	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
 
@@ -527,7 +510,7 @@ func (s *SpacesSuite) TestMoveSubnets(c *gc.C) {
 	}}, nil, "")
 }
 
-func (s *SpacesSuite) TestMoveSubnetsServerError(c *gc.C) {
+func (s *spacesSuite) TestMoveSubnetsServerError(c *gc.C) {
 	space := names.NewSpaceTag("aaabbb")
 	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
 
