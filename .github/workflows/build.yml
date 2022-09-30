@@ -1,10 +1,6 @@
 name: "Build"
 on:
   push:
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/build.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:

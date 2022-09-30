@@ -1,10 +1,6 @@
 name: "Generate"
 on:
   push:
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/gen.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
