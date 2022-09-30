@@ -237,6 +237,15 @@ if [[ ${USER:-'root'} == "root" ]]; then
 	exit 1
 fi
 
+JUJU_FOUND=0
+which juju &>/dev/null || JUJU_FOUND=$?
+if [[ $JUJU_FOUND == 0 ]]; then
+	echo "==> Using Juju located at $(which juju)"
+else
+	# shellcheck disable=SC2016
+	echo '==> WARNING: no Juju found on $PATH'
+fi
+
 cleanup() {
 	# Allow for failures and stop tracing everything
 	set +ex
