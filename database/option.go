@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/errors"
@@ -89,6 +90,43 @@ func (f *OptionFactory) WithTLSOption() (app.Option, error) {
 	}
 
 	return app.WithTLS(listen, dial), nil
+}
+
+// WithClusterOption returns a Dqlite application Option for initialising
+// Dqlite as the member of a cluster with peers representing other controllers.
+// TODO (manadart 2022-09-30): As with WithAddressOption, this relies on each
+// controller having a unique local-cloud address *and* that we can simply
+// use those addresses that aren't ours to determine peers.
+// This will need revision in the context of juju-ha-space as well.
+// Furthermore, relying on agent config for API addresses implicitly makes this
+// affected by a configured juju-ctrl-space, which might be undesired.
+func (f *OptionFactory) WithClusterOption() (app.Option, error) {
+	if err := f.ensureBindAddress(); err != nil {
+		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
+	}
+
+	apiAddrs, err := f.cfg.APIAddresses()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving API addresses")
+	}
+
+	for i, addr := range apiAddrs {
+		apiAddrs[i] = strings.Split(addr, ":")[0]
+	}
+
+	apiAddrs = network.NewMachineAddresses(apiAddrs).AllMatchingScope(network.ScopeMatchCloudLocal).Values()
+
+	// Using this option with no addresses works fine.
+	// In fact, we only need a single other address to join a cluster.
+	// Just ensure that our address is not one of the peers.
+	var peerAddrs []string
+	for _, addr := range apiAddrs {
+		if addr != f.bindAddress {
+			peerAddrs = append(peerAddrs, addr)
+		}
+	}
+
+	return app.WithCluster(peerAddrs), nil
 }
 
 // ensureBindAddress sets the bind address, used by clients and peers.

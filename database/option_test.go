@@ -26,7 +26,7 @@ type optionSuite struct {
 
 var _ = gc.Suite(&optionSuite{})
 
-func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
+func (s *optionSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
@@ -86,7 +86,7 @@ func (s *optionSuite) TestWithAddressOptionMultipleAddressError(c *gc.C) {
 		`.* found \[local-cloud:10.0.0.5 local-cloud:10.0.0.6\]`)
 }
 
-func (s *optionSuite) TestWithTLSOption(c *gc.C) {
+func (s *optionSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
 	f := NewOptionFactory(cfg)
 
@@ -99,25 +99,80 @@ func (s *optionSuite) TestWithTLSOption(c *gc.C) {
 	_ = dqlite.Close()
 }
 
+func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
+	cfg := fakeAgentConfig{
+		apiAddrs: []string{
+			"10.0.0.5:17070",
+			"10.0.0.6:17070",
+			"10.0.0.7:17070",
+			"127.0.0.1:17070", // Filtered out as a non-local-cloud address.
+		},
+	}
+
+	f := NewOptionFactory(cfg)
+
+	f.interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPAddr{IP: net.ParseIP("10.0.0.5")}, // One of the unique local-cloud addresses.
+		}, nil
+	}
+
+	withCluster, err := f.WithClusterOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqlite, err := app.New(c.MkDir(), withCluster)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = dqlite.Close()
+}
+
+func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
+	cfg := fakeAgentConfig{apiAddrs: []string{"10.0.0.5:17070"}}
+
+	f := NewOptionFactory(cfg)
+
+	f.interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
+		}, nil
+	}
+
+	withCluster, err := f.WithClusterOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqlite, err := app.New(c.MkDir(), withCluster)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = dqlite.Close()
+}
+
 type fakeAgentConfig struct {
 	agent.Config
 
-	dataDir string
+	dataDir  string
+	apiAddrs []string
 }
 
-// DataDir implements agent.AgentConfig.
+// DataDir implements agent.Config.
 func (cfg fakeAgentConfig) DataDir() string {
 	return cfg.dataDir
 }
 
+// CACert implements agent.Config.
 func (cfg fakeAgentConfig) CACert() string {
 	return jujutesting.CACert
 }
 
+// StateServingInfo implements agent.AgentConfig.
 func (cfg fakeAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	return controller.StateServingInfo{
 		CAPrivateKey: jujutesting.CAKey,
 		Cert:         jujutesting.ServerCert,
 		PrivateKey:   jujutesting.ServerKey,
 	}, true
+}
+
+// APIAddresses implements agent.Config.
+func (cfg fakeAgentConfig) APIAddresses() ([]string, error) {
+	return cfg.apiAddrs, nil
 }
