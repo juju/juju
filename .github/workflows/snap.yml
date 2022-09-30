@@ -1,11 +1,6 @@
 name: "Snapcraft"
 on:
   push:
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'snap/**'
-      - '.github/workflows/snap.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
