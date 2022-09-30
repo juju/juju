@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/errors"
@@ -27,6 +26,8 @@ type OptionFactory struct {
 	cfg            agent.Config
 	port           int
 	interfaceAddrs func() ([]net.Addr, error)
+
+	bindAddress string
 }
 
 // NewOptionFactory returns a new OptionFactory reference
@@ -49,43 +50,13 @@ func (f *OptionFactory) EnsureDataDir() (string, error) {
 
 // WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
-// TODO (manadart 2022-09-07): We will need to consider what happens with
-// juju-ha-space controller configuration as it relates to this address.
-// We should also look at taking the config as a config setter,
-// writing the address after the first determination, then just reading it
-// thereafter so that it never changes.
+// See the comment for ensureBindAddress below.
 func (f *OptionFactory) WithAddressOption() (app.Option, error) {
-	sysAddrs, err := f.interfaceAddrs()
-	if err != nil {
-		return nil, errors.Annotate(err, "querying addresses of system NICs")
+	if err := f.ensureBindAddress(); err != nil {
+		return nil, errors.Annotate(err, "ensuring Dqlite bind address")
 	}
 
-	var addrs network.MachineAddresses
-	for _, sysAddr := range sysAddrs {
-		var host string
-
-		switch v := sysAddr.(type) {
-		case *net.IPNet:
-			host = v.IP.String()
-		case *net.IPAddr:
-			host = v.IP.String()
-		default:
-			continue
-		}
-
-		addrs = append(addrs, network.NewMachineAddress(host))
-	}
-
-	cloudLocal := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
-	if len(cloudLocal) == 0 {
-		return nil, errors.NewNotFound(nil, "suitable local address for advertising to Dqlite peers")
-	}
-
-	// Sort to ensure that the same address is returned for multi-nic/address
-	// systems. Dqlite does not allow it to change between node restarts.
-	values := cloudLocal.Values()
-	sort.Strings(values)
-	return app.WithAddress(fmt.Sprintf("%s:%d", values[0], f.port)), nil
+	return app.WithAddress(fmt.Sprintf("%s:%d", f.bindAddress, f.port)), nil
 }
 
 // WithTLSOption returns a Dqlite application Option for TLS encryption
@@ -118,4 +89,47 @@ func (f *OptionFactory) WithTLSOption() (app.Option, error) {
 	}
 
 	return app.WithTLS(listen, dial), nil
+}
+
+// ensureBindAddress sets the bind address, used by clients and peers.
+// TODO (manadart 2022-09-30): For now, this is *similar* to the peergrouper
+// logic in that we require a unique local-cloud IP. We will need to revisit
+// this because at present it is not influenced by a configured juju-ha-space.
+func (f *OptionFactory) ensureBindAddress() error {
+	if f.bindAddress != "" {
+		return nil
+	}
+
+	sysAddrs, err := f.interfaceAddrs()
+	if err != nil {
+		return errors.Annotate(err, "querying addresses of system NICs")
+	}
+
+	var addrs network.MachineAddresses
+	for _, sysAddr := range sysAddrs {
+		var host string
+
+		switch v := sysAddr.(type) {
+		case *net.IPNet:
+			host = v.IP.String()
+		case *net.IPAddr:
+			host = v.IP.String()
+		default:
+			continue
+		}
+
+		addrs = append(addrs, network.NewMachineAddress(host))
+	}
+
+	cloudLocal := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
+	if len(cloudLocal) == 0 {
+		return errors.NotFoundf("suitable local address for advertising to Dqlite peers")
+	}
+	if len(cloudLocal) > 1 {
+		return errors.Errorf(
+			"multiple local-cloud addresses detected. Dqlite bootstrap requires a unique address; found %v", cloudLocal)
+	}
+
+	f.bindAddress = cloudLocal.Values()[0]
+	return nil
 }

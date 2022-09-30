@@ -51,7 +51,7 @@ func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *optionSuite) TestWithAddressOption(c *gc.C) {
+func (s *optionSuite) TestWithAddressOptionSuccess(c *gc.C) {
 	f := NewOptionFactory(nil)
 
 	f.interfaceAddrs = func() ([]net.Addr, error) {
@@ -69,6 +69,21 @@ func (s *optionSuite) TestWithAddressOption(c *gc.C) {
 	// based on the absence of an error.
 	_, err := f.WithAddressOption()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *optionSuite) TestWithAddressOptionMultipleAddressError(c *gc.C) {
+	f := NewOptionFactory(nil)
+
+	f.interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
+			&net.IPAddr{IP: net.ParseIP("10.0.0.6")},
+		}, nil
+	}
+
+	_, err := f.WithAddressOption()
+	c.Assert(err, gc.ErrorMatches,
+		`.* found \[local-cloud:10.0.0.5 local-cloud:10.0.0.6\]`)
 }
 
 func (s *optionSuite) TestWithTLSOption(c *gc.C) {
