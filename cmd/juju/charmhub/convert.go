@@ -40,14 +40,16 @@ func convertCharmInfoResult(info transport.InfoResponse, arch, series string) (I
 		ir.Charm, isKubernetes = convertCharm(info)
 	}
 
-	seriesSet := set.NewStrings()
+	seen := set.NewStrings()
 	for _, base := range info.DefaultRelease.Revision.Bases {
 		s, _ := coreseries.VersionSeries(base.Channel)
 		if s != "" {
-			seriesSet.Add(s)
+			if !seen.Contains(s) {
+				ir.Series = append(ir.Series, s)
+				seen.Add(s)
+			}
 		}
 	}
-	ir.Series = seriesSet.SortedValues()
 
 	var err error
 	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, isKubernetes, arch, series)
