@@ -47,13 +47,13 @@ test_deploy_magma() {
 
 		cd .. || exit
 
-	case "${BOOTSTRAP_PROVIDER:-}" in
-			"microk8s")
-				run "run_deploy_magma"
-				;;
-			*)
-				echo "==> TEST SKIPPED: run_deploy_magma runs on microk8s only"
-				;;
-			esac
+		case "${BOOTSTRAP_PROVIDER:-}" in
+		"microk8s")
+			run "run_deploy_magma"
+			;;
+		*)
+			echo "==> TEST SKIPPED: run_deploy_magma runs on microk8s only"
+			;;
+		esac
 	)
 }
