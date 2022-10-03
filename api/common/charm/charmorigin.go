@@ -132,6 +132,12 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 			Branch: branch,
 		}
 	}
+
+	platformChannel := o.Channel
+	if platformChannel == "" && o.Series != "" {
+		platformChannel, _ = series.SeriesVersion(o.Series)
+	}
+
 	return corecharm.Origin{
 		Source:   corecharm.Source(o.Source),
 		Type:     o.Type,
@@ -142,7 +148,7 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 		Platform: corecharm.Platform{
 			Architecture: o.Architecture,
 			OS:           o.OS,
-			Channel:      o.Channel,
+			Channel:      platformChannel,
 		},
 		InstanceKey: o.InstanceKey,
 	}
