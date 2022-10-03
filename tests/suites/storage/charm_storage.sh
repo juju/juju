@@ -108,9 +108,9 @@ assess_multiple_fs() {
 
 # removes the applications if they exist.
 remove_applications() {
-	juju remove-application dummy-storage-fs --destroy-storage
-	juju remove-application dummy-storage-lp --destroy-storage
-	juju remove-application dummy-storage-tp --destroy-storage
+	juju remove-application dummy-storage-fs
+	juju remove-application dummy-storage-lp
+	juju remove-application dummy-storage-tp
 	juju remove-application dummy-storage-np --destroy-storage
 	juju remove-application dummy-storage-mp --destroy-storage
 }
@@ -120,12 +120,6 @@ unit_exist() {
 	local name
 	name=${1}
 	juju storage --format json | jq "any(paths; .[-1] == \"${name}\")"
-}
-
-application_exist() {
-	local name
-	name=${1}
-	juju status --format json | jq "any(paths; .[-1] == \"${name}\")"
 }
 
 run_charm_storage() {
@@ -174,17 +168,17 @@ run_charm_storage() {
 		assess_loop_disk2
 	fi
 
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-fs dummy-storage-tp --series jammy --storage data=tmpfs,1G
+	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-tp --series jammy --storage data=tmpfs,1G
 	if [ "$(unit_exist "data/3")" == "true" ]; then
 		assess_tmpfs
 	fi
 
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-fs dummy-storage-np --series jammy --storage data=1G
+	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-np --series jammy --storage data=1G
 	if [ "$(unit_exist "data/4")" == "true" ]; then
 		assess_fs
 	fi
 
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-fs dummy-storage-mp --series jammy --storage data=1G
+	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-mp --series jammy --storage data=1G
 	if [ "$(unit_exist "data/5")" == "true" ]; then
 		assess_multiple_fs
 	fi
