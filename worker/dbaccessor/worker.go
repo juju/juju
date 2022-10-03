@@ -5,67 +5,40 @@ package dbaccessor
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"database/sql"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/utils"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+
+	"github.com/juju/juju/database"
 )
 
-const (
-	dqlitePort         = 17666
-	replSocketFileName = "juju.sock"
-)
+const replSocketFileName = "juju.sock"
 
 type DBGetter interface {
 	GetDB(namespace string) (*sql.DB, error)
 	GetExistingDB(namespace string) (*sql.DB, error)
 }
 
-// Hub provides an API for publishing and subscribing to incoming messages.
-type Hub interface {
-	Publish(topic string, data interface{}) (func(), error)
-	Subscribe(topic string, handler interface{}) (func(), error)
-}
-
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	ControllerCACert  []byte
-	ControllerCert    []byte
-	ControllerCertKey []byte
-	APIAddrs          []string
-	DataDir           string
-	Clock             clock.Clock
-	Logger            Logger
-	NewApp            func(string, ...app.Option) (DBApp, error)
+	OptionFactory *database.OptionFactory
+	Clock         clock.Clock
+	Logger        Logger
+	NewApp        func(string, ...app.Option) (DBApp, error)
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
-	if len(c.ControllerCACert) == 0 {
-		return errors.NotValidf("missing controller CA certificate")
-	}
-	if len(c.ControllerCert) == 0 {
-		return errors.NotValidf("missing controller certificate")
-	}
-	if len(c.APIAddrs) == 0 {
-		return errors.NotValidf("missing API addresses")
-	}
-	if c.DataDir == "" {
-		return errors.NotValidf("missing data dir")
+	if c.OptionFactory == nil {
+		return errors.NotValidf("missing Dqlite option factory")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing clock")
@@ -213,7 +186,7 @@ func (w *dbWorker) GetDB(namespace string) (*sql.DB, error) {
 	// Create and cache DB instance.
 	db, err := w.dbApp.Open(context.TODO(), namespace)
 	if err != nil {
-		return nil, errors.Annotatef(err, "acccessing DB for namespace %q", namespace)
+		return nil, errors.Annotatef(err, "accessing DB for namespace %q", namespace)
 	}
 	w.dbHandles[namespace] = db
 	return db, nil
@@ -245,43 +218,33 @@ func (w *dbWorker) initializeDqlite() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	// Dqlite has already been initialized
 	if w.dbApp != nil {
 		return nil
 	}
 
-	// Use the controller CA/cert to set up TLS for the dqlite peers.
-	dqServerTLSConf, dqClientTLSConf, err := w.getDQliteTLSConfiguration()
+	opt := w.cfg.OptionFactory
+
+	dataDir, err := opt.EnsureDataDir()
 	if err != nil {
-		return errors.Annotatef(err, "configuring TLS support for dqlite cluster")
+		return errors.Trace(err)
 	}
 
-	// Identify a cloud-local address on this machine that we can advertise
-	// to other peers.
-	localAddr, err := detectLocalDQliteAddress()
+	withAddr, err := opt.WithAddressOption()
 	if err != nil {
-		return errors.Annotatef(err, "detecting local dqlite address")
+		return errors.Trace(err)
 	}
 
-	// Scan the API address list and identify any suitable dqlite peer
-	// addresses that dqlite should attempt to connect to.
-	peerAddrs, err := detectDQlitePeerAddresses(w.cfg.APIAddrs)
+	withTLS, err := opt.WithTLSOption()
 	if err != nil {
-		return errors.Annotatef(err, "detecting local dqlite address")
+		return errors.Trace(err)
 	}
 
-	appOpts := []app.Option{
-		app.WithAddress(localAddr),
-		app.WithCluster(peerAddrs),
-		app.WithTLS(dqServerTLSConf, dqClientTLSConf),
+	withCluster, err := opt.WithClusterOption()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	if err := os.MkdirAll(w.cfg.DataDir, 0700); err != nil {
-		return errors.Annotatef(err, "creating directory for dqlite data")
-	}
-
-	w.cfg.Logger.Infof("initializing dqlite application with local address %q and peer addresses %v", localAddr, peerAddrs)
-	if w.dbApp, err = w.cfg.NewApp(w.cfg.DataDir, appOpts...); err != nil {
+	if w.dbApp, err = w.cfg.NewApp(dataDir, withAddr, withTLS, withCluster, opt.WithLogFuncOption()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -292,7 +255,7 @@ func (w *dbWorker) initializeDqlite() error {
 		return errors.Annotatef(err, "ensuring dqlite is ready to process changes")
 	}
 
-	if err := w.startREPL(); err != nil {
+	if err := w.startREPL(dataDir); err != nil {
 		_ = w.dbApp.Close()
 		w.dbApp = nil
 		return errors.Annotatef(err, "starting dqlite REPL")
@@ -303,31 +266,8 @@ func (w *dbWorker) initializeDqlite() error {
 	return nil
 }
 
-func (w *dbWorker) getDQliteTLSConfiguration() (serverConf, clientConf *tls.Config, err error) {
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(w.cfg.ControllerCACert)
-
-	controllerCert, err := tls.X509KeyPair(w.cfg.ControllerCert, w.cfg.ControllerCertKey)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "parsing controller certificate")
-	}
-
-	return &tls.Config{
-			ClientCAs:    caCertPool,
-			Certificates: []tls.Certificate{controllerCert},
-		},
-		&tls.Config{
-			RootCAs:      caCertPool,
-			Certificates: []tls.Certificate{controllerCert},
-			// We cannot provide a ServerName value here so instead we
-			// rely on the server validating the controller's client cert.
-			InsecureSkipVerify: true,
-		},
-		nil
-}
-
-func (w *dbWorker) startREPL() error {
-	socketPath := filepath.Join(w.cfg.DataDir, replSocketFileName)
+func (w *dbWorker) startREPL(dataDir string) error {
+	socketPath := filepath.Join(dataDir, replSocketFileName)
 	_ = os.Remove(socketPath)
 
 	repl, err := newREPL(socketPath, w, isRetryableError, w.cfg.Clock, w.cfg.Logger)
@@ -335,125 +275,4 @@ func (w *dbWorker) startREPL() error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(w.catacomb.Add(repl))
-}
-
-func detectLocalDQliteAddress() (string, error) {
-	sysAddrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "", errors.Annotate(err, "querying addresses of system NICs")
-	}
-
-	// DQlite nodes should only advertise cloud-local addresses to their
-	// peers. To figure out the address to bind to, we need to scan all NIC
-	// addresses and return the first one that has cloud-local scope.
-	for _, sysAddr := range sysAddrs {
-		var host string
-
-		switch v := sysAddr.(type) {
-		case *net.IPNet:
-			host = v.IP.String()
-		case *net.IPAddr:
-			host = v.IP.String()
-		}
-
-		if host == "" {
-			continue
-		}
-
-		machAddr := network.NewMachineAddress(host)
-		if machAddr.Scope == network.ScopeCloudLocal {
-			return fmt.Sprintf("%s:%d", machAddr.Value, dqlitePort), nil
-		}
-	}
-
-	return "", errors.NewNotFound(nil, "unable to find suitable local address for advertising to dqlite peers")
-}
-
-func detectDQlitePeerAddresses(apiAddrs []string) ([]string, error) {
-	if len(apiAddrs) == 0 {
-		return nil, errors.Errorf("no available API addresses")
-	}
-
-	// Since the address list may contain VIPs (i.e. IPs not visible to the
-	// machine) or FAN addresses, we will create a TCP listener on an
-	// unused port (all addresses) that servers a random nonce. We will
-	// then try to connect to that port on each provided dqlite address
-	// until we reach the server and read back the nonce.
-	nonceUUID, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	nonce := nonceUUID.String()
-
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return nil, errors.Annotatef(err, "creating TCP listener for detecting dqlite peer addresses")
-	}
-	defer func() { _ = l.Close() }()
-	go serveNonce(l, nonce)
-
-	// Try to read the nonce from each of the provided addresses in parallel
-	var (
-		wg         sync.WaitGroup
-		noncePort  = l.Addr().(*net.TCPAddr).Port
-		peerAddrCh = make(chan string, len(apiAddrs))
-	)
-
-	for _, addr := range apiAddrs {
-		// We should only connect on cloud-local addresses
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		machAddr := network.NewMachineAddress(host)
-		if machAddr.Scope != network.ScopeCloudLocal {
-			continue
-		}
-
-		wg.Add(1)
-		go func(addr string) {
-			defer wg.Done()
-			nonceAddr := fmt.Sprintf("%s:%d", host, noncePort)
-			if !maybeReadNonce(nonceAddr, nonce) {
-				peerAddrCh <- fmt.Sprintf("%s:%d", host, dqlitePort)
-			}
-		}(addr)
-	}
-	wg.Wait()
-
-	// Collect discovered peer addresses.
-	close(peerAddrCh)
-	var peerAddrs []string
-	for addr := range peerAddrCh {
-		peerAddrs = append(peerAddrs, addr)
-	}
-	return peerAddrs, nil
-}
-
-func serveNonce(l net.Listener, nonce string) {
-	for {
-		s, err := l.Accept()
-		if err != nil {
-			return
-		}
-
-		_, _ = s.Write([]byte(nonce))
-		_ = s.Close()
-	}
-}
-
-func maybeReadNonce(nonceAddr string, expNonce string) bool {
-	conn, err := net.DialTimeout("tcp", nonceAddr, time.Second)
-	if err != nil {
-		return false // assume non-reachable
-	}
-	defer func() { _ = conn.Close() }()
-
-	nonceBuf := make([]byte, len(expNonce))
-	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		return false
-	}
-	n, _ := conn.Read(nonceBuf)
-
-	return n == len(expNonce) && string(nonceBuf[:n]) == expNonce
 }

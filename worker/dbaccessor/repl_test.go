@@ -4,7 +4,6 @@
 package dbaccessor
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/clock"
@@ -29,7 +28,7 @@ func (s *REPLSuite) TestREPL(c *gc.C) {
 }
 
 func (s *REPLSuite) makeTempSocket(c *gc.C) (string, func()) {
-	file, err := ioutil.TempFile("/tmp", "socket")
+	file, err := os.CreateTemp("/tmp", "socket")
 	if err != nil {
 		c.Fatal(err)
 	}
