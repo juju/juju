@@ -13,15 +13,10 @@ test_magma() {
 
 	bootstrap "test-magma" "${file}"
 
-	microk8s disable metallb
-	microk8s enable metallb:10.1.1.1-10.1.1.10
-
-	test_deploy_magma
-
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"k8s")
 		microk8s disable metallb
-		microk8s enable metallb:10.1.1.1-10.1.1.10
+		microk8s enable metallb:10.1.1.1-10.1.1.17
 		test_deploy_magma
 		;;
 	*)
