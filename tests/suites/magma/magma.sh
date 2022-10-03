@@ -48,7 +48,7 @@ test_deploy_magma() {
 		cd .. || exit
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"microk8s")
+		"microk8s" | "k8s")
 			run "run_deploy_magma"
 			;;
 		*)
