@@ -14,7 +14,7 @@ expect \"new password: \" {
 	expect \"type new password again: \" {
 		send \"test-password\r\"
 	}
-}" | check "OK"
+}"
 
 	echo "Logout from controller"
 	juju logout
@@ -26,7 +26,7 @@ expect \"Enter username: \" {
 	expect \"please enter password for admin*\" {
 		send \"test-password\r\"
 	}
-}" 15 | check "OK"
+}" 15
 
 	destroy_model "user-change-password"
 }
