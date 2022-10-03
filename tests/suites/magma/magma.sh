@@ -13,6 +13,9 @@ run_deploy_magma() {
 	overlay_path="./tests/suites/magma/overlay/overlay.yaml"
 	juju deploy magma-orc8r --overlay "${overlay_path}" --trust --channel=edge
 
+	echo "Enable metallb service"
+	microk8s enable metallb:10.1.1.1-10.1.1.10
+
 	echo "Check all Magma project components have ACTIVE status"
 	wait_for 34 '[.applications[] | select(."application-status".current == "active")] | length' 1800
 
@@ -44,6 +47,13 @@ test_deploy_magma() {
 
 		cd .. || exit
 
-		run "run_deploy_magma"
+	case "${BOOTSTRAP_PROVIDER:-}" in
+			"microk8s")
+				run "run_deploy_magma"
+				;;
+			*)
+				echo "==> TEST SKIPPED: run_deploy_magma runs on microk8s only"
+				;;
+			esac
 	)
 }
