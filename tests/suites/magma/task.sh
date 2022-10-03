@@ -15,5 +15,6 @@ test_magma() {
 
 	test_deploy_magma
 
-	destroy_controller "test-magma"
+	# Magma takes too long to tear down (1h+), so forcibly destroy it
+	export KILL_CONTROLLER=true
 }

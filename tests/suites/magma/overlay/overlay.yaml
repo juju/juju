@@ -1,11 +1,11 @@
 applications:
   orc8r-certifier:
     options:
-      domain: magma.local
+      domain: nip.io
   orc8r-nginx:
     options:
-      domain: magma.local
+      domain: nip.io
   tls-certificates-operator:
     options:
       generate-self-signed-certificates: true
-      ca-common-name: rootca.magma.local
+      ca-common-name: rootca.nip.io

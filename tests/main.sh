@@ -54,6 +54,7 @@ TEST_NAMES="agents \
             hooks \
             hooktools \
             machine \
+            magma \
             manual \
             model \
             network \
