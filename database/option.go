@@ -10,10 +10,11 @@ import (
 	"strings"
 
 	"github.com/canonical/go-dqlite/app"
+	"github.com/canonical/go-dqlite/client"
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/loggo"
 )
 
 const (
@@ -26,6 +27,7 @@ const (
 type OptionFactory struct {
 	cfg            agent.Config
 	port           int
+	logger         Logger
 	interfaceAddrs func() ([]net.Addr, error)
 
 	bindAddress string
@@ -33,10 +35,12 @@ type OptionFactory struct {
 
 // NewOptionFactory returns a new OptionFactory reference
 // based on the input agent configuration.
-func NewOptionFactory(cfg agent.Config) *OptionFactory {
+func NewOptionFactory(cfg agent.Config, logger Logger) *OptionFactory {
 	return &OptionFactory{
-		cfg:            cfg,
-		port:           dqlitePort,
+		cfg:    cfg,
+		port:   dqlitePort,
+		logger: logger,
+
 		interfaceAddrs: net.InterfaceAddrs,
 	}
 }
@@ -47,6 +51,16 @@ func (f *OptionFactory) EnsureDataDir() (string, error) {
 	dir := filepath.Join(f.cfg.DataDir(), dqliteDataDir)
 	err := os.MkdirAll(dir, 0700)
 	return dir, errors.Annotatef(err, "creating directory for Dqlite data")
+}
+
+// WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
+// log output via this factory's logger where the level is recognised.
+func (f *OptionFactory) WithLogFuncOption() app.Option {
+	return app.WithLogFunc(func(level client.LogLevel, msg string, args ...interface{}) {
+		if actualLevel, known := loggo.ParseLevel(level.String()); known {
+			f.logger.Logf(actualLevel, msg, args...)
+		}
+	})
 }
 
 // WithAddressOption returns a Dqlite application Option
@@ -121,11 +135,12 @@ func (f *OptionFactory) WithClusterOption() (app.Option, error) {
 	// Just ensure that our address is not one of the peers.
 	var peerAddrs []string
 	for _, addr := range apiAddrs {
-		if addr != f.bindAddress {
-			peerAddrs = append(peerAddrs, addr)
+		if addr != f.bindAddress && addr != "localhost" {
+			peerAddrs = append(peerAddrs, fmt.Sprintf("%s:%d", addr, f.port))
 		}
 	}
 
+	f.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
 	return app.WithCluster(peerAddrs), nil
 }
 
@@ -169,5 +184,6 @@ func (f *OptionFactory) ensureBindAddress() error {
 	}
 
 	f.bindAddress = cloudLocal.Values()[0]
+	f.logger.Debugf("determined Dqlite bind address: %s", f.bindAddress)
 	return nil
 }

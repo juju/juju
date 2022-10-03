@@ -30,7 +30,7 @@ func (s *optionSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
 	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
-	f := NewOptionFactory(cfg)
+	f := NewOptionFactory(cfg, stubLogger{})
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
@@ -52,7 +52,7 @@ func (s *optionSuite) TestEnsureDataDirSuccess(c *gc.C) {
 }
 
 func (s *optionSuite) TestWithAddressOptionSuccess(c *gc.C) {
-	f := NewOptionFactory(nil)
+	f := NewOptionFactory(nil, stubLogger{})
 
 	f.interfaceAddrs = func() ([]net.Addr, error) {
 		return []net.Addr{
@@ -72,7 +72,7 @@ func (s *optionSuite) TestWithAddressOptionSuccess(c *gc.C) {
 }
 
 func (s *optionSuite) TestWithAddressOptionMultipleAddressError(c *gc.C) {
-	f := NewOptionFactory(nil)
+	f := NewOptionFactory(nil, stubLogger{})
 
 	f.interfaceAddrs = func() ([]net.Addr, error) {
 		return []net.Addr{
@@ -88,7 +88,7 @@ func (s *optionSuite) TestWithAddressOptionMultipleAddressError(c *gc.C) {
 
 func (s *optionSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	cfg := fakeAgentConfig{}
-	f := NewOptionFactory(cfg)
+	f := NewOptionFactory(cfg, stubLogger{})
 
 	withTLS, err := f.WithTLSOption()
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,7 +109,7 @@ func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
 		},
 	}
 
-	f := NewOptionFactory(cfg)
+	f := NewOptionFactory(cfg, stubLogger{})
 
 	f.interfaceAddrs = func() ([]net.Addr, error) {
 		return []net.Addr{
@@ -129,7 +129,7 @@ func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
 func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
 	cfg := fakeAgentConfig{apiAddrs: []string{"10.0.0.5:17070"}}
 
-	f := NewOptionFactory(cfg)
+	f := NewOptionFactory(cfg, stubLogger{})
 
 	f.interfaceAddrs = func() ([]net.Addr, error) {
 		return []net.Addr{

@@ -20,6 +20,11 @@ type bootstrapOptFactory interface {
 	// WithAddressOption returns a Dqlite application option
 	// for specifying the local address:port to use.
 	WithAddressOption() (app.Option, error)
+
+	// WithLogFuncOption returns a Dqlite application Option
+	// that will proxy Dqlite log output via this factory's
+	// logger where the level is recognised.
+	WithLogFuncOption() app.Option
 }
 
 // BootstrapDqlite opens a new database for the controller, and runs the
@@ -42,7 +47,7 @@ func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger
 		return errors.Trace(err)
 	}
 
-	dqlite, err := app.New(dir, withAddress)
+	dqlite, err := app.New(dir, withAddress, opt.WithLogFuncOption())
 	if err != nil {
 		return errors.Annotate(err, "creating Dqlite app")
 	}
