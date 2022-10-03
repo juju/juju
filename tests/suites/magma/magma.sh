@@ -26,7 +26,7 @@ run_deploy_magma() {
 	echo "Try to get access to Magma web interface via cert"
 	curl --insecure -s --cert-type P12 --cert "${TEST_DIR}"/admin_operator.pfx:"${cert_password}" https://"${nms_ip}":443 | jq -r ".errorCode" | check "USER_NOT_LOGGED_IN"
 
-	echo "Get NMS admin username and password"
+	echo "Get NMS admin username"
 	admin_username=$(juju run-action nms-magmalte/leader get-master-admin-credentials --wait --format=json | jq -r '."unit-nms-magmalte-0".results."admin-username"')
 	echo "${admin_username}" | check "admin@juju.com"
 
