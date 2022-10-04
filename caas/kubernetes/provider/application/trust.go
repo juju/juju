@@ -11,23 +11,34 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-var defaultApplicationNamespaceRules = []rbacv1.PolicyRule{
-	{
-		APIGroups: []string{""},
-		Resources: []string{"pods", "services"},
-		Verbs: []string{
-			"get",
-			"list",
-			"patch",
+func getDefaultApplicationNamespaceRules(namespace string) []rbacv1.PolicyRule {
+	return []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"namespaces"},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+			ResourceNames: []string{namespace},
 		},
-	},
-	{
-		APIGroups: []string{""},
-		Resources: []string{"pods/exec"},
-		Verbs: []string{
-			"create",
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods", "services"},
+			Verbs: []string{
+				"get",
+				"list",
+				"patch",
+			},
 		},
-	},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods/exec"},
+			Verbs: []string{
+				"create",
+			},
+		},
+	}
 }
 
 var fullAccessApplicationNamespaceRules = []rbacv1.PolicyRule{
@@ -69,11 +80,10 @@ func (a *app) applyTrust(applier resources.Applier, trust bool) error {
 }
 
 func (a *app) roleRules(trust bool) []rbacv1.PolicyRule {
-	rules := defaultApplicationNamespaceRules
 	if trust {
-		rules = fullAccessApplicationNamespaceRules
+		return fullAccessApplicationNamespaceRules
 	}
-	return rules
+	return getDefaultApplicationNamespaceRules(a.namespace)
 }
 
 func (a *app) applyRoles(applier resources.Applier, trust bool) error {
