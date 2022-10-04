@@ -4,6 +4,8 @@
 package action
 
 import (
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -37,4 +39,18 @@ func (s *MockBaseSuite) tagToActionReceiverFn(
 	return func(tag string) (state.ActionReceiver, error) {
 		return s.ActionReceiver, nil
 	}
+}
+
+func NewActionAPI(
+	st *state.State, resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
+) (*ActionAPI, error) {
+	return newActionAPI(&stateShim{st: st}, resources, authorizer, leadership)
+}
+
+type FakeLeadership struct {
+	AppLeaders map[string]string
+}
+
+func (l FakeLeadership) Leaders() (map[string]string, error) {
+	return l.AppLeaders, nil
 }

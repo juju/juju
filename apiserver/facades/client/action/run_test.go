@@ -37,7 +37,7 @@ func (s *runSuite) SetUpTest(c *gc.C) {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	s.client, err = action.NewActionAPI(s.State, nil, auth)
+	s.client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -236,13 +236,13 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 		Tag:         alpha,
 		HasWriteTag: alpha,
 	}
-	client, err := action.NewActionAPI(s.State, nil, auth)
+	client, err := action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(params.RunParams{})
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(s.State, nil, auth)
+	client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -254,13 +254,13 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 		Tag:         alpha,
 		HasWriteTag: alpha,
 	}
-	client, err := action.NewActionAPI(s.State, nil, auth)
+	client, err := action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(params.RunParams{})
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(s.State, nil, auth)
+	client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
