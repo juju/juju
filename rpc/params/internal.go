@@ -793,8 +793,10 @@ type RetryProvisioningArgs struct {
 // ProvisioningInfoBase holds machine provisioning info common
 // across different versions of the provisioner API facade.
 type ProvisioningInfoBase struct {
-	Constraints       constraints.Value        `json:"constraints"`
+	Constraints constraints.Value `json:"constraints"`
+	// TODO(juju3) - remove series
 	Series            string                   `json:"series"`
+	Base              Base                     `json:"base"`
 	Placement         string                   `json:"placement"`
 	Jobs              []model.MachineJob       `json:"jobs"`
 	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`

@@ -1017,6 +1017,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",
+		Channel:      "20.04",
 		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), s.Model.ModelTag()),
 	})
 }

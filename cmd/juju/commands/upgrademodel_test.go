@@ -1268,7 +1268,7 @@ func (a *fakeUpgradeJujuAPINoState) UploadTools(r io.ReadSeeker, vers version.Bi
 func (a *fakeUpgradeJujuAPINoState) Status(patterns []string) (*params.FullStatus, error) {
 	return &params.FullStatus{
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "focal"},
+			"0": {Series: "focal", Base: params.Base{Name: "ubuntu", Channel: "20.04"}},
 		},
 	}, nil
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/tools"
@@ -53,6 +54,23 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	// we know a missing type is an "iaas" model.
 	if result.Model.Type == "" {
 		result.Model.Type = model.IAAS.String()
+	}
+	for id, m := range result.Machines {
+		if m.Series != "" && m.Base.Name == "" {
+			base, err := series.GetBaseFromSeries(m.Series)
+			if err != nil {
+				return nil, err
+			}
+			m.Base = params.Base{Name: base.Name, Channel: base.Channel}
+		}
+		if m.Series == "" && m.Base.Name != "" {
+			mSeries, err := series.GetSeriesFromBase(series.Base{Name: m.Base.Name, Channel: m.Base.Channel})
+			if err != nil {
+				return nil, err
+			}
+			m.Series = mSeries
+		}
+		result.Machines[id] = m
 	}
 	return &result, nil
 }

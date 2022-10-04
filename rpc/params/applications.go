@@ -336,9 +336,11 @@ type ApplicationGetResults struct {
 	CharmConfig       map[string]interface{} `json:"config"`
 	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
 	Constraints       constraints.Value      `json:"constraints"`
-	Series            string                 `json:"series"`
-	Channel           string                 `json:"channel"`
-	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
+	// TODO(juju3) - remove series
+	Series           string            `json:"series"`
+	Base             Base              `json:"base"`
+	Channel          string            `json:"channel"`
+	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
 }
 
 // ApplicationConfigSetArgs holds the parameters for
@@ -580,9 +582,11 @@ type ScaleApplicationInfo struct {
 // ApplicationResult holds an application info.
 // NOTE: we should look to combine ApplicationResult and ApplicationInfo.
 type ApplicationResult struct {
-	Tag              string                     `json:"tag"`
-	Charm            string                     `json:"charm,omitempty"`
+	Tag   string `json:"tag"`
+	Charm string `json:"charm,omitempty"`
+	// TODO(juju3) - remove series
 	Series           string                     `json:"series,omitempty"`
+	Base             Base                       `json:"base,omitempty"`
 	Channel          string                     `json:"channel,omitempty"`
 	Constraints      constraints.Value          `json:"constraints,omitempty"`
 	Principal        bool                       `json:"principal"`

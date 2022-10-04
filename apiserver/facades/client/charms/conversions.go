@@ -61,7 +61,7 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		branch = *origin.Branch
 	}
 	if origin.Channel == "" && origin.Series != "" {
-		origin.Channel, _ = series.VersionSeries(origin.Series)
+		origin.Channel, _ = series.SeriesVersion(origin.Series)
 	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),

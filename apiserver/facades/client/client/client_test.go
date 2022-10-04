@@ -214,7 +214,7 @@ func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
 	}
 	err = s.client.SetModelAgentVersion(args)
 	c.Assert(err, gc.ErrorMatches, `
-these models must first be upgraded to at least 2.9.33 before upgrading the controller:
+these models must first be upgraded to at least 2.9.35 before upgrading the controller:
  -admin/controller`[1:])
 }
 
@@ -829,6 +829,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 			},
 			Life:                    life.Alive,
 			Series:                  "quantal",
+			Base:                    "ubuntu:12.10",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
@@ -925,6 +926,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			},
 			Life:                    life.Alive,
 			Series:                  "quantal",
+			Base:                    "ubuntu:12.10",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},

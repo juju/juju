@@ -170,10 +170,13 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	env environs.Environ,
 	endpointBindings map[string]string,
 ) (params.ProvisioningInfoBase, error) {
-	var err error
-
+	base, err := series.GetBaseFromSeries(m.Series())
+	if err != nil {
+		return params.ProvisioningInfoBase{}, errors.Trace(err) // Should never happen.
+	}
 	result := params.ProvisioningInfoBase{
 		Series:            m.Series(),
+		Base:              params.Base{Name: base.Name, Channel: base.Channel},
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),
 

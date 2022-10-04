@@ -75,15 +75,17 @@ type Delta struct {
 // MachineInfo holds the information about a machine
 // that is tracked by multiwatcherStore.
 type MachineInfo struct {
-	ModelUUID                string
-	ID                       string
-	InstanceID               string
-	AgentStatus              StatusInfo
-	InstanceStatus           StatusInfo
-	Life                     life.Value
-	Annotations              map[string]string
-	Config                   map[string]interface{}
+	ModelUUID      string
+	ID             string
+	InstanceID     string
+	AgentStatus    StatusInfo
+	InstanceStatus StatusInfo
+	Life           life.Value
+	Annotations    map[string]string
+	Config         map[string]interface{}
+	// TODO(juju3) - remove series
 	Series                   string
+	Base                     string
 	ContainerType            string
 	IsManual                 bool
 	SupportedContainers      []instance.ContainerType
@@ -365,6 +367,7 @@ type UnitInfo struct {
 	Name                     string
 	Application              string
 	Series                   string
+	Base                     string
 	CharmURL                 string
 	Life                     life.Value
 	Annotations              map[string]string

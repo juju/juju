@@ -2752,6 +2752,9 @@
                                 }
                             }
                         },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "channel": {
                             "type": "string"
                         },
@@ -2789,6 +2792,7 @@
                         "config",
                         "constraints",
                         "series",
+                        "base",
                         "channel"
                     ]
                 },
@@ -2950,6 +2954,9 @@
                 "ApplicationResult": {
                     "type": "object",
                     "properties": {
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "channel": {
                             "type": "string"
                         },
@@ -3157,6 +3164,22 @@
                     "additionalProperties": false,
                     "required": [
                         "applications"
+                    ]
+                },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
                     ]
                 },
                 "CharmOrigin": {
@@ -5477,6 +5500,9 @@
                 "BackupsMetadataResult": {
                     "type": "object",
                     "properties": {
+                        "base": {
+                            "type": "string"
+                        },
                         "checksum": {
                             "type": "string"
                         },
@@ -5553,6 +5579,7 @@
                         "hostname",
                         "version",
                         "series",
+                        "base",
                         "filename",
                         "format-version",
                         "controller-uuid",
@@ -6924,6 +6951,22 @@
                         "info"
                     ]
                 },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
+                    ]
+                },
                 "CAASApplicationGarbageCollectArg": {
                     "type": "object",
                     "properties": {
@@ -7023,6 +7066,9 @@
                                 "type": "string"
                             }
                         },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "ca-cert": {
                             "type": "string"
                         },
@@ -7055,9 +7101,6 @@
                         },
                         "scale": {
                             "type": "integer"
-                        },
-                        "series": {
-                            "type": "string"
                         },
                         "tags": {
                             "type": "object",
@@ -17060,6 +17103,9 @@
                 "ApplicationStatus": {
                     "type": "object",
                     "properties": {
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "can-upgrade-to": {
                             "type": "string"
                         },
@@ -17158,6 +17204,7 @@
                         "charm-version",
                         "charm-profile",
                         "series",
+                        "base",
                         "exposed",
                         "life",
                         "relations",
@@ -17889,6 +17936,9 @@
                         "agent-status": {
                             "$ref": "#/definitions/DetailedStatus"
                         },
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "constraints": {
                             "type": "string"
                         },
@@ -17974,6 +18024,7 @@
                         "instance-id",
                         "display-name",
                         "series",
+                        "base",
                         "id",
                         "containers",
                         "constraints",
@@ -25918,6 +25969,12 @@
                         },
                         "stream": {
                             "type": "string"
+                        },
+                        "versions": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "virt-type": {
                             "type": "string"
@@ -35924,6 +35981,22 @@
                         "scope"
                     ]
                 },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
+                    ]
+                },
                 "Binary": {
                     "type": "object",
                     "properties": {
@@ -37086,6 +37159,9 @@
                 "ProvisioningInfoBase": {
                     "type": "object",
                     "properties": {
+                        "base": {
+                            "$ref": "#/definitions/Base"
+                        },
                         "charm-lxd-profiles": {
                             "type": "array",
                             "items": {
@@ -37167,6 +37243,7 @@
                     "required": [
                         "constraints",
                         "series",
+                        "base",
                         "placement",
                         "jobs"
                     ]
@@ -37209,6 +37286,9 @@
                         },
                         "ProvisioningNetworkTopology": {
                             "$ref": "#/definitions/ProvisioningNetworkTopology"
+                        },
+                        "base": {
+                            "$ref": "#/definitions/Base"
                         },
                         "charm-lxd-profiles": {
                             "type": "array",
@@ -37313,6 +37393,7 @@
                     "required": [
                         "constraints",
                         "series",
+                        "base",
                         "placement",
                         "jobs",
                         "ProvisioningInfoBase",

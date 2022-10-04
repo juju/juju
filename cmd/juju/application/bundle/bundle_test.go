@@ -70,10 +70,10 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
-			"2": {Series: "bionic"},
-			"3": {Series: "bionic"},
+			"0": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"2": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"3": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 	}
 	machines := map[string]string{
@@ -107,8 +107,8 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
+			"0": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
@@ -294,7 +294,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
+			"0": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {

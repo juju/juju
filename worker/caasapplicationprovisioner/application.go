@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -716,21 +715,11 @@ func (a *appWorker) alive(app caas.Application) error {
 		return errors.Annotate(err, "getting OCI image resources")
 	}
 
-	os, err := series.GetOSFromSeries(provisionInfo.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	ver, err := series.SeriesVersion(provisionInfo.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	ch := charmInfo.Charm()
 	charmBaseImage, err := podcfg.ImageForBase(provisionInfo.ImageDetails.Repository, charm.Base{
-		Name: strings.ToLower(os.String()),
+		Name: provisionInfo.Base.Name,
 		Channel: charm.Channel{
-			Track: ver,
+			Track: provisionInfo.Base.Channel,
 			Risk:  charm.Stable,
 		},
 	})

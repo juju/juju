@@ -286,8 +286,10 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 	if origin.Track != nil {
 		track = *origin.Track
 	}
-	if origin.Channel == "" && origin.Series != "" {
-		origin.Channel, _ = series.VersionSeries(origin.Series)
+	if (origin.OS == "" || origin.Channel == "") && origin.Series != "" {
+		base, _ := series.GetBaseFromSeries(origin.Series)
+		origin.OS = base.Name
+		origin.Channel = base.Channel
 	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),

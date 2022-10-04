@@ -61,7 +61,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 						ImageId:         imageId,
 						Stream:          args.Stream,
 						Region:          args.Region,
-						Version:         versionFromSeries(args.Series[0]),
+						Version:         args.Versions[0],
 						Series:          args.Series[0],
 						Arch:            args.Arches[0],
 						VirtType:        args.VirtType,
@@ -201,12 +201,6 @@ func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
 	client := imagemetadatamanager.NewClient(apiCaller)
 	err := client.Save(m)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-}
-
-var versionFromSeries = func(s string) string {
-	// For testing purposes only, there will not be an error :D
-	v, _ := series.SeriesVersion(s)
-	return v
 }
 
 func (s *imagemetadataSuite) TestDelete(c *gc.C) {

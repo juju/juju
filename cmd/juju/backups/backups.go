@@ -139,7 +139,9 @@ type MetadataParams struct {
 	MachineID      string
 	Hostname       string
 	JujuVersion    version.Number
-	Series         string
+	// TODO(juju3) - remove series
+	Series string
+	Base   string
 }
 
 func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
@@ -159,6 +161,7 @@ func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
 		result.Hostname,
 		result.Version,
 		result.Series,
+		result.Base,
 	}
 	t := template.Must(template.New("template").Parse(backupMetadataTemplate))
 	content := bytes.Buffer{}

@@ -98,6 +98,7 @@ func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Series = ""
+	m.Version = ""
 	// OSType will default to config default, for e.g. "trusty"
 	s.assertValidAddImageMetadata(c, m)
 }
@@ -150,6 +151,7 @@ func constructTestImageMetadata() params.CloudImageMetadata {
 	return params.CloudImageMetadata{
 		ImageId:  "im-33333",
 		Series:   "trusty",
+		Version:  "14.04",
 		Arch:     "arch",
 		Source:   "custom",
 		Priority: 50,

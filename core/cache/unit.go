@@ -40,6 +40,7 @@ func (u *Unit) Report() map[string]interface{} {
 	return map[string]interface{}{
 		"name":            details.Name,
 		"series":          details.Series,
+		"base":            details.Base,
 		"charm-url":       details.CharmURL,
 		"public-address":  details.PublicAddress,
 		"private-address": details.PrivateAddress,

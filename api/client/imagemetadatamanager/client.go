@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,9 +31,18 @@ func (c *Client) List(
 	series, arches []string,
 	virtType, rootStorageType string,
 ) ([]params.CloudImageMetadata, error) {
+	versions := make([]string, len(series))
+	for i, s := range series {
+		vers, err := coreseries.SeriesVersion(s)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		versions[i] = vers
+	}
 	in := params.ImageMetadataFilter{
 		Region:          region,
 		Series:          series,
+		Versions:        versions,
 		Arches:          arches,
 		Stream:          stream,
 		VirtType:        virtType,

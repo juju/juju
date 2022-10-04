@@ -549,8 +549,8 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 			},
 			Relations: relations,
 			Machines: map[string]params.MachineStatus{
-				"0": {Series: "xenial"},
-				"1": {Series: "bionic"},
+				"0": {Series: "xenial", Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
+				"1": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 			},
 		},
 		"Annotations.Get": params.AnnotationsGetResults{
@@ -610,7 +610,7 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 				},
 			},
 			Machines: map[string]params.MachineStatus{
-				"0": {Series: "xenial"},
+				"0": {Series: "xenial", Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
 			},
 		},
 		"Annotations.Get": params.AnnotationsGetResults{

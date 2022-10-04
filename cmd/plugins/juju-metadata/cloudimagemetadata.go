@@ -26,7 +26,7 @@ func (c *cloudImageMetadataCommandBase) NewImageMetadataAPI() (*imagemetadataman
 // MetadataInfo defines the serialization behaviour of image metadata information.
 type MetadataInfo struct {
 	Source          string `yaml:"source" json:"source"`
-	Series          string `yaml:"series" json:"series"`
+	Version         string `yaml:"version" json:"version"`
 	Arch            string `yaml:"arch" json:"arch"`
 	Region          string `yaml:"region" json:"region"`
 	ImageId         string `yaml:"image-id" json:"image-id"`

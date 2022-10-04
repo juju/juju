@@ -17,6 +17,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 )
 
 type refresherFactorySuite struct{}
@@ -193,7 +194,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
 
 	refresher := baseRefresher{
 		charmRef:        "meshuggah",
-		deployedSeries:  "bionic",
+		deployedBase:    series.Base{Name: "ubuntu", Channel: "18.04"},
 		charmURL:        charm.MustParseURL("meshuggah"),
 		charmResolver:   charmResolver,
 		resolveOriginFn: charmHubOriginResolver,
@@ -439,6 +440,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	origin := commoncharm.Origin{
 		Source:  commoncharm.OriginCharmHub,
 		Series:  "bionic",
+		OS:      "ubuntu",
 		Channel: "18.04",
 	}
 	actualOrigin := origin
@@ -451,7 +453,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
 
 	cfg := refresherConfigWithOrigin(curl, ref, "18.04")
-	cfg.DeployedSeries = "bionic"
+	cfg.DeployedBase = series.Base{Name: "ubuntu", Channel: "18.04"}
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -475,6 +477,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 	origin := commoncharm.Origin{
 		Source:  commoncharm.OriginCharmHub,
 		Series:  "bionic",
+		OS:      "ubuntu",
 		Channel: "18.04",
 	}
 
@@ -485,7 +488,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
 
 	cfg := refresherConfigWithOrigin(curl, ref, "18.04")
-	cfg.DeployedSeries = "bionic"
+	cfg.DeployedBase = series.Base{Name: "ubuntu", Channel: "18.04"}
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -633,7 +636,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 
 	cfg := refresherConfigWithOrigin(curl, ref, "")
-	cfg.DeployedSeries = "bionic"
+	cfg.DeployedBase = series.Base{Name: "ubuntu", Channel: "18.04"}
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -657,7 +660,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 
 	cfg := refresherConfigWithOrigin(curl, ref, "")
-	cfg.DeployedSeries = "bionic"
+	cfg.DeployedBase = series.Base{Name: "ubuntu", Channel: "18.04"}
 	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -682,7 +685,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 
 	cfg := refresherConfigWithOrigin(curl, ref, "")
-	cfg.DeployedSeries = "bionic"
+	cfg.DeployedBase = series.Base{Name: "ubuntu", Channel: "18.04"}
 	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -763,6 +766,9 @@ func refresherConfigWithOrigin(curl *charm.URL, ref, channel string) RefresherCo
 		Platform: corecharm.Platform{
 			Channel: channel,
 		},
+	}
+	if channel != "" {
+		rc.CharmOrigin.Platform.OS = "ubuntu"
 	}
 	return rc
 }

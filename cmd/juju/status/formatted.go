@@ -73,6 +73,7 @@ type machineStatus struct {
 	MachineStatus      statusInfoContents            `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
 	ModificationStatus statusInfoContents            `json:"modification-status,omitempty" yaml:"modification-status,omitempty"`
 	Series             string                        `json:"series,omitempty" yaml:"series,omitempty"`
+	Base               string                        `json:"base,omitempty" yaml:"base,omitempty"`
 	Id                 string                        `json:"-" yaml:"-"`
 	NetworkInterfaces  map[string]networkInterface   `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
 	Containers         map[string]machineStatus      `json:"containers,omitempty" yaml:"containers,omitempty"`
@@ -117,10 +118,12 @@ type lxdProfileContents struct {
 }
 
 type applicationStatus struct {
-	Err              error                 `json:"-" yaml:",omitempty"`
-	Charm            string                `json:"charm" yaml:"charm"`
-	Series           string                `json:"series"`
-	OS               string                `json:"os"`
+	Err   error  `json:"-" yaml:",omitempty"`
+	Charm string `json:"charm" yaml:"charm"`
+	// TODO(juju3) - remove series and os
+	Series           string                `json:"series" yaml:"series"`
+	OS               string                `json:"os" yaml:"os"`
+	Base             string                `json:"base" yaml:"base"`
 	CharmOrigin      string                `json:"charm-origin" yaml:"charm-origin"`
 	CharmName        string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`

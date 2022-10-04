@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -40,8 +41,11 @@ func BuildModelRepresentation(
 	machines := make(map[string]*bundlechanges.Machine)
 	for id, machineStatus := range status.Machines {
 		machines[id] = &bundlechanges.Machine{
-			ID:     id,
-			Series: machineStatus.Series,
+			ID: id,
+			Base: series.Base{
+				Name:    machineStatus.Base.Name,
+				Channel: machineStatus.Base.Channel,
+			},
 		}
 		tag := names.NewMachineTag(id)
 		annotationTags = append(annotationTags, tag.String())
@@ -76,12 +80,22 @@ func BuildModelRepresentation(
 			charmAlias = curl.Name
 		}
 
+		base := series.Base{
+			Name:    appStatus.Base.Name,
+			Channel: appStatus.Base.Channel,
+		}
+		if appStatus.Series != "" && base.Name == "" {
+			base, err = series.GetBaseFromSeries(appStatus.Series)
+			if err != nil {
+				return nil, errors.Trace(err) // This should never happen.
+			}
+		}
 		app := &bundlechanges.Application{
 			Name:          name,
 			Charm:         charmAlias,
 			Scale:         appStatus.Scale,
 			Exposed:       appStatus.Exposed,
-			Series:        appStatus.Series,
+			Base:          base,
 			Channel:       appStatus.CharmChannel,
 			Revision:      curl.Revision,
 			SubordinateTo: appStatus.SubordinateTo,

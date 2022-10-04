@@ -45,7 +45,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"bionic"},
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -68,7 +68,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"bionic"},
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -91,7 +91,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: []string{"amd64"},
 				Series: []string{"bionic"},
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -128,7 +128,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"bionic"},
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -175,7 +175,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
 				Series: []string{"focal"},
-				Bases:  []string{"ubuntu/20.04"},
+				Bases:  []string{"ubuntu:20.04"},
 			},
 		},
 	}, {
@@ -207,7 +207,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Risk:   "stable",
 				Arches: []string{"amd64"},
 				Series: []string{"bionic"},
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -271,7 +271,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Revision:   522,
 				Arches:     []string{"amd64"},
 				Series:     []string{"focal"},
-				Bases:      []string{"ubuntu/20.04"},
+				Bases:      []string{"ubuntu:20.04"},
 			},
 		},
 	}}

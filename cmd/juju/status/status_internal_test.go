@@ -196,6 +196,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
+		"base":   "ubuntu:12.10",
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.0.1"},
@@ -224,6 +225,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
+		"base":   "ubuntu:12.10",
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -251,6 +253,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
+		"base":   "ubuntu:12.10",
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -307,6 +310,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
+		"base":   "ubuntu:12.10",
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.2.1"},
@@ -335,6 +339,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
+		"base":   "ubuntu:12.10",
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.3.1"},
@@ -362,6 +367,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
+		"base":   "ubuntu:12.10",
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.4.1"},
@@ -400,6 +406,7 @@ var (
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.3.1"},
@@ -421,6 +428,7 @@ var (
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"series": "quantal",
+				"base":   "ubuntu:12.10",
 				"network-interfaces": M{
 					"eth0": M{
 						"ip-addresses": []string{"10.0.2.1"},
@@ -444,6 +452,7 @@ var (
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"series": "quantal",
+				"base":   "ubuntu:12.10",
 			},
 		},
 		"hostname":     "eldritch-octopii",
@@ -459,6 +468,7 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
+		"base":   "ubuntu:12.10",
 		"network-interfaces": M{
 			"eth0": M{
 				"ip-addresses": []string{"10.0.1.1"},
@@ -487,6 +497,7 @@ var (
 		"charm-name":   "logging",
 		"charm-rev":    1,
 		"series":       "quantal",
+		"base":         "ubuntu:12.10",
 		"os":           "ubuntu",
 		"exposed":      true,
 		"application-status": M{
@@ -549,6 +560,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
+						"base":                     "ubuntu:12.10",
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -587,6 +599,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -634,6 +647,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -682,6 +696,7 @@ var statusTests = []testCase{
 							"version": "1.2.3",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -737,6 +752,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -787,6 +803,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
+						"base":                     "ubuntu:12.10",
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
@@ -823,6 +840,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
+						"base":                     "ubuntu:12.10",
 						"controller-member-status": "adding-vote",
 					},
 				},
@@ -855,6 +873,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":                   "quantal",
+						"base":                     "ubuntu:12.10",
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -1068,6 +1087,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.3.1"},
@@ -1096,6 +1116,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.4.1"},
@@ -1121,6 +1142,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 					},
 				},
 				"applications": M{
@@ -1648,6 +1670,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 					},
 				},
 				"applications": M{
@@ -1711,6 +1734,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series":   "quantal",
+						"base":     "ubuntu:12.10",
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -1885,6 +1909,7 @@ var statusTests = []testCase{
 						"charm-rev":    1,
 						"series":       "quantal",
 						"os":           "ubuntu",
+						"base":         "ubuntu:12.10",
 						"exposed":      true,
 						"application-status": M{
 							"current": "waiting",
@@ -2015,6 +2040,7 @@ var statusTests = []testCase{
 						"charm-rev":    7,
 						"series":       "quantal",
 						"os":           "ubuntu",
+						"base":         "ubuntu:12.10",
 						"exposed":      true,
 						"application-status": M{
 							"current": "active",
@@ -2589,6 +2615,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"series": "quantal",
+								"base":   "ubuntu:12.10",
 								"network-interfaces": M{
 									"eth0": M{
 										"ip-addresses": []string{"10.0.2.1"},
@@ -2611,6 +2638,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.1.1"},
@@ -3322,6 +3350,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"2001:db8::1"},
@@ -3552,6 +3581,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.1.1"},
@@ -3563,6 +3593,7 @@ var statusTests = []testCase{
 					},
 					"0": M{
 						"series": "quantal",
+						"base":   "ubuntu:12.10",
 						"network-interfaces": M{
 							"eth0": M{
 								"ip-addresses": []string{"10.0.0.1"},
@@ -3593,6 +3624,7 @@ var statusTests = []testCase{
 					"wordpress": M{
 						"series":     "quantal",
 						"os":         "ubuntu",
+						"base":       "ubuntu:12.10",
 						"charm-name": "wordpress",
 						"exposed":    bool(false),
 						"units": M{
@@ -3745,6 +3777,7 @@ func mysqlCharm(extras M) M {
 		"charm-rev":    1,
 		"series":       "quantal",
 		"os":           "ubuntu",
+		"base":         "ubuntu:12.10",
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3759,6 +3792,7 @@ func lxdProfileCharm(extras M) M {
 		"charm-profile": "juju-controller-lxd-profile-1",
 		"series":        "quantal",
 		"os":            "ubuntu",
+		"base":          "ubuntu:12.10",
 		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
@@ -3772,6 +3806,7 @@ func meteredCharm(extras M) M {
 		"charm-rev":    1,
 		"series":       "quantal",
 		"os":           "ubuntu",
+		"base":         "ubuntu:12.10",
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3785,6 +3820,7 @@ func dummyCharm(extras M) M {
 		"charm-rev":    1,
 		"series":       "quantal",
 		"os":           "ubuntu",
+		"base":         "ubuntu:12.10",
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -3798,6 +3834,7 @@ func wordpressCharm(extras M) M {
 		"charm-rev":    3,
 		"series":       "quantal",
 		"os":           "ubuntu",
+		"base":         "ubuntu:12.10",
 		"exposed":      false,
 	}
 	return composeCharms(charm, extras)
@@ -5672,6 +5709,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"      current: idle\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    series: quantal\n" +
+		"    base: ubuntu:12.10\n" +
 		"    network-interfaces:\n" +
 		"      eth0:\n" +
 		"        ip-addresses:\n" +
@@ -5691,6 +5729,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"          current: idle\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
 		"        series: quantal\n" +
+		"        base: ubuntu:12.10\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
 		"applications: {}\n" +
@@ -6037,6 +6076,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				InstanceId:     "pending",
 				InstanceStatus: params.DetailedStatus{},
 				Series:         "trusty",
+				Base:           params.Base{Name: "ubuntu", Channel: "14.04"},
 				Id:             "1",
 				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
@@ -6057,6 +6097,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
 				Series:            "trusty",
+				Base:              "ubuntu:14.04",
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6087,6 +6128,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 				InstanceId:     "pending",
 				InstanceStatus: params.DetailedStatus{},
 				Series:         "trusty",
+				Base:           params.Base{Name: "ubuntu", Channel: "14.04"},
 				Id:             "1",
 				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
@@ -6106,6 +6148,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
 				Series:            "trusty",
+				Base:              "ubuntu:14.04",
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
@@ -6134,6 +6177,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 				InstanceId:     "pending",
 				InstanceStatus: params.DetailedStatus{},
 				Series:         "trusty",
+				Base:           params.Base{Name: "ubuntu", Channel: "14.04"},
 				Id:             "1",
 				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
@@ -6154,6 +6198,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId:        "pending",
 				Series:            "trusty",
+				Base:              "ubuntu:14.04",
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},

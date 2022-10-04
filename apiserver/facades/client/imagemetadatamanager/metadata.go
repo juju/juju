@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -52,9 +53,20 @@ func createAPI(
 // given filter.
 // Returned list contains metadata ordered by priority.
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
+	filterSeries := filter.Series
+	if len(filterSeries) == 0 && len(filter.Versions) > 0 {
+		filterSeries = make([]string, len(filter.Versions))
+		for i, vers := range filter.Versions {
+			s, err := series.VersionSeries(vers)
+			if err != nil {
+				return params.ListCloudImageMetadataResult{}, errors.Trace(err)
+			}
+			filterSeries[i] = s
+		}
+	}
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
-		Series:          filter.Series,
+		Series:          filterSeries,
 		Arches:          filter.Arches,
 		Stream:          filter.Stream,
 		VirtType:        filter.VirtType,

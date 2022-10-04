@@ -79,6 +79,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	}
 	c.Check(resultMachine.Id, gc.Equals, machine.Id())
 	c.Check(resultMachine.Series, gc.Equals, machine.Series())
+	c.Check(resultMachine.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10"})
 	c.Check(resultMachine.LXDProfiles, gc.HasLen, 0)
 }
 
@@ -1106,6 +1107,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
 		Series:          "kubernetes",
+		Base:            params.Base{Name: "kubernetes", Channel: "kubernetes"},
 		WorkloadVersion: workloadVersion,
 		Relations:       map[string][]string{},
 		SubordinateTo:   []string{},
