@@ -4,23 +4,23 @@
 package action
 
 import (
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/client/action/mocks"
-	"github.com/juju/juju/state"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/state"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/local_mock.go github.com/juju/juju/apiserver/facades/client/action State,Model
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state Action,ActionReceiver
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leader_mock.go github.com/juju/juju/core/leadership Reader
+//go:generate go run github.com/golang/mock/mockgen -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action State,Model
+//go:generate go run github.com/golang/mock/mockgen -package action -destination state_mock_test.go github.com/juju/juju/state Action,ActionReceiver
+//go:generate go run github.com/golang/mock/mockgen -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
 
 type MockBaseSuite struct {
-	State          *mocks.MockState
+	State          *MockState
 	Authorizer     *facademocks.MockAuthorizer
-	ActionReceiver *mocks.MockActionReceiver
-	Leadership     *mocks.MockReader
+	ActionReceiver *MockActionReceiver
+	Leadership     *MockReader
 }
 
 func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {

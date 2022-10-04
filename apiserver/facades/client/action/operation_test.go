@@ -16,7 +16,6 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/action"
-	"github.com/juju/juju/apiserver/facades/client/action/mocks"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -341,9 +340,9 @@ func (s *operationSuite) TestOperations(c *gc.C) {
 type enqueueSuite struct {
 	action.MockBaseSuite
 
-	wordpressAction *mocks.MockAction
-	mysqlAction     *mocks.MockAction
-	model           *mocks.MockModel
+	wordpressAction *action.MockAction
+	mysqlAction     *action.MockAction
+	model           *action.MockModel
 
 	modelTag         names.ModelTag
 	wordpressUnitTag names.UnitTag
@@ -499,17 +498,17 @@ func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
 	s.Authorizer.EXPECT().AuthClient().Return(true)
 
-	s.model = mocks.NewMockModel(ctrl)
+	s.model = action.NewMockModel(ctrl)
 	s.model.EXPECT().ModelTag().Return(s.modelTag)
 
-	s.State = mocks.NewMockState(ctrl)
+	s.State = action.NewMockState(ctrl)
 	s.State.EXPECT().Model().Return(s.model, nil)
 
-	s.ActionReceiver = mocks.NewMockActionReceiver(ctrl)
-	s.Leadership = mocks.NewMockReader(ctrl)
+	s.ActionReceiver = action.NewMockActionReceiver(ctrl)
+	s.Leadership = action.NewMockReader(ctrl)
 
-	s.wordpressAction = mocks.NewMockAction(ctrl)
-	s.mysqlAction = mocks.NewMockAction(ctrl)
+	s.wordpressAction = action.NewMockAction(ctrl)
+	s.mysqlAction = action.NewMockAction(ctrl)
 
 	return ctrl
 }
