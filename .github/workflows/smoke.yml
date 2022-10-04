@@ -190,6 +190,7 @@ jobs:
         # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
         sudo microk8s refresh-certs --cert ca.crt
         sudo microk8s refresh-certs --cert server.crt
+        sg microk8s "microk8s status --wait-ready"
 
         # Wait for registry
         sg microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
