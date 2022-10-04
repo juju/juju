@@ -164,8 +164,8 @@ github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJm
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac h1:X5YRFJiteUM3rajABEYJSzw1KWgmp1ulPFKxpfLm0M4=
 github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
-github.com/canonical/pebble v0.0.0-20220929050154-fb9b611ab115 h1:sz1h0S2xg8Ey2SPqgfRzvD7iB8pqvx4Twx2stiCi6UI=
-github.com/canonical/pebble v0.0.0-20220929050154-fb9b611ab115/go.mod h1:qAIw8HY2rZZZ7QOhG9wD/4rtXvPJfvaOg+uWbhSABpc=
+github.com/canonical/pebble v0.0.0-20221004042842-d7797bb9b104 h1:TQh8Yl5LkcWUr1A/09yWGLW1hYRO5OmE6zmb7aFI0Yg=
+github.com/canonical/pebble v0.0.0-20221004042842-d7797bb9b104/go.mod h1:qAIw8HY2rZZZ7QOhG9wD/4rtXvPJfvaOg+uWbhSABpc=
 github.com/canonical/pretty v0.3.1-0.20220821212646-771f4dc6714f h1:Fm69JbIBVe7mbpAhQPSCGcFO3enqhX8+mdRsCcGnc8g=
 github.com/canonical/pretty v0.3.1-0.20220821212646-771f4dc6714f/go.mod h1:tMVdMxJgEKAzwkfAW0q3SaFOCR2tWN+TwNnOvolaR+Q=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
