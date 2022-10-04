@@ -122,7 +122,7 @@ func (a *ActionAPI) getAllUnitNames(units, applications []string) (result []name
 	getLeader := func(appName string) (string, error) {
 		if leaders == nil {
 			var err error
-			leaders, err = a.state.ApplicationLeaders()
+			leaders, err = a.leadership.Leaders()
 			if err != nil {
 				return "", err
 			}

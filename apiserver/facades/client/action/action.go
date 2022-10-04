@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -23,6 +24,7 @@ type ActionAPI struct {
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
+	leadership leadership.Reader
 
 	tagToActionReceiverFn TagToActionReceiverFunc
 }
@@ -34,7 +36,9 @@ type APIv7 struct {
 	*ActionAPI
 }
 
-func newActionAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
+func newActionAPI(
+	st State, resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
+) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -50,6 +54,7 @@ func newActionAPI(st State, resources facade.Resources, authorizer facade.Author
 		resources:             resources,
 		authorizer:            authorizer,
 		check:                 common.NewBlockChecker(st),
+		leadership:            leadership,
 		tagToActionReceiverFn: common.TagToActionReceiverFn,
 	}, nil
 }
