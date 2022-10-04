@@ -20,3 +20,9 @@ func NewPrunerFromCaller(caller base.FacadeCaller) *Facade {
 		facade: caller,
 	}
 }
+
+func NewClientFromCaller(caller base.FacadeCaller) *Client {
+	return &Client{
+		facade: caller,
+	}
+}
