@@ -1,5 +1,4 @@
 # expect_that the ability to work with interactive commands with expect tool.
-# The output is "OK", if tests passes successfully.
 # The expect_script argument is a expect script body.
 # The default timeout is 10 seconds.
 # NOTE: The expect tool must (!) be install via apt, because strictly-confined expect-snap
@@ -22,14 +21,12 @@ proc abort { } { send_user \"\rTimeout Error!\" ; exit 2 }
 expect_before timeout abort
 
 set timeout ${timeout}
-spawn sh -c "${command} 2>&1"
+spawn ${command}
 match_max 100000
 
 ${expect_script}
-sleep 3
 
-send_user \"OK\"
 expect eof
 EOF
-	expect "${TEST_DIR}/${filename}.exp"
+	expect "${TEST_DIR}/${filename}.exp" | check "spawn ${command}"
 }
