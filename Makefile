@@ -45,7 +45,7 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 define BUILD_AGENT_TARGETS
 	$(call bin_platform_paths,jujuc,${AGENT_PACKAGE_PLATFORMS}) \
 	$(call bin_platform_paths,jujud,${AGENT_PACKAGE_PLATFORMS}) \
-	$(call bin_platform_paths,containeragent,${AGENT_PACKAGE_PLATFORMS}) \
+	$(call bin_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call bin_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
@@ -64,7 +64,6 @@ define INSTALL_TARGETS
 	juju \
 	jujuc \
 	jujud \
-	containeragent \
 	juju-metadata \
 	juju-wait-for
 endef
@@ -72,6 +71,10 @@ endef
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
 	INSTALL_TARGETS += pebble
+endif
+
+ifneq ($(GOOS), windows)
+	INSTALL_TARGETS += containeragent
 endif
 
 # Allow the tests to take longer on restricted platforms.
