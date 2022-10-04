@@ -8,10 +8,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var (
-	GetAllUnitNames = getAllUnitNames
-)
-
 func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	return newActionAPI(&stateShim{st: st}, resources, authorizer)
 }
