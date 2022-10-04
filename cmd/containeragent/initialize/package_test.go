@@ -52,6 +52,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"charmstore",
 		"cloud",
 		"cmd",
+		"cmd/constants",
 		"controller",
 		"core/charm/metrics",
 		"core/constraints",

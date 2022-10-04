@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/api/base"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -268,9 +269,9 @@ func (c *containerUnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 
 // Workers returns a dependency.Engine running the k8s unit agent's responsibilities.
 func (c *containerUnitAgent) workers() (worker.Worker, error) {
-	probePort := os.Getenv(k8sconstants.EnvAgentHTTPProbePort)
+	probePort := os.Getenv(constants.EnvHTTPProbePort)
 	if probePort == "" {
-		return nil, errors.NotValidf("env %s missing", k8sconstants.EnvAgentHTTPProbePort)
+		probePort = constants.DefaultHTTPProbePort
 	}
 
 	updateAgentConfLogging := func(loggingConfig string) error {
@@ -295,6 +296,7 @@ func (c *containerUnitAgent) workers() (worker.Worker, error) {
 		PrometheusRegisterer: c.prometheusRegistry,
 		UpdateLoggerConfig:   updateAgentConfLogging,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		ProbeAddress:         "localhost",
 		ProbePort:            probePort,
 		MachineLock:          c.machineLock,
 		Clock:                c.clk,
