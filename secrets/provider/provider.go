@@ -51,6 +51,8 @@ func (nm NameMetaSlice) Names() (names []string) {
 type SecretStoreProvider interface {
 	// TODO(wallyworld) - add config schema methods
 
+	Type() string
+
 	// Initialise sets up the secrets store to host secrets for
 	// the specified model.
 	Initialise(m Model) error
