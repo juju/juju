@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -400,13 +401,23 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	chBase := series.Base{
+		Name:    applicationInfo.Base.Name,
+		Channel: applicationInfo.Base.Channel,
+	}
+	if applicationInfo.Base.Name == "" && applicationInfo.Series != "" {
+		chBase, err = series.GetBaseFromSeries(applicationInfo.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
 		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
-		DeployedSeries:  applicationInfo.Series,
+		DeployedBase:    chBase,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
 		Switch:          c.SwitchURL != "",

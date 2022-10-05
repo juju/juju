@@ -6,7 +6,6 @@ package charms
 import (
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"gopkg.in/macaroon.v2"
 
 	apiresources "github.com/juju/juju/api/client/resources"
@@ -28,6 +26,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -225,21 +224,22 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	// that we can attempt to derive it at a later stage. Juju itself doesn't
 	// know nor understands what all means, so we need to ensure it doesn't leak
 	// out.
-	var os string
-	var oSeries string
+	var (
+		os       string
+		oSeries  string
+		oChannel string
+	)
 	if origin.Series == "all" {
 		logger.Warningf("Release all detected, removing all from the origin. %s", origin.ID)
 	} else if origin.Series != "" {
 		// Always set the os from the series, so we know it's correctly
 		// normalized for the rest of Juju.
-		sys, err := series.GetOSFromSeries(origin.Series)
+		base, err := series.GetBaseFromSeries(origin.Series)
 		if err != nil {
 			return params.CharmOrigin{}, errors.Trace(err)
 		}
-		// Values passed to the api are case sensitive: ubuntu succeeds and
-		// Ubuntu returns `"code": "revision-not-found"`
-		os = strings.ToLower(sys.String())
-
+		os = base.Name
+		oChannel = base.Channel
 		oSeries = origin.Series
 	}
 
@@ -253,6 +253,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	o := origin
 	o.OS = os
 	o.Series = oSeries
+	o.Channel = oChannel
 	o.Architecture = arch
 	return o, nil
 }
@@ -483,6 +484,15 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 
+	if arg.Origin.Series != "" && (arg.Origin.OS == "" || arg.Origin.Channel == "") {
+		base, err := series.GetBaseFromSeries(arg.Origin.Series)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			return result
+		}
+		arg.Origin.OS = base.Name
+		arg.Origin.Channel = base.Channel
+	}
 	// Validate the origin passed in.
 	if err := validateOrigin(arg.Origin, curl.Schema, arg.SwitchCharm); err != nil {
 		result.Error = apiservererrors.ServerError(err)

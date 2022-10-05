@@ -5,7 +5,6 @@ package status
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/charm/v8"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -175,6 +173,7 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
+	base := series.Base{Name: machine.Base.Name, Channel: machine.Base.Channel}
 	out = machineStatus{
 		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
 		Hostname:           machine.Hostname,
@@ -185,6 +184,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		MachineStatus:      sf.getStatusInfoContents(machine.InstanceStatus),
 		ModificationStatus: sf.getStatusInfoContents(machine.ModificationStatus),
 		Series:             machine.Series,
+		Base:               base.String(),
 		Id:                 machine.Id,
 		NetworkInterfaces:  make(map[string]networkInterface),
 		Containers:         make(map[string]machineStatus),
@@ -231,14 +231,6 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 }
 
 func (sf *statusFormatter) formatApplication(name string, application params.ApplicationStatus) applicationStatus {
-	var osInfo string
-	appOS, _ := series.GetOSFromSeries(application.Series)
-	osInfo = strings.ToLower(appOS.String())
-
-	// TODO(caas) - enhance GetOSFromSeries
-	if appOS == os.Unknown && sf.status.Model.Type == "caas" {
-		osInfo = application.Series
-	}
 	var (
 		charmAlias  = ""
 		charmOrigin = ""
@@ -268,11 +260,23 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		charmName = curl.Name
 	}
 
+	base := series.Base{
+		Name:    application.Base.Name,
+		Channel: application.Base.Channel,
+	}
+	if base.Name == "" {
+		var err error
+		base, err = series.GetBaseFromSeries(application.Series)
+		if err != nil {
+			logger.Errorf("failed create charm base: %v", err)
+		}
+	}
 	out := applicationStatus{
 		Err:              typedNilCheck(application.Err),
 		Charm:            charmAlias,
 		Series:           application.Series,
-		OS:               osInfo,
+		OS:               base.Name,
+		Base:             base.String(),
 		CharmOrigin:      charmOrigin,
 		CharmName:        charmName,
 		CharmRev:         charmRev,

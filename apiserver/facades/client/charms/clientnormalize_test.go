@@ -67,6 +67,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginLowerCase(c *gc.C) 
 		Architecture: "s390",
 		OS:           "Ubuntu",
 		Series:       "focal",
+		Channel:      "20.04",
 	}
 	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)

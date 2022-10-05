@@ -118,14 +118,16 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 // MachineInfo holds the information about a machine
 // that is tracked by multiwatcherStore.
 type MachineInfo struct {
-	ModelUUID                string                            `json:"model-uuid"`
-	Id                       string                            `json:"id"`
-	InstanceId               string                            `json:"instance-id"`
-	AgentStatus              StatusInfo                        `json:"agent-status"`
-	InstanceStatus           StatusInfo                        `json:"instance-status"`
-	Life                     life.Value                        `json:"life"`
-	Config                   map[string]interface{}            `json:"config,omitempty"`
+	ModelUUID      string                 `json:"model-uuid"`
+	Id             string                 `json:"id"`
+	InstanceId     string                 `json:"instance-id"`
+	AgentStatus    StatusInfo             `json:"agent-status"`
+	InstanceStatus StatusInfo             `json:"instance-status"`
+	Life           life.Value             `json:"life"`
+	Config         map[string]interface{} `json:"config,omitempty"`
+	// TODO(juju3) - remove series
 	Series                   string                            `json:"series"`
+	Base                     string                            `json:"base"`
 	ContainerType            string                            `json:"container-type"`
 	IsManual                 bool                              `json:"-"` // internal use only
 	SupportedContainers      []instance.ContainerType          `json:"supported-containers"`
@@ -260,10 +262,12 @@ func (i *ApplicationOfferInfo) EntityId() EntityId {
 // UnitInfo holds the information about a unit
 // that is tracked by multiwatcherStore.
 type UnitInfo struct {
-	ModelUUID      string      `json:"model-uuid"`
-	Name           string      `json:"name"`
-	Application    string      `json:"application"`
+	ModelUUID   string `json:"model-uuid"`
+	Name        string `json:"name"`
+	Application string `json:"application"`
+	// TODO(juju3) - remove series
 	Series         string      `json:"series"`
+	Base           string      `json:"base"`
 	CharmURL       string      `json:"charm-url"`
 	Life           life.Value  `json:"life"`
 	PublicAddress  string      `json:"public-address"`

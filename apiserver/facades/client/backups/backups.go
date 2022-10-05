@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -167,7 +168,9 @@ func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadat
 	result.Machine = meta.Origin.Machine
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
+	base, _ := series.GetBaseFromSeries(meta.Origin.Series)
 	result.Series = meta.Origin.Series
+	result.Base = base.String()
 
 	result.ControllerUUID = meta.Controller.UUID
 	result.FormatVersion = meta.FormatVersion

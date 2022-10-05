@@ -7,6 +7,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/charm/v8"
+
 	corecharm "github.com/juju/juju/core/charm"
 )
 

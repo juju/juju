@@ -1465,6 +1465,7 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
 		retOrigin.OS = origin.Platform.OS
+		retOrigin.Channel, _ = series.SeriesVersion(origin.Platform.Series)
 		retOrigin.Series = origin.Platform.Series
 	}
 	return retOrigin
@@ -2832,6 +2833,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Tag:              tag.String(),
 			Charm:            details.Charm,
 			Series:           details.Series,
+			Base:             details.Base,
 			Channel:          channel,
 			Constraints:      details.Constraints,
 			Principal:        app.IsPrincipal(),

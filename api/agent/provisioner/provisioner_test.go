@@ -559,6 +559,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	provisioningInfo, err := apiMachine.ProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
+	c.Assert(provisioningInfo.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10"})
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
 

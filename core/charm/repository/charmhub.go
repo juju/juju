@@ -684,7 +684,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		base = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      origin.Platform.Channel,
+			Channel:      corecharm.ComputeBaseChannel(origin.Platform).Channel,
 		}
 	)
 	switch method {

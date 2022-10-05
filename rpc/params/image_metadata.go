@@ -11,7 +11,11 @@ type ImageMetadataFilter struct {
 	Region string `json:"region,omitempty"`
 
 	// Series stores all desired series.
+	// TODO(juju3) - remove series
 	Series []string `json:"series,omitempty"`
+
+	// Versions stores all desired versions.
+	Versions []string `json:"versions,omitempty"`
 
 	// Arches stores all desired architectures.
 	Arches []string `json:"arches,omitempty"`
@@ -44,6 +48,7 @@ type CloudImageMetadata struct {
 	Version string `json:"version"`
 
 	// Series is OS series, for e.g. "trusty".
+	// TODO(juju3) - remove series
 	Series string `json:"series"`
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"

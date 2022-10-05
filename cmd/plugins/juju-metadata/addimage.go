@@ -58,6 +58,7 @@ type addImageMetadataCommand struct {
 	ImageId         string
 	Region          string
 	Series          string
+	Version         string
 	Arch            string
 	VirtType        string
 	RootStorageType string
@@ -129,7 +130,8 @@ func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, erro
 // Init implements Command.Init.
 func (c *addImageMetadataCommand) validate() error {
 	if c.Series != "" {
-		if _, err := series.SeriesVersion(c.Series); err != nil {
+		var err error
+		if c.Version, err = series.SeriesVersion(c.Series); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -142,6 +144,7 @@ func (c *addImageMetadataCommand) constructMetadataParam() params.CloudImageMeta
 		ImageId:         c.ImageId,
 		Region:          c.Region,
 		Series:          c.Series,
+		Version:         c.Version,
 		Arch:            c.Arch,
 		VirtType:        c.VirtType,
 		RootStorageType: c.RootStorageType,

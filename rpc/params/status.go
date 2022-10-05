@@ -99,7 +99,12 @@ type MachineStatus struct {
 
 	// Series holds the name of the operating system release installed on
 	// this machine.
+	// TODO(juju3) - remove series
 	Series string `json:"series"`
+
+	// Base holds the details of the operating system release installed on
+	// this machine.
+	Base Base `json:"base"`
 
 	// Id is the Juju identifier for this machine in this model.
 	Id string `json:"id"`
@@ -141,12 +146,14 @@ type LXDProfile struct {
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err              *Error                     `json:"err,omitempty"`
-	Charm            string                     `json:"charm"`
-	CharmVersion     string                     `json:"charm-version"`
-	CharmProfile     string                     `json:"charm-profile"`
-	CharmChannel     string                     `json:"charm-channel,omitempty"`
+	Err          *Error `json:"err,omitempty"`
+	Charm        string `json:"charm"`
+	CharmVersion string `json:"charm-version"`
+	CharmProfile string `json:"charm-profile"`
+	CharmChannel string `json:"charm-channel,omitempty"`
+	// TODO(juju3) - remove series
 	Series           string                     `json:"series"`
+	Base             Base                       `json:"base"`
 	Exposed          bool                       `json:"exposed"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
 	Life             life.Value                 `json:"life"`

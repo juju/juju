@@ -43,6 +43,7 @@ func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {
 		"    - 10.0.1.1\n"+
 		"    instance-id: juju-badd06-0\n"+
 		"    series: trusty\n"+
+		"    base: ubuntu:14.04\n"+
 		"    network-interfaces:\n"+
 		"      eth0:\n"+
 		"        ip-addresses:\n"+
@@ -61,6 +62,7 @@ func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {
 		"    - 10.0.1.2\n"+
 		"    instance-id: juju-badd06-1\n"+
 		"    series: trusty\n"+
+		"    base: ubuntu:14.04\n"+
 		"    network-interfaces:\n"+
 		"      eth0:\n"+
 		"        ip-addresses:\n"+
@@ -78,6 +80,7 @@ func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {
 		"        - 10.0.1.3\n"+
 		"        instance-id: juju-badd06-1-lxd-0\n"+
 		"        series: trusty\n"+
+		"        base: ubuntu:14.04\n"+
 		"        network-interfaces:\n"+
 		"          eth0:\n"+
 		"            ip-addresses:\n"+
@@ -113,6 +116,7 @@ func (s *MachineShowCommandSuite) TestShowSingleMachine(c *gc.C) {
 		"    - 10.0.1.1\n"+
 		"    instance-id: juju-badd06-0\n"+
 		"    series: trusty\n"+
+		"    base: ubuntu:14.04\n"+
 		"    network-interfaces:\n"+
 		"      eth0:\n"+
 		"        ip-addresses:\n"+
@@ -159,6 +163,7 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
 		"		  \"machine-status\":{}," +
 		"		  \"modification-status\":{}," +
 		"		  \"series\":\"trusty\"," +
+		"		  \"base\":\"ubuntu:14.04\"," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
 		"				\"ip-addresses\":[" +
@@ -185,6 +190,7 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
 		"		  \"machine-status\":{}," +
 		"		  \"modification-status\":{}," +
 		"		  \"series\":\"trusty\"," +
+		"		  \"base\":\"ubuntu:14.04\"," +
 		"		  \"network-interfaces\":{" +
 		"			 \"eth0\":{" +
 		"				\"ip-addresses\":[" +
@@ -209,6 +215,7 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
 		"				\"machine-status\":{}," +
 		"				\"modification-status\":{}," +
 		"				\"series\":\"trusty\"," +
+		"				\"base\":\"ubuntu:14.04\"," +
 		"				\"network-interfaces\":{" +
 		"				   \"eth0\":{" +
 		"					  \"ip-addresses\":[" +

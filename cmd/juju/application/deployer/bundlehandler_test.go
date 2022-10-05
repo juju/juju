@@ -1478,8 +1478,8 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
+			"0": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Series: "bionic", Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {
@@ -1923,8 +1923,8 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {

@@ -23,7 +23,7 @@ func NewCharmAtPath(path, series string) (charm.Charm, *charm.URL, error) {
 	return NewCharmAtPathForceSeries(path, series, false)
 }
 
-// NewCharmAtPathForSeries returns the charm represented by this path,
+// NewCharmAtPathForceSeries returns the charm represented by this path,
 // and a URL that describes it. If the series is empty,
 // the charm's default series is used, if any.
 // Otherwise, the series is validated against those the

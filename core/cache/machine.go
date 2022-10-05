@@ -50,6 +50,7 @@ func (m *Machine) Report() map[string]interface{} {
 		"instance-id":        details.InstanceId,
 		"config":             details.Config,
 		"series":             details.Series,
+		"base":               details.Base,
 		"is-manual":          details.IsManual,
 		"hw-characteristics": details.HardwareCharacteristics,
 		"charm-profiles":     details.CharmProfiles,

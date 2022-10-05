@@ -74,6 +74,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 				"private-address": "",
 				"public-address":  "",
 				"series":          "bionic",
+				"base":            "ubuntu:18.04",
 				"subordinate":     false,
 			},
 		},

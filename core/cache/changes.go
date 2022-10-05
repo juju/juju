@@ -147,10 +147,12 @@ type RemoveCharm struct {
 // UnitChange represents either a new unit, or a change
 // to an existing unit in a model.
 type UnitChange struct {
-	ModelUUID                string
-	Name                     string
-	Application              string
+	ModelUUID   string
+	Name        string
+	Application string
+	// TODO(juju3) - remove series
 	Series                   string
+	Base                     string
 	Annotations              map[string]string
 	CharmURL                 string
 	Life                     life.Value
@@ -224,15 +226,17 @@ type RemoveRelation struct {
 // MachineChange represents either a new machine, or a change
 // to an existing machine in a model.
 type MachineChange struct {
-	ModelUUID                string
-	Id                       string
-	InstanceId               string
-	AgentStatus              status.StatusInfo
-	InstanceStatus           status.StatusInfo
-	Life                     life.Value
-	Annotations              map[string]string
-	Config                   map[string]interface{}
+	ModelUUID      string
+	Id             string
+	InstanceId     string
+	AgentStatus    status.StatusInfo
+	InstanceStatus status.StatusInfo
+	Life           life.Value
+	Annotations    map[string]string
+	Config         map[string]interface{}
+	// TODO(juju3) - remove series
 	Series                   string
+	Base                     string
 	ContainerType            string
 	IsManual                 bool
 	SupportedContainers      []instance.ContainerType

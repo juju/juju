@@ -1462,7 +1462,7 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 		return supported, nil
 	})
 
-	nonEMSSeries := supportedNotEMS.Values()[0]
+	nonEMSSeries := supportedNotEMS.SortedValues()[0]
 
 	loggingPath := filepath.Join(c.MkDir(), "series-logging")
 	repo := testcharms.RepoWithSeries("bionic")

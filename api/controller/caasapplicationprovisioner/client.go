@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -124,7 +125,7 @@ type ProvisioningInfo struct {
 	Constraints          constraints.Value
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
-	Series               string
+	Base                 series.Base
 	ImageDetails         resources.DockerImageDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
@@ -157,7 +158,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		CACert:               r.CACert,
 		Tags:                 r.Tags,
 		Constraints:          r.Constraints,
-		Series:               r.Series,
+		Base:                 series.Base{Name: r.Base.Name, Channel: r.Base.Channel},
 		ImageDetails:         params.ConvertDockerImageInfo(r.ImageRepo),
 		CharmModifiedVersion: r.CharmModifiedVersion,
 		Trust:                r.Trust,

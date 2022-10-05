@@ -192,6 +192,8 @@ func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewString(string(m.MachineInfo.InstanceStatus.Current)), nil
 	case "series":
 		return query.NewString(m.MachineInfo.Series), nil
+	case "base":
+		return query.NewString(m.MachineInfo.Base), nil
 	case "container-type":
 		return query.NewString(m.MachineInfo.ContainerType), nil
 	case "config":

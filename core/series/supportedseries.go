@@ -4,6 +4,7 @@
 package series
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -119,13 +120,23 @@ func GetOSFromSeries(series string) (coreos.OSType, error) {
 }
 
 // Base represents an OS version.
-// eg "ubuntu/22.04".
+// eg "ubuntu:22.04".
 // We use Base to be consistent with CharmHub.
 type Base struct {
 	Name string
 	// Channel is really os version, eg 22.04.
 	//We use Channel to be consistent with CharmHub.
 	Channel string
+}
+
+func (b *Base) String() string {
+	if b == nil || b.Name == "" {
+		return ""
+	}
+	if b.Name == "kubernetes" {
+		return b.Name
+	}
+	return fmt.Sprintf("%s:%s", b.Name, b.Channel)
 }
 
 // GetBaseFromSeries returns the Base infor for a series.
@@ -153,6 +164,9 @@ func GetSeriesFromBase(v Base) (string, error) {
 		osSeries = ubuntuSeries
 	case "centos":
 		osSeries = centosSeries
+	// TODO(juju3) - remove when legacy k8s charms are gone
+	case "kubernetes":
+		osSeries = kubernetesSeries
 	// TODO(juju3) - remove
 	case "opensuse":
 		osSeries = opensuseSeries
