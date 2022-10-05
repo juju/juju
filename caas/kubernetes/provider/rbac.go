@@ -599,6 +599,9 @@ func (k *kubernetesClient) listClusterRoleBindings(selector k8slabels.Selector) 
 	return cRBList.Items, nil
 }
 
+// TODO: make this configurable.
+var expiresInSeconds = int64(60 * 10)
+
 // EnsureSecretAccessToken ensures the RBAC resources created and updated for the provided resource name.
 func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, removed []string) (string, error) {
 	appName, err := names.UnitApplication(tag.Id())
@@ -649,12 +652,9 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot ensure role binding %q", roleBinding.Name)
 	}
-	expiresInSeconds := int64(60 * 10)
 	treq := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
-			// Audiences: []string{"api"},
 			ExpirationSeconds: &expiresInSeconds,
-			// BoundObjectRef:    &authenticationv1.BoundObjectReference{Kind: "secret"},
 		},
 	}
 	tr, err := k.client().CoreV1().ServiceAccounts(k.namespace).CreateToken(context.TODO(), sa.Name, treq, v1.CreateOptions{})
@@ -665,6 +665,23 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 	return tr.Status.Token, nil
 }
 
+func (k *kubernetesClient) ensureRoleForSecretAccessToken(objMeta v1.ObjectMeta, owned, read, removed []string) (*rbacv1.Role, error) {
+	role, err := k.getRole(objMeta.Name)
+	if errors.Is(err, errors.NotFound) {
+		return k.createRole(
+			&rbacv1.Role{
+				ObjectMeta: objMeta,
+				Rules:      rulesForSecretAccess(k.namespace, nil, owned, read, removed),
+			},
+		)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	role.Rules = rulesForSecretAccess(k.namespace, role.Rules, owned, read, removed)
+	return k.updateRole(role)
+}
+
 func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []rbacv1.PolicyRule {
 	if len(existing) == 0 {
 		return nil
@@ -673,10 +690,8 @@ func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []
 	i := 0
 	for _, r := range existing {
 		if len(r.ResourceNames) == 1 && shouldRemove(r.ResourceNames[0]) {
-			// This should never happen unless the resource was patched by someone.
 			continue
 		}
-		// copy and increment index
 		existing[i] = r
 		i++
 	}
@@ -746,23 +761,6 @@ func rulesForSecretAccess(namespace string, existing []rbacv1.PolicyRule, owned,
 		})
 	}
 	return existing
-}
-
-func (k *kubernetesClient) ensureRoleForSecretAccessToken(objMeta v1.ObjectMeta, owned, read, removed []string) (*rbacv1.Role, error) {
-	role, err := k.getRole(objMeta.Name)
-	if errors.Is(err, errors.NotFound) {
-		return k.createRole(
-			&rbacv1.Role{
-				ObjectMeta: objMeta,
-				Rules:      rulesForSecretAccess(k.namespace, nil, owned, read, removed),
-			},
-		)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	role.Rules = rulesForSecretAccess(k.namespace, role.Rules, owned, read, removed)
-	return k.updateRole(role)
 }
 
 // RemoveSecretAccessToken removes the RBAC resources for the provided resource name.
