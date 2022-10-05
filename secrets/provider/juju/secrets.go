@@ -16,10 +16,15 @@ const (
 
 // NewProvider returns a Juju secrets provider.
 func NewProvider() provider.SecretStoreProvider {
-	return jujuProvider{}
+	return jujuProvider{Store}
 }
 
 type jujuProvider struct {
+	name string
+}
+
+func (p jujuProvider) Type() string {
+	return p.name
 }
 
 // Initialise is not used.

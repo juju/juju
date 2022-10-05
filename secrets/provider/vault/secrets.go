@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/secrets/provider"
 )
 
+var logger = loggo.GetLogger("juju.secrets.vault")
+
 const (
 	// Store is the name of the Kubernetes secrets store.
 	Store = "vault"
@@ -28,13 +30,16 @@ const (
 
 // NewProvider returns a Kubernetes secrets provider.
 func NewProvider() provider.SecretStoreProvider {
-	return vaultProvider{}
+	return vaultProvider{Store}
 }
 
 type vaultProvider struct {
+	name string
 }
 
-var logger = loggo.GetLogger("juju.secrets.vault")
+func (p vaultProvider) Type() string {
+	return p.name
+}
 
 // Initialise sets up a kv store mounted on the model uuid.
 func (p vaultProvider) Initialise(m provider.Model) error {

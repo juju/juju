@@ -9,6 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/provider_mocks.go github.com/juju/juju/secrets/provider Model
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/kubernetes_mocks.go github.com/juju/juju/secrets/provider/kubernetes Broker
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

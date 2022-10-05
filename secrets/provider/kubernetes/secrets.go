@@ -34,10 +34,15 @@ const (
 
 // NewProvider returns a Kubernetes secrets provider.
 func NewProvider() provider.SecretStoreProvider {
-	return k8sProvider{}
+	return k8sProvider{Store}
 }
 
 type k8sProvider struct {
+	name string
+}
+
+func (p k8sProvider) Type() string {
+	return p.name
 }
 
 // Initialise is not used.
@@ -150,15 +155,22 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider
 			cloudSpec.IsControllerCloud = false
 		}
 	}
-	// TODO: instead of using provider.NameMetaSlice, we should use []secrets.Filter because
-	// we need the Version/Revision for the rules - the secret name format is <filter.URI.ID>-<filter.Version>.
 
 	logger.Criticalf("2 StoreConfig tag %q,  owned %#v, read %#v, cloudSpec %s", tag, owned, read, pretty.Sprint(cloudSpec))
 	return cloudSpecToStoreConfig(controllerUUID, cfg, cloudSpec)
 }
 
+type Broker interface {
+	caas.SecretsStore
+	caas.SecretsProvider
+}
+
 // NewCaas is patched for testing.
-var NewCaas = caas.New
+var NewCaas = newCaas
+
+func newCaas(ctx context.Context, args environs.OpenParams) (Broker, error) {
+	return caas.New(ctx, args)
+}
 
 // NewStore returns a k8s backed secrets store.
 func (p k8sProvider) NewStore(cfg *provider.StoreConfig) (provider.SecretsStore, error) {
@@ -229,7 +241,6 @@ type k8sStore struct {
 
 // GetContent implements SecretsStore.
 func (k k8sStore) GetContent(ctx context.Context, providerId string) (secrets.SecretValue, error) {
-	logger.Criticalf("GetContent providerId %q", providerId)
 	return k.broker.GetJujuSecret(ctx, providerId)
 }
 
@@ -240,6 +251,5 @@ func (k k8sStore) DeleteContent(ctx context.Context, providerId string) error {
 
 // SaveContent implements SecretsStore.
 func (k k8sStore) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
-	logger.Criticalf("SaveContent providerId %q %d", uri, revision)
 	return k.broker.SaveJujuSecret(ctx, uri.Name(revision), value)
 }
