@@ -9,13 +9,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/snap"
-	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/core/snap"
+	jujupackaging "github.com/juju/juju/packaging"
 )
 
 // ubuntuCloudConfig is the cloudconfig type specific to Ubuntu machines
@@ -280,7 +281,7 @@ var waitSnapSeeded = `
 n=1
 while true; do
 
-printf "Attempt $n to wait for snapd to be seeded...\n"
+echo "Attempt $n to wait for snapd to be seeded...\n"
 snap wait core seed.loaded && break
 if [ $n -eq 5 ]; then
   echo "snapd not initialised"

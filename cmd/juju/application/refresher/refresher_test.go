@@ -201,7 +201,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
 		logger:          fakeLogger{},
 	}
 	_, _, err := refresher.ResolveCharm()
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade from single series "ubuntu/18.04" charm to a charm supporting \["focal"\]. Use --force-series to override.`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade from single series "bionic" charm to a charm supporting \["focal"\]. Use --force-series to override.`)
 }
 
 func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {

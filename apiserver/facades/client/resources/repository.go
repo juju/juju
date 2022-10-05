@@ -31,7 +31,7 @@ type CharmID struct {
 	// URL is the url of the charm.
 	URL *charm.URL
 
-	// Origin holds the original source of a charm, including it's channel.
+	// Origin holds the original source of a charm, including its channel.
 	Origin corecharm.Origin
 
 	// Metadata is optional extra information about a particular model's

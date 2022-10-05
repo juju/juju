@@ -87,6 +87,37 @@ apiport: 17070`[1:])
 	expectedContainerAgent := []byte(`CONTAINERAGENT`)
 	expectedJujuc := []byte(`JUJUC`)
 
+	expectedCAPebbleService := []byte(`summary: Juju container agent service
+services:
+    container-agent:
+        summary: Juju container agent
+        startup: enabled
+        override: replace
+        command: '/charm/bin/containeragent unit --data-dir /var/lib/juju --append-env "PATH=$PATH:/charm/bin" --show-log '
+        environment:
+            HTTP_PROBE_PORT: "65301"
+        on-check-failure:
+            liveness: shutdown
+            readiness: shutdown
+checks:
+    liveness:
+        override: replace
+        level: ready
+        period: 10s
+        timeout: 3s
+        threshold: 3
+        http:
+            url: http://localhost:65301/liveness
+    readiness:
+        override: replace
+        level: ready
+        period: 10s
+        timeout: 3s
+        threshold: 3
+        http:
+            url: http://localhost:65301/readiness
+`)
+
 	pebbleWritten := bytes.NewBuffer(nil)
 	containerAgentWritten := bytes.NewBuffer(nil)
 	jujucWritten := bytes.NewBuffer(nil)
@@ -108,11 +139,14 @@ apiport: 17070`[1:])
 		s.fileReaderWriter.EXPECT().MkdirAll("/var/lib/juju", os.FileMode(0755)).Return(nil),
 		s.fileReaderWriter.EXPECT().WriteFile("/var/lib/juju/template-agent.conf", data, os.FileMode(0644)).Return(nil),
 		s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0755)).Return(nil),
+		s.fileReaderWriter.EXPECT().MkdirAll("/containeragent/pebble/layers", os.FileMode(0555)).Return(nil),
+		s.fileReaderWriter.EXPECT().WriteFile("/containeragent/pebble/layers/001-container-agent.yaml", expectedCAPebbleService, os.FileMode(0444)).Return(nil),
 
 		s.applicationAPI.EXPECT().Close().Times(1).Return(nil),
 	)
 
 	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--containeragent-pebble-dir", "/containeragent/pebble",
 		"--data-dir", "/var/lib/juju",
 		"--bin-dir", "/charm/bin",
 	)

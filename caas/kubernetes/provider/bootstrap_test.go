@@ -635,7 +635,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				"--charm-modified-version", "0",
 				"--append-env", "PATH=$PATH:/charm/bin",
 				"--show-log",
-				"--controller",
+				// TODO(wallyworld) - support --controller option when using pebble
+				// "--controller",
 			},
 			Resources: core.ResourceRequirements{
 				Requests: core.ResourceList{

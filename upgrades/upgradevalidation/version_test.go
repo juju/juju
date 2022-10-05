@@ -33,19 +33,19 @@ func (s *versionSuite) TestUpgradeToAllowed(c *gc.C) {
 			from:    "2.8.0",
 			to:      "3.0.0",
 			allowed: false,
-			minVers: "2.9.33",
+			minVers: "2.9.35",
 			patch:   true,
 		}, {
-			from:    "2.9.33",
+			from:    "2.9.35",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.33",
+			minVers: "2.9.35",
 			patch:   true,
 		}, {
-			from:    "2.9.34",
+			from:    "2.9.36",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.33",
+			minVers: "2.9.35",
 			patch:   true,
 		}, {
 			from:    "2.9.0",
@@ -71,7 +71,7 @@ func (s *versionSuite) assertUpgradeToAllowed(c *gc.C, i int, t versionCheckTC) 
 	c.Logf("testing %d", i)
 	if t.patch {
 		restore := jujutesting.PatchValue(&upgradevalidation.MinMajorUpgradeVersion, map[int]version.Number{
-			3: version.MustParse("2.9.33"),
+			3: version.MustParse("2.9.35"),
 		})
 		defer restore()
 	}

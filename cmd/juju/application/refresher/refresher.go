@@ -193,14 +193,14 @@ func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
 // Refresh a given local charm.
 // Bundles are not supported as there is no physical representation in Juju.
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
-	var chSeries string
+	var deployedSeries string
 	if d.deployedBase.Channel != "" {
 		var err error
-		if chSeries, err = series.GetSeriesFromBase(d.deployedBase); err != nil {
+		if deployedSeries, err = series.GetSeriesFromBase(d.deployedBase); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	ch, newURL, err := d.charmRepo.NewCharmAtPathForceSeries(d.charmRef, chSeries, d.forceSeries)
+	ch, newURL, err := d.charmRepo.NewCharmAtPathForceSeries(d.charmRef, deployedSeries, d.forceSeries)
 	if err == nil {
 		newName := ch.Meta().Name
 		if newName != d.charmURL.Name {
@@ -294,21 +294,21 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 
-	var chSeries string
+	var deployedSeries string
 	if r.deployedBase.Channel != "" {
-		if chSeries, err = series.GetSeriesFromBase(r.deployedBase); err != nil {
+		if deployedSeries, err = series.GetSeriesFromBase(r.deployedBase); err != nil {
 			return nil, commoncharm.Origin{}, errors.Trace(err)
 		}
 	}
-	_, seriesSupportedErr := corecharm.SeriesForCharm(chSeries, supportedSeries)
-	if !r.forceSeries && chSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
+	_, seriesSupportedErr := corecharm.SeriesForCharm(deployedSeries, supportedSeries)
+	if !r.forceSeries && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
 		series := []string{"no series"}
 		if len(supportedSeries) > 0 {
 			series = supportedSeries
 		}
 		return nil, commoncharm.Origin{}, errors.Errorf(
 			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
-			r.deployedBase, series,
+			deployedSeries, series,
 		)
 	}
 

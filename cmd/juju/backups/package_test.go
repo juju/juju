@@ -32,7 +32,7 @@ var MetaResultString = `
 
 backup format version: 0 
 juju version:          0.0.0 
-series:                 
+base:                   
 
 controller UUID:       
 model UUID:             

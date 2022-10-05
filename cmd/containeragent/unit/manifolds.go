@@ -90,6 +90,10 @@ type manifoldsConfig struct {
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
 
+	// ProbeAddress describes the net dial address to use for binding the
+	// receiving agent probe requests.
+	ProbeAddress string
+
 	// ProbePort describes the http port to operator on for receiving agent
 	// probe requests.
 	ProbePort string

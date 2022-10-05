@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
@@ -338,11 +339,15 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 
 	}
 	isManual := isManualMachine(m.Id, m.Nonce, providerType)
+	base, err := series.GetBaseFromSeries(m.Series)
+	if err != nil {
+		return errors.Annotatef(err, "converting machine series %q to base", m.Series) // Should not happen.
+	}
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                m.ModelUUID,
 		ID:                       m.Id,
 		Life:                     life.Value(m.Life.String()),
-		Series:                   m.Series,
+		Base:                     base.String(),
 		ContainerType:            m.ContainerType,
 		IsManual:                 isManual,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
@@ -510,11 +515,19 @@ func (u *backingUnit) updateAgentVersion(info *multiwatcher.UnitInfo) {
 
 func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`unit "%s:%s" updated`, ctx.modelUUID, ctx.id)
+	var base series.Base
+	if u.Series != "" {
+		var err error
+		base, err = series.GetBaseFromSeries(u.Series)
+		if err != nil {
+			return errors.Annotatef(err, "converting unit series %q to base", u.Series)
+		}
+	}
 	info := &multiwatcher.UnitInfo{
 		ModelUUID:   u.ModelUUID,
 		Name:        u.Name,
 		Application: u.Application,
-		Series:      u.Series,
+		Base:        base.String(),
 		Life:        life.Value(u.Life.String()),
 		MachineID:   u.MachineId,
 		Principal:   u.Principal,

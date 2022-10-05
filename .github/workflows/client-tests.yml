@@ -1,22 +1,12 @@
 name: "Client Tests"
 on:
   push:
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - '.github/workflows/client-tests.yml'
   workflow_dispatch:
 
 permissions:

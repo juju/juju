@@ -387,24 +387,21 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	chBase := series.Base{
+		Name:    applicationInfo.Base.Name,
+		Channel: applicationInfo.Base.Channel,
+	}
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
 		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
+		DeployedBase:    chBase,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
 		Switch:          c.SwitchURL != "",
 		Logger:          ctx,
-	}
-	// TODO(juju3) - use base
-	if applicationInfo.Series != "" {
-		base, err := series.GetBaseFromSeries(applicationInfo.Series)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		cfg.DeployedBase = base
 	}
 	factory, err := c.getRefresherFactory(apiRoot)
 	if err != nil {

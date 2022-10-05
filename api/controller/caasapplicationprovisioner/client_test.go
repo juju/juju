@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
@@ -177,7 +178,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 				Version:      vers,
 				APIAddresses: []string{"10.0.0.1:1"},
 				Tags:         map[string]string{"foo": "bar"},
-				Series:       "bionic",
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
 				ImageRepo: params.DockerImageInfo{
 					Repository:   "jujuqa",
 					RegistryPath: "juju-operator-image",
@@ -195,7 +196,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags:         map[string]string{"foo": "bar"},
-		Series:       "bionic",
+		Base:         series.Base{Name: "ubuntu", Channel: "18.04"},
 		ImageDetails: params.ConvertDockerImageInfo(params.DockerImageInfo{
 			Repository:   "jujuqa",
 			RegistryPath: "juju-operator-image",

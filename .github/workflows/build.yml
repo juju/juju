@@ -1,22 +1,12 @@
 name: "Build"
 on:
   push:
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - 'acceptancetests/**'
-      - 'doc/**'
-      - 'snap/**'
-      - 'testcharms/**'
-      - 'testing/**'
-      - 'tests/**'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     strategy:
+      fail-fast: false
       matrix:
         platform:
            - { os: linux, arch: amd64 }

@@ -5,21 +5,26 @@ package initialize
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path"
+	"time"
 
+	"github.com/canonical/pebble/plan"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/caasapplication"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/worker/apicaller"
 )
@@ -33,6 +38,14 @@ type initCommand struct {
 	applicationAPI   ApplicationAPI
 	fileReaderWriter utils.FileReaderWriter
 	environment      utils.Environment
+
+	// charmModifiedVersion holds just that and is used for generating the
+	// pebble service to run the container agent.
+	charmModifiedVersion string
+
+	// containerAgentPebbleDir holds the path to the pebble config dir used on
+	// the container agent.
+	containerAgentPebbleDir string
 
 	dataDir string
 	binDir  string
@@ -56,6 +69,8 @@ func New() cmd.Command {
 
 // SetFlags implements Command.
 func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.containerAgentPebbleDir, "containeragent-pebble-dir", "", "directory for container agent pebble config")
+	f.StringVar(&c.charmModifiedVersion, "charm-modified-version", "", "charm modified version for update hook")
 	f.StringVar(&c.dataDir, "data-dir", "", "directory for juju data")
 	f.StringVar(&c.binDir, "bin-dir", "", "copy juju binaries to this directory")
 }
@@ -80,6 +95,9 @@ func (c *initCommand) getApplicationAPI() (ApplicationAPI, error) {
 }
 
 func (c *initCommand) Init(args []string) error {
+	if c.containerAgentPebbleDir == "" {
+		return errors.NotValidf("--containeragent-pebble-dir")
+	}
 	if c.dataDir == "" {
 		return errors.NotValidf("--data-dir")
 	}
@@ -158,10 +176,87 @@ func (c *initCommand) copyBinaries() error {
 			return nil
 		})
 	}
+
+	if err := c.ContainerAgentPebbleConfig(); err != nil {
+		return err
+	}
+
 	doCopy("/opt/pebble", path.Join(c.binDir, "pebble"))
 	doCopy("/opt/containeragent", path.Join(c.binDir, "containeragent"))
 	doCopy("/opt/jujuc", path.Join(c.binDir, "jujuc"))
 	return eg.Wait()
+}
+
+// ContainerAgentPebbleConfig is responsible for generating the container agent
+// pebble service configuration.
+func (c *initCommand) ContainerAgentPebbleConfig() error {
+	extraArgs := ""
+	// If we actually have the charmModifiedVersion let's add it the args.
+	if c.charmModifiedVersion != "" {
+		extraArgs = "--charm-modified-version " + c.charmModifiedVersion
+	}
+
+	containerAgentLayer := plan.Layer{
+		Summary: "Juju container agent service",
+		Services: map[string]*plan.Service{
+			"container-agent": {
+				Summary:  "Juju container agent",
+				Override: "replace",
+				Command: fmt.Sprintf("%s unit --data-dir %s --append-env \"PATH=$PATH:%s\" --show-log %s",
+					path.Join(c.binDir, "containeragent"),
+					c.dataDir,
+					c.binDir,
+					extraArgs),
+				Startup: "enabled",
+				OnCheckFailure: map[string]plan.ServiceAction{
+					"liveness":  "shutdown",
+					"readiness": "shutdown",
+				},
+				Environment: map[string]string{
+					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
+				},
+			},
+		},
+		Checks: map[string]*plan.Check{
+			"readiness": {
+				Override:  "replace",
+				Level:     "ready",
+				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
+				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
+				Threshold: 3,
+				HTTP: &plan.HTTPCheck{
+					URL: fmt.Sprintf("http://localhost:%s/readiness", constants.DefaultHTTPProbePort),
+				},
+			},
+			"liveness": {
+				Override:  "replace",
+				Level:     "ready",
+				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
+				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
+				Threshold: 3,
+				HTTP: &plan.HTTPCheck{
+					URL: fmt.Sprintf("http://localhost:%s/liveness", constants.DefaultHTTPProbePort),
+				},
+			},
+		},
+	}
+
+	layerDir := path.Join(c.containerAgentPebbleDir, "layers")
+	if err := c.fileReaderWriter.MkdirAll(layerDir, 0555); err != nil {
+		return fmt.Errorf("making pebble container agent layer dir at %q: %w", layerDir, err)
+	}
+
+	p := path.Join(layerDir, "001-container-agent.yaml")
+
+	rawConfig, err := yaml.Marshal(&containerAgentLayer)
+	if err != nil {
+		return fmt.Errorf("making pebble container agent layer yaml: %w", err)
+	}
+
+	if err := c.fileReaderWriter.WriteFile(p, rawConfig, 0444); err != nil {
+		return fmt.Errorf("writing container agent pebble configuration to %q: %w", p, err)
+	}
+	return nil
 }
 
 func (c *initCommand) CurrentConfig() agent.Config {
