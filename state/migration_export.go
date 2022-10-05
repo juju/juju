@@ -677,11 +677,6 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	leaders, err := e.st.ApplicationLeaders()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	payloads, err := e.readAllPayloads()
 	if err != nil {
 		return errors.Trace(err)
@@ -709,7 +704,6 @@ func (e *exporter) applications() error {
 
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
-		leader := leaders[application.Name()]
 		resources, err := resourcesSt.ListResources(application.Name())
 		if err != nil {
 			return errors.Trace(err)
@@ -721,10 +715,10 @@ func (e *exporter) applications() error {
 			podSpecs:         podSpecs,
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
-			leader:           leader,
 			payloads:         payloads,
 			resources:        resources,
 			endpoingBindings: bindings,
+			// TODO (manadart 2022-10-05): Restore leader once migrated to Dqlite.
 		}
 
 		if appOfferMap != nil {

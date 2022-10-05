@@ -14,7 +14,6 @@ import (
 	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/payloads"
@@ -103,16 +101,6 @@ func (s *MigrationBaseSuite) makeApplicationWithUnits(c *gc.C, applicationName s
 			Application: application,
 		})
 	}
-}
-
-func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
-	target := s.State.LeaseNotifyTarget(
-		loggo.GetLogger("migration_export_test"),
-	)
-	target.Claimed(
-		lease.Key{Namespace: "application-leadership", ModelUUID: s.State.ModelUUID(), Lease: applicationName},
-		unitName,
-	)
 }
 
 func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
@@ -1026,26 +1014,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
 	}
-}
-
-func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
-	s.makeApplicationWithUnits(c, "mysql", 2)
-	s.makeUnitApplicationLeader(c, "mysql/1", "mysql")
-
-	s.makeApplicationWithUnits(c, "wordpress", 4)
-	s.makeUnitApplicationLeader(c, "wordpress/2", "wordpress")
-
-	model, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	leaders := make(map[string]string)
-	for _, application := range model.Applications() {
-		leaders[application.Name()] = application.Leader()
-	}
-	c.Assert(leaders, jc.DeepEquals, map[string]string{
-		"mysql":     "mysql/1",
-		"wordpress": "wordpress/2",
-	})
 }
 
 func (s *MigrationExportSuite) TestUnitOpenPortRanges(c *gc.C) {
