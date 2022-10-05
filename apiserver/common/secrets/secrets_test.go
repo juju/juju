@@ -113,7 +113,7 @@ func (s *secretsSuite) TestStoreConfigLeaderUnit(c *gc.C) {
 
 		p.EXPECT().Initialise(gomock.Any()).Return(nil),
 		leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token),
-		token.EXPECT().Check(0, nil).Return(nil),
+		token.EXPECT().Check().Return(nil),
 
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			OwnerTags: []names.Tag{
@@ -161,7 +161,7 @@ func (s *secretsSuite) TestStoreConfigNonLeaderUnit(c *gc.C) {
 
 		p.EXPECT().Initialise(gomock.Any()).Return(nil),
 		leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token),
-		token.EXPECT().Check(0, nil).Return(leadership.NewNotLeaderError("", "")),
+		token.EXPECT().Check().Return(leadership.NewNotLeaderError("", "")),
 
 		backend.EXPECT().ListSecrets(state.SecretsFilter{
 			OwnerTags: []names.Tag{unitTag},

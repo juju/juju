@@ -10,8 +10,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,9 +23,9 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 )
 
@@ -370,9 +370,9 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(1)
 	s.provider.EXPECT().CleanupSecrets(
-		mockModel{},names.NewUnitTag("mariadb/0"), 
+		mockModel{}, names.NewUnitTag("mariadb/0"),
 		secretsprovider.NameMetaSlice{uri.ID: set.NewInts(666)},
-		).Return(nil)
+	).Return(nil)
 
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
