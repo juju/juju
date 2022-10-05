@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
@@ -94,7 +93,7 @@ func (iw infoWriter) channels() string {
 
 			switch iw.baseMode {
 			case baseModeNone:
-				latest := latestRevision(revisions)
+				latest := revisions[0] // latest is always first
 				w.Println(formatRevision(latest, true))
 			case baseModeArches:
 				for i, r := range revisions {
@@ -102,11 +101,11 @@ func (iw infoWriter) channels() string {
 					w.Println(formatRevision(r, i == 0), arches)
 				}
 			case baseModeBases:
-				latest := latestRevision(revisions)
+				latest := revisions[0]
 				bases := strings.Join(basesToSeries(latest.Bases), ", ")
 				w.Println(formatRevision(latest, true), bases)
 			case baseModeBoth:
-				latest := latestRevision(revisions)
+				latest := revisions[0]
 				arches := strings.Join(latest.Arches, ", ")
 				bases := strings.Join(basesToSeries(latest.Bases), ", ")
 				w.Println(formatRevision(latest, true), arches, bases)
@@ -117,23 +116,6 @@ func (iw infoWriter) channels() string {
 		iw.warningf("%v", errors.Annotate(err, "could not flush channel data to buffer"))
 	}
 	return buffer.String()
-}
-
-// latestRevision returns the revision with the latest ReleasedAt time.
-func latestRevision(revisions []Revision) Revision {
-	latestRev := Revision{}
-	latestTime := time.Time{}
-	for _, r := range revisions {
-		releasedAt, err := time.Parse(time.RFC3339, r.ReleasedAt)
-		if err != nil {
-			continue
-		}
-		if releasedAt.After(latestTime) {
-			latestRev = r
-			latestTime = releasedAt
-		}
-	}
-	return latestRev
 }
 
 // formatRevision formats revision for human-readable tabbed output.
