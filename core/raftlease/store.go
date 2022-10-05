@@ -33,17 +33,6 @@ func aborted(command *Command) error {
 	}
 }
 
-// NotifyTarget defines methods needed to keep an external database
-// updated with who holds leases. (In non-test code the notify target
-// will generally be the state DB.)
-type NotifyTarget interface {
-	// Claimed will be called when a new lease has been claimed.
-	Claimed(lease.Key, string) error
-
-	// Expiries will be called when a set of existing leases have expired.
-	Expiries([]Expired) error
-}
-
 // ReadOnlyClock describes a clock from which global time can be read.
 type ReadOnlyClock interface {
 	GlobalTime() time.Time
