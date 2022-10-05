@@ -56,7 +56,6 @@ func (s *kubernetesSuite) assertStoreConfigWithTag(c *gc.C, isControllerCloud bo
 	defer ctrl.Finish()
 
 	tag := names.NewUnitTag("gitlab/0")
-
 	model := mocks.NewMockModel(ctrl)
 	broker := mocks.NewMockBroker(ctrl)
 
@@ -123,6 +122,48 @@ func (s *kubernetesSuite) TestStoreConfigWithTag(c *gc.C) {
 
 func (s *kubernetesSuite) TestStoreConfigWithTagWithControllerCloud(c *gc.C) {
 	s.assertStoreConfigWithTag(c, true)
+}
+
+func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	tag := names.NewUnitTag("gitlab/0")
+	model := mocks.NewMockModel(ctrl)
+	broker := mocks.NewMockBroker(ctrl)
+
+	s.PatchValue(&kubernetes.NewCaas, func(context.Context, environs.OpenParams) (kubernetes.Broker, error) { return broker, nil })
+
+	cld := cloud.Cloud{
+		Name:              "test",
+		Type:              "kubernetes",
+		Endpoint:          "http://nowhere",
+		CACertificates:    []string{"cert-data"},
+		IsControllerCloud: true,
+	}
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"username": "bar", "password": "bar"})
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name": "fred",
+		"type": "kubernetes",
+		"uuid": coretesting.ModelTag.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	gomock.InOrder(
+		model.EXPECT().Cloud().Return(cld, nil),
+		model.EXPECT().CloudCredential().Return(&cred, nil),
+		model.EXPECT().Config().Return(cfg, nil),
+		model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()),
+
+		broker.EXPECT().EnsureSecretAccessToken(
+			tag, nil, nil, []string{"removed-1", "removed-2"},
+		).Return("token", nil),
+	)
+
+	p, err := provider.Provider(kubernetes.Store)
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.CleanupSecrets(model, tag, provider.NameMetaSlice{"removed": set.NewInts(1, 2)})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *kubernetesSuite) TestNewStore(c *gc.C) {

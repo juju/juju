@@ -6,11 +6,7 @@ package secrets
 import (
 	"testing"
 
-	// jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	// "github.com/juju/juju/apiserver/common"
-	// "github.com/juju/juju/core/network"
-	// "github.com/juju/juju/state"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/commonsecrets_mock.go github.com/juju/juju/apiserver/common/secrets Model

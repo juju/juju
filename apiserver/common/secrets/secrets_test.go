@@ -15,11 +15,9 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
-	// "github.com/juju/juju/rpc/params"
-	// "github.com/juju/juju/secrets/provider"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
