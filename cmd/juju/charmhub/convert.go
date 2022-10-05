@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
@@ -19,7 +18,7 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 )
 
-func convertCharmInfoResult(info transport.InfoResponse, arch, series string) (InfoResponse, error) {
+func convertInfoResponse(info transport.InfoResponse, arch, series string) (InfoResponse, error) {
 	ir := InfoResponse{
 		Type:        string(info.Type),
 		ID:          info.ID,
@@ -139,7 +138,7 @@ func channelSeries(platforms []corecharm.Platform) set.Strings {
 func channelBases(platforms []corecharm.Platform) set.Strings {
 	bases := set.NewStrings()
 	for _, v := range platforms {
-		bases.Add(fmt.Sprintf("%s/%s", v.OS, v.Channel))
+		bases.Add(fmt.Sprintf("%s:%s", v.OS, v.Channel))
 	}
 	return bases
 }
@@ -288,27 +287,15 @@ func formatRelationPart(r map[string]charm.Relation) (map[string]string, bool) {
 	return relations, true
 }
 
-type charmMeta struct {
-	meta     *charm.Meta
-	manifest *charm.Manifest
-}
-
-func (c charmMeta) Meta() *charm.Meta {
-	return c.meta
-}
-
-func (c charmMeta) Manifest() *charm.Manifest {
-	return c.manifest
-}
-
 // filterChannels returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data. The result is filtered on series and arch.
-func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) ([]string, map[string]Channel, error) {
+func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) ([]string, RevisionsMap, error) {
 	var trackList []string
 
-	seen := set.NewStrings("")
-	channels := make(map[string]Channel, len(channelMap))
+	tracksSeen := set.NewStrings()
+	revisionsSeen := set.NewStrings()
+	channels := make(RevisionsMap)
 
 	for _, cm := range channelMap {
 		ch := cm.Channel
@@ -316,8 +303,8 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) 
 		if ch.Track == "" {
 			ch.Track = "latest"
 		}
-		if !seen.Contains(ch.Track) {
-			seen.Add(ch.Track)
+		if !tracksSeen.Contains(ch.Track) {
+			tracksSeen.Add(ch.Track)
 			trackList = append(trackList, ch.Track)
 		}
 
@@ -326,35 +313,27 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) 
 			continue
 		}
 
-		currentCh := Channel{
+		revisionKey := fmt.Sprintf("%s/%s:%d", ch.Track, ch.Risk, cm.Revision.Revision)
+		if revisionsSeen.Contains(revisionKey) {
+			continue
+		}
+		revisionsSeen.Add(revisionKey)
+
+		revision := Revision{
+			Track:      ch.Track,
+			Risk:       ch.Risk,
+			Version:    cm.Revision.Version,
 			Revision:   cm.Revision.Revision,
 			ReleasedAt: ch.ReleasedAt,
-			Risk:       ch.Risk,
-			Track:      ch.Track,
 			Size:       cm.Revision.Download.Size,
-			Version:    cm.Revision.Version,
 			Arches:     channelArches(platforms).SortedValues(),
 			Bases:      channelBases(platforms).SortedValues(),
 		}
 
-		chName := ch.Track + "/" + ch.Risk
-		if existingCh, ok := channels[chName]; ok {
-
-			currentChReleasedAt, err := time.Parse(time.RFC3339, currentCh.ReleasedAt)
-			if err != nil {
-				return nil, nil, errors.Annotatef(err, "invalid time format, expected RFC3339, got %s", currentCh.ReleasedAt)
-			}
-			existingChReleasedAt, err := time.Parse(time.RFC3339, existingCh.ReleasedAt)
-			if err != nil {
-				return nil, nil, errors.Annotatef(err, "invalid time format, expected RFC3339, got %s", existingCh.ReleasedAt)
-			}
-			if currentChReleasedAt.After(existingChReleasedAt) {
-				channels[chName] = currentCh
-			}
-		} else {
-			channels[chName] = currentCh
+		if _, ok := channels[ch.Track]; !ok {
+			channels[ch.Track] = make(map[string][]Revision)
 		}
-
+		channels[ch.Track][ch.Risk] = append(channels[ch.Track][ch.Risk], revision)
 	}
 	return trackList, channels, nil
 }

@@ -24,7 +24,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		Arch     string
 		Series   string
 		Input    []transport.InfoChannelMap
-		Expected map[string]Channel
+		Expected RevisionsMap
 	}{{
 		Name:   "match all",
 		Arch:   "all",
@@ -39,12 +39,14 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/18.04"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -61,12 +63,14 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/18.04"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -83,12 +87,14 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: []string{"amd64"},
-				Bases:  []string{"ubuntu/18.04"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: []string{"amd64"},
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -104,7 +110,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{},
+		Expected: RevisionsMap{},
 	}, {
 		Name:   "channel has all architectures with same series",
 		Arch:   "amd64",
@@ -119,12 +125,14 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/18.04"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -141,7 +149,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{},
+		Expected: RevisionsMap{},
 	}, {
 		Name:   "multiple channels have all architectures with same series",
 		Arch:   "amd64",
@@ -165,12 +173,14 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/20.04"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:20.04"},
+				}},
 			},
 		},
 	}, {
@@ -196,12 +206,14 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: []string{"amd64"},
-				Bases:  []string{"ubuntu/18.04"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: []string{"amd64"},
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -227,7 +239,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		}},
-		Expected: map[string]Channel{},
+		Expected: RevisionsMap{},
 	}, {
 		Name:   "exact match finds no valid channels",
 		Arch:   "amd64",
@@ -257,14 +269,16 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Revision: 501,
 			},
 		}},
-		Expected: map[string]Channel{
-			"xena/edge": {
-				ReleasedAt: "2022-04-01T02:41:31.140463+00:00",
-				Risk:       "edge",
-				Track:      "xena",
-				Revision:   522,
-				Arches:     []string{"amd64"},
-				Bases:      []string{"ubuntu/20.04"},
+		Expected: RevisionsMap{
+			"xena": {
+				"edge": {{
+					ReleasedAt: "2022-04-01T02:41:31.140463+00:00",
+					Risk:       "edge",
+					Track:      "xena",
+					Revision:   522,
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:20.04"},
+				}},
 			},
 		},
 	}}

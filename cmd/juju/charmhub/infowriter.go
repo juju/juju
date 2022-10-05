@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/output"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 // Note:
@@ -24,13 +24,14 @@ import (
 // There are exceptions, slices of strings and tables.  These
 // are transformed into strings.
 
-func makeInfoWriter(w io.Writer, warningLog Log, config bool, unicodeMode string, in *InfoResponse) Printer {
+func makeInfoWriter(w io.Writer, warningLog Log, config bool, unicodeMode string, baseMode baseMode, in *InfoResponse) Printer {
 	iw := infoWriter{
 		w:             w,
 		warningf:      warningLog,
 		in:            in,
 		displayConfig: config,
 		unicodeMode:   unicodeMode,
+		baseMode:      baseMode,
 	}
 	if iw.in.Type == "charm" {
 		return charmInfoWriter{infoWriter: iw}
@@ -44,7 +45,17 @@ type infoWriter struct {
 	in            *InfoResponse
 	displayConfig bool
 	unicodeMode   string
+	baseMode      baseMode
 }
+
+type baseMode int
+
+const (
+	baseModeNone baseMode = iota
+	baseModeArches
+	baseModeBases
+	baseModeBoth
+)
 
 func (iw infoWriter) print(info interface{}) error {
 	encoder := yaml.NewEncoder(iw.w)
@@ -56,21 +67,49 @@ func (iw infoWriter) channels() string {
 	if len(iw.in.Channels) == 0 {
 		return ""
 	}
-	buffer := bytes.NewBufferString("")
 
-	tw := output.TabWriter(buffer)
+	var buffer bytes.Buffer
+	tw := output.TabWriter(&buffer)
 	ow := output.Wrapper{TabWriter: tw}
 	w := InfoUnicodeWriter(ow, iw.unicodeMode)
+
+	// Iterate Tracks slice instead of Channels map to maintain order
 	for _, track := range iw.in.Tracks {
-		trackHasOpenChannel := false
+		risks := iw.in.Channels[track]
+		shown := false
+
+		// Iterate charm.Risks instead of risks map to standardize order
 		for _, risk := range charm.Risks {
-			chName := fmt.Sprintf("%s/%s", track, risk)
-			ch, ok := iw.in.Channels[chName]
-			if ok {
-				iw.writeOpenChanneltoBuffer(w, ch)
-				trackHasOpenChannel = true
-			} else {
-				iw.writeClosedChannelToBuffer(w, chName, trackHasOpenChannel)
+			revisions, ok := risks[string(risk)]
+			if !ok {
+				w.Printf("%s/%s:", track, risk)
+				c := UnicodeDash // dash means no revision available
+				if shown {
+					c = UnicodeUpArrow // points up to revision on previous line
+				}
+				_, _ = w.PrintlnUnicode(c)
+				continue
+			}
+			shown = true
+
+			switch iw.baseMode {
+			case baseModeNone:
+				latest := latestRevision(revisions)
+				w.Println(formatRevision(latest))
+			case baseModeArches:
+				for _, r := range revisions {
+					arches := strings.Join(r.Arches, ", ")
+					w.Println(formatRevision(r), arches)
+				}
+			case baseModeBases:
+				latest := latestRevision(revisions)
+				bases := strings.Join(basesToSeries(latest.Bases), ", ")
+				w.Println(formatRevision(latest), bases)
+			case baseModeBoth:
+				latest := latestRevision(revisions)
+				arches := strings.Join(latest.Arches, ", ")
+				bases := strings.Join(basesToSeries(latest.Bases), ", ")
+				w.Println(formatRevision(latest), arches, bases)
 			}
 		}
 	}
@@ -80,29 +119,46 @@ func (iw infoWriter) channels() string {
 	return buffer.String()
 }
 
-func (iw infoWriter) writeOpenChanneltoBuffer(w *UnicodeWriter, channel Channel) {
-	w.Printf("%s/%s:", channel.Track, channel.Risk)
-	w.Print(channel.Version)
-	releasedAt, err := time.Parse(time.RFC3339, channel.ReleasedAt)
-	if err != nil {
-		// This should not fail, if it does, warn on the error
-		// rather than ignoring.
-		iw.warningf("%s", errors.Annotate(err, "could not parse released at time").Error())
-		w.Print(" ")
-	} else {
-		w.Print(releasedAt.Format("2006-01-02"))
+// latestRevision returns the revision with the latest ReleasedAt time.
+func latestRevision(revisions []Revision) Revision {
+	latestRev := Revision{}
+	latestTime := time.Time{}
+	for _, r := range revisions {
+		releasedAt, err := time.Parse(time.RFC3339, r.ReleasedAt)
+		if err != nil {
+			continue
+		}
+		if releasedAt.After(latestTime) {
+			latestRev = r
+			latestTime = releasedAt
+		}
 	}
-	w.Printf("(%s)", strconv.Itoa(channel.Revision))
-	w.Println(sizeToStr(channel.Size))
+	return latestRev
 }
 
-func (iw infoWriter) writeClosedChannelToBuffer(w *UnicodeWriter, name string, hasOpenChannel bool) {
-	w.Printf("%s:", name)
-	if hasOpenChannel {
-		_, _ = w.PrintlnUnicode(UnicodeUpArrow)
-		return
+// formatRevision formats revision for human-readable tabbed output.
+func formatRevision(r Revision) string {
+	return fmt.Sprintf("%s/%s:\t%s\t%s\t(%d)\t%s",
+		r.Track, r.Risk, r.Version, r.ReleasedAt[:10], r.Revision, sizeToStr(r.Size))
+}
+
+// basesToSeries converts a list of bases in "ubuntu:22.04" format to a list
+// of series ("jammy"). Any bases that can't be mapped will be included in the
+// result unmodified.
+//
+// NOTE: This will go away when we switch to --base and bases output.
+func basesToSeries(bases []string) []string {
+	series := make([]string, len(bases))
+	for i, base := range bases {
+		name, channel, _ := strings.Cut(base, ":")
+		s, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: name, Channel: channel})
+		if err != nil {
+			series[i] = base
+		} else {
+			series[i] = s
+		}
 	}
-	_, _ = w.PrintlnUnicode(UnicodeDash)
+	return series
 }
 
 type bundleInfoOutput struct {

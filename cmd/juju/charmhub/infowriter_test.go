@@ -5,7 +5,6 @@ package charmhub
 
 import (
 	"bytes"
-
 	"github.com/juju/charm/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,16 +17,18 @@ type printInfoSuite struct {
 
 var _ = gc.Suite(&printInfoSuite{})
 
+// TODO(benhoyt): add tests that exercise baseMode other than baseModeNone
+
 func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
-publisher: Wordress Charmers
+publisher: Wordpress Charmers
 summary: WordPress is a full featured web blogging tool, this charm deploys it.
 description: |-
   This will install and setup WordPress optimized to run in the cloud.
@@ -55,7 +56,7 @@ channels: |
 func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, "never", &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, "never", baseModeNone, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -99,7 +100,7 @@ config:
 func (s *printInfoSuite) TestBundleChannelClosed(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -121,7 +122,7 @@ channels: |
 func (s *printInfoSuite) TestBundleChannelClosedWithUnicode(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", baseModeNone, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -143,7 +144,7 @@ channels: |
 func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
 	ir := getBundleInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -173,38 +174,40 @@ func getBundleInfoResponse() InfoResponse {
 		Summary:     "A bundle by charmed-osm.",
 		Tags:        []string{"networking"},
 		Bundle:      nil,
-		Channels: map[string]Channel{
-			"latest/stable": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "stable",
-				Revision:   16,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/beta": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "beta",
-				Revision:   17,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/candidate": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "candidate",
-				Revision:   17,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/edge": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "edge",
-				Revision:   18,
-				Size:       12042240,
-				Version:    "1.0.3",
+		Channels: RevisionsMap{
+			"latest": {
+				"stable": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "stable",
+					Revision:   16,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"beta": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "beta",
+					Revision:   17,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"candidate": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "candidate",
+					Revision:   17,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"edge": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "edge",
+					Revision:   18,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
 			}},
 		Tracks: []string{"latest"},
 	}
@@ -246,38 +249,40 @@ func getCharmInfoResponse() InfoResponse {
 				},
 			},
 		},
-		Channels: map[string]Channel{
-			"latest/stable": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "stable",
-				Revision:   16,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/beta": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "beta",
-				Revision:   17,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/candidate": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "candidate",
-				Revision:   17,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/edge": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "edge",
-				Revision:   18,
-				Size:       12042240,
-				Version:    "1.0.3",
+		Channels: RevisionsMap{
+			"latest": {
+				"stable": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "stable",
+					Revision:   16,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"beta": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "beta",
+					Revision:   17,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"candidate": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "candidate",
+					Revision:   17,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"edge": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "edge",
+					Revision:   18,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
 			}},
 		Tracks: []string{"latest"},
 	}
@@ -287,54 +292,58 @@ func getBundleInfoClosedTrack() InfoResponse {
 	return InfoResponse{
 		Name: "osm",
 		Type: "bundle",
-		Channels: map[string]Channel{
-			"latest/stable": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "stable",
-				Revision:   15,
-				Size:       12042240,
-				Version:    "1.0.3",
+		Channels: RevisionsMap{
+			"latest": {
+				"stable": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "stable",
+					Revision:   15,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"beta": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "beta",
+					Revision:   17,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"candidate": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "candidate",
+					Revision:   16,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"edge": {{
+					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "edge",
+					Revision:   18,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
 			},
-			"latest/beta": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "beta",
-				Revision:   17,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/candidate": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "candidate",
-				Revision:   16,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"latest/edge": {
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Track:      "latest",
-				Risk:       "edge",
-				Revision:   18,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"2.8/candidate": {
-				ReleasedAt: "2019-12-13T19:44:44.076943+00:00",
-				Track:      "2.8",
-				Risk:       "candidate",
-				Revision:   56,
-				Size:       12042240,
-				Version:    "1.0.3",
-			},
-			"2.8/edge": {
-				ReleasedAt: "2019-12-17T19:44:44.076943+00:00",
-				Track:      "2.8",
-				Risk:       "edge",
-				Revision:   60,
-				Size:       12042240,
-				Version:    "1.0.3",
+			"2.8": {
+				"candidate": {{
+					ReleasedAt: "2019-12-13T19:44:44.076943+00:00",
+					Track:      "2.8",
+					Risk:       "candidate",
+					Revision:   56,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
+				"edge": {{
+					ReleasedAt: "2019-12-17T19:44:44.076943+00:00",
+					Track:      "2.8",
+					Risk:       "edge",
+					Revision:   60,
+					Size:       12042240,
+					Version:    "1.0.3",
+				}},
 			}},
 		Tracks: []string{"latest", "2.8"},
 	}
