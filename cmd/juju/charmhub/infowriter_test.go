@@ -18,9 +18,41 @@ type printInfoSuite struct {
 
 var _ = gc.Suite(&printInfoSuite{})
 
-// TODO(benhoyt): add tests that exercise baseMode other than baseModeNone!!!
-
 func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
+	ir := getCharmInfoResponse()
+	ctx := commandContextForTest(c)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir)
+	err := iw.Print()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained := ctx.Stdout.(*bytes.Buffer).String()
+	expected := `name: wordpress
+publisher: WordPress Charmers
+summary: WordPress is a full featured web blogging tool, this charm deploys it.
+description: |-
+  This will install and setup WordPress optimized to run in the cloud.
+  By default it will place Ngnix and php-fpm configured to scale horizontally with
+  Nginx's reverse proxy.
+charm-id: charmCHARMcharmCHARMcharmCHARM01
+supports: bionic, xenial
+tags: app, seven
+subordinate: true
+relations:
+  provides:
+    one: two
+    three: four
+  requires:
+    five: six
+channels: |
+  latest/stable:     1.0.3  2019-12-16  (16)  12MB  amd64  jammy, focal
+  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  amd64  jammy
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64  jammy
+  latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64  coolos:3.14
+`
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func (s *printInfoSuite) TestCharmPrintInfoModeNone(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir)
@@ -50,6 +82,75 @@ channels: |
   latest/candidate:  1.0.3  2019-12-16  (17)  12MB
   latest/beta:       1.0.3  2019-12-16  (17)  12MB
   latest/edge:       1.0.3  2019-12-16  (18)  12MB
+`
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func (s *printInfoSuite) TestCharmPrintInfoModeArches(c *gc.C) {
+	ir := getCharmInfoResponse()
+	ctx := commandContextForTest(c)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeArches, &ir)
+	err := iw.Print()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained := ctx.Stdout.(*bytes.Buffer).String()
+	expected := `name: wordpress
+publisher: WordPress Charmers
+summary: WordPress is a full featured web blogging tool, this charm deploys it.
+description: |-
+  This will install and setup WordPress optimized to run in the cloud.
+  By default it will place Ngnix and php-fpm configured to scale horizontally with
+  Nginx's reverse proxy.
+charm-id: charmCHARMcharmCHARMcharmCHARM01
+supports: bionic, xenial
+tags: app, seven
+subordinate: true
+relations:
+  provides:
+    one: two
+    three: four
+  requires:
+    five: six
+channels: |
+  latest/stable:     1.0.3  2019-12-16  (16)  12MB  amd64
+                     1.0.3  2018-12-16  (15)  12MB  arm64
+  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  amd64
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64
+  latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64
+`
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func (s *printInfoSuite) TestCharmPrintInfoModeBases(c *gc.C) {
+	ir := getCharmInfoResponse()
+	ctx := commandContextForTest(c)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBases, &ir)
+	err := iw.Print()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained := ctx.Stdout.(*bytes.Buffer).String()
+	expected := `name: wordpress
+publisher: WordPress Charmers
+summary: WordPress is a full featured web blogging tool, this charm deploys it.
+description: |-
+  This will install and setup WordPress optimized to run in the cloud.
+  By default it will place Ngnix and php-fpm configured to scale horizontally with
+  Nginx's reverse proxy.
+charm-id: charmCHARMcharmCHARMcharmCHARM01
+supports: bionic, xenial
+tags: app, seven
+subordinate: true
+relations:
+  provides:
+    one: two
+    three: four
+  requires:
+    five: six
+channels: |
+  latest/stable:     1.0.3  2019-12-16  (16)  12MB  jammy, focal
+  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  jammy
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB  jammy
+  latest/edge:       1.0.3  2019-12-16  (18)  12MB  coolos:3.14
 `
 	c.Assert(obtained, gc.Equals, expected)
 }
@@ -259,6 +360,17 @@ func getCharmInfoResponse() InfoResponse {
 					Revision:   16,
 					Size:       12042240,
 					Version:    "1.0.3",
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:22.04", "ubuntu:20.04"},
+				}, {
+					ReleasedAt: "2018-12-16T19:44:44.076943+00:00",
+					Track:      "latest",
+					Risk:       "stable",
+					Revision:   15,
+					Size:       12042240,
+					Version:    "1.0.3",
+					Arches:     []string{"arm64"},
+					Bases:      []string{"ubuntu:22.04"},
 				}},
 				"beta": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -267,6 +379,8 @@ func getCharmInfoResponse() InfoResponse {
 					Revision:   17,
 					Size:       12042240,
 					Version:    "1.0.3",
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:22.04"},
 				}},
 				"candidate": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -275,6 +389,8 @@ func getCharmInfoResponse() InfoResponse {
 					Revision:   17,
 					Size:       12042240,
 					Version:    "1.0.3",
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:22.04"},
 				}},
 				"edge": {{
 					ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -283,6 +399,8 @@ func getCharmInfoResponse() InfoResponse {
 					Revision:   18,
 					Size:       12042240,
 					Version:    "1.0.3",
+					Arches:     []string{"amd64"},
+					Bases:      []string{"coolos:3.14"},
 				}},
 			}},
 		Tracks: []string{"latest"},

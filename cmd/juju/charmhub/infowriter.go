@@ -95,21 +95,21 @@ func (iw infoWriter) channels() string {
 			switch iw.baseMode {
 			case baseModeNone:
 				latest := latestRevision(revisions)
-				w.Println(formatRevision(latest))
+				w.Println(formatRevision(latest, true))
 			case baseModeArches:
-				for _, r := range revisions {
+				for i, r := range revisions {
 					arches := strings.Join(r.Arches, ", ")
-					w.Println(formatRevision(r), arches)
+					w.Println(formatRevision(r, i == 0), arches)
 				}
 			case baseModeBases:
 				latest := latestRevision(revisions)
 				bases := strings.Join(basesToSeries(latest.Bases), ", ")
-				w.Println(formatRevision(latest), bases)
+				w.Println(formatRevision(latest, true), bases)
 			case baseModeBoth:
 				latest := latestRevision(revisions)
 				arches := strings.Join(latest.Arches, ", ")
 				bases := strings.Join(basesToSeries(latest.Bases), ", ")
-				w.Println(formatRevision(latest), arches, bases)
+				w.Println(formatRevision(latest, true), arches, bases)
 			}
 		}
 	}
@@ -137,9 +137,13 @@ func latestRevision(revisions []Revision) Revision {
 }
 
 // formatRevision formats revision for human-readable tabbed output.
-func formatRevision(r Revision) string {
-	return fmt.Sprintf("%s/%s:\t%s\t%s\t(%d)\t%s",
-		r.Track, r.Risk, r.Version, r.ReleasedAt[:10], r.Revision, sizeToStr(r.Size))
+func formatRevision(r Revision, showName bool) string {
+	var namePrefix string
+	if showName {
+		namePrefix = fmt.Sprintf("%s/%s:", r.Track, r.Risk)
+	}
+	return fmt.Sprintf("%s\t%s\t%s\t(%d)\t%s",
+		namePrefix, r.Version, r.ReleasedAt[:10], r.Revision, sizeToStr(r.Size))
 }
 
 // basesToSeries converts a list of bases in "ubuntu:22.04" format to a list
