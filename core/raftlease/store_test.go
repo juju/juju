@@ -4,7 +4,6 @@
 package raftlease_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -786,16 +785,6 @@ func (f *fakeFSM) Pinned() map[lease.Key][]string {
 
 func (f *fakeFSM) GlobalTime() time.Time {
 	return f.globalTime
-}
-
-func FakeTrapdoor(key lease.Key, holder string) lease.Trapdoor {
-	return func(attempt int, out interface{}) error {
-		if s, ok := out.(*string); ok {
-			*s = fmt.Sprintf("%v held by %s", key, holder)
-			return nil
-		}
-		return errors.Errorf("bad input")
-	}
 }
 
 func marshal(c *gc.C, command raftlease.Command) string {

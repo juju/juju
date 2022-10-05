@@ -44,12 +44,6 @@ type NotifyTarget interface {
 	Expiries([]Expired) error
 }
 
-// TrapdoorFunc returns a trapdoor to be attached to lease details for
-// use by clients. This is intended to hold assertions that can be
-// added to state transactions to ensure the lease is still held when
-// the transaction is applied.
-type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
-
 // ReadOnlyClock describes a clock from which global time can be read.
 type ReadOnlyClock interface {
 	GlobalTime() time.Time
