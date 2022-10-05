@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"bytes"
+
 	"github.com/juju/charm/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,7 @@ type printInfoSuite struct {
 
 var _ = gc.Suite(&printInfoSuite{})
 
-// TODO(benhoyt): add tests that exercise baseMode other than baseModeNone
+// TODO(benhoyt): add tests that exercise baseMode other than baseModeNone!!!
 
 func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
 	ir := getCharmInfoResponse()
@@ -28,7 +29,7 @@ func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
-publisher: Wordpress Charmers
+publisher: WordPress Charmers
 summary: WordPress is a full featured web blogging tool, this charm deploys it.
 description: |-
   This will install and setup WordPress optimized to run in the cloud.
@@ -62,7 +63,7 @@ func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
-publisher: Wordress Charmers
+publisher: WordPress Charmers
 summary: WordPress is a full featured web blogging tool, this charm deploys it.
 description: |-
   This will install and setup WordPress optimized to run in the cloud.
@@ -219,7 +220,7 @@ func getCharmInfoResponse() InfoResponse {
 		ID:          "charmCHARMcharmCHARMcharmCHARM01",
 		Name:        "wordpress",
 		Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
-		Publisher:   "Wordress Charmers",
+		Publisher:   "WordPress Charmers",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix and php-fpm configured to scale horizontally with\nNginx's reverse proxy.",
 		Series:      []string{"bionic", "xenial"},
 		Tags:        []string{"app", "seven"},

@@ -91,7 +91,7 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
   "id": "charmCHARMcharmCHARMcharmCHARM01",
   "name": "wordpress",
   "description": "This will install and setup WordPress optimized to run in the cloud.",
-  "publisher": "Wordress Charmers",
+  "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
   "series": [
     "bionic",
@@ -211,7 +211,7 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
   "id": "charmCHARMcharmCHARMcharmCHARM01",
   "name": "wordpress",
   "description": "This will install and setup WordPress optimized to run in the cloud.",
-  "publisher": "Wordress Charmers",
+  "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
   "series": [
     "bionic",
@@ -324,7 +324,7 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
   "id": "charmCHARMcharmCHARMcharmCHARM01",
   "name": "wordpress",
   "description": "This will install and setup WordPress optimized to run in the cloud.",
-  "publisher": "Wordress Charmers",
+  "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
   "series": [
     "bionic",
@@ -437,7 +437,7 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
   "id": "charmCHARMcharmCHARMcharmCHARM01",
   "name": "wordpress",
   "description": "This will install and setup WordPress optimized to run in the cloud.",
-  "publisher": "Wordress Charmers",
+  "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
   "series": [
     "bionic",
@@ -529,7 +529,7 @@ type: charm
 id: charmCHARMcharmCHARMcharmCHARM01
 name: wordpress
 description: This will install and setup WordPress optimized to run in the cloud.
-publisher: Wordress Charmers
+publisher: WordPress Charmers
 summary: WordPress is a full featured web blogging tool, this charm deploys it.
 series:
 - bionic
@@ -615,7 +615,7 @@ func (s *infoSuite) expectInfo() {
 		ID:   "charmCHARMcharmCHARMcharmCHARM01",
 		Entity: transport.Entity{
 			Description: "This will install and setup WordPress optimized to run in the cloud.",
-			Publisher:   map[string]string{"display-name": "Wordress Charmers"},
+			Publisher:   map[string]string{"display-name": "WordPress Charmers"},
 			Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
 			StoreURL:    "https://someurl.com/wordpress",
 			Categories: []transport.Category{{
