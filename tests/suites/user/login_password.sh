@@ -17,11 +17,11 @@ expect \"new password: \" {
     expect \"type new password again: \" {
         send \"test-password\r\"
         expect {
-            \"*has been changed.\" { puts \"Success\" }
+            \"*has been changed.\" { puts \"Pass\" }
             eof { puts \"Fail\" }
         }
     }
-}" | check "Success"
+}" | check "Pass"
 
 	destroy_model "user-change-password"
 }
