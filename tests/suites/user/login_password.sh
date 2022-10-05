@@ -7,26 +7,21 @@ run_user_change_password() {
 	file="${TEST_DIR}/test-user-change-password.log"
 	ensure "user-change-password" "${file}"
 
-	echo "Change admin password"
-	expect_that "juju change-user-password" "
+	echo "Add test-change-password-user"
+	juju add-user test-change-password-user
+
+	echo "Change test-change-password-user password"
+	expect_that "juju change-user-password test-change-password-user" "
 expect \"new password: \" {
-	send \"test-password\r\"
-	expect \"type new password again: \" {
-		send \"test-password\r\"
-	}
-}"
-
-	echo "Logout from controller"
-	juju logout
-
-	echo "Login as admin"
-	expect_that "juju login" "
-expect \"Enter username: \" {
-	send \"admin\r\"
-	expect \"please enter password for admin*\" {
-		send \"test-password\r\"
-	}
-}" 15
+    send \"test-password\r\"
+    expect \"type new password again: \" {
+        send \"test-password\r\"
+        expect {
+            \"*has been changed.\" { puts \"Success\" }
+            eof { puts \"Fail\" }
+        }
+    }
+}" | check "Success"
 
 	destroy_model "user-change-password"
 }
