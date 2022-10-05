@@ -26,7 +26,7 @@ type MockBaseSuite struct {
 }
 
 func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
-	api, err := newActionAPI(s.State, nil, s.Authorizer, s.Leadership)
+	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership))
 	c.Assert(err, jc.ErrorIsNil)
 
 	api.tagToActionReceiverFn = s.tagToActionReceiverFn
@@ -34,17 +34,15 @@ func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
 }
 
 func (s *MockBaseSuite) tagToActionReceiverFn(
-	_ func(names.Tag) (state.Entity, error),
+	func(names.Tag) (state.Entity, error),
 ) func(tag string) (state.ActionReceiver, error) {
-	return func(tag string) (state.ActionReceiver, error) {
-		return s.ActionReceiver, nil
-	}
+	return func(tag string) (state.ActionReceiver, error) { return s.ActionReceiver, nil }
 }
 
 func NewActionAPI(
 	st *state.State, resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
 ) (*ActionAPI, error) {
-	return newActionAPI(&stateShim{st: st}, resources, authorizer, leadership)
+	return newActionAPI(&stateShim{st: st}, resources, authorizer, LeaderFactory(leadership))
 }
 
 type FakeLeadership struct {
@@ -53,4 +51,8 @@ type FakeLeadership struct {
 
 func (l FakeLeadership) Leaders() (map[string]string, error) {
 	return l.AppLeaders, nil
+}
+
+func LeaderFactory(reader leadership.Reader) func(string) (leadership.Reader, error) {
+	return func(string) (leadership.Reader, error) { return reader, nil }
 }

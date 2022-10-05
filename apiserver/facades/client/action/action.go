@@ -37,7 +37,10 @@ type APIv7 struct {
 }
 
 func newActionAPI(
-	st State, resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
+	st State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	getLeadershipReader func(string) (leadership.Reader, error),
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -48,13 +51,18 @@ func newActionAPI(
 		return nil, errors.Trace(err)
 	}
 
+	leaders, err := getLeadershipReader(m.ModelTag().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &ActionAPI{
 		state:                 st,
 		model:                 m,
 		resources:             resources,
 		authorizer:            authorizer,
 		check:                 common.NewBlockChecker(st),
-		leadership:            leadership,
+		leadership:            leaders,
 		tagToActionReceiverFn: common.TagToActionReceiverFn,
 	}, nil
 }
