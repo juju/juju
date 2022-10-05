@@ -281,6 +281,54 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				}},
 			},
 		},
+	}, {
+		Name:   "sorts latest revisions first",
+		Arch:   "all",
+		Series: "all",
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:       "xena/edge",
+				Base:       transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
+				ReleasedAt: "2022-02-01T02:41:31.140463+00:00",
+				Risk:       "edge",
+				Track:      "xena",
+			},
+			Revision: transport.InfoRevision{
+				Bases:    []transport.Base{{Channel: "20.04", Name: "ubuntu", Architecture: "amd64"}},
+				Revision: 500,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:       "xena/edge",
+				Base:       transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
+				ReleasedAt: "2022-03-04T10:38:13.959649+00:00",
+				Risk:       "edge",
+				Track:      "xena",
+			},
+			Revision: transport.InfoRevision{
+				Bases:    []transport.Base{{Channel: "20.04", Name: "ubuntu", Architecture: "amd64"}},
+				Revision: 501,
+			},
+		}},
+		Expected: RevisionsMap{
+			"xena": {
+				"edge": {{
+					ReleasedAt: "2022-03-04T10:38:13.959649+00:00",
+					Risk:       "edge",
+					Track:      "xena",
+					Revision:   501,
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:20.04"},
+				}, {
+					ReleasedAt: "2022-02-01T02:41:31.140463+00:00",
+					Risk:       "edge",
+					Track:      "xena",
+					Revision:   500,
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:20.04"},
+				}},
+			},
+		},
 	}}
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)

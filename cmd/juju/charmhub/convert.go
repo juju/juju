@@ -6,7 +6,9 @@ package charmhub
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
@@ -335,6 +337,18 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) 
 		}
 		channels[ch.Track][ch.Risk] = append(channels[ch.Track][ch.Risk], revision)
 	}
+
+	for _, risks := range channels {
+		for _, revisions := range risks {
+			// Sort revisions by latest ReleasedAt first.
+			sort.Slice(revisions, func(i, j int) bool {
+				ti, _ := time.Parse(time.RFC3339, revisions[i].ReleasedAt)
+				tj, _ := time.Parse(time.RFC3339, revisions[j].ReleasedAt)
+				return ti.After(tj)
+			})
+		}
+	}
+
 	return trackList, channels, nil
 }
 
