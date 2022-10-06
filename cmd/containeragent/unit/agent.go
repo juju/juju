@@ -227,12 +227,12 @@ func (c *containerUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag
 		path.Join(toolsDir, jnames.ContainerAgent),
 		jujuRun, jujuIntrospect,
 	} {
-		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), link); err != nil {
+		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.ContainerAgent), link); err != nil && !errors.Is(err, os.ErrExist) {
 			return errors.Annotatef(err, "ensuring symlink %q", link)
 		}
 	}
 
-	if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc)); err != nil {
+	if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc)); err != nil && !errors.Is(err, os.ErrExist) {
 		return errors.Annotatef(err, "ensuring symlink %q", jnames.Jujuc)
 	}
 	return nil

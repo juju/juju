@@ -628,16 +628,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           "jujusolutions/charm-base:ubuntu-22.04",
 			WorkingDir:      "/var/lib/juju",
-			Command:         []string{"/charm/bin/containeragent"},
-			Args: []string{
-				"unit",
-				"--data-dir", "/var/lib/juju",
-				"--charm-modified-version", "0",
-				"--append-env", "PATH=$PATH:/charm/bin",
-				"--show-log",
-				// TODO(wallyworld) - support --controller option when using pebble
-				// "--controller",
-			},
+			Command:         []string{"/charm/bin/pebble"},
+			Args:            []string{"run", "--http", ":38812", "--verbose"},
 			Resources: core.ResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceMemory: resource.MustParse("4000Mi"),
@@ -652,10 +644,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Value: "",
 				},
 				{
-					Name:  "HTTP_PROBE_PORT",
-					Value: "3856",
-				},
-				{
 					Name:  osenv.JujuFeatureFlagEnvKey,
 					Value: "developer-mode",
 				},
@@ -665,6 +653,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				RunAsGroup: int64Ptr(0),
 			},
 			VolumeMounts: []core.VolumeMount{
+				{
+					Name:      "charm-data",
+					MountPath: "/var/lib/pebble/default",
+					SubPath:   "containeragent/pebble",
+				},
 				{
 					Name:      "charm-data",
 					MountPath: "/charm/bin",
@@ -819,7 +812,7 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 		Image:           "test-account/jujud-operator:" + jujuversion.Current.String() + ".666",
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
-		Args:            []string{"init", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},
+		Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "0", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin", "--controller"},
 		Env: []core.EnvVar{
 			{
 				Name:  "JUJU_CONTAINER_NAMES",
@@ -858,14 +851,17 @@ JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud machine --data-dir $
 				SubPath:   "var/lib/juju",
 			}, {
 				Name:      "charm-data",
+				MountPath: "/containeragent/pebble",
+				SubPath:   "containeragent/pebble",
+			}, {
+				Name:      "charm-data",
 				MountPath: "/charm/bin",
 				SubPath:   "charm/bin",
 			}, {
 				Name:      "charm-data",
 				MountPath: "/charm/containers",
 				SubPath:   "charm/containers",
-			},
-			{
+			}, {
 				Name:      "juju-controller-test-agent-conf",
 				MountPath: "/var/lib/juju/template-agent.conf",
 				SubPath:   "controller-unit-agent.conf",

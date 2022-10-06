@@ -250,6 +250,24 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
+		// Probe HTTP server is a http server for handling probe requests from
+		// Kubernetes. It provides a mux that is used by the caas prober to
+		// register handlers.
+		probeHTTPServerName: muxhttpserver.Manifold(muxhttpserver.ManifoldConfig{
+			Logger:  loggo.GetLogger("juju.worker.probehttpserver"),
+			Address: config.ProbeAddress,
+			Port:    config.ProbePort,
+		}),
+
+		// Kubernetes probe handler responsible for reporting status for
+		// Kubernetes probes
+		caasProberName: caasprober.Manifold(caasprober.ManifoldConfig{
+			MuxName: probeHTTPServerName,
+			Providers: []string{
+				uniterName,
+			},
+		}),
+
 		// The charmdir resource coordinates whether the charm directory is
 		// available or not; after 'start' hook and before 'stop' hook
 		// executes, and not during upgrades.
@@ -328,23 +346,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
 		}))
-
-		// Probe HTTP server is a http server for handling probe requests from
-		// Kubernetes. It provides a mux that is used by the caas prober to
-		// register handlers.
-		dp[probeHTTPServerName] = muxhttpserver.Manifold(muxhttpserver.ManifoldConfig{
-			Logger: loggo.GetLogger("juju.worker.probehttpserver"),
-			Port:   config.ProbePort,
-		})
-
-		// Kubernetes probe handler responsible for reporting status for
-		// Kubernetes probes
-		dp[caasProberName] = caasprober.Manifold(caasprober.ManifoldConfig{
-			MuxName: probeHTTPServerName,
-			Providers: []string{
-				uniterName,
-			},
-		})
 	}
 
 	return dp

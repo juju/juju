@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/canonical/pebble/plan"
@@ -47,8 +48,9 @@ type initCommand struct {
 	// the container agent.
 	containerAgentPebbleDir string
 
-	dataDir string
-	binDir  string
+	dataDir      string
+	binDir       string
+	isController bool
 }
 
 // ApplicationAPI provides methods for unit introduction.
@@ -73,6 +75,7 @@ func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.charmModifiedVersion, "charm-modified-version", "", "charm modified version for update hook")
 	f.StringVar(&c.dataDir, "data-dir", "", "directory for juju data")
 	f.StringVar(&c.binDir, "bin-dir", "", "copy juju binaries to this directory")
+	f.BoolVar(&c.isController, "controller", false, "set when the charm is colocated with the controller")
 }
 
 // Info returns a description of the command.
@@ -112,6 +115,9 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 
 	defer func() {
 		if err == nil {
+			err = c.writeContainerAgentPebbleConfig()
+		}
+		if err == nil {
 			err = c.copyBinaries()
 		}
 	}()
@@ -147,13 +153,14 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	if err = c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
 func (c *initCommand) copyBinaries() error {
+	if err := c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
+		return errors.Trace(err)
+	}
+
 	eg, _ := errgroup.WithContext(context.Background())
 	doCopy := func(src string, dst string) {
 		eg.Go(func() error {
@@ -177,23 +184,28 @@ func (c *initCommand) copyBinaries() error {
 		})
 	}
 
-	if err := c.ContainerAgentPebbleConfig(); err != nil {
-		return err
-	}
-
 	doCopy("/opt/pebble", path.Join(c.binDir, "pebble"))
 	doCopy("/opt/containeragent", path.Join(c.binDir, "containeragent"))
 	doCopy("/opt/jujuc", path.Join(c.binDir, "jujuc"))
 	return eg.Wait()
 }
 
-// ContainerAgentPebbleConfig is responsible for generating the container agent
+// writeContainerAgentPebbleConfig is responsible for generating the container agent
 // pebble service configuration.
-func (c *initCommand) ContainerAgentPebbleConfig() error {
-	extraArgs := ""
+func (c *initCommand) writeContainerAgentPebbleConfig() error {
+	extraArgs := []string{}
 	// If we actually have the charmModifiedVersion let's add it the args.
 	if c.charmModifiedVersion != "" {
-		extraArgs = "--charm-modified-version " + c.charmModifiedVersion
+		extraArgs = append(extraArgs, "--charm-modified-version", c.charmModifiedVersion)
+	}
+
+	if c.isController {
+		extraArgs = append(extraArgs, "--controller")
+	}
+
+	onCheckFailureAction := plan.ActionShutdown
+	if c.isController {
+		onCheckFailureAction = plan.ActionRestart
 	}
 
 	containerAgentLayer := plan.Layer{
@@ -201,16 +213,16 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 		Services: map[string]*plan.Service{
 			"container-agent": {
 				Summary:  "Juju container agent",
-				Override: "replace",
+				Override: plan.ReplaceOverride,
 				Command: fmt.Sprintf("%s unit --data-dir %s --append-env \"PATH=$PATH:%s\" --show-log %s",
 					path.Join(c.binDir, "containeragent"),
 					c.dataDir,
 					c.binDir,
-					extraArgs),
-				Startup: "enabled",
+					strings.Join(extraArgs, " ")),
+				Startup: plan.StartupEnabled,
 				OnCheckFailure: map[string]plan.ServiceAction{
-					"liveness":  "shutdown",
-					"readiness": "shutdown",
+					"liveness":  onCheckFailureAction,
+					"readiness": onCheckFailureAction,
 				},
 				Environment: map[string]string{
 					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
@@ -219,8 +231,8 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 		},
 		Checks: map[string]*plan.Check{
 			"readiness": {
-				Override:  "replace",
-				Level:     "ready",
+				Override:  plan.ReplaceOverride,
+				Level:     plan.ReadyLevel,
 				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
 				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,
@@ -229,8 +241,8 @@ func (c *initCommand) ContainerAgentPebbleConfig() error {
 				},
 			},
 			"liveness": {
-				Override:  "replace",
-				Level:     "ready",
+				Override:  plan.ReplaceOverride,
+				Level:     plan.ReadyLevel,
 				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
 				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,

@@ -1494,6 +1494,7 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 			continue
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+		ct.Args = append(ct.Args, "--controller")
 		spec.InitContainers[i] = ct
 	}
 	for i, ct := range spec.Containers {
@@ -1501,11 +1502,16 @@ func (c *controllerStack) buildContainerSpecForCommands(jujudCmds []string) (*co
 			continue
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
-		// TODO(wallyworld) - support --controller option when using pebble
-		// ct.Args = append(ct.Args, "--controller")
+		// Remove probes to prevent controller death.
 		ct.LivenessProbe = nil
 		ct.ReadinessProbe = nil
 		ct.StartupProbe = nil
+		for i, env := range ct.Env {
+			if env.Name == constants.EnvAgentHTTPProbePort {
+				ct.Env = append(ct.Env[:i], ct.Env[i+1:]...)
+				break
+			}
+		}
 		spec.Containers[i] = ct
 	}
 	return spec, nil
