@@ -22,7 +22,6 @@ Lists the firewall rules which control ingress to well known services
 within a Juju model.
 
 Examples:
-    juju list-firewall-rules
     juju firewall-rules
 
 See also: 
@@ -53,10 +52,10 @@ type listFirewallRulesCommand struct {
 // Info implements cmd.Command.
 func (c *listFirewallRulesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "list-firewall-rules",
+		Name:    "firewall-rules",
 		Purpose: listRulesHelpSummary,
 		Doc:     listRulesHelpDetails,
-		Aliases: []string{"firewall-rules"},
+		Aliases: []string{"list-firewall-rules"},
 	})
 }
 

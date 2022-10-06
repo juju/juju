@@ -54,19 +54,19 @@ type ControllerDetails struct {
 	AgentVersion string `yaml:"agent-version,omitempty"`
 
 	// ControllerMachineCount represents the number of controller machines
-	// It is cached here so under normal usage list-controllers
+	// It is cached here so under normal usage `controllers`
 	// does not need to hit the server.
 	ControllerMachineCount int `yaml:"controller-machine-count"`
 
 	// ActiveControllerMachineCount represents the number of controller machines
 	// and which are active in the HA cluster.
-	// It is cached here so under normal usage list-controllers
+	// It is cached here so under normal usage `controllers`
 	// does not need to hit the server.
 	ActiveControllerMachineCount int `yaml:"active-controller-machine-count"`
 
 	// MachineCount is the number of machines in all models to
 	// which a user has access. It is cached here so under normal
-	// usage list-controllers does not need to hit the server.
+	// usage `controllers` does not need to hit the server.
 	MachineCount *int `yaml:"machine-count,omitempty"`
 
 	// Proxy is a config wrapper around a real proxier interface that should

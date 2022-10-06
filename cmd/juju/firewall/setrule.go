@@ -33,7 +33,7 @@ Examples:
     juju set-firewall-rule ssh --whitelist 192.168.1.0/16
 
 See also: 
-    list-firewall-rules`
+    firewall-rules`
 
 // NewSetFirewallRuleCommand returns a command to set firewall rules.
 func NewSetFirewallRuleCommand() cmd.Command {

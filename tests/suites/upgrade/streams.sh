@@ -53,7 +53,7 @@ exec_simplestream_metadata() {
 	add_clean_func "remove_upgrade_metadata"
 
 	add_upgrade_tools "${version}"
-	juju metadata generate-agents \
+	juju metadata generate-agent-binaries \
 		--clean \
 		--prevent-fallback \
 		-d "./tests/suites/upgrade/streams/"

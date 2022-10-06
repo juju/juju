@@ -683,7 +683,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, gc.ErrorMatches, "Unable to upgrade LXDProfile charms with the current model version. "+
-		"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+		"Please run juju upgrade-model to upgrade the current model to match your controller.")
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {

@@ -48,7 +48,7 @@ Remove a space by name with force, without need for confirmation:
 
 See also:
 	add-space
-	list-spaces
+	spaces
 	reload-spaces
 	rename-space
 	show-space

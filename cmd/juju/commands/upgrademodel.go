@@ -148,7 +148,6 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 		Name:    "upgrade-model",
 		Purpose: usageUpgradeJujuSummary,
 		Doc:     usageUpgradeJujuDetails,
-		Aliases: []string{"upgrade-juju"},
 	})
 }
 

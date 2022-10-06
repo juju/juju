@@ -94,7 +94,7 @@ func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if err != nil {
-		fmt.Fprintln(ctx.Stderr, "There is no current controller.\nRun juju list-controllers to see available controllers.")
+		fmt.Fprintln(ctx.Stderr, "There is no current controller.\nRun juju controllers to see available controllers.")
 		return nil
 	}
 	modelName, err := c.store.CurrentModel(controllerName)

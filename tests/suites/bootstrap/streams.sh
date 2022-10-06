@@ -7,7 +7,7 @@ run_simplestream_metadata() {
 	add_bootstrap_tools "${VERSION}"
 
 	add_clean_func "remove_bootstrap_metadata"
-	juju metadata generate-agents \
+	juju metadata generate-agent-binaries \
 		--clean \
 		--prevent-fallback \
 		-d "./tests/suites/bootstrap/streams/"

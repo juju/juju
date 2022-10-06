@@ -224,7 +224,7 @@ in the model config.
 
 Generally, agent binaries and related metadata are mirrored from https://streams.canonical.com/juju/tools. However,
 it is possible to manually generate metadata for a custom built agent binary tarball using:
-  juju generate-agents -d <metadata_dir> --stream <stream>
+  juju generate-agent-binaries -d <metadata_dir> --stream <stream>
 
 where the required agent binary tarballs are first placed in a directory <metadata_dir>/tools/<stream>.
 If unspecified, <stream> defaults to "released".
@@ -242,8 +242,8 @@ Note that image and agent metadata are generally written into the same local dir
 --metadata-source option will upload both types of metadata.
 
 As with image metadata, the validation command is used to ensure tools are available for Juju to use:
-  juju metadata validate-agents
+  juju metadata validate-agent-binaries
 
 The same comments apply. Run the validation tool without parameters to use details from the Juju
-model, or override values as required on the command line. See juju help metadata validate-agents
+model, or override values as required on the command line. See juju help metadata validate-agent-binaries
 for more details.

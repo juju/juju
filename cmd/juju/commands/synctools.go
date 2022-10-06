@@ -68,7 +68,6 @@ func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 		Name:    "sync-agent-binary",
 		Purpose: "Copy agent binaries from the official agent store into a local controller.",
 		Doc:     synctoolsDoc,
-		Aliases: []string{"sync-tools"},
 	})
 }
 
