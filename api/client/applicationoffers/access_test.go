@@ -42,24 +42,6 @@ func (s *accessSuite) TestRevokeOfferReadOnlyUser(c *gc.C) {
 	s.readOnlyUser(c, params.RevokeOfferAccess)
 }
 
-func checkCall(c *gc.C, objType string, id, request string) {
-	c.Check(objType, gc.Equals, "ApplicationOffers")
-	c.Check(id, gc.Equals, "")
-	c.Check(request, gc.Equals, "ModifyOfferAccess")
-}
-
-func assertRequest(c *gc.C, a interface{}) params.ModifyOfferAccessRequest {
-	req, ok := a.(params.ModifyOfferAccessRequest)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("wrong request type"))
-	return req
-}
-
-func assertResponse(c *gc.C, result interface{}) *params.ErrorResults {
-	resp, ok := result.(*params.ErrorResults)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("wrong response type"))
-	return resp
-}
-
 func (s *accessSuite) readOnlyUser(c *gc.C, action params.OfferAction) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
