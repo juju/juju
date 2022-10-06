@@ -17,8 +17,11 @@ expect \"new password: \" {
     expect \"type new password again: \" {
         send \"test-password\r\"
         expect {
-            \"*has been changed.\" { puts \"Pass\" }
-            eof { puts \"Fail\" }
+            \"*has been changed..\" {
+                puts \"Pass\"
+                expect eof
+                wait
+            }
         }
     }
 }" | check "Pass"

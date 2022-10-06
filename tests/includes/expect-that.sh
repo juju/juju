@@ -17,11 +17,10 @@ expect_that() {
 
 	cat >"${TEST_DIR}/${filename}.exp" <<EOF
 #!/usr/bin/expect -f
-proc abort { } { puts "\nFail" }
+proc abort { } { puts "Fail" }
 expect_before timeout abort
 
 set timeout ${timeout}
-log_user 0
 spawn ${command}
 match_max 100000
 
