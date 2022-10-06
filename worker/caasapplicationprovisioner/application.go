@@ -256,7 +256,11 @@ func (a *appWorker) loop() error {
 				appStateChanges = appStateWatcher.Changes()
 			}
 			err = a.alive(app)
-			if err != nil {
+			if errors.Is(err, errors.NotProvisioned) {
+				// State not ready for this application to be provisioned yet.
+				// Usually because the charm has not yet been downloaded.
+				break
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 			if appChanges == nil {
@@ -696,7 +700,10 @@ func (a *appWorker) alive(app caas.Application) error {
 	a.logger.Debugf("ensuring application %q exists", a.name)
 
 	provisionInfo, err := a.facade.ProvisioningInfo(a.name)
-	if err != nil {
+	if errors.Is(err, errors.NotProvisioned) {
+		a.logger.Debugf("application %s is not provisioned yet: %s", a.name, err.Error())
+		return errors.NotProvisioned
+	} else if err != nil {
 		return errors.Annotate(err, "retrieving provisioning info")
 	}
 	if provisionInfo.CharmURL == nil {
