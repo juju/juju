@@ -217,7 +217,7 @@ func (mm *MachineManagerAPIV7) AddMachines(args params.AddMachines) (params.AddM
 		}
 		arg.Base = &params.Base{
 			Name:    base.Name,
-			Channel: base.Channel,
+			Channel: base.Channel.String(),
 		}
 		args.MachineParams[i] = arg
 	}
@@ -288,10 +288,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 			p.Series = config.PreferredSeries(conf)
 		} else {
 			var err error
-			p.Series, err = series.GetSeriesFromBase(series.Base{
-				Name:    p.Base.Name,
-				Channel: p.Base.Channel,
-			})
+			p.Series, err = series.GetSeriesFromChannel(p.Base.Name, p.Base.Channel)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -703,13 +700,17 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 // If they do, a list of the machine's current units is returned for use in
 // soliciting user confirmation of the command.
 func (mm *MachineManagerAPI) UpgradeSeriesValidate(
-	args params.UpdateSeriesArgs,
+	args params.UpdateChannelArgs,
 ) (params.UpgradeSeriesUnitsResults, error) {
 	entities := make([]ValidationEntity, len(args.Args))
 	for i, arg := range args.Args {
+		argSeries, err := mm.seriesFromParams(arg)
+		if err != nil {
+			return params.UpgradeSeriesUnitsResults{}, apiservererrors.ServerError(err)
+		}
 		entities[i] = ValidationEntity{
 			Tag:    arg.Entity.Tag,
-			Series: arg.Series,
+			Series: argSeries,
 			Force:  arg.Force,
 		}
 	}
@@ -732,15 +733,42 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 	return results, nil
 }
 
+func (mm *MachineManagerAPI) seriesFromParams(arg params.UpdateChannelArg) (string, error) {
+	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	argSeries := arg.Series
+	if argSeries == "" && arg.Channel != "" {
+		base, err := series.GetBaseFromSeries(machine.Series())
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		argSeries, err = series.GetSeriesFromChannel(base.Name, arg.Channel)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	return argSeries, nil
+}
+
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Series, arg.Force)
+	argSeries, err := mm.seriesFromParams(arg)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	err = mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, argSeries, arg.Force)
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
@@ -749,7 +777,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateSeriesArg) (p
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series
 // upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
@@ -873,7 +901,7 @@ func isSeriesLessThan(series1, series2 string) (bool, error) {
 
 // UpdateMachineSeries returns an error.
 // DEPRECATED
-func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateChannelArgs) (params.ErrorResults, error) {
 	return params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: apiservererrors.ServerError(errors.New("UpdateMachineSeries is no longer supported")),

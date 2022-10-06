@@ -401,12 +401,14 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	chBase := series.Base{
-		Name:    applicationInfo.Base.Name,
-		Channel: applicationInfo.Base.Channel,
-	}
-	if applicationInfo.Base.Name == "" && applicationInfo.Series != "" {
+	var chBase series.Base
+	if applicationInfo.Series != "" && applicationInfo.Base.Name == "" {
 		chBase, err = series.GetBaseFromSeries(applicationInfo.Series)
+		if err != nil {
+			return errors.Trace(err) // This should never happen.
+		}
+	} else if applicationInfo.Base.Channel != "" {
+		chBase, err = series.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -462,9 +464,13 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	origin, err := commoncharm.CoreCharmOrigin(charmID.Origin)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	chID := application.CharmID{
 		URL:    curl,
-		Origin: commoncharm.CoreCharmOrigin(charmID.Origin),
+		Origin: origin,
 	}
 	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, meta)
 	if err != nil {

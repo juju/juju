@@ -52,10 +52,8 @@ func (originSuite) TestConvertToCoreCharmOrigin(c *gc.C) {
 		Track:        &track,
 		Risk:         "stable",
 		Branch:       nil,
-		Channel:      "",
 		Series:       "focal",
 		Architecture: "amd64",
-		OS:           "ubuntu",
 	}
 
 	c.Assert(origin.CoreCharmOrigin(), gc.DeepEquals, corecharm.Origin{

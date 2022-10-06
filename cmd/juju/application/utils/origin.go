@@ -47,7 +47,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			platform.OS = "ubuntu"
 			platform.Channel = "20.04"
 		} else {
-			series, err = coreseries.GetSeriesFromBase(coreseries.Base{Name: platform.OS, Channel: platform.Channel})
+			series, err = coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
 			if err != nil {
 				return commoncharm.Origin{}, errors.Trace(err)
 			}
@@ -70,16 +70,12 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Source:       commoncharm.OriginCharmStore,
 			Risk:         string(channel.Risk),
 			Architecture: architecture,
-			OS:           platform.OS,
-			Channel:      platform.Channel,
 			Series:       series,
 		}
 	case "local":
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
-			OS:           platform.OS,
-			Channel:      platform.Channel,
 			Series:       series,
 		}
 	default:
@@ -102,10 +98,15 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Track:        track,
 			Branch:       branch,
 			Architecture: architecture,
-			OS:           platform.OS,
-			Channel:      platform.Channel,
 			Series:       series,
 		}
+	}
+	if platform.OS != "" && platform.Channel != "" {
+		base, err := coreseries.ParseBase(platform.OS, platform.Channel)
+		if err != nil {
+			return commoncharm.Origin{}, err
+		}
+		origin.Base = base
 	}
 	return origin, nil
 }
@@ -120,7 +121,7 @@ func DeducePlatform(cons constraints.Value, series string, modelCons constraints
 			return corecharm.Platform{}, errors.Trace(err)
 		}
 		os = base.Name
-		channel = base.Channel
+		channel = base.Channel.Track
 	}
 
 	return corecharm.Platform{

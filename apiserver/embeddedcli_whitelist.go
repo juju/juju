@@ -72,6 +72,7 @@ var allowedEmbeddedCommands = []string{
 	"retry-provisioning",
 	"run",
 	"scale-application",
+	"set-application-base",
 	"set-constraints",
 	"set-firewall-rule",
 	"set-meter-status",

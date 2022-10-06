@@ -40,12 +40,24 @@ func BuildModelRepresentation(
 	machineMap := make(map[string]string)
 	machines := make(map[string]*bundlechanges.Machine)
 	for id, machineStatus := range status.Machines {
+		var (
+			base series.Base
+			err  error
+		)
+		if machineStatus.Series != "" && machineStatus.Base.Name == "" {
+			base, err = series.GetBaseFromSeries(machineStatus.Series)
+			if err != nil {
+				return nil, errors.Trace(err) // This should never happen.
+			}
+		} else if machineStatus.Base.Channel != "" {
+			base, err = series.ParseBase(machineStatus.Base.Name, machineStatus.Base.Channel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		machines[id] = &bundlechanges.Machine{
-			ID: id,
-			Base: series.Base{
-				Name:    machineStatus.Base.Name,
-				Channel: machineStatus.Base.Channel,
-			},
+			ID:   id,
+			Base: base,
 		}
 		tag := names.NewMachineTag(id)
 		annotationTags = append(annotationTags, tag.String())
@@ -80,14 +92,16 @@ func BuildModelRepresentation(
 			charmAlias = curl.Name
 		}
 
-		base := series.Base{
-			Name:    appStatus.Base.Name,
-			Channel: appStatus.Base.Channel,
-		}
-		if appStatus.Series != "" && base.Name == "" {
+		var base series.Base
+		if appStatus.Series != "" && appStatus.Base.Name == "" {
 			base, err = series.GetBaseFromSeries(appStatus.Series)
 			if err != nil {
 				return nil, errors.Trace(err) // This should never happen.
+			}
+		} else if appStatus.Base.Channel != "" {
+			base, err = series.ParseBase(appStatus.Base.Name, appStatus.Base.Channel)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
 		}
 		app := &bundlechanges.Application{

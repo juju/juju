@@ -2394,7 +2394,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArgs"
+                            "$ref": "#/definitions/UpdateChannelArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -3187,6 +3187,9 @@
                     "properties": {
                         "architecture": {
                             "type": "string"
+                        },
+                        "base": {
+                            "$ref": "#/definitions/Base"
                         },
                         "branch": {
                             "type": "string"
@@ -4261,9 +4264,12 @@
                     },
                     "additionalProperties": false
                 },
-                "UpdateSeriesArg": {
+                "UpdateChannelArg": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
                         },
@@ -4278,16 +4284,17 @@
                     "required": [
                         "tag",
                         "force",
-                        "series"
+                        "series",
+                        "channel"
                     ]
                 },
-                "UpdateSeriesArgs": {
+                "UpdateChannelArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/UpdateSeriesArg"
+                                "$ref": "#/definitions/UpdateChannelArg"
                             }
                         }
                     },
@@ -15458,6 +15465,22 @@
                         "placements"
                     ]
                 },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
+                    ]
+                },
                 "Charm": {
                     "type": "object",
                     "properties": {
@@ -15868,6 +15891,9 @@
                     "properties": {
                         "architecture": {
                             "type": "string"
+                        },
+                        "base": {
+                            "$ref": "#/definitions/Base"
                         },
                         "branch": {
                             "type": "string"
@@ -28741,7 +28767,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArg"
+                            "$ref": "#/definitions/UpdateChannelArg"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
@@ -28753,7 +28779,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArg"
+                            "$ref": "#/definitions/UpdateChannelArg"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
@@ -28765,7 +28791,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArgs"
+                            "$ref": "#/definitions/UpdateChannelArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/UpgradeSeriesUnitsResults"
@@ -29388,9 +29414,12 @@
                         "results"
                     ]
                 },
-                "UpdateSeriesArg": {
+                "UpdateChannelArg": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
                         },
@@ -29405,16 +29434,17 @@
                     "required": [
                         "tag",
                         "force",
-                        "series"
+                        "series",
+                        "channel"
                     ]
                 },
-                "UpdateSeriesArgs": {
+                "UpdateChannelArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/UpdateSeriesArg"
+                                "$ref": "#/definitions/UpdateChannelArg"
                             }
                         }
                     },
@@ -39878,11 +39908,30 @@
                         "pending-ids"
                     ]
                 },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
+                    ]
+                },
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
                         "architecture": {
                             "type": "string"
+                        },
+                        "base": {
+                            "$ref": "#/definitions/Base"
                         },
                         "branch": {
                             "type": "string"
@@ -49079,7 +49128,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArgs"
+                            "$ref": "#/definitions/UpdateChannelArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -49497,9 +49546,12 @@
                         "results"
                     ]
                 },
-                "UpdateSeriesArg": {
+                "UpdateChannelArg": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
                         },
@@ -49514,16 +49566,17 @@
                     "required": [
                         "tag",
                         "force",
-                        "series"
+                        "series",
+                        "channel"
                     ]
                 },
-                "UpdateSeriesArgs": {
+                "UpdateChannelArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/UpdateSeriesArg"
+                                "$ref": "#/definitions/UpdateChannelArg"
                             }
                         }
                     },

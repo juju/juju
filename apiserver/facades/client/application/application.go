@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
@@ -708,18 +709,14 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	)
 	if origin != nil {
 		originType = origin.Type
-		channel := origin.Channel
-		if channel == "" && origin.Series != "" {
-			var err error
-			channel, err = series.SeriesVersion(origin.Series)
-			if err != nil {
-				return corecharm.Origin{}, errors.Trace(err)
-			}
+		base, err := charms.ConvertParamsBase(*origin)
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
 		}
 		platform = corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           origin.OS,
-			Channel:      channel,
+			OS:           base.Name,
+			Channel:      base.Channel.Track,
 		}
 	}
 
@@ -1055,7 +1052,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 
 // UpdateApplicationSeries updates the application series. Series for
 // subordinates updated too.
-func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (api *APIBase) UpdateApplicationSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1072,7 +1069,7 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (param
 	return results, nil
 }
 
-func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
+func (api *APIBase) updateOneApplicationSeries(arg params.UpdateChannelArg) error {
 	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
 }
 
@@ -1193,7 +1190,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
+		origin, err := stateCharmOrigin(newOrigin)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return api.applicationSetCharm(params, newCharm, origin)
 	}
 
 	// Check if the controller agent tools version is greater than the
@@ -1220,7 +1221,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
+	origin, err := stateCharmOrigin(newOrigin)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.applicationSetCharm(params, newCharm, origin)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
@@ -1439,12 +1444,15 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
 		return result, nil
 	}
-	result.Origin = makeParamsCharmOrigin(chOrigin)
+	result.Origin, err = makeParamsCharmOrigin(chOrigin)
+	if err != nil {
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
+	}
 	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), api.model.ModelTag())
 	return result, nil
 }
 
-func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
+func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error) {
 	retOrigin := params.CharmOrigin{
 		Source: origin.Source,
 		ID:     origin.ID,
@@ -1464,11 +1472,23 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
 	}
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
-		retOrigin.OS = origin.Platform.OS
-		retOrigin.Channel, _ = series.SeriesVersion(origin.Platform.Series)
+		var base series.Base
+		if origin.Platform.Series != "" {
+			channel, err := series.SeriesVersion(origin.Platform.Series)
+			if err != nil {
+				return params.CharmOrigin{}, errors.Trace(err)
+			}
+			base, err = series.ParseBase(origin.Platform.OS, channel)
+			if err != nil {
+				return params.CharmOrigin{}, errors.Trace(err)
+			}
+		}
+		retOrigin.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
+		retOrigin.OS = base.Name
+		retOrigin.Channel = base.Channel.String()
 		retOrigin.Series = origin.Platform.Series
 	}
-	return retOrigin
+	return retOrigin, nil
 }
 
 // Set implements the server side of Application.Set.

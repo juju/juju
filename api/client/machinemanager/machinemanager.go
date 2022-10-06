@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -164,12 +165,17 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 	if client.BestAPIVersion() < 5 {
 		return errors.NotSupportedf("upgrade-series prepare")
 	}
-	args := params.UpdateSeriesArg{
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	args := params.UpdateChannelArg{
 		Entity: params.Entity{
 			Tag: names.NewMachineTag(machineName).String(),
 		},
-		Series: series,
-		Force:  force,
+		Series:  series,
+		Channel: base.Channel.String(),
+		Force:   force,
 	}
 	var result params.ErrorResult
 	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
@@ -188,7 +194,7 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	if client.BestAPIVersion() < 5 {
 		return errors.NotSupportedf("UpgradeSeriesComplete")
 	}
-	args := params.UpdateSeriesArg{
+	args := params.UpdateChannelArg{
 		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
 	}
 	result := new(params.ErrorResult)
@@ -207,16 +213,21 @@ func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]strin
 	if client.BestAPIVersion() < 5 {
 		return nil, errors.NotSupportedf("UpgradeSeriesValidate")
 	}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{
 			{
-				Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
-				Series: series,
+				Entity:  params.Entity{Tag: names.NewMachineTag(machineName).String()},
+				Series:  series,
+				Channel: base.Channel.String(),
 			},
 		},
 	}
 	results := new(params.UpgradeSeriesUnitsResults)
-	err := client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
+	err = client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
 	if err != nil {
 		return nil, err
 	}

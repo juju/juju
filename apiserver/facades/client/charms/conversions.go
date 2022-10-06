@@ -51,7 +51,8 @@ func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 	}, nil
 }
 
-func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
+// ConvertParamsOrigin converts a params struct to a core charm origin.
+func ConvertParamsOrigin(origin params.CharmOrigin) (corecharm.Origin, error) {
 	var track string
 	if origin.Track != nil {
 		track = *origin.Track
@@ -60,8 +61,10 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 	if origin.Branch != nil {
 		branch = *origin.Branch
 	}
-	if origin.Channel == "" && origin.Series != "" {
-		origin.Channel, _ = series.SeriesVersion(origin.Series)
+
+	base, err := ConvertParamsBase(origin)
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
 	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),
@@ -76,9 +79,28 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		},
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           origin.OS,
-			Channel:      origin.Channel,
+			OS:           base.Name,
+			Channel:      base.Channel.Track,
 		},
 		InstanceKey: origin.InstanceKey,
+	}, nil
+}
+
+// ConvertParamsBase converts a params struct to a series base.
+func ConvertParamsBase(origin params.CharmOrigin) (series.Base, error) {
+	var (
+		base series.Base
+		err  error
+	)
+	if origin.Base.Name != "" {
+		base, err = series.ParseBase(origin.Base.Name, origin.Base.Channel)
+	} else if origin.Series != "" && (origin.OS == "" || origin.Channel == "") {
+		base, err = series.GetBaseFromSeries(origin.Series)
+	} else if origin.Channel != "" {
+		base, err = series.ParseBase(origin.OS, origin.Channel)
+	} else {
+		// TODO(juju3) - empty origin is not valid
+		// err = errors.NotValidf("empty charm origin")
 	}
+	return base, err
 }

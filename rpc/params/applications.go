@@ -37,10 +37,11 @@ type CharmOrigin struct {
 	Branch   *string `json:"branch,omitempty"`
 
 	Architecture string `json:"architecture,omitempty"`
-	OS           string `json:"os,omitempty"`
-	Channel      string `json:"channel,omitempty"`
-	// TODO(juju3) - remove series
-	Series string `json:"series,omitempty"`
+	Base         Base   `json:"base,omitempty"`
+	// TODO(juju3) - remove series, os, channel
+	Series  string `json:"series,omitempty"`
+	OS      string `json:"os,omitempty"`
+	Channel string `json:"channel,omitempty"`
 
 	// InstanceKey is a unique string associated with the application. To
 	// assist with keeping KPI data in charmhub, it must be the same for every

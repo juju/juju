@@ -57,6 +57,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
@@ -77,13 +78,13 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Series:          "aseries",
+			Series:          "bionic",
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Series, gc.Equals, "aseries")
+	c.Assert(f.args.Series, gc.Equals, "bionic")
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
@@ -98,6 +99,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
 			EndpointBindings: nil,
+			Series:           "bionic",
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -158,6 +160,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
+			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"":   publicSpace.Id(),
 				"db": dbSpace.Id(),
@@ -198,6 +201,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
+			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"":          publicSpace.Id(),
 				"db":        dbSpace.Id(),
@@ -237,6 +241,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
+			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"":   publicSpace.Id(),
 				"db": "42", //unknown space id
@@ -260,6 +265,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			EndpointBindings: map[string]string{
 				"": "public",
 			},
@@ -281,6 +287,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			CharmConfig: charm.Settings{
 				"title":       "banana cupcakes",
 				"skill-level": 9901,
@@ -302,6 +309,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			CharmConfig: charm.Settings{
 				"skill-level": 99.01,
 			},
@@ -336,6 +344,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
 			Charm:             s.charm,
+			Series:            "bionic",
 			ApplicationConfig: cfg,
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -358,6 +367,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			Constraints:     applicationCons,
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -376,6 +386,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        2,
 		})
@@ -399,6 +410,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
@@ -425,6 +437,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
@@ -456,6 +469,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        4,
 			Placement:       placement,
@@ -485,6 +499,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
+			Series:          "bionic",
 			NumUnits:        1,
 		})
 	c.Assert(err, gc.ErrorMatches, "(?m).*Charm feature requirements cannot be met.*")
@@ -506,6 +521,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
+			Series:          "bionic",
 			NumUnits:        1,
 			Force:           true, // bypass assumes checks
 		})
@@ -525,6 +541,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
+			Series:          "bionic",
 			Constraints:     applicationCons,
 			NumUnits:        3,
 			Placement:       placement,

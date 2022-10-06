@@ -97,21 +97,30 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	// We still store series in state for now.
 	series := args.Series
 	// Legacy k8s charms from kubernetes bundles do not set the channel.
-	if args.Series == "" && args.CharmOrigin.Platform.Channel != "" {
-		series, err = coreseries.GetSeriesFromBase(coreseries.Base{
-			Name:    args.CharmOrigin.Platform.OS,
-			Channel: args.CharmOrigin.Platform.Channel,
-		})
+	if series == "" && args.CharmOrigin.Platform.Channel != "" {
+		series, err = coreseries.GetSeriesFromChannel(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
+	if series != "" && args.CharmOrigin.Platform.Channel == "" {
+		base, err := coreseries.GetBaseFromSeries(series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		args.CharmOrigin.Platform.OS = base.Name
+		args.CharmOrigin.Platform.Channel = base.Channel.String()
+	}
 
+	origin, err := stateCharmOrigin(args.CharmOrigin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
 		Series:            series,
 		Charm:             args.Charm,
-		CharmOrigin:       stateCharmOrigin(args.CharmOrigin),
+		CharmOrigin:       origin,
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
@@ -194,7 +203,7 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 	return result
 }
 
-func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
+func stateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 	var ch *state.Channel
 	if c := origin.Channel; c != nil {
 		normalizedC := c.Normalize()
@@ -204,11 +213,11 @@ func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 			Branch: normalizedC.Branch,
 		}
 	}
-	series, _ := coreseries.GetSeriesFromBase(coreseries.Base{
-		Name:    origin.Platform.OS,
-		Channel: origin.Platform.Channel,
-	})
-	stateOrigin := &state.CharmOrigin{
+	series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &state.CharmOrigin{
 		Type:     origin.Type,
 		Source:   string(origin.Source),
 		ID:       origin.ID,
@@ -220,8 +229,7 @@ func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 			OS:           origin.Platform.OS,
 			Series:       series,
 		},
-	}
-	return stateOrigin
+	}, nil
 }
 
 func assertCharmAssumptions(assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {

@@ -1045,7 +1045,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine,
 	if err != nil {
 		logger.Errorf("cannot construct machine base from series %q", status.Series) //should never happen
 	}
-	status.Base = params.Base{Name: base.Name, Channel: base.Channel}
+	status.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	node, wantsVote := c.controllerNodes[machineID]
 	status.WantsVote = wantsVote
@@ -1301,7 +1301,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		Series:       appSeries,
 		Base: params.Base{
 			Name:    base.Name,
-			Channel: base.Channel,
+			Channel: base.Channel.String(),
 		},
 		Exposed:          application.IsExposed(),
 		ExposedEndpoints: mappedExposedEndpoints,

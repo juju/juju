@@ -237,8 +237,9 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac 
 		Revision:     chID.Origin.Revision,
 		Track:        chID.Origin.Track,
 		Architecture: chID.Origin.Architecture,
-		OS:           chID.Origin.OS,
-		Channel:      chID.Origin.Channel,
+		Base:         params.Base{Name: chID.Origin.Base.Name, Channel: chID.Origin.Base.Channel.String()},
+		OS:           chID.Origin.Base.Name,
+		Channel:      chID.Origin.Base.Channel.String(),
 		// TODO(juju3) - remove series
 		Series: chID.Origin.Series,
 	}

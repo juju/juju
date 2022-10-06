@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -461,7 +462,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
 			origin.Series = "focal"
 			origin.Revision = &rev
-			origin.OS = "ubuntu"
 			origin.Type = "charm"
 			return curl, origin, []string{"focal"}, nil
 		}).Times(3)
@@ -473,7 +473,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "ubuntu"
 			return origin, nil
 		})
 
@@ -510,7 +509,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int
 			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
 			origin.Series = "focal"
 			origin.Revision = &rev
-			origin.OS = "ubuntu"
 			origin.Type = "charm"
 			return curl, origin, []string{"kubernetes"}, nil
 		}).Times(3)
@@ -522,7 +520,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmKub(curl *charm.URL, rev int
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "ubuntu"
 			return origin, nil
 		})
 
@@ -603,7 +600,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 			curl = curl.WithArchitecture("amd64")
 			origin.Series = "focal"
 			origin.Revision = &rev
-			origin.OS = "ubuntu"
 			origin.Type = "charm"
 			return curl, origin, []string{"focal"}, nil
 		}).Times(2)
@@ -615,7 +611,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "ubuntu"
 			return origin, nil
 		})
 
@@ -786,7 +781,6 @@ func (s *BundleDeployRepositorySuite) expectCharmstoreK8sCharm(curl *charm.URL, 
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.OS = "kubernetes"
 			origin.Series = "kubernetes"
 			return origin, nil
 		})
@@ -1685,9 +1679,8 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		OS:           "ubuntu",
 		Series:       "focal",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
 		Architecture: "arm64",
 	})
@@ -1706,9 +1699,8 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		OS:           "ubuntu",
 		Series:       "focal",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
 		Architecture: "amd64",
 	})
@@ -1730,9 +1722,8 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		OS:           "ubuntu",
 		Series:       "focal",
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 		Architecture: "arm64",
 	})
 }
@@ -1763,9 +1754,8 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 		Source:       "charm-hub",
 		Architecture: arch,
 		Risk:         charmChannel,
-		OS:           "ubuntu",
 		Series:       charmSeries,
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 	}
 	resolvedOrigin := origin
 	resolvedOrigin.Revision = &rev
@@ -1797,9 +1787,8 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 		Source:       "charm-hub",
 		Architecture: arch,
 		Risk:         charmChannel,
-		OS:           "ubuntu",
 		Series:       charmSeries,
-		Channel:      "20.04",
+		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
 	}
 	resolvedOrigin := origin
 

@@ -139,7 +139,7 @@ func (api *APIBase) getConfig(
 		Series:            app.Series(),
 		Base: params.Base{
 			Name:    base.Name,
-			Channel: base.Channel,
+			Channel: base.Channel.String(),
 		},
 		Channel:          appChannel,
 		EndpointBindings: bindingMap,

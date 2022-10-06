@@ -196,7 +196,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags:         map[string]string{"foo": "bar"},
-		Base:         series.Base{Name: "ubuntu", Channel: "18.04"},
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 		ImageDetails: params.ConvertDockerImageInfo(params.DockerImageInfo{
 			Repository:   "jujuqa",
 			RegistryPath: "juju-operator-image",

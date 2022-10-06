@@ -27,6 +27,7 @@ import (
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/http/mocks"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -176,12 +177,14 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("GetDownloadInfos", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin), nil)
+	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := client.GetDownloadInfo(curl, origin, nil)
 	c.Assert(err, gc.IsNil)
 
 	want := charms.DownloadInfo{
 		URL:    "http://someplace.com",
-		Origin: apicharm.APICharmOrigin(noChannelParamsOrigin),
+		Origin: origin,
 	}
 
 	c.Assert(got, gc.DeepEquals, want)
@@ -199,7 +202,9 @@ func (s *charmsMockSuite) TestGetDownloadInfoIsNotSupported(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 
-	_, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin), nil)
+	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.GetDownloadInfo(curl, origin, nil)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 }
 
@@ -216,8 +221,8 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		Revision:     &curl.Revision,
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
-		OS:           "ubuntu",
 		Series:       "bionic",
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),
@@ -251,8 +256,8 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		Revision:     &curl.Revision,
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
-		OS:           "ubuntu",
 		Series:       "bionic",
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	facadeArgs := params.AddCharmWithAuth{
 		URL:                curl.String(),
@@ -368,7 +373,9 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("ListCharmResources", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.ListCharmResources(curl, apicharm.APICharmOrigin(noChannelParamsOrigin))
+	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := client.ListCharmResources(curl, origin)
 	c.Assert(err, gc.IsNil)
 
 	want := []charmresource.Resource{{
