@@ -2832,10 +2832,48 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		CloudRegion:        testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(noTypeModel)
+	defer func() { _ = newSt.Close() }()
 	c.Assert(err, jc.ErrorIsNil)
-	defer newSt.Close()
 
 	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
+}
+
+func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesBefore2935(c *gc.C) {
+	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
+	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultSeries))
+}
+
+func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *gc.C) {
+	defaultSeries, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(defaultSeries, gc.Equals, "jammy")
+}
+
+func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
+	testModel, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newConfig := testModel.Config()
+	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
+	newConfig["name"] = "something-new"
+	newConfig["default-series"] = "jammy"
+	newConfig["agent-version"] = toolsVer.String()
+	importModel := description.NewModel(description.ModelArgs{
+		Type:           string(state.ModelTypeIAAS),
+		Owner:          testModel.Owner(),
+		Config:         newConfig,
+		EnvironVersion: testModel.EnvironVersion(),
+		Blocks:         testModel.Blocks(),
+		Cloud:          testModel.Cloud(),
+		CloudRegion:    testModel.CloudRegion(),
+	})
+	imported, newSt, err := s.Controller.Import(importModel)
+	defer func() { _ = newSt.Close() }()
+	c.Assert(err, jc.ErrorIsNil)
+
+	importedCfg, err := imported.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	return importedCfg.DefaultSeries()
 }
 
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {

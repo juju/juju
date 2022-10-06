@@ -804,7 +804,7 @@ type ProvisioningNetworkTopology struct {
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
 	Constraints       constraints.Value        `json:"constraints"`
-	Series            string                   `json:"series"`
+	Base              Base                     `json:"base"`
 	Placement         string                   `json:"placement"`
 	Jobs              []model.MachineJob       `json:"jobs"`
 	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -93,15 +94,29 @@ func (api *APIBase) getConfig(
 		appChannel = ch.String()
 	}
 
+	appSeries := app.Series()
+	if appSeries == "" && origin != nil && origin.Platform != nil {
+		appSeries = origin.Platform.Series
+	}
+	var base series.Base
+	if appSeries != "" {
+		base, err = series.GetBaseFromSeries(appSeries)
+		if err != nil {
+			return params.ApplicationGetResults{}, err
+		}
+	}
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
 		Charm:             ch.Meta().Name,
 		CharmConfig:       configInfo,
 		ApplicationConfig: appConfigInfo,
 		Constraints:       cons,
-		Series:            app.Series(),
-		Channel:           appChannel,
-		EndpointBindings:  bindingMap,
+		Base: params.Base{
+			Name:    base.Name,
+			Channel: base.Channel,
+		},
+		Channel:          appChannel,
+		EndpointBindings: bindingMap,
 	}, nil
 }
 

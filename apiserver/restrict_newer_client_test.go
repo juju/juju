@@ -140,8 +140,7 @@ func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers s
 
 func (r *restrictNewerClientSuite) TestAgentMethod(c *gc.C) {
 	r.PatchValue(&jujuversion.Current, version.MustParse("3.0.0"))
-	r.assertAgentMethod(c, "2.9.32", true)
-	r.assertAgentMethod(c, "2.9.33", true)
+	r.assertAgentMethod(c, "2.9.35", true)
 	r.assertAgentMethod(c, "2.9.31", false)
 }
 

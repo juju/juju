@@ -44,7 +44,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Track:  "latest",
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -66,7 +66,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Track:  "latest",
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -88,7 +88,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Track:  "latest",
 				Risk:   "stable",
 				Arches: []string{"amd64"},
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -124,7 +124,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Track:  "latest",
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -170,7 +170,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Track:  "latest",
 				Risk:   "stable",
 				Arches: arch.AllArches().StringList(),
-				Bases:  []string{"ubuntu/20.04"},
+				Bases:  []string{"ubuntu:20.04"},
 			},
 		},
 	}, {
@@ -201,7 +201,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Track:  "latest",
 				Risk:   "stable",
 				Arches: []string{"amd64"},
-				Bases:  []string{"ubuntu/18.04"},
+				Bases:  []string{"ubuntu:18.04"},
 			},
 		},
 	}, {
@@ -264,7 +264,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Track:      "xena",
 				Revision:   522,
 				Arches:     []string{"amd64"},
-				Bases:      []string{"ubuntu/20.04"},
+				Bases:      []string{"ubuntu:20.04"},
 			},
 		},
 	}}

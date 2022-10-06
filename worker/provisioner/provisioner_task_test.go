@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -1213,9 +1214,13 @@ func (m *testMachine) SetInstanceInfo(
 }
 
 func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
+	base, err := series.GetBaseFromSeries(jujuversion.DefaultSupportedLTS())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &params.ProvisioningInfo{
 		ControllerConfig:            coretesting.FakeControllerConfig(),
-		Series:                      jujuversion.DefaultSupportedLTS(),
+		Base:                        params.Base{Name: base.Name, Channel: base.Channel},
 		Constraints:                 constraints.MustParse(m.constraints),
 		ProvisioningNetworkTopology: m.topology,
 	}, nil

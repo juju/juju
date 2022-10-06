@@ -499,17 +499,17 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm:  "cs:prometheus2-7",
-					Series: "xenial",
-					Life:   "alive",
+					Charm: "cs:prometheus2-7",
+					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
+					Life:  "alive",
 					Units: map[string]params.UnitStatus{
 						"prometheus/0": {Machine: "0"},
 					},
 				},
 				"grafana": {
-					Charm:  "ch:grafana-19",
-					Series: "bionic",
-					Life:   "alive",
+					Charm: "ch:grafana-19",
+					Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+					Life:  "alive",
 					Units: map[string]params.UnitStatus{
 						"grafana/0": {Machine: "1"},
 					},
@@ -517,8 +517,8 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 			},
 			Relations: relations,
 			Machines: map[string]params.MachineStatus{
-				"0": {Series: "xenial"},
-				"1": {Series: "bionic"},
+				"0": {Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
+				"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 			},
 		},
 		"Annotations.Get": params.AnnotationsGetResults{
@@ -568,9 +568,9 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 		"Client.FullStatus": params.FullStatus{
 			Applications: map[string]params.ApplicationStatus{
 				"prometheus": {
-					Charm:  "cs:prometheus2-7",
-					Series: "xenial",
-					Life:   "alive",
+					Charm: "cs:prometheus2-7",
+					Base:  params.Base{Name: "ubuntu", Channel: "16.04"},
+					Life:  "alive",
 					Units: map[string]params.UnitStatus{
 						"prometheus/0": {Machine: "0"},
 					},
@@ -578,7 +578,7 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 				},
 			},
 			Machines: map[string]params.MachineStatus{
-				"0": {Series: "xenial"},
+				"0": {Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
 			},
 		},
 		"Annotations.Get": params.AnnotationsGetResults{

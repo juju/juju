@@ -77,7 +77,6 @@ func FakeConfig() Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            jujuversion.DefaultSupportedLTS(),
 	}
 }
 

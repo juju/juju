@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -294,6 +295,14 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting application config")
 	}
+	var base series.Base
+	appSeries := app.Series()
+	if appSeries != "" {
+		base, err = series.GetBaseFromSeries(appSeries)
+		if err != nil {
+			return nil, errors.Annotatef(err, "converting app series %q to base", appSeries)
+		}
+	}
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
 		APIAddresses:         addrs,
@@ -302,7 +311,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Filesystems:          filesystemParams,
 		Devices:              devices,
 		Constraints:          mergedCons,
-		Series:               app.Series(),
+		Base:                 params.Base{Name: base.Name, Channel: base.Channel},
 		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,

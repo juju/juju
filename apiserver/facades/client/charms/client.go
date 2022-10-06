@@ -17,9 +17,8 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	commoncharm "github.com/juju/juju/api/common/charm"
-
 	apiresources "github.com/juju/juju/api/client/resources"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
-
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

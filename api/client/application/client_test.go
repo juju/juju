@@ -1143,7 +1143,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 				{Result: &params.ApplicationResult{
 					Tag:       "application-bar",
 					Charm:     "charm-bar",
-					Series:    "bionic",
+					Base:      params.Base{Name: "ubuntu", Channel: "12.10"},
 					Channel:   "development",
 					Principal: true,
 					EndpointBindings: map[string]string{
@@ -1170,7 +1170,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 		{Result: &params.ApplicationResult{
 			Tag:       "application-bar",
 			Charm:     "charm-bar",
-			Series:    "bionic",
+			Base:      params.Base{Name: "ubuntu", Channel: "12.10"},
 			Channel:   "development",
 			Principal: true,
 			EndpointBindings: map[string]string{

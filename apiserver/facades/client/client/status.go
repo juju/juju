@@ -1040,7 +1040,12 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine,
 	agentStatus := c.processMachine(machine)
 	status.AgentStatus = agentStatus
 
-	status.Series = machine.Series()
+	mSeries := machine.Series()
+	base, err := coreseries.GetBaseFromSeries(mSeries)
+	if err != nil {
+		logger.Errorf("cannot construct machine base from series %q", mSeries) //should never happen
+	}
+	status.Base = params.Base{Name: base.Name, Channel: base.Channel}
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	node, wantsVote := c.controllerNodes[machineID]
 	status.WantsVote = wantsVote
@@ -1269,18 +1274,34 @@ func (context *statusContext) processApplication(application *state.Application)
 		channel = string(application.Channel())
 	}
 
-	series := application.Series()
-	// Sidecar k8s charms have the series set to that of the underlying base.
+	appSeries := application.Series()
+	// Sidecar k8s charms have the appSeries set to that of the underlying base.
 	// We want to ensure they are still shown as "kubernetes" in status.
+	// TODO(juju3) - we want to reflect the underlying base, so remove this
 	if corecharm.IsKubernetes(applicationCharm) {
-		series = coreseries.Kubernetes.String()
+		appSeries = coreseries.Kubernetes.String()
 	}
+	origin := application.CharmOrigin()
+	if appSeries == "" && origin != nil && origin.Platform != nil {
+		appSeries = origin.Platform.Series
+	}
+	var base coreseries.Base
+	if appSeries != "" {
+		base, err = coreseries.GetBaseFromSeries(appSeries)
+		if err != nil {
+			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+		}
+	}
+
 	var processedStatus = params.ApplicationStatus{
-		Charm:            applicationCharm.String(),
-		CharmVersion:     applicationCharm.Version(),
-		CharmProfile:     charmProfileName,
-		CharmChannel:     channel,
-		Series:           series,
+		Charm:        applicationCharm.String(),
+		CharmVersion: applicationCharm.Version(),
+		CharmProfile: charmProfileName,
+		CharmChannel: channel,
+		Base: params.Base{
+			Name:    base.Name,
+			Channel: base.Channel,
+		},
 		Exposed:          application.IsExposed(),
 		ExposedEndpoints: mappedExposedEndpoints,
 		Life:             processLife(application),

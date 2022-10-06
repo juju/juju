@@ -384,23 +384,22 @@ func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
-	// Update the model default series to be unset.
-	updateAttrs := map[string]interface{}{"default-series": ""}
-	err := s.Model.UpdateModelConfig(updateAttrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy")
-	err = s.runDeploy(c, path)
+	err := s.runDeploy(c, path)
 	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
+	updateAttrs := map[string]interface{}{"default-series": version.DefaultSupportedLTS()}
+	err := s.Model.UpdateModelConfig(updateAttrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", version.DefaultSupportedLTS()))
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "focal", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path)
+	err = s.runDeployForState(c, charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertApplication(c, "dummy", curl, 1, 0)
 }
@@ -1517,7 +1516,7 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 		},
 	)
 
-	nonEMSSeries := supportedNotEMS.Values()[0]
+	nonEMSSeries := supportedNotEMS.SortedValues()[0]
 
 	loggingPath := filepath.Join(c.MkDir(), "series-logging")
 	repo := testcharms.RepoWithSeries("bionic")

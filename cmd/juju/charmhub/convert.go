@@ -39,10 +39,14 @@ func convertCharmInfoResult(info transport.InfoResponse, arch, series string) (I
 		ir.Charm = convertCharm(info)
 	}
 
+	seen := set.NewStrings()
 	for _, base := range info.DefaultRelease.Revision.Bases {
 		s, _ := coreseries.VersionSeries(base.Channel)
 		if s != "" {
-			ir.Series = append(ir.Series, s)
+			if !seen.Contains(s) {
+				ir.Series = append(ir.Series, s)
+				seen.Add(s)
+			}
 		}
 	}
 
@@ -139,7 +143,7 @@ func channelSeries(platforms []corecharm.Platform) set.Strings {
 func channelBases(platforms []corecharm.Platform) set.Strings {
 	bases := set.NewStrings()
 	for _, v := range platforms {
-		bases.Add(fmt.Sprintf("%s/%s", v.OS, v.Channel))
+		bases.Add(fmt.Sprintf("%s:%s", v.OS, v.Channel))
 	}
 	return bases
 }

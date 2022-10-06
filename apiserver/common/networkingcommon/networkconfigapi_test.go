@@ -391,9 +391,10 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 	// We expect 3 devices and their addresses to be added.
 	mExp.AddLinkLayerDeviceOps(gomock.Any(), gomock.Any()).Return([]txn.Op{{}, {}}, nil).Times(3)
 
-	// Simulate the first being added, and the 2nd already existing.
-	// There will be no addition of the loopback subnet.
+	// Simulate the first 2 being added, and the 3rd already existing.
+	// There will be no addition of the localhost address subnet.
 	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.10.0.0/24"}).Return([]txn.Op{{}}, nil)
+	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "10.1.0.0/32"}).Return([]txn.Op{{}}, nil)
 	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.20.0.0/24"}).Return(nil, errors.AlreadyExistsf("blat"))
 
 	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
@@ -401,7 +402,9 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
 			Addresses: network.ProviderAddresses{
+				// Localhost (local-machine) subnets are not discovered, but others are.
 				network.NewMachineAddress("127.0.0.1", network.WithCIDR("127.0.0.0/8")).AsProviderAddress(),
+				network.NewMachineAddress("10.1.0.3", network.WithCIDR("10.1.0.0/32")).AsProviderAddress(),
 			},
 		}, {
 			InterfaceName: "eth0",
@@ -429,8 +432,8 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 	// Expected ops are:
 	// - One each for the 3 new devices.
 	// - One each for the 3 new device addresses.
-	// - One for the not-yet-seen/non-loopback subnet.
-	c.Check(ops, gc.HasLen, 7)
+	// - One each for the 2 unseen subnets.
+	c.Check(ops, gc.HasLen, 8)
 }
 
 func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *gc.C) {

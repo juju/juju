@@ -386,7 +386,7 @@ def ip_parse(ip_output):
     """parses the output of the ip command
     and returns a hwaddr->nic-name dict"""
     devices = dict()
-    print("Parsing ip command output %s" % ip_output)
+    print( "Parsing ip command output" + str(ip_output))
     for ip_line in ip_output:
         ip_line_str = strdecode(ip_line, "utf-8")
         match = IP_LINE.match(ip_line_str)
@@ -398,7 +398,7 @@ def ip_parse(ip_output):
             continue
         nic_hwaddr = match.group(1)
         devices[nic_hwaddr] = nic_name
-    print("Found the following devices: %s" % str(devices))
+    print( "Found the following devices: " + str(devices))
     return devices
 
 def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
@@ -410,7 +410,7 @@ def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
 
     formatter = Formatter()
     hwaddrs = [v[1] for v in formatter.parse(interfaces) if v[1]]
-    print("Found the following hwaddrs: %s" % str(hwaddrs))
+    print( "Found the following hwaddrs:" + str(hwaddrs))
     device_replacements = dict()
     for hwaddr in hwaddrs:
         hwaddr_clean = hwaddr[3:].replace("_", ":")
@@ -418,14 +418,13 @@ def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
             device_replacements[hwaddr] = devices[hwaddr_clean]
         else:
             if fail_on_missing:
-                print("Can't find device with MAC %s, will retry" % hwaddr_clean)
+                print( "Can not find device with MAC " + hwaddr_clean + ", will retry")
                 return False
             else:
-                print("WARNING: Can't find device with MAC %s when expected" % hwaddr_clean)
+                print( "WARNING: Can not find device with MAC " + hwaddr_clean + " when expected")
                 device_replacements[hwaddr] = hwaddr
     formatted = interfaces.format(**device_replacements)
-    print("Used the values in: %s\nto fix the interfaces file:\n%s\ninto\n%s" %
-           (str(device_replacements), str(interfaces), str(formatted)))
+    print( "Used the values in: " + str(device_replacements) + "\nto fix the interfaces file:\n" + str(interfaces) + "\ninto\n" + str(formatted))
 
     with open(output_file, "w") as intf_out_file:
         intf_out_file.write(formatted)

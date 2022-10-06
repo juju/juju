@@ -96,9 +96,9 @@ type MachineStatus struct {
 	// DisplayName is a human-readable name for this machine.
 	DisplayName string `json:"display-name"`
 
-	// Series holds the name of the operating system release installed on
+	// Base holds the details of the operating system release installed on
 	// this machine.
-	Series string `json:"series"`
+	Base Base `json:"base"`
 
 	// Id is the Juju identifier for this machine in this model.
 	Id string `json:"id"`
@@ -145,7 +145,7 @@ type ApplicationStatus struct {
 	CharmVersion     string                     `json:"charm-version"`
 	CharmProfile     string                     `json:"charm-profile"`
 	CharmChannel     string                     `json:"charm-channel,omitempty"`
-	Series           string                     `json:"series"`
+	Base             Base                       `json:"base"`
 	Exposed          bool                       `json:"exposed"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
 	Life             life.Value                 `json:"life"`

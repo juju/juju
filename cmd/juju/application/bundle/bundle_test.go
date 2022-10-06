@@ -70,10 +70,10 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
-			"2": {Series: "bionic"},
-			"3": {Series: "bionic"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"2": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"3": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 	}
 	machines := map[string]string{
@@ -107,21 +107,21 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
-				Charm:  "wordpress",
-				Series: "bionic",
-				Life:   life.Alive,
+				Charm: "wordpress",
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Life:  life.Alive,
 				Units: map[string]params.UnitStatus{
 					"0": {Machine: "0"},
 				},
 			},
 			"sub": {
 				Charm:         "sub",
-				Series:        "bionic",
+				Base:          params.Base{Name: "ubuntu", Channel: "18.04"},
 				Life:          life.Alive,
 				SubordinateTo: []string{"wordpress"},
 			},
@@ -294,13 +294,13 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
-				Charm:  "wordpress",
-				Series: "bionic",
-				Life:   life.Alive,
+				Charm: "wordpress",
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Life:  life.Alive,
 				Units: map[string]params.UnitStatus{
 					"0": {Machine: "0"},
 				},
