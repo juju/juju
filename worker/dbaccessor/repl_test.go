@@ -4,8 +4,9 @@
 package dbaccessor
 
 import (
-	"io/ioutil"
 	"os"
+
+	"github.com/juju/loggo"
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
@@ -29,7 +30,7 @@ func (s *REPLSuite) TestREPL(c *gc.C) {
 }
 
 func (s *REPLSuite) makeTempSocket(c *gc.C) (string, func()) {
-	file, err := ioutil.TempFile("/tmp", "socket")
+	file, err := os.CreateTemp("/tmp", "socket")
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -40,7 +41,9 @@ func (s *REPLSuite) makeTempSocket(c *gc.C) (string, func()) {
 
 type fakeLogger struct{}
 
-func (fakeLogger) Errorf(_ string, _ ...interface{})   {}
-func (fakeLogger) Infof(_ string, _ ...interface{})    {}
-func (fakeLogger) Warningf(_ string, _ ...interface{}) {}
-func (fakeLogger) Tracef(_ string, _ ...interface{})   {}
+func (fakeLogger) Errorf(_ string, _ ...interface{})        {}
+func (fakeLogger) Warningf(_ string, _ ...interface{})      {}
+func (fakeLogger) Infof(_ string, _ ...interface{})         {}
+func (fakeLogger) Debugf(_ string, _ ...interface{})        {}
+func (fakeLogger) Tracef(_ string, _ ...interface{})        {}
+func (fakeLogger) Logf(loggo.Level, string, ...interface{}) {}

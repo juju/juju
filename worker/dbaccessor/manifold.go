@@ -4,24 +4,28 @@
 package dbaccessor
 
 import (
-	"path/filepath"
-
 	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/worker/common"
 )
 
 // Logger represents the logging methods called.
 type Logger interface {
 	Errorf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
 	Warningf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})
+
+	// Logf is used to proxy Dqlite logs via this logger.
+	Logf(level loggo.Level, msg string, args ...interface{})
 }
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
@@ -48,22 +52,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			agentConfig := agent.CurrentConfig()
 
-			apiAddrs, err := agentConfig.APIAddresses()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			stateServingInfo, _ := agentConfig.StateServingInfo()
-
 			cfg := WorkerConfig{
-				ControllerCACert:  []byte(agentConfig.CACert()),
-				ControllerCert:    []byte(stateServingInfo.Cert),
-				ControllerCertKey: []byte(stateServingInfo.PrivateKey),
-				APIAddrs:          apiAddrs,
-				DataDir:           filepath.Join(agentConfig.DataDir(), "dqlite"),
-				Clock:             config.Clock,
-				Logger:            config.Logger,
-				NewApp:            config.NewApp,
+				OptionFactory: database.NewOptionFactory(agentConfig, config.Logger),
+				Clock:         config.Clock,
+				Logger:        config.Logger,
+				NewApp:        config.NewApp,
 			}
 
 			w, err := NewWorker(cfg)

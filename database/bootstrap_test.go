@@ -9,6 +9,7 @@ import (
 	"net"
 
 	"github.com/canonical/go-dqlite/app"
+	"github.com/canonical/go-dqlite/client"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -75,4 +76,10 @@ func (f *testOptFactory) WithAddressOption() (app.Option, error) {
 		f.port = l.Addr().(*net.TCPAddr).Port
 	}
 	return app.WithAddress(fmt.Sprintf("127.0.0.1:%d", f.port)), nil
+}
+
+func (f *testOptFactory) WithLogFuncOption() app.Option {
+	return app.WithLogFunc(func(_ client.LogLevel, msg string, args ...interface{}) {
+		f.c.Logf(msg, args...)
+	})
 }

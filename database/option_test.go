@@ -10,10 +10,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/juju/juju/agent"
+	"github.com/canonical/go-dqlite/app"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type optionSuite struct {
@@ -22,11 +26,11 @@ type optionSuite struct {
 
 var _ = gc.Suite(&optionSuite{})
 
-func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
+func (s *optionSuite) TestEnsureDataDirSuccess(c *gc.C) {
 	subDir := strconv.Itoa(rand.Intn(10))
 
-	cfg := dummyAgentConfig{dataDir: "/tmp/" + subDir}
-	f := NewOptionFactory(cfg)
+	cfg := fakeAgentConfig{dataDir: "/tmp/" + subDir}
+	f := NewOptionFactory(cfg, stubLogger{})
 
 	expected := fmt.Sprintf("/tmp/%s/%s", subDir, dqliteDataDir)
 	s.AddCleanup(func(*gc.C) { _ = os.RemoveAll(cfg.DataDir()) })
@@ -47,8 +51,8 @@ func (s *optionSuite) TestEnsureDataDir(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *optionSuite) TestWithAddressOption(c *gc.C) {
-	f := NewOptionFactory(nil)
+func (s *optionSuite) TestWithAddressOptionSuccess(c *gc.C) {
+	f := NewOptionFactory(nil, stubLogger{})
 
 	f.interfaceAddrs = func() ([]net.Addr, error) {
 		return []net.Addr{
@@ -67,12 +71,108 @@ func (s *optionSuite) TestWithAddressOption(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type dummyAgentConfig struct {
-	agent.Config
-	dataDir string
+func (s *optionSuite) TestWithAddressOptionMultipleAddressError(c *gc.C) {
+	f := NewOptionFactory(nil, stubLogger{})
+
+	f.interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
+			&net.IPAddr{IP: net.ParseIP("10.0.0.6")},
+		}, nil
+	}
+
+	_, err := f.WithAddressOption()
+	c.Assert(err, gc.ErrorMatches,
+		`.* found \[local-cloud:10.0.0.5 local-cloud:10.0.0.6\]`)
 }
 
-// DataDir implements agent.AgentConfig.
-func (cfg dummyAgentConfig) DataDir() string {
+func (s *optionSuite) TestWithTLSOptionSuccess(c *gc.C) {
+	cfg := fakeAgentConfig{}
+	f := NewOptionFactory(cfg, stubLogger{})
+
+	withTLS, err := f.WithTLSOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqlite, err := app.New(c.MkDir(), withTLS)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = dqlite.Close()
+}
+
+func (s *optionSuite) TestWithClusterOptionSuccess(c *gc.C) {
+	cfg := fakeAgentConfig{
+		apiAddrs: []string{
+			"10.0.0.5:17070",
+			"10.0.0.6:17070",
+			"10.0.0.7:17070",
+			"127.0.0.1:17070", // Filtered out as a non-local-cloud address.
+		},
+	}
+
+	f := NewOptionFactory(cfg, stubLogger{})
+
+	f.interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPAddr{IP: net.ParseIP("10.0.0.5")}, // One of the unique local-cloud addresses.
+		}, nil
+	}
+
+	withCluster, err := f.WithClusterOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqlite, err := app.New(c.MkDir(), withCluster)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = dqlite.Close()
+}
+
+func (s *optionSuite) TestWithClusterNotHASuccess(c *gc.C) {
+	cfg := fakeAgentConfig{apiAddrs: []string{"10.0.0.5:17070"}}
+
+	f := NewOptionFactory(cfg, stubLogger{})
+
+	f.interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPAddr{IP: net.ParseIP("10.0.0.5")},
+		}, nil
+	}
+
+	withCluster, err := f.WithClusterOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqlite, err := app.New(c.MkDir(), withCluster)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = dqlite.Close()
+}
+
+type fakeAgentConfig struct {
+	agent.Config
+
+	dataDir  string
+	apiAddrs []string
+}
+
+// DataDir implements agent.Config.
+func (cfg fakeAgentConfig) DataDir() string {
 	return cfg.dataDir
+}
+
+// CACert implements agent.Config.
+func (cfg fakeAgentConfig) CACert() string {
+	return jujutesting.CACert
+}
+
+// StateServingInfo implements agent.AgentConfig.
+func (cfg fakeAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+	return controller.StateServingInfo{
+		CAPrivateKey: jujutesting.CAKey,
+		Cert:         jujutesting.ServerCert,
+		PrivateKey:   jujutesting.ServerKey,
+	}, true
+}
+
+// APIAddresses implements agent.Config.
+func (cfg fakeAgentConfig) APIAddresses() ([]string, error) {
+	return cfg.apiAddrs, nil
 }
