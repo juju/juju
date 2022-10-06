@@ -83,6 +83,12 @@ func (s *SecretURISuite) TestString(c *gc.C) {
 	c.Assert(uri, jc.DeepEquals, expected)
 }
 
+func (s *SecretURISuite) TestName(c *gc.C) {
+	uri := &secrets.URI{ID: secretID}
+	name := uri.Name(666)
+	c.Assert(name, gc.Equals, `9m4e2mr0ui3e8a215n4g-666`)
+}
+
 func (s *SecretURISuite) TestNew(c *gc.C) {
 	URI := secrets.NewURI()
 	_, err := xid.FromString(URI.ID)

@@ -13,10 +13,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 )
 
-type CreateSecretSuite struct {
-	base64Foo []byte
-	base64Bar []byte
-}
+type CreateSecretSuite struct{}
 
 var _ = gc.Suite(&CreateSecretSuite{})
 
