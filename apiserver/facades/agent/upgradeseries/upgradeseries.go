@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -197,7 +198,7 @@ func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionPa
 // called after all machine and unit statuses are "completed".
 // It updates the machine series to reflect the completed upgrade, then
 // removes the upgrade-series lock.
-func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (a *API) FinishUpgradeSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -217,11 +218,24 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 		// Only update if they differ, because calling UpgradeSeriesTarget
 		// cascades through units and subordinates to verify series support,
 		// which we might as well skip unless an update is required.
+		argSeries := arg.Series
 		ms := machine.Series()
-		if arg.Series == ms {
+		if argSeries == "" {
+			base, err := series.GetBaseFromSeries(ms)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			argSeries, err = series.GetSeriesFromChannel(base.Name, arg.Channel)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		if argSeries == ms {
 			logger.Debugf("%q series is unchanged from %q", arg.Entity.Tag, ms)
 		} else {
-			if err := machine.UpdateMachineSeries(arg.Series); err != nil {
+			if err := machine.UpdateMachineSeries(argSeries); err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}

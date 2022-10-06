@@ -61,10 +61,10 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 			if err != nil {
 				return nil, err
 			}
-			m.Base = params.Base{Name: base.Name, Channel: base.Channel}
+			m.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
 		}
 		if m.Series == "" && m.Base.Name != "" {
-			mSeries, err := series.GetSeriesFromBase(series.Base{Name: m.Base.Name, Channel: m.Base.Channel})
+			mSeries, err := series.GetSeriesFromChannel(m.Base.Name, m.Base.Channel)
 			if err != nil {
 				return nil, err
 			}

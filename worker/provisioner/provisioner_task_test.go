@@ -1222,7 +1222,7 @@ func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
 		ProvisioningInfoBase: params.ProvisioningInfoBase{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			Series:           jujuversion.DefaultSupportedLTS(),
-			Base:             params.Base{Name: base.Name, Channel: base.Channel},
+			Base:             params.Base{Name: base.Name, Channel: base.Channel.String()},
 			Constraints:      constraints.MustParse(m.constraints),
 		},
 		ProvisioningNetworkTopology: m.topology,

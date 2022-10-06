@@ -108,7 +108,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C) (func(...*gomock.Call) worke
 		},
 	}
 	s.appProvisioningInfo = api.ProvisioningInfo{
-		Base: series.Base{Name: "ubuntu", Channel: "20.04"},
+		Base: series.MakeDefaultBase("ubuntu", "20.04"),
 		CharmURL: &charm.URL{
 			Schema:   "cs",
 			Name:     "test",

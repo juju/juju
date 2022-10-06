@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 )
 
 type originSuite struct{}
@@ -97,8 +98,7 @@ func (*originSuite) TestDeduceOriginWithChannelNoOS(c *gc.C) {
 		Source:       commoncharm.OriginCharmStore,
 		Risk:         channel.String(),
 		Architecture: "amd64",
-		OS:           "ubuntu",
-		Channel:      "20.04",
+		Base:         series.MakeDefaultBase("ubuntu", "20.04"),
 		Series:       "focal",
 	})
 }

@@ -164,6 +164,7 @@ See also:
 func (c *upgradeSeriesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-series",
+		Aliases: []string{"upgrade-machine"},
 		Args:    "<machine> <command> [args]",
 		Purpose: "Upgrade the Ubuntu series of a machine.",
 		Doc:     upgradeSeriesDoc,

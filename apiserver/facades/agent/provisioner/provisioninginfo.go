@@ -176,7 +176,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	}
 	result := params.ProvisioningInfoBase{
 		Series:            m.Series(),
-		Base:              params.Base{Name: base.Name, Channel: base.Channel},
+		Base:              params.Base{Name: base.Name, Channel: base.Channel.String()},
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),
 

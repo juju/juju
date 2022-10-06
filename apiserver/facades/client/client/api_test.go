@@ -118,7 +118,7 @@ var scenarioStatus = &params.FullStatus{
 				Status: status.Idle.String(),
 			},
 			Series:     "quantal",
-			Base:       params.Base{Name: "ubuntu", Channel: "12.10"},
+			Base:       params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Containers: map[string]params.MachineStatus{},
 			Jobs:       []model.MachineJob{model.JobManageModel},
 			HasVote:    false,
@@ -137,7 +137,7 @@ var scenarioStatus = &params.FullStatus{
 				Status: status.Idle.String(),
 			},
 			Series:     "quantal",
-			Base:       params.Base{Name: "ubuntu", Channel: "12.10"},
+			Base:       params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Containers: map[string]params.MachineStatus{},
 			Jobs:       []model.MachineJob{model.JobHostUnits},
 			HasVote:    false,
@@ -156,7 +156,7 @@ var scenarioStatus = &params.FullStatus{
 				Status: status.Idle.String(),
 			},
 			Series:      "quantal",
-			Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+			Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Constraints: "mem=1024M",
 			Containers:  map[string]params.MachineStatus{},
 			Jobs:        []model.MachineJob{model.JobHostUnits},
@@ -198,7 +198,7 @@ var scenarioStatus = &params.FullStatus{
 		"logging": {
 			Charm:  "local:quantal/logging-1",
 			Series: "quantal",
-			Base:   params.Base{Name: "ubuntu", Channel: "12.10"},
+			Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
 			},
@@ -217,7 +217,7 @@ var scenarioStatus = &params.FullStatus{
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
 			Series:        "quantal",
-			Base:          params.Base{Name: "ubuntu", Channel: "12.10"},
+			Base:          params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
 			Units:         map[string]params.UnitStatus{},
@@ -235,7 +235,7 @@ var scenarioStatus = &params.FullStatus{
 		"wordpress": {
 			Charm:  "local:quantal/wordpress-3",
 			Series: "quantal",
-			Base:   params.Base{Name: "ubuntu", Channel: "12.10"},
+			Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations: map[string][]string{
 				"logging-dir": {"logging"},
 			},

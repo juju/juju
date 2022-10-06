@@ -69,6 +69,7 @@ See also:
 func (c *setSeriesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "set-series",
+		Aliases: []string{"set-application-base"},
 		Args:    "<application> <series>",
 		Purpose: "Set an application's series.",
 		Doc:     setSeriesDoc,

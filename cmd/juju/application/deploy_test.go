@@ -84,7 +84,6 @@ var defaultSupportedJujuSeries = set.NewStrings("focal", "bionic", "xenial", "tr
 var defaultLocalOrigin = commoncharm.Origin{
 	Source:       commoncharm.OriginLocal,
 	Architecture: arch.DefaultArchitecture,
-	OS:           "ubuntu",
 	Series:       "bionic",
 }
 
@@ -804,8 +803,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
 		Series:       "bionic",
-		OS:           "ubuntu",
-		Channel:      "18.04",
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 	}
 
 	deployURL := *inURL
@@ -1525,8 +1523,7 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
 		Series:       "bionic",
-		OS:           "ubuntu",
-		Channel:      "18.04",
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
 	s.fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
@@ -1554,8 +1551,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
 		Series:       "bionic",
-		OS:           "ubuntu",
-		Channel:      "18.04",
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 		Risk:         "beta",
 	}
 	s.fakeAPI.Call("ResolveCharm", curl, origin, false).Returns(
@@ -2217,16 +2213,14 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 			Origin: commoncharm.Origin{
 				Source:       commoncharm.OriginCharmStore,
 				Architecture: arch.DefaultArchitecture,
-				OS:           "ubuntu",
-				Channel:      "18.04",
+				Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 				Series:       "bionic",
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
 			Source:       commoncharm.OriginCharmStore,
 			Architecture: arch.DefaultArchitecture,
-			OS:           "ubuntu",
-			Channel:      "18.04",
+			Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 			Series:       "bionic",
 		},
 		ApplicationName: curl.Name,
@@ -2700,7 +2694,6 @@ func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commonchar
 			"unknown schema for charm URL %q", url)
 	}
 	origin := results[1].(commoncharm.Origin)
-	origin.OS = "ubuntu"
 	return results[0].(*charm.URL),
 		origin,
 		results[2].([]string),
@@ -2721,7 +2714,6 @@ func (f *fakeDeployAPI) ResolveBundleURL(url *charm.URL, preferredChannel common
 		return nil, commoncharm.Origin{}, errors.NotValidf("charmstore bundle %q", url)
 	}
 	origin := results[1].(commoncharm.Origin)
-	origin.OS = "ubuntu"
 	return results[0].(*charm.URL),
 		origin,
 		jujutesting.TypeAssertError(results[2])
@@ -3160,13 +3152,9 @@ func withCharmRepoResolvable(
 				Source:       commoncharm.OriginCharmStore,
 				Architecture: arch,
 				Series:       aseries,
-				OS:           base.Name,
-				Channel:      base.Channel,
+				Base:         base,
 			}
 			resolvedOrigin := origin
-			if aseries != "" {
-				origin.OS = "ubuntu"
-			}
 			fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 				&resultURL,
 				resolvedOrigin,

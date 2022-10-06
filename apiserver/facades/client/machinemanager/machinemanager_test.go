@@ -1034,7 +1034,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
 	app := s.expectValidateApplicationOnMachine(ctrl)
@@ -1046,8 +1046,8 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c
 		s.expectValidateUnit(ctrl, "foo/2", status.Idle, status.Idle),
 	}, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
 		}},
@@ -1065,10 +1065,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsCo
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", true, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		}},
 	}
@@ -1084,10 +1084,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsLo
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, true)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		}},
 	}
@@ -1103,10 +1103,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNoSe
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		}},
 	}
@@ -1121,10 +1121,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotF
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "centos7", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "bionic",
 		}},
@@ -1141,10 +1141,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotT
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "centos7",
 		}},
@@ -1161,10 +1161,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateAlre
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "trusty",
 		}},
@@ -1180,10 +1180,10 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlde
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "precise",
 		}},
@@ -1200,7 +1200,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
 	app := s.expectValidateApplicationOnMachine(ctrl)
@@ -1211,8 +1211,8 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 		mocks.NewMockUnit(ctrl),
 	}, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
 		}},
@@ -1228,7 +1228,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 	defer ctrl.Finish()
 
 	machine0 := s.expectValidateMachine(ctrl, "trusty", false, false)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
 	app := s.expectValidateApplicationOnMachine(ctrl)
@@ -1239,8 +1239,8 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 		mocks.NewMockUnit(ctrl),
 	}, nil)
 
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
 		}},
@@ -1329,11 +1329,11 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc
 	defer ctrl.Finish()
 
 	machine0 := s.expectPrepareMachine(ctrl, nil)
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
 	machineTag := names.NewMachineTag("0")
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
 			Series: "xenial",
@@ -1350,7 +1350,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachin
 
 	machineTag := names.NewMachineTag("76")
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
 			Series: "trusty",
@@ -1363,7 +1363,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachin
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
 	unitTag := names.NewUnitTag("mysql/0")
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: unitTag.String()},
 			Series: "trusty",
@@ -1395,7 +1395,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermis
 	s.setAPIUser(c, user)
 	machineTag := names.NewMachineTag("0")
 	_, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
 			Series: "xenial",
@@ -1406,7 +1406,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermis
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
 	)
@@ -1424,10 +1424,10 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncomp
 	defer ctrl.Finish()
 
 	machine0 := s.expectPrepareMachine(ctrl, apiservererrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
-	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil).Times(2)
 
 	result, err := s.api.UpgradeSeriesPrepare(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 			Series: "xenial",
 			Force:  false,
@@ -1494,7 +1494,7 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) TestUpgradeSeriesComplete(c *
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	_, err := s.api.UpgradeSeriesComplete(
-		params.UpdateSeriesArg{
+		params.UpdateChannelArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
 	)

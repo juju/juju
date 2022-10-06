@@ -108,7 +108,7 @@ func (o CharmOrigin) AsCoreCharmOrigin() corecharm.Origin {
 		base, err := coreseries.GetBaseFromSeries(o.Platform.Series)
 		if err == nil {
 			os = base.Name
-			channel = base.Channel
+			channel = base.Channel.Track
 		}
 		origin.Platform = corecharm.Platform{
 			Architecture: o.Platform.Architecture,

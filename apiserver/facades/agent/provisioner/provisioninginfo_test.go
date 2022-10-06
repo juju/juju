@@ -63,7 +63,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
-					Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+					Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 					Jobs:             []model.MachineJob{model.JobHostUnits},
 					Tags: map[string]string{
 						tags.JujuController: coretesting.ControllerTag.Id(),
@@ -77,7 +77,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
-					Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+					Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 					Constraints:      template.Constraints,
 					Placement:        template.Placement,
 					Jobs:             []model.MachineJob{model.JobHostUnits},
@@ -195,7 +195,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
-					Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+					Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 					Constraints:      template.Constraints,
 					Placement:        template.Placement,
 					Jobs:             []model.MachineJob{model.JobHostUnits},
@@ -241,7 +241,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		ProvisioningInfoBase: params.ProvisioningInfoBase{
 			ControllerConfig: s.ControllerConfig,
 			Series:           "quantal",
-			Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+			Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Constraints:      template.Constraints,
 			Placement:        template.Placement,
 			Jobs:             []model.MachineJob{model.JobHostUnits},
@@ -319,7 +319,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
-					Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+					Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 					Jobs:             []model.MachineJob{model.JobHostUnits},
 					Tags: map[string]string{
 						tags.JujuController:    coretesting.ControllerTag.Id(),
@@ -536,7 +536,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
-					Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+					Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 					Jobs:             []model.MachineJob{model.JobHostUnits},
 					Tags: map[string]string{
 						tags.JujuController:    coretesting.ControllerTag.Id(),
@@ -582,7 +582,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
-					Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+					Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 					Constraints:      template.Constraints,
 					Placement:        template.Placement,
 					Jobs:             []model.MachineJob{model.JobHostUnits},
@@ -739,7 +739,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
-					Base:             params.Base{Name: "ubuntu", Channel: "12.10"},
+					Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 					Jobs:             []model.MachineJob{model.JobHostUnits},
 					Tags: map[string]string{
 						tags.JujuController: coretesting.ControllerTag.Id(),

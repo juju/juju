@@ -1414,7 +1414,7 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		// Assumes that UpdateApplicationSeries will not change operating systems.
 		// TODO(wallyworld) - we need to update description to support channel
 		// For now, handle both channel and series here.
-		series, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: p.OS, Channel: p.Channel})
+		series, err := coreseries.GetSeriesFromChannel(p.OS, p.Channel)
 		if err != nil {
 			series = p.Channel
 		}

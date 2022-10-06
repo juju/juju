@@ -5,7 +5,6 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -161,8 +161,8 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "xenial"}},
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{Entity: entity, Series: "xenial"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
@@ -180,8 +180,8 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "trusty"}},
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{Entity: entity, Series: "trusty"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)

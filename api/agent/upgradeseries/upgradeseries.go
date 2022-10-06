@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/model"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -42,7 +43,7 @@ func NewClient(caller base.APICaller, authTag names.Tag) *Client {
 	}
 }
 
-// Machine status retrieves the machine status from remote state.
+// MachineStatus status retrieves the machine status from remote state.
 func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
@@ -212,12 +213,17 @@ func (s *Client) StartUnitCompletion(reason string) error {
 // "Complete" phases.
 func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 	var results params.ErrorResults
-	args := params.UpdateSeriesArgs{Args: []params.UpdateSeriesArg{{
-		Entity: params.Entity{Tag: s.authTag.String()},
-		Series: hostSeries,
+	base, err := coreseries.GetBaseFromSeries(hostSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	args := params.UpdateChannelArgs{Args: []params.UpdateChannelArg{{
+		Entity:  params.Entity{Tag: s.authTag.String()},
+		Series:  hostSeries,
+		Channel: base.Channel.Track,
 	}}}
 
-	err := s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
+	err = s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
 	if err != nil {
 		return err
 	}

@@ -401,8 +401,7 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		origin.OS = r.deployedBase.Name
-		origin.Channel = r.deployedBase.Channel
+		origin.Base = r.deployedBase
 	}
 
 	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
@@ -435,11 +434,11 @@ func charmHubOriginResolver(_ *charm.URL, origin corecharm.Origin, channel charm
 		if origin.Channel != nil {
 			origin.Channel.Risk = channel.Risk
 		}
-		return commoncharm.CoreCharmOrigin(origin), nil
+		return commoncharm.CoreCharmOrigin(origin)
 	}
 	normalizedC := channel.Normalize()
 	origin.Channel = &normalizedC
-	return commoncharm.CoreCharmOrigin(origin), nil
+	return commoncharm.CoreCharmOrigin(origin)
 }
 
 type charmHubRefresher struct {
@@ -499,8 +498,7 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		origin.OS = r.deployedBase.Name
-		origin.Channel = r.deployedBase.Channel
+		origin.Base = r.deployedBase
 	}
 
 	curl, actualOrigin, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)

@@ -105,7 +105,7 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 		},
 		Constraints: constraints.MustParse("arch=amd64"),
 		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 	})
 }
 
@@ -146,7 +146,7 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
 		},
 		Constraints: constraints.MustParse("arch=amd64"),
 		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 	})
 }
 
@@ -177,7 +177,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 			}},
 		Constraints: constraints.MustParse("arch=amd64"),
 		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"":                network.AlphaSpaceName,
 			"admin-api":       network.AlphaSpaceName,
@@ -367,7 +367,7 @@ var getTests = []struct {
 			},
 		},
 		Series: "quantal",
-		Base:   params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -430,7 +430,7 @@ var getTests = []struct {
 			},
 		},
 		Series: "quantal",
-		Base:   params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:   params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -441,7 +441,7 @@ var getTests = []struct {
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
 		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,
@@ -471,7 +471,7 @@ var getTests = []struct {
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
 		Series:      "quantal",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,

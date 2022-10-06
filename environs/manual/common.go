@@ -26,7 +26,7 @@ func RecordMachineInState(client ProvisioningClientAPI, machineParams params.Add
 		machineParams.Series = ""
 		machineParams.Base = &params.Base{
 			Name:    info.Name,
-			Channel: info.Channel,
+			Channel: info.Channel.String(),
 		}
 	}
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
