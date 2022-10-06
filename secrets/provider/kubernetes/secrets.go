@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/caas"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
@@ -57,7 +56,6 @@ func (p k8sProvider) CleanupModel(m provider.Model) error {
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
 func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.NameMetaSlice) error {
-	logger.Criticalf("CleanupSecret tag %q,  removed %#v", tag, removed)
 	if tag == nil {
 		// This should never happen.
 		// Because this method is used for uniter facade only.
@@ -111,11 +109,9 @@ func cloudSpecToStoreConfig(controllerUUID string, cfg *config.Config, spec clou
 // TODO(wallyworld) - only allow access to the specified secrets
 func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.NameMetaSlice, read provider.NameMetaSlice) (*provider.StoreConfig, error) {
 	cloudSpec, err := cloudSpecForModel(m)
-	logger.Criticalf("1 StoreConfig tag %q,  owned %#v, read %#v, cloudSpec %s", tag, owned, read, pretty.Sprint(cloudSpec))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("StoreConfig cloudSpec.IsControllerCloud %t", cloudSpec.IsControllerCloud)
 
 	cfg, err := m.Config()
 	if err != nil {
@@ -152,11 +148,11 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider
 		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 		if len(host) != 0 && len(port) != 0 {
 			cloudSpec.Endpoint = "https://" + net.JoinHostPort(host, port)
+			logger.Tracef("patching endpoint to %q", cloudSpec.Endpoint)
 			cloudSpec.IsControllerCloud = false
 		}
 	}
 
-	logger.Criticalf("2 StoreConfig tag %q,  owned %#v, read %#v, cloudSpec %s", tag, owned, read, pretty.Sprint(cloudSpec))
 	return cloudSpecToStoreConfig(controllerUUID, cfg, cloudSpec)
 }
 
@@ -201,12 +197,10 @@ func (p k8sProvider) NewStore(cfg *provider.StoreConfig) (provider.SecretsStore,
 		}
 	}
 	var cred cloud.Credential
-	logger.Criticalf("k8sProvider.NewStore ==> \n%s", cfg.Params["credential"].(string))
 	err = json.Unmarshal([]byte(cfg.Params["credential"].(string)), &cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("k8sProvider.cred ==> %s", pretty.Sprint(cred))
 	cloudSpec.Credential = &cred
 
 	broker, err := NewCaas(context.TODO(), environs.OpenParams{

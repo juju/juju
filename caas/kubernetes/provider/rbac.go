@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/kr/pretty"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -608,7 +607,6 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	logger.Criticalf("kubernetesClient.EnsureSecretAccessToken called appName %q, tag %q", appName, tag)
 	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 
 	objMeta := v1.ObjectMeta{
@@ -627,7 +625,6 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 	}
 
 	role, err := k.ensureRoleForSecretAccessToken(objMeta, owned, read, removed)
-	logger.Criticalf("kubernetesClient.EnsureSecretAccessToken role %s", pretty.Sprint(role))
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot ensure role %q", role.GetName())
 	}
@@ -661,7 +658,6 @@ func (k *kubernetesClient) EnsureSecretAccessToken(tag names.Tag, owned, read, r
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot request a token for %q", sa.Name)
 	}
-	logger.Criticalf("kubernetesClient.EnsureSecretAccessToken tr %s", pretty.Sprint(tr))
 	return tr.Status.Token, nil
 }
 
@@ -765,7 +761,6 @@ func rulesForSecretAccess(namespace string, existing []rbacv1.PolicyRule, owned,
 
 // RemoveSecretAccessToken removes the RBAC resources for the provided resource name.
 func (k *kubernetesClient) RemoveSecretAccessToken(unit names.Tag) error {
-	logger.Criticalf("kubernetesClient.RemoveSecretAccessToken called")
 	name := unit.String()
 	if err := k.deleteRoleBinding(name, ""); err != nil {
 		logger.Warningf("cannot delete service account %q", name)

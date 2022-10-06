@@ -220,7 +220,8 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?!!!
+	// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
+	// This should be resolved once lp:1991213 and lp:1991854 are fixed.
 	if err := provider.CleanupSecrets(model, s.authTag, removedURIs); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

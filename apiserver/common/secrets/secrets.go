@@ -102,18 +102,20 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	readfilter := state.SecretsFilter{
 		ConsumerTags: []names.Tag{authTag},
 	}
-	switch authTag.(type) {
+	switch t := authTag.(type) {
 	case names.UnitTag:
-		appName, _ := names.UnitApplication(authTag.Id())
+		appName, _ := names.UnitApplication(t.Id())
 		authApp := names.NewApplicationTag(appName)
-		token := leadershipChecker.LeadershipCheck(appName, authTag.Id())
+		token := leadershipChecker.LeadershipCheck(appName, t.Id())
 		err := token.Check()
 		if err != nil && !leadership.IsNotLeaderError(err) {
 			return nil, errors.Trace(err)
 		}
 		if err == nil {
+			// Leader unit owns application level secrets.
 			ownedFilter.OwnerTags = append(ownedFilter.OwnerTags, authApp)
 		}
+		// All units can read application level secrets.
 		readfilter.ConsumerTags = append(readfilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
 	default:

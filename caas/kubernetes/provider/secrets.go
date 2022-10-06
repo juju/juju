@@ -249,7 +249,6 @@ func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string)
 
 // SaveJujuSecret implements SecretsStore.
 func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (string, error) {
-	logger.Criticalf("kubernetesClient.SaveJujuSecret")
 	labels := utils.LabelsMerge(
 		utils.LabelsForModel(k.CurrentModel(), false),
 		utils.LabelsJuju)
