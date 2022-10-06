@@ -28,7 +28,7 @@ const (
 	Store = "vault"
 )
 
-// NewProvider returns a Kubernetes secrets provider.
+// NewProvider returns a Vault secrets provider.
 func NewProvider() provider.SecretStoreProvider {
 	return vaultProvider{Store}
 }
@@ -120,7 +120,7 @@ func (p vaultProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
-func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.NameMetaSlice) error {
+func (p vaultProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
 	cfg, err := p.adminConfig(m)
 	if err != nil {
 		return errors.Trace(err)
@@ -223,7 +223,7 @@ func (p vaultProvider) adminConfig(m provider.Model) (*provider.StoreConfig, err
 }
 
 // StoreConfig returns the config needed to create a vault secrets store client.
-func (p vaultProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.NameMetaSlice, read provider.NameMetaSlice) (*provider.StoreConfig, error) {
+func (p vaultProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.StoreConfig, error) {
 	adminUser := tag == nil
 	// Get an admin store client so we can set up the policies.
 	storeCfg, err := p.adminConfig(m)

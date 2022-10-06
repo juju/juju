@@ -38,14 +38,14 @@ func (p jujuProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.NameMetaSlice) error {
+func (p jujuProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
 	return nil
 }
 
 // StoreConfig returns nil config params since the Juju store saves
 // secret content to the Juju database.
 func (p jujuProvider) StoreConfig(
-	m provider.Model, tag names.Tag, owned provider.NameMetaSlice, read provider.NameMetaSlice,
+	m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.StoreConfig, error) {
 	return &provider.StoreConfig{StoreType: Store}, nil
 }

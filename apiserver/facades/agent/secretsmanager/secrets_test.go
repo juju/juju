@@ -371,7 +371,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	s.expectSecretAccessQuery(1)
 	s.provider.EXPECT().CleanupSecrets(
 		mockModel{}, names.NewUnitTag("mariadb/0"),
-		secretsprovider.NameMetaSlice{uri.ID: set.NewInts(666)},
+		secretsprovider.SecretRevisions{uri.ID: set.NewInts(666)},
 	).Return(nil)
 
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{

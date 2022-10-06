@@ -92,8 +92,8 @@ func (s *kubernetesSuite) assertStoreConfigWithTag(c *gc.C, isControllerCloud bo
 	p, err := provider.Provider(kubernetes.Store)
 	c.Assert(err, jc.ErrorIsNil)
 	storeCfg, err := p.StoreConfig(model, tag,
-		provider.NameMetaSlice{"owned-a": set.NewInts(1)},
-		provider.NameMetaSlice{"read-b": set.NewInts(1, 2)},
+		provider.SecretRevisions{"owned-a": set.NewInts(1)},
+		provider.SecretRevisions{"read-b": set.NewInts(1, 2)},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := &provider.StoreConfig{
@@ -162,7 +162,7 @@ func (s *kubernetesSuite) TestCleanupSecrets(c *gc.C) {
 
 	p, err := provider.Provider(kubernetes.Store)
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.CleanupSecrets(model, tag, provider.NameMetaSlice{"removed": set.NewInts(1, 2)})
+	err = p.CleanupSecrets(model, tag, provider.SecretRevisions{"removed": set.NewInts(1, 2)})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

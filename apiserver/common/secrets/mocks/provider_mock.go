@@ -50,7 +50,7 @@ func (mr *MockSecretStoreProviderMockRecorder) CleanupModel(arg0 interface{}) *g
 }
 
 // CleanupSecrets mocks base method.
-func (m *MockSecretStoreProvider) CleanupSecrets(arg0 provider.Model, arg1 names.Tag, arg2 provider.NameMetaSlice) error {
+func (m *MockSecretStoreProvider) CleanupSecrets(arg0 provider.Model, arg1 names.Tag, arg2 provider.SecretRevisions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -93,7 +93,7 @@ func (mr *MockSecretStoreProviderMockRecorder) NewStore(arg0 interface{}) *gomoc
 }
 
 // StoreConfig mocks base method.
-func (m *MockSecretStoreProvider) StoreConfig(arg0 provider.Model, arg1 names.Tag, arg2, arg3 provider.NameMetaSlice) (*provider.StoreConfig, error) {
+func (m *MockSecretStoreProvider) StoreConfig(arg0 provider.Model, arg1 names.Tag, arg2, arg3 provider.SecretRevisions) (*provider.StoreConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StoreConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*provider.StoreConfig)

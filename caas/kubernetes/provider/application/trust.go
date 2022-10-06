@@ -19,7 +19,8 @@ func getDefaultApplicationNamespaceRules(namespace string) []rbacv1.PolicyRule {
 			Resources:     []string{"namespaces"},
 			ResourceNames: []string{namespace},
 			Verbs: []string{
-				"list", "get",
+				"get",
+				"list",
 			},
 		},
 		{

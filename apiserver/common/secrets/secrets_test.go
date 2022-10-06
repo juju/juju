@@ -126,8 +126,8 @@ func (s *secretsSuite) TestStoreConfigLeaderUnit(c *gc.C) {
 			},
 		}).Return(read, nil),
 		p.EXPECT().StoreConfig(gomock.Any(), unitTag,
-			provider.NameMetaSlice{"owned-1": set.NewInts(1)},
-			provider.NameMetaSlice{"read-1": set.NewInts(2)},
+			provider.SecretRevisions{"owned-1": set.NewInts(1)},
+			provider.SecretRevisions{"read-1": set.NewInts(2)},
 		).Return(nil, nil),
 	)
 
@@ -172,8 +172,8 @@ func (s *secretsSuite) TestStoreConfigNonLeaderUnit(c *gc.C) {
 			},
 		}).Return(read, nil),
 		p.EXPECT().StoreConfig(gomock.Any(), unitTag,
-			provider.NameMetaSlice{"owned-1": set.NewInts(1)},
-			provider.NameMetaSlice{"read-1": set.NewInts(2)},
+			provider.SecretRevisions{"owned-1": set.NewInts(1)},
+			provider.SecretRevisions{"read-1": set.NewInts(2)},
 		).Return(nil, nil),
 	)
 
@@ -213,8 +213,8 @@ func (s *secretsSuite) TestStoreConfigAppTagLogin(c *gc.C) {
 			ConsumerTags: []names.Tag{appTag},
 		}).Return(read, nil),
 		p.EXPECT().StoreConfig(gomock.Any(), appTag,
-			provider.NameMetaSlice{"owned-1": set.NewInts(1)},
-			provider.NameMetaSlice{"read-1": set.NewInts(2)},
+			provider.SecretRevisions{"owned-1": set.NewInts(1)},
+			provider.SecretRevisions{"read-1": set.NewInts(2)},
 		).Return(nil, nil),
 	)
 

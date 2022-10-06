@@ -99,7 +99,7 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	}
 	// Find secrets shared with the agent.
 	// We include secrets shared with the app or just the specified unit.
-	readfilter := state.SecretsFilter{
+	readFilter := state.SecretsFilter{
 		ConsumerTags: []names.Tag{authTag},
 	}
 	switch t := authTag.(type) {
@@ -116,7 +116,7 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 			ownedFilter.OwnerTags = append(ownedFilter.OwnerTags, authApp)
 		}
 		// All units can read application level secrets.
-		readfilter.ConsumerTags = append(readfilter.ConsumerTags, authApp)
+		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)
@@ -126,21 +126,21 @@ func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Ch
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ownedURIs := provider.NameMetaSlice{}
+	ownedRevisions := provider.SecretRevisions{}
 	for _, md := range owned {
-		ownedURIs.Add(md.URI, md.Version)
+		ownedRevisions.Add(md.URI, md.Version)
 	}
 
-	read, err := backend.ListSecrets(readfilter)
+	read, err := backend.ListSecrets(readFilter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	readURIs := provider.NameMetaSlice{}
+	readRevisions := provider.SecretRevisions{}
 	for _, md := range read {
-		readURIs.Add(md.URI, md.Version)
+		readRevisions.Add(md.URI, md.Version)
 	}
-	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedURIs, readURIs)
-	cfg, err := p.StoreConfig(ma, authTag, ownedURIs, readURIs)
+	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
+	cfg, err := p.StoreConfig(ma, authTag, ownedRevisions, readRevisions)
 	return cfg, errors.Trace(err)
 }
 

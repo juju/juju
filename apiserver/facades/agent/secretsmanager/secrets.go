@@ -204,15 +204,15 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	removedURIs := secretsprovider.NameMetaSlice{}
+	removedRevisions := secretsprovider.SecretRevisions{}
 	for i, d := range toDelete {
 		removed, err := s.removeSecret(d.uri, d.revisions...)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 		if err == nil && removed {
-			removedURIs.Add(d.uri, d.revisions...)
+			removedRevisions.Add(d.uri, d.revisions...)
 		}
 	}
-	if len(removedURIs) == 0 {
+	if len(removedRevisions) == 0 {
 		return result, nil
 	}
 
@@ -222,7 +222,7 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	}
 	// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
 	// This should be resolved once lp:1991213 and lp:1991854 are fixed.
-	if err := provider.CleanupSecrets(model, s.authTag, removedURIs); err != nil {
+	if err := provider.CleanupSecrets(model, s.authTag, removedRevisions); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return result, nil

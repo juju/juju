@@ -714,19 +714,9 @@ func rulesForSecretAccess(namespace string, existing []rbacv1.PolicyRule, owned,
 		}
 	}
 
-	ownedIDs := set.NewStrings()
-	readIDs := set.NewStrings()
-	removedIDs := set.NewStrings()
-
-	for _, rName := range owned {
-		ownedIDs.Add(rName)
-	}
-	for _, rName := range read {
-		readIDs.Add(rName)
-	}
-	for _, rName := range removed {
-		removedIDs.Add(rName)
-	}
+	ownedIDs := set.NewStrings(owned...)
+	readIDs := set.NewStrings(read...)
+	removedIDs := set.NewStrings(removed...)
 
 	existing = cleanRules(existing,
 		func(s string) bool {

@@ -91,6 +91,7 @@ func NewURI() *URI {
 	}
 }
 
+// Name generates the secret name.
 func (u URI) Name(revision int) string {
 	return fmt.Sprintf("%s-%d", u.ID, revision)
 }

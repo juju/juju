@@ -18,11 +18,12 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (*providerSuite) TestNameMetaSlice(c *gc.C) {
-	nameMeta := provider.NameMetaSlice{}
+	nameMeta := provider.SecretRevisions{}
 	nameMeta.Add(&secrets.URI{ID: "a"}, 1)
 	nameMeta.Add(&secrets.URI{ID: "b"}, 1, 2)
 	nameMeta.Add(&secrets.URI{ID: "c"}, 1, 2, 3)
-	nameMeta.Add(&secrets.URI{ID: "d"}, 1, 2, 3, 4)
+	nameMeta.Add(&secrets.URI{ID: "d"}, 1, 2, 3)
+	nameMeta.Add(&secrets.URI{ID: "d"}, 4)
 	c.Assert(nameMeta.Names(), gc.DeepEquals, []string{
 		"a-1",
 		"b-1", "b-2",

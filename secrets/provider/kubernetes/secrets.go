@@ -55,7 +55,7 @@ func (p k8sProvider) CleanupModel(m provider.Model) error {
 }
 
 // CleanupSecrets removes rules of the role associated with the removed secrets.
-func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.NameMetaSlice) error {
+func (p k8sProvider) CleanupSecrets(m provider.Model, tag names.Tag, removed provider.SecretRevisions) error {
 	if tag == nil {
 		// This should never happen.
 		// Because this method is used for uniter facade only.
@@ -107,7 +107,7 @@ func cloudSpecToStoreConfig(controllerUUID string, cfg *config.Config, spec clou
 
 // StoreConfig returns the config needed to create a k8s secrets store.
 // TODO(wallyworld) - only allow access to the specified secrets
-func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.NameMetaSlice, read provider.NameMetaSlice) (*provider.StoreConfig, error) {
+func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions) (*provider.StoreConfig, error) {
 	cloudSpec, err := cloudSpecForModel(m)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -141,8 +141,8 @@ func (p k8sProvider) StoreConfig(m provider.Model, tag names.Tag, owned provider
 	cloudSpec.Credential = &cred
 
 	if cloudSpec.IsControllerCloud {
-		// the cloudspec used for controller having fake endpoint(address and port)
-		// because we ignores these endpoint and loads in-cluster credential instead.
+		// The cloudspec used for controller has a fake endpoint (address and port)
+		// because we ignore the endpoint and load the in-cluster credential instead.
 		// So we have to clean up the endpoint here for uniter to use.
 
 		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
