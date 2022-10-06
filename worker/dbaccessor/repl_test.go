@@ -6,6 +6,8 @@ package dbaccessor
 import (
 	"os"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
@@ -39,7 +41,9 @@ func (s *REPLSuite) makeTempSocket(c *gc.C) (string, func()) {
 
 type fakeLogger struct{}
 
-func (fakeLogger) Errorf(_ string, _ ...interface{})   {}
-func (fakeLogger) Infof(_ string, _ ...interface{})    {}
-func (fakeLogger) Warningf(_ string, _ ...interface{}) {}
-func (fakeLogger) Tracef(_ string, _ ...interface{})   {}
+func (fakeLogger) Errorf(_ string, _ ...interface{})        {}
+func (fakeLogger) Warningf(_ string, _ ...interface{})      {}
+func (fakeLogger) Infof(_ string, _ ...interface{})         {}
+func (fakeLogger) Debugf(_ string, _ ...interface{})        {}
+func (fakeLogger) Tracef(_ string, _ ...interface{})        {}
+func (fakeLogger) Logf(loggo.Level, string, ...interface{}) {}
