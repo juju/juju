@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/output"
-	coreseries "github.com/juju/juju/core/series"
 )
 
 // Note:
@@ -102,13 +101,11 @@ func (iw infoWriter) channels() string {
 				}
 			case baseModeBases:
 				latest := revisions[0]
-				bases := strings.Join(basesToSeries(latest.Bases), ", ")
-				w.Println(formatRevision(latest, true), bases)
+				w.Println(formatRevision(latest, true), formatBases(latest.Bases))
 			case baseModeBoth:
 				latest := revisions[0]
 				arches := strings.Join(latest.Arches, ", ")
-				bases := strings.Join(basesToSeries(latest.Bases), ", ")
-				w.Println(formatRevision(latest, true), arches, bases)
+				w.Println(formatRevision(latest, true), arches, formatBases(latest.Bases))
 			}
 		}
 	}
@@ -128,23 +125,32 @@ func formatRevision(r Revision, showName bool) string {
 		namePrefix, r.Version, r.ReleasedAt[:10], r.Revision, sizeToStr(r.Size))
 }
 
-// basesToSeries converts a list of bases in "ubuntu:22.04" format to a list
-// of series ("jammy"). Any bases that can't be mapped will be included in the
-// result unmodified.
-//
-// NOTE: This will go away when we switch to --base and bases output.
-func basesToSeries(bases []string) []string {
-	series := make([]string, len(bases))
-	for i, base := range bases {
-		name, channel, _ := strings.Cut(base, ":")
-		s, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: name, Channel: channel})
-		if err != nil {
-			series[i] = base
-		} else {
-			series[i] = s
+// formatBases groups bases with the same OS name together, converting a list
+// like ["ubuntu:18.04", "coolos:3.14", "ubuntu:20.04"] to the string
+// "ubuntu:18.04,20.04 coolos:3.14".
+func formatBases(bases []string) string {
+	var osOrder []string
+	versions := make(map[string][]string) // map of OS name to list of versions
+
+	for _, base := range bases {
+		os, version, hasColon := strings.Cut(base, ":")
+		if _, ok := versions[os]; !ok {
+			osOrder = append(osOrder, os)
+		}
+		if hasColon {
+			versions[os] = append(versions[os], version)
 		}
 	}
-	return series
+
+	var result []string
+	for _, os := range osOrder {
+		osVersion := os
+		if len(versions[os]) > 0 {
+			osVersion += ":" + strings.Join(versions[os], ",")
+		}
+		result = append(result, osVersion)
+	}
+	return strings.Join(result, " ")
 }
 
 type bundleInfoOutput struct {
