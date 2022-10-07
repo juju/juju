@@ -41,7 +41,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 	getLeader := func(appName string) (string, error) {
 		if leaders == nil {
 			var err error
-			leaders, err = a.state.ApplicationLeaders()
+			leaders, err = a.leadership.Leaders()
 			if err != nil {
 				return "", err
 			}

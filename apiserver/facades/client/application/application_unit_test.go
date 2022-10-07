@@ -2765,7 +2765,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Series:      "quantal",
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
 		Channel:     "2.0/candidate",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2805,7 +2805,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Series:      "quantal",
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2881,7 +2881,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Series:      "quantal",
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,

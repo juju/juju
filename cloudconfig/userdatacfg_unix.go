@@ -39,7 +39,7 @@ const (
 	FileNameBootstrapParams = "bootstrap-params"
 
 	// curlCommand is the base curl command used to download tools.
-	curlCommand = "curl -sSfw 'agent binaries from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+	curlCommand = "curl -sSf"
 
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
@@ -51,7 +51,7 @@ const (
 n=1
 while true; do
 {{range .URLs}}
-    printf "Attempt $n to download agent binaries from %s...\n" {{shquote .}}
+    echo "Attempt $n to download agent binaries from {{shquote .}}...\n"
     {{$curl}} {{shquote .}} && echo "Agent binaries downloaded successfully." && break
 {{end}}
     echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
@@ -307,7 +307,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		// If the new juju proxies are used, the legacy proxies will not be set, and the
 		// /etc/juju-proxy.conf file will be empty.
 		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
-			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
+			`echo '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
 	if w.icfg.LegacyProxySettings.HasProxySet() {
 		exportedProxyEnv := w.icfg.LegacyProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)

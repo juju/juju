@@ -18,6 +18,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -203,15 +204,15 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	var removedURIs []*coresecrets.URI
+	removedRevisions := secretsprovider.SecretRevisions{}
 	for i, d := range toDelete {
 		removed, err := s.removeSecret(d.uri, d.revisions...)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 		if err == nil && removed {
-			removedURIs = append(removedURIs, d.uri)
+			removedRevisions.Add(d.uri, d.revisions...)
 		}
 	}
-	if len(removedURIs) == 0 {
+	if len(removedRevisions) == 0 {
 		return result, nil
 	}
 
@@ -219,7 +220,9 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	if err := provider.CleanupSecrets(model, removedURIs); err != nil {
+	// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
+	// This should be resolved once lp:1991213 and lp:1991854 are fixed.
+	if err := provider.CleanupSecrets(model, s.authTag, removedRevisions); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return result, nil

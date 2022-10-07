@@ -1,0 +1,11 @@
+applications:
+  orc8r-certifier:
+    options:
+      domain: nip.io
+  orc8r-nginx:
+    options:
+      domain: nip.io
+  tls-certificates-operator:
+    options:
+      generate-self-signed-certificates: true
+      ca-common-name: rootca.nip.io

@@ -49,7 +49,7 @@ func (s *vaultSuite) SetUpTest(c *gc.C) {
 func (s *vaultSuite) TestStoreConfig(c *gc.C) {
 	p, err := provider.Provider(jujuvault.Store)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.StoreConfig(mockModel{}, false, nil, nil)
+	_, err = p.StoreConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 

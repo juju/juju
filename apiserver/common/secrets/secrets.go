@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -21,6 +21,27 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.common.secrets")
 
+// For testing.
+var (
+	GetProvider     = provider.Provider
+	GetStateBackEnd = getStateBackEnd
+)
+
+func getStateBackEnd(m Model) state.SecretsStore {
+	return state.NewSecrets(m.State())
+}
+
+// Model defines a subset of state model methods.
+type Model interface {
+	ControllerUUID() string
+	Cloud() (cloud.Cloud, error)
+	CloudCredential() (state.Credential, bool, error)
+	Config() (*config.Config, error)
+	UUID() string
+	Type() state.ModelType
+	State() *state.State
+}
+
 // StoreConfigGetter is a func used to get secret store config.
 type StoreConfigGetter func() (*provider.StoreConfig, error)
 
@@ -28,7 +49,7 @@ type StoreConfigGetter func() (*provider.StoreConfig, error)
 type ProviderInfoGetter func() (provider.SecretStoreProvider, provider.Model, error)
 
 // ProviderInfoForModel returns the secret store provider for the specified model.
-func ProviderInfoForModel(model *state.Model) (provider.SecretStoreProvider, provider.Model, error) {
+func ProviderInfoForModel(model Model) (provider.SecretStoreProvider, provider.Model, error) {
 	p, err := providerForModel(model)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting configured secrets provider")
@@ -39,7 +60,7 @@ func ProviderInfoForModel(model *state.Model) (provider.SecretStoreProvider, pro
 // providerForModel returns the secret store provider for the specified model.
 // If no store is configured, the "juju" store is used for machine models and
 // the k8s store is used for k8s models.
-func providerForModel(model *state.Model) (provider.SecretStoreProvider, error) {
+func providerForModel(model Model) (provider.SecretStoreProvider, error) {
 	cfg, err := model.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -51,7 +72,7 @@ func providerForModel(model *state.Model) (provider.SecretStoreProvider, error) 
 			storeType = kubernetes.Store
 		}
 	}
-	return provider.Provider(storeType)
+	return GetProvider(storeType)
 }
 
 // StoreConfig returns the config to create a secret store.
@@ -59,10 +80,8 @@ func providerForModel(model *state.Model) (provider.SecretStoreProvider, error) 
 // needs to access secrets. The authTag is the agent which needs access.
 // The client is expected to be restricted to write only those secrets
 // owned by the agent, and read only those secrets shared with the agent.
-func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.StoreConfig, error) {
-	ma := &modelAdaptor{
-		model,
-	}
+func StoreConfig(model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.StoreConfig, error) {
+	ma := &modelAdaptor{model}
 	p, err := providerForModel(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets provider")
@@ -71,63 +90,76 @@ func StoreConfig(model *state.Model, authTag names.Tag, leadershipChecker leader
 	if err != nil {
 		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
-	backend := state.NewSecrets(model.State())
+	backend := GetStateBackEnd(model)
 
 	// Find secrets owned by the agent
 	// (or its app if the agent is a leader).
-	filter := state.SecretsFilter{
+	ownedFilter := state.SecretsFilter{
 		OwnerTags: []names.Tag{authTag},
 	}
-	appName, _ := names.UnitApplication(authTag.Id())
-	authApp := names.NewApplicationTag(appName)
-	if authTag.Kind() == names.UnitTagKind {
-		token := leadershipChecker.LeadershipCheck(appName, authTag.Id())
+	// Find secrets shared with the agent.
+	// We include secrets shared with the app or just the specified unit.
+	readFilter := state.SecretsFilter{
+		ConsumerTags: []names.Tag{authTag},
+	}
+	switch t := authTag.(type) {
+	case names.UnitTag:
+		appName, _ := names.UnitApplication(t.Id())
+		authApp := names.NewApplicationTag(appName)
+		token := leadershipChecker.LeadershipCheck(appName, t.Id())
 		err := token.Check()
 		if err != nil && !leadership.IsNotLeaderError(err) {
 			return nil, errors.Trace(err)
 		}
 		if err == nil {
-			filter.OwnerTags = append(filter.OwnerTags, authApp)
+			// Leader unit owns application level secrets.
+			ownedFilter.OwnerTags = append(ownedFilter.OwnerTags, authApp)
 		}
-	}
-	owned, err := backend.ListSecrets(filter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ownedURIs := make([]*secrets.URI, len(owned))
-	for i, md := range owned {
-		ownedURIs[i] = md.URI
+		// All units can read application level secrets.
+		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
+	case names.ApplicationTag:
+	default:
+		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
 
-	// Find secrets shared with the agent.
-	// We include secrets shared with the app or just the specified unit.
-	read, err := backend.ListSecrets(state.SecretsFilter{
-		ConsumerTags: []names.Tag{authApp, authTag},
-	})
+	owned, err := backend.ListSecrets(ownedFilter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	readURIs := make([]*secrets.URI, len(read))
-	for i, md := range read {
-		readURIs[i] = md.URI
+	ownedRevisions := provider.SecretRevisions{}
+	for _, md := range owned {
+		ownedRevisions.Add(md.URI, md.Version)
 	}
-	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedURIs, readURIs)
-	cfg, err := p.StoreConfig(ma, false, ownedURIs, readURIs)
+
+	read, err := backend.ListSecrets(readFilter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	readRevisions := provider.SecretRevisions{}
+	for _, md := range read {
+		readRevisions.Add(md.URI, md.Version)
+	}
+	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
+	cfg, err := p.StoreConfig(ma, authTag, ownedRevisions, readRevisions)
 	return cfg, errors.Trace(err)
 }
 
 // StoreForInspect returns the config to create a secret store client able
 // to read any secrets for that model.
 // This is called by the show-secret facade for admin users.
-func StoreForInspect(model *state.Model) (provider.SecretsStore, error) {
+func StoreForInspect(model Model) (provider.SecretsStore, error) {
 	p, err := providerForModel(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets provider")
 	}
-	ma := &modelAdaptor{
-		model,
+	ma := &modelAdaptor{model}
+
+	err = p.Initialise(ma)
+	if err != nil {
+		return nil, errors.Annotate(err, "initialising secrets provider")
 	}
-	cfg, err := p.StoreConfig(ma, true, nil, nil)
+
+	cfg, err := p.StoreConfig(ma, nil, nil, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secrets store config")
 	}
@@ -135,7 +167,7 @@ func StoreForInspect(model *state.Model) (provider.SecretsStore, error) {
 }
 
 type modelAdaptor struct {
-	*state.Model
+	Model
 }
 
 // CloudCredential implements Model.

@@ -48,6 +48,7 @@ type Model interface {
 
 type Application interface {
 	Charm() (ch Charm, force bool, err error)
+	CharmPendingToBeDownloaded() bool
 	SetOperatorStatus(status.StatusInfo) error
 	AllUnits() ([]Unit, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error

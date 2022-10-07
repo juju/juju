@@ -55,10 +55,11 @@ ensure_subnet() {
 
 setup_nic_for_space_tests() {
 	isolated_subnet_id=${1}
-	hotplug_nic_id=$(aws ec2 create-network-interface --subnet-id "$isolated_subnet_id" --description="hot-pluggable NIC for space tests" 2>/dev/null | jq -r '.NetworkInterface.NetworkInterfaceId')
+	hotplug_nic_id=$(aws ec2 create-network-interface --subnet-id "$isolated_subnet_id" --description="hot-pluggable NIC for space tests" 2>"${TEST_DIR}/create-network-interface-stderr.log" | jq -r '.NetworkInterface.NetworkInterfaceId')
 	if [ -z "$hotplug_nic_id" ] || [ "$hotplug_nic_id" == "null" ]; then
 		# shellcheck disable=SC2046
-		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs") 1>&2
+		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs. Failed with:") 1>&2
+		cat "${TEST_DIR}/create-network-interface-stderr.log" 1>&2
 		exit 1
 	fi
 
@@ -74,13 +75,17 @@ cleanup_stale_nics() {
 	# other tests are running concurrently, we simply iterate the list of
 	# custom NIC interfaces, filter *out* the ones with today's date and
 	# try to delete anything older in a best effort manner.
+
+	# TODO(jack-w-shaw) fix this. This:
+	# 1) Should use jq
+	# 2) Should work. At the moment the created_at tag is not created, so all nics are destroyed
 	aws ec2 describe-network-interfaces --filter Name=description,Values="hot-pluggable NIC for space tests" |
 		grep 'NetworkInterfaceId\|Value' |
 		cut -d'"' -f4 |
 		paste - - -d, |
 		grep -v "$(date +'%Y-%m-%d')" |
 		cut -d',' -f 1 |
-		xargs -I % echo 'echo "[!] attempting to remove stale NIC % (will retry later if currently in-use)"; aws ec2 delete-network-interface --network-interface-id % 2>/dev/null' |
+		xargs -I % echo 'echo "[!] attempting to remove stale NIC % (will retry later if currently in-use)" 1>&2; aws ec2 delete-network-interface --network-interface-id % 2>/dev/null' |
 		sh ||
 		true
 }

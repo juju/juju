@@ -15,6 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -171,7 +172,7 @@ func formatApplicationInfos(all []params.ApplicationResult) (map[string]Applicat
 // ApplicationInfo defines the serialization behaviour of the application information.
 type ApplicationInfo struct {
 	Charm            string                     `yaml:"charm,omitempty" json:"charm,omitempty"`
-	Series           string                     `yaml:"series,omitempty" json:"series,omitempty"`
+	Base             string                     `yaml:"base,omitempty" json:"base,omitempty"`
 	Channel          string                     `yaml:"channel,omitempty" json:"channel,omitempty"`
 	Constraints      constraints.Value          `yaml:"constraints,omitempty" json:"constraints,omitempty"`
 	Principal        bool                       `yaml:"principal" json:"principal"`
@@ -207,9 +208,10 @@ func createApplicationInfo(details params.ApplicationResult) (names.ApplicationT
 
 	}
 
+	base := series.Base{Name: details.Base.Name, Channel: details.Base.Channel}
 	info := ApplicationInfo{
 		Charm:            details.Charm,
-		Series:           details.Series,
+		Base:             base.String(),
 		Channel:          details.Channel,
 		Constraints:      details.Constraints,
 		Principal:        details.Principal,

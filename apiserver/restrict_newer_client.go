@@ -14,7 +14,7 @@ import (
 // minAgentVersions defines the minimum agent version
 // allowed to make a call to a controller with the major version.
 var minAgentVersions = map[int]version.Number{
-	3: version.MustParse("2.9.32"),
+	3: version.MustParse("2.9.35"),
 }
 
 // minClientVersions defines the minimum user client version

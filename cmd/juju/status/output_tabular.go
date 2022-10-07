@@ -588,7 +588,7 @@ func getModelMessage(model modelStatus) string {
 }
 
 func printMachines(tw *ansiterm.TabWriter, standAlone bool, machines map[string]machineStatus) {
-	w := startSection(tw, standAlone, "Machine", "State", "Address", "Inst id", "Series", "AZ", "Message")
+	w := startSection(tw, standAlone, "Machine", "State", "Address", "Inst id", "Base", "AZ", "Message")
 	for _, name := range naturalsort.Sort(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
@@ -611,7 +611,7 @@ func printMachine(w *output.Wrapper, m machineStatus) {
 	w.Print(m.Id)
 	w.PrintStatus(status)
 	w.PrintColor(output.InfoHighlight, m.DNSName)
-	w.Print(m.machineName(), m.Series, az)
+	w.Print(m.machineName(), m.Base, az)
 	if message != "" { //some unit tests were failing because of the printed empty string .
 		w.PrintColorNoTab(output.EmphasisHighlight.Gray, message)
 	}

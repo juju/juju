@@ -195,6 +195,12 @@ type mockApplication struct {
 	scale                int
 	unitsWatcher         *statetesting.MockStringsWatcher
 	unitsChanges         chan []string
+	charmPending         bool
+}
+
+func (a *mockApplication) CharmPendingToBeDownloaded() bool {
+	a.MethodCall(a, "CharmPendingToBeDownloaded")
+	return a.charmPending
 }
 
 func (a *mockApplication) Tag() names.Tag {

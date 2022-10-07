@@ -64,7 +64,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	var err error
-	s.action, err = action.NewActionAPI(s.State, s.resources, s.authorizer)
+	s.action, err = action.NewActionAPI(s.State, s.resources, s.authorizer, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{

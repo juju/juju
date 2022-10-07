@@ -110,6 +110,15 @@ func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
 	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
+			Resources: []string{"namespaces"},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+			ResourceNames: []string{s.namespace},
+		},
+		{
+			APIGroups: []string{""},
 			Resources: []string{"pods", "services"},
 			Verbs:     []string{"get", "list", "patch"},
 		}, {

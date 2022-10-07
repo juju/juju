@@ -125,6 +125,24 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	})
 }
 
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(c *gc.C) {
+	s.st.app = &mockApplication{
+		life:         state.Alive,
+		charmPending: true,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
+		},
+	}
+	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "cs:gitlab" pending not provisioned`)
+}
+
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,

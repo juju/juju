@@ -2040,6 +2040,61 @@ func (s *upgradesSuite) TestCharmOriginChannelMustHaveTrack(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestRemoveDefaultSeriesFromModelConfig(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "modelXXX:e",
+		// this document should be changed
+		"settings": bson.M{
+			"keepme":         "have value",
+			"default-series": "delete-me",
+		},
+	}, bson.M{
+		"_id": "modelXXX:a#testing",
+		// this document has no change
+		"settings": bson.M{
+			"default-series": "application has no default series",
+		},
+	}, bson.M{
+		"_id": "modelXYZ:e",
+		// this document has no change, is skipped
+		"settings": bson.M{
+			"keepme":   "have value",
+			"removeme": nil,
+		},
+	}, bson.M{
+		"_id": "modelXYZ:epool#lxd-btrfs",
+		// this document has no change
+		"settings": bson.M{
+			"keepme":   "have value",
+			"removeme": nil,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id":      "modelXXX:a#testing",
+			"settings": bson.M{"default-series": "application has no default series"},
+		}, {
+			"_id":      "modelXXX:e",
+			"settings": bson.M{"keepme": "have value", "default-series": ""},
+		}, {
+			"_id":      "modelXYZ:e",
+			"settings": bson.M{"keepme": "have value", "removeme": nil},
+		}, {
+			"_id":      "modelXYZ:epool#lxd-btrfs",
+			"settings": bson.M{"keepme": "have value", "removeme": nil},
+		}}
+
+	s.assertUpgradedData(c, RemoveDefaultSeriesFromModelConfig,
+		upgradedData(settingsColl, expectedSettings),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

@@ -2294,14 +2294,14 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {
 				Charm:        "cs:mysql-42",
 				Scale:        1,
-				Series:       "bionic",
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
 				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "0"},
@@ -2310,7 +2310,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 			"wordpress": {
 				Charm:        "cs:wordpress-47",
 				Scale:        1,
-				Series:       "bionic",
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
 				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "1"},
@@ -2337,13 +2337,13 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"1": {Series: "bionic"},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"django": {
-				Charm:  "cs:django",
-				Scale:  1,
-				Series: "bionic",
+				Charm: "cs:django",
+				Scale: 1,
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
 				Units: map[string]params.UnitStatus{
 					"django/0": {Machine: "1"},
 				},
@@ -2362,14 +2362,14 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"django": {
 				Charm:        "cs:django",
 				Scale:        1,
-				Series:       "bionic",
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
 				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"django/0": {Machine: "1"},
@@ -2378,7 +2378,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 			"mem": {
 				Charm:        "cs:mem-47",
 				Scale:        1,
-				Series:       "bionic",
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
 				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mem/0": {Machine: "0"},
@@ -2398,14 +2398,14 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "xenial"},
-			"1": {Series: "xenial"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "16.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"django": {
 				Charm:        "cs:django-42",
 				Scale:        1,
-				Series:       "xenial",
+				Base:         params.Base{Name: "ubuntu", Channel: "16.04"},
 				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"django/0": {Machine: "0"},
@@ -2859,22 +2859,22 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
-			"0": {Series: "bionic"},
-			"1": {Series: "bionic"},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"mysql": {
-				Charm:  "cs:mysql-42",
-				Scale:  1,
-				Series: "bionic",
+				Charm: "cs:mysql-42",
+				Scale: 1,
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "0"},
 				},
 			},
 			"wordpress": {
-				Charm:  "cs:wordpress-47",
-				Scale:  1,
-				Series: "bionic",
+				Charm: "cs:wordpress-47",
+				Scale: 1,
+				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "1"},
 				},

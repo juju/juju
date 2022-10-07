@@ -295,7 +295,8 @@ const (
 	// logging.
 	LoggingOutputKey = "logging-output"
 
-	// DefaultSeriesKey is a key for the default Ubuntu series to use for the model.
+	// DefaultSeriesKey is a key for determining the series a model should
+	// explicitly use for charms unless otherwise provided.
 	DefaultSeriesKey = "default-series"
 
 	// SecretStoreKey is used to specify the secret store backend.
@@ -505,7 +506,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	DefaultSeriesKey:                jujuversion.DefaultSupportedLTS(),
+	DefaultSeriesKey:                "",
 	ProvisionerHarvestModeKey:       HarvestDestroyed.String(),
 	NumProvisionWorkersKey:          16,
 	NumContainerProvisionWorkersKey: 4,
@@ -1988,7 +1989,7 @@ var configSchema = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	DefaultSeriesKey: {
-		Description: "The default series of Ubuntu to use for deploying charms",
+		Description: "The default series of Ubuntu to use for deploying charms, will act like --series when deploying charms",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

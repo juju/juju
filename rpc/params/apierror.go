@@ -163,7 +163,7 @@ func serializeToMap(v interface{}) map[string]interface{} {
 	return asMap
 }
 
-// The Code constants hold error codes for some kinds of error.
+// The Code constants hold error codes for well known errors.
 const (
 	CodeNotFound                  = "not found"
 	CodeUserNotFound              = "user not found"
@@ -213,6 +213,46 @@ const (
 	CodeNotYetAvailable           = "not yet available; try again later"
 	CodeNotValid                  = "not valid"
 )
+
+// TranslateWellKnownError translates well known wire error codes into a github.com/juju/errors error
+// that matches the error code.
+func TranslateWellKnownError(err error) error {
+	code := ErrCode(err)
+	switch code {
+	// TODO: add more error cases including DeadlineExceeded
+	// case CodeDeadlineExceeded:
+	// 	return errors.NewTimeout(err, "")
+	case CodeNotFound:
+		return errors.NewNotFound(err, "")
+	case CodeUserNotFound:
+		return errors.NewUserNotFound(err, "")
+	case CodeUnauthorized:
+		return errors.NewUnauthorized(err, "")
+	case CodeNotImplemented:
+		return errors.NewNotImplemented(err, "")
+	case CodeAlreadyExists:
+		return errors.NewAlreadyExists(err, "")
+	case CodeNotSupported:
+		return errors.NewNotSupported(err, "")
+	case CodeNotValid:
+		return errors.NewNotValid(err, "")
+	case CodeNotProvisioned:
+		return errors.NewNotProvisioned(err, "")
+	case CodeNotAssigned:
+		return errors.NewNotAssigned(err, "")
+	case CodeBadRequest:
+		return errors.NewBadRequest(err, "")
+	case CodeMethodNotAllowed:
+		return errors.NewMethodNotAllowed(err, "")
+	case CodeForbidden:
+		return errors.NewForbidden(err, "")
+	case CodeQuotaLimitExceeded:
+		return errors.NewQuotaLimitExceeded(err, "")
+	case CodeNotYetAvailable:
+		return errors.NewNotYetAvailable(err, "")
+	}
+	return err
+}
 
 // ErrCode returns the error code associated with
 // the given error, or the empty string if there
