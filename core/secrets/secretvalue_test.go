@@ -47,7 +47,7 @@ func (s *SecretValueSuite) TestValues(c *gc.C) {
 func (s *SecretValueSuite) TestEmpty(c *gc.C) {
 	in := map[string]string{}
 	val := secrets.NewSecretValue(in)
-	c.Assert(val, gc.IsNil)
+	c.Assert(val.IsEmpty(), jc.IsTrue)
 }
 
 func (s *SecretValueSuite) TestKeyValue(c *gc.C) {

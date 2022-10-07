@@ -33,6 +33,9 @@ type SecretValue interface {
 	// KeyValue returns the specified secret value for the key.
 	// If the key has a #base64 suffix, the returned value is base64 encoded.
 	KeyValue(string) (string, error)
+
+	// IsEmpty checks if the value is empty.
+	IsEmpty() bool
 }
 
 type secretValue struct {
@@ -46,9 +49,6 @@ type secretValue struct {
 // NewSecretValue returns a secret using the specified map of values.
 // The map values are assumed to be already base64 encoded.
 func NewSecretValue(data map[string]string) SecretValue {
-	if len(data) == 0 {
-		return nil
-	}
 	dataCopy := make(map[string][]byte, len(data))
 	for k, v := range data {
 		dataCopy[k] = append([]byte(nil), v...)
@@ -59,14 +59,16 @@ func NewSecretValue(data map[string]string) SecretValue {
 // NewSecretBytes returns a secret using the specified map of values.
 // The map values are assumed to be already base64 encoded.
 func NewSecretBytes(data map[string][]byte) SecretValue {
-	if len(data) == 0 {
-		return nil
-	}
 	dataCopy := make(map[string][]byte, len(data))
 	for k, v := range data {
 		dataCopy[k] = append([]byte(nil), v...)
 	}
 	return &secretValue{data: dataCopy}
+}
+
+// IsEmpty checks if the value is empty.
+func (v secretValue) IsEmpty() bool {
+	return len(v.data) == 0
 }
 
 // EncodedValues implements SecretValue.

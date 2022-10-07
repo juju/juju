@@ -171,7 +171,7 @@ func (c *secretAddCommand) Run(ctx *cmd.Context) error {
 		ownerTag = names.NewUnitTag(unitName)
 	}
 	updateArgs := c.marshallArg()
-	if updateArgs.Value == nil {
+	if updateArgs.Value.IsEmpty() {
 		return errors.NotValidf("empty secret value")
 	}
 	arg := &SecretCreateArgs{
