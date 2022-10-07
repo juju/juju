@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/libvirt"
@@ -46,17 +45,13 @@ func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 			return imagedownloads.NewDataSource(c.fetcher, params.ImageDownloadURL)
 		}
 	}
-	var fType = BIOSFType
-	if params.Arch == arch.ARM64 {
-		fType = UEFIFType
-	}
 
 	sp := syncParams{
 		fetcher: c.fetcher,
 		arch:    params.Arch,
 		series:  params.Series,
 		stream:  params.Stream,
-		fType:   fType,
+		fType:   DiskImageType,
 		srcFunc: srcFunc,
 	}
 	logger.Debugf("synchronise images for %s %s %s %s", sp.arch, sp.series, sp.stream, params.ImageDownloadURL)
