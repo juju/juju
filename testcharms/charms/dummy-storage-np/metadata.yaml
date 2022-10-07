@@ -1,6 +1,6 @@
 description: description
 maintainer: juju-qa@lists.canonical.com
-name: dummy-storage-fs
+name: dummy-storage-np
 series:
 - jammy
 - focal
