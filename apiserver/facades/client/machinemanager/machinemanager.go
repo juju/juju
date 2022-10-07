@@ -231,10 +231,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		series = config.PreferredSeries(conf)
 	} else {
 		var err error
-		series, err = coreseries.GetSeriesFromBase(coreseries.Base{
-			Name:    p.Base.Name,
-			Channel: p.Base.Channel,
-		})
+		series, err = coreseries.GetSeriesFromChannel(p.Base.Name, p.Base.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -613,14 +610,14 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 // If they do, a list of the machine's current units is returned for use in
 // soliciting user confirmation of the command.
 func (mm *MachineManagerAPI) UpgradeSeriesValidate(
-	args params.UpdateSeriesArgs,
+	args params.UpdateChannelArgs,
 ) (params.UpgradeSeriesUnitsResults, error) {
 	entities := make([]ValidationEntity, len(args.Args))
 	for i, arg := range args.Args {
 		entities[i] = ValidationEntity{
-			Tag:    arg.Entity.Tag,
-			Series: arg.Series,
-			Force:  arg.Force,
+			Tag:     arg.Entity.Tag,
+			Channel: arg.Channel,
+			Force:   arg.Force,
 		}
 	}
 
@@ -643,15 +640,14 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Series, arg.Force)
-	if err != nil {
+	if err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Channel, arg.Force); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
@@ -659,7 +655,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateSeriesArg) (p
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series
 // upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}

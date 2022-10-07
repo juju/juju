@@ -571,10 +571,14 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	)
 	if origin != nil {
 		originType = origin.Type
+		base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
+		}
 		platform = corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           origin.OS,
-			Channel:      origin.Channel,
+			OS:           base.Name,
+			Channel:      base.Channel.Track,
 		}
 	}
 
@@ -869,7 +873,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 
 // UpdateApplicationSeries updates the application series. Series for
 // subordinates updated too.
-func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (api *APIBase) UpdateApplicationSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -886,8 +890,35 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (param
 	return results, nil
 }
 
-func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
-	return api.updateSeries.UpdateSeries(arg.Entity.Tag, arg.Series, arg.Force)
+func (api *APIBase) updateOneApplicationSeries(arg params.UpdateChannelArg) error {
+	var argSeries string
+	if arg.Channel != "" {
+		appTag, err := names.ParseTag(arg.Entity.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		app, err := api.backend.Application(appTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var baseName string
+		origin := app.CharmOrigin()
+		if origin.Platform != nil {
+			baseName = origin.Platform.OS
+		} else {
+			appSeries := app.Series()
+			base, err := series.GetBaseFromSeries(appSeries)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			baseName = base.Name
+		}
+		argSeries, err = series.GetSeriesFromChannel(baseName, arg.Channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return api.updateSeries.UpdateSeries(arg.Entity.Tag, argSeries, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -969,11 +1000,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	charmOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newOrigin := StateCharmOrigin(charmOrigin)
 	if api.modelType == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives, or deployment info.
@@ -989,7 +1019,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		return api.applicationSetCharm(params, newCharm, newOrigin)
+		origin, err := StateCharmOrigin(newOrigin)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return api.applicationSetCharm(params, newCharm, origin)
 	}
 
 	// Check if the controller agent tools version is greater than the
@@ -1016,7 +1050,11 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	return api.applicationSetCharm(params, newCharm, newOrigin)
+	origin, err := StateCharmOrigin(newOrigin)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.applicationSetCharm(params, newCharm, origin)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
@@ -1246,13 +1284,12 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error
 	}
 	if origin.Platform != nil {
 		retOrigin.Architecture = origin.Platform.Architecture
-		retOrigin.OS = origin.Platform.OS
 		// TODO(juju3) - use channel not series in state
 		base, err := series.GetBaseFromSeries(origin.Platform.Series)
 		if err != nil {
 			return params.CharmOrigin{}, errors.Trace(err)
 		}
-		retOrigin.Channel = base.Channel
+		retOrigin.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
 	}
 	return retOrigin, nil
 }

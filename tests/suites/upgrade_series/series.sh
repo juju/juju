@@ -6,7 +6,7 @@ run_upgrade_series_relation() {
 	end_series="jammy"
 
 	# Setup
-	ensure "test-upgrade-series-relation" "${TEST_DIR}/test-upgrade-series-relation.log"
+	ensure "test-upgrade-machine-relation" "${TEST_DIR}/test-upgrade-machine-relation.log"
 	juju deploy ./testcharms/charms/dummy-sink --series $start_series
 	juju deploy ./testcharms/charms/dummy-source --series $end_series
 	juju relate dummy-sink dummy-source
@@ -17,14 +17,14 @@ run_upgrade_series_relation() {
 	assert_machine_series 0 $start_series
 
 	# Upgrade the machine
-	juju upgrade-series 0 prepare $end_series -y
+	juju upgrade-machine 0 prepare $end_series -y
 	reboot_machine 0
 	echo "Upgrading machine..."
 	echo "See ${TEST_DIR}/do-release-upgrade.log for progress."
 	# TODO: remove -d flag once Ubuntu 22.04.1 is released
 	juju ssh 0 'sudo do-release-upgrade -d -f DistUpgradeViewNonInteractive' &>"${TEST_DIR}/do-release-upgrade.log" || true
 	reboot_machine 0
-	juju upgrade-series 0 complete
+	juju upgrade-machine 0 complete
 
 	# Check post-conditions
 	wait_for "Canonical" "$(workload_status 'dummy-sink' 0).message"

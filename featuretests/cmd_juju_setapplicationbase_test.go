@@ -25,7 +25,7 @@ func (s *cmdSetSeriesSuite) TestSetApplicationSeries(c *gc.C) {
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: app, SetCharmURL: true})
 	c.Assert(app.Series(), gc.Equals, "focal")
-	context, err := runCommand(c, append([]string{"set-series"}, "multi-series", "jammy")...)
+	context, err := runCommand(c, append([]string{"set-application-base"}, "multi-series", "jammy")...)
 	c.Assert(err, gc.IsNil)
 	c.Check(cmdtesting.Stderr(context), jc.Contains, "WARNING To ensure the correct charm binaries are installed when add-unit is next called, please first run `juju refresh` for this application and any related subordinates.")
 

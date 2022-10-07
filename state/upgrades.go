@@ -12,15 +12,16 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
 )
 
 // runForAllModelStates will run runner function for every model passing a state
@@ -862,7 +863,7 @@ func SetContainerAddressOriginToMachine(pool *StatePool) error {
 }
 
 // UpdateCharmOriginAfterSetSeries updates application's charm origin platform series
-// if it doesn't match the application series.  E.G. after set-series is called.
+// if it doesn't match the application series.  E.G. after set-application-base is called.
 func UpdateCharmOriginAfterSetSeries(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
 		col, closer := st.db().GetCollection(applicationsC)

@@ -194,7 +194,7 @@ func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
 // Bundles are not supported as there is no physical representation in Juju.
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 	var deployedSeries string
-	if d.deployedBase.Channel != "" {
+	if !d.deployedBase.Channel.Empty() {
 		var err error
 		if deployedSeries, err = series.GetSeriesFromBase(d.deployedBase); err != nil {
 			return nil, errors.Trace(err)
@@ -295,7 +295,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 
 	var deployedSeries string
-	if r.deployedBase.Channel != "" {
+	if !r.deployedBase.Channel.Empty() {
 		if deployedSeries, err = series.GetSeriesFromBase(r.deployedBase); err != nil {
 			return nil, commoncharm.Origin{}, errors.Trace(err)
 		}
@@ -394,11 +394,9 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if r.deployedBase.Channel != "" {
-		origin.OS = r.deployedBase.Name
-		origin.Channel = r.deployedBase.Channel
+	if !r.deployedBase.Channel.Empty() {
+		origin.Base = r.deployedBase
 	}
-
 	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -429,11 +427,11 @@ func charmHubOriginResolver(_ *charm.URL, origin corecharm.Origin, channel charm
 		if origin.Channel != nil {
 			origin.Channel.Risk = channel.Risk
 		}
-		return commoncharm.CoreCharmOrigin(origin), nil
+		return commoncharm.CoreCharmOrigin(origin)
 	}
 	normalizedC := channel.Normalize()
 	origin.Channel = &normalizedC
-	return commoncharm.CoreCharmOrigin(origin), nil
+	return commoncharm.CoreCharmOrigin(origin)
 }
 
 type charmHubRefresher struct {
@@ -488,9 +486,8 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if r.deployedBase.Channel != "" {
-		origin.OS = r.deployedBase.Name
-		origin.Channel = r.deployedBase.Channel
+	if !r.deployedBase.Channel.Empty() {
+		origin.Base = r.deployedBase
 	}
 
 	curl, actualOrigin, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)

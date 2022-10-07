@@ -1412,12 +1412,12 @@ func (i *importer) makeCharmOrigin(a description.Application, units []descriptio
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Fix the case where `juju set-series` was called before the change to
+		// Fix the case where `juju set-application-base` was called before the change to
 		// set the series in the origin's platform as well.
 		// Assumes that UpdateApplicationSeries will not change operating systems.
 		// TODO(wallyworld) - we need to update description to support channel
 		// For now, handle both channel and series here.
-		series, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: p.OS, Channel: p.Channel})
+		series, err := coreseries.GetSeriesFromChannel(p.OS, p.Channel)
 		if err != nil {
 			series = p.Channel
 		}

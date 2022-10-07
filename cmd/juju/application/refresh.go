@@ -387,9 +387,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	chBase := series.Base{
-		Name:    applicationInfo.Base.Name,
-		Channel: applicationInfo.Base.Channel,
+	chBase, err := series.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
@@ -442,9 +442,13 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	origin, err := commoncharm.CoreCharmOrigin(charmID.Origin)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	chID := application.CharmID{
 		URL:    curl,
-		Origin: commoncharm.CoreCharmOrigin(charmID.Origin),
+		Origin: origin,
 	}
 	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, charmInfo.Meta.Resources)
 	if err != nil {

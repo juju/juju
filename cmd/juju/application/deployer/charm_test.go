@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -145,7 +146,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		},
 		id: application.CharmID{
 			URL:    s.url,
-			Origin: commoncharm.Origin{OS: "ubuntu", Channel: "20.04"},
+			Origin: commoncharm.Origin{Base: series.MakeDefaultBase("ubuntu", "20.04")},
 		},
 		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,

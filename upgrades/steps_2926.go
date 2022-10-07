@@ -14,7 +14,7 @@ func stateStepsFor2926() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "update charm origin to facilitate charm refresh after set-series",
+			description: "update charm origin to facilitate charm refresh after set-application-base",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().UpdateCharmOriginAfterSetSeries()
