@@ -1,3 +1,103 @@
+# This subtest tests that juju can create storage pools for the different storage providers
+# and can deploy a charm and make use of the already provisioned different storage types.
+run_charm_storage() {
+	echo
+
+	model_name="charm-storage"
+	file="${TEST_DIR}/test-${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	echo "Assess create-storage-pool"
+	juju create-storage-pool -m "${model_name}" loopy loop size=1G
+	juju create-storage-pool -m "${model_name}" rooty rootfs size=1G
+	juju create-storage-pool -m "${model_name}" tempy tmpfs size=1G
+	juju create-storage-pool -m "${model_name}" ebsy ebs size=1G
+	echo "create-storage-pool PASSED"
+
+	# Assess the above created storage pools.
+	echo "Assessing storage pool"
+	if [ "${BOOTSTRAP_PROVIDER:-}" == "ec2" ]; then
+		juju list-storage-pools -m "${model_name}" --format json | jq '.ebs | .provider' | check "ebs"
+		juju list-storage-pools -m "${model_name}" --format json | jq '.["ebs-ssd"] | .provider' | check "ebs"
+		juju list-storage-pools -m "${model_name}" --format json | jq '.tmpfs | .provider' | check "tmpfs"
+		juju list-storage-pools -m "${model_name}" --format json | jq '.loop | .provider' | check "loop"
+		juju list-storage-pools -m "${model_name}" --format json | jq '.rootfs | .provider' | check "rootfs"
+	else
+		juju list-storage-pools -m "${model_name}" --format json | jq '.rooty | .provider' | check "rootfs"
+		juju list-storage-pools -m "${model_name}" --format json | jq '.tempy | .provider' | check "tmpfs"
+		juju list-storage-pools -m "${model_name}" --format json | jq '.loopy | .provider' | check "loop"
+		juju list-storage-pools -m "${model_name}" --format json | jq '.ebsy | .provider' | check "ebs"
+	fi
+	echo "Storage pool PASSED"
+
+	# Assess charm storage with the filesystem storage provider
+	echo "Assessing filesystem rootfs"
+	juju deploy ./testcharms/charms/dummy-storage-fs --series="jammy" --storage data=rootfs,1G
+	wait_for "dummy-storage-fs" ".applications"
+		if [ "$(unit_exist "data/0")" == "true" ]; then
+  		assess_rootfs
+  	fi
+	# remove the application
+	juju remove-application dummy-storage-fs
+	wait_for "{}" ".applications"
+
+	# Assess charm storage with the filesystem storage provider
+	echo "Assessing block loop disk 1"
+	juju deploy ./testcharms/charms/dummy-storage-lp --series="jammy" --storage disks=loop,1G
+	wait_for "dummy-storage-lp" ".applications"
+	# assert the storage kind name
+	if [ "$(unit_exist "disks/1")" == "true" ]; then
+  		assess_loop_disk1
+  fi
+
+	#Assessing adding a storage block to loop disk
+	juju add-storage -m "${model_name}" dummy-storage-lp/0 disks=1
+	# assert the storage kind name
+	if [ "$(unit_exist "disks/2")" == "true" ]; then
+  		assess_loop_disk2
+  fi
+	# remove the application
+	juju remove-application dummy-storage-lp
+	wait_for "{}" ".applications"
+
+	# Assess tmpfs pool for the filesystem provider
+	echo "Assessing filesystem tmpfs"
+	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-tp --series jammy --storage data=tmpfs,1G
+	wait_for "dummy-storage-tp" ".applications"
+	if [ "$(unit_exist "data/3")" == "true" ]; then
+  	assess_tmpfs
+  fi
+	# remove the application
+	juju remove-application dummy-storage-tp
+	wait_for "{}" ".applications"
+
+	#Assessing for persistent filesystem
+	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-np --series jammy --storage data=1G
+	wait_for "dummy-storage-np" ".applications"
+	if [ "$(unit_exist "data/4")" == "true" ]; then
+		assess_fs
+	fi
+	# remove application
+	juju remove-application dummy-storage-np
+	wait_for "{}" ".applications"
+	# We remove storage data/4 since in Juju 2.3+ it is persistent. Otherwise it will interfere with the next test's results
+	juju remove-storage data/4
+
+	#Assessing multiple filesystem, block, rootfs, loop"
+	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-mp --series jammy --storage data=1G
+	wait_for "dummy-storage-mp" ".applications"
+	if [ "$(unit_exist "data/5")" == "true" ]; then
+  	assess_multiple_fs
+  fi
+	# remove application
+	juju remove-application dummy-storage-mp
+	wait_for "{}" ".applications"
+	echo "All charm storage tests PASSED"
+
+	destroy_model "${model_name}"
+}
+
 assess_rootfs() {
 	echo "Assessing filesystem rootfs"
 	# Assess charm storage with the filesystem storage provider
@@ -32,13 +132,12 @@ assess_loop_disk1() {
 	# assert the storage status
 	assert_storage "alive" "$(life_status "disks" 1)"
 	# assert the storage label name
-	assert_storage "disks/1" "$(label 1)"
+	assert_storage "disks/1" "$(label 0)"
 	# assert the unit attachment name
 	assert_storage "dummy-storage-lp/0" "$(unit_attachment "disks" 1 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "disks" 1 "dummy-storage-lp" 0)"
 	echo "Block loop disk 1 PASSED"
-
 }
 
 assess_loop_disk2() {
@@ -49,7 +148,7 @@ assess_loop_disk2() {
 	# assert the storage status
 	assert_storage "alive" "$(life_status "disks" 2)"
 	# assert the storage label name
-	assert_storage "disks/2" "$(label 2)"
+	assert_storage "disks/2" "$(label 1)"
 	# assert the unit attachment name
 	assert_storage "dummy-storage-lp/0" "$(unit_attachment "disks" 2 0)"
 	# assert the attached unit state
@@ -65,13 +164,12 @@ assess_tmpfs() {
 	# assert the storage status
 	assert_storage "alive" "$(life_status "data" 3)"
 	# assert the storage label name
-	assert_storage "data/3" "$(label 1)"
+	assert_storage "data/3" "$(label 0)"
 	# assert the unit attachment name
 	assert_storage "dummy-storage-tp/0" "$(unit_attachment "data" 3 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "data" 3 "dummy-storage-tp" 0)"
 	echo "Filesystem tmpfs PASSED"
-
 }
 
 assess_fs() {
@@ -82,7 +180,7 @@ assess_fs() {
 	# assert the storage status
 	assert_storage "alive" "$(life_status "data" 4)"
 	# assert the storage label name
-	assert_storage "data/4" "$(label 2)"
+	assert_storage "data/4" "$(label 0)"
 	# assert the unit attachment name
 	assert_storage "dummy-storage-np/0" "$(unit_attachment "data" 4 0)"
 	# assert the attached unit state
@@ -98,96 +196,12 @@ assess_multiple_fs() {
 	# assert the storage status
 	assert_storage "alive" "$(life_status "data" 5)"
 	# assert the storage label name
-	assert_storage "data/5" "$(label 3)"
+	assert_storage "data/5" "$(label 0)"
 	# assert the unit attachment name
 	assert_storage "dummy-storage-mp/0" "$(unit_attachment "data" 5 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "data" 5 "dummy-storage-mp" 0)"
 	echo "Multiple filesystem, block, rootfs, loop PASSED"
-}
-
-# removes the applications if they exist.
-remove_applications() {
-	juju remove-application dummy-storage-fs
-	juju remove-application dummy-storage-lp
-	juju remove-application dummy-storage-tp --destroy-storage
-	juju remove-application dummy-storage-np --destroy-storage
-	juju remove-application dummy-storage-mp --destroy-storage
-}
-
-# checks if the given storage unit exists.
-unit_exist() {
-	local name
-	name=${1}
-	juju storage --format json | jq "any(paths; .[-1] == \"${name}\")"
-}
-
-run_charm_storage() {
-	echo
-
-	model_name="test-charm-storage"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
-
-	echo "Assess create-storage-pool"
-	juju create-storage-pool -m "${model_name}" loopy loop size=1G
-	juju create-storage-pool -m "${model_name}" rooty rootfs size=1G
-	juju create-storage-pool -m "${model_name}" tempy tmpfs size=1G
-	juju create-storage-pool -m "${model_name}" ebsy ebs size=1G
-	echo "create-storage-pool PASSED"
-
-	# Assess the above created storage pools.
-	echo "Assessing storage pool"
-	if [ "${BOOTSTRAP_PROVIDER:-}" == "ec2" ]; then
-		juju storage-pools -m "${model_name}" --format json | jq '.ebs | .provider' | check "ebs"
-		juju storage-pools -m "${model_name}" --format json | jq '.["ebs-ssd"] | .provider' | check "ebs"
-		juju storage-pools -m "${model_name}" --format json | jq '.tmpfs | .provider' | check "tmpfs"
-		juju storage-pools -m "${model_name}" --format json | jq '.loop | .provider' | check "loop"
-		juju storage-pools -m "${model_name}" --format json | jq '.rootfs | .provider' | check "rootfs"
-	else
-		juju storage-pools -m "${model_name}" --format json | jq '.rooty | .provider' | check "rootfs"
-		juju storage-pools -m "${model_name}" --format json | jq '.tempy | .provider' | check "tmpfs"
-		juju storage-pools -m "${model_name}" --format json | jq '.loopy | .provider' | check "loop"
-		juju storage-pools -m "${model_name}" --format json | jq '.ebsy | .provider' | check "ebs"
-	fi
-	echo "Storage pool PASSED"
-
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-fs --series jammy --storage data=rootfs,1G
-	if [ "$(unit_exist "data/0")" == "true" ]; then
-		assess_rootfs
-	fi
-
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-lp --series jammy --storage disks=loop,1G
-	if [ "$(unit_exist "disks/1")" == "true" ]; then
-		assess_loop_disk1
-	fi
-
-	juju add-storage -m "${model_name}" dummy-storage-lp/0 disks=1
-	if [ "$(unit_exist "disks/2")" == "true" ]; then
-		assess_loop_disk2
-	fi
-
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-tp --series jammy --storage data=tmpfs,1G
-	if [ "$(unit_exist "data/3")" == "true" ]; then
-		assess_tmpfs
-	fi
-
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-np --series jammy --storage data=1G
-	if [ "$(unit_exist "data/4")" == "true" ]; then
-		assess_fs
-	fi
-
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-mp --series jammy --storage data=1G
-	if [ "$(unit_exist "data/5")" == "true" ]; then
-		assess_multiple_fs
-	fi
-
-	remove_applications
-	wait_for "{}" ".applications"
-	echo "All charm storage tests PASSED"
-
-	destroy_model "${model_name}"
 }
 
 test_charm_storage() {
