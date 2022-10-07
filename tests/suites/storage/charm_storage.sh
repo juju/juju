@@ -35,9 +35,9 @@ run_charm_storage() {
 	echo "Assessing filesystem rootfs"
 	juju deploy ./testcharms/charms/dummy-storage-fs --series="jammy" --storage data=rootfs,1G
 	wait_for "dummy-storage-fs" ".applications"
-		if [ "$(unit_exist "data/0")" == "true" ]; then
-  		assess_rootfs
-  	fi
+	if [ "$(unit_exist "data/0")" == "true" ]; then
+		assess_rootfs
+	fi
 	# remove the application
 	juju remove-application dummy-storage-fs
 	wait_for "{}" ".applications"
@@ -48,15 +48,15 @@ run_charm_storage() {
 	wait_for "dummy-storage-lp" ".applications"
 	# assert the storage kind name
 	if [ "$(unit_exist "disks/1")" == "true" ]; then
-  		assess_loop_disk1
-  fi
+		assess_loop_disk1
+	fi
 
 	#Assessing adding a storage block to loop disk
 	juju add-storage -m "${model_name}" dummy-storage-lp/0 disks=1
 	# assert the storage kind name
 	if [ "$(unit_exist "disks/2")" == "true" ]; then
-  		assess_loop_disk2
-  fi
+		assess_loop_disk2
+	fi
 	# remove the application
 	juju remove-application dummy-storage-lp
 	wait_for "{}" ".applications"
@@ -66,8 +66,8 @@ run_charm_storage() {
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-tp --series jammy --storage data=tmpfs,1G
 	wait_for "dummy-storage-tp" ".applications"
 	if [ "$(unit_exist "data/3")" == "true" ]; then
-  	assess_tmpfs
-  fi
+		assess_tmpfs
+	fi
 	# remove the application
 	juju remove-application dummy-storage-tp
 	wait_for "{}" ".applications"
@@ -88,8 +88,8 @@ run_charm_storage() {
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-mp --series jammy --storage data=1G
 	wait_for "dummy-storage-mp" ".applications"
 	if [ "$(unit_exist "data/5")" == "true" ]; then
-  	assess_multiple_fs
-  fi
+		assess_multiple_fs
+	fi
 	# remove application
 	juju remove-application dummy-storage-mp
 	wait_for "{}" ".applications"
