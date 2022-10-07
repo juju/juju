@@ -260,8 +260,8 @@ func (d *deployCharm) formatDeployingText() string {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
 
-	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s:%s",
-		name, origin.Source, curl.Name, curl.Revision, channel, origin.OS, origin.Channel)
+	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s",
+		name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.String())
 }
 
 type predeployedLocalCharm struct {
@@ -425,13 +425,12 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
 	var usingDefaultSeries bool
-	if defaultSeries, ok := modelCfg.DefaultSeries(); ok && origin.Channel == "" {
+	if defaultSeries, ok := modelCfg.DefaultSeries(); ok && origin.Base.Channel.Empty() {
 		base, err := coreseries.GetBaseFromSeries(defaultSeries)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		origin.OS = base.Name
-		origin.Channel = base.Channel
+		origin.Base = base
 		usingDefaultSeries = true
 	}
 	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
@@ -490,7 +489,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// well in the url.
 	deployableURL := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
-		series, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: origin.OS, Channel: origin.Channel})
+		series, err := coreseries.GetSeriesFromBase(origin.Base)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -507,8 +506,8 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			channel = fmt.Sprintf(" in channel %s", channel)
 		}
 
-		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s:%s would be deployed",
-			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.OS, origin.Channel))
+		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
+			name, origin.Source, deployableURL.Name, deployableURL.Revision, channel, origin.Base.DisplayString()))
 		return nil
 	}
 

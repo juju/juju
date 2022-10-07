@@ -19,7 +19,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
@@ -54,7 +53,6 @@ See also:
 func NewDownloadCommand() cmd.Command {
 	return &downloadCommand{
 		charmHubCommand: newCharmHubCommand(),
-		orderedSeries:   series.SupportedJujuControllerSeries(),
 	}
 }
 
@@ -70,8 +68,6 @@ type downloadCommand struct {
 	archivePath   string
 	pipeToStdout  bool
 	noProgress    bool
-
-	orderedSeries []string
 }
 
 // Info returns help related download about the command, it implements
@@ -181,7 +177,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	platform := fmt.Sprintf("%s/%s/%s", pArch, base.Name, base.Channel)
+	platform := fmt.Sprintf("%s/%s/%s", pArch, base.Name, base.Channel.Track)
 	normBase, err := corecharm.ParsePlatformNormalize(platform)
 	if err != nil {
 		return errors.Trace(err)

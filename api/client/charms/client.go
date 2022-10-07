@@ -69,8 +69,6 @@ type ResolvedCharm struct {
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.
-// ResolveCharms is only supported in version 3 and above, it is expected that
-// the consumer of the client is intended to handle the fallback.
 func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error) {
 	args := params.ResolveCharmsWithChannel{
 		Resolve: make([]params.ResolveCharmWithChannel, len(charms)),
@@ -95,8 +93,13 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 		curl, err := charm.ParseURL(r.URL)
 		if err != nil {
 			resolvedCharms[i] = ResolvedCharm{Error: err}
+			continue
 		}
-		origin := apicharm.APICharmOrigin(r.Origin)
+		origin, err := apicharm.APICharmOrigin(r.Origin)
+		if err != nil {
+			resolvedCharms[i] = ResolvedCharm{Error: err}
+			continue
+		}
 		resolvedCharms[i] = ResolvedCharm{
 			URL:             curl,
 			Origin:          origin,
@@ -132,9 +135,13 @@ func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *m
 		return DownloadInfo{}, errors.Errorf("expected one result, received %d", num)
 	}
 	result := results.Results[0]
+	origin, err := apicharm.APICharmOrigin(result.Origin)
+	if err != nil {
+		return DownloadInfo{}, errors.Trace(err)
+	}
 	return DownloadInfo{
 		URL:    result.URL,
-		Origin: apicharm.APICharmOrigin(result.Origin),
+		Origin: origin,
 	}, nil
 }
 
@@ -155,7 +162,7 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
 		return apicharm.Origin{}, errors.Trace(err)
 	}
-	return apicharm.APICharmOrigin(result.Origin), nil
+	return apicharm.APICharmOrigin(result.Origin)
 }
 
 // AddCharmWithAuthorization is like AddCharm except it also provides
@@ -180,7 +187,7 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Orig
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {
 		return apicharm.Origin{}, errors.Trace(err)
 	}
-	return apicharm.APICharmOrigin(result.Origin), nil
+	return apicharm.APICharmOrigin(result.Origin)
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its

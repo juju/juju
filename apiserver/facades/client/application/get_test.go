@@ -93,7 +93,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 				"value":       false,
 			}},
 		Constraints: constraints.MustParse("arch=amd64"),
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"":                network.AlphaSpaceName,
 			"admin-api":       network.AlphaSpaceName,
@@ -266,7 +266,7 @@ var getTests = []struct {
 				"type":        "bool",
 			},
 		},
-		Base: params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base: params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -328,7 +328,7 @@ var getTests = []struct {
 				"type":        "bool",
 			},
 		},
-		Base: params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base: params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		EndpointBindings: map[string]string{
 			"": network.AlphaSpaceName,
 		},
@@ -338,7 +338,7 @@ var getTests = []struct {
 	charm: "logging",
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,
@@ -367,7 +367,7 @@ var getTests = []struct {
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		ApplicationConfig: map[string]interface{}{
 			"trust": map[string]interface{}{
 				"value":       false,

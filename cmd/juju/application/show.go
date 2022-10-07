@@ -208,10 +208,13 @@ func createApplicationInfo(details params.ApplicationResult) (names.ApplicationT
 
 	}
 
-	base := series.Base{Name: details.Base.Name, Channel: details.Base.Channel}
+	base, err := series.ParseBase(details.Base.Name, details.Base.Channel)
+	if err != nil {
+		return names.ApplicationTag{}, ApplicationInfo{}, errors.Trace(err)
+	}
 	info := ApplicationInfo{
 		Charm:            details.Charm,
-		Base:             base.String(),
+		Base:             base.DisplayString(),
 		Channel:          details.Channel,
 		Constraints:      details.Constraints,
 		Principal:        details.Principal,

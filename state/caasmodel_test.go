@@ -295,22 +295,6 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	c.Assert(controllerModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *CAASModelSuite) TestDeployIAASApplication(c *gc.C) {
-	_, st := s.newCAASModel(c)
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{
-		Name:   "gitlab",
-		Series: "kubernetes",
-	})
-	args := state.AddApplicationArgs{
-		Name:   "gitlab",
-		Series: "bionic",
-		Charm:  ch,
-	}
-	_, err := st.AddApplication(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "gitlab": series "bionic" \(OS "Ubuntu"\) not supported by charm, supported series are "kubernetes"`)
-}
-
 func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)

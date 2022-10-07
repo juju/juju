@@ -277,13 +277,16 @@ func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error
 		OwnerTags: []names.Tag{s.authTag},
 	}
 	// Unit leaders can also get metadata for secrets owned by the app.
-	_, err := s.leadershipToken()
-	if err != nil && !leadership.IsNotLeaderError(err) {
-		return result, errors.Trace(err)
-	}
-	if err == nil {
-		appOwner := names.NewApplicationTag(authTagApp(s.authTag))
-		filter.OwnerTags = append(filter.OwnerTags, appOwner)
+	// TODO(wallyworld) - temp fix for old podspec charms
+	if s.authTag.Kind() != names.ApplicationTagKind {
+		_, err := s.leadershipToken()
+		if err != nil && !leadership.IsNotLeaderError(err) {
+			return result, errors.Trace(err)
+		}
+		if err == nil {
+			appOwner := names.NewApplicationTag(authTagApp(s.authTag))
+			filter.OwnerTags = append(filter.OwnerTags, appOwner)
+		}
 	}
 
 	secrets, err := s.secretsBackend.ListSecrets(filter)
@@ -440,7 +443,8 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
-		if ownerTag.Kind() == names.ApplicationTagKind {
+		// TODO(wallyworld) - temp fix for old podspec charms
+		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
 			_, err := s.leadershipToken()
 			if err != nil {
 				return result, errors.Trace(err)
@@ -475,7 +479,8 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
-		if ownerTag.Kind() == names.ApplicationTagKind {
+		// TODO(wallyworld) - temp fix for old podspec charms
+		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
 			_, err := s.leadershipToken()
 			if err != nil {
 				return result, errors.Trace(err)
@@ -570,7 +575,8 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 			return result, apiservererrors.ErrPerm
 		}
 		// Only unit leaders can watch application secrets.
-		if ownerTag.Kind() == names.ApplicationTagKind {
+		// TODO(wallyworld) - temp fix for old podspec charms
+		if ownerTag.Kind() == names.ApplicationTagKind && s.authTag.Kind() != names.ApplicationTagKind {
 			_, err := s.leadershipToken()
 			if err != nil {
 				return result, errors.Trace(err)

@@ -379,7 +379,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "cs:jammy/application-name-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"},
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},

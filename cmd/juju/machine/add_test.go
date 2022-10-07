@@ -172,7 +172,7 @@ func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 	param := s.fakeAddMachine.args[0]
 
 	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
-	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04"})
+	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
 }
 
@@ -182,7 +182,7 @@ func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
 
 	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04"})
+	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])

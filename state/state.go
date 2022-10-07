@@ -1435,7 +1435,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {
 	if args.Series == "" {
-		// args.Release is not set, so use the series in the URL.
+		// args.Series is not set, so use the series in the URL.
 		args.Series = args.Charm.URL().Series
 		if args.Series == "" {
 			// Should not happen, but just in case.
@@ -1482,7 +1482,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 				}
 				supportedOperatingSystems[os] = true
 			}
-			if !supportedOperatingSystems[seriesOS] {
+			if !supportedOperatingSystems[seriesOS] && !supportedOperatingSystems[os.Kubernetes] {
 				return errors.NewNotSupported(errors.Errorf(
 					"series %q (OS %q) not supported by charm, supported series are %q",
 					args.Series, seriesOS, strings.Join(supportedSeries, ", "),

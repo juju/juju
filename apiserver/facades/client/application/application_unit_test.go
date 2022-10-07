@@ -354,7 +354,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
 		},
 	})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -362,6 +362,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:something-else",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -379,6 +380,7 @@ func (s *ApplicationSuite) TestSetCharmWithBlockChange(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:something-else",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, gc.ErrorMatches, "change blocked")
 }
@@ -396,7 +398,7 @@ func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
 		},
 		ForceUnits: true,
 	})
@@ -406,6 +408,7 @@ func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:something-else",
 		ForceUnits:      true,
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -443,7 +446,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
 		},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -466,6 +469,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 			"c": {Size: toUint64Ptr(123)},
 			"d": {Count: toUint64Ptr(456)},
 		},
+		CharmOrigin: &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -485,6 +489,7 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, gc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
@@ -504,7 +509,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -514,6 +519,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -533,6 +539,7 @@ func (s *ApplicationSuite) TestSetCharmDisallowDowngradeFormat(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot downgrade from v2 charm format to v1")
 }
@@ -562,7 +569,7 @@ func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "jammy"},
 		},
 		Series: "focal",
 	}).Return(nil)
@@ -578,7 +585,7 @@ func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -596,7 +603,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -605,6 +612,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 		ConfigSettingsYAML: `
 postgresql:
   stringOption: value
@@ -636,7 +644,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -647,6 +655,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -670,6 +679,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, gc.ErrorMatches, "Unable to upgrade LXDProfile charms with the current model version. "+
@@ -691,7 +701,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{},
+			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -703,6 +713,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -743,6 +754,7 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, gc.ErrorMatches, `(?m).*Charm feature requirements cannot be met.*`)
 }
@@ -783,6 +795,7 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
+		CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 		Force:           true,
 	})
@@ -1237,19 +1250,19 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			AttachStorage:   []string{"storage-foo-0"},
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        2,
 			AttachStorage:   []string{"storage-bar-0"},
 		}, {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-2",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			AttachStorage:   []string{"volume-baz-0"},
 		}},
@@ -1274,7 +1287,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}, {
 			ApplicationName: "bar",
@@ -1283,6 +1296,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 				Source: "charm-store",
 				Risk:   "stable",
 				Track:  &track,
+				Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			},
 			NumUnits: 1,
 		}, {
@@ -1291,6 +1305,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			CharmOrigin: &params.CharmOrigin{
 				Source: "charm-hub",
 				Risk:   "stable",
+				Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			},
 			NumUnits: 1,
 		}},
@@ -1310,11 +1325,11 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 func createCharmOriginFromURL(c *gc.C, curl *charm.URL) *params.CharmOrigin {
 	switch curl.Schema {
 	case "cs":
-		return &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "22.04"}
+		return &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
 	case "local":
-		return &params.CharmOrigin{Source: "local", OS: "ubuntu", Channel: "22.04"}
+		return &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
 	default:
-		return &params.CharmOrigin{Source: "charm-hub", OS: "ubuntu", Channel: "22.04"}
+		return &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
 	}
 }
 
@@ -1526,13 +1541,13 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 	defer ctrl.Finish()
 
 	ch := s.expectDefaultCharm(ctrl)
-	curl := charm.MustParseURL("cs:utopic/riak-42")
+	curl := charm.MustParseURL("cs:focal/riak-42")
 	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
 
 	args := []params.ApplicationDeploy{{
 		ApplicationName: "old",
 		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "focal"}},
 		NumUnits:        1,
 		EndpointBindings: map[string]string{
 			"endpoint": "a-space",
@@ -1542,7 +1557,7 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 	}, {
 		ApplicationName: "regular",
 		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "focal"}},
 		NumUnits:        1,
 		EndpointBindings: map[string]string{
 			"endpoint": "42",
@@ -1599,7 +1614,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 		}},
@@ -1638,27 +1653,27 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: loadbalancer",
 		}, {
 			ApplicationName: "foobar",
 			CharmURL:        "local:foobar-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-type": "cluster", "intOption": "2"},
 			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: loadbalancer\n  kubernetes-ingress-ssl-redirect: true",
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			AttachStorage:   []string{"storage-bar-0"},
 		}, {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Placement:       []*instance.Placement{{}, {}},
 		}},
@@ -1691,6 +1706,7 @@ func (s *ApplicationSuite) TestDeployCAASInvalidServiceType(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
 		}},
@@ -1774,7 +1790,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1801,7 +1817,7 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1827,7 +1843,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1855,7 +1871,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}},
 	}
@@ -1885,7 +1901,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Storage: map[string]storage.Constraints{
 				"database": {},
@@ -1922,7 +1938,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 			Storage: map[string]storage.Constraints{
 				"database": {},
@@ -2499,8 +2515,8 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	results, err := s.api.UpdateApplicationSeries(
-		params.UpdateSeriesArgs{
-			Args: []params.UpdateSeriesArg{},
+		params.UpdateChannelArgs{
+			Args: []params.UpdateChannelArg{},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2514,10 +2530,10 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesPermissionDenied(c *gc.C) 
 	defer s.setup(c).Finish()
 
 	_, err := s.api.UpdateApplicationSeries(
-		params.UpdateSeriesArgs{
-			Args: []params.UpdateSeriesArg{{
-				Entity: params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-				Series: "jammy",
+		params.UpdateChannelArgs{
+			Args: []params.UpdateChannelArg{{
+				Entity:  params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
+				Channel: "22.04",
 			}},
 		},
 	)
@@ -2765,7 +2781,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		Channel:     "2.0/candidate",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2805,7 +2821,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2881,7 +2897,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10"},
+		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -3341,7 +3357,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Series:       "jammy",
 		},
 	})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -3361,8 +3377,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Track:        &latest,
 		Branch:       &branch,
 		Architecture: "amd64",
-		OS:           "ubuntu",
-		Channel:      "20.04",
+		Base:         params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), coretesting.ModelTag),
 	})
 }

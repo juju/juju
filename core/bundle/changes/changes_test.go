@@ -3950,7 +3950,7 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
 				Revision: 4,
 				Channel:  "stable",
 				Scale:    3,
-				Base:     series.Base{Name: "kubernetes", Channel: "kubernetes"},
+				Base:     series.MakeDefaultBase("kubernetes", "kubernetes"),
 			},
 		},
 	}
@@ -5092,7 +5092,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 				Units: []bundlechanges.Unit{
 					{"mediawiki/0", "1"},
 				},
-				Base: series.Base{Name: "ubuntu", Channel: "20.04"},
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 			"mysql": {
 				Charm:    "cs:mysql-28",
@@ -5101,7 +5101,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 				Units: []bundlechanges.Unit{
 					{"mysql/0", "0"},
 				},
-				Base: series.Base{Name: "ubuntu", Channel: "20.04"},
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5278,7 +5278,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 					{Name: "django/0", Machine: "0"},
 					{Name: "django/1", Machine: "0/lxd/0"},
 				},
-				Base: series.Base{Name: "ubuntu", Channel: "16.04"},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 			"memcached": {
 				Name:     "memcached",
@@ -5290,7 +5290,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 					{Name: "memcached/1", Machine: "1"},
 					{Name: "memcached/2", Machine: "2"},
 				},
-				Base: series.Base{Name: "ubuntu", Channel: "16.04"},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 			"ror": {
 				Name:    "ror",
@@ -5301,7 +5301,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 					{Name: "ror/1", Machine: "2/kvm/0"},
 					{Name: "ror/2", Machine: "3"},
 				},
-				Base: series.Base{Name: "ubuntu", Channel: "16.04"},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5400,7 +5400,7 @@ func (s *changesSuite) TestConsistentMapping(c *gc.C) {
 					{Name: "memcached/2", Machine: "2"},
 					{Name: "memcached/3", Machine: "3"},
 				},
-				Base: series.Base{Name: "ubuntu", Channel: "16.04"},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5450,7 +5450,7 @@ func (s *changesSuite) TestContainerHosts(c *gc.C) {
 				Units: []bundlechanges.Unit{
 					{Name: "memcached/1", Machine: "1"},
 				},
-				Base: series.Base{Name: "ubuntu", Channel: "16.04"},
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{

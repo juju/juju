@@ -297,22 +297,22 @@ type RecordAgentStartInformationArg struct {
 	Hostname string `json:"hostname,omitempty"`
 }
 
-// UpdateSeriesArg holds the parameters for updating the series for the
+// UpdateChannelArg holds the parameters for updating the series for the
 // specified application or machine. For Application, only known by facade
 // version 5 and greater. For MachineManger, only known by facade version
 // 4 or greater.
-type UpdateSeriesArg struct {
-	Entity Entity `json:"tag"`
-	Force  bool   `json:"force"`
-	Series string `json:"series"`
+type UpdateChannelArg struct {
+	Entity  Entity `json:"tag"`
+	Force   bool   `json:"force"`
+	Channel string `json:"channel"`
 }
 
-// UpdateSeriesArgs holds the parameters for updating the series
+// UpdateChannelArgs holds the parameters for updating the series
 // of one or more applications or machines. For Application, only known
 // by facade version 5 and greater. For MachineManger, only known by facade
 // version 4 or greater.
-type UpdateSeriesArgs struct {
-	Args []UpdateSeriesArg `json:"args"`
+type UpdateChannelArgs struct {
+	Args []UpdateChannelArg `json:"args"`
 }
 
 // LXDProfileUpgrade holds the parameters for an application

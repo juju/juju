@@ -173,7 +173,16 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
-	base := series.Base{Name: machine.Base.Name, Channel: machine.Base.Channel}
+	var (
+		base series.Base
+		err  error
+	)
+	if machine.Base.Channel != "" {
+		base, err = series.ParseBase(machine.Base.Name, machine.Base.Channel)
+		if err != nil {
+			logger.Errorf("failed create machine base: %v", err)
+		}
+	}
 	out = machineStatus{
 		JujuStatus:         sf.getStatusInfoContents(machine.AgentStatus),
 		Hostname:           machine.Hostname,
@@ -183,7 +192,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		DisplayName:        machine.DisplayName,
 		MachineStatus:      sf.getStatusInfoContents(machine.InstanceStatus),
 		ModificationStatus: sf.getStatusInfoContents(machine.ModificationStatus),
-		Base:               base.String(),
+		Base:               base.DisplayString(),
 		Id:                 machine.Id,
 		NetworkInterfaces:  make(map[string]networkInterface),
 		Containers:         make(map[string]machineStatus),
@@ -259,14 +268,14 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		charmName = curl.Name
 	}
 
-	base := series.Base{
-		Name:    application.Base.Name,
-		Channel: application.Base.Channel,
+	base, err := series.ParseBase(application.Base.Name, application.Base.Channel)
+	if err != nil {
+		logger.Errorf("failed create charm base: %v", err)
 	}
 	out := applicationStatus{
 		Err:              typedNilCheck(application.Err),
 		Charm:            charmAlias,
-		Base:             base.String(),
+		Base:             base.DisplayString(),
 		CharmOrigin:      charmOrigin,
 		CharmName:        charmName,
 		CharmRev:         charmRev,

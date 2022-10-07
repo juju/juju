@@ -6,7 +6,7 @@ package modelconfig_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,15 +14,17 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type modelconfigSuite struct {
-	gitjujutesting.IsolationSuite
+	testing.IsolationSuite
+	coretesting.JujuOSEnvSuite
 	backend    *mockBackend
 	authorizer apiservertesting.FakeAuthorizer
 	api        *modelconfig.ModelConfigAPIV3
@@ -31,7 +33,9 @@ type modelconfigSuite struct {
 var _ = gc.Suite(&modelconfigSuite{})
 
 func (s *modelconfigSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.IsolationSuite.SetUpTest(c)
+	s.JujuOSEnvSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      names.NewUserTag("bruce@local"),
 		AdminTag: names.NewUserTag("bruce@local"),
@@ -41,7 +45,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"type":                {"dummy", "model"},
 			"agent-version":       {"1.2.3.4", "model"},
 			"ftp-proxy":           {"http://proxy", "model"},
-			"authorized-keys":     {testing.FakeAuthKeys, "model"},
+			"authorized-keys":     {coretesting.FakeAuthKeys, "model"},
 			"charmhub-url":        {"http://meshuggah.rocks", "model"},
 			"secret-store-config": {"shhh", "model"},
 		},
@@ -146,7 +150,7 @@ func (s *modelconfigSuite) TestBlockChangesModelSet(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(testing.Attrs{
+	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"agent-version": "1.2.3.4",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,7 +171,7 @@ func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeCharmHubURL(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(testing.Attrs{
+	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"charmhub-url": "http://meshuggah.rocks",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
