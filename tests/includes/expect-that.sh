@@ -25,9 +25,12 @@ spawn ${command}
 match_max 100000
 
 ${expect_script}
+
+expect eof
+wait
+
 EOF
 
-	chmod 777 "${TEST_DIR}/${filename}.exp"
 	expect "${TEST_DIR}/${filename}.exp"
 
 }
