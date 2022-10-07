@@ -110,7 +110,7 @@ assess_multiple_fs() {
 remove_applications() {
 	juju remove-application dummy-storage-fs
 	juju remove-application dummy-storage-lp
-	juju remove-application dummy-storage-tp
+	juju remove-application dummy-storage-tp --destroy-storage
 	juju remove-application dummy-storage-np --destroy-storage
 	juju remove-application dummy-storage-mp --destroy-storage
 }
@@ -184,6 +184,7 @@ run_charm_storage() {
 	fi
 
 	remove_applications
+	wait_for "{}" ".applications"
 	echo "All charm storage tests PASSED"
 
 	destroy_model "${model_name}"
