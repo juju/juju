@@ -241,6 +241,10 @@ func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
 func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string) (secrets.SecretValue, error) {
 	// providerId is the secret name.
 	secret, err := k.getSecret(providerId)
+	if k8serrors.IsForbidden(err) {
+		logger.Tracef("getting secret %q: %v", providerId, err)
+		return nil, errors.Unauthorizedf("cannot access %q", providerId)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -272,6 +276,10 @@ func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, valu
 func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, providerId string) error {
 	// providerId is the secret name.
 	secret, err := k.getSecret(providerId)
+	if k8serrors.IsForbidden(err) {
+		logger.Tracef("deleting secret %q: %v", providerId, err)
+		return errors.Unauthorizedf("cannot access %q", providerId)
+	}
 	if errors.IsNotFound(err) {
 		return nil
 	}
