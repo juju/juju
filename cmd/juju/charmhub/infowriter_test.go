@@ -44,9 +44,9 @@ relations:
   requires:
     five: six
 channels: |
-  latest/stable:     1.0.3  2019-12-16  (16)  12MB  amd64  ubuntu:22.04,20.04
-  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  amd64  ubuntu:22.04
-  latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64  ubuntu:22.04
+  latest/stable:     1.0.3  2019-12-16  (16)  12MB  amd64  jammy, focal
+  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  amd64  jammy
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64  jammy
   latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64  coolos:3.14
 `
 	c.Assert(obtained, gc.Equals, expected)
@@ -147,9 +147,9 @@ relations:
   requires:
     five: six
 channels: |
-  latest/stable:     1.0.3  2019-12-16  (16)  12MB  ubuntu:22.04,20.04
-  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  ubuntu:22.04
-  latest/beta:       1.0.3  2019-12-16  (17)  12MB  ubuntu:22.04
+  latest/stable:     1.0.3  2019-12-16  (16)  12MB  jammy, focal
+  latest/candidate:  1.0.3  2019-12-16  (17)  12MB  jammy
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB  jammy
   latest/edge:       1.0.3  2019-12-16  (18)  12MB  coolos:3.14
 `
 	c.Assert(obtained, gc.Equals, expected)
@@ -465,46 +465,5 @@ func getBundleInfoClosedTrack() InfoResponse {
 				}},
 			}},
 		Tracks: []string{"latest", "2.8"},
-	}
-}
-
-func (s *printInfoSuite) TestFormatBases(c *gc.C) {
-	tests := []struct {
-		name     string
-		bases    []string
-		expected string
-	}{{
-		name:     "no bases",
-		bases:    []string{},
-		expected: "",
-	}, {
-		name:     "one base",
-		bases:    []string{"ubuntu:18.04"},
-		expected: "ubuntu:18.04",
-	}, {
-		name:     "two bases, same OS",
-		bases:    []string{"ubuntu:18.04", "ubuntu:20.04"},
-		expected: "ubuntu:18.04,20.04",
-	}, {
-		name:     "two bases, two different OSes",
-		bases:    []string{"ubuntu:18.04", "coolos:3.14"},
-		expected: "ubuntu:18.04 coolos:3.14",
-	}, {
-		name:     "three bases, two OSes",
-		bases:    []string{"ubuntu:18.04", "coolos:3.14", "ubuntu:20.04"},
-		expected: "ubuntu:18.04,20.04 coolos:3.14",
-	}, {
-		name:     "base with no version",
-		bases:    []string{"foo"},
-		expected: "foo",
-	}, {
-		name:     "lots of things",
-		bases:    []string{"ubuntu:18.04", "jammy", "ubuntu:20.04", "foo:bar", "ubuntu:22.04"},
-		expected: "ubuntu:18.04,20.04,22.04 jammy foo:bar",
-	}}
-	for i, test := range tests {
-		c.Logf("test %d: %q", i, test.name)
-		result := formatBases(test.bases)
-		c.Check(result, gc.Equals, test.expected)
 	}
 }
