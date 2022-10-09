@@ -9,10 +9,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
@@ -28,6 +30,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
 	jujuversion "github.com/juju/juju/version"
@@ -429,6 +432,12 @@ const (
 //
 // if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
+	initSchema.Do(func() {
+		allFields = fields()
+		defaultsWhenParsing = allDefaults()
+		withDefaultsChecker = schema.FieldMap(allFields, defaultsWhenParsing)
+		noDefaultsChecker = schema.FieldMap(allFields, alwaysOptional)
+	})
 	checker := noDefaultsChecker
 	if withDefaults {
 		checker = withDefaultsChecker
@@ -452,7 +461,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	}
 	// Copy unknown attributes onto the type-specific map.
 	for k, v := range attrs {
-		if _, ok := fields[k]; !ok {
+		if _, ok := allFields[k]; !ok {
 			c.unknown[k] = v
 		}
 	}
@@ -584,7 +593,14 @@ const defaultLoggingConfig = "<root>=INFO"
 // to be used for any new model where there is no
 // value yet defined.
 func ConfigDefaults() map[string]interface{} {
-	return defaultConfigValues
+	defaults := make(map[string]interface{})
+	for name, value := range defaultConfigValues {
+		if developerConfigValue(name) {
+			continue
+		}
+		defaults[name] = value
+	}
+	return defaults
 }
 
 func (c *Config) setLoggingFromEnviron() error {
@@ -1693,7 +1709,7 @@ var fields = func() schema.Fields {
 		panic(err)
 	}
 	return fs
-}()
+}
 
 // alwaysOptional holds configuration defaults for attributes that may
 // be unspecified even after a configuration has been created with all
@@ -1787,8 +1803,6 @@ func allowEmpty(attr string) bool {
 	return alwaysOptional[attr] == "" || alwaysOptional[attr] == schema.Omit
 }
 
-var defaultsWhenParsing = allDefaults()
-
 // allDefaults returns a schema.Defaults that contains
 // defaults to be used when creating a new config with
 // UseDefaults.
@@ -1799,6 +1813,9 @@ func allDefaults() schema.Defaults {
 		d[attr] = val
 	}
 	for attr, val := range alwaysOptional {
+		if developerConfigValue(attr) {
+			continue
+		}
 		if _, ok := d[attr]; !ok {
 			d[attr] = val
 		}
@@ -1819,8 +1836,11 @@ var immutableAttributes = []string{
 }
 
 var (
-	withDefaultsChecker = schema.FieldMap(fields, defaultsWhenParsing)
-	noDefaultsChecker   = schema.FieldMap(fields, alwaysOptional)
+	initSchema          sync.Once
+	allFields           schema.Fields
+	defaultsWhenParsing schema.Defaults
+	withDefaultsChecker schema.Checker
+	noDefaultsChecker   schema.Checker
 )
 
 // ValidateUnknownAttrs checks the unknown attributes of the config against
@@ -1848,7 +1868,7 @@ func (c *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
 				altName := strings.Replace(name, "_", "-", -1)
-				if extrafields[altName] != nil || fields[altName] != nil {
+				if extrafields[altName] != nil || allFields[altName] != nil {
 					logger.Warningf("unknown config field %q, did you mean %q?", name, altName)
 				} else {
 					logger.Warningf("unknown config field %q", name)
@@ -1911,6 +1931,16 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	return settings
 }
 
+func developerConfigValue(name string) bool {
+	if !featureflag.Enabled(feature.DeveloperMode) {
+		switch name {
+		case SecretStoreKey, SecretStoreConfigKey:
+			return true
+		}
+	}
+	return false
+}
+
 // Schema returns a configuration schema that includes both
 // the given extra fields and all the fields defined in this package.
 // It returns an error if extra defines any fields defined in this
@@ -1918,6 +1948,9 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 func Schema(extra environschema.Fields) (environschema.Fields, error) {
 	fields := make(environschema.Fields)
 	for name, field := range configSchema {
+		if developerConfigValue(name) {
+			continue
+		}
 		if controller.ControllerOnlyAttribute(name) {
 			return nil, errors.Errorf("config field %q clashes with controller config", name)
 		}

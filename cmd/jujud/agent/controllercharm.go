@@ -166,7 +166,7 @@ func populateStoreControllerCharm(st *state.State, charmPath, charmRisk, arch st
 		Platform: corecharm.Platform{
 			Architecture: arch,
 			OS:           base.Name,
-			Channel:      base.Channel,
+			Channel:      base.Channel.Track,
 		},
 	}
 
@@ -241,7 +241,7 @@ func populateLocalControllerCharm(st *state.State, dataDir, arch string, base co
 		Platform: corecharm.Platform{
 			Architecture: arch,
 			OS:           base.Name,
-			Channel:      base.Channel,
+			Channel:      base.Channel.String(),
 		},
 	}
 	return curl, &origin, nil
@@ -318,11 +318,15 @@ func addControllerApplication(st *state.State, curl *charm.URL, origin corecharm
 		return nil, errors.Trace(err)
 	}
 
+	stateOrigin, err := application.StateCharmOrigin(origin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:              bootstrap.ControllerApplicationName,
 		Series:            series,
 		Charm:             ch,
-		CharmOrigin:       application.StateCharmOrigin(origin),
+		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
 		ApplicationConfig: appCfg,
 		NumUnits:          1,

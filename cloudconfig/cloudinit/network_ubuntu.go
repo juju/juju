@@ -386,7 +386,7 @@ def ip_parse(ip_output):
     """parses the output of the ip command
     and returns a hwaddr->nic-name dict"""
     devices = dict()
-    print( "Parsing ip command output" + str(ip_output))
+    print("Parsing ip command output {}".format(ip_output))
     for ip_line in ip_output:
         ip_line_str = strdecode(ip_line, "utf-8")
         match = IP_LINE.match(ip_line_str)
@@ -398,7 +398,7 @@ def ip_parse(ip_output):
             continue
         nic_hwaddr = match.group(1)
         devices[nic_hwaddr] = nic_name
-    print( "Found the following devices: " + str(devices))
+    print("Found the following devices: {}".format(devices))
     return devices
 
 def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
@@ -410,7 +410,7 @@ def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
 
     formatter = Formatter()
     hwaddrs = [v[1] for v in formatter.parse(interfaces) if v[1]]
-    print( "Found the following hwaddrs:" + str(hwaddrs))
+    print("Found the following hwaddrs: {}".format(hwaddrs))
     device_replacements = dict()
     for hwaddr in hwaddrs:
         hwaddr_clean = hwaddr[3:].replace("_", ":")
@@ -418,13 +418,15 @@ def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
             device_replacements[hwaddr] = devices[hwaddr_clean]
         else:
             if fail_on_missing:
-                print( "Can not find device with MAC " + hwaddr_clean + ", will retry")
+                print("Can not find device with MAC {}, will retry".format(hwaddr_clean))
                 return False
             else:
-                print( "WARNING: Can not find device with MAC " + hwaddr_clean + " when expected")
+                print("WARNING: Can not find device with MAC {} when expected".format(hwaddr_clean))
                 device_replacements[hwaddr] = hwaddr
     formatted = interfaces.format(**device_replacements)
-    print( "Used the values in: " + str(device_replacements) + "\nto fix the interfaces file:\n" + str(interfaces) + "\ninto\n" + str(formatted))
+    print("Used the values in: {}".format(device_replacements))
+    print("to generate new interfaces file:")
+    print(formatted)
 
     with open(output_file, "w") as intf_out_file:
         intf_out_file.write(formatted)
@@ -432,7 +434,7 @@ def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
     if not os.path.exists(interfaces_file + ".bak"):
         try:
             shutil.copyfile(interfaces_file, interfaces_file + ".bak")
-        except OSError: #silently ignore if the file is missing
+        except OSError:  # silently ignore if the file is missing
             pass
     return True
 
@@ -448,9 +450,9 @@ def main():
     for tries in range(retries):
         ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
         if replace_ethernets(args.intf_file, args.out_file, ip_output, (tries != retries - 1)):
-             break
+            break
         else:
-             time.sleep(float(args.wait))
+            time.sleep(float(args.wait))
 
 if __name__ == "__main__":
     main()

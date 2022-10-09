@@ -326,7 +326,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		}
 		base = &params.Base{
 			Name:    info.Name,
-			Channel: info.Channel,
+			Channel: info.Channel.String(),
 		}
 	}
 	machineParams := params.AddMachineParams{

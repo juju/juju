@@ -1220,7 +1220,7 @@ func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	}
 	return &params.ProvisioningInfo{
 		ControllerConfig:            coretesting.FakeControllerConfig(),
-		Base:                        params.Base{Name: base.Name, Channel: base.Channel},
+		Base:                        params.Base{Name: base.Name, Channel: base.Channel.String()},
 		Constraints:                 constraints.MustParse(m.constraints),
 		ProvisioningNetworkTopology: m.topology,
 	}, nil

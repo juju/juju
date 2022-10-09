@@ -2187,7 +2187,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArgs"
+                            "$ref": "#/definitions/UpdateChannelArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -2945,10 +2945,10 @@
                         "architecture": {
                             "type": "string"
                         },
-                        "branch": {
-                            "type": "string"
+                        "base": {
+                            "$ref": "#/definitions/Base"
                         },
-                        "channel": {
+                        "branch": {
                             "type": "string"
                         },
                         "hash": {
@@ -2958,9 +2958,6 @@
                             "type": "string"
                         },
                         "instance-key": {
-                            "type": "string"
-                        },
-                        "os": {
                             "type": "string"
                         },
                         "revision": {
@@ -4015,14 +4012,14 @@
                     },
                     "additionalProperties": false
                 },
-                "UpdateSeriesArg": {
+                "UpdateChannelArg": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
-                        },
-                        "series": {
-                            "type": "string"
                         },
                         "tag": {
                             "$ref": "#/definitions/Entity"
@@ -4032,16 +4029,16 @@
                     "required": [
                         "tag",
                         "force",
-                        "series"
+                        "channel"
                     ]
                 },
-                "UpdateSeriesArgs": {
+                "UpdateChannelArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/UpdateSeriesArg"
+                                "$ref": "#/definitions/UpdateChannelArg"
                             }
                         }
                     },
@@ -14621,6 +14618,22 @@
                         "placements"
                     ]
                 },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
+                    ]
+                },
                 "Charm": {
                     "type": "object",
                     "properties": {
@@ -15032,10 +15045,10 @@
                         "architecture": {
                             "type": "string"
                         },
-                        "branch": {
-                            "type": "string"
+                        "base": {
+                            "$ref": "#/definitions/Base"
                         },
-                        "channel": {
+                        "branch": {
                             "type": "string"
                         },
                         "hash": {
@@ -15045,9 +15058,6 @@
                             "type": "string"
                         },
                         "instance-key": {
-                            "type": "string"
-                        },
-                        "os": {
                             "type": "string"
                         },
                         "revision": {
@@ -26536,7 +26546,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArg"
+                            "$ref": "#/definitions/UpdateChannelArg"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
@@ -26548,7 +26558,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArg"
+                            "$ref": "#/definitions/UpdateChannelArg"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResult"
@@ -26560,7 +26570,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArgs"
+                            "$ref": "#/definitions/UpdateChannelArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/UpgradeSeriesUnitsResults"
@@ -27180,14 +27190,14 @@
                         "results"
                     ]
                 },
-                "UpdateSeriesArg": {
+                "UpdateChannelArg": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
-                        },
-                        "series": {
-                            "type": "string"
                         },
                         "tag": {
                             "$ref": "#/definitions/Entity"
@@ -27197,16 +27207,16 @@
                     "required": [
                         "tag",
                         "force",
-                        "series"
+                        "channel"
                     ]
                 },
-                "UpdateSeriesArgs": {
+                "UpdateChannelArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/UpdateSeriesArg"
+                                "$ref": "#/definitions/UpdateChannelArg"
                             }
                         }
                     },
@@ -37501,16 +37511,32 @@
                         "pending-ids"
                     ]
                 },
+                "Base": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "channel"
+                    ]
+                },
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
                         "architecture": {
                             "type": "string"
                         },
-                        "branch": {
-                            "type": "string"
+                        "base": {
+                            "$ref": "#/definitions/Base"
                         },
-                        "channel": {
+                        "branch": {
                             "type": "string"
                         },
                         "hash": {
@@ -37520,9 +37546,6 @@
                             "type": "string"
                         },
                         "instance-key": {
-                            "type": "string"
-                        },
-                        "os": {
                             "type": "string"
                         },
                         "revision": {
@@ -48250,7 +48273,7 @@
     },
     {
         "Name": "UpgradeSeries",
-        "Description": "API serves methods required by the machine agent upgrade-series worker.",
+        "Description": "API serves methods required by the machine agent upgrade-machine worker.",
         "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
@@ -48271,19 +48294,19 @@
                             "$ref": "#/definitions/StringResults"
                         }
                     },
-                    "description": "CurrentSeries returns what Juju thinks the current series of the machine is.\nNote that a machine could have been upgraded out-of-band by running\ndo-release-upgrade outside of the upgrade-series workflow,\nmaking this value incorrect."
+                    "description": "CurrentSeries returns what Juju thinks the current series of the machine is.\nNote that a machine could have been upgraded out-of-band by running\ndo-release-upgrade outside of the upgrade-machine workflow,\nmaking this value incorrect."
                 },
                 "FinishUpgradeSeries": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/UpdateSeriesArgs"
+                            "$ref": "#/definitions/UpdateChannelArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "FinishUpgradeSeries is the last action in the upgrade workflow and is\ncalled after all machine and unit statuses are \"completed\".\nIt updates the machine series to reflect the completed upgrade, then\nremoves the upgrade-series lock."
+                    "description": "FinishUpgradeSeries is the last action in the upgrade workflow and is\ncalled after all machine and unit statuses are \"completed\".\nIt updates the machine series to reflect the completed upgrade, then\nremoves the upgrade-machine lock."
                 },
                 "MachineStatus": {
                     "type": "object",
@@ -48295,7 +48318,7 @@
                             "$ref": "#/definitions/UpgradeSeriesStatusResults"
                         }
                     },
-                    "description": "MachineStatus gets the current upgrade-series status of a machine."
+                    "description": "MachineStatus gets the current upgrade-machine status of a machine."
                 },
                 "PinMachineApplications": {
                     "type": "object",
@@ -48337,7 +48360,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "SetMachineStatus sets the current upgrade-series status of a machine."
+                    "description": "SetMachineStatus sets the current upgrade-machine status of a machine."
                 },
                 "SetUpgradeSeriesUnitStatus": {
                     "type": "object",
@@ -48385,7 +48408,7 @@
                             "$ref": "#/definitions/EntitiesResults"
                         }
                     },
-                    "description": "UnitsCompleted returns the units running on this machine that have completed\nthe upgrade-series workflow and are in their normal running state."
+                    "description": "UnitsCompleted returns the units running on this machine that have completed\nthe upgrade-machine workflow and are in their normal running state."
                 },
                 "UnitsPrepared": {
                     "type": "object",
@@ -48397,7 +48420,7 @@
                             "$ref": "#/definitions/EntitiesResults"
                         }
                     },
-                    "description": "UnitsPrepared returns the units running on this machine that have completed\ntheir upgrade-series preparation, and are ready to be stopped and have their\nunit agent services converted for the target series."
+                    "description": "UnitsPrepared returns the units running on this machine that have completed\ntheir upgrade-machine preparation, and are ready to be stopped and have their\nunit agent services converted for the target series."
                 },
                 "UnpinMachineApplications": {
                     "type": "object",
@@ -48695,14 +48718,14 @@
                         "results"
                     ]
                 },
-                "UpdateSeriesArg": {
+                "UpdateChannelArg": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "force": {
                             "type": "boolean"
-                        },
-                        "series": {
-                            "type": "string"
                         },
                         "tag": {
                             "$ref": "#/definitions/Entity"
@@ -48712,16 +48735,16 @@
                     "required": [
                         "tag",
                         "force",
-                        "series"
+                        "channel"
                     ]
                 },
-                "UpdateSeriesArgs": {
+                "UpdateChannelArgs": {
                     "type": "object",
                     "properties": {
                         "args": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/UpdateSeriesArg"
+                                "$ref": "#/definitions/UpdateChannelArg"
                             }
                         }
                     },

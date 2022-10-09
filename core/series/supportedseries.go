@@ -4,7 +4,6 @@
 package series
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -121,63 +120,6 @@ func GetOSFromSeries(series string) (coreos.OSType, error) {
 
 	updateSeriesVersionsOnce()
 	return getOSFromSeries(seriesName)
-}
-
-// Base represents an OS version.
-// eg "ubuntu:22.04".
-// We use Base to be consistent with CharmHub.
-type Base struct {
-	Name string
-	// Channel is really os version, eg 22.04.
-	//We use Channel to be consistent with CharmHub.
-	Channel string
-}
-
-func (b *Base) String() string {
-	if b == nil || b.Name == "" {
-		return ""
-	}
-	if b.Name == "kubernetes" {
-		return b.Name
-	}
-	return fmt.Sprintf("%s:%s", b.Name, b.Channel)
-}
-
-// GetBaseFromSeries returns the Base infor for a series.
-func GetBaseFromSeries(series string) (Base, error) {
-	var result Base
-	osName, err := GetOSFromSeries(series)
-	if err != nil {
-		return result, errors.NotValidf("series %q", series)
-	}
-	osVersion, err := SeriesVersion(series)
-	if err != nil {
-		return result, errors.NotValidf("series %q", series)
-	}
-	result.Name = strings.ToLower(osName.String())
-	result.Channel = osVersion
-	return result, nil
-}
-
-// GetSeriesFromBase returns the series name for a
-// given Base. This is needed to support legacy series.
-func GetSeriesFromBase(v Base) (string, error) {
-	var osSeries map[SeriesName]seriesVersion
-	switch strings.ToLower(v.Name) {
-	case "ubuntu":
-		osSeries = ubuntuSeries
-	case "centos":
-		osSeries = centosSeries
-	// TODO - remove when legacy k8s charms are gone
-	case "kubernetes":
-		osSeries = kubernetesSeries
-	}
-	for s, vers := range osSeries {
-		if vers.Version == v.Channel {
-			return string(s), nil
-		}
-	}
-	return "", errors.NotFoundf("os %q version %q", v.Name, v.Channel)
 }
 
 // DefaultOSTypeNameFromSeries returns the operating system based

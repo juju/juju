@@ -143,13 +143,17 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		return ProvisioningInfo{}, errors.Trace(params.TranslateWellKnownError(err))
 	}
 
+	base, err := series.ParseBase(r.Base.Name, r.Base.Channel)
+	if err != nil {
+		return ProvisioningInfo{}, errors.Trace(err)
+	}
 	info := ProvisioningInfo{
 		Version:              r.Version,
 		APIAddresses:         r.APIAddresses,
 		CACert:               r.CACert,
 		Tags:                 r.Tags,
 		Constraints:          r.Constraints,
-		Base:                 series.Base{Name: r.Base.Name, Channel: r.Base.Channel},
+		Base:                 base,
 		ImageDetails:         params.ConvertDockerImageInfo(r.ImageRepo),
 		CharmModifiedVersion: r.CharmModifiedVersion,
 		Trust:                r.Trust,

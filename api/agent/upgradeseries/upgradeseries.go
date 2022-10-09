@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/model"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -42,7 +43,7 @@ func NewClient(caller base.APICaller, authTag names.Tag) *Client {
 	}
 }
 
-// Machine status retrieves the machine status from remote state.
+// MachineStatus status retrieves the machine status from remote state.
 func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
@@ -70,7 +71,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 
 // CurrentSeries returns what Juju thinks the current series of the machine is.
 // Note that a machine could have been upgraded out-of-band by running
-// do-release-upgrade outside of the upgrade-series workflow,
+// do-release-upgrade outside of the upgrade-machine workflow,
 // making this value incorrect.
 func (s *Client) CurrentSeries() (string, error) {
 	series, err := s.series("CurrentSeries")
@@ -110,7 +111,7 @@ func (s *Client) series(methodName string) (string, error) {
 }
 
 // UnitsPrepared returns the units running on this machine that have
-// completed their upgrade-series preparation, and are ready to be stopped and
+// completed their upgrade-machine preparation, and are ready to be stopped and
 // have their unit agent services converted for the target series.
 func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
 	units, err := s.unitsInState("UnitsPrepared")
@@ -118,7 +119,7 @@ func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
 }
 
 // UnitsCompleted returns the units running on this machine that have completed
-// the upgrade-series workflow and are in their normal running state.
+// the upgrade-machine workflow and are in their normal running state.
 func (s *Client) UnitsCompleted() ([]names.UnitTag, error) {
 	units, err := s.unitsInState("UnitsCompleted")
 	return units, errors.Trace(err)
@@ -212,12 +213,16 @@ func (s *Client) StartUnitCompletion(reason string) error {
 // "Complete" phases.
 func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 	var results params.ErrorResults
-	args := params.UpdateSeriesArgs{Args: []params.UpdateSeriesArg{{
-		Entity: params.Entity{Tag: s.authTag.String()},
-		Series: hostSeries,
+	base, err := coreseries.GetBaseFromSeries(hostSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	args := params.UpdateChannelArgs{Args: []params.UpdateChannelArg{{
+		Entity:  params.Entity{Tag: s.authTag.String()},
+		Channel: base.Channel.Track,
 	}}}
 
-	err := s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
+	err = s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
 	if err != nil {
 		return err
 	}

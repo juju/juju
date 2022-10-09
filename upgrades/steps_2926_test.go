@@ -26,7 +26,7 @@ func (s *steps2926Suite) TestSetContainerAddressOriginToMachine(c *gc.C) {
 }
 
 func (s *steps2926Suite) TestUpdateCharmOriginAfterSetSeries(c *gc.C) {
-	step := findStateStep(c, v2926, "update charm origin to facilitate charm refresh after set-series")
+	step := findStateStep(c, v2926, "update charm origin to facilitate charm refresh after set-application-base")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 

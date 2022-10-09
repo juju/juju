@@ -105,9 +105,9 @@ func NewUpgradeSeriesAPI(
 
 // ValidationEntity defines a type that requires validation.
 type ValidationEntity struct {
-	Tag    string
-	Series string
-	Force  bool
+	Tag     string
+	Channel string
+	Force   bool
 }
 
 // ValidationResult defines the result of the validation.
@@ -138,7 +138,12 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 			continue
 		}
 
-		if err := a.validateApplication(machine, entity.Series, entity.Force); err != nil {
+		requestedSeries, err := seriesFromParams(entity.Tag, machine.Series(), entity.Channel)
+		if err != nil {
+			results[i].Error = errors.Trace(err)
+			continue
+		}
+		if err := a.validateApplication(machine, requestedSeries, entity.Force); err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -165,12 +170,13 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 	return results, nil
 }
 
-func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error) {
-	if series == "" {
-		return errors.BadRequestf("series missing from args")
+func (a *UpgradeSeriesAPI) Prepare(tag, channel string, force bool) (retErr error) {
+	machine, err := a.state.MachineFromTag(tag)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	machine, err := a.state.MachineFromTag(tag)
+	requestedSeries, err := seriesFromParams(tag, machine.Series(), channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -191,7 +197,7 @@ func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error
 	// TODO 2018-06-28 managed series upgrade
 	// improve error handling based on error type, there will be cases where retrying
 	// the hooks is needed etc.
-	err = machine.CreateUpgradeSeriesLock(unitNames, series)
+	err = machine.CreateUpgradeSeriesLock(unitNames, requestedSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -208,12 +214,12 @@ func (a *UpgradeSeriesAPI) Prepare(tag, series string, force bool) (retErr error
 	}()
 
 	// Validate the machine applications for a given series.
-	if err := a.validateApplication(machine, series, force); err != nil {
+	if err := a.validateApplication(machine, requestedSeries, force); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Once validated, set the machine status to started.
-	message := fmt.Sprintf("started upgrade series from %q to %q", machine.Series(), series)
+	message := fmt.Sprintf("started upgrade series from %q to %q", machine.Series(), requestedSeries)
 	return machine.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, message)
 }
 
@@ -295,6 +301,25 @@ func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
 	}
 }
 
+func seriesFromParams(machineTag, machineSeries, channel string) (string, error) {
+	if channel == "" {
+		return "", errors.BadRequestf("channel missing from args")
+	}
+	base, err := coreseries.GetBaseFromSeries(machineSeries)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if base.Name != "ubuntu" {
+		return "", errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
+			machineTag, base.Name)
+	}
+	argSeries, err := coreseries.GetSeriesFromChannel(base.Name, channel)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return argSeries, nil
+}
+
 // ValidateSeries validates a given requested series against the current
 // machine series.
 func (s upgradeSeriesValidator) ValidateSeries(requestedSeries, machineSeries, machineTag string) error {
@@ -309,15 +334,6 @@ func (s upgradeSeriesValidator) ValidateSeries(requestedSeries, machineSeries, m
 	if opSys != os.Ubuntu {
 		return errors.Errorf("series %q is from OS %q and is not a valid upgrade target",
 			requestedSeries, opSys.String())
-	}
-
-	opSys, err = coreseries.GetOSFromSeries(machineSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if opSys != os.Ubuntu {
-		return errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
-			machineTag, opSys.String())
 	}
 
 	if requestedSeries == machineSeries {

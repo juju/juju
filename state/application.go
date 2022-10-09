@@ -2072,7 +2072,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 
 // VerifySupportedSeries verifies if the given series is supported by the
 // application.
-// TODO (stickupkid): This will be removed once we align all upgrade-series
+// TODO (stickupkid): This will be removed once we align all upgrade-machine
 // commands.
 func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	ch, _, err := a.Charm()

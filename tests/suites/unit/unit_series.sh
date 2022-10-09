@@ -10,7 +10,7 @@ run_unit_set_series() {
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	juju set-series ubuntu jammy
+	juju set-application-base ubuntu jammy
 	juju add-unit ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"

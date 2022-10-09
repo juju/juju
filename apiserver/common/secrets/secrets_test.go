@@ -29,6 +29,12 @@ type secretsSuite struct {
 
 var _ = gc.Suite(&secretsSuite{})
 
+func (s *secretsSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
+	s.IsolationSuite.SetUpTest(c)
+	s.JujuOSEnvSuite.SetUpTest(c)
+}
+
 func (s *secretsSuite) TestProviderInfoForModel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -68,7 +74,7 @@ func (s *secretsSuite) TestProviderInfoForModelJujuDefault(c *gc.C) {
 
 	p, _, err = secrets.ProviderInfoForModel(model)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(p.Type(), gc.Equals, "juju")
+	c.Check(p.Type(), gc.Equals, "kubernetes")
 }
 
 func (s *secretsSuite) TestProviderInfoForModelK8sDefault(c *gc.C) {
@@ -77,7 +83,7 @@ func (s *secretsSuite) TestProviderInfoForModelK8sDefault(c *gc.C) {
 
 	model := mocks.NewMockModel(ctrl)
 
-	s.SetFeatureFlags(feature.SecretStores)
+	s.SetFeatureFlags(feature.DeveloperMode)
 	gomock.InOrder(
 		model.EXPECT().Config().Return(coretesting.ModelConfig(c), nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -212,7 +213,8 @@ func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.U
 	if err != nil {
 		return nil, apicharm.Origin{}, errors.Trace(err)
 	}
-	return curl, apicharm.APICharmOrigin(result.Origin), nil
+	origin, err := apicharm.APICharmOrigin(result.Origin)
+	return curl, origin, err
 }
 
 // GetConfig returns the charm configuration settings for each of the
@@ -348,16 +350,20 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 
 // UpdateApplicationSeries updates the application series in the db.
 func (c *Client) UpdateApplicationSeries(appName, series string, force bool) error {
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{
-			Entity: params.Entity{Tag: names.NewApplicationTag(appName).String()},
-			Force:  force,
-			Series: series,
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{
+			Entity:  params.Entity{Tag: names.NewApplicationTag(appName).String()},
+			Force:   force,
+			Channel: base.Channel.Track,
 		}},
 	}
 
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("UpdateApplicationSeries", args, results)
+	err = c.facade.FacadeCall("UpdateApplicationSeries", args, results)
 	if err != nil {
 		return errors.Trace(err)
 	}

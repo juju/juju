@@ -107,7 +107,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		return params.ProvisioningInfo{}, errors.Trace(err) // Should never happen.
 	}
 	result := params.ProvisioningInfo{
-		Base:              params.Base{Name: base.Name, Channel: base.Channel},
+		Base:              params.Base{Name: base.Name, Channel: base.Channel.String()},
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),
 
