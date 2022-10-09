@@ -135,14 +135,19 @@ func formatRevision(r Revision, showName bool) string {
 // NOTE: This will go away when we switch to --base and bases output.
 func basesToSeries(bases []string) []string {
 	series := make([]string, len(bases))
-	for i, base := range bases {
-		name, channel, _ := strings.Cut(base, ":")
-		s, err := coreseries.GetSeriesFromBase(coreseries.Base{Name: name, Channel: channel})
+	for i, baseStr := range bases {
+		name, channel, _ := strings.Cut(baseStr, ":")
+		base, err := coreseries.ParseBase(name, channel)
 		if err != nil {
-			series[i] = base
-		} else {
-			series[i] = s
+			series[i] = baseStr
+			continue
 		}
+		s, err := coreseries.GetSeriesFromBase(base)
+		if err != nil {
+			series[i] = baseStr
+			continue
+		}
+		series[i] = s
 	}
 	return series
 }
