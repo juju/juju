@@ -482,10 +482,14 @@ func (s *secretsStore) DeleteSecret(uri *secrets.URI, revisions ...int) (removed
 
 func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (removed bool, err error) {
 	// We will bulk delete the various artefacts, starting with the secret itself.
-	// Deleting the parent secret metadata first  will ensure that any consumers of
+	// Deleting the parent secret metadata first will ensure that any consumers of
 	// the secret get notified and subsequent attempts to access any secret
 	// attributes (revision etc) return not found.
 	// It is not practical to do this record by record in a legacy client side mgo txn operation.
+	if len(uris) == 0 && len(revisions) == 0 {
+		// Nothing to remove.
+		return false, nil
+	}
 
 	if len(uris) == 0 || len(uris) > 1 && len(revisions) > 0 {
 		return false, errors.Errorf("PROGRAMMING ERROR: invalid secret deletion args uris=%v, revisions=%v", uris, revisions)
