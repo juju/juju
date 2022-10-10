@@ -34,7 +34,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu:18.04,16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -68,7 +68,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu:18.04,16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -102,7 +102,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu:18.04,16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -137,7 +137,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu:18.04,16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -171,7 +171,7 @@ description: |-
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
 charm-id: charmCHARMcharmCHARMcharmCHARM01
-supports: bionic, xenial
+supports: ubuntu:18.04,16.04
 tags: app, seven
 subordinate: true
 relations:
@@ -323,7 +323,7 @@ func getCharmInfoResponse() InfoResponse {
 		Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Publisher:   "WordPress Charmers",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix and php-fpm configured to scale horizontally with\nNginx's reverse proxy.",
-		Series:      []string{"bionic", "xenial"},
+		Supports:    []string{"ubuntu:18.04", "ubuntu:16.04"},
 		Tags:        []string{"app", "seven"},
 		Charm: &Charm{
 			Config: &charm.Config{

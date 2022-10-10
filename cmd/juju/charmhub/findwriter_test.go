@@ -56,10 +56,10 @@ func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Bundle  Version  Architectures  Supports            Publisher           Summary
-wordpress  -       1.0.3    all            bionic              WordPress Charmers  WordPress is a full featured web blogging
-                                                                                   tool, this charm deploys it.
-osm        Y       3.2.3    all            bionic,focal,jammy  charmed-osm         Single instance OSM bundle.
+Name       Bundle  Version  Architectures  Supports                  Publisher           Summary
+wordpress  -       1.0.3    all            ubuntu:18.04              WordPress Charmers  WordPress is a full featured web blogging
+                                                                                         tool, this charm deploys it.
+osm        Y       3.2.3    all            ubuntu:18.04,20.04,22.04  charmed-osm         Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -90,7 +90,7 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 	fr := getCharmFindResponse()
 	fr[0].Version = ""
 	fr[0].Arches = make([]string, 0)
-	fr[0].Series = make([]string, 0)
+	fr[0].Supports = make([]string, 0)
 	fr[0].Summary = ""
 
 	ctx := commandContextForTest(c)
@@ -102,9 +102,9 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Bundle  Version  Architectures  Supports            Publisher           Summary
-wordpress  -                                                   WordPress Charmers  
-osm        Y       3.2.3    all            bionic,focal,jammy  charmed-osm         Single instance OSM bundle.
+Name       Bundle  Version  Architectures  Supports                  Publisher           Summary
+wordpress  -                                                         WordPress Charmers  
+osm        Y       3.2.3    all            ubuntu:18.04,20.04,22.04  charmed-osm         Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -139,7 +139,7 @@ func getCharmFindResponse() []FindResponse {
 		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Version:   "1.0.3",
 		Arches:    []string{"all"},
-		Series:    []string{"bionic"},
+		Supports:  []string{"ubuntu:18.04"},
 		StoreURL:  "https://someurl.com/wordpress",
 	}, {
 		Name:      "osm",
@@ -149,7 +149,7 @@ func getCharmFindResponse() []FindResponse {
 		Summary:   "Single instance OSM bundle.",
 		Version:   "3.2.3",
 		Arches:    []string{"all"},
-		Series:    []string{"bionic", "focal", "jammy"},
+		Supports:  []string{"ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04"},
 		StoreURL:  "https://someurl.com/osm",
 	}}
 }

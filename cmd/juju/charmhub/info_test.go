@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
-	"github.com/juju/juju/core/arch"
 )
 
 type infoSuite struct {
@@ -29,9 +28,7 @@ var _ = gc.Suite(&infoSuite{})
 
 func (s *infoSuite) TestInitNoArgs(c *gc.C) {
 	command := &infoCommand{
-		charmHubCommand: &charmHubCommand{
-			arches: arch.AllArches(),
-		},
+		charmHubCommand: &charmHubCommand{},
 	}
 	err := command.Init([]string{})
 	c.Assert(err, gc.NotNil)
@@ -39,9 +36,7 @@ func (s *infoSuite) TestInitNoArgs(c *gc.C) {
 
 func (s *infoSuite) TestInitSuccess(c *gc.C) {
 	command := &infoCommand{
-		charmHubCommand: &charmHubCommand{
-			arches: arch.AllArches(),
-		},
+		charmHubCommand: &charmHubCommand{},
 	}
 	err := command.Init([]string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,9 +88,9 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    "ubuntu:18.04",
+    "ubuntu:16.04"
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -191,7 +186,7 @@ func indentJSON(c *gc.C, input string) string {
 	return buf.String()
 }
 
-func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
+func (s *infoSuite) TestRunJSONSpecifyBaseNotDefault(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
@@ -199,7 +194,7 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 
-	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--series", "xenial"})
+	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--base", "ubuntu:16.04"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
@@ -213,9 +208,9 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    "ubuntu:18.04",
+    "ubuntu:16.04"
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -326,9 +321,9 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    "ubuntu:18.04",
+    "ubuntu:16.04"
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -417,6 +412,23 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
 `[1:])
 }
 
+func (s *infoSuite) TestRunJSONWithBaseFoundChannel(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectInfo()
+
+	command := &infoCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test", "--base", "ubuntu:20.04", "--format", "json"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, jsonWithBaseFoundExpected)
+}
+
 func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
@@ -431,17 +443,19 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, `
-{
+	c.Assert(indentJSON(c, cmdtesting.Stdout(ctx)), gc.Equals, jsonWithBaseFoundExpected)
+}
+
+const jsonWithBaseFoundExpected = `{
   "type": "charm",
   "id": "charmCHARMcharmCHARMcharmCHARM01",
   "name": "wordpress",
   "description": "This will install and setup WordPress optimized to run in the cloud.",
   "publisher": "WordPress Charmers",
   "summary": "WordPress is a full featured web blogging tool, this charm deploys it.",
-  "series": [
-    "bionic",
-    "xenial"
+  "supports": [
+    "ubuntu:18.04",
+    "ubuntu:16.04"
   ],
   "store-url": "https://someurl.com/wordpress",
   "tags": [
@@ -507,8 +521,7 @@ func (s *infoSuite) TestRunJSONWithSeriesFoundChannel(c *gc.C) {
     "latest"
   ]
 }
-`[1:])
-}
+`
 
 func (s *infoSuite) TestRunYAML(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
@@ -531,9 +544,9 @@ name: wordpress
 description: This will install and setup WordPress optimized to run in the cloud.
 publisher: WordPress Charmers
 summary: WordPress is a full featured web blogging tool, this charm deploys it.
-series:
-- bionic
-- xenial
+supports:
+- ubuntu:18.04
+- ubuntu:16.04
 store-url: https://someurl.com/wordpress
 tags:
 - app
@@ -595,7 +608,6 @@ tracks:
 
 func (s *infoSuite) newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
-		arches: arch.AllArches(),
 		CharmHubClientFunc: func(charmhub.Config) (CharmHubClient, error) {
 			return s.charmHubAPI, nil
 		},

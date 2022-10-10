@@ -17,10 +17,9 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
 )
 
-func convertInfoResponse(info transport.InfoResponse, arch, series string) (InfoResponse, error) {
+func convertInfoResponse(info transport.InfoResponse, arch, base string) (InfoResponse, error) {
 	ir := InfoResponse{
 		Type:        string(info.Type),
 		ID:          info.ID,
@@ -42,17 +41,15 @@ func convertInfoResponse(info transport.InfoResponse, arch, series string) (Info
 
 	seen := set.NewStrings()
 	for _, base := range info.DefaultRelease.Revision.Bases {
-		s, _ := coreseries.VersionSeries(base.Channel)
-		if s != "" {
-			if !seen.Contains(s) {
-				ir.Series = append(ir.Series, s)
-				seen.Add(s)
-			}
+		s := base.Name + ":" + base.Channel
+		if !seen.Contains(s) {
+			ir.Supports = append(ir.Supports, s)
+			seen.Add(s)
 		}
 	}
 
 	var err error
-	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, arch, series)
+	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, arch, base)
 	if err != nil {
 		return ir, errors.Trace(err)
 	}
@@ -77,8 +74,8 @@ func convertCharmFindResult(resp transport.FindResponse) FindResponse {
 		Version:   resp.DefaultRelease.Revision.Version,
 		StoreURL:  resp.Entity.StoreURL,
 	}
-	supported := transformFindArchitectureSeries(resp.DefaultRelease)
-	result.Arches, result.OS, result.Series = supported.Architectures, supported.OS, supported.Series
+	supported := transformFindArchitectureBases(resp.DefaultRelease)
+	result.Arches, result.OS, result.Supports = supported.Architectures, supported.OS, supported.Bases
 	return result
 }
 
@@ -110,35 +107,24 @@ func convertCharm(info transport.InfoResponse) *Charm {
 	return ch
 }
 
-func includeChannel(p []corecharm.Platform, architecture, series string) bool {
-	allArch := architecture == ArchAll
-	allSeries := series == SeriesAll
+func includeChannel(p []corecharm.Platform, arch, base string) bool {
+	allArch := arch == ArchAll
+	allBase := base == BaseAll
 
 	// If we're searching for everything then we can skip the filtering logic
 	// and return immediately.
-	if allArch && allSeries {
+	if allArch && allBase {
 		return true
 	}
 
 	archSet := channelArches(p)
-	seriesSet := channelSeries(p)
+	baseSet := channelBases(p)
 
-	if (allArch || archSet.Contains(architecture)) &&
-		(allSeries || seriesSet.Contains(series) || seriesSet.Contains(SeriesAll)) {
+	if (allArch || archSet.Contains(arch)) &&
+		(allBase || baseSet.Contains(base) || baseSet.Contains(BaseAll)) {
 		return true
 	}
 	return false
-}
-
-func channelSeries(platforms []corecharm.Platform) set.Strings {
-	series := set.NewStrings()
-	for _, v := range platforms {
-		s, err := coreseries.VersionSeries(v.Channel)
-		if err == nil {
-			series.Add(s)
-		}
-	}
-	return series
 }
 
 func channelBases(platforms []corecharm.Platform) set.Strings {
@@ -156,7 +142,7 @@ func channelArches(platforms []corecharm.Platform) set.Strings {
 	}
 	// If the platform contains all the arches, just return them exploded.
 	// This makes the filtering logic simpler for plucking an architecture out
-	// of the channels, we should aim to do the same for series.
+	// of the channels, we should aim to do the same for bases.
 	if arches.Contains(ArchAll) {
 		return set.NewStrings(arch.AllArches().StringList()...)
 	}
@@ -183,12 +169,12 @@ func categories(cats []transport.Category) []string {
 type supported struct {
 	Architectures []string
 	OS            []string
-	Series        []string
+	Bases         []string
 }
 
-// transformFindArchitectureSeries returns a supported type which contains
-// architectures and series for a given channel map.
-func transformFindArchitectureSeries(channel transport.FindChannelMap) supported {
+// transformFindArchitectureBases returns a supported type which contains
+// architectures and bases for a given channel map.
+func transformFindArchitectureBases(channel transport.FindChannelMap) supported {
 	if len(channel.Revision.Bases) < 1 {
 		return supported{}
 	}
@@ -196,19 +182,17 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 	var (
 		arches = set.NewStrings()
 		os     = set.NewStrings()
-		series = set.NewStrings()
+		bases  = set.NewStrings()
 	)
 	for _, p := range channel.Revision.Bases {
 		arches.Add(p.Architecture)
 		os.Add(p.Name)
-		// TODO hml - for this to be correct, must determine IsKubernetes from metadata.
-		s, _ := coreseries.VersionSeries(p.Channel)
-		series.Add(s)
+		bases.Add(p.Name + ":" + p.Channel)
 	}
 	return supported{
 		Architectures: arches.SortedValues(),
 		OS:            os.SortedValues(),
-		Series:        series.SortedValues(),
+		Bases:         bases.SortedValues(),
 	}
 }
 
@@ -295,8 +279,8 @@ func formatRelationPart(r map[string]charm.Relation) (map[string]string, bool) {
 
 // filterChannels returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
-// data. The result is filtered on series and arch.
-func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) ([]string, RevisionsMap, error) {
+// data. The result is filtered on arch and base.
+func filterChannels(channelMap []transport.InfoChannelMap, arch, base string) ([]string, RevisionsMap, error) {
 	var trackList []string
 
 	tracksSeen := set.NewStrings()
@@ -315,7 +299,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch, series string) 
 		}
 
 		platforms := convertBasesToPlatforms(cm.Revision.Bases)
-		if !includeChannel(platforms, arch, series) {
+		if !includeChannel(platforms, arch, base) {
 			continue
 		}
 

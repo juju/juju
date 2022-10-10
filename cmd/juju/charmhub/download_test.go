@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -131,10 +130,10 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
+func (s *downloadSuite) TestRunWithUnsupportedBase(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.expectRefreshUnsupportedSeries()
+	s.expectRefreshUnsupportedBase()
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -145,13 +144,13 @@ func (s *downloadSuite) TestRunWithUnsupportedSeries(c *gc.C) {
 
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, `"test" does not support series "jammy" in channel "stable".  Supported series are: bionic, trusty, xenial.`)
+	c.Assert(err, gc.ErrorMatches, `"test" does not support base "ubuntu:22.04" in channel "stable". Supported bases are: ubuntu:14.04,16.04,18.04.`)
 }
 
 func (s *downloadSuite) TestRunWithNoStableRelease(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.expectRefreshUnsupportedSeries()
+	s.expectRefreshUnsupportedBase()
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -191,7 +190,6 @@ func (s *downloadSuite) TestRunWithInvalidStdout(c *gc.C) {
 
 func (s *downloadSuite) newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
-		arches: arch.AllArches(),
 		CharmHubClientFunc: func(charmhub.Config) (CharmHubClient, error) {
 			return s.charmHubAPI, nil
 		},
@@ -227,7 +225,7 @@ func (s *downloadSuite) expectRefresh(charmHubURL string) {
 	})
 }
 
-func (s *downloadSuite) expectRefreshUnsupportedSeries() {
+func (s *downloadSuite) expectRefreshUnsupportedBase() {
 	s.charmHubAPI.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
 

@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
+	coreseries "github.com/juju/juju/core/series"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.charmhub")
 
 func newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
-		arches: arch.AllArches(),
 		CharmHubClientFunc: func(config charmhub.Config) (CharmHubClient, error) {
 			return charmhub.NewClient(config)
 		},
@@ -35,7 +35,7 @@ type charmHubCommand struct {
 	modelcmd.FilesystemCommand
 
 	arch        string
-	arches      arch.Arches
+	base        string
 	series      string
 	charmHubURL string
 
@@ -43,7 +43,7 @@ type charmHubCommand struct {
 }
 
 func (c *charmHubCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.charmHubURL, "charmhub-url", charmhub.DefaultServerURL, "specify the Charmhub URL for querying the store")
+	f.StringVar(&c.charmHubURL, "charmhub-url", charmhub.DefaultServerURL, "Specify the Charmhub URL for querying the store")
 }
 
 // Init initializes the info command, including validating the provided
@@ -55,7 +55,7 @@ func (c *charmHubCommand) Init(args []string) error {
 		c.arch = ArchAll
 	}
 
-	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
+	if c.arch != ArchAll && !arch.AllArches().Contains(c.arch) {
 		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
 	}
 
@@ -74,6 +74,21 @@ func (c *charmHubCommand) Init(args []string) error {
 }
 
 func (c *charmHubCommand) archArgumentList() string {
-	archList := strings.Join(c.arches.StringList(), "|")
+	archList := strings.Join(arch.AllArches().StringList(), "|")
 	return fmt.Sprintf("%s|%s", ArchAll, archList)
+}
+
+// convertSeriesArgToBase converts the deprecated --series argument to a base.
+func (c *charmHubCommand) convertSeriesArgToBase() error {
+	if c.base != "all" && c.series != "" {
+		return errors.Errorf("only one of --base or --series may be specified")
+	}
+	if c.series != "" {
+		base, err := coreseries.GetBaseFromSeries(c.series)
+		if err != nil {
+			return errors.NotValidf("series %q", c.series)
+		}
+		c.base = base.String()
+	}
+	return nil
 }

@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	// SeriesAll defines a platform that targets all series.
-	SeriesAll = "all"
 	// ArchAll defines a platform that targets all architectures.
 	ArchAll = "all"
+	// BaseAll defines a platform that targets all bases.
+	BaseAll = "all"
 )
 
 type InfoResponse struct {
@@ -21,7 +21,7 @@ type InfoResponse struct {
 	Description string       `json:"description" yaml:"description"`
 	Publisher   string       `json:"publisher" yaml:"publisher"`
 	Summary     string       `json:"summary" yaml:"summary"`
-	Series      []string     `json:"series,omitempty" yaml:"series,omitempty"`
+	Supports    []string     `json:"supports,omitempty" yaml:"supports,omitempty"`
 	StoreURL    string       `json:"store-url" yaml:"store-url"`
 	Tags        []string     `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Charm       *Charm       `json:"charm,omitempty" yaml:"charm,omitempty"`
@@ -43,7 +43,7 @@ type FindResponse struct {
 	Version   string   `json:"version" yaml:"version"`
 	Arches    []string `json:"architectures,omitempty" yaml:"architectures,omitempty"`
 	OS        []string `json:"os,omitempty" yaml:"os,omitempty"`
-	Series    []string `json:"series,omitempty" yaml:"series,omitempty"`
+	Supports  []string `json:"supports,omitempty" yaml:"supports,omitempty"`
 	StoreURL  string   `json:"store-url" yaml:"store-url"`
 }
 

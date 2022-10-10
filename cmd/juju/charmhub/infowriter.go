@@ -214,7 +214,7 @@ func (c charmInfoWriter) Print() error {
 		ID:          c.in.ID,
 		Summary:     c.in.Summary,
 		Publisher:   c.in.Publisher,
-		Supports:    strings.Join(c.in.Series, ", "),
+		Supports:    formatBases(c.in.Supports),
 		StoreURL:    c.in.StoreURL,
 		Description: c.in.Description,
 		Channels:    c.channels(),

@@ -77,12 +77,12 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": c.formatter,
 	})
 
-	f.StringVar(&c.category, "category", "", `filter by a category name`)
-	f.StringVar(&c.channel, "channel", "", `filter by channel"`)
-	f.StringVar(&c.charmType, "type", "", `search by a given type <charm|bundle>`)
-	f.StringVar(&c.publisher, "publisher", "", `search by a given publisher`)
+	f.StringVar(&c.category, "category", "", "Filter by category name")
+	f.StringVar(&c.channel, "channel", "", "Filter by channel")
+	f.StringVar(&c.charmType, "type", "", "Search by type <charm|bundle>")
+	f.StringVar(&c.publisher, "publisher", "", "Search by publisher")
 
-	f.StringVar(&c.columns, "columns", "nbvps", `display the columns associated with a find search.
+	f.StringVar(&c.columns, "columns", "nbvps", `Display the columns associated with a find search.
 
     The following columns are supported:
         - n: Name
@@ -90,8 +90,8 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
         - v: Version
         - p: Publisher
         - s: Summary
-		- a: Architecture
-		- o: OS
+        - a: Architecture
+        - o: OS
         - S: Supports
 `)
 	// TODO (stickupkid): add the following:

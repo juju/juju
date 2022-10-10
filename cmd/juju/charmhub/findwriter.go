@@ -126,11 +126,11 @@ func (f findWriter) Print() error {
 			case ColumnNameVersion:
 				colValues = append(colValues, result.Version)
 			case ColumnNameArchitectures:
-				colValues = append(colValues, strings.Join(result.Arches, ","))
+				colValues = append(colValues, strings.Join(result.Arches, ", "))
 			case ColumnNameOS:
-				colValues = append(colValues, strings.Join(result.OS, ","))
+				colValues = append(colValues, strings.Join(result.OS, ", "))
 			case ColumnNameSupports:
-				colValues = append(colValues, strings.Join(result.Series, ","))
+				colValues = append(colValues, formatBases(result.Supports))
 			case ColumnNamePublisher:
 				colValues = append(colValues, result.Publisher)
 			case ColumnNameSummary:

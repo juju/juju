@@ -22,9 +22,6 @@ const (
 	infoDoc     = `
 The charm can be specified by name or by path.
 
-Channels displayed are supported by any series.
-To see channels supported for only a specific series, use the --series flag.
-
 Examples:
     juju info postgresql
 
@@ -73,11 +70,12 @@ func (c *infoCommand) Info() *cmd.Info {
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
-	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
-	f.BoolVar(&c.config, "config", false, "display config for this charm")
-	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("Filter channels by arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.base, "base", BaseAll, "Filter channels by base (in 'ubuntu:22.04' format)")
+	f.StringVar(&c.channel, "channel", "", "Specify a channel to use instead of the default release")
+	f.BoolVar(&c.config, "config", false, "Display config for this charm")
+	f.StringVar(&c.series, "series", "", "Filter channels by series (DEPRECATED; use --base instead)")
+	f.StringVar(&c.unicode, "unicode", "auto", "Display output using unicode <auto|never|always>")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -106,6 +104,11 @@ func (c *infoCommand) Init(args []string) error {
 		c.unicode = "auto"
 	default:
 		return errors.Errorf("unexpected unicode flag value %q, expected <auto|never|always>", c.unicode)
+	}
+
+	err := c.convertSeriesArgToBase()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -154,7 +157,7 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	view, err := convertInfoResponse(info, c.arch, c.series)
+	view, err := convertInfoResponse(info, c.arch, c.base)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -177,14 +180,14 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 	// Default is to include both architecture and bases
 	mode := baseModeBoth
 	switch {
-	case c.arch != ArchAll && c.series != SeriesAll:
-		// If --arch and --series given, don't show arch or bases
+	case c.arch != ArchAll && c.base != BaseAll:
+		// If --arch and --base given, don't show arch or bases
 		mode = baseModeNone
-	case c.arch != ArchAll && c.series == SeriesAll:
+	case c.arch != ArchAll && c.base == BaseAll:
 		// If only --arch given, show bases
 		mode = baseModeBases
-	case c.arch == ArchAll && c.series != SeriesAll:
-		// If only --series given, show arch
+	case c.arch == ArchAll && c.base != BaseAll:
+		// If only --base given, show arch
 		mode = baseModeArches
 	}
 
