@@ -6,7 +6,7 @@ package clientconfig
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -52,7 +52,7 @@ func GetLocalKubeConfig() (*clientcmdapi.Config, error) {
 // reader, otherwise defaulting over to the default Kubernetes config loading
 func configFromPossibleReader(reader io.Reader) (*clientcmdapi.Config, error) {
 	if reader != nil {
-		contents, err := ioutil.ReadAll(reader)
+		contents, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, errors.Annotate(err, "failed to read Kubernetes config")
 		}
@@ -170,7 +170,7 @@ func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string
 
 		k8sCAData := cluster.CertificateAuthorityData
 		if len(cluster.CertificateAuthorityData) == 0 && cluster.CertificateAuthority != "" {
-			caData, err := ioutil.ReadFile(cluster.CertificateAuthority)
+			caData, err := os.ReadFile(cluster.CertificateAuthority)
 			if err != nil {
 				return CloudConfig{}, errors.Trace(err)
 			}

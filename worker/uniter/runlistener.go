@@ -7,9 +7,9 @@
 package uniter
 
 import (
-	"io/ioutil"
 	"net"
 	"net/rpc"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -184,7 +184,7 @@ func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecRespo
 		// TODO: Cache unit password
 		baseDir := agent.Dir(agentconfig.DataDir, names.NewUnitTag(args.UnitName))
 		infoFilePath := filepath.Join(baseDir, caas.OperatorClientInfoCacheFile)
-		d, err := ioutil.ReadFile(infoFilePath)
+		d, err := os.ReadFile(infoFilePath)
 		if err != nil {
 			return nil, errors.Annotatef(err, "reading %s", infoFilePath)
 		}

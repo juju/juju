@@ -147,7 +147,7 @@ var ctests = []struct {
 			map[string]any{
 				"name":        "auser",
 				"lock_passwd": true,
-				"ssh-authorized-keys": []string{
+				"ssh_authorized_keys": []string{
 					fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyOne.Key),
 					fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyTwo.Key),
 				},
@@ -190,10 +190,10 @@ var ctests = []struct {
 				"lock_passwd": true,
 				"groups":      []string{"agroup", "bgroup"},
 				"shell":       "/bin/sh",
-				"ssh-authorized-keys": []string{
+				"ssh_authorized_keys": []string{
 					sshtesting.ValidKeyOne.Key + " Juju:sshkey",
 				},
-				"sudo": []string{"ALL=(ALL) ALL"},
+				"sudo": "ALL=(ALL) ALL",
 			},
 		},
 	},
@@ -203,7 +203,7 @@ var ctests = []struct {
 			Groups:            []string{"agroup", "bgroup"},
 			Shell:             "/bin/sh",
 			SSHAuthorizedKeys: sshtesting.ValidKeyOne.Key + "\n",
-			Sudo:              []string{"ALL=(ALL) ALL"},
+			Sudo:              "ALL=(ALL) ALL",
 		})
 		return nil
 	},

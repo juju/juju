@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -1588,7 +1588,7 @@ func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			Request:    req,
 			StatusCode: http.StatusNotFound,
 			Header:     http.Header{"Content-Type": {"application/text"}},
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(""))),
+			Body:       io.NopCloser(bytes.NewReader([]byte(""))),
 		}, nil
 	}
 	return t.fallback.RoundTrip(req)

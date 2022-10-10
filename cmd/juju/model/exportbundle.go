@@ -11,17 +11,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/bundle"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/rpc/params"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.
 func NewExportBundleCommand() cmd.Command {
 	command := &exportBundleCommand{}
-	command.newAPIFunc = func() (ExportBundleAPI, ConfigAPI, error) {
+	command.newAPIFunc = func() (ExportBundleAPI, error) {
 		return command.getAPIs()
 	}
 	return modelcmd.Wrap(command)
@@ -30,7 +28,7 @@ func NewExportBundleCommand() cmd.Command {
 type exportBundleCommand struct {
 	modelcmd.ModelCommandBase
 	out                  cmd.Output
-	newAPIFunc           func() (ExportBundleAPI, ConfigAPI, error)
+	newAPIFunc           func() (ExportBundleAPI, error)
 	Filename             string
 	includeCharmDefaults bool
 }
@@ -76,31 +74,22 @@ type ExportBundleAPI interface {
 	ExportBundle(bool) (string, error)
 }
 
-// ConfigAPI specifies the used function calls of the ApplicationFacade.
-type ConfigAPI interface {
-	Close() error
-	Get(branchName string, application string) (*params.ApplicationGetResults, error)
-}
-
-func (c *exportBundleCommand) getAPIs() (ExportBundleAPI, ConfigAPI, error) {
+func (c *exportBundleCommand) getAPIs() (ExportBundleAPI, error) {
 	api, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return bundle.NewClient(api), application.NewClient(api), nil
+	return bundle.NewClient(api), nil
 }
 
 // Run implements Command.
 func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
-	bundleClient, cfgClient, err := c.newAPIFunc()
+	bundleClient, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = bundleClient.Close()
-		_ = cfgClient.Close()
-	}()
+	defer bundleClient.Close()
 
 	result, err := bundleClient.ExportBundle(c.includeCharmDefaults)
 	if err != nil {

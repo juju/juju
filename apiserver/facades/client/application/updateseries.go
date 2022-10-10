@@ -126,7 +126,7 @@ func (s updateSeriesValidator) ValidateApplication(app Application, series strin
 // When making changes here, review the copy for required changes as well.
 type stateSeriesValidator struct{}
 
-// ValidateApplications attempts to validate a series of applications for
+// ValidateApplication attempts to validate a series of applications for
 // a given series.
 func (s stateSeriesValidator) ValidateApplication(application Application, series string, force bool) error {
 	ch, _, err := application.Charm()

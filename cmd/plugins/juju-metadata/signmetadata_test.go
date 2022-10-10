@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +52,7 @@ func setupJsonFiles(c *gc.C, topLevel string) {
 	content := []byte("hello world")
 	filenames := makeFileNames(topLevel)
 	for _, filename := range filenames {
-		err = ioutil.WriteFile(filename, content, 0644)
+		err = os.WriteFile(filename, content, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -78,7 +77,7 @@ func assertSignedFiles(c *gc.C, topLevel string) {
 func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 	topLevel := c.MkDir()
 	keyfile := filepath.Join(topLevel, "privatekey.asc")
-	err := ioutil.WriteFile(keyfile, []byte(sstesting.SignedMetadataPrivateKey), 0644)
+	err := os.WriteFile(keyfile, []byte(sstesting.SignedMetadataPrivateKey), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	setupJsonFiles(c, topLevel)
 

@@ -24,7 +24,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		Arch     string
 		Series   string
 		Input    []transport.InfoChannelMap
-		Expected map[string]Channel
+		Expected RevisionsMap
 	}{{
 		Name:   "match all",
 		Arch:   "all",
@@ -33,17 +33,20 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Series: []string{"bionic"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -54,17 +57,20 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Series: []string{"bionic"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -75,17 +81,20 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: []string{"amd64"},
-				Series: []string{"bionic"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: []string{"amd64"},
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -95,12 +104,13 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		Input: []transport.InfoChannelMap{{
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{},
+		Expected: RevisionsMap{},
 	}, {
 		Name:   "channel has all architectures with same series",
 		Arch:   "amd64",
@@ -109,17 +119,20 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Series: []string{"bionic"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -130,12 +143,13 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "all",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{},
+		Expected: RevisionsMap{},
 	}, {
 		Name:   "multiple channels have all architectures with same series",
 		Arch:   "amd64",
@@ -144,6 +158,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
@@ -152,17 +167,20 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "20.04",
 					Architecture: "all",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: arch.AllArches().StringList(),
-				Series: []string{"focal"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []string{"ubuntu:20.04"},
+				}},
 			},
 		},
 	}, {
@@ -173,6 +191,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "amd64",
 				}},
@@ -181,17 +200,20 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "20.04",
 					Architecture: "all",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{
-			"latest/stable": {
-				Track:  "latest",
-				Risk:   "stable",
-				Arches: []string{"amd64"},
-				Series: []string{"bionic"},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: []string{"amd64"},
+					Bases:  []string{"ubuntu:18.04"},
+				}},
 			},
 		},
 	}, {
@@ -202,6 +224,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "arm64",
 				}},
@@ -210,12 +233,13 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			Channel: transport.Channel{Risk: "stable"},
 			Revision: transport.InfoRevision{
 				Bases: []transport.Base{{
+					Name:         "ubuntu",
 					Channel:      "18.04",
 					Architecture: "ppc64",
 				}},
 			},
 		}},
-		Expected: map[string]Channel{},
+		Expected: RevisionsMap{},
 	}, {
 		Name:   "exact match finds no valid channels",
 		Arch:   "amd64",
@@ -245,20 +269,70 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 				Revision: 501,
 			},
 		}},
-		Expected: map[string]Channel{
-			"xena/edge": {
-				ReleasedAt: "2022-04-01T02:41:31.140463+00:00",
+		Expected: RevisionsMap{
+			"xena": {
+				"edge": {{
+					ReleasedAt: "2022-04-01T02:41:31.140463+00:00",
+					Risk:       "edge",
+					Track:      "xena",
+					Revision:   522,
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:20.04"},
+				}},
+			},
+		},
+	}, {
+		Name:   "sorts latest revisions first",
+		Arch:   "all",
+		Series: "all",
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:       "xena/edge",
+				Base:       transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
+				ReleasedAt: "2022-02-01T02:41:31.140463+00:00",
 				Risk:       "edge",
 				Track:      "xena",
-				Revision:   522,
-				Arches:     []string{"amd64"},
-				Series:     []string{"focal"},
+			},
+			Revision: transport.InfoRevision{
+				Bases:    []transport.Base{{Channel: "20.04", Name: "ubuntu", Architecture: "amd64"}},
+				Revision: 500,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:       "xena/edge",
+				Base:       transport.Base{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
+				ReleasedAt: "2022-03-04T10:38:13.959649+00:00",
+				Risk:       "edge",
+				Track:      "xena",
+			},
+			Revision: transport.InfoRevision{
+				Bases:    []transport.Base{{Channel: "20.04", Name: "ubuntu", Architecture: "amd64"}},
+				Revision: 501,
+			},
+		}},
+		Expected: RevisionsMap{
+			"xena": {
+				"edge": {{
+					ReleasedAt: "2022-03-04T10:38:13.959649+00:00",
+					Risk:       "edge",
+					Track:      "xena",
+					Revision:   501,
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:20.04"},
+				}, {
+					ReleasedAt: "2022-02-01T02:41:31.140463+00:00",
+					Risk:       "edge",
+					Track:      "xena",
+					Revision:   500,
+					Arches:     []string{"amd64"},
+					Bases:      []string{"ubuntu:20.04"},
+				}},
 			},
 		},
 	}}
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)
-		_, got, err := filterChannels(v.Input, false, v.Arch, v.Series)
+		_, got, err := filterChannels(v.Input, v.Arch, v.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(got, jc.DeepEquals, v.Expected)
 	}

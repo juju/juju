@@ -241,13 +241,13 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
 	}
-	info, err := series.GetOSVersionFromSeries(machineSeries)
+	info, err := series.GetBaseFromSeries(machineSeries)
 	if err != nil {
 		return nil, errors.NotValidf("machine series %q", machineSeries)
 	}
 	base := &params.Base{
-		Name:    info.Name,
-		Channel: info.Channel,
+		Name:    info.OS,
+		Channel: info.Channel.String(),
 	}
 
 	// There will never be a corresponding "instance" that any provider

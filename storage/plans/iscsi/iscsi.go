@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -191,7 +190,7 @@ func (i *iscsiConnectionInfo) sessionBase(deviceName string) (string, error) {
 }
 
 func (i *iscsiConnectionInfo) deviceName() (string, error) {
-	items, err := ioutil.ReadDir(sysfsBlock)
+	items, err := os.ReadDir(sysfsBlock)
 	if err != nil {
 		return "", err
 	}
@@ -207,7 +206,7 @@ func (i *iscsiConnectionInfo) deviceName() (string, error) {
 			logger.Tracef("%s was not found. Skipping", tgtnameFile)
 			continue
 		}
-		tgtname, err := ioutil.ReadFile(tgtnameFile)
+		tgtname, err := os.ReadFile(tgtnameFile)
 		if err != nil {
 			return "", err
 		}

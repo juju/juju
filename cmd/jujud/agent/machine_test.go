@@ -8,7 +8,6 @@ import (
 	"bytes"
 	stdcontext "context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1059,7 +1058,7 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), jc.IsTrue)
 
 	// Check the mongo certificate file too.
-	pemContent, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
+	pemContent, err := os.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
 }

@@ -3879,8 +3879,9 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	})
 	var err error
 	s.wordpress, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "wordpress",
-		Charm: s.wpCharm,
+		Name:        "wordpress",
+		Charm:       s.wpCharm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
 		EndpointBindings: map[string]string{
 			"db":        "internal",   // relation name
 			"admin-api": "public",     // extra-binding name
@@ -4562,7 +4563,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `prerequisites failed: "wordpress/1" is not leader of "wordpress"`}},
+			{Error: &params.Error{Message: `checking leadership continuity: "wordpress/1" is not leader of "wordpress"`}},
 		},
 	})
 }
@@ -4806,7 +4807,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `prerequisites failed: "` + gitlabUnit.Tag().Id() + `" is not leader of "` + gitlab.Name() + `"`}},
+			{Error: &params.Error{Message: `checking leadership continuity: "` + gitlabUnit.Tag().Id() + `" is not leader of "` + gitlab.Name() + `"`}},
 		},
 	})
 }
@@ -5034,7 +5035,7 @@ type fakeToken struct {
 	err error
 }
 
-func (t *fakeToken) Check(int, interface{}) error {
+func (t *fakeToken) Check() error {
 	return t.err
 }
 
@@ -5047,7 +5048,7 @@ type token struct {
 	unit, application string
 }
 
-func (t *token) Check(attempt int, trapdoorKey interface{}) error {
+func (t *token) Check() error {
 	if !t.isLeader {
 		return leadership.NewNotLeaderError(t.unit, t.application)
 	}

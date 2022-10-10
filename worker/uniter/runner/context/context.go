@@ -311,7 +311,7 @@ type HookContext struct {
 	workloadName string
 
 	// seriesUpgradeTarget is the series that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-series` command.
+	// updated to when Juju is issued the `upgrade-machine` command.
 	seriesUpgradeTarget string
 
 	// secretURI is the reference to the secret relevant to the hook.

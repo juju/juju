@@ -8,7 +8,6 @@ import (
 	stdcontext "context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -368,7 +367,7 @@ func getStdinPipe(ctx *cmd.Context) (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		content, err := ioutil.ReadAll(stdIn)
+		content, err := io.ReadAll(stdIn)
 		if err != nil {
 			return nil, err
 		}

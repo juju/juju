@@ -131,9 +131,9 @@ func (cfg *cloudConfig) AddUser(user *User) {
 		newUser["shell"] = user.Shell
 	}
 	if user.SSHAuthorizedKeys != "" {
-		newUser["ssh-authorized-keys"] = annotateKeys(user.SSHAuthorizedKeys)
+		newUser["ssh_authorized_keys"] = annotateKeys(user.SSHAuthorizedKeys)
 	}
-	if user.Sudo != nil {
+	if user.Sudo != "" {
 		newUser["sudo"] = user.Sudo
 	}
 	cfg.SetAttr("users", append(users, newUser))

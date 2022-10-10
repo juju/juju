@@ -30,8 +30,9 @@ func (s *CharmUpgradeSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.appOne, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:  s.appOneName,
-		Charm: charmOne,
+		Name:        s.appOneName,
+		Charm:       charmOne,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	unitOne, err := s.appOne.AddUnit(state.AddUnitParams{})
@@ -41,8 +42,9 @@ func (s *CharmUpgradeSuite) SetUpTest(c *gc.C) {
 	s.appTwoName = "app2"
 	charmTwo := s.AddTestingCharm(c, "upgrade-charm2")
 	appTwo, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:  s.appTwoName,
-		Charm: charmTwo,
+		Name:        s.appTwoName,
+		Charm:       charmTwo,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	unitTwo, err := appTwo.AddUnit(state.AddUnitParams{})

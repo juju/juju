@@ -50,14 +50,14 @@ var marshalTestCases = []struct {
 				Current: status.Pending,
 			},
 			Life:                    life.Alive,
-			Series:                  "jammy",
+			Base:                    "ubuntu:22.04",
 			SupportedContainers:     []instance.ContainerType{instance.LXD},
 			Jobs:                    []model.MachineJob{model.JobManageModel},
 			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
-	json: `["machine","change",{"model-uuid":"uuid","id":"Benji","instance-id":"Shazam","container-type":"","agent-status":{"current":"error","message":"foo","version":""},"instance-status":{"current":"pending","message":"","version":""},"life":"alive","series":"jammy","supported-containers":["lxd"],"supported-containers-known":false,"hardware-characteristics":{},"jobs":["JobManageModel"],"addresses":[],"has-vote":false,"wants-vote":false}]`,
+	json: `["machine","change",{"model-uuid":"uuid","id":"Benji","instance-id":"Shazam","container-type":"","agent-status":{"current":"error","message":"foo","version":""},"instance-status":{"current":"pending","message":"","version":""},"life":"alive","base":"ubuntu:22.04","supported-containers":["lxd"],"supported-containers-known":false,"hardware-characteristics":{},"jobs":["JobManageModel"],"addresses":[],"has-vote":false,"wants-vote":false}]`,
 }, {
 	about: "ApplicationInfo Delta",
 	value: params.Delta{
@@ -101,7 +101,7 @@ var marshalTestCases = []struct {
 			ModelUUID:   "uuid",
 			Name:        "Benji",
 			Application: "Shazam",
-			Series:      "precise",
+			Base:        "ubuntu:12.04",
 			CharmURL:    "cs:~user/precise/wordpress-42",
 			Life:        life.Alive,
 			Ports: []params.Port{{
@@ -125,7 +125,7 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["unit","change",{"model-uuid":"uuid","name":"Benji","application":"Shazam","series":"precise","charm-url":"cs:~user/precise/wordpress-42","life":"alive","public-address":"testing.invalid","private-address":"10.0.0.1","machine-id":"1","principal":"","ports":[{"protocol":"http","number":80}],"port-ranges":[{"from-port":80,"to-port":80,"protocol":"http"}],"subordinate":false,"workload-status":{"current":"active","message":"all good","version":""},"agent-status":{"current":"idle","message":"","version":""}}]`,
+	json: `["unit","change",{"model-uuid":"uuid","name":"Benji","application":"Shazam","base":"ubuntu:12.04","charm-url":"cs:~user/precise/wordpress-42","life":"alive","public-address":"testing.invalid","private-address":"10.0.0.1","machine-id":"1","principal":"","ports":[{"protocol":"http","number":80}],"port-ranges":[{"from-port":80,"to-port":80,"protocol":"http"}],"subordinate":false,"workload-status":{"current":"active","message":"all good","version":""},"agent-status":{"current":"idle","message":"","version":""}}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{

@@ -5,7 +5,6 @@ package provider_test
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -122,7 +121,7 @@ func (s *builtinSuite) prepareKubeConfigFile(c *gc.C, content string) string {
 	fileDir := filepath.Join(dir, "microk8s", "credentials")
 	os.MkdirAll(fileDir, os.ModePerm)
 	path := filepath.Join(fileDir, "client.config")
-	err := ioutil.WriteFile(path, []byte(content), 0660)
+	err := os.WriteFile(path, []byte(content), 0660)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

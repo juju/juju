@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	stdos "os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -39,7 +39,7 @@ const (
 	FileNameBootstrapParams = "bootstrap-params"
 
 	// curlCommand is the base curl command used to download tools.
-	curlCommand = "curl -sSfw 'agent binaries from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+	curlCommand = "curl -sSf"
 
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
@@ -51,7 +51,7 @@ const (
 n=1
 while true; do
 {{range .URLs}}
-    printf "Attempt $n to download agent binaries from %s...\n" {{shquote .}}
+    echo "Attempt $n to download agent binaries from {{shquote .}}...\n"
     {{$curl}} {{shquote .}} && echo "Agent binaries downloaded successfully." && break
 {{end}}
     echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
@@ -307,7 +307,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		// If the new juju proxies are used, the legacy proxies will not be set, and the
 		// /etc/juju-proxy.conf file will be empty.
 		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
-			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
+			`echo '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
 	if w.icfg.LegacyProxySettings.HasProxySet() {
 		exportedProxyEnv := w.icfg.LegacyProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
@@ -513,7 +513,7 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	}
 
 	logger.Infof("preparing to upload juju-db snap from %v", snapPath)
-	snapData, err := ioutil.ReadFile(snapPath)
+	snapData, err := stdos.ReadFile(snapPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -521,7 +521,7 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapName), snapData, 0644)
 
 	logger.Infof("preparing to upload juju-db assertions from %v", assertionsPath)
-	snapAssertionsData, err := ioutil.ReadFile(assertionsPath)
+	snapAssertionsData, err := stdos.ReadFile(assertionsPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -560,7 +560,7 @@ func (w *unixConfigure) addLocalControllerCharmsUpload() error {
 		}
 		charmData = buf.Bytes()
 	} else {
-		charmData, err = ioutil.ReadFile(charmPath)
+		charmData, err = stdos.ReadFile(charmPath)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -573,7 +573,7 @@ func (w *unixConfigure) addLocalControllerCharmsUpload() error {
 func (w *unixConfigure) addDownloadToolsCmds() error {
 	tools := w.icfg.ToolsList()[0]
 	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
-		toolsData, err := ioutil.ReadFile(tools.URL[len(fileSchemePrefix):])
+		toolsData, err := stdos.ReadFile(tools.URL[len(fileSchemePrefix):])
 		if err != nil {
 			return err
 		}

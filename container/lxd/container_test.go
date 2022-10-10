@@ -201,22 +201,6 @@ func (s *containerSuite) TestContainerAddresses(c *gc.C) {
 					},
 				},
 			},
-			"lxcbr0": {
-				Addresses: []api.InstanceStateNetworkAddress{
-					{
-						Family:  "inet",
-						Address: "10.0.5.12",
-						Netmask: "24",
-						Scope:   "global",
-					},
-					{
-						Family:  "inet6",
-						Address: "fe80::216:3eff:fe3b:e432",
-						Netmask: "64",
-						Scope:   "link",
-					},
-				},
-			},
 			"lxdbr0": {
 				Addresses: []api.InstanceStateNetworkAddress{
 					{

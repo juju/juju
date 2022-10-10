@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
+	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 )
 
@@ -163,7 +165,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 	}
 	var gotURI *coresecrets.URI
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.secretsBackend.EXPECT().CreateSecret(gomock.Any(), p).DoAndReturn(
 		func(uri *coresecrets.URI, p state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
 			ownerTag := names.NewApplicationTag("mariadb")
@@ -229,7 +231,7 @@ func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
 		},
 	}
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.secretsBackend.EXPECT().CreateSecret(gomock.Any(), p).Return(
 		nil, fmt.Errorf("dup label %w", state.LabelExists),
 	)
@@ -289,7 +291,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		},
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
-	s.token.EXPECT().Check(0, nil).Return(nil).Times(2)
+	s.token.EXPECT().Check().Return(nil).Times(2)
 	s.expectSecretAccessQuery(2)
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
@@ -339,7 +341,7 @@ func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
 		nil, fmt.Errorf("dup label %w", state.LabelExists),
 	)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(1)
 
 	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
@@ -365,9 +367,12 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	expectURI := *uri
 	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(true, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(1)
-	s.provider.EXPECT().CleanupSecrets(mockModel{}, []*coresecrets.URI{uri}).Return(nil)
+	s.provider.EXPECT().CleanupSecrets(
+		mockModel{}, names.NewUnitTag("mariadb/0"),
+		secretsprovider.SecretRevisions{uri.ID: set.NewInts(666)},
+	).Return(nil)
 
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
@@ -388,7 +393,7 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 	expectURI := *uri
 	s.secretsBackend.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(false, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(1)
 
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
@@ -431,7 +436,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 
 	now := time.Now()
 	uri := coresecrets.NewURI()
@@ -559,7 +564,7 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.secretsBackend.EXPECT().WatchObsolete(
 		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
 		s.secretsWatcher, nil,
@@ -589,7 +594,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.secretTriggers.EXPECT().WatchSecretsRotationChanges(
 		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
 		s.secretsTriggerWatcher, nil,
@@ -738,7 +743,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 	s.secretTriggers.EXPECT().WatchSecretRevisionsExpiryChanges(
 		[]names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")}).Return(
 		s.secretsTriggerWatcher, nil,
@@ -790,7 +795,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 		Role:        coresecrets.RoleView,
 	}).Return(errors.New("boom"))
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 
 	result, err := s.facade.SecretsGrant(params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{
@@ -834,7 +839,7 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 		Role:        coresecrets.RoleView,
 	}).Return(errors.New("boom"))
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
-	s.token.EXPECT().Check(0, nil).Return(nil)
+	s.token.EXPECT().Check().Return(nil)
 
 	result, err := s.facade.SecretsRevoke(params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{

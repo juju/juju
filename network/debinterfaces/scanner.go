@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -45,7 +45,7 @@ func newScanner(filename string, src interface{}) (*lineScanner, error) {
 // the result of reading the file specified by filename.
 func readSource(filename string, src interface{}) ([]byte, error) {
 	if src == nil {
-		return ioutil.ReadFile(filename)
+		return os.ReadFile(filename)
 	}
 	switch s := src.(type) {
 	case string:

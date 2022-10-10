@@ -4,7 +4,7 @@
 package cloud_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -48,7 +48,7 @@ clouds:
       paris:
          endpoint: "http://paris/1.0"
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	err := os.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

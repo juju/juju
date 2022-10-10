@@ -4,7 +4,6 @@
 package tools_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -53,9 +52,9 @@ func (s *SymlinksSuite) testEnsureSymlinks(c *gc.C, dir string) {
 	// If we have both 'jujuc' and 'jujud' prefer 'jujuc'
 	jujucPath := filepath.Join(s.toolsDir, names.Jujuc)
 	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
-	err := ioutil.WriteFile(jujucPath, []byte("first pick"), 0755)
+	err := os.WriteFile(jujucPath, []byte("first pick"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
+	err = os.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertLink := func(path string) time.Time {

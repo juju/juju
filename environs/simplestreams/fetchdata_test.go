@@ -6,7 +6,6 @@ package simplestreams_test
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -123,7 +122,7 @@ func (s *fetchDataSuite) setupDataSource(key string) {
 	s.source = testing.NewStubDataSource()
 	s.source.FetchFunc = func(path string) (io.ReadCloser, string, error) {
 		r := bytes.NewReader([]byte(s.readerData))
-		return ioutil.NopCloser(r), path, nil
+		return io.NopCloser(r), path, nil
 	}
 	s.source.PublicSigningKeyFunc = func() string {
 		return key

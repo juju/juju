@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
@@ -524,7 +523,7 @@ func (*addSuite) TestInteractive(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  &bytes.Buffer{},
 	}
 	err = command.Run(ctx)
@@ -562,7 +561,7 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
+		Stdout: io.Discard,
 		Stderr: out,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "maas\n" +
@@ -645,8 +644,8 @@ func (*addSuite) TestInteractiveManualInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
-		Stderr: ioutil.Discard,
+		Stdout: io.Discard,
+		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "manual\n" +
 			/* Enter a name for the cloud: */ manCloud.Name + "\n",
@@ -696,7 +695,7 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	var stdout bytes.Buffer
 	ctx := &cmd.Context{
 		Stdout: &stdout,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "vsphere\n" +
 			/* Enter a name for the cloud: */ "mvs\n" +
@@ -739,8 +738,8 @@ func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
-		Stderr: ioutil.Discard,
+		Stdout: io.Discard,
+		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "manual\n" +
 			/* Enter a name for the cloud: */ "homestack\n" +
@@ -778,7 +777,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	var out bytes.Buffer
 	ctx := &cmd.Context{
 		Stdout: &out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "manual\n" +
 			/* Enter a name for the cloud: */ "homestack" + "\n" +
@@ -810,7 +809,7 @@ func (s *addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 	var out bytes.Buffer
 	ctx := &cmd.Context{
 		Stdout: &out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "manual\n",
 		),
@@ -998,7 +997,7 @@ func (*addSuite) TestInteractiveOpenstackCloudCertFail(c *gc.C) {
 	fakeCertFilename := path.Join(fakeCertDir, "cloudcert.crt")
 
 	invalidCertFilename := path.Join(fakeCertDir, "invalid.crt")
-	ioutil.WriteFile(invalidCertFilename, []byte("testing certification validation"), 0666)
+	os.WriteFile(invalidCertFilename, []byte("testing certification validation"), 0666)
 
 	input := fmt.Sprintf(""+
 		/* Select cloud type: */ "openstack\n"+
@@ -1091,7 +1090,7 @@ func (*addOpenStackSuite) TestInteractiveOpenstackCloudCertEnvVar(c *gc.C) {
 
 func testInteractiveOpenstackCloudCert(c *gc.C, fakeCertFilename, input, addStdErrMsg, stdOutMsg string) {
 	fakeCert := testing.CACert
-	ioutil.WriteFile(fakeCertFilename, []byte(fakeCert), 0666)
+	os.WriteFile(fakeCertFilename, []byte(fakeCert), 0666)
 
 	myOpenstack := jujucloud.Cloud{
 		Name:      "os1",

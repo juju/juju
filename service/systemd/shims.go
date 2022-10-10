@@ -4,7 +4,6 @@
 package systemd
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -42,5 +41,5 @@ func (f fileSystemOps) RemoveAll(name string) error {
 // symbolic link, in which case attempting to write would return an error.
 func (f fileSystemOps) WriteFile(fileName string, data []byte, perm os.FileMode) error {
 	_ = os.Remove(fileName)
-	return errors.Trace(ioutil.WriteFile(fileName, data, perm))
+	return errors.Trace(os.WriteFile(fileName, data, perm))
 }

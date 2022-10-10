@@ -138,7 +138,7 @@ run_charm_storage() {
 }
 
 test_charm_storage() {
-	if [ "$(skip 'test-charm-storage')" ]; then
+	if [ "$(skip 'test_charm_storage')" ]; then
 		echo "==> TEST SKIPPED: charm storage tests"
 		return
 	fi

@@ -4,7 +4,6 @@
 package jujuclient
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -23,7 +22,7 @@ func JujuBootstrapConfigPath() string {
 // ReadBootstrapConfigFile loads all bootstrap configurations defined in a
 // given file. If the file is not found, it is not an error.
 func ReadBootstrapConfigFile(file string) (map[string]BootstrapConfig, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

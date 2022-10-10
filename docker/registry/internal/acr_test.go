@@ -5,7 +5,7 @@ package internal_test
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -60,7 +60,7 @@ func (s *azureContainerRegistrySuite) getRegistry(c *gc.C) (*internal.AzureConta
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusUnauthorized,
-						Body:       ioutil.NopCloser(nil),
+						Body:       io.NopCloser(nil),
 						Header: http.Header{
 							http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 								`Bearer realm="https://jujuqa.azurecr.io/oauth2/token",service="jujuqa.azurecr.io",scope="repository:jujud-operator:metadata_read"`,
@@ -78,7 +78,7 @@ func (s *azureContainerRegistrySuite) getRegistry(c *gc.C) (*internal.AzureConta
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusOK,
-						Body:       ioutil.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
+						Body:       io.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
 					}, nil
 				},
 			),
@@ -88,7 +88,7 @@ func (s *azureContainerRegistrySuite) getRegistry(c *gc.C) (*internal.AzureConta
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
 					c.Assert(req.Method, gc.Equals, `GET`)
 					c.Assert(req.URL.String(), gc.Equals, `https://jujuqa.azurecr.io/v2`)
-					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 				},
 			),
 		)
@@ -138,7 +138,7 @@ func (s *azureContainerRegistrySuite) TestTagsV2(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://jujuqa.azurecr.io/oauth2/token",service="jujuqa.azurecr.io",scope="repository:jujud-operator:metadata_read"`,
@@ -155,7 +155,7 @@ func (s *azureContainerRegistrySuite) TestTagsV2(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
 				}, nil
 			},
 		),
@@ -167,7 +167,7 @@ func (s *azureContainerRegistrySuite) TestTagsV2(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -198,7 +198,7 @@ func (s *azureContainerRegistrySuite) TestTagsErrorResponseV2(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://jujuqa.azurecr.io/oauth2/token",service="jujuqa.azurecr.io",scope="repository:jujud-operator:metadata_read"`,
@@ -215,7 +215,7 @@ func (s *azureContainerRegistrySuite) TestTagsErrorResponseV2(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
 				}, nil
 			},
 		),
@@ -226,7 +226,7 @@ func (s *azureContainerRegistrySuite) TestTagsErrorResponseV2(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -249,7 +249,7 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C, 
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://jujuqa.azurecr.io/oauth2/token",service="jujuqa.azurecr.io",scope="repository:jujud-operator:metadata_read"`,
@@ -266,7 +266,7 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C, 
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
 				}, nil
 			},
 		),
@@ -280,7 +280,7 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C, 
 				},
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(responseData)),
+				Body:       io.NopCloser(strings.NewReader(responseData)),
 			}
 			return resps, nil
 		}),
@@ -334,7 +334,7 @@ func (s *azureContainerRegistrySuite) TestGetBlobs(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://jujuqa.azurecr.io/oauth2/token",service="jujuqa.azurecr.io",scope="repository:jujud-operator:metadata_read"`,
@@ -351,7 +351,7 @@ func (s *azureContainerRegistrySuite) TestGetBlobs(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"access_token": "jwt-token"}`)),
 				}, nil
 			},
 		),
@@ -364,7 +364,7 @@ func (s *azureContainerRegistrySuite) TestGetBlobs(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body: ioutil.NopCloser(strings.NewReader(`
+				Body: io.NopCloser(strings.NewReader(`
 {"architecture":"amd64"}
 `[1:])),
 			}

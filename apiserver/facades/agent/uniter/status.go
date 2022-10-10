@@ -147,10 +147,10 @@ func (s *StatusAPI) ApplicationStatus(args params.Entities) (params.ApplicationS
 
 		// ...so we can check the unit's application leadership...
 		token := s.leadershipChecker.LeadershipCheck(applicationId, unitId)
-		if err := token.Check(0, nil); err != nil {
-			// TODO(fwereade) this should probably be ErrPerm is certain cases,
-			// but I don't think I implemented an exported ErrNotLeader. I
-			// should have done, though.
+		if err := token.Check(); err != nil {
+			// TODO(fwereade) this should probably be ErrPerm in certain cases,
+			// but I don't think I implemented an exported ErrNotLeader.
+			// I should have done, though.
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

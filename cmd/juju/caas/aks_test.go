@@ -6,7 +6,7 @@ package caas
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +44,7 @@ func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
 	aks := &aks{
 		CommandRunner: mockRunner,
 	}
-	err = ioutil.WriteFile(configFile, []byte("data"), 0644)
+	err = os.WriteFile(configFile, []byte("data"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	gomock.InOrder(
@@ -66,7 +66,7 @@ func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
 	defer rdr.Close()
 
 	c.Assert(clusterName, gc.Equals, "mycluster")
-	data, err := ioutil.ReadAll(rdr)
+	data, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.DeepEquals, "data")
 }
@@ -127,7 +127,7 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -200,7 +200,7 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -277,7 +277,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -354,7 +354,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -430,7 +430,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := ""
@@ -528,7 +528,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -586,7 +586,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := ""

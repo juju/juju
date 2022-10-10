@@ -6,7 +6,6 @@ package maas
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,7 +40,7 @@ func (environProviderCredentials) DetectCredentials(cloudName string) (*cloud.Cl
 	// MAAS stores credentials in a json file: ~/.maasrc
 	// {"Server": "http://<ip>/MAAS", "OAuth": "<key>"}
 	maasrc := filepath.Join(utils.Home(), ".maasrc")
-	fileBytes, err := ioutil.ReadFile(maasrc)
+	fileBytes, err := os.ReadFile(maasrc)
 	if os.IsNotExist(err) {
 		return nil, errors.NotFoundf("maas credentials")
 	}

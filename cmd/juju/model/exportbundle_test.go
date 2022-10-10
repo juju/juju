@@ -5,7 +5,6 @@ package model_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -17,14 +16,12 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 
 type ExportBundleCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fakeBundle *fakeExportBundleClient
-	fakeConfig *fakeConfigClient
 	stub       *jujutesting.Stub
 	store      *jujuclient.MemStore
 }
@@ -35,9 +32,6 @@ func (s *ExportBundleCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &jujutesting.Stub{}
 	s.fakeBundle = &fakeExportBundleClient{
-		Stub: s.stub,
-	}
-	s.fakeConfig = &fakeConfigClient{
 		Stub: s.stub,
 	}
 	s.store = jujuclient.NewMemStore()
@@ -90,7 +84,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
 		"- - wordpress:db\n" +
 		"  - mysql:mysql\n"
 
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store))
+	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
 		{"ExportBundle", []interface{}{false}},
@@ -133,7 +127,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 		"series: xenial\n" +
 		"relations:\n" +
 		"- []\n"
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store), "--filename", s.fakeBundle.filename)
+	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
 		{"ExportBundle", []interface{}{false}},
@@ -141,7 +135,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fakeBundle.filename))
-	output, err := ioutil.ReadFile(s.fakeBundle.filename)
+	output, err := os.ReadFile(s.fakeBundle.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "applications:\n"+
 		"  magic:\n"+
@@ -158,7 +152,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleFailNoFilename(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store), "--filename")
+	_, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--filename")
 	c.Assert(err, gc.NotNil)
 
 	c.Assert(err.Error(), gc.Equals, "option needs an argument: --filename")
@@ -167,7 +161,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleFailNoFilename(c *gc.C) {
 func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *gc.C) {
 	s.fakeBundle.filename = filepath.Join(c.MkDir(), "mymodel")
 	s.fakeBundle.result = "fake-data"
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store), "--filename", s.fakeBundle.filename)
+	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
 		{"ExportBundle", []interface{}{false}},
@@ -175,7 +169,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fakeBundle.filename))
-	output, err := ioutil.ReadFile(s.fakeBundle.filename)
+	output, err := os.ReadFile(s.fakeBundle.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "fake-data")
 }
@@ -183,7 +177,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *gc.C) {
 	s.fakeBundle.filename = filepath.Join(c.MkDir(), "mymodel")
 	s.fakeBundle.result = "fake-data"
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.fakeConfig, s.store), "--include-charm-defaults", "--filename", s.fakeBundle.filename)
+	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--include-charm-defaults", "--filename", s.fakeBundle.filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []jujutesting.StubCall{
 		{"ExportBundle", []interface{}{true}},
@@ -191,7 +185,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *gc.C)
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf("Bundle successfully exported to %s\n", s.fakeBundle.filename))
-	output, err := ioutil.ReadFile(s.fakeBundle.filename)
+	output, err := os.ReadFile(s.fakeBundle.filename)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "fake-data")
 }
@@ -211,24 +205,4 @@ func (f *fakeExportBundleClient) ExportBundle(includeDefaults bool) (string, err
 	}
 
 	return f.result, f.NextErr()
-}
-
-type fakeConfigClient struct {
-	*jujutesting.Stub
-	result map[string]*params.ApplicationGetResults
-}
-
-func (f *fakeConfigClient) Close() error { return nil }
-
-func (f *fakeConfigClient) Get(branch string, app string) (*params.ApplicationGetResults, error) {
-	f.MethodCall(f, "Get", branch, app)
-	if err := f.NextErr(); err != nil {
-		return nil, err
-	}
-
-	if f.result == nil {
-		return nil, f.NextErr()
-	}
-
-	return f.result[app], f.NextErr()
 }

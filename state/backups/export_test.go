@@ -6,7 +6,6 @@ package backups
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/errors"
 )
@@ -63,7 +62,7 @@ func NewTestCreate(result *createResult) (*createArgs, func(*createArgs) (*creat
 	var received createArgs
 
 	if result == nil {
-		archiveFile := ioutil.NopCloser(bytes.NewBufferString("<archive>"))
+		archiveFile := io.NopCloser(bytes.NewBufferString("<archive>"))
 		result = NewTestCreateResult(archiveFile, 10, "<checksum>", "")
 	}
 

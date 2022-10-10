@@ -5,7 +5,6 @@ package kvm
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/juju/core/paths"
@@ -23,7 +22,7 @@ type initialisationInternalSuite struct {
 var _ = gc.Suite(&initialisationInternalSuite{})
 
 func (initialisationInternalSuite) TestCreatePool(c *gc.C) {
-	tmpDir, err := ioutil.TempDir("", "juju-initialisationInternalSuite")
+	tmpDir, err := os.MkdirTemp("", "juju-initialisationInternalSuite")
 	defer func() {
 		err = os.RemoveAll(tmpDir)
 		if err != nil {
@@ -47,7 +46,7 @@ func (initialisationInternalSuite) TestCreatePool(c *gc.C) {
 }
 
 func (initialisationInternalSuite) TestStartPool(c *gc.C) {
-	tmpDir, err := ioutil.TempDir("", "juju-initialisationInternalSuite")
+	tmpDir, err := os.MkdirTemp("", "juju-initialisationInternalSuite")
 	defer func() {
 		err = os.RemoveAll(tmpDir)
 		if err != nil {
@@ -71,7 +70,7 @@ func (initialisationInternalSuite) TestStartPool(c *gc.C) {
 }
 
 func (initialisationInternalSuite) TestAutoStartPool(c *gc.C) {
-	tmpDir, err := ioutil.TempDir("", "juju-initialisationInternalSuite")
+	tmpDir, err := os.MkdirTemp("", "juju-initialisationInternalSuite")
 	defer func() {
 		err = os.RemoveAll(tmpDir)
 		if err != nil {

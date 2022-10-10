@@ -396,7 +396,8 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			Risk: "edge",
 		},
 		Platform: corecharm.Platform{
-			Series: "focal",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 	}
 	resolvedOrigin := corecharm.Origin{
@@ -405,7 +406,8 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			Risk: "stable",
 		},
 		Platform: corecharm.Platform{
-			Series: "focal",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 	}
 
@@ -445,7 +447,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
-			Series: "focal",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			Risk:   "edge",
 		},
 	}
@@ -454,7 +456,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
-			Series: "focal",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 			Risk:   "stable",
 		},
 	})
@@ -474,7 +476,8 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 			Risk: "stable",
 		},
 		Platform: corecharm.Platform{
-			Series: "focal",
+			OS:      "ubuntu",
+			Channel: "20.04",
 		},
 	}
 
@@ -489,7 +492,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
 			Risk:   "edge",
-			Series: "focal",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		},
 		Force: false,
 	}
@@ -499,7 +502,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 		Origin: params.CharmOrigin{
 			Source: "charm-hub",
 			Risk:   "stable",
-			Series: "focal",
+			Base:   params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		},
 	}, gc.Commentf("expected to get back the origin recorded by the application"))
 }

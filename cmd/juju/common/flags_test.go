@@ -5,7 +5,6 @@ package common
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -91,9 +90,9 @@ func (*FlagsSuite) TestConfigFlagReadAttrs(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile1 := filepath.Join(tmpdir, "config-1.yaml")
 	configFile2 := filepath.Join(tmpdir, "config-2.yaml")
-	err := ioutil.WriteFile(configFile1, []byte(`over: "'n'out"`+"\n"), 0644)
+	err := os.WriteFile(configFile1, []byte(`over: "'n'out"`+"\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(configFile2, []byte(`over: "'n'under"`+"\n"), 0644)
+	err = os.WriteFile(configFile2, []byte(`over: "'n'under"`+"\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var f ConfigFlag
@@ -109,7 +108,7 @@ func (*FlagsSuite) TestConfigFlagReadAttrs(c *gc.C) {
 func (*FlagsSuite) TestConfigFlagReadConfigPairs(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	configFile1 := filepath.Join(ctx.Dir, "config-1.yaml")
-	err := ioutil.WriteFile(configFile1, []byte(`over: "'n'out"`+"\n"), 0644)
+	err := os.WriteFile(configFile1, []byte(`over: "'n'out"`+"\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var f ConfigFlag

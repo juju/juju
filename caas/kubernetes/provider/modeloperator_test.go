@@ -229,9 +229,32 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name, gc.Equals, ExecRBACResourceName)
 	c.Assert(r.Namespace, gc.Equals, namespace)
-	c.Assert(r.Rules[0].APIGroups, jc.DeepEquals, []string{""})
-	c.Assert(r.Rules[0].Resources, jc.DeepEquals, []string{"pods/exec"})
-	c.Assert(r.Rules[0].Verbs, jc.DeepEquals, []string{"create"})
+	c.Assert(r.Rules, jc.DeepEquals, []rbac.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"namespaces"},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+			ResourceNames: []string{namespace},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods"},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods/exec"},
+			Verbs: []string{
+				"create",
+			},
+		},
+	})
 
 	// The exec rolebinding.
 	rb, err = m.client.RbacV1().RoleBindings(namespace).Get(context.TODO(), ExecRBACResourceName, meta.GetOptions{})

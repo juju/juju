@@ -5,7 +5,7 @@ package state_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/juju/blobstore/v3"
@@ -185,7 +185,7 @@ func (s *binaryStorageSuite) TestToolsStorageLayered(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(rc, gc.NotNil)
 		defer rc.Close()
-		data, err := ioutil.ReadAll(rc)
+		data, err := io.ReadAll(rc)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), gc.Equals, contents)
 	}

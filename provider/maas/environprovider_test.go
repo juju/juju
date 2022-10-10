@@ -6,7 +6,7 @@ package maas
 import (
 	stdcontext "context"
 	"errors"
-	"io/ioutil"
+	"os"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/gomaasapi/v2"
@@ -104,11 +104,11 @@ func (s *EnvironProviderSuite) TestPrepareConfigSetsDefaults(c *gc.C) {
 // create a temporary file with the given content.  The file will be cleaned
 // up at the end of the test calling this method.
 func createTempFile(c *gc.C, content []byte) string {
-	file, err := ioutil.TempFile(c.MkDir(), "")
+	file, err := os.CreateTemp(c.MkDir(), "")
 	defer file.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	filename := file.Name()
-	err = ioutil.WriteFile(filename, content, 0644)
+	err = os.WriteFile(filename, content, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return filename
 }

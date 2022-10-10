@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/workerpool"
@@ -770,12 +771,16 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
+	mSeries, err := series.GetSeriesFromChannel(pInfo.Base.Name, pInfo.Base.Channel)
+	if err != nil {
+		return nil, errors.Annotatef(err, "converting machine base %q to series", pInfo.Base)
+	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),
 		nonce,
 		task.imageStream,
-		pInfo.Series,
+		mSeries,
 		apiInfo,
 	)
 	if err != nil {
@@ -1480,7 +1485,11 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		agentArch = *pInfo.Constraints.Arch
 	}
 
-	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Series, agentArch)
+	mSeries, err := series.GetSeriesFromChannel(pInfo.Base.Name, pInfo.Base.Channel)
+	if err != nil {
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "converting machine base %q to series", pInfo.Base)
+	}
+	possibleTools, err := task.toolsFinder.FindTools(*version, mSeries, agentArch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
 	}

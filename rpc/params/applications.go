@@ -37,8 +37,7 @@ type CharmOrigin struct {
 	Branch   *string `json:"branch,omitempty"`
 
 	Architecture string `json:"architecture,omitempty"`
-	OS           string `json:"os,omitempty"`
-	Series       string `json:"series,omitempty"`
+	Base         Base   `json:"base,omitempty"`
 
 	// InstanceKey is a unique string associated with the application. To
 	// assist with keeping KPI data in charmhub, it must be the same for every
@@ -205,7 +204,7 @@ type ApplicationGetResults struct {
 	CharmConfig       map[string]interface{} `json:"config"`
 	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
 	Constraints       constraints.Value      `json:"constraints"`
-	Series            string                 `json:"series"`
+	Base              Base                   `json:"base"`
 	Channel           string                 `json:"channel"`
 	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
 }
@@ -433,7 +432,7 @@ type ScaleApplicationInfo struct {
 type ApplicationResult struct {
 	Tag              string                     `json:"tag"`
 	Charm            string                     `json:"charm,omitempty"`
-	Series           string                     `json:"series,omitempty"`
+	Base             Base                       `json:"base,omitempty"`
 	Channel          string                     `json:"channel,omitempty"`
 	Constraints      constraints.Value          `json:"constraints,omitempty"`
 	Principal        bool                       `json:"principal"`

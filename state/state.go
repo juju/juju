@@ -31,17 +31,14 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lease"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateerrors "github.com/juju/juju/state/errors"
-	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	jujuversion "github.com/juju/juju/version"
@@ -409,29 +406,6 @@ func (st *State) startWorkers(hub *pubsub.SimpleHub) (err error) {
 	st.workers = workers
 	logger.Infof("started state workers for %s successfully", st.modelTag)
 	return nil
-}
-
-// ApplicationLeaders returns a map of the application name to the
-// unit name that is the current leader.
-func (st *State) ApplicationLeaders() (map[string]string, error) {
-	return raftleasestore.LeaseHolders(
-		&environMongo{st},
-		leaseHoldersC,
-		lease.ApplicationLeadershipNamespace,
-		st.ModelUUID(),
-	)
-}
-
-// LeaseNotifyTarget returns a raftlease.NotifyTarget for storing
-// lease changes in the database.
-func (st *State) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
-	return raftleasestore.NewNotifyTarget(&environMongo{st}, leaseHoldersC, logger)
-}
-
-// LeaseTrapdoorFunc returns a raftlease.TrapdoorFunc for checking
-// lease state in a database.
-func (st *State) LeaseTrapdoorFunc() raftlease.TrapdoorFunc {
-	return raftleasestore.MakeTrapdoorFunc(&environMongo{st}, leaseHoldersC)
 }
 
 // ModelUUID returns the model UUID for the model
@@ -1117,7 +1091,6 @@ func (st *State) CloudService(id string) (*CloudService, error) {
 
 type AddApplicationArgs struct {
 	Name              string
-	Series            string
 	Charm             *Charm
 	CharmOrigin       *CharmOrigin
 	Channel           csparams.Channel
@@ -1146,14 +1119,16 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
+	if args.CharmOrigin == nil {
+		return nil, errors.Errorf("charm origin is nil")
+	}
 
 	// If either the charm origin ID or Hash is set before a charm is
 	// downloaded, charm download will fail for charms with a forced series.
 	// The logic (refreshConfig) in sending the correct request to charmhub
 	// will break.
-	if args.CharmOrigin != nil &&
-		((args.CharmOrigin.ID != "" && args.CharmOrigin.Hash == "") ||
-			(args.CharmOrigin.ID == "" && args.CharmOrigin.Hash != "")) {
+	if (args.CharmOrigin.ID != "" && args.CharmOrigin.Hash == "") ||
+		(args.CharmOrigin.ID == "" && args.CharmOrigin.Hash != "") {
 		return nil, errors.BadRequestf("programming error, AddApplication, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
 	}
 
@@ -1287,10 +1262,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		DocID:         applicationID,
 		Name:          args.Name,
 		ModelUUID:     st.ModelUUID(),
-		Series:        args.Series,
 		Subordinate:   subordinate,
 		CharmURL:      &cURL,
-		CharmOrigin:   args.CharmOrigin,
+		CharmOrigin:   *args.CharmOrigin,
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
@@ -1439,61 +1413,57 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	return nil, errors.Trace(err)
 }
 
-func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {
-	if args.Series == "" {
-		// args.Release is not set, so use the series in the URL.
-		args.Series = args.Charm.URL().Series
-		if args.Series == "" {
-			// Should not happen, but just in case.
-			return errors.New("series is empty")
+func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (string, error) {
+	var appSeries string
+	// User has specified series. Overriding supported series is
+	// handled by the client, so args.Release is not necessarily
+	// one of the charm's supported series. We require that the
+	// specified series is of the same operating system as one of
+	// the supported series. For old-style charms with the series
+	// in the URL, that series is the one and only supported
+	// series.
+	var err error
+	appSeries, err = series.GetSeriesFromChannel(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var supportedSeries []string
+	if cSeries := args.Charm.URL().Series; cSeries != "" {
+		supportedSeries = []string{cSeries}
+		// If a charm has a url, but is a kubernetes charm then we need to
+		// add this to the list of supported series.
+		if cSeries != series.Kubernetes.String() &&
+			(set.NewStrings(args.Charm.Meta().Series...).Contains(series.Kubernetes.String()) ||
+				len(args.Charm.Meta().Containers) > 0) {
+			supportedSeries = append(supportedSeries, series.Kubernetes.String())
 		}
 	} else {
-		// User has specified series. Overriding supported series is
-		// handled by the client, so args.Release is not necessarily
-		// one of the charm's supported series. We require that the
-		// specified series is of the same operating system as one of
-		// the supported series. For old-style charms with the series
-		// in the URL, that series is the one and only supported
-		// series.
-		var supportedSeries []string
-		if cSeries := args.Charm.URL().Series; cSeries != "" {
-			supportedSeries = []string{cSeries}
-			// If a charm has a url, but is a kubernetes charm then we need to
-			// add this to the list of supported series.
-			if cSeries != series.Kubernetes.String() &&
-				(set.NewStrings(args.Charm.Meta().Series...).Contains(series.Kubernetes.String()) ||
-					len(args.Charm.Meta().Containers) > 0) {
-				supportedSeries = append(supportedSeries, series.Kubernetes.String())
-			}
-		} else {
-			var err error
-			supportedSeries, err = corecharm.ComputedSeries(args.Charm)
-			if err != nil {
-				return errors.Trace(err)
-			}
+		var err error
+		supportedSeries, err = corecharm.ComputedSeries(args.Charm)
+		if err != nil {
+			return "", errors.Trace(err)
 		}
-		if len(supportedSeries) > 0 {
-			// TODO(sidecar): handle computed series
-			seriesOS, err := series.GetOSFromSeries(args.Series)
+	}
+	if len(supportedSeries) > 0 {
+		seriesOS, err := series.GetOSFromSeries(appSeries)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		supportedOperatingSystems := make(map[os.OSType]bool)
+		for _, supportedSeries := range supportedSeries {
+			os, err := series.GetOSFromSeries(supportedSeries)
 			if err != nil {
-				return errors.Trace(err)
+				// If we can't figure out a series written in the charm
+				// just skip it.
+				continue
 			}
-			supportedOperatingSystems := make(map[os.OSType]bool)
-			for _, supportedSeries := range supportedSeries {
-				os, err := series.GetOSFromSeries(supportedSeries)
-				if err != nil {
-					// If we can't figure out a series written in the charm
-					// just skip it.
-					continue
-				}
-				supportedOperatingSystems[os] = true
-			}
-			if !supportedOperatingSystems[seriesOS] {
-				return errors.NewNotSupported(errors.Errorf(
-					"series %q (OS %q) not supported by charm, supported series are %q",
-					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
-				), "")
-			}
+			supportedOperatingSystems[os] = true
+		}
+		if !supportedOperatingSystems[seriesOS] && !supportedOperatingSystems[os.Kubernetes] {
+			return "", errors.NewNotSupported(errors.Errorf(
+				"series %q (OS %q) not supported by charm, supported series are %q",
+				appSeries, seriesOS, strings.Join(supportedSeries, ", "),
+			), "")
 		}
 	}
 
@@ -1502,18 +1472,19 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 	// but we only want application constraints to be persisted here.
 	cons, err := st.ResolveConstraints(args.Constraints)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
 			"deploying %q: unsupported constraints: %v", args.Name, strings.Join(unsupported, ","))
 	}
-	return errors.Trace(err)
+	return appSeries, errors.Trace(err)
 }
 
 func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
-	if err := st.processCommonModelApplicationArgs(args); err != nil {
+	appSeries, err := st.processCommonModelApplicationArgs(args)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1574,7 +1545,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			}
 			subordinate := args.Charm.Meta().Subordinate
 			if err := validateUnitMachineAssignment(
-				m, args.Series, subordinate, storagePools,
+				m, appSeries, subordinate, storagePools,
 			); err != nil {
 				return errors.Annotatef(
 					err, "cannot deploy to machine %s", m,
@@ -1586,7 +1557,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 
 		case directivePlacement:
 			if err := st.precheckInstance(
-				args.Series,
+				appSeries,
 				args.Constraints,
 				data.directive,
 				volumeAttachments,
@@ -1598,7 +1569,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	// We want to check the constraints if there's no placement at all.
 	if len(args.Placement) == 0 {
 		if err := st.precheckInstance(
-			args.Series,
+			appSeries,
 			args.Constraints,
 			"",
 			volumeAttachments,
@@ -1611,14 +1582,15 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 }
 
 func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error {
-	if err := st.processCommonModelApplicationArgs(args); err != nil {
+	appSeries, err := st.processCommonModelApplicationArgs(args)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(args.Placement) > 0 {
 		return errors.NotValidf("placement directives on k8s models")
 	}
 	return st.precheckInstance(
-		args.Series,
+		appSeries,
 		args.Constraints,
 		"",
 		nil,
@@ -1878,9 +1850,13 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 
 	switch data.placementType() {
 	case containerPlacement:
+		mSeries, err := series.GetSeriesFromChannel(unit.Base().OS, unit.Base().Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		// If a container is to be used, create it.
 		template := MachineTemplate{
-			Series:      unit.Series(),
+			Series:      mSeries,
 			Jobs:        []MachineJob{JobHostUnits},
 			Dirty:       true,
 			Constraints: cons,
@@ -2190,7 +2166,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
-		appSeries := map[string][]string{}
+		appBases := map[string][]string{}
 		for _, ep := range eps {
 			app, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
@@ -2228,10 +2204,22 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				if len(charmSeries) == 0 {
-					charmSeries = []string{localApp.doc.Series}
+				var charmBasees []string
+				for _, s := range charmSeries {
+					b, err := series.GetBaseFromSeries(s)
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+					charmBasees = append(charmBasees, b.DisplayString())
 				}
-				appSeries[localApp.doc.Name] = charmSeries
+				if len(charmBasees) == 0 {
+					localBase, err := localApp.Base()
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+					charmBasees = []string{localBase.DisplayString()}
+				}
+				appBases[localApp.doc.Name] = charmBasees
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
@@ -2245,12 +2233,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, errors.Trace(err)
 			}
 		}
-		if compatibleSeries && len(appSeries) > 1 {
+		if compatibleSeries && len(appBases) > 1 {
 			// We need to ensure that there's intersection between the supported
-			// series of both applications' charms.
-			app1Series := set.NewStrings(appSeries[eps[0].ApplicationName]...)
-			app2Series := set.NewStrings(appSeries[eps[1].ApplicationName]...)
-			if app1Series.Intersection(app2Series).Size() == 0 {
+			// bases of both applications' charms.
+			app1Bases := set.NewStrings(appBases[eps[0].ApplicationName]...)
+			app2Bases := set.NewStrings(appBases[eps[1].ApplicationName]...)
+			if app1Bases.Intersection(app2Bases).Size() == 0 {
 				return nil, errors.Errorf("principal and subordinate applications' series must match")
 			}
 		}

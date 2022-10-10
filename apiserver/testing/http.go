@@ -5,7 +5,6 @@ package testing
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	jujuhttp "github.com/juju/http/v2"
@@ -98,7 +97,7 @@ func SendHTTPRequest(c *gc.C, p HTTPRequestParams) *http.Response {
 }
 
 func AssertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resp.StatusCode, gc.Equals, expHTTPStatus, gc.Commentf("body: %s", body))

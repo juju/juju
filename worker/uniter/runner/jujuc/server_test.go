@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -66,7 +65,7 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))
 	ctx.Stderr.Write([]byte("toe of frog\n"))
-	return ioutil.WriteFile(ctx.AbsPath("local"), []byte(c.Value), 0644)
+	return os.WriteFile(ctx.AbsPath("local"), []byte(c.Value), 0644)
 }
 
 func factory(contextId, cmdName string) (cmd.Command, error) {
@@ -135,7 +134,7 @@ func (s *ServerSuite) TestHappyPath(c *gc.C) {
 	c.Assert(resp.Code, gc.Equals, 0)
 	c.Assert(string(resp.Stdout), gc.Equals, "wool of bat\neye of newt\n")
 	c.Assert(string(resp.Stderr), gc.Equals, "toe of frog\n")
-	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
+	content, err := os.ReadFile(filepath.Join(dir, "local"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "something")
 }

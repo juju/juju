@@ -6,7 +6,6 @@ package bundlechanges_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
+	"github.com/juju/juju/core/series"
 )
 
 type changesSuite struct {
@@ -3559,7 +3559,7 @@ series:
     - focal
     - bionic
 `[1:]
-	err = ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	err = os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "jammy")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "jammy")
@@ -3582,7 +3582,7 @@ series:
     - focal
     - bionic
 `[1:]
-	err := ioutil.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	err := os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "focal")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "focal")
@@ -3950,7 +3950,7 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
 				Revision: 4,
 				Channel:  "stable",
 				Scale:    3,
-				Series:   "kubernetes",
+				Base:     series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}
@@ -5092,7 +5092,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 				Units: []bundlechanges.Unit{
 					{"mediawiki/0", "1"},
 				},
-				Series: "focal",
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 			"mysql": {
 				Charm:    "cs:mysql-28",
@@ -5101,7 +5101,7 @@ func (s *changesSuite) TestAddUnitToExistingApp(c *gc.C) {
 				Units: []bundlechanges.Unit{
 					{"mysql/0", "0"},
 				},
-				Series: "focal",
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5278,7 +5278,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 					{Name: "django/0", Machine: "0"},
 					{Name: "django/1", Machine: "0/lxd/0"},
 				},
-				Series: "xenial",
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 			"memcached": {
 				Name:     "memcached",
@@ -5290,7 +5290,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 					{Name: "memcached/1", Machine: "1"},
 					{Name: "memcached/2", Machine: "2"},
 				},
-				Series: "xenial",
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 			"ror": {
 				Name:    "ror",
@@ -5301,7 +5301,7 @@ func (s *changesSuite) TestFromJujuMassiveUnitColocation(c *gc.C) {
 					{Name: "ror/1", Machine: "2/kvm/0"},
 					{Name: "ror/2", Machine: "3"},
 				},
-				Series: "xenial",
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5400,7 +5400,7 @@ func (s *changesSuite) TestConsistentMapping(c *gc.C) {
 					{Name: "memcached/2", Machine: "2"},
 					{Name: "memcached/3", Machine: "3"},
 				},
-				Series: "xenial",
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{
@@ -5450,7 +5450,7 @@ func (s *changesSuite) TestContainerHosts(c *gc.C) {
 				Units: []bundlechanges.Unit{
 					{Name: "memcached/1", Machine: "1"},
 				},
-				Series: "xenial",
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 		Machines: map[string]*bundlechanges.Machine{

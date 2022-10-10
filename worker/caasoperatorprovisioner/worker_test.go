@@ -5,7 +5,7 @@ package caasoperatorprovisioner_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -156,7 +156,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 	}
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
-	err = ioutil.WriteFile(agentFile, config.AgentConf, 0644)
+	err = os.WriteFile(agentFile, config.AgentConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := agent.ReadConfig(agentFile)
 	c.Assert(err, jc.ErrorIsNil)

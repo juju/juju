@@ -5,7 +5,6 @@ package tools_test
 
 import (
 	stdcontext "context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -82,7 +81,7 @@ func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 
 func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 	for _, dir := range []string{s.customToolsDir, s.publicToolsDir} {
-		files, err := ioutil.ReadDir(dir)
+		files, err := os.ReadDir(dir)
 		c.Assert(err, jc.ErrorIsNil)
 		for _, f := range files {
 			err := os.RemoveAll(filepath.Join(dir, f.Name()))

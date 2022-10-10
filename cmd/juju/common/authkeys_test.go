@@ -4,7 +4,6 @@
 package common_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +53,7 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *gc.C) {
 }
 
 func writeFile(c *gc.C, filename string, contents string) {
-	err := ioutil.WriteFile(filename, []byte(contents), 0644)
+	err := os.WriteFile(filename, []byte(contents), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -78,7 +77,7 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	pubkeyFiles := ssh.PublicKeyFiles()
 	c.Assert(pubkeyFiles, gc.HasLen, 1)
-	data, err := ioutil.ReadFile(pubkeyFiles[0])
+	data, err := os.ReadFile(pubkeyFiles[0])
 	c.Assert(err, jc.ErrorIsNil)
 	prefix := strings.Trim(string(data), "\n") + "\n"
 

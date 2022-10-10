@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -741,7 +740,7 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 			// is returned so the client can react to auth errors
 			// (for example).
 			defer resp.Body.Close()
-			body, readErr := ioutil.ReadAll(resp.Body)
+			body, readErr := io.ReadAll(resp.Body)
 			if readErr == nil {
 				err = errors.Errorf(
 					"%s (%s)",

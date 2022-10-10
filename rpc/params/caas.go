@@ -53,7 +53,7 @@ type CAASApplicationProvisioningInfo struct {
 	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
 	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
 	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
-	Series               string                       `json:"series,omitempty"`
+	Base                 Base                         `json:"base,omitempty"`
 	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
 	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
 	CharmURL             string                       `json:"charm-url,omitempty"`

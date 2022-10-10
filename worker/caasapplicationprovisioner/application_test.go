@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -107,7 +108,7 @@ func (s *ApplicationWorkerSuite) getWorker(c *gc.C, name string) (func(...*gomoc
 		},
 	}
 	s.appProvisioningInfo = api.ProvisioningInfo{
-		Series: "focal",
+		Base: series.MakeDefaultBase("ubuntu", "20.04"),
 		CharmURL: &charm.URL{
 			Schema:   "cs",
 			Name:     "test",

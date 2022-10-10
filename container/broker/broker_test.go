@@ -4,8 +4,8 @@
 package broker_test
 
 import (
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/loggo"
@@ -284,7 +284,7 @@ nameserver ns2.dummy
 `
 
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
-	err := ioutil.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
+	err := os.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(broker.ResolvConfFiles, []string{fakeResolvConf})
 }

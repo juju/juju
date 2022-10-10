@@ -462,13 +462,24 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 	defer st.Close()
 	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-block")
 	_, err := st.AddApplication(state.AddApplicationArgs{
-		Name: "storage-block", Series: "kubernetes", Charm: ch})
+		Name: "storage-block", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a container model not supported`)
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storageBlock, err := s.st.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch})
+	storageBlock, err := s.st.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -486,7 +497,13 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 	})
 
 	ch = s.AddTestingCharm(c, "storage-filesystem")
-	storageFilesystem, err := s.st.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Charm: ch})
+	storageFilesystem, err := s.st.AddApplication(state.AddApplicationArgs{
+		Name: "storage-filesystem", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -506,7 +523,14 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.st.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storage})
+		return s.st.AddApplication(state.AddApplicationArgs{
+			Name: "storage-block2", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "22.04/stable",
+			}},
+			Storage: storage,
+		})
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addApplication(storage)
@@ -538,7 +562,14 @@ func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
-	app, err := s.st.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: cons})
+	app, err := s.st.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block2", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
+		Storage: cons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -610,7 +641,14 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	app, err := s.st.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storageCons})
+	app, err := s.st.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block2", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
+		Storage: storageCons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -620,7 +658,14 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.st.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
+		return s.st.AddApplication(state.AddApplicationArgs{
+			Name: "storage-block", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "22.04/stable",
+			}},
+			Storage: storage,
+		})
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -1028,9 +1073,12 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	app2, err := s.st.AddApplication(state.AddApplicationArgs{
-		Name:   "secondwind",
-		Series: app.Series(),
-		Charm:  ch,
+		Name: "secondwind",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+		Charm: ch,
 		Storage: map[string]state.StorageConstraints{
 			// The unit should have two storage instances
 			// in total. We're attaching one, so only one
@@ -1060,8 +1108,11 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C
 	app, _, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 	ch, _, _ := app.Charm()
 	_, err := s.st.AddApplication(state.AddApplicationArgs{
-		Name:          "secondwind",
-		Series:        app.Series(),
+		Name: "secondwind",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:         ch,
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      2,
@@ -1091,9 +1142,12 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.st.AddApplication(state.AddApplicationArgs{
-		Name:   "secondwind",
-		Series: app.Series(),
-		Charm:  ch,
+		Name: "secondwind",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
+		Charm: ch,
 		Storage: map[string]state.StorageConstraints{
 			// The unit should have two storage instances
 			// in total. We're attaching one, so only one
@@ -1517,8 +1571,12 @@ func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
 func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	args := state.AddApplicationArgs{
-		Name:     "foo",
-		Charm:    ch,
+		Name:  "foo",
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 		NumUnits: 1,
 		Storage: map[string]state.StorageConstraints{
 			"data": {Pool: "loop"},

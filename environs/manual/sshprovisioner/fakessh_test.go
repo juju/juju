@@ -6,7 +6,7 @@ package sshprovisioner_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -64,7 +64,7 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 	case nil:
 	case string:
 		sshexpectedinput := ssh + ".expected-input"
-		err := ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)
+		err := os.WriteFile(sshexpectedinput, []byte(input), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	default:
 		c.Errorf("input has invalid type: %T", input)
@@ -80,7 +80,7 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 		stderr = fmt.Sprintf("cat>&2<<EOF\n%s\nEOF", output[1])
 	}
 	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
-	err := ioutil.WriteFile(ssh, []byte(script), 0777)
+	err := os.WriteFile(ssh, []byte(script), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	return testing.PatchEnvPathPrepend(fakebin)
 }

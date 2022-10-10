@@ -6,7 +6,7 @@ package cloud
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -224,7 +224,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	if c.Region == "" {
 		c.Region = existingCredentials.DefaultRegion
 	}
-	data, err := ioutil.ReadFile(c.CredentialsFile)
+	data, err := os.ReadFile(c.CredentialsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading credentials file")
 	}
@@ -691,7 +691,7 @@ func enterFile(name, descr string, p *interact.Pollster, expanded, optional bool
 	}
 
 	// Expand the file path to consume the contents
-	contents, err := ioutil.ReadFile(abs)
+	contents, err := os.ReadFile(abs)
 	return string(contents), errors.Trace(err)
 }
 

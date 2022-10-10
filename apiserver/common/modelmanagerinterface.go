@@ -66,7 +66,7 @@ type ModelManagerBackend interface {
 	AllVolumes() ([]state.Volume, error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
-	Export() (description.Model, error)
+	Export(leaders map[string]string) (description.Model, error)
 	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error

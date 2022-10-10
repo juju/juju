@@ -5,7 +5,7 @@ package agent
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -95,7 +95,7 @@ func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}
 }
 
 func fakeCmd(path string) {
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	err := os.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
 	if err != nil {
 		panic(err)
 	}

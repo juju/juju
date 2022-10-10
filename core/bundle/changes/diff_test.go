@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
+	"github.com/juju/juju/core/series"
 )
 
 type diffSuite struct {
@@ -311,9 +312,9 @@ func (s *diffSuite) TestApplicationSeries(c *gc.C) {
 	model := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{
 			"prometheus": {
-				Name:   "prometheus",
-				Charm:  "cs:prometheus-7",
-				Series: "xenial",
+				Name:  "prometheus",
+				Charm: "cs:prometheus-7",
+				Base:  series.MakeDefaultBase("ubuntu", "16.04"),
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
 					{Name: "prometheus/1", Machine: "1"},
@@ -357,7 +358,7 @@ func (s *diffSuite) TestApplicationChannel(c *gc.C) {
 				Name:    "prometheus",
 				Charm:   "cs:prometheus-7",
 				Channel: "2.0/edge",
-				Series:  "bionic",
+				Base:    series.MakeDefaultBase("ubuntu", "18.04"),
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
 					{Name: "prometheus/1", Machine: "1"},
@@ -562,7 +563,7 @@ func (s *diffSuite) TestBundleSeries(c *gc.C) {
 			"prometheus": {
 				Name:        "prometheus",
 				Charm:       "cs:focal/prometheus-7",
-				Series:      "focal",
+				Base:        series.MakeDefaultBase("ubuntu", "20.04"),
 				Constraints: "something",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
@@ -571,8 +572,8 @@ func (s *diffSuite) TestBundleSeries(c *gc.C) {
 		},
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
-				ID:     "0",
-				Series: "focal",
+				ID:   "0",
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}
@@ -596,7 +597,7 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 			"prometheus": {
 				Name:        "prometheus",
 				Charm:       "cs:focal/prometheus-7",
-				Series:      "focal",
+				Base:        series.MakeDefaultBase("ubuntu", "20.04"),
 				Constraints: "something",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
@@ -605,8 +606,8 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 		},
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
-				ID:     "0",
-				Series: "focal",
+				ID:   "0",
+				Base: series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}
@@ -997,8 +998,8 @@ func (s *diffSuite) TestMachineSeries(c *gc.C) {
 		},
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
-				ID:     "0",
-				Series: "xenial",
+				ID:   "0",
+				Base: series.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 	}

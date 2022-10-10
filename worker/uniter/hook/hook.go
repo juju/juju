@@ -44,7 +44,7 @@ type Info struct {
 	WorkloadName string `yaml:"workload-name,omitempty"`
 
 	// SeriesUpgradeTarget is the series that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-series` command.
+	// updated to when Juju is issued the `upgrade-machine` command.
 	// It is only set for the pre-series-upgrade hook.
 	SeriesUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
 

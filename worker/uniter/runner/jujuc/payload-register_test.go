@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
@@ -124,7 +124,7 @@ func (s *registerSuite) TestRunError(c *gc.C) {
 func setupMetadata(c *gc.C) *cmd.Context {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "metadata.yaml")
-	err := ioutil.WriteFile(path, []byte(metadataContents), 0660)
+	err := os.WriteFile(path, []byte(metadataContents), 0660)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	ctx.Dir = dir

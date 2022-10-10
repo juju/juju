@@ -4,8 +4,8 @@
 package network
 
 import (
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -106,7 +106,7 @@ func ParseInterfaceType(sysPath, interfaceName string) LinkLayerDeviceType {
 	const deviceType = "DEVTYPE="
 	location := filepath.Join(sysPath, interfaceName, "uevent")
 
-	data, err := ioutil.ReadFile(location)
+	data, err := os.ReadFile(location)
 	if err != nil {
 		logger.Debugf("ignoring error reading %q: %v", location, err)
 		return UnknownDevice

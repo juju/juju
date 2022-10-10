@@ -197,6 +197,10 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 	args := state.AddApplicationArgs{
 		Name:  "blah",
 		Charm: s.charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 	}
 	_, err := s.State.AddApplication(args)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
@@ -211,6 +215,10 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 	args := state.AddApplicationArgs{
 		Name:  "blah",
 		Charm: s.charm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		}},
 	}
 	_, err := s.State.AddApplication(args)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)

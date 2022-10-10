@@ -5,7 +5,6 @@ package cloud
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"sort"
@@ -371,7 +370,7 @@ func JujuPublicCloudsPath() string {
 // are found, returns the fallback public cloud metadata.
 func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbackUsed bool, err error) {
 	for _, file := range searchPath {
-		data, err := ioutil.ReadFile(file)
+		data, err := os.ReadFile(file)
 		if err != nil && os.IsNotExist(err) {
 			continue
 		}

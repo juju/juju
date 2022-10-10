@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	jujuvault "github.com/juju/juju/secrets/provider/vault"
@@ -23,11 +24,15 @@ import (
 
 type vaultSuite struct {
 	testing.IsolationSuite
+	coretesting.JujuOSEnvSuite
 }
 
 var _ = gc.Suite(&vaultSuite{})
 
 func (s *vaultSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
+	s.IsolationSuite.SetUpTest(c)
+	s.JujuOSEnvSuite.SetUpTest(c)
 	s.PatchValue(&jujuvault.NewVaultClient, func(addr string, tlsConf *vault.TLSConfig, opts ...vault.ClientOpts) (*vault.Client, error) {
 		c.Assert(addr, gc.Equals, "http://vault-ip:8200/")
 		c.Assert(tlsConf, jc.DeepEquals, &vault.TLSConfig{
@@ -49,7 +54,7 @@ func (s *vaultSuite) SetUpTest(c *gc.C) {
 func (s *vaultSuite) TestStoreConfig(c *gc.C) {
 	p, err := provider.Provider(jujuvault.Store)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.StoreConfig(mockModel{}, false, nil, nil)
+	_, err = p.StoreConfig(mockModel{}, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 

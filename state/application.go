@@ -78,7 +78,6 @@ type applicationDoc struct {
 	DocID       string `bson:"_id"`
 	Name        string `bson:"name"`
 	ModelUUID   string `bson:"model-uuid"`
-	Series      string `bson:"series"`
 	Subordinate bool   `bson:"subordinate"`
 	// CharmURL and channel should be moved to CharmOrigin. Attempting it should
 	// be relatively straight forward, but very time consuming.
@@ -86,7 +85,7 @@ type applicationDoc struct {
 	// tackled then.
 	CharmURL             *string      `bson:"charmurl"`
 	Channel              string       `bson:"cs-channel"`
-	CharmOrigin          *CharmOrigin `bson:"charm-origin"`
+	CharmOrigin          CharmOrigin  `bson:"charm-origin"`
 	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
 	ForceCharm           bool         `bson:"forcecharm"`
 	Life                 Life         `bson:"life"`
@@ -202,9 +201,9 @@ func (a *Application) deviceConstraintsKey() string {
 	return applicationDeviceConstraintsKey(a.doc.Name, a.doc.CharmURL)
 }
 
-// Series returns the specified series for this charm.
-func (a *Application) Series() string {
-	return a.doc.Series
+// Base returns the specified base for this charm.
+func (a *Application) Base() (series.Base, error) {
+	return series.ParseBase(a.doc.CharmOrigin.Platform.OS, a.doc.CharmOrigin.Platform.Channel)
 }
 
 // Life returns whether the application is Alive, Dying or Dead.
@@ -938,7 +937,7 @@ func (a *Application) Charm() (*Charm, bool, error) {
 
 // CharmOrigin returns the origin of a charm associated with a application.
 func (a *Application) CharmOrigin() *CharmOrigin {
-	return a.doc.CharmOrigin
+	return &a.doc.CharmOrigin
 }
 
 // IsPrincipal returns whether units of the application can
@@ -1548,9 +1547,6 @@ type SetCharmConfig struct {
 	// the charm's supported series.
 	ForceSeries bool
 
-	// Series, if set, updates the application's series.
-	Series string
-
 	// Force forces the overriding of the lxd profile validation even if the
 	// profile doesn't validate.
 	Force bool
@@ -1602,7 +1598,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 	// If it's a v1 or v2 machine charm (no containers), check series.
 	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || !corecharm.IsKubernetes(cfg.Charm) {
-		err := checkSeriesForSetCharm(a.doc.Series, cfg.Charm, cfg.ForceSeries)
+		err := checkSeriesForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceSeries)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1701,13 +1697,40 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 
 		if cfg.CharmOrigin != nil {
-			origin := cfg.CharmOrigin
+			origin := a.doc.CharmOrigin
 			// If either the charm origin ID or Hash is set before a charm is
 			// downloaded, charm download will fail for charms with a forced series.
 			// The logic (refreshConfig) in sending the correct request to charmhub
 			// will break.
 			if (origin.ID != "" && origin.Hash == "") || (origin.ID == "" && origin.Hash != "") {
 				return nil, errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+			}
+			if cfg.CharmOrigin.ID != "" {
+				origin.ID = cfg.CharmOrigin.ID
+			}
+			if cfg.CharmOrigin.Hash != "" {
+				origin.Hash = cfg.CharmOrigin.Hash
+			}
+			if cfg.CharmOrigin.Type != "" {
+				origin.Type = cfg.CharmOrigin.Type
+			}
+			if cfg.CharmOrigin.Source != "" {
+				origin.Source = cfg.CharmOrigin.Source
+			}
+			if cfg.CharmOrigin.Revision != nil {
+				origin.Revision = cfg.CharmOrigin.Revision
+			}
+			if cfg.CharmOrigin.Channel != nil {
+				origin.Channel = cfg.CharmOrigin.Channel
+			}
+			if cfg.CharmOrigin.Platform != nil {
+				if cfg.CharmOrigin.Platform.Channel != "" {
+					origin.Platform.OS = cfg.CharmOrigin.Platform.OS
+					origin.Platform.Channel = cfg.CharmOrigin.Platform.Channel
+				}
+				if cfg.CharmOrigin.Platform.Architecture != "" {
+					origin.Platform.Architecture = cfg.CharmOrigin.Platform.Architecture
+				}
 			}
 			// Update in the application facade also calls
 			// SetCharm, though it has no current user in the
@@ -1719,16 +1742,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
 					{"charm-origin", origin},
-				}}},
-			})
-		}
-
-		if cfg.Series != "" {
-			ops = append(ops, txn.Op{
-				C:  applicationsC,
-				Id: a.doc.DocID,
-				Update: bson.D{{"$set", bson.D{
-					{"series", cfg.Series},
 				}}},
 			})
 		}
@@ -1759,15 +1772,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
-	cURL := cfg.Charm.URL().String()
-	a.doc.CharmURL = &cURL
-	a.doc.Channel = channel
-	a.doc.ForceCharm = cfg.ForceUnits
-	a.doc.CharmModifiedVersion = newCharmModifiedVersion
-	if cfg.Series != "" {
-		a.doc.Series = cfg.Series
-	}
-	return nil
+	return a.Refresh()
 }
 
 // SetDownloadedIDAndHash updates the applications charm origin with ID and
@@ -1777,9 +1782,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 	if id == "" && hash == "" {
 		return errors.BadRequestf("ID, %q, and hash, %q, must have values", id, hash)
-	}
-	if a.doc.CharmOrigin == nil {
-		return errors.Errorf("this application has no charm origin")
 	}
 	if id != "" && a.doc.CharmOrigin.ID != "" && a.doc.CharmOrigin.ID != id {
 		return errors.BadRequestf("application ID cannot be changed %q, %q", a.doc.CharmOrigin.ID, id)
@@ -1835,13 +1837,18 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 	return nil
 }
 
-func checkSeriesForSetCharm(curSeries string, charm *Charm, forceSeries bool) error {
+func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, forceSeries bool) error {
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
+	curSeries, err := series.GetSeriesFromChannel(currentPlatform.OS, currentPlatform.Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if charm.URL().Series != "" {
 		// Allow series change when switching to charmhub charms.
-		if charm.URL().Schema != "ch" && charm.URL().Series != curSeries {
+		// Account for legacy charms with "kubernetes" series in the URL.
+		if charm.URL().Schema != "ch" && charm.URL().Series != "kubernetes" && charm.URL().Series != curSeries {
 			return errors.Errorf("cannot change an application's series")
 		}
 	} else if !forceSeries {
@@ -1991,7 +1998,7 @@ func unitAppName(unitName string) string {
 }
 
 // UpdateApplicationSeries updates the series for the Application.
-func (a *Application) UpdateApplicationSeries(series string, force bool) (err error) {
+func (a *Application) UpdateApplicationSeries(newSeries string, force bool) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If we've tried once already and failed, re-evaluate the criteria.
@@ -1999,13 +2006,22 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				return nil, errors.Trace(err)
 			}
 		}
-		// Exit early if the Application series doesn't need to change.
-		if a.Series() == series && a.CharmOrigin().Platform.Series == series {
+		// Exit early if the Application series doesn't need to change
+		newBase, err := series.GetBaseFromSeries(newSeries)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := a.Refresh(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		appOrigin := a.CharmOrigin()
+		sameOrigin := appOrigin.Platform.OS == newBase.OS && appOrigin.Platform.Channel == newBase.Channel.String()
+		if sameOrigin {
 			return nil, jujutxn.ErrNoOperations
 		}
 
 		// Verify and gather data for the transaction operations.
-		err := a.VerifySupportedSeries(series, force)
+		err = a.VerifySupportedSeries(newSeries, force)
 		if err != nil {
 			return nil, err
 		}
@@ -2024,7 +2040,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				if err != nil {
 					return nil, err
 				}
-				err = app.VerifySupportedSeries(series, force)
+				err = app.VerifySupportedSeries(newSeries, force)
 				if err != nil {
 					return nil, err
 				}
@@ -2039,8 +2055,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 			Assert: bson.D{{"life", Alive},
 				{"charmurl", a.doc.CharmURL},
 				{"unitcount", a.doc.UnitCount}},
-			Update: bson.D{{"$set", bson.D{{"series", series},
-				{"charm-origin.platform.series", series}}}},
+			Update: bson.D{{"$set", bson.D{{
+				"charm-origin.platform.channel", newBase.Channel.String()}}}},
 		}}
 
 		if unit != nil {
@@ -2059,8 +2075,8 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 				Assert: bson.D{{"life", Alive},
 					{"charmurl", sub.doc.CharmURL},
 					{"unitcount", sub.doc.UnitCount}},
-				Update: bson.D{{"$set", bson.D{{"series", series},
-					{"charm-origin.platform.series", series}}}},
+				Update: bson.D{{"$set", bson.D{{
+					"charm-origin.platform.channel", newBase.Channel.String()}}}},
 			})
 		}
 		return ops, nil
@@ -2072,7 +2088,7 @@ func (a *Application) UpdateApplicationSeries(series string, force bool) (err er
 
 // VerifySupportedSeries verifies if the given series is supported by the
 // application.
-// TODO (stickupkid): This will be removed once we align all upgrade-series
+// TODO (stickupkid): This will be removed once we align all upgrade-machine
 // commands.
 func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	ch, _, err := a.Charm()
@@ -2414,11 +2430,12 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	docID := a.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
+	platform := a.CharmOrigin().Platform
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
 		Application:            a.doc.Name,
-		Series:                 a.doc.Series,
+		Base:                   Base{OS: platform.OS, Channel: platform.Channel},
 		Life:                   Alive,
 		Principal:              args.principalName,
 		MachineId:              args.principalMachineID,
@@ -2552,12 +2569,14 @@ func (a *Application) addUnitStorageOps(
 		}
 		machineAssignable = pu
 	}
+	platform := a.CharmOrigin().Platform
+	sSeries, _ := series.GetSeriesFromChannel(platform.OS, platform.Channel)
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
 		sb,
 		unitTag,
 		charm.Meta(),
 		args.storageCons,
-		a.doc.Series,
+		sSeries,
 		machineAssignable,
 	)
 	if err != nil {
@@ -2574,7 +2593,7 @@ func (a *Application) addUnitStorageOps(
 		ops, err := sb.attachStorageOps(
 			si,
 			unitTag,
-			a.doc.Series,
+			sSeries,
 			charm,
 			machineAssignable,
 		)

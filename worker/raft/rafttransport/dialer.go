@@ -5,7 +5,7 @@ package rafttransport
 
 import (
 	"bufio"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -66,7 +66,7 @@ func (d *Dialer) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn,
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusSwitchingProtocols {
-		if body, err := ioutil.ReadAll(response.Body); err == nil && len(body) != 0 {
+		if body, err := io.ReadAll(response.Body); err == nil && len(body) != 0 {
 			logger.Tracef("response: %s", body)
 		}
 		return nil, errors.Errorf(

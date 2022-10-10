@@ -5,7 +5,7 @@ package cloud_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 
@@ -555,7 +555,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
 func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
 	dir := c.MkDir()
 	filename := filepath.Join(dir, "filename")
-	err := ioutil.WriteFile(filename, []byte{}, 0600)
+	err := os.WriteFile(filename, []byte{}, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(
@@ -584,7 +584,7 @@ func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
 
 func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
 	absFilename := filepath.Join(utils.Home(), "filename")
-	err := ioutil.WriteFile(absFilename, []byte{}, 0600)
+	err := os.WriteFile(absFilename, []byte{}, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(
@@ -654,7 +654,7 @@ func (s *credentialsSuite) TestValidateFileAttrValue(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid file path: stat /xyz/nothing.blah: no such file or directory")
 
 	absPathNewFile := filepath.Join(utils.Home(), "new-creds.json")
-	err = ioutil.WriteFile(absPathNewFile, []byte("abc"), 0600)
+	err = os.WriteFile(absPathNewFile, []byte("abc"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	absPath, err := cloud.ValidateFileAttrValue("~/new-creds.json")
@@ -666,7 +666,7 @@ func (s *credentialsSuite) TestValidateFileAttrValue(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestExpandFilePathsOfCredential(c *gc.C) {
-	tempFile, err := ioutil.TempFile("", "")
+	tempFile, err := os.CreateTemp("", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = tempFile.WriteString("test")

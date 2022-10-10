@@ -6,7 +6,7 @@ package charms_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -27,6 +27,7 @@ import (
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/http/mocks"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -65,7 +66,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 
 	curl := charm.MustParseURL("cs:a-charm")
-	curl2 := charm.MustParseURL("cs:focal/dummy-1")
+	curl2 := charm.MustParseURL("cs:jammy/dummy-1")
 	no := string(csparams.NoChannel)
 	edge := string(csparams.EdgeChannel)
 	stable := string(csparams.StableChannel)
@@ -138,7 +139,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	defer ctrl.Finish()
 
 	curl := charm.MustParseURL("cs:a-charm")
-	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 
@@ -160,12 +161,14 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("GetDownloadInfos", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin), nil)
+	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := client.GetDownloadInfo(curl, origin, nil)
 	c.Assert(err, gc.IsNil)
 
 	want := charms.DownloadInfo{
 		URL:    "http://someplace.com",
-		Origin: apicharm.APICharmOrigin(noChannelParamsOrigin),
+		Origin: origin,
 	}
 
 	c.Assert(got, gc.DeepEquals, want)
@@ -184,8 +187,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		Revision:     &curl.Revision,
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
-		OS:           "ubuntu",
-		Series:       "bionic",
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),
@@ -218,8 +220,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		Revision:     &curl.Revision,
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
-		OS:           "ubuntu",
-		Series:       "bionic",
+		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	facadeArgs := params.AddCharmWithAuth{
 		URL:                curl.String(),
@@ -317,7 +318,9 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("ListCharmResources", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.ListCharmResources(curl, apicharm.APICharmOrigin(noChannelParamsOrigin))
+	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := client.ListCharmResources(curl, origin)
 	c.Assert(err, gc.IsNil)
 
 	want := []charmresource.Resource{{
@@ -336,7 +339,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 
 func (s *charmsMockSuite) TestZipHasHooksOnly(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks only
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -350,7 +353,7 @@ func (s *charmsMockSuite) TestZipHasHooksOnly(c *gc.C) {
 
 func (s *charmsMockSuite) TestZipHasDispatchFileOnly(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category-dispatch") // has dispatch file only
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -364,7 +367,7 @@ func (s *charmsMockSuite) TestZipHasDispatchFileOnly(c *gc.C) {
 
 func (s *charmsMockSuite) TestZipHasNoHooksNorDispath(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category") // has no hooks nor dispatch file
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -415,7 +418,7 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -434,7 +437,7 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
-	resp.Body = ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-42"}`))
+	resp.Body = io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-42"}`))
 	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
 	err = charmDir.SetDiskRevision(42)
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,7 +446,7 @@ func (s *charmsMockSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
-	resp.Body = ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-43"}`))
+	resp.Body = io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-43"}`))
 	savedURL, err = client.AddLocalCharm(curl, charmDir, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
@@ -484,7 +487,7 @@ func (s *charmsMockSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -548,7 +551,7 @@ func (s *charmsMockSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -605,7 +608,7 @@ func (s *charmsMockSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -651,7 +654,7 @@ func (s *charmsMockSuite) TestAddLocalCharmError(c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
@@ -717,7 +720,7 @@ func testMinVer(t minverTest, c *gc.C) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(

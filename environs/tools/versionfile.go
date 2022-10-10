@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
@@ -26,7 +25,7 @@ type Versions struct {
 
 // ParseVersions constructs a versions object from a reader..
 func ParseVersions(r io.Reader) (*Versions, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

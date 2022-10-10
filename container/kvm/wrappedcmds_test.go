@@ -5,7 +5,6 @@ package kvm_test
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -108,7 +107,7 @@ func (commandWrapperSuite) TestCreateNoHostname(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
-	tmpDir, err := ioutil.TempDir("", "juju-libvirtSuite-")
+	tmpDir, err := os.MkdirTemp("", "juju-libvirtSuite-")
 	c.Check(err, jc.ErrorIsNil)
 
 	want := []string{
@@ -126,7 +125,7 @@ func (s *commandWrapperSuite) TestCreateMachineSuccessOnFocal(c *gc.C) {
 		return "focal", nil
 	})
 
-	tmpDir, err := ioutil.TempDir("", "juju-libvirtSuite-")
+	tmpDir, err := os.MkdirTemp("", "juju-libvirtSuite-")
 	c.Check(err, jc.ErrorIsNil)
 
 	want := []string{
@@ -148,7 +147,7 @@ func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
 	cloudInitPath := filepath.Join(tmpDir, "cloud-init")
 	userDataPath := filepath.Join(tmpDir, "user-data")
 	networkConfigPath := filepath.Join(tmpDir, "network-config")
-	err = ioutil.WriteFile(cloudInitPath, []byte("#cloud-init\nEOF\n"), 0755)
+	err = os.WriteFile(cloudInitPath, []byte("#cloud-init\nEOF\n"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer func() {
@@ -178,11 +177,11 @@ func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
 	_, err = os.Stat(cloudInitPath)
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
 
-	b, err := ioutil.ReadFile(userDataPath)
+	b, err := os.ReadFile(userDataPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), jc.Contains, "#cloud-init")
 
-	b, err = ioutil.ReadFile(networkConfigPath)
+	b, err = os.ReadFile(networkConfigPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), gc.Equals, "this-is-network-config")
 
@@ -193,15 +192,15 @@ func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
 }
 
 func (commandWrapperSuite) TestDestroyMachineSuccess(c *gc.C) {
-	tmpDir, err := ioutil.TempDir("", "juju-libvirtSuite-")
+	tmpDir, err := os.MkdirTemp("", "juju-libvirtSuite-")
 	c.Check(err, jc.ErrorIsNil)
 	guestBase := filepath.Join(tmpDir, "kvm", "guests")
 	err = os.MkdirAll(guestBase, 0700)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(filepath.Join(guestBase, "aname.qcow"), []byte("diskcontents"), 0700)
+	err = os.WriteFile(filepath.Join(guestBase, "aname.qcow"), []byte("diskcontents"), 0700)
 	c.Check(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(guestBase, "aname-ds.iso"), []byte("diskcontents"), 0700)
+	err = os.WriteFile(filepath.Join(guestBase, "aname-ds.iso"), []byte("diskcontents"), 0700)
 	c.Check(err, jc.ErrorIsNil)
 
 	pathfinder := func(_ paths.OS) string {

@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"time"
@@ -111,7 +111,7 @@ func main() {
 		fmt.Printf("error opening file %s:\n%s\n", flags.Arg(0), err)
 		os.Exit(1)
 	}
-	bytes, err := ioutil.ReadAll(f)
+	bytes, err := io.ReadAll(f)
 	if err != nil {
 		fmt.Printf("error reading file %s:\n%s\n", flags.Arg(0), err)
 		os.Exit(1)

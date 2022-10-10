@@ -24,9 +24,6 @@ run_machines_in_spaces() {
 	machine_1_space_ip=$(assert_machine_ip_is_in_cidrs "1" "${alpha_cidrs}")
 	machine_2_space_ip=$(assert_machine_ip_is_in_cidrs "2" "172.31.254.0/24")
 
-	# Sometimes it can take a bit for an ec2 machine's public ip to come up on Juju
-	wait_for "3" '.machines["0"]["ip-addresses"] | length'
-
 	echo "Verify machines can ping each other within and across spaces"
 	juju ssh 0 "ping -c4 ${machine_1_space_ip}"
 	juju ssh 0 "ping -c4 ${machine_2_space_ip}"

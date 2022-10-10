@@ -39,7 +39,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	units := []machinemanager.Unit{unit}
 
 	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().Series().Return("bionic")
+	machine.EXPECT().Series().Return("bionic").Times(2)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
@@ -57,7 +57,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []machinemanager.ValidationEntity{
-		{Tag: "machine-0", Series: "focal"},
+		{Tag: "machine-0", Channel: "20.04"},
 	}
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
@@ -73,7 +73,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateSeries(c *gc.C) {
 	defer ctrl.Finish()
 
 	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().Series().Return("bionic")
+	machine.EXPECT().Series().Return("bionic").Times(2)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
 	state := mocks.NewMockUpgradeSeriesState(ctrl)
@@ -87,7 +87,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateSeries(c *gc.C) {
 	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []machinemanager.ValidationEntity{
-		{Tag: "machine-0", Series: "focal"},
+		{Tag: "machine-0", Channel: "20.04"},
 	}
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
@@ -104,7 +104,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	applications := []machinemanager.Application{application}
 
 	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().Series().Return("bionic")
+	machine.EXPECT().Series().Return("bionic").Times(2)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 
 	state := mocks.NewMockUpgradeSeriesState(ctrl)
@@ -120,7 +120,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	authorizer.EXPECT().CanRead().Return(nil)
 
 	entities := []machinemanager.ValidationEntity{
-		{Tag: "machine-0", Series: "focal"},
+		{Tag: "machine-0", Channel: "20.04"},
 	}
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
@@ -150,7 +150,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
-	machine.EXPECT().Series().Return("bionic").Times(2)
+	machine.EXPECT().Series().Return("bionic").Times(3)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareStarted, `started upgrade series from "bionic" to "focal"`)
 
@@ -166,7 +166,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "focal", false)
+	err := api.Prepare("machine-0", "20.04", false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -182,7 +182,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
-	machine.EXPECT().Series().Return("bionic")
+	machine.EXPECT().Series().Return("bionic").Times(2)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().RemoveUpgradeSeriesLock()
 
@@ -196,7 +196,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "focal", false)
+	err := api.Prepare("machine-0", "20.04", false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -212,7 +212,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Units().Return(units, nil)
 	machine.EXPECT().CreateUpgradeSeriesLock([]string{"app/0"}, "focal")
-	machine.EXPECT().Series().Return("bionic")
+	machine.EXPECT().Series().Return("bionic").Times(2)
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0"))
 	machine.EXPECT().RemoveUpgradeSeriesLock().Return(errors.New("boom"))
 
@@ -226,7 +226,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "focal", false)
+	err := api.Prepare("machine-0", "20.04", false)
 	c.Assert(err, gc.ErrorMatches, `boom occurred while cleaning up from: bad`)
 }
 
@@ -235,6 +235,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().Series().Return("focal")
 
 	state := mocks.NewMockUpgradeSeriesState(ctrl)
 	state.EXPECT().MachineFromTag("machine-0").Return(machine, nil)
@@ -245,7 +246,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "focal", false)
+	err := api.Prepare("machine-0", "20.04", false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -505,7 +506,7 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
@@ -551,7 +552,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
@@ -582,7 +583,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
@@ -616,7 +617,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 

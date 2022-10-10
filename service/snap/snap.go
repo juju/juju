@@ -5,7 +5,7 @@ package snap
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -238,7 +238,7 @@ func (s Service) ConfigOverride() error {
 	}
 
 	unitOptions := systemd.ServiceLimits(s.conf)
-	data, err := ioutil.ReadAll(systemd.UnitSerialize(unitOptions))
+	data, err := io.ReadAll(systemd.UnitSerialize(unitOptions))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -248,7 +248,7 @@ func (s Service) ConfigOverride() error {
 		if err := os.MkdirAll(overridesDir, 0755); err != nil {
 			return errors.Trace(err)
 		}
-		if err := ioutil.WriteFile(filepath.Join(overridesDir, "overrides.conf"), data, 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(overridesDir, "overrides.conf"), data, 0644); err != nil {
 			return errors.Trace(err)
 		}
 	}

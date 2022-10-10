@@ -7,7 +7,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -124,5 +123,5 @@ func InjectFilesToCharmArchive(pathToArchive string, fileContents map[string]str
 
 	// Overwrite original archive with the patched version
 	_, _ = zr.Close(), zw.Close()
-	return ioutil.WriteFile(pathToArchive, buf.Bytes(), 0644)
+	return os.WriteFile(pathToArchive, buf.Bytes(), 0644)
 }

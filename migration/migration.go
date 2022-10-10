@@ -5,7 +5,6 @@ package migration
 
 import (
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"time"
@@ -30,7 +29,7 @@ var logger = loggo.GetLogger("juju.migration")
 // model.
 type StateExporter interface {
 	// Export generates an abstract representation of a model.
-	Export() (description.Model, error)
+	Export(leaders map[string]string) (description.Model, error)
 }
 
 // StateImporter describes the method needed to import a model
@@ -191,7 +190,7 @@ func UploadBinaries(config UploadBinariesConfig) error {
 }
 
 func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err error) {
-	tempFile, err := ioutil.TempFile("", "juju-migrate-binary")
+	tempFile, err := os.CreateTemp("", "juju-migrate-binary")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

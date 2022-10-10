@@ -6,7 +6,7 @@ package charmhub
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,7 +31,7 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	tmpFile, err := ioutil.TempFile("", "charm")
+	tmpFile, err := os.CreateTemp("", "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := os.Remove(tmpFile.Name())
@@ -47,7 +47,7 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 
 		return &http.Response{
 			StatusCode: 200,
-			Body:       ioutil.NopCloser(bytes.NewBuffer(archiveBytes)),
+			Body:       io.NopCloser(bytes.NewBuffer(archiveBytes)),
 		}, nil
 	})
 
@@ -63,7 +63,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	tmpFile, err := ioutil.TempFile("", "charm")
+	tmpFile, err := os.CreateTemp("", "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := os.Remove(tmpFile.Name())
@@ -77,7 +77,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	httpClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 404,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("")),
+			Body:       io.NopCloser(bytes.NewBufferString("")),
 		}, nil
 	})
 
@@ -93,7 +93,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	tmpFile, err := ioutil.TempFile("", "charm")
+	tmpFile, err := os.CreateTemp("", "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := os.Remove(tmpFile.Name())
@@ -108,7 +108,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 		return &http.Response{
 			Status:     http.StatusText(http.StatusInternalServerError),
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("")),
+			Body:       io.NopCloser(bytes.NewBufferString("")),
 		}, nil
 	})
 
@@ -121,13 +121,13 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 }
 
 func (s *DownloadSuite) createCharmArchieve(c *gc.C) []byte {
-	tmpDir, err := ioutil.TempDir("", "charm")
+	tmpDir, err := os.MkdirTemp("", "charm")
 	c.Assert(err, jc.ErrorIsNil)
 
 	repo := charmrepotesting.NewRepo(localCharmRepo, defaultSeries)
 	charmPath := repo.CharmArchivePath(tmpDir, "dummy")
 
-	path, err := ioutil.ReadFile(charmPath)
+	path, err := os.ReadFile(charmPath)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

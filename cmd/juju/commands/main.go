@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 
@@ -19,6 +18,8 @@ import (
 	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/juju/agree/agree"
+	"github.com/juju/juju/cmd/juju/agree/listagreements"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/payload"
 	"github.com/juju/juju/cmd/juju/resource"
-	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
 	"github.com/juju/juju/cmd/juju/secrets"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
@@ -575,13 +575,15 @@ func registerCommands(r commandRegistry) {
 	r.Register(payload.NewListCommand())
 	r.Register(waitfor.NewWaitForCommand())
 
-	rcmd.RegisterAll(r)
+	// Agreement commands
+	r.Register(agree.NewAgreeCommand())
+	r.Register(listagreements.NewListAgreementsCommand())
 }
 
 type cloudToCommandAdapter struct{}
 
 func (cloudToCommandAdapter) ReadCloudData(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 func (cloudToCommandAdapter) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
 	return cloudfile.ParseOneCloud(data)

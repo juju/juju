@@ -378,7 +378,7 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 
 	c.Assert(saved.Name(), gc.Equals, unit.Name())
 	c.Assert(saved.ApplicationName(), gc.Equals, unit.ApplicationName())
-	c.Assert(saved.Series(), gc.Equals, unit.Series())
+	c.Assert(saved.Base(), jc.DeepEquals, unit.Base())
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
 }
 
@@ -397,7 +397,7 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 
 	c.Assert(saved.Name(), gc.Equals, unit.Name())
 	c.Assert(saved.ApplicationName(), gc.Equals, unit.ApplicationName())
-	c.Assert(saved.Series(), gc.Equals, unit.Series())
+	c.Assert(saved.Base(), jc.DeepEquals, unit.Base())
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
 
 	applicationCharmURL, _ := application.CharmURL()
@@ -516,7 +516,7 @@ func (s *factorySuite) TestMakeModelNil(c *gc.C) {
 
 	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "jammy")
+	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "")
 }
 
 func (s *factorySuite) TestMakeModel(c *gc.C) {
