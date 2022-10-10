@@ -45,7 +45,7 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 				Platform: &state.Platform{
 					Architecture: "amd64",
 					OS:           "ubuntu",
-					Series:       "focal",
+					Channel:      "20.04/stable",
 				},
 			},
 		},

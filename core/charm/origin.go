@@ -195,36 +195,6 @@ func (p Platform) String() string {
 	return path
 }
 
-// ComputeBaseChannel ensure that the platform has a valid charmhub
-// channel for centos versions.
-func ComputeBaseChannel(platform Platform) Platform {
-	track, _ := ChannelTrack(platform.Channel)
-	switch strings.ToLower(platform.OS) {
-	case "centos":
-		p := platform
-		p.Channel = strings.TrimPrefix(track, "centos")
-		return p
-	}
-	return platform
-}
-
-// NormalisePlatformSeries origin.Platform.Channel returns a valid Juju series and
-// not a charmhub series, ensuring we correctly normalize the base channel.
-func NormalisePlatformSeries(platform Platform) Platform {
-	switch strings.ToLower(platform.OS) {
-	case "centos":
-		// If the platform has already a "centos" prefix, don't double prefix it.
-		if strings.HasPrefix(strings.ToLower(platform.Channel), "centos") {
-			return platform
-		}
-
-		p := platform
-		p.Channel = fmt.Sprintf("centos%s", platform.Channel)
-		return p
-	}
-	return platform
-}
-
 func ChannelTrack(channel string) (string, error) {
 	// Base channel can be found as either just the version `20.04` (focal)
 	// or as `20.04/latest` (focal latest). We should future proof ourself

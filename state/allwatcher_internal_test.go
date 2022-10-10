@@ -680,7 +680,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 			cm, err := m.CAASModel()
 			c.Assert(err, jc.ErrorIsNil)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForSeries(c, caasSt, "kubernetes", "mysql", ch)
 			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
@@ -723,7 +723,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 			cm, err := m.CAASModel()
 			c.Assert(err, jc.ErrorIsNil)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForSeries(c, caasSt, "kubernetes", "mysql", ch)
 			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
@@ -752,7 +752,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForSeries(c, caasSt, "kubernetes", "mysql", ch)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
@@ -796,7 +796,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForSeries(c, caasSt, "kubernetes", "mysql", ch)
 			unit, err := mysql.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -822,7 +822,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						ModelUUID:   caasSt.ModelUUID(),
 						Name:        "mysql/0",
 						Application: "mysql",
-						Base:        "kubernetes",
+						Base:        "ubuntu:20.04",
 						Life:        "alive",
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
@@ -848,7 +848,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			caasSt := s.newCAASState(c)
 			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
-			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			mysql := AddTestingApplicationForSeries(c, caasSt, "kubernetes", "mysql", ch)
 			unit, err := mysql.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -870,7 +870,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						ModelUUID:   caasSt.ModelUUID(),
 						Name:        "mysql/0",
 						Application: "mysql",
-						Base:        "kubernetes",
+						Base:        "ubuntu:20.04",
 					},
 				},
 				change: watcher.Change{
@@ -882,7 +882,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						ModelUUID:   caasSt.ModelUUID(),
 						Name:        "mysql/0",
 						Application: "mysql",
-						Base:        "kubernetes",
+						Base:        "ubuntu:20.04",
 						ContainerStatus: multiwatcher.StatusInfo{
 							Current: "maintenance",
 							Message: "setting up",

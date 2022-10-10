@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -839,7 +840,19 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 }
 
 func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Series: ch.URL().Series})
+	appSeries := ch.URL().Series
+	if appSeries == "kubernetes" {
+		appSeries = "focal"
+	}
+	base, err := series.GetBaseFromSeries(appSeries)
+	c.Assert(err, jc.ErrorIsNil)
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: name, Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
@@ -848,7 +861,6 @@ func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        name,
 		Charm:       ch,
-		Series:      ch.URL().Series,
 		CharmOrigin: origin,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -856,10 +868,16 @@ func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *state.Charm, arch string) *state.Application {
+	base, err := series.GetBaseFromSeries(ch.URL().Series)
+	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:        name,
-		Charm:       ch,
-		Series:      ch.URL().Series,
+		Name:  name,
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			Architecture: arch,
+			OS:           base.OS,
+			Channel:      base.Channel.String(),
+		}},
 		Constraints: constraints.MustParse("arch=" + arch),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -867,15 +885,33 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+	base, err := series.GetBaseFromSeries(ch.URL().Series)
+	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: name, Charm: ch, Series: ch.URL().Series, Storage: storage})
+		Name:  name,
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		}},
+		Storage: storage,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+	base, err := series.GetBaseFromSeries(ch.URL().Series)
+	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: name, Charm: ch, Series: ch.URL().Series, EndpointBindings: bindings})
+		Name:  name,
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		}},
+		EndpointBindings: bindings,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }

@@ -177,19 +177,16 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	platform := fmt.Sprintf("%s/%s/%s", pArch, base.Name, base.Channel.Track)
+	platform := fmt.Sprintf("%s/%s/%s", pArch, base.OS, base.Channel.Track)
 	normBase, err := corecharm.ParsePlatformNormalize(platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Ensure we compute the base channel correctly.
-	computedNormBase := corecharm.ComputeBaseChannel(normBase)
-
 	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshBase{
-		Architecture: computedNormBase.Architecture,
-		Name:         computedNormBase.OS,
-		Channel:      computedNormBase.Channel,
+		Architecture: normBase.Architecture,
+		Name:         normBase.OS,
+		Channel:      normBase.Channel,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -285,12 +282,12 @@ func (c *downloadCommand) suggested(requestedSeries string, channel string, rele
 	series := set.NewStrings()
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
+			platform := corecharm.Platform{
 				Architecture: rel.Base.Architecture,
 				OS:           rel.Base.Name,
 				Channel:      rel.Base.Channel,
-			})
-			s, err := coreseries.VersionSeries(platform.Channel)
+			}
+			s, err := coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
 			if err == nil {
 				series.Add(s)
 			} else {

@@ -98,7 +98,7 @@ func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 		Track:        o.Track,
 		Branch:       o.Branch,
 		Architecture: o.Architecture,
-		Base:         params.Base{Name: o.Base.Name, Channel: o.Base.Channel.String()},
+		Base:         params.Base{Name: o.Base.OS, Channel: o.Base.Channel.String()},
 		InstanceKey:  o.InstanceKey,
 	}
 }
@@ -130,7 +130,7 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 		Channel:  channel,
 		Platform: corecharm.Platform{
 			Architecture: o.Architecture,
-			OS:           o.Base.Name,
+			OS:           o.Base.OS,
 			Channel:      o.Base.Channel.Track,
 		},
 		InstanceKey: o.InstanceKey,

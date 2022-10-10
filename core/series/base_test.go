@@ -18,16 +18,16 @@ var _ = gc.Suite(&BaseSuite{})
 func (s *BaseSuite) TestParseBase(c *gc.C) {
 	base, err := ParseBase("ubuntu", "22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{Name: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
+	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
 	base, err = ParseBase("ubuntu", "22.04/edge")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{Name: "ubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}})
+	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}})
 }
 
 func (s *BaseSuite) TestGetBaseFromSeries(c *gc.C) {
 	base, err := GetBaseFromSeries("jammy")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{Name: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
+	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
 }
 
 func (s *BaseSuite) TestGetSeriesFromChannel(c *gc.C) {

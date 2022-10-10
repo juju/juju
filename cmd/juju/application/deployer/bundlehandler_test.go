@@ -2131,7 +2131,7 @@ func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, o
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args %s", appName))
 	c.Assert(arg.CharmID.URL.String(), gc.Equals, curl)
-	c.Assert(arg.CharmOrigin.Base.Name, gc.Equals, os)
+	c.Assert(arg.CharmOrigin.Base.OS, gc.Equals, os)
 	c.Assert(arg.CharmOrigin.Base.Channel.Track, gc.Equals, channel, gc.Commentf("%s", pretty.Sprint(arg)))
 }
 

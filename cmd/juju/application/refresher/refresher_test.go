@@ -770,7 +770,7 @@ func refresherConfigWithOrigin(curl *charm.URL, ref string, base series.Base) Re
 		Source:  corecharm.CharmHub,
 		Channel: &charm.Channel{},
 		Platform: corecharm.Platform{
-			OS:      base.Name,
+			OS:      base.OS,
 			Channel: base.Channel.String(),
 		},
 	}

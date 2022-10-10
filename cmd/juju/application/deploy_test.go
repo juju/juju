@@ -2078,7 +2078,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, aserie
 			for _, a := range []string{"", arc, arch.DefaultArchitecture} {
 				platform := corecharm.Platform{
 					Architecture: a,
-					OS:           base.Name,
+					OS:           base.OS,
 					Channel:      base.Channel.Track,
 				}
 				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
@@ -2128,7 +2128,7 @@ func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name string, allSeries .
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{
-			OS: base.Name, Channel: base.Channel.Track})
+			OS: base.OS, Channel: base.Channel.Track})
 		c.Assert(err, jc.ErrorIsNil)
 		s.fakeAPI.Call("ResolveBundleURL", &baseURL, origin).Returns(
 			bundleResolveURL,

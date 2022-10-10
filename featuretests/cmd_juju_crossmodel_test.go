@@ -380,8 +380,9 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	ch, err := jujutesting.PutCharm(otherModel, curl, mysql)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
-		Charm: ch,
+		Name:        "mysql",
+		Charm:       ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	offersAPi := state.NewApplicationOffers(otherModel)
@@ -406,8 +407,9 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 	ch, err := jujutesting.PutCharm(otherModel, curl, mysql)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
-		Charm: ch,
+		Name:        "mysql",
+		Charm:       ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

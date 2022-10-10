@@ -190,7 +190,7 @@ func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
@@ -236,7 +236,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c 
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
@@ -267,7 +267,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 
@@ -301,7 +301,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "bionic",
+			Channel:      "18.04/stable",
 		},
 	})
 

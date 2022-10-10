@@ -43,7 +43,7 @@ func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 		Track:        track,
 		Branch:       branch,
 		Architecture: origin.Platform.Architecture,
-		Base:         params.Base{Name: base.Name, Channel: base.Channel.String()},
+		Base:         params.Base{Name: base.OS, Channel: base.Channel.String()},
 		InstanceKey:  origin.InstanceKey,
 	}, nil
 }
@@ -76,7 +76,7 @@ func ConvertParamsOrigin(origin params.CharmOrigin) (corecharm.Origin, error) {
 		},
 		Platform: corecharm.Platform{
 			Architecture: origin.Architecture,
-			OS:           base.Name,
+			OS:           base.OS,
 			Channel:      base.Channel.Track,
 		},
 		InstanceKey: origin.InstanceKey,

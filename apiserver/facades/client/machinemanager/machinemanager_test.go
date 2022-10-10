@@ -1452,11 +1452,11 @@ func (s *IsSeriesLessThanMachineManagerSuite) TestIsSeriesLessThan(c *gc.C) {
 
 	for seriesOS, seriesList := range seriesByOS {
 		c.Logf("checking series for %v", seriesOS)
-		s.assertSeriesLessThan(c, seriesList)
+		s.assertSeriesLessThan(c, seriesOS.String(), seriesList)
 	}
 }
 
-func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, seriesList []string) {
+func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, os string, seriesList []string) {
 	// get the series versions
 	vs := make([]string, 0, len(seriesList))
 	for _, ser := range seriesList {
@@ -1487,9 +1487,10 @@ func (s *IsSeriesLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, seri
 		}
 
 		// get the series for the specified version
-		s1, err := series.VersionSeries(vs[i])
+		os = strings.ToLower(os)
+		s1, err := series.GetSeriesFromChannel(os, vs[i])
 		c.Assert(err, jc.ErrorIsNil)
-		s2, err := series.VersionSeries(vs[i+1])
+		s2, err := series.GetSeriesFromChannel(os, vs[i+1])
 		c.Assert(err, jc.ErrorIsNil)
 
 		isLessThan, err := machinemanager.IsSeriesLessThan(s1, s2)

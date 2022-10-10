@@ -250,17 +250,9 @@ func (s *ApplicationSuite) expectDefaultLxdProfilerCharm(ctrl *gomock.Controller
 }
 
 func (s *ApplicationSuite) expectApplication(ctrl *gomock.Controller, name string) *mocks.MockApplication {
-	var series string
-	if s.modelType == state.ModelTypeIAAS {
-		series = "quantal"
-	}
-	if s.modelType == state.ModelTypeCAAS {
-		series = "kubernetes"
-	}
 	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().Name().Return(name).AnyTimes()
 	app.EXPECT().ApplicationTag().Return(names.NewApplicationTag(name)).AnyTimes()
-	app.EXPECT().Series().Return(series).AnyTimes()
 	app.EXPECT().IsPrincipal().Return(true).AnyTimes()
 	app.EXPECT().IsExposed().Return(false).AnyTimes()
 	app.EXPECT().IsRemote().Return(false).AnyTimes()
@@ -354,7 +346,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 	})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
@@ -398,7 +390,7 @@ func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ForceUnits: true,
 	})
@@ -446,7 +438,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -509,7 +501,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -569,23 +561,15 @@ func (s *ApplicationSuite) TestSetCharmUpgradeFormat(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
-			Platform: &state.Platform{OS: "ubuntu", Series: "jammy"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
-		Series: "focal",
 	}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		"operator-storage": "k8s-operator-storage",
-		"workload-storage": "k8s-storage",
-		"default-series":   "focal",
-	})
-	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs))
 
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
+		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -603,7 +587,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -644,7 +628,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -701,7 +685,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-store",
-			Platform: &state.Platform{OS: "ubuntu", Series: "focal"},
+			Platform: &state.Platform{OS: "ubuntu", Channel: "20.04"},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	}).Return(nil)
@@ -2762,7 +2746,8 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
-		Channel: &state.Channel{Track: "2.0", Risk: "candidate"},
+		Channel:  &state.Channel{Track: "2.0", Risk: "candidate"},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
 	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
@@ -2781,7 +2766,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		Channel:     "2.0/candidate",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2798,7 +2783,9 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	defer ctrl.Finish()
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().CharmOrigin().Return(nil).MinTimes(1)
+	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 	app.EXPECT().Channel().Return(csparams.DevelopmentChannel).MinTimes(1)
@@ -2821,7 +2808,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -2876,7 +2863,9 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 
 	// postgresql
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().CharmOrigin().Return(nil).MinTimes(1)
+	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+	}).MinTimes(1)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
 	app.EXPECT().Channel().Return(csparams.DevelopmentChannel).MinTimes(1)
@@ -2897,7 +2886,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
-		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Base:        params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		Channel:     "development",
 		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
 		Principal:   true,
@@ -3357,7 +3346,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "jammy",
+			Channel:      "22.04/stable",
 		},
 	})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)

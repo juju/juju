@@ -216,7 +216,7 @@ func (s *AssignSuite) TestAssignBadSeries(c *gc.C) {
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/0" to machine 0: series does not match`)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/0" to machine 0: series does not match.*`)
 }
 
 func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
@@ -254,7 +254,7 @@ func (s *AssignSuite) TestAssignMachineDifferentSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot assign unit "wordpress/0" to machine 0: series does not match`)
+		`cannot assign unit "wordpress/0" to machine 0: series does not match.*`)
 }
 
 func (s *AssignSuite) TestPrincipals(c *gc.C) {

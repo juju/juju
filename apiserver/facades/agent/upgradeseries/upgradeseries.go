@@ -226,7 +226,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateChannelArgs) (params.ErrorRe
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
-			argSeries, err = series.GetSeriesFromChannel(base.Name, arg.Channel)
+			argSeries, err = series.GetSeriesFromChannel(base.OS, arg.Channel)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue

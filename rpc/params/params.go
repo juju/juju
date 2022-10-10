@@ -208,7 +208,7 @@ type CharmURLOriginResult struct {
 	Error  *Error      `json:"error,omitempty"`
 }
 
-// Base holds the name of an OS and its version.
+// Base holds the name of an OS name and its version.
 type Base struct {
 	Name    string `json:"name"`
 	Channel string `json:"channel"`

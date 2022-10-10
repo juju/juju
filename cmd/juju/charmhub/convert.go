@@ -42,8 +42,7 @@ func convertInfoResponse(info transport.InfoResponse, arch, series string) (Info
 
 	seen := set.NewStrings()
 	for _, base := range info.DefaultRelease.Revision.Bases {
-		s, _ := coreseries.VersionSeries(base.Channel)
-		if s != "" {
+		if s, err := coreseries.GetSeriesFromChannel(base.Name, base.Channel); err == nil {
 			if !seen.Contains(s) {
 				ir.Series = append(ir.Series, s)
 				seen.Add(s)
@@ -133,8 +132,7 @@ func includeChannel(p []corecharm.Platform, architecture, series string) bool {
 func channelSeries(platforms []corecharm.Platform) set.Strings {
 	series := set.NewStrings()
 	for _, v := range platforms {
-		s, err := coreseries.VersionSeries(v.Channel)
-		if err == nil {
+		if s, err := coreseries.GetSeriesFromChannel(v.OS, v.Channel); err == nil {
 			series.Add(s)
 		}
 	}
@@ -201,9 +199,10 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 	for _, p := range channel.Revision.Bases {
 		arches.Add(p.Architecture)
 		os.Add(p.Name)
-		// TODO hml - for this to be correct, must determine IsKubernetes from metadata.
-		s, _ := coreseries.VersionSeries(p.Channel)
-		series.Add(s)
+		if s, err := coreseries.GetSeriesFromChannel(p.Name, p.Channel); err == nil {
+			series.Add(s)
+		}
+
 	}
 	return supported{
 		Architectures: arches.SortedValues(),

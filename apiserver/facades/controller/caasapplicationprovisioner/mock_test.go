@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -184,7 +185,7 @@ type mockApplication struct {
 	life                 state.Life
 	tag                  names.Tag
 	password             string
-	series               string
+	base                 series.Base
 	charm                caasapplicationprovisioner.Charm
 	units                []*mockUnit
 	constraints          constraints.Value
@@ -276,9 +277,9 @@ func (a *mockApplication) Name() string {
 	return a.tag.Id()
 }
 
-func (a *mockApplication) Series() string {
-	a.MethodCall(a, "Series")
-	return a.series
+func (a *mockApplication) Base() (series.Base, error) {
+	a.MethodCall(a, "Base")
+	return a.base, nil
 }
 
 func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error {

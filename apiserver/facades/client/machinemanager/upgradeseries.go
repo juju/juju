@@ -309,11 +309,11 @@ func seriesFromParams(machineTag, machineSeries, channel string) (string, error)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if base.Name != "ubuntu" {
+	if base.OS != "ubuntu" {
 		return "", errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
-			machineTag, base.Name)
+			machineTag, base.OS)
 	}
-	argSeries, err := coreseries.GetSeriesFromChannel(base.Name, channel)
+	argSeries, err := coreseries.GetSeriesFromChannel(base.OS, channel)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

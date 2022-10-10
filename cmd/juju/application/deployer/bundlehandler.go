@@ -1159,7 +1159,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		}
 		p.Series = ""
 		base = &params.Base{
-			Name:    info.Name,
+			Name:    info.OS,
 			Channel: info.Channel.String(),
 		}
 	}

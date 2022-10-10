@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
@@ -842,7 +841,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
 		Type:                 e.model.Type(),
-		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             *application.doc.CharmURL,
 		Channel:              application.doc.Channel,
@@ -1633,7 +1631,6 @@ func (e *exporter) cloudimagemetadata() error {
 			Stream:          metadata.Stream,
 			Region:          metadata.Region,
 			Version:         metadata.Version,
-			Series:          metadata.Series,
 			Arch:            metadata.Arch,
 			VirtType:        metadata.VirtType,
 			RootStorageType: metadata.RootStorageType,
@@ -2036,9 +2033,6 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (description.CharmOriginArgs, error) {
 	// Everything should be migrated, but in the case that it's not, handle
 	// that case.
-	if doc.CharmOrigin == nil {
-		return deduceOrigin(doc.CharmURL)
-	}
 	origin := doc.CharmOrigin
 
 	// If the channel is empty, then we fall back to the Revision.
@@ -2051,32 +2045,19 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	if origin.Channel != nil {
 		channel = charm.MakePermissiveChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
 	}
-	var platform corecharm.Platform
-	if origin.Platform != nil {
-		// Platform is now mandatory moving forward, so we need to ensure that
-		// the architecture is set in the platform if it's not set. This
-		// shouldn't happen that often, but handles clients sending bad requests
-		// when deploying.
-		pArch := origin.Platform.Architecture
-		if pArch == "" {
-			e.logger.Debugf("using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
-			pArch = defaultArch
-		}
-		var os string
-		if origin.Platform.Series != "" {
-			sys, err := series.GetOSFromSeries(origin.Platform.Series)
-			if err != nil {
-				return description.CharmOriginArgs{}, errors.Trace(err)
-			}
-			os = strings.ToLower(sys.String())
-		}
-		// TODO(wallyworld) - we need to update description to support channel
-		// For now, the serialised string is the same regardless.
-		platform = corecharm.Platform{
-			Architecture: pArch,
-			OS:           os,
-			Channel:      origin.Platform.Series,
-		}
+	// Platform is now mandatory moving forward, so we need to ensure that
+	// the architecture is set in the platform if it's not set. This
+	// shouldn't happen that often, but handles clients sending bad requests
+	// when deploying.
+	pArch := origin.Platform.Architecture
+	if pArch == "" {
+		e.logger.Debugf("using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
+		pArch = defaultArch
+	}
+	platform := corecharm.Platform{
+		Architecture: pArch,
+		OS:           origin.Platform.OS,
+		Channel:      origin.Platform.Channel,
 	}
 
 	return description.CharmOriginArgs{
@@ -2087,28 +2068,6 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 		Channel:  channel.String(),
 		Platform: platform.String(),
 	}, nil
-}
-
-func deduceOrigin(cURL *string) (description.CharmOriginArgs, error) {
-	url, err := charm.ParseURL(*cURL)
-	if err != nil {
-		return description.CharmOriginArgs{}, errors.NewNotValid(err, "charm url")
-	}
-
-	switch url.Schema {
-	case "cs":
-		return description.CharmOriginArgs{
-			Source: corecharm.CharmStore.String(),
-		}, nil
-	case "local":
-		return description.CharmOriginArgs{
-			Source: corecharm.Local.String(),
-		}, nil
-	default:
-		return description.CharmOriginArgs{
-			Source: corecharm.CharmHub.String(),
-		}, nil
-	}
 }
 
 func (e *exporter) readAllSettings() error {
