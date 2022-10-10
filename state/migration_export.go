@@ -81,15 +81,15 @@ type ExportConfig struct {
 // ExportPartial the current model for the State optionally skipping
 // aspects as defined by the ExportConfig.
 func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
-	return st.exportImpl(cfg)
+	return st.exportImpl(cfg, map[string]string{})
 }
 
 // Export the current model for the State.
-func (st *State) Export() (description.Model, error) {
-	return st.exportImpl(ExportConfig{})
+func (st *State) Export(leaders map[string]string) (description.Model, error) {
+	return st.exportImpl(ExportConfig{}, leaders)
 }
 
-func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
+func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -174,7 +174,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.applications(); err != nil {
+	if err := export.applications(leaders); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.remoteApplications(); err != nil {
@@ -654,7 +654,7 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	return inst
 }
 
-func (e *exporter) applications() error {
+func (e *exporter) applications(leaders map[string]string) error {
 	applications, err := e.st.AllApplications()
 	if err != nil {
 		return errors.Trace(err)
@@ -672,11 +672,6 @@ func (e *exporter) applications() error {
 	}
 
 	bindings, err := e.readAllEndpointBindings()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	leaders, err := e.st.ApplicationLeaders()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -708,7 +703,6 @@ func (e *exporter) applications() error {
 
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
-		leader := leaders[application.Name()]
 		resources, err := resourcesSt.ListResources(application.Name())
 		if err != nil {
 			return errors.Trace(err)
@@ -720,10 +714,10 @@ func (e *exporter) applications() error {
 			podSpecs:         podSpecs,
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
-			leader:           leader,
 			payloads:         payloads,
 			resources:        resources,
 			endpoingBindings: bindings,
+			leader:           leaders[application.Name()],
 		}
 
 		if appOfferMap != nil {

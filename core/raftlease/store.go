@@ -33,23 +33,6 @@ func aborted(command *Command) error {
 	}
 }
 
-// NotifyTarget defines methods needed to keep an external database
-// updated with who holds leases. (In non-test code the notify target
-// will generally be the state DB.)
-type NotifyTarget interface {
-	// Claimed will be called when a new lease has been claimed.
-	Claimed(lease.Key, string) error
-
-	// Expiries will be called when a set of existing leases have expired.
-	Expiries([]Expired) error
-}
-
-// TrapdoorFunc returns a trapdoor to be attached to lease details for
-// use by clients. This is intended to hold assertions that can be
-// added to state transactions to ensure the lease is still held when
-// the transaction is applied.
-type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
-
 // ReadOnlyClock describes a clock from which global time can be read.
 type ReadOnlyClock interface {
 	GlobalTime() time.Time

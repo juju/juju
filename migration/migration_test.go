@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v9"
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -21,7 +20,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/lease"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
@@ -61,13 +59,13 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-func (s *ImportSuite) exportImport(c *gc.C, getClaimer migration.ClaimerFunc) *state.State {
-	model, err := s.State.Export()
+func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaimer migration.ClaimerFunc) *state.State {
+	model, err := s.State.Export(leaders)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the config values in the exported model for different values for
 	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
-	// and name so we can import it nicely.
+	// and name, so we can import it nicely.
 	uuid := utils.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
 		"name": "new-model",
@@ -90,19 +88,19 @@ func (s *ImportSuite) exportImport(c *gc.C, getClaimer migration.ClaimerFunc) *s
 }
 
 func (s *ImportSuite) TestImportModel(c *gc.C) {
-	s.exportImport(c, fakeGetClaimer)
+	s.exportImport(c, map[string]string{}, fakeGetClaimer)
 }
 
 func (s *ImportSuite) TestImportsLeadership(c *gc.C) {
 	s.makeApplicationWithUnits(c, "wordpress", 3)
-	s.makeUnitApplicationLeader(c, "wordpress/1", "wordpress")
 	s.makeApplicationWithUnits(c, "mysql", 2)
+	leaders := map[string]string{"wordpress": "wordpress/1"}
 
 	var (
 		claimer   fakeClaimer
 		modelUUID string
 	)
-	dbState := s.exportImport(c, func(uuid string) (leadership.Claimer, error) {
+	dbState := s.exportImport(c, leaders, func(uuid string) (leadership.Claimer, error) {
 		modelUUID = uuid
 		return &claimer, nil
 	})
@@ -124,14 +122,6 @@ func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, 
 			Application: application,
 		})
 	}
-}
-
-func (s *ImportSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationName string) {
-	target := s.State.LeaseNotifyTarget(loggo.GetLogger("migration_import_test"))
-	target.Claimed(
-		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
-		unitName,
-	)
 }
 
 func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {

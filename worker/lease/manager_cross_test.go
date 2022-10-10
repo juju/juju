@@ -130,9 +130,8 @@ func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			lease1: {
-				Holder:   "sgt-howie",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
+				Holder: "sgt-howie",
+				Expiry: offset(time.Second),
 			},
 		},
 	}

@@ -342,7 +342,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 	unitRev := unitRes.Revision()
 
-	s.backend.EXPECT().Export().Return(s.model, nil)
+	s.backend.EXPECT().Export(map[string]string{}).Return(s.model, nil)
 
 	serialized, err := s.mustMakeAPI(c).Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -562,9 +562,8 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.resources,
 		s.authorizer,
 		&stubPresence{},
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return s.cloudSpec, nil
-		},
+		func(names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
+		stubLeadership{},
 	)
 }
 
@@ -576,4 +575,10 @@ func (f *stubPresence) ModelPresence(modelUUID string) facade.ModelPresence {
 
 func (f *stubPresence) AgentStatus(agent string) (presence.Status, error) {
 	return presence.Alive, nil
+}
+
+type stubLeadership struct{}
+
+func (stubLeadership) Leaders() (map[string]string, error) {
+	return map[string]string{}, nil
 }

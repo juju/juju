@@ -31,17 +31,14 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lease"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateerrors "github.com/juju/juju/state/errors"
-	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	jujuversion "github.com/juju/juju/version"
@@ -409,23 +406,6 @@ func (st *State) startWorkers(hub *pubsub.SimpleHub) (err error) {
 	st.workers = workers
 	logger.Infof("started state workers for %s successfully", st.modelTag)
 	return nil
-}
-
-// ApplicationLeaders returns a map of the application name to the
-// unit name that is the current leader.
-func (st *State) ApplicationLeaders() (map[string]string, error) {
-	return raftleasestore.LeaseHolders(
-		&environMongo{st},
-		leaseHoldersC,
-		lease.ApplicationLeadershipNamespace,
-		st.ModelUUID(),
-	)
-}
-
-// LeaseNotifyTarget returns a raftlease.NotifyTarget for storing
-// lease changes in the database.
-func (st *State) LeaseNotifyTarget(logger raftleasestore.Logger) raftlease.NotifyTarget {
-	return raftleasestore.NewNotifyTarget(&environMongo{st}, leaseHoldersC, logger)
 }
 
 // ModelUUID returns the model UUID for the model

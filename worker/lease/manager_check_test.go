@@ -26,9 +26,8 @@ func (s *TokenSuite) TestSuccess(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
-				Holder:   "redis/0",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
+				Holder: "redis/0",
+				Expiry: offset(time.Second),
 			},
 		},
 	}
@@ -52,9 +51,8 @@ func (s *TokenSuite) TestFailureOtherHolder(c *gc.C) {
 	fix := &Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			key("redis"): {
-				Holder:   "redis/99",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
+				Holder: "redis/99",
+				Expiry: offset(time.Second),
 			},
 		},
 	}

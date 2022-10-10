@@ -66,7 +66,7 @@ func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported st
 }
 
 func (s *MigrationImportSuite) TestExisting(c *gc.C) {
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = s.Controller.Import(out)
@@ -76,11 +76,11 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 func (s *MigrationImportSuite) importModel(
 	c *gc.C, st *state.State, transform ...func(map[string]interface{}),
 ) (*state.Model, *state.State) {
-	out, err := st.Export()
+	out, err := st.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// When working with importing models, it becomes very handy to read the
-	// model in a human readable format.
+	// model in a human-readable format.
 	// yaml.Marshal will do this in a decent manor.
 	//	bytes, _ := yaml.Marshal(out)
 	//	fmt.Println(string(bytes))
@@ -107,7 +107,7 @@ func (s *MigrationImportSuite) importModel(
 
 	newModel, newSt, err := s.Controller.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
-	// add the cleanup here to close the model.
+
 	s.AddCleanup(func(c *gc.C) {
 		c.Check(newSt.Close(), jc.ErrorIsNil)
 	})
@@ -142,7 +142,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	err = s.Model.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
@@ -1004,7 +1004,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(nextVal, gc.Equals, 3)
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(out.Applications()), gc.Equals, 1)
@@ -1067,7 +1067,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	apps := out.Applications()
@@ -2549,7 +2549,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	}, s.Model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export()
+	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
@@ -2748,7 +2748,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
-	testModel, err := s.State.Export()
+	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	newConfig := testModel.Config()
@@ -2783,7 +2783,7 @@ func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *g
 }
 
 func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
-	testModel, err := s.State.Export()
+	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	newConfig := testModel.Config()
