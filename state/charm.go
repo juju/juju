@@ -19,7 +19,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -61,11 +60,17 @@ type Channel struct {
 	Branch string `bson:"branch,omitempty"`
 }
 
+// Base identifies the base os the charm was installed on.
+type Base struct {
+	OS      string `bson:"os"`
+	Channel string `bson:"channel"`
+}
+
 // Platform identifies the platform the charm was installed on.
 type Platform struct {
 	Architecture string `bson:"architecture,omitempty"`
-	OS           string `bson:"os,omitempty"`
-	Series       string `bson:"series,omitempty"`
+	OS           string `bson:"os"`
+	Channel      string `bson:"channel"`
 }
 
 // CharmOrigin holds the original source of a charm. Information about where the
@@ -80,7 +85,7 @@ type CharmOrigin struct {
 	Hash     string    `bson:"hash"`
 	Revision *int      `bson:"revision,omitempty"`
 	Channel  *Channel  `bson:"channel,omitempty"`
-	Platform *Platform `bson:"platform,omitempty"`
+	Platform *Platform `bson:"platform"`
 }
 
 // AsCoreCharmOrigin converts a state Origin type into a core/charm.Origin.
@@ -102,18 +107,10 @@ func (o CharmOrigin) AsCoreCharmOrigin() corecharm.Origin {
 	}
 
 	if o.Platform != nil {
-		// TODO(juju3) - series will become channel in state
-		os := o.Platform.OS
-		channel := o.Platform.Series
-		base, err := coreseries.GetBaseFromSeries(o.Platform.Series)
-		if err == nil {
-			os = base.Name
-			channel = base.Channel.Track
-		}
 		origin.Platform = corecharm.Platform{
 			Architecture: o.Platform.Architecture,
-			OS:           os,
-			Channel:      channel,
+			OS:           o.Platform.OS,
+			Channel:      o.Platform.Channel,
 		}
 	}
 
@@ -624,6 +621,9 @@ func (c *Charm) globalKey() string {
 
 // String returns a string representation of the charm's URL.
 func (c *Charm) String() string {
+	if c.doc.URL == nil {
+		return ""
+	}
 	return *c.doc.URL
 }
 

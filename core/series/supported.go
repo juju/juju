@@ -367,17 +367,17 @@ const (
 var centosSeries = map[SeriesName]seriesVersion{
 	Centos7: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos7",
+		Version:      "7",
 		Supported:    true,
 	},
 	Centos8: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos8",
+		Version:      "8",
 		Supported:    true,
 	},
 	Centos9: {
 		WorkloadType: OtherWorkloadType,
-		Version:      "centos9",
+		Version:      "9",
 		Supported:    true,
 	},
 }

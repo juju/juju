@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
@@ -603,7 +602,6 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	imported := importedApplications[0]
 
 	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
-	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
@@ -647,7 +645,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 		agentTools := version.Binary{
 			Number:  jujuversion.Current,
 			Arch:    arch.HostArch(),
-			Release: coreseries.DefaultOSTypeNameFromSeries(application.Series()),
+			Release: application.CharmOrigin().Platform.OS,
 		}
 
 		tools, err := imported.AgentTools()
@@ -658,7 +656,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Series: "quantal"}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, true)
 
 	allApplications, err := s.State.AllApplications()
@@ -685,7 +683,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
 		OS:           "ubuntu",
-		Series:       "focal",
+		Channel:      "20.04/stable",
 	}
 	_, _, _ = s.setupSourceApplications(c, s.State, cons, platform, true)
 
@@ -696,8 +694,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	origin := exportedApp.CharmOrigin()
 	c.Check(origin, gc.NotNil)
 	c.Check(origin.Platform, gc.NotNil)
-	c.Check(origin.Platform.Series, gc.Equals, "focal")
-	c.Check(exportedApp.Series(), gc.Equals, "quantal")
+	c.Check(origin.Platform.Channel, gc.Equals, "20.04/stable")
 
 	_, newSt := s.importModel(c, s.State)
 
@@ -706,78 +703,14 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	obtainedOrigin := obtainedApp.CharmOrigin()
 	c.Assert(obtainedOrigin, gc.NotNil)
 	c.Assert(obtainedOrigin.Platform, gc.NotNil)
-	c.Assert(obtainedOrigin.Platform.Series, gc.Equals, exportedApp.Series())
-}
-
-func (s *MigrationImportSuite) TestApplicationsWithMissingPlatform(c *gc.C) {
-	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
-	testCharm, _, _ := s.setupSourceApplications(c, s.State, cons, nil, true)
-
-	allApplications, err := s.State.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allApplications, gc.HasLen, 1)
-	exported := allApplications[0]
-
-	_, newSt := s.importModel(c, s.State)
-	// Manually copy across the charm from the old model
-	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
-	f.MakeCharm(c, &factory.CharmParams{
-		Name:     "starsay", // it has resources
-		URL:      testCharm.String(),
-		Revision: strconv.Itoa(testCharm.Revision()),
-	})
-
-	importedApplications, err := newSt.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedApplications, gc.HasLen, 1)
-	imported := importedApplications[0]
-
-	expectedOrigin := exported.CharmOrigin()
-	expectedOrigin.Platform = &state.Platform{
-		Architecture: corearch.DefaultArchitecture,
-		Series:       "quantal",
-	}
-
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
-}
-
-func (s *MigrationImportSuite) TestApplicationsWithMissingPlatformWithoutConstraint(c *gc.C) {
-	cons := constraints.MustParse("mem=8G root-disk-source=tralfamadore")
-	testCharm, _, _ := s.setupSourceApplications(c, s.State, cons, nil, true)
-
-	allApplications, err := s.State.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allApplications, gc.HasLen, 1)
-	exported := allApplications[0]
-
-	_, newSt := s.importModel(c, s.State)
-	// Manually copy across the charm from the old model
-	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
-	f.MakeCharm(c, &factory.CharmParams{
-		Name:     "starsay", // it has resources
-		URL:      testCharm.String(),
-		Revision: strconv.Itoa(testCharm.Revision()),
-	})
-
-	importedApplications, err := newSt.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedApplications, gc.HasLen, 1)
-	imported := importedApplications[0]
-
-	expectedOrigin := exported.CharmOrigin()
-	expectedOrigin.Platform = &state.Platform{
-		Architecture: corearch.DefaultArchitecture,
-		Series:       "quantal",
-	}
-
-	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
+	c.Assert(obtainedOrigin.Platform.Architecture, gc.Equals, corearch.DefaultArchitecture)
+	c.Assert(obtainedOrigin.Platform.OS, gc.Equals, "ubuntu")
+	c.Assert(obtainedOrigin.Platform.Channel, gc.Equals, "20.04/stable")
 }
 
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Series: "quantal"}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, false)
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
@@ -817,7 +750,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "kubernetes", Series: "kubernetes"}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04/stable"}
 	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, platform, true)
 
 	model, err := caasSt.Model()
@@ -869,7 +802,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{Architecture: corearch.DefaultArchitecture}
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04"}
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, platform, false)
 	ss, err := application.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2763,7 +2696,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 		agentTools := version.Binary{
 			Number:  jujuversion.Current,
 			Arch:    arch.HostArch(),
-			Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
+			Release: app.CharmOrigin().Platform.OS,
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)
@@ -2935,7 +2868,7 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 		Platform: &state.Platform{
 			Architecture: testCharm.URL().Architecture,
 			OS:           "ubuntu",
-			Series:       testCharm.URL().Series,
+			Channel:      "12.10/stable",
 		},
 	}
 	application := f.MakeApplication(c, &factory.ApplicationParams{

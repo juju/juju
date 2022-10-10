@@ -99,7 +99,8 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Series, gc.Equals, "jammy")
+	c.Assert(f.args.CharmOrigin, jc.DeepEquals, &state.CharmOrigin{
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}})
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {

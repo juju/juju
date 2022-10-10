@@ -92,7 +92,7 @@ func DeducePlatform(cons constraints.Value, series string, modelCons constraints
 		if err != nil {
 			return corecharm.Platform{}, errors.Trace(err)
 		}
-		os = base.Name
+		os = base.OS
 		channel = base.Channel.Track
 	}
 

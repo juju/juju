@@ -47,7 +47,8 @@ func Save(st ImageMetadataInterface, metadata params.MetadataSaveParams) ([]para
 func ParseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Config) []cloudimagemetadata.Metadata {
 	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
 	for i, metadata := range p.Metadata {
-		mSeries, _ := series.VersionSeries(metadata.Version)
+		// We only cache ubuntu image metdata in state.
+		mSeries, _ := series.GetSeriesFromChannel("ubuntu", metadata.Version)
 		results[i] = cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          metadata.Stream,

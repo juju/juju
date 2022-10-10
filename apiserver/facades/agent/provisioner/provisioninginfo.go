@@ -107,7 +107,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		return params.ProvisioningInfo{}, errors.Trace(err) // Should never happen.
 	}
 	result := params.ProvisioningInfo{
-		Base:              params.Base{Name: base.Name, Channel: base.Channel.String()},
+		Base:              params.Base{Name: base.OS, Channel: base.Channel.String()},
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),
 
@@ -732,7 +732,8 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 			continue
 		}
 		for _, m := range found {
-			mSeries, err := series.VersionSeries(m.Version)
+			// We only use cached image metadata for ubuntu images.
+			mSeries, err := series.GetSeriesFromChannel("ubuntu", m.Version)
 			if err != nil {
 				logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
 				continue

@@ -1261,20 +1261,6 @@ func (mr *MockApplicationMockRecorder) Relations() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relations", reflect.TypeOf((*MockApplication)(nil).Relations))
 }
 
-// Series mocks base method.
-func (m *MockApplication) Series() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Series")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Series indicates an expected call of Series.
-func (mr *MockApplicationMockRecorder) Series() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockApplication)(nil).Series))
-}
-
 // SetCharm mocks base method.
 func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig) error {
 	m.ctrl.T.Helper()

@@ -193,19 +193,6 @@ func composeSeriesVersions() {
 	}
 }
 
-// CentOSVersionSeries validates that the supplied series (eg: centos7)
-// is supported.
-func CentOSVersionSeries(version string) (string, error) {
-	if version == "" {
-		return "", errors.Trace(unknownVersionSeriesError(""))
-	}
-	if ser, ok := centosSeries[SeriesName(version)]; ok {
-		return ser.Version, nil
-	}
-	return "", errors.Trace(unknownVersionSeriesError(""))
-
-}
-
 // SeriesVersion returns the version for the specified series.
 func SeriesVersion(series string) (string, error) {
 	if series == "" {
@@ -224,23 +211,6 @@ func SeriesVersion(series string) (string, error) {
 	}
 
 	return "", errors.Trace(unknownSeriesVersionError(series))
-}
-
-// VersionSeries returns the series (e.g.trusty) for the specified version (e.g. 14.04).
-func VersionSeries(version string) (string, error) {
-	if version == "" {
-		return "", errors.Trace(unknownVersionSeriesError(""))
-	}
-	seriesVersionsMutex.Lock()
-	defer seriesVersionsMutex.Unlock()
-	if ser, ok := versionSeries[version]; ok {
-		return ser, nil
-	}
-	updateSeriesVersionsOnce()
-	if ser, ok := versionSeries[version]; ok {
-		return ser, nil
-	}
-	return "", errors.Trace(unknownVersionSeriesError(version))
 }
 
 // UbuntuSeriesVersion returns the ubuntu version for the specified series.

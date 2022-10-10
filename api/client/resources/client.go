@@ -208,7 +208,7 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac 
 		Revision:     chID.Origin.Revision,
 		Track:        chID.Origin.Track,
 		Architecture: chID.Origin.Architecture,
-		Base:         params.Base{Name: chID.Origin.Base.Name, Channel: chID.Origin.Base.Channel.String()},
+		Base:         params.Base{Name: chID.Origin.Base.OS, Channel: chID.Origin.Base.Channel.String()},
 	}
 	args.CharmStoreMacaroon = csMac
 	return args, nil

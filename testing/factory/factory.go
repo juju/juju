@@ -493,6 +493,19 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	if params.CharmOrigin == nil {
+		chSeries := params.Charm.URL().Series
+		// Legacy k8s charms - assume ubuntu focal.
+		if chSeries == "kubernetes" {
+			chSeries = "focal"
+		}
+		base, err := coreseries.GetBaseFromSeries(chSeries)
+		c.Assert(err, jc.ErrorIsNil)
+		params.CharmOrigin = &state.CharmOrigin{Platform: &state.Platform{
+			OS:      base.OS,
+			Channel: base.Channel.String(),
+		}}
+	}
 
 	rSt := factory.st.Resources()
 
@@ -512,8 +525,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Name:              params.Name,
 		Charm:             params.Charm,
 		CharmOrigin:       params.CharmOrigin,
-		Series:            params.Charm.URL().Series,
-		CharmConfig:       charm.Settings(params.CharmConfig),
+		CharmConfig:       params.CharmConfig,
 		ApplicationConfig: appConfig,
 		Storage:           params.Storage,
 		Constraints:       params.Constraints,
@@ -549,7 +561,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		agentTools := version.Binary{
 			Number:  jujuversion.Current,
 			Arch:    arch.HostArch(),
-			Release: coreseries.DefaultOSTypeNameFromSeries(application.Series()),
+			Release: application.CharmOrigin().Platform.OS,
 		}
 		err = application.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)
@@ -586,8 +598,11 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		if params.Machine == nil {
 			var mParams *MachineParams
 			if params.Application != nil {
+				platform := params.Application.CharmOrigin().Platform
+				mSeries, err := coreseries.GetSeriesFromChannel(platform.OS, platform.Channel)
+				c.Assert(err, jc.ErrorIsNil)
 				mParams = &MachineParams{
-					Series: params.Application.Series(),
+					Series: mSeries,
 				}
 			}
 			params.Machine = factory.MakeMachine(c, mParams)
@@ -606,7 +621,6 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
 			Charm:       ch,
-			CharmOrigin: &state.CharmOrigin{},
 		})
 	}
 	if params.Password == "" {
@@ -626,7 +640,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		agentTools := version.Binary{
 			Number:  jujuversion.Current,
 			Arch:    arch.HostArch(),
-			Release: coreseries.DefaultOSTypeNameFromSeries(params.Application.Series()),
+			Release: params.Application.CharmOrigin().Platform.OS,
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)

@@ -514,17 +514,6 @@ func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 	c.Assert(conf.UUID(), gc.Equals, otherModel.UUID())
 }
 
-func (s *ModelSuite) TestDeployCAASApplication(c *gc.C) {
-	ch := s.Factory.MakeCharm(c, nil)
-	args := state.AddApplicationArgs{
-		Name:   "gitlab",
-		Series: "kubernetes",
-		Charm:  ch,
-	}
-	_, err := s.State.AddApplication(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "gitlab": series "kubernetes" \(OS "Kubernetes"\) not supported by charm, supported series are "quantal"`)
-}
-
 func (s *ModelSuite) TestAllUnits(c *gc.C) {
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "wordpress",
@@ -815,6 +804,10 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	args := state.AddApplicationArgs{
 		Name:  application.Name(),
 		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "12.10/stable",
+		}},
 	}
 	_, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1290,6 +1283,10 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	args := state.AddApplicationArgs{
 		Name:  application.Name(),
 		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "12.10/stable",
+		}},
 	}
 	_, err = st.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)

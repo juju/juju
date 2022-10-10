@@ -3950,7 +3950,7 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
 				Revision: 4,
 				Channel:  "stable",
 				Scale:    3,
-				Base:     series.MakeDefaultBase("kubernetes", "kubernetes"),
+				Base:     series.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
@@ -100,19 +99,12 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
-	// TODO(juju3) - remove
-	// We still store series in state for now.
-	series, err := coreseries.GetSeriesFromChannel(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	origin, err := StateCharmOrigin(args.CharmOrigin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
-		Series:            series,
 		Charm:             args.Charm,
 		CharmOrigin:       origin,
 		Channel:           args.Channel,
@@ -208,10 +200,6 @@ func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 			Branch: normalizedC.Branch,
 		}
 	}
-	series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &state.CharmOrigin{
 		Type:     origin.Type,
 		Source:   string(origin.Source),
@@ -222,7 +210,7 @@ func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 		Platform: &state.Platform{
 			Architecture: origin.Platform.Architecture,
 			OS:           origin.Platform.OS,
-			Series:       series,
+			Channel:      origin.Platform.Channel,
 		},
 	}, nil
 }

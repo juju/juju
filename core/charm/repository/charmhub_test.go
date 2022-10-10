@@ -803,7 +803,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
 	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
 		OS:           "centos",
-		Channel:      "centos7",
+		Channel:      "7",
 	}})
 }
 
@@ -851,7 +851,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C)
 
 	_, err := repo.selectNextBasesFromReleases([]transport.Release{{
 		Base: transport.Base{
-			Name:         "os",
+			Name:         "ubuntu",
 			Channel:      "20.04",
 			Architecture: "arch",
 		},
@@ -908,7 +908,7 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 	repo := NewCharmHubRepository(s.logger, nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
-			Name:         "os",
+			Name:         "ubuntu",
 			Channel:      "20.04",
 			Architecture: "arch",
 		},
@@ -928,7 +928,7 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 	repo := NewCharmHubRepository(s.logger, nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
-			Name:         "os",
+			Name:         "ubuntu",
 			Channel:      "20.04/stable",
 			Architecture: "arch",
 		},
@@ -948,21 +948,21 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 	repo := NewCharmHubRepository(s.logger, nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
-			Name:         "a",
+			Name:         "ubuntu",
 			Channel:      "20.04",
 			Architecture: "c",
 		},
 		Channel: "stable",
 	}, {
 		Base: transport.Base{
-			Name:         "a",
+			Name:         "ubuntu",
 			Channel:      "18.04",
 			Architecture: "c",
 		},
 		Channel: "stable",
 	}, {
 		Base: transport.Base{
-			Name:         "e",
+			Name:         "ubuntu",
 			Channel:      "18.04",
 			Architecture: "all",
 		},
@@ -1069,7 +1069,7 @@ func (selectReleaseByChannelSuite) TestSelectionWithCentos(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "arch",
 		OS:           "centos",
-		Channel:      "centos7",
+		Channel:      "7",
 	}})
 }
 

@@ -25,6 +25,7 @@ import (
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -2686,12 +2687,16 @@ func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Ma
 	for _, p := range principals {
 		u, err := s.State.Unit(p)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(u.Series(), gc.Equals, series)
+		uSeries, err := coreseries.GetSeriesFromChannel(u.Base().OS, u.Base().Channel)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(uSeries, jc.DeepEquals, series)
 		subs := u.SubordinateNames()
 		for _, sn := range subs {
 			u, err := s.State.Unit(sn)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(u.Series(), gc.Equals, series)
+			uSeries, err := coreseries.GetSeriesFromChannel(u.Base().OS, u.Base().Channel)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(uSeries, jc.DeepEquals, series)
 		}
 	}
 }

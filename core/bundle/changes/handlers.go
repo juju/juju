@@ -47,6 +47,10 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	var change Change
 	for _, name := range names {
 		application := applications[name]
+		// Legacy k8s charms - assume ubuntu focal.
+		if application.Series == kubernetes {
+			application.Series = "focal"
+		}
 		existingApp := existing.GetApplication(name)
 		series, err := getSeries(application, defaultSeries)
 		if err != nil {
@@ -1263,6 +1267,10 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 	}
 	series := charmURL.Series
 	if series != "" {
+		// Legacy k8s charms - assume ubuntu focal.
+		if series == kubernetes {
+			return "focal", nil
+		}
 		return series, nil
 	}
 	return defaultSeries, nil

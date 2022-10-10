@@ -39,7 +39,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypes(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
@@ -55,7 +55,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C) {
@@ -71,7 +71,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
@@ -87,7 +87,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"jammy", "focal"})
 
 	wrkSeries := info.workloadSeries(false)
-	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap"})
+	c.Assert(wrkSeries, jc.DeepEquals, []string{"jammy", "focal", "centos9", "centos8", "centos7", "genericlinux", "kubernetes", "opensuseleap"})
 }
 
 var getOSFromSeriesTests = []struct {
@@ -136,22 +136,6 @@ func (s *SupportedSeriesSuite) TestUnknownOSFromSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
 }
 
-func (s *SupportedSeriesSuite) TestVersionSeriesValid(c *gc.C) {
-	seriesResult, err := VersionSeries("14.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert("trusty", gc.DeepEquals, seriesResult)
-}
-
-func (s *SupportedSeriesSuite) TestVersionSeriesEmpty(c *gc.C) {
-	_, err := VersionSeries("")
-	c.Assert(err, gc.ErrorMatches, `.*unknown series for version: "".*`)
-}
-
-func (s *SupportedSeriesSuite) TestVersionSeriesInvalid(c *gc.C) {
-	_, err := VersionSeries("73655")
-	c.Assert(err, gc.ErrorMatches, `.*unknown series for version: "73655".*`)
-}
-
 func (s *SupportedSeriesSuite) TestSeriesVersionEmpty(c *gc.C) {
 	_, err := SeriesVersion("")
 	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "".*`)
@@ -169,7 +153,7 @@ func (s *SupportedSeriesSuite) TestGetBaseFromSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `series "unknown" not valid`)
 	vers, err = GetBaseFromSeries("centos7")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("centos", "centos7"))
+	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("centos", "7"))
 }
 
 func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *gc.C) {
@@ -178,7 +162,7 @@ func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *gc.C) {
 	c.Assert(series, gc.Equals, "jammy")
 	_, err = GetSeriesFromChannel("bad", "22.04")
 	c.Assert(err, gc.ErrorMatches, `os "bad" version "22.04" not found`)
-	series, err = GetSeriesFromChannel("centos", "centos7")
+	series, err = GetSeriesFromChannel("centos", "7/stable")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "centos7")
 }

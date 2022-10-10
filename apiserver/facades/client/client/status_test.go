@@ -1020,6 +1020,10 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 		Series: "kubernetes",
 	})
 	s.app = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm: ch,
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.app})
@@ -1104,7 +1108,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
-		Base:            params.Base{Name: "kubernetes", Channel: "kubernetes"},
+		Base:            params.Base{Name: "ubuntu", Channel: "20.04/stable"},
 		WorkloadVersion: workloadVersion,
 		Relations:       map[string][]string{},
 		SubordinateTo:   []string{},

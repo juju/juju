@@ -3879,8 +3879,9 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	})
 	var err error
 	s.wordpress, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "wordpress",
-		Charm: s.wpCharm,
+		Name:        "wordpress",
+		Charm:       s.wpCharm,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
 		EndpointBindings: map[string]string{
 			"db":        "internal",   // relation name
 			"admin-api": "public",     // extra-binding name

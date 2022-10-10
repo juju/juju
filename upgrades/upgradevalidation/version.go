@@ -27,7 +27,7 @@ func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (boo
 // MinMajorUpgradeVersion defines the minimum version all models
 // must be running before a major version upgrade.
 var MinMajorUpgradeVersion = map[int]version.Number{
-	3: version.MustParse("2.9.35"),
+	3: version.MustParse("2.9.36"),
 }
 
 // UpgradeToAllowed returns true if a major version upgrade is allowed

@@ -125,8 +125,9 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	mysqlCh, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
-		Charm: mysqlCh,
+		Name:        "mysql",
+		Charm:       mysqlCh,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -144,8 +145,9 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "dummy",
-		Charm: dummyCh,
+		Name:        "dummy",
+		Charm:       dummyCh,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{

@@ -126,7 +126,7 @@ func (s *computedSeriesSuite) TestComputedSeriesError(c *gc.C) {
 		Description: "c",
 	}).AnyTimes()
 	_, err := ComputedSeries(cm)
-	c.Assert(err, gc.ErrorMatches, `unknown series for version: "testme"`)
+	c.Assert(err, gc.ErrorMatches, `os "ubuntu" version "testme" not found`)
 }
 
 func (s *computedSeriesSuite) TestSeriesToUse(c *gc.C) {

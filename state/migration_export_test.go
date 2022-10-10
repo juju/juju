@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -478,7 +477,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 			},
 			Platform: &state.Platform{
 				Architecture: "amd64",
-				Series:       "focal",
+				OS:           "ubuntu",
+				Channel:      "20.04/stable",
 			},
 		},
 		ApplicationConfig: map[string]interface{}{
@@ -541,12 +541,11 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()
 	c.Assert(origin.Channel(), gc.Equals, "beta")
-	c.Assert(origin.Platform(), gc.Equals, "amd64/ubuntu/focal")
+	c.Assert(origin.Platform(), gc.Equals, "amd64/ubuntu/20.04/stable")
 
 	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
@@ -629,7 +628,8 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 			Channel: &state.Channel{},
 			Platform: &state.Platform{
 				Architecture: "amd64",
-				Series:       "focal",
+				OS:           "ubuntu",
+				Channel:      "20.04/stable",
 			},
 		},
 		ApplicationConfig: map[string]interface{}{
@@ -671,12 +671,11 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()
 	c.Assert(origin.Channel(), gc.Equals, "stable")
-	c.Assert(origin.Platform(), gc.Equals, "amd64/ubuntu/focal")
+	c.Assert(origin.Platform(), gc.Equals, "amd64/ubuntu/20.04/stable")
 }
 
 func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
@@ -1281,7 +1280,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 		agentTools := version.Binary{
 			Number:  jujuversion.Current,
 			Arch:    arch.HostArch(),
-			Release: coreseries.DefaultOSTypeNameFromSeries(app.Series()),
+			Release: app.CharmOrigin().Platform.OS,
 		}
 		err = unit.SetAgentVersion(agentTools)
 		c.Assert(err, jc.ErrorIsNil)

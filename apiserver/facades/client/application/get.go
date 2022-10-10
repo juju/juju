@@ -89,21 +89,14 @@ func (api *APIBase) getConfig(
 	// If the applications charm origin is from charm-hub, then build the real
 	// channel and send that back.
 	origin := app.CharmOrigin()
-	if origin != nil && corecharm.CharmHub.Matches(origin.Source) && origin.Channel != nil {
+	if corecharm.CharmHub.Matches(origin.Source) && origin.Channel != nil {
 		ch := charm.MakePermissiveChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
 		appChannel = ch.String()
 	}
 
-	appSeries := app.Series()
-	if appSeries == "" && origin != nil && origin.Platform != nil {
-		appSeries = origin.Platform.Series
-	}
-	var base series.Base
-	if appSeries != "" {
-		base, err = series.GetBaseFromSeries(appSeries)
-		if err != nil {
-			return params.ApplicationGetResults{}, err
-		}
+	base, err := series.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	if err != nil {
+		return params.ApplicationGetResults{}, err
 	}
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
@@ -112,7 +105,7 @@ func (api *APIBase) getConfig(
 		ApplicationConfig: appConfigInfo,
 		Constraints:       cons,
 		Base: params.Base{
-			Name:    base.Name,
+			Name:    base.OS,
 			Channel: base.Channel.String(),
 		},
 		Channel:          appChannel,

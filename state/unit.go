@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -75,8 +76,8 @@ type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`
 	ModelUUID              string `bson:"model-uuid"`
+	Base                   Base   `bson:"base"`
 	Application            string
-	Series                 string
 	CharmURL               *string
 	Principal              string
 	Subordinates           []string
@@ -159,9 +160,9 @@ func (u *Unit) ApplicationName() string {
 	return u.doc.Application
 }
 
-// Series returns the deployed charm's series.
-func (u *Unit) Series() string {
-	return u.doc.Series
+// Base returns the deployed charm's base.
+func (u *Unit) Base() Base {
+	return u.doc.Base
 }
 
 // String returns the unit as string.
@@ -1693,8 +1694,12 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	uSeries, err := series.GetSeriesFromChannel(u.doc.Base.OS, u.doc.Base.Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := validateUnitMachineAssignment(
-		m, u.doc.Series, u.doc.Principal != "", storagePools,
+		m, uSeries, u.doc.Principal != "", storagePools,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1763,7 +1768,7 @@ func validateUnitMachineAssignment(
 		return fmt.Errorf("unit is a subordinate")
 	}
 	if series != m.doc.Series {
-		return fmt.Errorf("series does not match")
+		return fmt.Errorf("series does not match: unit has %q, machine has %q", series, m.doc.Series)
 	}
 	canHost := false
 	for _, j := range m.doc.Jobs {
@@ -2102,8 +2107,12 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 				return nil, errors.Trace(err)
 			}
 		}
+		uSeries, err := series.GetSeriesFromChannel(u.doc.Base.OS, u.doc.Base.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		template := MachineTemplate{
-			Series:      u.doc.Series,
+			Series:      uSeries,
 			Constraints: *cons,
 			Jobs:        []MachineJob{JobHostUnits},
 		}
@@ -2160,8 +2169,12 @@ func (u *Unit) assignToNewMachine(placement string) error {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		uSeries, err := series.GetSeriesFromChannel(u.doc.Base.OS, u.doc.Base.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		template := MachineTemplate{
-			Series:                u.doc.Series,
+			Series:                uSeries,
 			Constraints:           *cons,
 			Jobs:                  []MachineJob{JobHostUnits},
 			Placement:             placement,
@@ -2240,20 +2253,24 @@ func unitStorageParams(u *Unit) (*storageParams, error) {
 		}
 		storageInstances = append(storageInstances, storage)
 	}
-	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Series(), ch.Meta())
+	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Base(), ch.Meta())
 }
 
 func storageParamsForUnit(
-	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, series string, chMeta *charm.Meta,
+	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, base Base, chMeta *charm.Meta,
 ) (*storageParams, error) {
 
 	var volumes []HostVolumeParams
 	var filesystems []HostFilesystemParams
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+	uSeries, err := series.GetSeriesFromChannel(base.OS, base.Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for _, storage := range storageInstances {
 		storageParams, err := storageParamsForStorageInstance(
-			sb, chMeta, tag, series, storage,
+			sb, chMeta, tag, uSeries, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -2486,9 +2503,13 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		omitMachineIds = append(omitMachineIds, cIds...)
 	}
 
+	uSeries, err := series.GetSeriesFromChannel(u.doc.Base.OS, u.doc.Base.Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	terms := bson.D{
 		{"life", Alive},
-		{"series", u.doc.Series},
+		{"series", uSeries},
 		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", true},
 		{"machineid", bson.D{{"$nin", omitMachineIds}}},

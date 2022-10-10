@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -57,7 +58,7 @@ type Application interface {
 	Name() string
 	Constraints() (constraints.Value, error)
 	Life() state.Life
-	Series() string
+	Base() (series.Base, error)
 	SetStatus(statusInfo status.StatusInfo) error
 	CharmModifiedVersion() int
 	CharmURL() (curl *string, force bool)

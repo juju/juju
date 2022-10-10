@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
@@ -2180,6 +2181,10 @@ func (m *Machine) RunningActions() ([]Action, error) {
 
 // UpdateMachineSeries updates the series for the Machine.
 func (m *Machine) UpdateMachineSeries(series string) error {
+	base, err := coreseries.GetBaseFromSeries(series)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2209,13 +2214,14 @@ func (m *Machine) UpdateMachineSeries(series string) error {
 				Assert: bson.D{{"life", Alive},
 					{"charmurl", unit.CharmURL()},
 					{"subordinates", unit.SubordinateNames()}},
-				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+				Update: bson.D{{"$set",
+					bson.D{{"base", Base{OS: base.OS, Channel: base.Channel.String()}}}}},
 			})
 		}
 
 		return ops, nil
 	}
-	err := m.st.db().Run(buildTxn)
+	err = m.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "updating series for machine %q", m)
 }
 

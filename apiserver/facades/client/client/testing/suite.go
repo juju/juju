@@ -184,16 +184,15 @@ func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) 
 	c.Assert(ok, jc.IsTrue)
 	revision := ch.Revision()
 	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{
-		Name:   applicationName,
-		Charm:  ch,
-		Series: "quantal",
+		Name:  applicationName,
+		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
 			ID:   "mycharmhubid",
 			Hash: "mycharmhash",
 			Platform: &state.Platform{
 				Architecture: "amd64",
 				OS:           "ubuntu",
-				Series:       "quantal",
+				Channel:      "12.10/stable",
 			},
 			Revision: &revision,
 			Channel: &state.Channel{

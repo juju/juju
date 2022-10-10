@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	corecharm "github.com/juju/juju/core/charm"
 	coreseries "github.com/juju/juju/core/series"
 
 	"github.com/juju/juju/apiserver/common"
@@ -1045,7 +1044,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine,
 	if err != nil {
 		logger.Errorf("cannot construct machine base from series %q", mSeries) //should never happen
 	}
-	status.Base = params.Base{Name: base.Name, Channel: base.Channel.String()}
+	status.Base = params.Base{Name: base.OS, Channel: base.Channel.String()}
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	node, wantsVote := c.controllerNodes[machineID]
 	status.WantsVote = wantsVote
@@ -1274,32 +1273,18 @@ func (context *statusContext) processApplication(application *state.Application)
 		channel = string(application.Channel())
 	}
 
-	appSeries := application.Series()
-	// Sidecar k8s charms have the appSeries set to that of the underlying base.
-	// We want to ensure they are still shown as "kubernetes" in status.
-	// TODO(juju3) - we want to reflect the underlying base, so remove this
-	if corecharm.IsKubernetes(applicationCharm) {
-		appSeries = coreseries.Kubernetes.String()
-	}
 	origin := application.CharmOrigin()
-	if appSeries == "" && origin != nil && origin.Platform != nil {
-		appSeries = origin.Platform.Series
+	base, err := coreseries.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	if err != nil {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
-	var base coreseries.Base
-	if appSeries != "" {
-		base, err = coreseries.GetBaseFromSeries(appSeries)
-		if err != nil {
-			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-		}
-	}
-
 	var processedStatus = params.ApplicationStatus{
 		Charm:        applicationCharm.String(),
 		CharmVersion: applicationCharm.Version(),
 		CharmProfile: charmProfileName,
 		CharmChannel: channel,
 		Base: params.Base{
-			Name:    base.Name,
+			Name:    base.OS,
 			Channel: base.Channel.String(),
 		},
 		Exposed:          application.IsExposed(),

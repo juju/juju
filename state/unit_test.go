@@ -52,7 +52,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	c.Assert(s.unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 	c.Assert(s.unit.ShouldBeAssigned(), jc.IsTrue)
 }
 
@@ -2221,6 +2221,8 @@ func (s *UnitSuite) TestConstraintsDefaultArchNotRelevant(c *gc.C) {
 		Name: "app",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			Architecture: "arm64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		}},
 	})
 	err := app.SetConstraints(constraints.MustParse("instance-type=big"))
@@ -2235,6 +2237,8 @@ func (s *UnitSuite) TestConstraintsDefaultArchNotRelevant(c *gc.C) {
 		Name: "app2",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			Architecture: "arm64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		}},
 		Constraints: constraints.MustParse("arch=s390x"),
 	})
@@ -2250,6 +2254,8 @@ func (s *UnitSuite) TestConstraintsDefaultArch(c *gc.C) {
 		Name: "app",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			Architecture: "arm64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		}},
 	})
 	err := app.SetConstraints(constraints.MustParse("mem=4G"))
@@ -2899,7 +2905,10 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	s.application = f.MakeApplication(c, &factory.ApplicationParams{
+		Name: "gitlab", Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
+	})
 
 	basicActions := `
 snapshot:
@@ -2916,7 +2925,7 @@ func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	// A unit that has not been allocated is removed directly.
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Series(), gc.Equals, "kubernetes")
+	c.Assert(unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "20.04/stable"})
 	c.Assert(unit.ShouldBeAssigned(), jc.IsFalse)
 
 	// A unit that has not set any status is removed directly.

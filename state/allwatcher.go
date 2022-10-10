@@ -515,13 +515,9 @@ func (u *backingUnit) updateAgentVersion(info *multiwatcher.UnitInfo) {
 
 func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`unit "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	var base series.Base
-	if u.Series != "" {
-		var err error
-		base, err = series.GetBaseFromSeries(u.Series)
-		if err != nil {
-			return errors.Annotatef(err, "converting unit series %q to base", u.Series)
-		}
+	base, err := series.ParseBase(u.Base.OS, u.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	info := &multiwatcher.UnitInfo{
 		ModelUUID:   u.ModelUUID,

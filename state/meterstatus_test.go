@@ -25,7 +25,7 @@ var _ = gc.Suite(&MeterStateSuite{})
 func (s *MeterStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.unit = s.Factory.MakeUnit(c, nil)
-	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	c.Assert(s.unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 	var err error
 	s.metricsManager, err = s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
