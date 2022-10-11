@@ -6,7 +6,7 @@ run_charmhub_download() {
 
 	ensure "test-${name}" "${file}"
 
-	output=$(juju download postgresql --series focal --filepath="${TEST_DIR}/postgresql.charm" 2>&1 || true)
+	output=$(juju download postgresql --base ubuntu:20.04 --filepath="${TEST_DIR}/postgresql.charm" 2>&1 || true)
 	check_contains "${output}" 'Fetching charm "postgresql"'
 
 	juju deploy "${TEST_DIR}/postgresql.charm" postgresql
