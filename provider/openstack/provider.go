@@ -1076,7 +1076,7 @@ func (e *Environ) startInstance(
 	}
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
-		Series:      args.InstanceConfig.Series,
+		Base:        args.InstanceConfig.Base,
 		Arch:        arch,
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)

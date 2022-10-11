@@ -330,7 +330,7 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *gc.C, serviceType, 
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		coretesting.FakeControllerConfig(),
 		"test",
-		"kubernetes",
+		"ubuntu",
 		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1446,14 +1446,18 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envc
 		e.instanceConfig = icfg
 		return nil
 	}
-	series := jujuversion.DefaultSupportedLTS()
+	base := jujuversion.DefaultSupportedLTSBase()
 	if args.BootstrapSeries != "" {
-		series = args.BootstrapSeries
+		var err error
+		base, err = jujuseries.GetBaseFromSeries(args.BootstrapSeries)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	arch, _ := args.AvailableTools.OneArch()
 	return &environs.BootstrapResult{
 		Arch:                    arch,
-		Series:                  series,
+		Base:                    base,
 		CloudBootstrapFinalizer: finalizer,
 	}, nil
 }

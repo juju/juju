@@ -1447,7 +1447,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1457,7 +1457,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
@@ -1467,7 +1467,7 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=arm64")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      jujuversion.DefaultSupportedLTS(),
+		Base:        jujuversion.DefaultSupportedLTSBase(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "arm64" specified`)
@@ -1477,7 +1477,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1487,7 +1487,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
@@ -1497,7 +1497,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
@@ -1521,7 +1521,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placemen
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -1544,7 +1544,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Base:      jujuversion.DefaultSupportedLTSBase(),
 		Placement: "zone=test-available",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -2397,7 +2397,7 @@ func (t *localServerSuite) TestPrechecker(c *gc.C) {
 	t.Prepare(c)
 	err := t.Env.PrecheckInstance(t.ProviderCallContext,
 		environs.PrecheckInstanceParams{
-			Series: "precise",
+			Base: jujuversion.DefaultSupportedLTSBase(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2722,7 +2722,8 @@ func (t *localServerSuite) TestBootstrapMultiple(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := testing.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "jammy", apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
+		"released", jujuversion.DefaultSupportedLTSBase(), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.Prepare(c)

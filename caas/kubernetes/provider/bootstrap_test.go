@@ -85,7 +85,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
     "repository": "test-account"
 }`[1:]
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
-		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
+		s.controllerCfg, controllerName, "ubuntu", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	current := jujuversion.Current

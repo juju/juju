@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -98,7 +99,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	cloudInitUserData, err := combinedCloudInitData(
 		config.CloudInitUserData,
 		config.ContainerInheritProperties,
-		args.InstanceConfig.Series, kvmLogger)
+		args.InstanceConfig.Base, kvmLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,8 +122,12 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	storageConfig := &container.StorageConfig{
 		AllowMount: true,
 	}
+	series, err := coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
+	if err != nil {
+		return nil, err
+	}
 	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints, args.InstanceConfig.Series, net, storageConfig, args.StatusCallback,
+		args.InstanceConfig, args.Constraints, series, net, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)

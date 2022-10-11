@@ -15,7 +15,7 @@ const fakeVolName = "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
 
 func fakeDiskAndSpec() (google.DiskSpec, *compute.Disk, error) {
 	spec := google.DiskSpec{
-		Series:             "jammy",
+		OS:                 "ubuntu",
 		SizeHintGB:         1,
 		Name:               fakeVolName,
 		PersistentDiskType: google.DiskPersistentSSD,

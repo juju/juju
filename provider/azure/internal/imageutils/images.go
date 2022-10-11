@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/arch"
 
 	"github.com/juju/juju/core/os"
+	jujuos "github.com/juju/juju/core/os"
 	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -30,7 +30,6 @@ const (
 	centOSOffering  = "CentOS"
 
 	ubuntuPublisher = "Canonical"
-	ubuntuOffering  = "UbuntuServer"
 
 	dailyStream = "daily"
 )
@@ -43,35 +42,35 @@ const (
 // for a series.
 func SeriesImage(
 	ctx context.ProviderCallContext,
-	series, stream, location string,
+	base jujuseries.Base, stream, location string,
 	client *armcompute.VirtualMachineImagesClient,
 ) (*instances.Image, error) {
-	seriesOS, err := jujuseries.GetOSFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	seriesOS := jujuos.OSTypeForName(base.OS)
 
 	var publisher, offering, sku string
 	switch seriesOS {
 	case os.Ubuntu:
+		series, err := jujuseries.GetSeriesFromBase(base)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		publisher = ubuntuPublisher
 		sku, offering, err = ubuntuSKU(ctx, series, stream, location, client)
 		if err != nil {
-			return nil, errors.Annotatef(err, "selecting SKU for %s", series)
+			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
 		}
 
 	case os.CentOS:
 		publisher = centOSPublisher
 		offering = centOSOffering
-		switch series {
-		case "centos7", "centos8": // TODO: this doesn't look right. Add support for centos 9 stream.
+		switch base.Channel.Track {
+		case "7", "8": // TODO: this doesn't look right. Add support for centos 9 stream.
 			sku = "7.3"
 		default:
-			return nil, errors.NotSupportedf("deploying %s", series)
+			return nil, errors.NotSupportedf("deploying %s", base)
 		}
 
 	default:
-		// TODO(axw) CentOS
 		return nil, errors.NotSupportedf("deploying %s", seriesOS)
 	}
 
@@ -86,11 +85,6 @@ func offerForUbuntuSeries(series string) (string, string, error) {
 	seriesVersion, err := jujuseries.SeriesVersion(series)
 	if err != nil {
 		return "", "", errors.Trace(err)
-	}
-
-	oldSeries := set.NewStrings("bionic")
-	if oldSeries.Contains(series) {
-		return ubuntuOffering, seriesVersion, nil
 	}
 	seriesVersion = strings.ReplaceAll(seriesVersion, ".", "_")
 	return fmt.Sprintf("0001-com-ubuntu-server-%s", series), seriesVersion, nil

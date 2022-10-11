@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -30,7 +31,7 @@ import (
 func (env *environ) StartInstance(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
-	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Series)
+	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
 
 	arch, err := env.finishInstanceConfig(args)
 	if err != nil {
@@ -112,7 +113,11 @@ func (env *environ) newContainer(
 		return nil, errors.Trace(err)
 	}
 
-	image, err := target.FindImage(args.InstanceConfig.Series, arch, imageSources, true, statusCallback)
+	series, err := coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	image, err := target.FindImage(series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -183,7 +188,7 @@ func (env *environ) getContainerSpec(
 	}
 	cSpec.ApplyConstraints(serverVersion, args.Constraints)
 
-	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
+	cloudCfg, err := cloudinit.New(args.InstanceConfig.Base.OS)
 	if err != nil {
 		return cSpec, errors.Trace(err)
 	}

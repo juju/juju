@@ -600,7 +600,7 @@ func (e *environ) StartInstance(
 		instanceTypes,
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
-			Series:      args.InstanceConfig.Series,
+			Base:        args.InstanceConfig.Base,
 			Arch:        arch,
 			Constraints: args.Constraints,
 			Storage:     []string{ssdStorage, ebsStorage},
@@ -640,7 +640,7 @@ func (e *environ) StartInstance(
 
 	blockDeviceMappings, err := getBlockDeviceMappings(
 		args.Constraints,
-		args.InstanceConfig.Series,
+		args.InstanceConfig.Base.OS,
 		args.InstanceConfig.IsController(),
 		args.RootDisk,
 	)

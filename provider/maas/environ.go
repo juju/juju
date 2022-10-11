@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
+	series2 "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -153,7 +153,7 @@ func (env *maasEnviron) Create(_ context.ProviderCallContext, _ environs.CreateP
 func (env *maasEnviron) Bootstrap(
 	ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	result, series, finalizer, err := common.BootstrapInstance(ctx, env, callCtx, args)
+	result, base, finalizer, err := common.BootstrapInstance(ctx, env, callCtx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (env *maasEnviron) Bootstrap(
 
 	bsResult := &environs.BootstrapResult{
 		Arch:                    *result.Hardware.Arch,
-		Series:                  series,
+		Base:                    *base,
 		CloudBootstrapFinalizer: waitingFinalizer,
 	}
 	return bsResult, nil
@@ -766,8 +766,7 @@ func (env *maasEnviron) StartInstance(
 		return nil, environs.ZoneIndependentError(err)
 	}
 
-	ser := args.InstanceConfig.Series
-	cloudcfg, err := env.newCloudinitConfig(hostname, ser)
+	cloudcfg, err := env.newCloudinitConfig(hostname, args.InstanceConfig.Base.OS)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -780,9 +779,13 @@ func (env *maasEnviron) StartInstance(
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
+	series, err := series2.GetSeriesFromBase(args.InstanceConfig.Base)
+	if err != nil {
+		return nil, environs.ZoneIndependentError(err)
+	}
 	var displayName string
 	var interfaces corenetwork.InterfaceInfos
-	err = inst.machine.Start(gomaasapi.StartArgs{DistroSeries: ser, UserData: string(userdata)})
+	err = inst.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: string(userdata)})
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -989,8 +992,8 @@ func (env *maasEnviron) selectNode(ctx context.ProviderCallContext, args selectN
 
 // newCloudinitConfig creates a cloudinit.Config structure suitable as a base
 // for initialising a MAAS node.
-func (env *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudinit.CloudConfig, error) {
-	cloudcfg, err := cloudinit.New(forSeries)
+func (env *maasEnviron) newCloudinitConfig(hostname, osname string) (cloudinit.CloudConfig, error) {
+	cloudcfg, err := cloudinit.New(osname)
 	if err != nil {
 		return nil, err
 	}
@@ -1001,10 +1004,7 @@ func (env *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudini
 		return nil, errors.Trace(err)
 	}
 
-	operatingSystem, err := series.GetOSFromSeries(forSeries)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	operatingSystem := os.OSTypeForName(osname)
 	switch operatingSystem {
 	case os.Ubuntu:
 		cloudcfg.SetSystemUpdate(true)

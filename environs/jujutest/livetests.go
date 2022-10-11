@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -267,7 +268,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	t.PrepareOnce(c)
 	err := t.Env.PrecheckInstance(t.ProviderCallContext,
 		environs.PrecheckInstanceParams{
-			Series: "precise",
+			Base: series.MakeDefaultBase("ubuntu", "22.04"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -926,7 +927,8 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	// a valid machine config.
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "jammy", apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
+		"released", series.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
