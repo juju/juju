@@ -693,6 +693,12 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	}
 	ops = append(ops, secretLabelOps...)
 
+	secretLabelOps, err = a.st.removeConsumerSecretLabelOps(a.ApplicationTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, secretLabelOps...)
+
 	// Note that appCharmDecRefOps might not catch the final decref
 	// when run in a transaction that decrefs more than once. So we
 	// avoid attempting to do the final cleanup in the ref dec ops and
@@ -2747,8 +2753,12 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(u.Tag())
+	secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelOps(u.Tag())
 	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelOps(a.ApplicationTag())
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -2777,7 +2787,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
 	ops = append(ops, secretPermissionsOps...)
-	ops = append(ops, secretLabelOps...)
+	ops = append(ops, secretOwnerLabelOps...)
+	ops = append(ops, secretConsumerLabelOps...)
 
 	m, err := a.st.Model()
 	if err != nil {

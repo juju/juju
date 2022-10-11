@@ -72,7 +72,7 @@ type SecretsStore interface {
 	CreateSecret(*secrets.URI, CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, UpdateSecretParams) (*secrets.SecretMetadata, error)
 	DeleteSecret(*secrets.URI, ...int) (bool, error)
-	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
+	GetSecret(*secrets.URI, string, names.Tag) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *string, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
@@ -253,7 +253,7 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if p.Label != nil {
-			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -341,7 +341,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		var ops []txn.Op
 		if p.Label != nil && *p.Label != metadataDoc.Label {
-			uniqueLabelOps, err := s.st.uniqueSecretLabelOps(metadataDoc.OwnerTag, *p.Label)
+			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(metadataDoc.OwnerTag, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -650,19 +650,34 @@ func (s *secretsStore) getSecretValue(uri *secrets.URI, revision int, checkExist
 }
 
 // GetSecret gets the secret metadata for the specified URL.
-func (s *secretsStore) GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error) {
+func (s *secretsStore) GetSecret(uri *secrets.URI, label string, owner names.Tag) (*secrets.SecretMetadata, error) {
+	if uri == nil && label == "" {
+		return nil, errors.NewNotValid(nil, "both uri and label are empty")
+	}
+
 	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
 	defer closer()
 
 	var doc secretMetadataDoc
-	err := secretMetadataCollection.FindId(uri.ID).One(&doc)
+	var err error
+	notFoundErr := errors.NotFoundf("secret %q", uri)
+
+	if uri != nil {
+		err = secretMetadataCollection.FindId(uri.ID).One(&doc)
+	} else {
+		// Only owner can fetch by label.
+		err = secretMetadataCollection.Find(bson.M{
+			"owner-tag": owner.String(), "label": label,
+		}).One(&doc)
+		notFoundErr = errors.NotFoundf("secret with label %q", label)
+	}
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("secret %q", uri.String())
+		return nil, notFoundErr
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	nextRotateTime, err := s.st.nextRotateTime(uri.ID)
+	nextRotateTime, err := s.st.nextRotateTime(doc.DocID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -854,6 +869,14 @@ func secretConsumerKey(id, consumer string) string {
 	return fmt.Sprintf("%s#%s", id, consumer)
 }
 
+func splitSecretConsumerKey(key string) (string, string) {
+	parts := strings.Split(key, "#")
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
+
 // checkConsumerCountOps returns txn ops to ensure that no new secrets consumers
 // are added whilst a txn is in progress.
 func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, error) {
@@ -881,21 +904,32 @@ func (st *State) checkConsumerCountOps(uri *secrets.URI, inc int) ([]txn.Op, err
 }
 
 func secretOwnerLabelKey(ownerTag string, label string) string {
-	return fmt.Sprintf("secretlabel#%s#%s", ownerTag, label)
+	return fmt.Sprintf("secretOwnerlabel#%s#%s", ownerTag, label)
 }
 
-func (st *State) uniqueSecretLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+func secretConsumerLabelKey(ownerTag string, label string) string {
+	return fmt.Sprintf("secretConsumerlabel#%s#%s", ownerTag, label)
+}
+
+func (st *State) uniqueSecretOwnerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+	return st.uniqueSecretLabelOps(ownerTag, label, secretOwnerLabelKey)
+}
+
+func (st *State) uniqueSecretConsumerLabelOps(ownerTag string, label string) ([]txn.Op, error) {
+	return st.uniqueSecretLabelOps(ownerTag, label, secretConsumerLabelKey)
+}
+
+func (st *State) uniqueSecretLabelOps(ownerTag string, label string, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
 	defer ccloser()
 
-	key := secretOwnerLabelKey(ownerTag, label)
+	key := keyGenerator(ownerTag, label)
 	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.WithType(
-			errors.Errorf("secret label %q owned by %s already exists", label, ownerTag), LabelExists)
+		return nil, errors.WithType(errors.Errorf("label %q for %q already exists", label, ownerTag), LabelExists)
 	}
 	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, key, 1)
 	if err != nil {
@@ -905,6 +939,14 @@ func (st *State) uniqueSecretLabelOps(ownerTag string, label string) ([]txn.Op, 
 }
 
 func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
+	return st.removeSecretLabelOps(ownerTag, secretOwnerLabelKey)
+}
+
+func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, error) {
+	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
+}
+
+func (st *State) removeSecretLabelOps(ownerTag names.Tag, keyGenerator func(string, string) string) ([]txn.Op, error) {
 	refCountsCollection, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
@@ -928,24 +970,35 @@ func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error)
 }
 
 // GetSecretConsumer gets secret consumer metadata.
-func (st *State) GetSecretConsumer(uri *secrets.URI, consumer names.Tag) (*secrets.SecretConsumerMetadata, error) {
-	if err := st.checkExists(uri); err != nil {
-		return nil, errors.Trace(err)
+func (st *State) GetSecretConsumer(uri *secrets.URI, label string, consumer names.Tag) (*secrets.URI, *secrets.SecretConsumerMetadata, error) {
+	if uri == nil && label == "" {
+		return nil, nil, errors.NewNotValid(nil, "both uri and label are empty")
 	}
 
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
 
-	key := secretConsumerKey(uri.ID, consumer.String())
 	var doc secretConsumerDoc
-	err := secretConsumersCollection.FindId(key).One(&doc)
+	var err error
+	if uri != nil {
+		if err := st.checkExists(uri); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		key := secretConsumerKey(uri.ID, consumer.String())
+		err = secretConsumersCollection.FindId(key).One(&doc)
+	} else {
+		err = secretConsumersCollection.Find(bson.M{
+			"consumer-tag": consumer.String(), "label": label,
+		}).One(&doc)
+	}
 	if errors.Cause(err) == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("consumer %q metadata for secret %q", consumer, uri.String())
+		return nil, nil, errors.NotFoundf("consumer %q metadata for secret %q", consumer, uri.String())
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return &secrets.SecretConsumerMetadata{
+	id, _ := splitSecretConsumerKey(doc.DocID)
+	return &secrets.URI{ID: id}, &secrets.SecretConsumerMetadata{
 		Label:           doc.Label,
 		CurrentRevision: doc.CurrentRevision,
 		LatestRevision:  doc.LatestRevision,
@@ -964,9 +1017,16 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 			return nil, errors.Trace(err)
 		}
 		var ops []txn.Op
+		if metadata.Label != "" {
+			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer.String(), metadata.Label)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, uniqueLabelOps...)
+		}
 		err := secretConsumersCollection.FindId(key).One(&doc)
 		if err == nil {
-			ops = []txn.Op{{
+			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
 				Assert: txn.DocExists,
@@ -974,11 +1034,11 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 					"label":            metadata.Label,
 					"current-revision": metadata.CurrentRevision,
 				}},
-			}}
+			})
 		} else if err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		} else {
-			ops = []txn.Op{{
+			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
 				Assert: txn.DocMissing,
@@ -989,7 +1049,7 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 					CurrentRevision: metadata.CurrentRevision,
 					LatestRevision:  metadata.LatestRevision,
 				},
-			}}
+			})
 
 			// Increment the consumer count, ensuring no new consumers
 			// are added while update is in progress.
