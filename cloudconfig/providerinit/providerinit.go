@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/os"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.providerinit")
@@ -52,7 +52,7 @@ func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.Clo
 func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig, renderer renderers.ProviderRenderer) ([]byte, error) {
 	if cloudcfg == nil {
 		var err error
-		cloudcfg, err = cloudinit.New(icfg.Series)
+		cloudcfg, err = cloudinit.New(icfg.Base.OS)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -61,11 +61,7 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	operatingSystem, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	udata, err := renderer.Render(cloudcfg, operatingSystem)
+	udata, err := renderer.Render(cloudcfg, os.OSTypeForName(icfg.Base.OS))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

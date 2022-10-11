@@ -62,7 +62,7 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
-		"kubernetes",
+		"ubuntu",
 		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,7 +82,7 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
-		"kubernetes",
+		"ubuntu",
 		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +102,7 @@ func (*podcfgSuite) TestBootstrapConstraints(c *gc.C) {
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
-		"kubernetes",
+		"ubuntu",
 		cons,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,7 +118,7 @@ func (*podcfgSuite) TestFinishControllerPodConfig(c *gc.C) {
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		testing.FakeControllerConfig(),
 		"controller-1",
-		"kubernetes",
+		"ubuntu",
 		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +140,7 @@ func (*podcfgSuite) TestUnitAgentConfig(c *gc.C) {
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
-		"kubernetes",
+		"ubuntu",
 		constraints.Value{},
 	)
 	podConfig.APIInfo = &api.Info{

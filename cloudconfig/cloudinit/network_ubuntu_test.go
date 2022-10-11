@@ -386,7 +386,7 @@ network:
 
 func (s *NetworkUbuntuSuite) TestAddNetworkConfigSampleConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig(0, s.fakeInterfaces)
-	cloudConf, err := cloudinit.New("xenial")
+	cloudConf, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 	err = cloudConf.AddNetworkConfig(netConfig.Interfaces)
