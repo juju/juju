@@ -88,7 +88,7 @@ require (
 	github.com/juju/testing v1.0.1
 	github.com/juju/txn/v2 v2.0.0
 	github.com/juju/utils/v3 v3.0.0
-	github.com/juju/version/v2 v2.0.1
+	github.com/juju/version/v2 v2.0.0
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v3 v3.0.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -181,7 +181,6 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
-	github.com/juju/mgo/v3 v3.0.3 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
