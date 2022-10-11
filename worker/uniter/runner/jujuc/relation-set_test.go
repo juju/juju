@@ -7,7 +7,7 @@ package jujuc_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd/v3"
@@ -123,7 +123,7 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 	} else if filename != "" {
 		filename = filepath.Join(c.MkDir(), filename)
 		args[i] = filename
-		err := ioutil.WriteFile(filename, []byte(t.content), 0644)
+		err := os.WriteFile(filename, []byte(t.content), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

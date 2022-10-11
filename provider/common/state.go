@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/errors"
 	goyaml "gopkg.in/yaml.v2"
@@ -75,7 +74,7 @@ func LoadState(stor storage.StorageReader) (*BootstrapState, error) {
 
 func loadState(r io.ReadCloser) (*BootstrapState, error) {
 	defer r.Close()
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("error reading %q: %v", StateFile, err)
 	}

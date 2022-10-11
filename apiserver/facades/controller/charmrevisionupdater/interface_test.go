@@ -54,7 +54,7 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 		Platform: &state.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04/stable",
 		},
 	}).AnyTimes()
 	app.EXPECT().Channel().Return(csparams.Channel("latest/stable")).AnyTimes()

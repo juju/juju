@@ -5,7 +5,6 @@ package cloud
 
 import (
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/errors"
 	"k8s.io/client-go/tools/clientcmd"
@@ -44,7 +43,7 @@ func buildCloudFromCluster(c *cloud.Cloud, cluster *clientcmdapi.Cluster) error 
 // ConfigFromReader does the heavy lifting of transforming a reader object into
 // a kubernetes api config
 func ConfigFromReader(reader io.Reader) (*clientcmdapi.Config, error) {
-	confBytes, err := ioutil.ReadAll(reader)
+	confBytes, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, errors.Annotate(err, "reading kubernetes configuration data")
 	}

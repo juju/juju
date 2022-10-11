@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	stdtesting "testing"
 	"time" // Only used for time types.
@@ -110,7 +109,7 @@ func (s *ImageSuite) testAddImage(c *gc.C, content string) {
 	defer rc.Close()
 	checkMetadata(c, metadata, addedMetadata)
 
-	data, err := ioutil.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, content)
 }
@@ -142,7 +141,7 @@ func (s *ImageSuite) TestImage(c *gc.C) {
 		SourceURL: "http://path",
 	})
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "blah")
 }
@@ -421,7 +420,7 @@ func (s *ImageSuite) assertImage(c *gc.C, expected *imagestorage.Metadata, conte
 	defer r.Close()
 	checkMetadata(c, metadata, expected)
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, content)
 }

@@ -4,7 +4,6 @@
 package jujuclient
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -23,7 +22,7 @@ func JujuControllersPath() string {
 // ReadControllersFile loads all controllers defined in a given file.
 // If the file is not found, it is not an error.
 func ReadControllersFile(file string) (*Controllers, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Controllers{}, nil

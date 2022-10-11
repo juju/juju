@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/textproto"
 	"net/url"
@@ -357,7 +357,7 @@ func newFakeDoer(c *gc.C, respBody interface{}) *fakeDoer {
 	c.Assert(err, jc.ErrorIsNil)
 	resp := &http.Response{
 		StatusCode: 200,
-		Body:       ioutil.NopCloser(bytes.NewReader(body)),
+		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
 	resp.Header = make(http.Header)
 	resp.Header.Add("Content-Type", "application/json")
@@ -387,7 +387,7 @@ func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	// ReadAll the body if it's found.
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		panic(err)
 	}

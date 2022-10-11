@@ -7,7 +7,6 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -149,7 +148,7 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	bootstrapParamsData, err := ioutil.ReadFile(c.BootstrapParamsFile)
+	bootstrapParamsData, err := os.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
 	}
@@ -517,7 +516,7 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 		return errors.Trace(err)
 	}
 
-	data, err := ioutil.ReadFile(filepath.Join(
+	data, err := os.ReadFile(filepath.Join(
 		agenttools.SharedToolsDir(dataDir, current),
 		"tools.tar.gz",
 	))

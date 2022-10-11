@@ -7,7 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
@@ -27,7 +27,7 @@ func (s *querySuite) TestSuccess(c *gc.C) {
 
 	scope := NewMockScope(ctrl)
 
-	res, err := ioutil.ReadFile("./testfiles/success")
+	res, err := os.ReadFile("./testfiles/success")
 	c.Assert(err, jc.ErrorIsNil)
 
 	buf := bufio.NewReader(bytes.NewBuffer(res))
@@ -57,7 +57,7 @@ func (s *querySuite) TestFailure(c *gc.C) {
 
 	scope := NewMockScope(ctrl)
 
-	res, err := ioutil.ReadFile("./testfiles/failure")
+	res, err := os.ReadFile("./testfiles/failure")
 	c.Assert(err, jc.ErrorIsNil)
 
 	buf := bufio.NewReader(bytes.NewBuffer(res))

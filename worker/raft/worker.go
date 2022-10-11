@@ -19,9 +19,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
 
@@ -88,7 +86,7 @@ type Logger interface {
 // allowing for client side backoff.
 type Queue interface {
 	// Queue returns the queue of operations. Removing an item from the channel
-	// will unblock to allow another to take it's place.
+	// will unblock to allow another to take its place.
 	Queue() <-chan []queue.OutOperation
 }
 
@@ -172,13 +170,9 @@ type Config struct {
 	// Queue is a blocking queue to apply raft operations.
 	Queue Queue
 
-	// NotifyTarget is used to notify the changes from the raft operation
-	// applications.
-	NotifyTarget raftlease.NotifyTarget
-
 	// NewApplier is used to apply the raft operations on to the raft
 	// instance, before notifying a target of the changes.
-	NewApplier func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier
+	NewApplier func(Raft, ApplierMetrics, clock.Clock, Logger) LeaseApplier
 }
 
 // Validate validates the raft worker configuration.
@@ -207,9 +201,6 @@ func (config Config) Validate() error {
 	if config.Queue == nil {
 		return errors.NotValidf("nil Queue")
 	}
-	if config.NotifyTarget == nil {
-		return errors.NotValidf("nil NotifyTarget")
-	}
 	if config.NewApplier == nil {
 		return errors.NotValidf("nil NewApplier")
 	}
@@ -227,9 +218,6 @@ func Bootstrap(config Config) error {
 	if config.Transport != nil {
 		return errors.NotValidf("non-nil Transport during Bootstrap")
 	}
-	if config.NotifyTarget != nil {
-		return errors.NotValidf("non-nil NotifyTarget during Bootstrap")
-	}
 	if config.NewApplier != nil {
 		return errors.NotValidf("non-nil NewApplier during Bootstrap")
 	}
@@ -242,8 +230,7 @@ func Bootstrap(config Config) error {
 
 	// During bootstrap, we do not require an FSM.
 	config.FSM = BootstrapFSM{}
-	config.NotifyTarget = BootstrapNotifyTarget{}
-	config.NewApplier = func(Raft, raftlease.NotifyTarget, ApplierMetrics, clock.Clock, Logger) LeaseApplier {
+	config.NewApplier = func(Raft, ApplierMetrics, clock.Clock, Logger) LeaseApplier {
 		return BootstrapLeaseApplier{}
 	}
 
@@ -414,7 +401,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	}()
 
 	applierMetrics := newApplierMetrics(w.config.Clock)
-	applier := w.config.NewApplier(r, w.config.NotifyTarget, applierMetrics, w.config.Clock, w.config.Logger)
+	applier := w.config.NewApplier(r, applierMetrics, w.config.Clock, w.config.Logger)
 	if registry := w.config.PrometheusRegisterer; registry != nil {
 		registerApplierMetrics(registry, applierMetrics, w.config.Logger)
 	}
@@ -444,7 +431,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 			// The raft server shutdown without this worker
 			// telling it to do so. This typically means that
 			// the local node was removed from the cluster
-			// configuration, causing it to shutdown.
+			// configuration, causing it to shut down.
 			return errors.New("raft shutdown")
 
 		case now := <-noLeaderCheck:
@@ -575,18 +562,6 @@ func (BootstrapFSM) Snapshot() (raft.FSMSnapshot, error) {
 // Restore is part of raft.FSM.
 func (BootstrapFSM) Restore(io.ReadCloser) error {
 	panic("Restore should not be called during bootstrap")
-}
-
-type BootstrapNotifyTarget struct{}
-
-// Claimed will be called when a new lease has been claimed.
-func (BootstrapNotifyTarget) Claimed(lease.Key, string) error {
-	return nil
-}
-
-// Expiries will be called when a set of existing leases have expired.
-func (BootstrapNotifyTarget) Expiries([]raftlease.Expired) error {
-	return nil
 }
 
 type BootstrapLeaseApplier struct{}

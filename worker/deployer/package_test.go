@@ -5,7 +5,6 @@ package deployer_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -39,6 +38,6 @@ func (s *BaseSuite) InitializeCurrentToolsDir(c *gc.C, dataDir string) {
 	testTools := coretools.Tools{Version: current, URL: "http://testing.invalid/tools"}
 	data, err := json.Marshal(testTools)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(toolsPath, data, 0644)
+	err = os.WriteFile(toolsPath, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }

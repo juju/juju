@@ -1,5 +1,5 @@
 #!/bin/bash -e
-[ -n "${GOPATH:-}" ] && export "PATH=${GOPATH}/bin:${PATH}"
+[ -n "${GOPATH:-}" ] && export "PATH=${PATH}:${GOPATH}/bin"
 
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
 export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005 -e SC2001 -e SC2263"
@@ -54,6 +54,7 @@ TEST_NAMES="agents \
             hooks \
             hooktools \
             machine \
+            magma \
             manual \
             model \
             network \
@@ -234,11 +235,20 @@ fi
 echo ""
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq yq shellcheck
+check_dependencies curl jq yq shellcheck expect
 
 if [[ ${USER:-'root'} == "root" ]]; then
 	echo "The testsuite must not be run as root." >&2
 	exit 1
+fi
+
+JUJU_FOUND=0
+which juju &>/dev/null || JUJU_FOUND=$?
+if [[ $JUJU_FOUND == 0 ]]; then
+	echo "==> Using Juju located at $(which juju)"
+else
+	# shellcheck disable=SC2016
+	echo '==> WARNING: no Juju found on $PATH'
 fi
 
 cleanup() {

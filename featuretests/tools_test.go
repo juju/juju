@@ -7,7 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -140,7 +140,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 func (s *toolsDownloadSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
 	resp := s.downloadRequest(c, tools.Version, uuid)
 	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, int(tools.Size))
 
@@ -166,7 +166,7 @@ func (s *toolsDownloadSuite) getToolsFromStorage(c *gc.C, st *state.State, vers 
 	defer storage.Close()
 	metadata, r, err := storage.Open(vers)
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	r.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	return metadata, data
@@ -313,7 +313,7 @@ func bakeryGetError(resp *http.Response) error {
 	if resp.StatusCode != http.StatusUnauthorized {
 		return nil
 	}
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return errors.Annotatef(err, "cannot read body")
 	}

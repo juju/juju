@@ -4,7 +4,6 @@
 package jujuclient
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -25,7 +24,7 @@ func JujuAccountsPath() string {
 // ReadAccountsFile loads all accounts defined in a given file.
 // If the file is not found, it is not an error.
 func ReadAccountsFile(file string) (map[string]AccountDetails, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

@@ -6,7 +6,6 @@ package debug
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -51,7 +50,7 @@ func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("TMPDIR", s.tmpdir)
 	s.PatchEnvironment("TEST_RESULT", "")
 	for _, name := range fakecommands {
-		err := ioutil.WriteFile(filepath.Join(s.fakebin, name), []byte(echocommand), 0777)
+		err := os.WriteFile(filepath.Join(s.fakebin, name), []byte(echocommand), 0777)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.ctx = NewHooksContext("foo/8")
@@ -75,7 +74,7 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Hooks file is present, empty.
-	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
+	err = os.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	session, err = s.ctx.FindSession()
 	c.Assert(session, gc.NotNil)
@@ -85,7 +84,7 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	c.Assert(session.MatchHook("something"), jc.IsTrue)
 
 	// Hooks file is present, non-empty
-	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte(`hooks: [foo, bar, baz]`), 0777)
+	err = os.WriteFile(s.ctx.ClientFileLock(), []byte(`hooks: [foo, bar, baz]`), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	session, err = s.ctx.FindSession()
 	c.Assert(session, gc.NotNil)
@@ -101,7 +100,7 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 }
 
 func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
-	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
+	err := os.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	session, err := s.ctx.FindSession()
 	c.Assert(session, gc.NotNil)
@@ -149,7 +148,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	// JUJU_DISPATCH_PATH is written in context.HookVars and not part of
 	// what's being tested here.
 	s.PatchEnvironment("JUJU_DISPATCH_PATH", "hooks/"+hookName)
-	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
+	err := os.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	session, err := s.ctx.FindSessionWithWriter(&output)
@@ -220,7 +219,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 
 	// Write the hook.pid file, causing the debug hooks script to exit.
 	hookpid := filepath.Join(debugDir, "hook.pid")
-	err = ioutil.WriteFile(hookpid, []byte("not a pid"), 0777)
+	err = os.WriteFile(hookpid, []byte("not a pid"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// RunHook should complete without waiting to be
@@ -236,7 +235,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 func (s *DebugHooksServerSuite) TestRunHookDebugAt(c *gc.C) {
 	s.fakeTmux(c)
 	s.fakeJujuLog(c)
-	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte("debug-at: all\n"), 0777)
+	err := os.WriteFile(s.ctx.ClientFileLock(), []byte("debug-at: all\n"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	session, err := s.ctx.FindSessionWithWriter(&output)
@@ -257,7 +256,7 @@ func (s *DebugHooksServerSuite) TestRunHookDebugAt(c *gc.C) {
 	})
 	const hookName = "myhook"
 	hookRunner := s.tmpdir + "/" + hookName
-	err = ioutil.WriteFile(hookRunner, []byte(`#!/bin/bash --norc
+	err = os.WriteFile(hookRunner, []byte(`#!/bin/bash --norc
 echo ran hook >&2
 `), 0777)
 	c.Assert(err, jc.ErrorIsNil)
@@ -280,7 +279,7 @@ func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
 	const hookName = "no-hook"
 	s.fakeTmux(c)
 	s.fakeJujuLog(c)
-	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte("debug-at: all\n"), 0777)
+	err := os.WriteFile(s.ctx.ClientFileLock(), []byte("debug-at: all\n"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	session, err := s.ctx.FindSessionWithWriter(&output)
@@ -312,7 +311,7 @@ func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
 }
 
 func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookName string) {
-	data, err := ioutil.ReadFile(envshPath)
+	data, err := os.ReadFile(envshPath)
 	c.Assert(err, jc.ErrorIsNil)
 	contents := string(data)
 	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_UNIT_NAME=%q", s.ctx.Unit))
@@ -321,7 +320,7 @@ func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookN
 
 // fakeTmux installs a script that will respond to has-session and new-window
 func (s *DebugHooksServerSuite) fakeTmux(c *gc.C) {
-	err := ioutil.WriteFile(filepath.Join(s.fakebin, "tmux"), []byte(`#!/bin/bash --norc
+	err := os.WriteFile(filepath.Join(s.fakebin, "tmux"), []byte(`#!/bin/bash --norc
 case "$1" in
     has-session)
         # yes, we have the session
@@ -340,7 +339,7 @@ exit 1`), 0777)
 // fakeJujuLog installs a script that echos its arguments to stderr,
 // ending up in the subprocess output
 func (s *DebugHooksServerSuite) fakeJujuLog(c *gc.C) {
-	err := ioutil.WriteFile(filepath.Join(s.fakebin, "juju-log"), []byte(`#!/bin/bash --norc
+	err := os.WriteFile(filepath.Join(s.fakebin, "juju-log"), []byte(`#!/bin/bash --norc
 echo "$@" >&2
 `), 0777)
 	c.Assert(err, jc.ErrorIsNil)

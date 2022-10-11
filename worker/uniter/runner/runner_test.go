@@ -6,7 +6,7 @@ package runner_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -303,7 +303,7 @@ func (s *RunMockContextSuite) SetUpTest(c *gc.C) {
 
 func (s *RunMockContextSuite) assertRecordedPid(c *gc.C, expectPid int) {
 	path := filepath.Join(s.paths.GetCharmDir(), "pid")
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	c.Assert(err, jc.ErrorIsNil)
 	expectContent := fmt.Sprintf("%d", expectPid)
 	c.Assert(strings.TrimRight(string(content), "\r\n"), gc.Equals, expectContent)

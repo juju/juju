@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -58,7 +57,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 		return err
 	}
 	defer zr.Close()
-	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
+	f, err := os.CreateTemp(os.TempDir(), "tools-tar")
 	if err != nil {
 		return err
 	}
@@ -79,7 +78,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	if err != nil {
 		return err
 	}
-	dir, err := ioutil.TempDir(toolsDir, "unpacking-")
+	dir, err := os.MkdirTemp(toolsDir, "unpacking-")
 	if err != nil {
 		return err
 	}
@@ -156,7 +155,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // The tools information is json encoded in a text file, "downloaded-tools.txt".
 func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
-	toolsData, err := ioutil.ReadFile(path.Join(dir, toolsFile))
+	toolsData, err := os.ReadFile(path.Join(dir, toolsFile))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read agent metadata in directory %v: %v", dir, err)
 	}
@@ -194,5 +193,5 @@ func WriteToolsMetadataData(dir string, tools *coretools.Tools) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path.Join(dir, toolsFile), toolsMetadataData, filePerm)
+	return os.WriteFile(path.Join(dir, toolsFile), toolsMetadataData, filePerm)
 }

@@ -60,7 +60,7 @@ func (s *secretsChangeRecorder) update(arg uniter.SecretUpdateArg) {
 		if arg.Description != nil {
 			c.Description = arg.Description
 		}
-		if arg.Value != nil {
+		if !arg.Value.IsEmpty() {
 			c.Value = arg.Value
 		}
 		if arg.RotatePolicy != nil {

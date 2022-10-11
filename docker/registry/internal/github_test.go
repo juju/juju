@@ -5,7 +5,7 @@ package internal_test
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -63,7 +63,7 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + authToken}})
 					c.Assert(req.Method, gc.Equals, `GET`)
 					c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
-					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 				},
 			),
 		)
@@ -157,7 +157,7 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
-				Body:       ioutil.NopCloser(nil),
+				Body:       io.NopCloser(nil),
 				Header: http.Header{
 					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 						`Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -174,7 +174,7 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -185,7 +185,7 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -218,7 +218,7 @@ func (s *githubSuite) TestTagsPrivateRegistry(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),
@@ -250,7 +250,7 @@ func (s *githubSuite) TestTagsErrorResponse(c *gc.C) {
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
-				Body:       ioutil.NopCloser(strings.NewReader(data)),
+				Body:       io.NopCloser(strings.NewReader(data)),
 			}
 			return resps, nil
 		}),

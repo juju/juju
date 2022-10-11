@@ -6,7 +6,6 @@ package oci
 import (
 	stdcontext "context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -357,7 +356,7 @@ func (e EnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCreden
 			continue
 		}
 
-		pemFileContent, err := ioutil.ReadFile(values.KeyFile)
+		pemFileContent, err := os.ReadFile(values.KeyFile)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

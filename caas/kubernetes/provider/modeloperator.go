@@ -695,6 +695,25 @@ func ensureExecRBACResources(objMeta meta.ObjectMeta, clock jujuclock.Clock, bro
 		Rules: []rbac.PolicyRule{
 			{
 				APIGroups: []string{""},
+				Resources: []string{"namespaces"},
+				Verbs: []string{
+					"get",
+					"list",
+				},
+				ResourceNames: []string{
+					objMeta.Namespace,
+				},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs: []string{
+					"get",
+					"list",
+				},
+			},
+			{
+				APIGroups: []string{""},
 				Resources: []string{"pods/exec"},
 				Verbs: []string{
 					"create",

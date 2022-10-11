@@ -6,7 +6,7 @@ package common
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -83,7 +83,7 @@ func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		data, err := ioutil.ReadFile(ctx.AbsPath(path))
+		data, err := os.ReadFile(ctx.AbsPath(path))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

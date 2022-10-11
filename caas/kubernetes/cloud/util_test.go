@@ -4,7 +4,7 @@
 package cloud
 
 import (
-	"io/ioutil"
+	"os"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -40,7 +40,7 @@ func (u *utilSuite) TestDataOrFile(c *gc.C) {
 	for _, test := range tests {
 		fileName := ""
 		if len(test.fileContents) > 0 {
-			f, err := ioutil.TempFile("", "")
+			f, err := os.CreateTemp("", "")
 			fileName = f.Name()
 			c.Assert(err, jc.ErrorIsNil)
 			n, err := f.Write(test.fileContents)
@@ -76,7 +76,7 @@ func (u *utilSuite) TestStringOrFile(c *gc.C) {
 	for _, test := range tests {
 		fileName := ""
 		if test.fileContents != "" {
-			f, err := ioutil.TempFile("", "")
+			f, err := os.CreateTemp("", "")
 			fileName = f.Name()
 			c.Assert(err, jc.ErrorIsNil)
 			n, err := f.Write([]byte(test.fileContents))

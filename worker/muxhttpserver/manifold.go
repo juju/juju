@@ -13,6 +13,9 @@ import (
 )
 
 type ManifoldConfig struct {
+	// Address is the host portion to use to net.Dial
+	Address string
+
 	AuthorityName string
 	Logger        Logger
 	Port          string
@@ -55,6 +58,10 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 	}
 
 	serverConfig := DefaultConfig()
+	if c.Address != "" {
+		serverConfig.Address = c.Address
+	}
+
 	if c.Port != "" {
 		serverConfig.Port = c.Port
 	}

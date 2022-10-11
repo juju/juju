@@ -70,7 +70,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
@@ -111,7 +110,6 @@ func SampleConfig() testing.Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            jujuversion.DefaultSupportedLTS(),
 		"default-space":             "",
 		"secret":                    "pork",
 		"controller":                true,
@@ -1064,10 +1062,7 @@ type noopSysLogger struct{}
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 
 func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
-	target := st.LeaseNotifyTarget(
-		loggo.GetLogger("juju.state.raftlease"),
-	)
-	dummyStore := newLeaseStore(clock.WallClock, target, st.LeaseTrapdoorFunc())
+	dummyStore := newLeaseStore(clock.WallClock)
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
 		Store:                dummyStore,

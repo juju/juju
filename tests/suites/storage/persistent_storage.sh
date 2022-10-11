@@ -128,7 +128,7 @@ run_persistent_storage() {
 }
 
 test_persistent_storage() {
-	if [ "$(skip 'test-persistent-storage')" ]; then
+	if [ "$(skip 'test_persistent_storage')" ]; then
 		echo "==> TEST SKIPPED: persistent storage tests"
 		return
 	fi

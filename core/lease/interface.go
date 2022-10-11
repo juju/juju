@@ -72,26 +72,9 @@ type Checker interface {
 // Token represents a fact -- but not necessarily a *true* fact -- about some
 // holder's ownership of some lease.
 type Token interface {
-
 	// Check returns ErrNotHeld if the lease it represents is not held
-	// by the holder it represents. If attempt is 0, trapdoorKey is
-	// nil, and Check returns nil, then the token continues to
-	// represent a true fact.
-	//
-	// Attempt is the number of times this check has been tried (not
-	// necessarily with this token instance). This enables an
-	// implementation to vary how it deals with trapdoorKey across
-	// attempts. For example, the raft implementation generates
-	// different ops for the first attempt than for subsequent
-	// attempts.
-	//
-	// If the token represents a true fact and trapdoorKey is *not*
-	// nil, it will be passed through layers for the attention of the
-	// underlying lease.Client implementation. If you need to do this,
-	// consult the documentation for the particular Client you're
-	// using to determine what key should be passed and what errors
-	// that might induce.
-	Check(attempt int, trapdoorKey interface{}) error
+	// by the holder it represents.
+	Check() error
 }
 
 // Reader describes retrieval of all leases and holders

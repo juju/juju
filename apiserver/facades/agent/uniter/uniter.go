@@ -1287,7 +1287,7 @@ func (u *UniterAPI) readLocalApplicationSettings(relTag string, appTag names.App
 		}
 		// For provider-requirer relations only allow the
 		// leader unit to read the application settings.
-		return token.Check(0, nil) == nil
+		return token.Check() == nil
 	}
 
 	return u.getRelationAppSettings(canAccessSettings, relTag, appTag)
@@ -1468,7 +1468,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 			return err
 		}
 		token := checker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-		if err := token.Check(0, nil); err != nil {
+		if err := token.Check(); err != nil {
 			return errors.Trace(err)
 		}
 

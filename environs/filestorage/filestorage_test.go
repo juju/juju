@@ -9,7 +9,7 @@ package filestorage_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +50,7 @@ func (s *filestorageSuite) createFile(c *gc.C, name string) (fullpath string, da
 	dir := filepath.Dir(fullpath)
 	c.Assert(os.MkdirAll(dir, 0755), gc.IsNil)
 	data = []byte{1, 2, 3, 4, 5}
-	err := ioutil.WriteFile(fullpath, data, 0644)
+	err := os.WriteFile(fullpath, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	return fullpath, data
 }
@@ -131,7 +131,7 @@ func (s *filestorageSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	b, err := ioutil.ReadAll(rc)
+	b, err := io.ReadAll(rc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(b, gc.DeepEquals, data)
 
@@ -160,7 +160,7 @@ func (s *filestorageSuite) TestPut(c *gc.C) {
 	data := []byte{1, 2, 3, 4, 5}
 	err := s.writer.Put("test-write", bytes.NewReader(data), int64(len(data)))
 	c.Assert(err, jc.ErrorIsNil)
-	b, err := ioutil.ReadFile(filepath.Join(s.dir, "test-write"))
+	b, err := os.ReadFile(filepath.Join(s.dir, "test-write"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(b, gc.DeepEquals, data)
 }
@@ -175,7 +175,7 @@ func (s *filestorageSuite) TestPutRefusesTmp(c *gc.C) {
 		Path: ".tmp/test-write",
 		Err:  os.ErrPermission,
 	})
-	_, err = ioutil.ReadFile(filepath.Join(s.dir, ".tmp", "test-write"))
+	_, err = os.ReadFile(filepath.Join(s.dir, ".tmp", "test-write"))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
@@ -184,7 +184,7 @@ func (s *filestorageSuite) TestRemove(c *gc.C) {
 	_, file := filepath.Split(expectedpath)
 	err := s.writer.Remove(file)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = ioutil.ReadFile(expectedpath)
+	_, err = os.ReadFile(expectedpath)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 
@@ -192,7 +192,7 @@ func (s *filestorageSuite) TestRemoveAll(c *gc.C) {
 	expectedpath, _ := s.createFile(c, "test-file")
 	err := s.writer.RemoveAll()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = ioutil.ReadFile(expectedpath)
+	_, err = os.ReadFile(expectedpath)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 
@@ -216,7 +216,7 @@ func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
 
 func (s *filestorageSuite) TestPathRelativeToHome(c *gc.C) {
 	homeDir := utils.Home()
-	tempDir, err := ioutil.TempDir(homeDir, "")
+	tempDir, err := os.MkdirTemp(homeDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.RemoveAll(tempDir)
 	dirName := strings.Replace(tempDir, homeDir, "", -1)

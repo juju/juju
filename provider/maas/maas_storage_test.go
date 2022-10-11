@@ -5,7 +5,7 @@ package maas
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
@@ -68,7 +68,7 @@ func (s *maasStorageSuite) TestGetSuccess(c *gc.C) {
 	reader, err := storage.Get("grasshopper.avi")
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
-	result, err := ioutil.ReadAll(reader)
+	result, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []byte("The man in the high castle"))
 	controller.Stub.CheckCall(c, 0, "GetFile", "prefix-grasshopper.avi")

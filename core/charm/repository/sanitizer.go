@@ -6,9 +6,6 @@ package repository
 import (
 	"strings"
 
-	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
-
 	corecharm "github.com/juju/juju/core/charm"
 )
 
@@ -28,25 +25,20 @@ func sanitizeCharmOrigin(received, requested corecharm.Origin) (corecharm.Origin
 		}
 	}
 
+	if result.Platform.Channel == "all" {
+		result.Platform.Channel = ""
+
+		if requested.Platform.Channel != "all" {
+			result.Platform.Channel = requested.Platform.Channel
+		}
+		if result.Platform.Channel != "" {
+			result.Platform.OS = requested.Platform.OS
+		}
+	}
 	if result.Platform.OS == "all" {
 		result.Platform.OS = ""
 	}
-
-	if result.Platform.Series == "all" {
-		result.Platform.Series = ""
-
-		if requested.Platform.Series != "all" {
-			result.Platform.Series = requested.Platform.Series
-		}
-	}
-
-	if result.Platform.Series != "" {
-		os, err := series.GetOSFromSeries(result.Platform.Series)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		result.Platform.OS = strings.ToLower(os.String())
-	}
+	result.Platform.OS = strings.ToLower(result.Platform.OS)
 
 	return result, nil
 }

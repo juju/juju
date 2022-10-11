@@ -5,7 +5,7 @@ package proxyupdater
 
 import (
 	"io"
-	"io/ioutil"
+	stdos "os"
 	stdexec "os/exec"
 	"strings"
 
@@ -109,13 +109,13 @@ func (w *proxyWorker) saveProxySettings() error {
 	// - /etc/systemd/system.conf.d/juju-proxy.conf
 	// - /etc/systemd/user.conf.d/juju-proxy.conf - both in 'systemd' format
 	for _, file := range w.config.EnvFiles {
-		err := ioutil.WriteFile(file, []byte(w.proxy.AsScriptEnvironment()), 0644)
+		err := stdos.WriteFile(file, []byte(w.proxy.AsScriptEnvironment()), 0644)
 		if err != nil {
 			w.config.Logger.Errorf("Error updating environment file %s - %v", file, err)
 		}
 	}
 	for _, file := range w.config.SystemdFiles {
-		err := ioutil.WriteFile(file, []byte(w.proxy.AsSystemdDefaultEnv()), 0644)
+		err := stdos.WriteFile(file, []byte(w.proxy.AsSystemdDefaultEnv()), 0644)
 		if err != nil {
 			w.config.Logger.Errorf("Error updating systemd file - %v", err)
 		}
@@ -273,7 +273,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror
 
 		// Always finish with a new line.
 		content := paccmder.ProxyConfigContents(w.aptProxy) + "\n"
-		err = ioutil.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
+		err = stdos.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
 			w.config.Logger.Errorf("error writing apt proxy config file: %v", err)

@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -541,7 +540,7 @@ func hostBootstrapSSHOptions(
 	}
 
 	// Create a temporary known_hosts file.
-	f, err := ioutil.TempFile("", "juju-known-hosts")
+	f, err := os.CreateTemp("", "juju-known-hosts")
 	if err != nil {
 		return nil, cleanup, errors.Trace(err)
 	}

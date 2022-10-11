@@ -124,7 +124,7 @@ func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, place
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cores=4")
 	template := state.MachineTemplate{
-		Series:      "precise",
+		Series:      "focal",
 		Constraints: extraCons,
 		Jobs:        oneJob,
 		Placement:   placement,
@@ -170,8 +170,12 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	// application unit.
 	ch := s.AddTestingCharm(c, "storage-block")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:     "storage-block",
-		Charm:    ch,
+		Name:  "storage-block",
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		NumUnits: 1,
 		Storage: map[string]state.StorageConstraints{
 			"data":    {Count: 1, Pool: "modelscoped"},
@@ -225,8 +229,12 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	}
 
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:     "storage-block-the-second",
-		Charm:    ch,
+		Name:  "storage-block-the-second",
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		NumUnits: 1,
 		Placement: []*instance.Placement{{
 			Scope:     s.State.ModelUUID(),
@@ -253,8 +261,12 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 	s.prechecker.precheckInstanceError = errors.Errorf("failed for some reason")
 	ch := s.AddTestingCharm(c, "wordpress")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:        "wordpress",
-		Charm:       ch,
+		Name:  "wordpress",
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "12.10/stable",
+		}},
 		NumUnits:    1,
 		Constraints: constraints.MustParse("root-disk=20G"),
 	})
@@ -276,8 +288,11 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C)
 
 	ch := s.AddTestingCharm(c, "wordpress")
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:     "wordpress",
-		Series:   "precise",
+		Name: "wordpress",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:    ch,
 		NumUnits: 2,
 		Placement: []*instance.Placement{
@@ -299,8 +314,11 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 	s.prechecker.precheckInstanceError = errors.Errorf("hey now")
 	ch := s.AddTestingCharm(c, "wordpress")
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:     "wordpress",
-		Series:   "precise",
+		Name: "wordpress",
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "20.04/stable",
+		}},
 		Charm:    ch,
 		NumUnits: 2,
 		Placement: []*instance.Placement{
@@ -310,7 +328,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
-		Series:      "precise",
+		Series:      "focal",
 		Placement:   "somewhere",
 		Constraints: constraints.MustParse("arch=amd64"),
 	})

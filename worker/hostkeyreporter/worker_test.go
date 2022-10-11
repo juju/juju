@@ -5,7 +5,6 @@ package hostkeyreporter_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -41,7 +40,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	writeKey := func(keyType string) {
 		baseName := fmt.Sprintf("ssh_host_%s_key.pub", keyType)
 		fileName := filepath.Join(sshDir, baseName)
-		err := ioutil.WriteFile(fileName, []byte(keyType), 0644)
+		err := os.WriteFile(fileName, []byte(keyType), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	writeKey("dsa")

@@ -5,9 +5,7 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -100,12 +98,7 @@ func (s *ApplicationLeaderSuite) TestTxnRevnoChange(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestTokenError(c *gc.C) {
 	err := s.application.UpdateLeaderSettings(&failToken{}, map[string]string{"blah": "blah"})
-	c.Check(err, gc.ErrorMatches, `application "mysql": prerequisites failed: something bad happened`)
-}
-
-func (s *ApplicationLeaderSuite) TestTokenAssertFailure(c *gc.C) {
-	err := s.application.UpdateLeaderSettings(&raceToken{}, map[string]string{"blah": "blah"})
-	c.Check(err, gc.ErrorMatches, `application "mysql": prerequisites failed: too late`)
+	c.Check(err, gc.ErrorMatches, `application "mysql": checking leadership continuity: something bad happened`)
 }
 
 func (s *ApplicationLeaderSuite) TestReadWriteDying(c *gc.C) {
@@ -229,47 +222,14 @@ type fakeToken struct {
 // Check is part of the leadership.Token interface. It returns its
 // contained error (which defaults to nil), and never checks or writes
 // the userdata.
-func (t *fakeToken) Check(int, interface{}) error {
+func (t *fakeToken) Check() error {
 	return t.err
 }
 
 // failToken implements leadership.Token.
 type failToken struct{}
 
-// Check is part of the leadership.Token interface. It always returns an error,
-// and never checks or writes the userdata.
-func (*failToken) Check(int, interface{}) error {
+// Check is part of the leadership.Token interface. It always returns an error.
+func (*failToken) Check() error {
 	return errors.New("something bad happened")
-}
-
-// raceToken implements leadership.Token.
-type raceToken struct {
-	checkedOnce bool
-}
-
-// Check is part of the leadership.Token interface. On the first call, it expects
-// a *[]txn.Op, into which it will copy a failing assertion; on subsequent calls,
-// it just returns an error.
-func (t *raceToken) Check(attempt int, out interface{}) error {
-	if t.checkedOnce {
-		if attempt == 0 {
-			return errors.Errorf("SUT passed in bad attempt: 0, expected > 0")
-		}
-		return errors.New("too late")
-	}
-	t.checkedOnce = true
-	outPtr, ok := out.(*[]txn.Op)
-	if !ok {
-		return errors.Errorf("SUT passed in bad value: %#v", out)
-	}
-	if attempt != 0 {
-		return errors.Errorf("SUT passed in bad attempt: %v, expected 0", attempt)
-	}
-	wontExist := utils.MustNewUUID()
-	*outPtr = []txn.Op{{
-		C:      "units", // we have to use a collection defined in the schema
-		Id:     wontExist.String(),
-		Assert: txn.DocExists,
-	}}
-	return nil
 }

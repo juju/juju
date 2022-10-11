@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
@@ -329,13 +328,13 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
-	downloadedFile, err := ioutil.TempFile(c.MkDir(), "downloaded")
+	downloadedFile, err := os.CreateTemp(c.MkDir(), "downloaded")
 	c.Assert(err, jc.ErrorIsNil)
 	defer downloadedFile.Close()
 	defer os.Remove(downloadedFile.Name())
-	err = ioutil.WriteFile(downloadedFile.Name(), data, 0644)
+	err = os.WriteFile(downloadedFile.Name(), data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bundle, err := charm.ReadCharmArchive(downloadedFile.Name())
@@ -643,7 +642,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 	// Prepare the tests.
 	svgMimeType := mime.TypeByExtension(".svg")
 	iconPath := filepath.Join(testcharms.Repo.CharmDirPath("mysql"), "icon.svg")
-	icon, err := ioutil.ReadFile(iconPath)
+	icon, err := os.ReadFile(iconPath)
 	c.Assert(err, jc.ErrorIsNil)
 	tests := []struct {
 		about      string
@@ -726,7 +725,7 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 		testcharms.RepoWithSeries("quantal").ClonedDirPath(c.MkDir(), "dummy"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Create an archive from the charm dir.
-	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
@@ -734,7 +733,7 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: tempFile.Name()})
 
-	data, err := ioutil.ReadFile(tempFile.Name())
+	data, err := os.ReadFile(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=*")
@@ -803,7 +802,7 @@ func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
 	apitesting.AssertResponse(c, resp, http.StatusOK, "application/zip")
 
 	// Ensure the tmp directory exists but nothing is in it.
-	files, err := ioutil.ReadDir(filepath.Join(s.config.DataDir, "charm-get-tmp"))
+	files, err := os.ReadDir(filepath.Join(s.config.DataDir, "charm-get-tmp"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(files, gc.HasLen, 0)
 }
@@ -815,7 +814,7 @@ type fileReader struct {
 
 func (r *fileReader) Read(out []byte) (int, error) {
 	if r.r == nil {
-		content, err := ioutil.ReadFile(r.path)
+		content, err := os.ReadFile(r.path)
 		if err != nil {
 			return 0, err
 		}

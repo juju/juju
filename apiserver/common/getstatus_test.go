@@ -130,7 +130,7 @@ type token struct {
 	isLeader bool
 }
 
-func (t *token) Check(attempt int, trapdoorKey interface{}) error {
+func (t *token) Check() error {
 	if !t.isLeader {
 		return errors.New("not leader")
 	}

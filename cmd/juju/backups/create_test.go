@@ -5,7 +5,7 @@ package backups_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -65,7 +65,7 @@ func (s *createSuite) setFailure(failure string) *fakeAPIClient {
 
 func (s *createSuite) setDownload() *fakeAPIClient {
 	client := s.setSuccess()
-	client.archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
+	client.archive = io.NopCloser(bytes.NewBufferString(s.data))
 	return client
 }
 

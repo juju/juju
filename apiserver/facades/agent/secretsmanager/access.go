@@ -83,7 +83,7 @@ func (s *SecretsManagerAPI) ownerToken(ownerTag names.Tag) (leadership.Token, er
 type successfulToken struct{}
 
 // Check implements lease.Token.
-func (t successfulToken) Check(_ int, _ interface{}) error {
+func (t successfulToken) Check() error {
 	return nil
 }
 
@@ -92,7 +92,7 @@ func (t successfulToken) Check(_ int, _ interface{}) error {
 func (s *SecretsManagerAPI) leadershipToken() (leadership.Token, error) {
 	appName := authTagApp(s.authTag)
 	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
-	if err := token.Check(0, nil); err != nil {
+	if err := token.Check(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return token, nil

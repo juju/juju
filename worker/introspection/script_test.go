@@ -4,7 +4,7 @@
 package introspection
 
 import (
-	"io/ioutil"
+	"os"
 	"runtime"
 
 	"github.com/juju/testing"
@@ -38,7 +38,7 @@ func (s *profileSuite) TestLinux(c *gc.C) {
 	err := WriteProfileFunctions(dir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	content, err := ioutil.ReadFile(profileFilename(dir))
+	content, err := os.ReadFile(profileFilename(dir))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, shellFuncs)
 }

@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -386,13 +387,17 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	chBase, err := series.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
 		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
-		DeployedSeries:  applicationInfo.Series,
+		DeployedBase:    chBase,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
 		Switch:          c.SwitchURL != "",
@@ -437,9 +442,13 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	origin, err := commoncharm.CoreCharmOrigin(charmID.Origin)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	chID := application.CharmID{
 		URL:    curl,
-		Origin: commoncharm.CoreCharmOrigin(charmID.Origin),
+		Origin: origin,
 	}
 	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, charmInfo.Meta.Resources)
 	if err != nil {

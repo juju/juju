@@ -146,7 +146,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 		// it turns out the lease had already been expired by someone else.
 		checker, err := manager.Checker("namespace", "model")
 		c.Assert(err, jc.ErrorIsNil)
-		err = checker.Token("redis", "redis/99").Check(0, nil)
+		err = checker.Token("redis", "redis/99").Check()
 		c.Assert(err, gc.ErrorMatches, "lease not held")
 
 		// Simulate the delayed synchronisation by removing the lease.
@@ -188,7 +188,7 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 		// Induce a scheduled block check by making an unexpected check.
 		checker, err := manager.Checker("namespace", "model")
 		c.Assert(err, jc.ErrorIsNil)
-		err = checker.Token("redis", "redis/99").Check(0, nil)
+		err = checker.Token("redis", "redis/99").Check()
 		c.Assert(err, gc.ErrorMatches, "lease not held")
 
 		// Deleting the redis lease should cause unblocks for the redis

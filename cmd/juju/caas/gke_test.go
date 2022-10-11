@@ -5,7 +5,7 @@ package caas
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,7 +73,7 @@ func (s *gkeSuite) TestInteractiveParams(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -127,7 +127,7 @@ func (s *gkeSuite) TestInteractiveParamsProjectSpecified(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -175,7 +175,7 @@ func (s *gkeSuite) TestInteractiveParamsProjectAndRegionSpecified(c *gc.C) {
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
 		Stdout: out,
-		Stderr: ioutil.Discard,
+		Stderr: io.Discard,
 		Stdin:  stdin,
 	}
 	expected := `
@@ -218,7 +218,7 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 	err := os.Setenv("KUBECONFIG", configFile)
 	c.Assert(err, jc.ErrorIsNil)
 	gke := &gke{CommandRunner: mockRunner}
-	err = ioutil.WriteFile(configFile, []byte("data"), 0644)
+	err = os.WriteFile(configFile, []byte("data"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	gomock.InOrder(
@@ -242,7 +242,7 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 	defer rdr.Close()
 
 	c.Assert(clusterName, gc.Equals, "gke_myproject_asia-southeast1-a_mycluster")
-	data, err := ioutil.ReadAll(rdr)
+	data, err := io.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.DeepEquals, "data")
 }

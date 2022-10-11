@@ -6,7 +6,6 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -179,7 +178,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
 		badrun(c, 0, test...)
-		content, err := ioutil.ReadFile(logpath)
+		content, err := os.ReadFile(logpath)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)
@@ -297,7 +296,6 @@ var commandNames = []string{
 	"autoload-credentials",
 	"bind",
 	"bootstrap",
-	"budget",
 	"cached-images",
 	"cancel-task",
 	"change-user-password",
@@ -310,7 +308,6 @@ var commandNames = []string{
 	"controllers",
 	"create-backup",
 	"create-storage-pool",
-	"create-wallet",
 	"credentials",
 	"dashboard",
 	"debug-code",
@@ -366,7 +363,6 @@ var commandNames = []string{
 	"list-offers",
 	"list-operations",
 	"list-payloads",
-	"list-plans",
 	"list-regions",
 	"list-resources",
 	"list-secrets",
@@ -376,7 +372,6 @@ var commandNames = []string{
 	"list-storage-pools",
 	"list-subnets",
 	"list-users",
-	"list-wallets",
 	"login",
 	"logout",
 	"machines",
@@ -391,7 +386,6 @@ var commandNames = []string{
 	"offers",
 	"operations",
 	"payloads",
-	"plans",
 	"refresh",
 	"regions",
 	"register",
@@ -425,6 +419,7 @@ var commandNames = []string{
 	"scale-application",
 	"scp",
 	"secrets",
+	"set-application-base",
 	"set-credential",
 	"set-constraints",
 	"set-default-credential",
@@ -432,9 +427,6 @@ var commandNames = []string{
 	"set-firewall-rule",
 	"set-meter-status",
 	"set-model-constraints",
-	"set-plan",
-	"set-series",
-	"set-wallet",
 	"show-action",
 	"show-application",
 	"show-cloud",
@@ -453,8 +445,6 @@ var commandNames = []string{
 	"show-task",
 	"show-unit",
 	"show-user",
-	"show-wallet",
-	"sla",
 	"spaces",
 	"ssh",
 	"ssh-keys",
@@ -479,11 +469,10 @@ var commandNames = []string{
 	"upgrade-controller",
 	"upgrade-juju",
 	"upgrade-model",
-	"upgrade-series",
+	"upgrade-machine",
 	"users",
 	"version",
 	"wait-for",
-	"wallets",
 	"whoami",
 }
 

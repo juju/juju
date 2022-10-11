@@ -5,7 +5,6 @@ package debinterfaces_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -63,7 +62,7 @@ func (s *ParserSuite) TestUnsupportedInputType(c *gc.C) {
 
 func (s *ParserSuite) TestFilenameEmpty(c *gc.C) {
 	emptyFile := filepath.Join(c.MkDir(), "TestFilenameEmpty")
-	err := ioutil.WriteFile(emptyFile, []byte(""), 0644)
+	err := os.WriteFile(emptyFile, []byte(""), 0644)
 	c.Assert(err, gc.IsNil)
 	stanzas, err := debinterfaces.ParseSource(emptyFile, nil, s.expander)
 	c.Assert(err, gc.IsNil)

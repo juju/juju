@@ -157,7 +157,7 @@ func (s *CharmHubClientSuite) TestResourceInfo(c *gc.C) {
 		Channel:  &channel,
 		Platform: corecharm.Platform{
 			OS:           "ubuntu",
-			Series:       "focal",
+			Channel:      "20.04",
 			Architecture: "amd64",
 		},
 	}
@@ -212,7 +212,7 @@ func charmID() CharmID {
 			Channel: &channel,
 			Platform: corecharm.Platform{
 				OS:           "ubuntu",
-				Series:       "focal",
+				Channel:      "20.04",
 				Architecture: "amd64",
 			},
 		}}

@@ -5,7 +5,7 @@ package azuretesting
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync"
 
@@ -30,7 +30,7 @@ func (p *RequestRecorderPolicy) Do(req *policy.Request) (*http.Response, error) 
 		if err := req.Raw().Body.Close(); err != nil {
 			return nil, err
 		}
-		reqCopy.Body = ioutil.NopCloser(&buf)
+		reqCopy.Body = io.NopCloser(&buf)
 		if err := req.RewindBody(); err != nil {
 			return nil, err
 		}
@@ -61,8 +61,8 @@ func RequestRecorder(requests *[]*http.Request) autorest.PrepareDecorator {
 				if err := req.Body.Close(); err != nil {
 					return nil, err
 				}
-				reqCopy.Body = ioutil.NopCloser(&buf)
-				req.Body = ioutil.NopCloser(bytes.NewReader(buf.Bytes()))
+				reqCopy.Body = io.NopCloser(&buf)
+				req.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
 			}
 			mu.Lock()
 			*requests = append(*requests, &reqCopy)

@@ -5,7 +5,6 @@ package unit_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -76,7 +75,7 @@ func (s *containerUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur
 
 func (s *containerUnitAgentSuite) prepareAgentConf(c *gc.C, appName string) string {
 	fPath := filepath.Join(s.dataDir, k8sconstants.TemplateFileNameAgentConf)
-	err := ioutil.WriteFile(fPath, []byte(fmt.Sprintf(agentConfigContents, appName)), 0600)
+	err := os.WriteFile(fPath, []byte(fmt.Sprintf(agentConfigContents, appName)), 0600)
 	c.Assert(err, gc.IsNil)
 	return fPath
 }

@@ -19,8 +19,7 @@ type token struct {
 }
 
 // Check is part of the lease.Token interface.
-func (t token) Check(attempt int, trapdoorKey interface{}) error {
-
+func (t token) Check() error {
 	// This validation, which could be done at Token creation time, is deferred
 	// until this point for historical reasons. In particular, this code was
 	// extracted from a *leadership* implementation which has a LeadershipCheck
@@ -36,24 +35,20 @@ func (t token) Check(attempt int, trapdoorKey interface{}) error {
 		return errors.Annotatef(err, "cannot check holder %q", t.holderName)
 	}
 	return check{
-		leaseKey:    t.leaseKey,
-		holderName:  t.holderName,
-		attempt:     attempt,
-		trapdoorKey: trapdoorKey,
-		response:    make(chan error),
-		stop:        t.stop,
+		leaseKey:   t.leaseKey,
+		holderName: t.holderName,
+		response:   make(chan error),
+		stop:       t.stop,
 	}.invoke(t.checks)
 }
 
 // check is used to deliver lease-check requests to a manager's loop
 // goroutine on behalf of a token (as returned by LeadershipCheck).
 type check struct {
-	leaseKey    lease.Key
-	holderName  string
-	attempt     int
-	trapdoorKey interface{}
-	response    chan error
-	stop        <-chan struct{}
+	leaseKey   lease.Key
+	holderName string
+	response   chan error
+	stop       <-chan struct{}
 }
 
 // invoke sends the check on the supplied channel and waits for an error

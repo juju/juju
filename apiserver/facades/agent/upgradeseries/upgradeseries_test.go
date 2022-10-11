@@ -162,8 +162,8 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "focal"}},
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "20.04"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
@@ -181,8 +181,8 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 	exp.RemoveUpgradeSeriesLock().Return(nil)
 
 	entity := params.Entity{Tag: s.machineTag.String()}
-	args := params.UpdateSeriesArgs{
-		Args: []params.UpdateSeriesArg{{Entity: entity, Series: "jammy"}},
+	args := params.UpdateChannelArgs{
+		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "22.04"}},
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)

@@ -4,7 +4,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,7 +69,7 @@ func (c *signMetadataCommand) Run(context *cmd.Context) error {
 		loggo.INFO)
 	_ = loggo.RegisterWriter("signmetadata", writer)
 	defer func() { _, _ = loggo.RemoveWriter("signmetadata") }()
-	keyData, err := ioutil.ReadFile(c.keyFile)
+	keyData, err := os.ReadFile(c.keyFile)
 	if err != nil {
 		return err
 	}
@@ -99,12 +98,12 @@ func process(dir, key, passphrase string) error {
 			return errors.Errorf("encoding file %q: %v", filename, err)
 		}
 		signedFilename := strings.Replace(filename, simplestreams.UnsignedSuffix, simplestreams.SignedSuffix, -1)
-		if err = ioutil.WriteFile(signedFilename, encoded, 0644); err != nil {
+		if err = os.WriteFile(signedFilename, encoded, 0644); err != nil {
 			return errors.Errorf("writing signed file %q: %v", signedFilename, err)
 		}
 	}
 	// Now process any directories in dir.
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}

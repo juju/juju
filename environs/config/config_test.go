@@ -16,10 +16,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	environschema "gopkg.in/juju/environschema.v1"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -36,6 +37,7 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
@@ -650,11 +652,11 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, s.FakeHomeSuite.Home)
+		test.check(c)
 	}
 }
 
-func (test configTest) check(c *gc.C, home *jujutesting.FakeHome) {
+func (test configTest) check(c *gc.C) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
 		c.Check(cfg, gc.IsNil)
@@ -690,11 +692,12 @@ func (test configTest) check(c *gc.C, home *jujutesting.FakeHome) {
 
 	seriesAttr, _ := test.attrs["default-series"].(string)
 	defaultSeries, ok := cfg.DefaultSeries()
-	c.Assert(ok, jc.IsTrue)
 	if seriesAttr != "" {
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(defaultSeries, gc.Equals, jujuversion.DefaultSupportedLTS())
+		c.Assert(ok, jc.IsFalse)
+		c.Assert(defaultSeries, gc.Equals, "")
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {

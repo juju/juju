@@ -202,7 +202,7 @@ func (m *Machine) UpgradeSeriesTarget() (string, error) {
 	return lock.ToSeries, nil
 }
 
-// StartUpgradeSeriesUnitCompletion notifies units that an upgrade-series
+// StartUpgradeSeriesUnitCompletion notifies units that an upgrade-machine
 // workflow is ready for its "completion" phase.
 func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {

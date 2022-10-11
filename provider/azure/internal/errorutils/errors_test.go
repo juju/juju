@@ -4,7 +4,7 @@
 package errorutils_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -102,7 +102,7 @@ func (*ErrorSuite) TestMaybeQuotaExceededError(c *gc.C) {
 	re := &azcore.ResponseError{
 		StatusCode: http.StatusBadRequest,
 		RawResponse: &http.Response{
-			Body: ioutil.NopCloser(buf),
+			Body: io.NopCloser(buf),
 		},
 	}
 	quotaErr, ok := errorutils.MaybeQuotaExceededError(re)
@@ -116,7 +116,7 @@ func (*ErrorSuite) TestIsConflictError(c *gc.C) {
 
 	re := &azcore.ResponseError{
 		RawResponse: &http.Response{
-			Body: ioutil.NopCloser(buf),
+			Body: io.NopCloser(buf),
 		},
 	}
 	ok := errorutils.IsConflictError(re)
@@ -151,7 +151,7 @@ func (*ErrorSuite) TestSimpleError(c *gc.C) {
 
 	re := &azcore.ResponseError{
 		RawResponse: &http.Response{
-			Body: ioutil.NopCloser(buf),
+			Body: io.NopCloser(buf),
 		},
 	}
 

@@ -171,7 +171,7 @@ func convertDetailsToInfo(details []params.CloudImageMetadata) ([]MetadataInfo, 
 	for i, one := range details {
 		info[i] = MetadataInfo{
 			Source:          one.Source,
-			Series:          one.Series,
+			Version:         one.Version,
 			Arch:            one.Arch,
 			Region:          one.Region,
 			ImageId:         one.ImageId,
@@ -205,9 +205,9 @@ func (m metadataInfos) Less(i, j int) bool {
 		// This may need to b revisited if more metadata sources will be discovered.
 		return m[i].Source < m[j].Source
 	}
-	if m[i].Series != m[j].Series {
+	if m[i].Version != m[j].Version {
 		// reverse order
-		return m[i].Series > m[j].Series
+		return m[i].Version > m[j].Version
 	}
 	if m[i].Arch != m[j].Arch {
 		// alphabetical order
@@ -230,7 +230,7 @@ type minMetadataInfo struct {
 }
 
 // groupMetadata constructs map representation of metadata
-// grouping individual items by source, series, arch and region
+// grouping individual items by source, version, arch and region
 // to be served to Yaml and JSON output for readability.
 func groupMetadata(metadata []MetadataInfo) map[string]map[string]map[string]map[string][]minMetadataInfo {
 	result := map[string]map[string]map[string]map[string][]minMetadataInfo{}
@@ -242,16 +242,16 @@ func groupMetadata(metadata []MetadataInfo) map[string]map[string]map[string]map
 			result[m.Source] = sourceMap
 		}
 
-		seriesMap, ok := sourceMap[m.Series]
+		versionMap, ok := sourceMap[m.Version]
 		if !ok {
-			seriesMap = map[string]map[string][]minMetadataInfo{}
-			sourceMap[m.Series] = seriesMap
+			versionMap = map[string]map[string][]minMetadataInfo{}
+			sourceMap[m.Version] = versionMap
 		}
 
-		archMap, ok := seriesMap[m.Arch]
+		archMap, ok := versionMap[m.Arch]
 		if !ok {
 			archMap = map[string][]minMetadataInfo{}
-			seriesMap[m.Arch] = archMap
+			versionMap[m.Arch] = archMap
 		}
 
 		archMap[m.Region] = append(archMap[m.Region], minMetadataInfo{m.ImageId, m.Stream, m.VirtType, m.RootStorageType})

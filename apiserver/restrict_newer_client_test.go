@@ -121,7 +121,7 @@ func (r *restrictNewerClientSuite) TestAlwaysDisallowedMethod(c *gc.C) {
 
 func (r *restrictNewerClientSuite) TestWhitelistedClient(c *gc.C) {
 	r.assertWhitelistedClient(c, "2.9.32", false)
-	r.assertWhitelistedClient(c, "2.9.35", true)
+	r.assertWhitelistedClient(c, "2.9.36", true)
 }
 
 func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers string, allowed bool) {
@@ -140,8 +140,7 @@ func (r *restrictNewerClientSuite) assertWhitelistedClient(c *gc.C, serverVers s
 
 func (r *restrictNewerClientSuite) TestAgentMethod(c *gc.C) {
 	r.PatchValue(&jujuversion.Current, version.MustParse("3.0.0"))
-	r.assertAgentMethod(c, "2.9.32", true)
-	r.assertAgentMethod(c, "2.9.33", true)
+	r.assertAgentMethod(c, "2.9.36", true)
 	r.assertAgentMethod(c, "2.9.31", false)
 }
 

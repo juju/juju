@@ -23,23 +23,32 @@ func Register(registry facade.FacadeRegistry) {
 // newMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
-	controllerState, err := ctx.StatePool().SystemState()
+	pool := ctx.StatePool()
+	modelState := ctx.State()
+
+	controllerState, err := pool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
+
+	preCheckBackend, err := migration.PrecheckShim(modelState, controllerState)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
 
-	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(ctx.StatePool())
+	leadership, err := ctx.LeadershipReader(modelState.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewAPI(
-		newBacked(ctx.State()),
-		precheckBackend,
-		migration.PoolShim(ctx.StatePool()),
+		newBacked(modelState),
+		preCheckBackend,
+		migration.PoolShim(pool),
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Presence(),
-		environscloudspecGetter,
+		cloudspec.MakeCloudSpecGetter(pool),
+		leadership,
 	)
 }

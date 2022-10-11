@@ -10,14 +10,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/romulus/api/budget"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelconfig"
@@ -25,16 +23,11 @@ import (
 	"github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
-)
-
-const (
-	slaUnsupported = "unsupported"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.model")
@@ -63,7 +56,6 @@ type destroyCommand struct {
 	destroyStorage bool
 	releaseStorage bool
 	api            DestroyModelAPI
-	configAPI      ModelConfigAPI
 	storageAPI     StorageAPI
 
 	Force  bool
@@ -191,9 +183,6 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 }
 
 func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
-	if c.configAPI != nil {
-		return c.configAPI, nil
-	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -269,21 +258,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	configAPI, err := c.getModelConfigAPI()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API")
-	}
-	defer configAPI.Close()
-
-	// Check if the model has an SLA set.
-	slaIsSet := false
-	slaLevel, err := configAPI.SLALevel()
-	if err == nil {
-		slaIsSet = slaLevel != "" && slaLevel != slaUnsupported
-	} else {
-		logger.Debugf("could not determine model SLA level: %v", err)
-	}
-
 	// Attempt to destroy the model.
 	fmt.Fprint(ctx.Stderr, "Destroying model")
 	var destroyStorage *bool
@@ -318,40 +292,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// Check if the model has an sla auth.
-	if slaIsSet {
-		err = c.removeModelBudget(modelDetails.ModelUUID)
-		if err != nil {
-			ctx.Warningf("model allocation not removed: %v", err)
-		}
-	}
-
 	c.RemoveModelFromClientStore(store, controllerName, modelName)
-	return nil
-}
-
-func (c *destroyCommand) removeModelBudget(uuid string) error {
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	budgetAPIRoot, err := rcmd.GetMeteringURLForModelCmd(&c.ModelCommandBase)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	budgetClient, err := getBudgetAPIClient(budgetAPIRoot, bakeryClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	resp, err := budgetClient.DeleteBudget(uuid)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if resp != "" {
-		logger.Infof(resp)
-	}
 	return nil
 }
 
@@ -683,17 +624,6 @@ option instead. The storage can then be imported
 into another Juju model.
 
 `, modelName, buf.String())
-}
-
-var getBudgetAPIClient = getBudgetAPIClientImpl
-
-func getBudgetAPIClientImpl(apiRoot string, bakeryClient *httpbakery.Client) (BudgetAPIClient, error) {
-	return budget.NewClient(budget.APIRoot(apiRoot), budget.HTTPClient(bakeryClient))
-}
-
-// BudgetAPIClient defines the budget API client interface.
-type BudgetAPIClient interface {
-	DeleteBudget(string) (string, error)
 }
 
 // StorageAPI defines the storage client API interface.

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/rpc/params"
@@ -46,12 +47,14 @@ func Save(st ImageMetadataInterface, metadata params.MetadataSaveParams) ([]para
 func ParseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Config) []cloudimagemetadata.Metadata {
 	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
 	for i, metadata := range p.Metadata {
+		// We only cache ubuntu image metdata in state.
+		mSeries, _ := series.GetSeriesFromChannel("ubuntu", metadata.Version)
 		results[i] = cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          metadata.Stream,
 				Region:          metadata.Region,
 				Version:         metadata.Version,
-				Series:          metadata.Series,
+				Series:          mSeries,
 				Arch:            metadata.Arch,
 				VirtType:        metadata.VirtType,
 				RootStorageType: metadata.RootStorageType,

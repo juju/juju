@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -84,7 +84,7 @@ func (s *logtransferSuite) checkAuthFails(c *gc.C, header http.Header, code int,
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, gc.Equals, code)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(body), gc.Matches, message+"\n")
 }

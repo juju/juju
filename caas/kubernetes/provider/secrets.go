@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -242,6 +241,10 @@ func (k *kubernetesClient) GetSecretToken(name string) (string, error) {
 func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string) (secrets.SecretValue, error) {
 	// providerId is the secret name.
 	secret, err := k.getSecret(providerId)
+	if k8serrors.IsForbidden(err) {
+		logger.Tracef("getting secret %q: %v", providerId, err)
+		return nil, errors.Unauthorizedf("cannot access %q", providerId)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -249,8 +252,7 @@ func (k *kubernetesClient) GetJujuSecret(ctx context.Context, providerId string)
 }
 
 // SaveJujuSecret implements SecretsStore.
-func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (string, error) {
-	name := fmt.Sprintf("%s-%d", uri.ID, revision)
+func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, name string, value secrets.SecretValue) (string, error) {
 	labels := utils.LabelsMerge(
 		utils.LabelsForModel(k.CurrentModel(), false),
 		utils.LabelsJuju)
@@ -274,6 +276,10 @@ func (k *kubernetesClient) SaveJujuSecret(ctx context.Context, uri *secrets.URI,
 func (k *kubernetesClient) DeleteJujuSecret(ctx context.Context, providerId string) error {
 	// providerId is the secret name.
 	secret, err := k.getSecret(providerId)
+	if k8serrors.IsForbidden(err) {
+		logger.Tracef("deleting secret %q: %v", providerId, err)
+		return errors.Unauthorizedf("cannot access %q", providerId)
+	}
 	if errors.IsNotFound(err) {
 		return nil
 	}

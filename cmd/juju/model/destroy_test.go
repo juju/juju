@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -21,7 +20,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/model"
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -33,7 +31,6 @@ import (
 type DestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api             *fakeAPI
-	configAPI       *fakeConfigAPI
 	storageAPI      *mockStorageAPI
 	stub            *jutesting.Stub
 	budgetAPIClient *mockBudgetAPIClient
@@ -85,25 +82,12 @@ func (f *fakeAPI) ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, err
 	return f.modelStatusPayload, err
 }
 
-// fakeConfigAPI mocks out the ModelConfigAPI.
-type fakeConfigAPI struct {
-	err      error
-	slaLevel string
-}
-
-func (f *fakeConfigAPI) SLALevel() (string, error) {
-	return f.slaLevel, f.err
-}
-
-func (f *fakeConfigAPI) Close() error { return nil }
-
 func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &jutesting.Stub{}
 	s.api = &fakeAPI{
 		Stub: s.stub,
 	}
-	s.configAPI = &fakeConfigAPI{}
 	s.storageAPI = &mockStorageAPI{Stub: s.stub}
 	s.clock = testclock.NewClock(time.Now())
 
@@ -121,19 +105,15 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	}
 
 	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(model.GetBudgetAPIClient,
-		func(string, *httpbakery.Client) (model.BudgetAPIClient, error) { return s.budgetAPIClient, nil })
-	s.PatchValue(&rcmd.GetMeteringURLForModelCmd,
-		func(*modelcmd.ModelCommandBase) (string, error) { return "http://example.com", nil })
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, noOpRefresh, s.store)
+	command := model.NewDestroyCommandForTest(s.api, s.storageAPI, s.clock, noOpRefresh, s.store)
 	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
-	return model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, noOpRefresh, s.store)
+	return model.NewDestroyCommandForTest(s.api, s.storageAPI, s.clock, noOpRefresh, s.store)
 }
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
@@ -180,7 +160,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 		return nil
 	}
 
-	command := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, s.clock, refresh, s.store)
+	command := model.NewDestroyCommandForTest(s.api, s.storageAPI, s.clock, refresh, s.store)
 	_, err := cmdtesting.RunCommand(c, command, "foo")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, `model test1:admin/foo not found`)
@@ -261,34 +241,6 @@ func (s *DestroySuite) TestFailedDestroyModel(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1:test2", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy model: permission denied")
 	checkModelExistsInStore(c, "test1:admin/test2", s.store)
-}
-
-func (s *DestroySuite) TestDestroyWithUnsupportedSLA(c *gc.C) {
-	s.configAPI.slaLevel = "unsupported"
-	_, err := s.runDestroyCommand(c, "test1:test2", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "DestroyModel")
-}
-
-func (s *DestroySuite) TestDestroyWithSupportedSLA(c *gc.C) {
-	s.configAPI.slaLevel = "standard"
-	_, err := s.runDestroyCommand(c, "test2", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
-		{"DeleteBudget", []interface{}{"test2-uuid"}},
-	})
-}
-
-func (s *DestroySuite) TestDestroyWithSupportedSLAFailure(c *gc.C) {
-	s.configAPI.slaLevel = "standard"
-	s.stub.SetErrors(nil, errors.New("bah"))
-	_, err := s.runDestroyCommand(c, "test2", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), timeout}},
-		{"DeleteBudget", []interface{}{"test2-uuid"}},
-	})
 }
 
 func (s *DestroySuite) TestDestroyDestroyStorage(c *gc.C) {

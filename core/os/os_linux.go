@@ -5,7 +5,7 @@ package os
 
 import (
 	"errors"
-	"io/ioutil"
+	stdos "os"
 	"strings"
 	"sync"
 )
@@ -50,7 +50,7 @@ func updateOS(f string) (OSType, error) {
 //
 // See http://www.freedesktop.org/software/systemd/man/os-release.html.
 func ReadOSRelease(f string) (map[string]string, error) {
-	contents, err := ioutil.ReadFile(f)
+	contents, err := stdos.ReadFile(f)
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,6 @@ package oci
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -248,12 +247,10 @@ func getCentOSSeries(img ociCore.Image) (string, error) {
 	if len(splitVersion) < 1 {
 		return "", errors.NotSupportedf("invalid centOS version: %v", *img.OperatingSystemVersion)
 	}
-	tmpVersion := fmt.Sprintf("%s%s", strings.ToLower(*img.OperatingSystem), splitVersion[0])
-
 	// call series.CentOSVersionSeries to validate that the version
 	// of CentOS is supported by juju
-	logger.Tracef("Determining CentOS series for: %s", tmpVersion)
-	return series.CentOSVersionSeries(tmpVersion)
+	logger.Tracef("Determining CentOS series for: %s", splitVersion[0])
+	return series.GetSeriesFromChannel("centos", splitVersion[0])
 }
 
 func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType InstanceImage, err error) {
@@ -263,7 +260,7 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType Instanc
 		imgSeries, err = getCentOSSeries(img)
 	case ubuntuOS:
 		logger.Tracef("Determining Ubuntu series for: %s", *img.OperatingSystemVersion)
-		imgSeries, err = series.VersionSeries(*img.OperatingSystemVersion)
+		imgSeries, err = series.GetSeriesFromChannel("ubuntu", *img.OperatingSystemVersion)
 	default:
 		return imgType, errors.NotSupportedf("os %s", osVersion)
 	}

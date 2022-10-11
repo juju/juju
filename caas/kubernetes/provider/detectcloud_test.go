@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -114,7 +113,7 @@ users:
     password: test
 `
 
-	file, err := ioutil.TempFile("", "")
+	file, err := os.CreateTemp("", "")
 	c.Assert(err, jc.ErrorIsNil)
 	defer file.Close()
 

@@ -73,7 +73,7 @@ func (s *findSuite) TestRunJSON(c *gc.C) {
 	ctx := commandContextForTest(c)
 	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"type":"object","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","version":"1.0.3","architectures":["all"],"os":["ubuntu"],"series":["bionic"],"store-url":"https://someurl.com/wordpress"}]
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"type":"object","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","publisher":"WordPress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","version":"1.0.3","architectures":["all"],"os":["ubuntu"],"series":["bionic"],"store-url":"https://someurl.com/wordpress"}]
 `)
 }
 
@@ -95,7 +95,7 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
 - type: object
   id: charmCHARMcharmCHARMcharmCHARM01
   name: wordpress
-  publisher: Wordress Charmers
+  publisher: WordPress Charmers
   summary: WordPress is a full featured web blogging tool, this charm deploys it.
   version: 1.0.3
   architectures:
@@ -161,7 +161,7 @@ func (s *findSuite) expectFind() {
 		Type: "object",
 		ID:   "charmCHARMcharmCHARMcharmCHARM01",
 		Entity: transport.Entity{
-			Publisher: map[string]string{"display-name": "Wordress Charmers"},
+			Publisher: map[string]string{"display-name": "WordPress Charmers"},
 			Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
 			StoreURL:  "https://someurl.com/wordpress",
 		},

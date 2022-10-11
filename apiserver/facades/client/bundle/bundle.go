@@ -24,11 +24,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -426,8 +428,18 @@ func (b *BundleAPI) bundleDataApplications(
 	printEndpointBindingSpaceNames := b.printSpaceNamesInEndpointBindings(apps)
 
 	for _, application := range apps {
+		if application.CharmOrigin() == nil || application.CharmOrigin().Platform() == "" {
+			return nil, nil, nil, errors.Errorf("missing charm origin data for %q", application)
+		}
 		var newApplication *charm.ApplicationSpec
-		appSeries := application.Series()
+		p, err := corecharm.ParsePlatformNormalize(application.CharmOrigin().Platform())
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		appSeries, err := series.GetSeriesFromChannel(p.OS, p.Channel)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
 		usedSeries.Add(appSeries)
 
 		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), allSpacesInfoLookup, printEndpointBindingSpaceNames)

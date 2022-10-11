@@ -125,7 +125,7 @@ type MachineInfo struct {
 	InstanceStatus           StatusInfo                        `json:"instance-status"`
 	Life                     life.Value                        `json:"life"`
 	Config                   map[string]interface{}            `json:"config,omitempty"`
-	Series                   string                            `json:"series"`
+	Base                     string                            `json:"base"`
 	ContainerType            string                            `json:"container-type"`
 	IsManual                 bool                              `json:"-"` // internal use only
 	SupportedContainers      []instance.ContainerType          `json:"supported-containers"`
@@ -263,7 +263,7 @@ type UnitInfo struct {
 	ModelUUID      string      `json:"model-uuid"`
 	Name           string      `json:"name"`
 	Application    string      `json:"application"`
-	Series         string      `json:"series"`
+	Base           string      `json:"base"`
 	CharmURL       string      `json:"charm-url"`
 	Life           life.Value  `json:"life"`
 	PublicAddress  string      `json:"public-address"`

@@ -570,11 +570,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// This worker will only ever be running on the Raft leader node.
 		leaseClockUpdaterName: ifRaftLeader(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			RaftName:       raftName,
-			StateName:      stateName,
 			Clock:          config.Clock,
 			FSM:            config.LeaseFSM,
 			NewWorker:      globalclockupdater.NewWorker,
-			NewTarget:      globalclockupdater.NewTarget,
 			UpdateInterval: globalClockUpdaterUpdateInterval,
 			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.raft"),
 		})),
@@ -771,12 +769,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			AgentName:            agentName,
 			TransportName:        raftTransportName,
-			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
 			Logger:               loggo.GetLogger("juju.worker.raft"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raft.NewWorker,
-			NewTarget:            raft.NewTarget,
 			Queue:                config.RaftOpQueue,
 			NewApplier:           raft.NewApplier,
 		})),
@@ -807,13 +803,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// applies them to the raft leader.
 		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
 			RaftName:             raftName,
-			StateName:            stateName,
 			CentralHubName:       centralHubName,
 			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raftforwarder.NewWorker,
-			NewTarget:            raftforwarder.NewTarget,
 		})),
 
 		// The global lease manager tracks lease information in the raft

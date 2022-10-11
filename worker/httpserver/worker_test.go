@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -168,7 +167,7 @@ func (s *WorkerSuite) makeRequest(c *gc.C, url string) {
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	out, err := ioutil.ReadAll(resp.Body)
+	out, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, "hello, world")
 }
@@ -232,7 +231,7 @@ func (s *WorkerSuite) TestExitsWithTardyClients(c *gc.C) {
 		c.Fatalf("didn't stop after timeout")
 	}
 	// There should be a log file with goroutines.
-	data, err := ioutil.ReadFile(filepath.Join(s.logDir, "apiserver-debug.log"))
+	data, err := os.ReadFile(filepath.Join(s.logDir, "apiserver-debug.log"))
 	c.Assert(err, jc.ErrorIsNil)
 	lines := strings.Split(string(data), "\n")
 	c.Assert(len(lines), jc.GreaterThan, 1)

@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -272,7 +272,7 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 		NewUUID:          s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, _, _, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, _, _, err := spc.InteractiveCreate(sdkCtx, io.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -305,7 +305,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalAlreadyExists(c *gc.C)
 		NewUUID:          s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, io.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -374,7 +374,7 @@ func (s *InteractiveSuite) testInteractiveRetriesCreateServicePrincipal(c *gc.C,
 		NewUUID: s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, io.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",
@@ -421,7 +421,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 		NewUUID: s.newUUID,
 	}
 	sdkCtx := context.Background()
-	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, ioutil.Discard, azureauth.ServicePrincipalParams{
+	_, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, io.Discard, azureauth.ServicePrincipalParams{
 		GraphEndpoint:             "https://graph.invalid",
 		GraphResourceId:           "https://graph.invalid",
 		ResourceManagerEndpoint:   "https://arm.invalid",

@@ -312,7 +312,7 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 
 type fakeToken struct{}
 
-func (t *fakeToken) Check(int, interface{}) error {
+func (t *fakeToken) Check() error {
 	return nil
 }
 

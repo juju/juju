@@ -5,7 +5,7 @@ package commands
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,7 +57,7 @@ func RunPlugin(callback cmd.MissingCallback) cmd.MissingCallback {
 		// To do this, we extract only those supported flags from the
 		// argument list to avoid confusing flags.Parse().
 		flags := gnuflag.NewFlagSetWithFlagKnownAs(cmdName, gnuflag.ContinueOnError, "option")
-		flags.SetOutput(ioutil.Discard)
+		flags.SetOutput(io.Discard)
 		plugin.SetFlags(flags)
 		jujuArgs := extractJujuArgs(args)
 		if err := flags.Parse(false, jujuArgs); err != nil {
@@ -195,12 +195,17 @@ func findPlugins() []string {
 	path := os.Getenv("PATH")
 	plugins := []string{}
 	for _, name := range filepath.SplitList(path) {
-		entries, err := ioutil.ReadDir(name)
+		entries, err := os.ReadDir(name)
 		if err != nil {
 			continue
 		}
 		for _, entry := range entries {
-			if re.Match([]byte(entry.Name())) && (entry.Mode()&0111) != 0 {
+			fi, err := entry.Info()
+			if err != nil {
+				continue
+			}
+
+			if re.Match([]byte(fi.Name())) && (fi.Mode()&0111) != 0 {
 				plugins = append(plugins, entry.Name())
 			}
 		}

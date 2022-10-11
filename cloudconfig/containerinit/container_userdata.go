@@ -5,7 +5,7 @@
 package containerinit
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -43,7 +43,7 @@ func WriteUserData(
 // directory specified, and returns the filename.
 func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 	userDataFilename := filepath.Join(directory, "cloud-init")
-	if err := ioutil.WriteFile(userDataFilename, userData, 0644); err != nil {
+	if err := os.WriteFile(userDataFilename, userData, 0644); err != nil {
 		logger.Errorf("failed to write user data: %v", err)
 		return "", err
 	}

@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -71,7 +71,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	c.Assert(s.bob.SecretKey(), gc.IsNil)
 
 	var response params.SecretKeyLoginResponse
-	bodyData, err := ioutil.ReadAll(resp.Body)
+	bodyData, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	err = json.Unmarshal(bodyData, &response)
 	c.Assert(err, jc.ErrorIsNil)

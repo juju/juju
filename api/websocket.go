@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -49,7 +48,7 @@ func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 			// for a true response. While this may work for small bodies, it
 			// isn't guaranteed to work for all messages.
 			defer resp.Body.Close()
-			body, readErr := ioutil.ReadAll(resp.Body)
+			body, readErr := io.ReadAll(resp.Body)
 			if readErr != nil {
 				return nil, err
 			}

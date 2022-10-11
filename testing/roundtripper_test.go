@@ -4,7 +4,7 @@
 package testing_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -29,7 +29,7 @@ func (s *metadataSuite) TestCannedRoundTripper(c *gc.C) {
 	resp, err := vrt.RoundTrip(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp, gc.NotNil)
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, aContent)
 	c.Assert(resp.ContentLength, gc.Equals, int64(len(aContent)))
@@ -44,7 +44,7 @@ func (s *metadataSuite) TestCannedRoundTripperMissing(c *gc.C) {
 	resp, err := vrt.RoundTrip(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp, gc.NotNil)
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "")
 	c.Assert(resp.ContentLength, gc.Equals, int64(0))

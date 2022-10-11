@@ -5,7 +5,6 @@ package caas_test
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -272,7 +271,7 @@ func (s *addCAASSuite) setupBroker(c *gc.C) *gomock.Controller {
 }
 
 func CreateKubeConfigData(conf string) (string, error) {
-	file, err := ioutil.TempFile("", "")
+	file, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -342,7 +341,7 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 
 func (s *addCAASSuite) writeTempKubeConfig(c *gc.C) {
 	fullpath := filepath.Join(s.dir, "empty-config")
-	err := ioutil.WriteFile(fullpath, []byte(""), 0644)
+	err := os.WriteFile(fullpath, []byte(""), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	os.Setenv("KUBECONFIG", fullpath)
 }

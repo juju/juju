@@ -6,7 +6,7 @@ package bootstrap_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -1076,7 +1076,7 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
 
 func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "key")
-	ioutil.WriteFile(path, []byte("publickey"), 0644)
+	os.WriteFile(path, []byte("publickey"), 0644)
 	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1093,7 +1093,7 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 
 func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "key")
-	ioutil.WriteFile(path, []byte("publickey"), 0644)
+	os.WriteFile(path, []byte("publickey"), 0644)
 	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
 
 	password := "lisboan-pork"

@@ -32,6 +32,16 @@ func (f *filteringUnitTests) TestMatchPortRanges(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchPortRanges([]string{"70"}, network.PortRange{7070, 7070, "tcp"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchPortRanges([]string{"7070"}, network.PortRange{7070, 7070, "tcp"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsTrue)
 }
 
 func (s *filteringUnitTests) TestMatchSubnet(c *gc.C) {

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	corecharm "github.com/juju/juju/core/charm"
 	coreseries "github.com/juju/juju/core/series"
 
 	"github.com/juju/juju/apiserver/common"
@@ -1040,7 +1039,12 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine,
 	agentStatus := c.processMachine(machine)
 	status.AgentStatus = agentStatus
 
-	status.Series = machine.Series()
+	mSeries := machine.Series()
+	base, err := coreseries.GetBaseFromSeries(mSeries)
+	if err != nil {
+		logger.Errorf("cannot construct machine base from series %q", mSeries) //should never happen
+	}
+	status.Base = params.Base{Name: base.OS, Channel: base.Channel.String()}
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	node, wantsVote := c.controllerNodes[machineID]
 	status.WantsVote = wantsVote
@@ -1269,18 +1273,20 @@ func (context *statusContext) processApplication(application *state.Application)
 		channel = string(application.Channel())
 	}
 
-	series := application.Series()
-	// Sidecar k8s charms have the series set to that of the underlying base.
-	// We want to ensure they are still shown as "kubernetes" in status.
-	if corecharm.IsKubernetes(applicationCharm) {
-		series = coreseries.Kubernetes.String()
+	origin := application.CharmOrigin()
+	base, err := coreseries.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	if err != nil {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 	var processedStatus = params.ApplicationStatus{
-		Charm:            applicationCharm.String(),
-		CharmVersion:     applicationCharm.Version(),
-		CharmProfile:     charmProfileName,
-		CharmChannel:     channel,
-		Series:           series,
+		Charm:        applicationCharm.String(),
+		CharmVersion: applicationCharm.Version(),
+		CharmProfile: charmProfileName,
+		CharmChannel: channel,
+		Base: params.Base{
+			Name:    base.OS,
+			Channel: base.Channel.String(),
+		},
 		Exposed:          application.IsExposed(),
 		ExposedEndpoints: mappedExposedEndpoints,
 		Life:             processLife(application),

@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -279,7 +278,7 @@ func (s *RefreshSuite) TestUseConfiguredCharmStoreURL(c *gc.C) {
 func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 	tempdir := c.MkDir()
 	configFile := filepath.Join(tempdir, "config.yaml")
-	err := ioutil.WriteFile(configFile, []byte("foo:{}"), 0644)
+	err := os.WriteFile(configFile, []byte("foo:{}"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "foo", "--config", configFile)
@@ -851,9 +850,9 @@ func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
 
 	foopath := path.Join(dir, "foo")
 	barpath := path.Join(dir, "bar")
-	err := ioutil.WriteFile(foopath, []byte("foo"), 0600)
+	err := os.WriteFile(foopath, []byte("foo"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	err = os.WriteFile(barpath, []byte("bar"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("foo=%s", foopath)
@@ -885,7 +884,7 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResources(c *gc.C) {
 	}
 	dir := c.MkDir()
 	barpath := path.Join(dir, "bar")
-	err := ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	err := os.WriteFile(barpath, []byte("bar"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("bar=%s", barpath)
@@ -934,7 +933,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
-	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	err := os.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -955,7 +954,7 @@ func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
-	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	err := os.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)

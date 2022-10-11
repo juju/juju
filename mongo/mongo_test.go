@@ -6,7 +6,6 @@ package mongo_test
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -123,19 +122,19 @@ func (s *MongoSuite) expectInstallMongoSnap() {
 }
 
 func (s *MongoSuite) assertTLSKeyFile(c *gc.C, dataDir string) {
-	contents, err := ioutil.ReadFile(mongo.SSLKeyPath(dataDir))
+	contents, err := os.ReadFile(mongo.SSLKeyPath(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
 }
 
 func (s *MongoSuite) assertSharedSecretFile(c *gc.C, dataDir string) {
-	contents, err := ioutil.ReadFile(mongo.SharedSecretPath(dataDir))
+	contents, err := os.ReadFile(mongo.SharedSecretPath(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
 }
 
 func (s *MongoSuite) assertMongoConfigFile(c *gc.C, dataDir string, ipV6 bool) {
-	contents, err := ioutil.ReadFile(s.mongodConfigPath)
+	contents, err := os.ReadFile(s.mongodConfigPath)
 	c.Assert(err, jc.ErrorIsNil)
 	part1 := fmt.Sprintf(`
 # WARNING
@@ -218,7 +217,7 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
-	contents, err := ioutil.ReadFile(dataFilePath)
+	contents, err := os.ReadFile(dataFilePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, "original value")
 
@@ -227,7 +226,7 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 		map[string]string{dataFilePath: "new value"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	contents, err = ioutil.ReadFile(dataFilePath)
+	contents, err = os.ReadFile(dataFilePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, "new value")
 }

@@ -5,7 +5,7 @@ package testing
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -94,7 +94,7 @@ func newHTTPResponse(status string, statusCode int, body string) *http.Response 
 		// Parameter fields:
 		Status:        status,
 		StatusCode:    statusCode,
-		Body:          ioutil.NopCloser(strings.NewReader(body)),
+		Body:          io.NopCloser(strings.NewReader(body)),
 		ContentLength: int64(len(body)),
 	}
 }

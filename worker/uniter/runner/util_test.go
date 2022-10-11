@@ -5,7 +5,6 @@ package runner_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -273,7 +272,7 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 func makeCharmMetadata(c *gc.C, charmDir string) {
 	err := os.MkdirAll(charmDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
+	err = os.WriteFile(path.Join(charmDir, "metadata.yaml"), nil, 0664)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

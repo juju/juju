@@ -9,7 +9,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -88,7 +87,7 @@ func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
 			break
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		buf, err := ioutil.ReadAll(tr)
+		buf, err := io.ReadAll(tr)
 		c.Assert(err, jc.ErrorIsNil)
 		contents[hdr.Name] = string(buf)
 	}

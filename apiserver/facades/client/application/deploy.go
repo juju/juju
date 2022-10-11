@@ -99,11 +99,14 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
+	origin, err := StateCharmOrigin(args.CharmOrigin)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
-		Series:            args.CharmOrigin.Platform.Series,
 		Charm:             args.Charm,
-		CharmOrigin:       StateCharmOrigin(args.CharmOrigin),
+		CharmOrigin:       origin,
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
@@ -187,7 +190,7 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 }
 
 // StateCharmOrigin returns a state layer CharmOrigin given a core Origin.
-func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
+func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 	var ch *state.Channel
 	if c := origin.Channel; c != nil {
 		normalizedC := c.Normalize()
@@ -197,7 +200,7 @@ func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 			Branch: normalizedC.Branch,
 		}
 	}
-	stateOrigin := &state.CharmOrigin{
+	return &state.CharmOrigin{
 		Type:     origin.Type,
 		Source:   string(origin.Source),
 		ID:       origin.ID,
@@ -207,10 +210,9 @@ func StateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 		Platform: &state.Platform{
 			Architecture: origin.Platform.Architecture,
 			OS:           origin.Platform.OS,
-			Series:       origin.Platform.Series,
+			Channel:      origin.Platform.Channel,
 		},
-	}
-	return stateOrigin
+	}, nil
 }
 
 func assertCharmAssumptions(assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {
