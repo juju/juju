@@ -117,7 +117,7 @@ func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
 }
 
 func runList(c *gc.C, expectedOutput string, args ...string) {
-	cmdArgs := append([]string{"list-storage"}, args...)
+	cmdArgs := append([]string{"storage"}, args...)
 	context, err := runCommand(c, cmdArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
@@ -206,7 +206,7 @@ data/0:
 }
 
 func runPoolList(c *gc.C, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"list-storage-pools"}, args...)
+	cmdArgs := append([]string{"storage-pools"}, args...)
 	ctx, err := runCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
@@ -436,7 +436,7 @@ func assertPoolExists(c *gc.C, st *state.State, pname, providerType, attr string
 }
 
 func runVolumeList(c *gc.C, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"list-storage", "--volume"}, args...)
+	cmdArgs := append([]string{"storage", "--volume"}, args...)
 	ctx, err := runCommand(c, cmdArgs...)
 	return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
 }
@@ -588,7 +588,7 @@ storage-filesystem/0  data/0      filesystem        pending
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesAfter, gc.HasLen, 2)
 
-	context, err = runCommand(c, "list-storage")
+	context, err = runCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Unit                  Storage ID  Type        Size  Status   Message
@@ -639,7 +639,7 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = vol.SetStatus(status.StatusInfo{Status: status.Detaching, Since: &time.Time{}})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := runCommand(c, "list-storage")
+	ctx, err := runCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Unit             Storage ID  Type   Pool         Size    Status     Message
@@ -666,7 +666,7 @@ storage-block/1  data/1      block                       pending
 	c.Assert(err, jc.ErrorIsNil)
 	err = vol.SetStatus(status.StatusInfo{Status: status.Attaching, Since: &time.Time{}})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err = runCommand(c, "list-storage")
+	ctx, err = runCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Unit             Storage ID  Type   Pool         Size    Status     Message

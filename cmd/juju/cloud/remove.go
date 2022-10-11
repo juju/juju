@@ -35,7 +35,7 @@ Examples:
 See also:
     add-cloud
     update-cloud
-    list-clouds`
+    clouds`
 
 type removeCloudCommand struct {
 	modelcmd.OptionalControllerCommand

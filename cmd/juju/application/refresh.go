@@ -263,7 +263,6 @@ func (c *refreshCommand) Info() *cmd.Info {
 		Args:    "<application>",
 		Purpose: "Refresh an application's charm.",
 		Doc:     refreshDoc,
-		Aliases: []string{"upgrade-charm"},
 	})
 }
 

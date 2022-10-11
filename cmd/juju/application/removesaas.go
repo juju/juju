@@ -63,7 +63,6 @@ func (c *removeSaasCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-saas",
 		Args:    "<saas-application-name> [<saas-application-name>...]",
-		Aliases: []string{"remove-consumed-application"},
 		Purpose: helpSummaryRmSaas,
 		Doc:     helpDetailsRmSaas,
 	})

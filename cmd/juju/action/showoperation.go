@@ -52,7 +52,7 @@ Examples:
 
 See also:
     run
-    list-operations
+    operations
     show-task
 `
 

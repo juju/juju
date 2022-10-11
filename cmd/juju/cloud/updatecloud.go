@@ -58,7 +58,7 @@ Examples:
 See also:
     add-cloud
     remove-cloud
-    list-clouds
+    clouds
 `
 
 type updateCloudAPI interface {

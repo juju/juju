@@ -2569,7 +2569,7 @@ var (
 	// upgrade juju using 2.5.x agents with 2.6 or greater controllers.
 	ErrInvalidAgentVersions = errors.Errorf(
 		"Unable to upgrade LXDProfile charms with the current model version. " +
-			"Please run juju upgrade-juju to upgrade the current model to match your controller.")
+			"Please run juju upgrade-model to upgrade the current model to match your controller.")
 )
 
 func getAgentToolsVersion(agentTools AgentTools) (version.Number, error) {

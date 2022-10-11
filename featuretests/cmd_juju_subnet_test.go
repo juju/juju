@@ -52,7 +52,7 @@ func (s *cmdSubnetSuite) AssertOutput(c *gc.C, context *cmd.Context, expectedOut
 }
 
 func (s *cmdSubnetSuite) TestSubnetListNoResults(c *gc.C) {
-	context := s.Run(c, expectedSuccess, "list-subnets")
+	context := s.Run(c, expectedSuccess, "subnets")
 	s.AssertOutput(c, context,
 		"", // no stdout output
 		"No subnets to display.\n",

@@ -85,9 +85,10 @@ func (c *listImagesCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *listImagesCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "list-images",
+		Name:    "images",
 		Purpose: "lists cloud image metadata used when choosing an image to start",
 		Doc:     listCommandDoc,
+		Aliases: []string{"list-images"},
 	})
 }
 
