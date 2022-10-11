@@ -98,8 +98,8 @@ run_offer_consume_cross_controller() {
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
 	echo "Relate workload in consume controller with offer"
-	juju --show-log consume "${offer_controller}:admin/model-offer.dummy-source"
-	juju --show-log relate dummy-sink dummy-source
+	juju consume "${offer_controller}:admin/model-offer.dummy-source"
+	juju relate dummy-sink dummy-source
 	# wait for relation joined before migrate.
 	wait_for "dummy-source" '.applications["dummy-sink"] | .relations.source[0]'
 
@@ -112,6 +112,7 @@ run_offer_consume_cross_controller() {
 	wait_for "active" '."application-endpoints"["dummy-source"]."application-status".current'
 
 	echo "Remove offer"
+	juju remove-relation dummy-sink dummy-source
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "${offer_controller}:model-offer"
