@@ -5,6 +5,7 @@ package secretsmanager
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
+
+var logger = loggo.GetLogger("juju.api.secretsmanager")
 
 // Client is the api client for the SecretsManager facade.
 type Client struct {
@@ -78,13 +81,16 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, update, peek
 		Update: update,
 		Peek:   peek,
 	}
-	arg.URI = uri.String()
+	if uri != nil {
+		arg.URI = uri.String()
+	}
+	logger.Criticalf("GetContentInfo arg %#v", arg)
 
 	var results params.SecretContentResults
 
-	if err := c.facade.FacadeCall("GetSecretContentInfo", params.GetSecretContentArgs{
-		Args: []params.GetSecretContentArg{arg},
-	}, &results); err != nil {
+	if err := c.facade.FacadeCall(
+		"GetSecretContentInfo", params.GetSecretContentArgs{Args: []params.GetSecretContentArg{arg}}, &results,
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {
@@ -92,7 +98,7 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, update, peek
 	}
 
 	if err := results.Results[0].Error; err != nil {
-		return nil, err
+		return nil, apiservererrors.RestoreError(err)
 	}
 	result := results.Results[0].Content
 	content := &secrets.ContentParams{ProviderId: result.ProviderId}

@@ -175,7 +175,7 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	md, err := s.secretsBackend.GetSecret(uri)
+	md, err := s.secretsBackend.GetSecret(uri, "", nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -267,7 +267,8 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if !s.canRead(uri, consumerTag) {
 		return nil, apiservererrors.ErrPerm
 	}
-	return s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
+	_, md, err := s.secretsConsumer.GetSecretConsumer(uri, "", consumerTag)
+	return md, err
 }
 
 // GetSecretMetadata returns metadata for the caller's secrets.
@@ -344,22 +345,80 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArg
 	return result, nil
 }
 
-func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*secrets.ContentParams, error) {
-	uri, err := coresecrets.ParseURI(arg.URI)
+func (s *SecretsManagerAPI) getOwnerSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
+	md, err := s.secretsBackend.GetSecret(uri, label, s.authTag)
+	logger.Criticalf("getOwnerSecretMetadata uri %q, label %q, s.authTag %q, md %#v, err %#v", uri, label, s.authTag, md, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !s.canRead(uri, s.authTag) {
-		return nil, apiservererrors.ErrPerm
+	if s.authTag.String() != md.OwnerTag {
+		// Invisible for non owner users.
+		return nil, errors.NotFoundf("secret %s, label %q", uri, label)
 	}
-	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
-	if err != nil && !errors.IsNotFound(err) {
+	return md, nil
+}
+
+func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*secrets.ContentParams, error) {
+	// Only the owner can access secrets via the secret label (Note: the leader unit is not the owner of the application secrets).
+	// Non owners have to use secret URI or consumer label.
+
+	if arg.URI == "" && arg.Label == "" {
+		return nil, errors.NewNotValid(nil, "both uri and label are empty")
+	}
+
+	getSecretValue := func(uri *coresecrets.URI, revision int) (*secrets.ContentParams, error) {
+		if !s.canRead(uri, s.authTag) {
+			return nil, apiservererrors.ErrPerm
+		}
+
+		val, providerId, err := s.secretsBackend.GetSecretValue(uri, revision)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &secrets.ContentParams{SecretValue: val, ProviderId: providerId}, nil
+	}
+
+	var uri *coresecrets.URI
+	var err error
+
+	if arg.URI != "" {
+		uri, err = coresecrets.ParseURI(arg.URI)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// arg.Label is the secret label for owner.
+	md, err := s.getOwnerSecretMetadata(uri, arg.Label)
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
+	if md != nil {
+		// Owner can access the content directly.
+		return getSecretValue(md.URI, md.LatestRevision)
+	}
+
+	// arg.Label is the consumer label for consumer.
+	// 1. both URI and label is required for the first time access.
+	// 2. either URI or label is required for later acsess.
+	secretURI, consumer, err := s.secretsConsumer.GetSecretConsumer(uri, arg.Label, s.authTag)
+	logger.Criticalf("GetSecretConsumer(%q, %q, %q): secretURI %q, consumer %#v, err %#v", uri, arg.Label, s.authTag, secretURI, consumer, err)
+	if errors.Is(err, errors.NotFound) && uri == nil {
+		return nil, errors.NotFoundf("consumer label %q", arg.Label)
+	}
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Trace(err)
+	}
+	if uri == nil {
+		// Found the secret URI using consumer label.
+		uri = secretURI
+	}
+
 	update := arg.Update || err != nil
 	peek := arg.Peek
 	if update || peek {
-		md, err := s.secretsBackend.GetSecret(uri)
+		// We are consumer, so fetch using URI.
+		md, err := s.secretsBackend.GetSecret(uri, "", nil)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -380,12 +439,7 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (*s
 			}
 		}
 	}
-
-	val, providerId, err := s.secretsBackend.GetSecretValue(uri, consumer.CurrentRevision)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &secrets.ContentParams{SecretValue: val, ProviderId: providerId}, nil
+	return getSecretValue(uri, consumer.CurrentRevision)
 }
 
 // WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
@@ -519,7 +573,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 		if err != nil {
 			return errors.Trace(err)
 		}
-		md, err := s.secretsBackend.GetSecret(uri)
+		md, err := s.secretsBackend.GetSecret(uri, "", nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
