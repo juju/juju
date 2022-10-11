@@ -88,11 +88,11 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error
 
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)

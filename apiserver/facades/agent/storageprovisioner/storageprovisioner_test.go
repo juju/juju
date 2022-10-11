@@ -169,8 +169,8 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
 		},
@@ -213,8 +213,8 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
 		}},

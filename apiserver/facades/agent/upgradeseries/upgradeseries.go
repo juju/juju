@@ -12,9 +12,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
@@ -134,7 +135,12 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		results[i].Result = machine.Series()
+		series, err := coreseries.GetSeriesFromChannel(machine.Base().OS, machine.Base().Channel)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		results[i].Result = series
 	}
 
 	result.Results = results
@@ -218,24 +224,15 @@ func (a *API) FinishUpgradeSeries(args params.UpdateChannelArgs) (params.ErrorRe
 		// Only update if they differ, because calling UpgradeSeriesTarget
 		// cascades through units and subordinates to verify series support,
 		// which we might as well skip unless an update is required.
-		ms := machine.Series()
-		var argSeries string
+		mBase := machine.Base()
+		var argBase state.Base
 		if arg.Channel != "" {
-			base, err := series.GetBaseFromSeries(ms)
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			argSeries, err = series.GetSeriesFromChannel(base.OS, arg.Channel)
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
+			argBase = state.Base{OS: mBase.OS, Channel: arg.Channel}.Normalise()
 		}
-		if argSeries == ms {
-			logger.Debugf("%q series is unchanged from %q", arg.Entity.Tag, ms)
+		if argBase.String() == mBase.String() {
+			logger.Debugf("%q base is unchanged from %q", arg.Entity.Tag, mBase.DisplayString())
 		} else {
-			if err := machine.UpdateMachineSeries(argSeries); err != nil {
+			if err := machine.UpdateMachineSeries(argBase); err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}

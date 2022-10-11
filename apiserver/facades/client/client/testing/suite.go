@@ -130,8 +130,8 @@ func (s *CharmSuite) SetStoreError(name string, err error) {
 // AddMachine adds a new machine to state.
 func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
 	m, err := s.jcSuite.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{job},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{job},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, machineId)

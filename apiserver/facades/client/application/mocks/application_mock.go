@@ -1345,6 +1345,20 @@ func (mr *MockApplicationMockRecorder) UnsetExposeSettings(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetExposeSettings", reflect.TypeOf((*MockApplication)(nil).UnsetExposeSettings), arg0)
 }
 
+// UpdateApplicationBase mocks base method.
+func (m *MockApplication) UpdateApplicationBase(arg0 state.Base, arg1 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationBase", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateApplicationBase indicates an expected call of UpdateApplicationBase.
+func (mr *MockApplicationMockRecorder) UpdateApplicationBase(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationBase", reflect.TypeOf((*MockApplication)(nil).UpdateApplicationBase), arg0, arg1)
+}
+
 // UpdateApplicationConfig mocks base method.
 func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, arg1 []string, arg2 environschema.Fields, arg3 schema.Defaults) error {
 	m.ctrl.T.Helper()
@@ -1357,20 +1371,6 @@ func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, 
 func (mr *MockApplicationMockRecorder) UpdateApplicationConfig(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationConfig", reflect.TypeOf((*MockApplication)(nil).UpdateApplicationConfig), arg0, arg1, arg2, arg3)
-}
-
-// UpdateApplicationSeries mocks base method.
-func (m *MockApplication) UpdateApplicationSeries(arg0 string, arg1 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateApplicationSeries", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateApplicationSeries indicates an expected call of UpdateApplicationSeries.
-func (mr *MockApplicationMockRecorder) UpdateApplicationSeries(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationSeries", reflect.TypeOf((*MockApplication)(nil).UpdateApplicationSeries), arg0, arg1)
 }
 
 // UpdateCharmConfig mocks base method.

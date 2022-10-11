@@ -94,12 +94,12 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 func assertAssignUnitLXDContainer(c *gc.C, st *state.State, u *state.Unit) {
 	machine, err := st.AddMachineInsideNewMachine(
 		state.MachineTemplate{
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		state.MachineTemplate{ // parent
-			Series: "quantal",
-			Jobs:   []state.MachineJob{state.JobHostUnits},
+			Base: state.UbuntuBase("12.10"),
+			Jobs: []state.MachineJob{state.JobHostUnits},
 		},
 		instance.LXD,
 	)

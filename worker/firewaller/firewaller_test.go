@@ -85,7 +85,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 
 	// Create a manager machine and login to the API.
 	var err error
-	s.controllerMachine, err = s.State.AddMachine("quantal", state.JobManageModel)
+	s.controllerMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controllerPassword, err = utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -457,7 +457,7 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
@@ -488,7 +488,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
@@ -538,7 +538,7 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	assertWatching(names.NewMachineTag("0"))
 
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
+		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
 		Nonce:      "manual:",
@@ -551,8 +551,8 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
 	}
 
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	assertWatching(m.MachineTag())
@@ -1732,7 +1732,7 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 }
 
 func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.startInstance(c, m)
 

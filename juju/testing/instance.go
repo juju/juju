@@ -160,14 +160,13 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.ControllerUUID == "" {
 		return errors.New("missing controller UUID in start instance parameters")
 	}
-	preferredSeries := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
 		return errors.New("missing agent version in model config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
-		OSType: series.DefaultOSTypeNameFromSeries(preferredSeries),
+		OSType: "ubuntu",
 	}
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
@@ -183,6 +182,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 		return errors.Trace(err)
 	}
 
+	preferredSeries := config.PreferredSeries(env.Config())
 	if params.ImageMetadata == nil {
 		if err := SetImageMetadata(
 			env,
@@ -197,12 +197,16 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 
 	machineNonce := "fake_nonce"
 	apiInfo := FakeAPIInfo(machineId)
+	base, err := series.GetBaseFromSeries(preferredSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		testing.ControllerTag,
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
-		preferredSeries,
+		base,
 		apiInfo,
 	)
 	if err != nil {
@@ -222,7 +226,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	return nil
 }
 
-func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
+func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsFetcher, release, arches []string, out *[]*imagemetadata.ImageMetadata) error {
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	if !ok {
 		return nil
@@ -237,7 +241,7 @@ func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsF
 	}
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
-		Releases:  series,
+		Releases:  release,
 		Arches:    arches,
 		Stream:    env.Config().ImageStream(),
 	})

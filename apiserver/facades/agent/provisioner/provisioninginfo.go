@@ -102,12 +102,9 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 	env environs.Environ,
 	endpointBindings map[string]string,
 ) (params.ProvisioningInfo, error) {
-	base, err := series.GetBaseFromSeries(m.Series())
-	if err != nil {
-		return params.ProvisioningInfo{}, errors.Trace(err) // Should never happen.
-	}
+	base := m.Base()
 	result := params.ProvisioningInfo{
-		Base:              params.Base{Name: base.OS, Channel: base.Channel.String()},
+		Base:              params.Base{Name: base.OS, Channel: base.Channel},
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),
 
@@ -116,6 +113,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		EndpointBindings: endpointBindings,
 	}
 
+	var err error
 	if result.Constraints, err = m.Constraints(); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -587,8 +585,16 @@ func (api *ProvisionerAPI) availableImageMetadata(
 
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
+	series, err := series.GetSeriesFromChannel(m.Base().OS, m.Base().Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(wallyworld) - does centos still need the series hack?
+	if m.Base().OS == "centos" {
+		series = "centos" + series
+	}
 	lookup := simplestreams.LookupParams{
-		Releases: []string{m.Series()},
+		Releases: []string{series},
 		Stream:   env.Config().ImageStream(),
 	}
 
