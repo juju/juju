@@ -31,7 +31,7 @@ var jsonImagesContent = `
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
    "com.ubuntu.cloud:server:12.04:amd64": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "amd64",
      "versions": {
@@ -92,7 +92,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud:server:12.04:arm64": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "arm64",
      "versions": {
@@ -123,7 +123,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud:server:12.04:i386": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "i386",
      "versions": {
@@ -148,7 +148,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud:server:12.04:ppc64el": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "ppc64el",
      "versions": {
@@ -173,7 +173,7 @@ var jsonImagesContent = `
      }
    },
    "com.ubuntu.cloud.daily:server:12.04:amd64": {
-     "release": "precise",
+     "release": "12.04",
      "version": "12.04",
      "arch": "amd64",
      "versions": {
@@ -325,7 +325,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		t.init()
 		cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
-			Releases:  []string{"precise"},
+			Releases:  []string{"12.04"},
 			Stream:    t.stream,
 		})
 		c.Assert(err, jc.ErrorIsNil)

@@ -400,39 +400,6 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadConvertsSeries(c *gc.C) {
-	// Make some fake tools.
-	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
-	vCopy := v
-	vCopy.Release = "bionic"
-	vers := v.String()
-	// Now try uploading them. The tools will be cloned for
-	// each additional series specified.
-	params := "?binaryVersion=" + vCopy.String()
-	resp := s.uploadRequest(c, s.toolsURI(params), "application/x-tar-gz", bytes.NewReader(toolsContent))
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-
-	// Check the response.
-	expectedTools[0].URL = s.toolsURL("").String() + "/" + vers
-	s.assertUploadResponse(c, resp, expectedTools[0])
-
-	// Check the contents.
-	storage, err := s.State.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	_, r, err := storage.Open(v.String())
-	c.Assert(err, jc.ErrorIsNil)
-	uploadedData, err := io.ReadAll(r)
-	r.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
-
-	// ensure the series *isn't* there.
-	v.Release = "bionic"
-	_, err = storage.Metadata(v.String())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
 		Version: testing.CurrentVersion().String(),

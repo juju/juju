@@ -278,15 +278,15 @@ type SetCharmConfig struct {
 
 	// Force forces the use of the charm in the following scenarios:
 	// overriding a lxd profile upgrade.
-	// In the future, we should deprecate ForceSeries and ForceUnits and just
+	// In the future, we should deprecate ForceBase and ForceUnits and just
 	// use Force for all instances.
-	// TODO (stickupkid): deprecate ForceSeries and ForceUnits in favour of
+	// TODO (stickupkid): deprecate ForceBase and ForceUnits in favour of
 	// just using Force.
 	Force bool
 
-	// ForceSeries forces the use of the charm even if it doesn't match the
+	// ForceBase forces the use of the charm even if it doesn't match the
 	// series of the unit.
-	ForceSeries bool
+	ForceBase bool
 
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool
@@ -338,7 +338,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
 		Force:              cfg.Force,
-		ForceSeries:        cfg.ForceSeries,
+		ForceBase:          cfg.ForceBase,
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
 		StorageConstraints: storageConstraints,
@@ -348,8 +348,8 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
 
-// UpdateApplicationSeries updates the application series in the db.
-func (c *Client) UpdateApplicationSeries(appName, series string, force bool) error {
+// UpdateApplicationBase updates the application base in the db.
+func (c *Client) UpdateApplicationBase(appName, series string, force bool) error {
 	base, err := coreseries.GetBaseFromSeries(series)
 	if err != nil {
 		return errors.Trace(err)
@@ -363,7 +363,7 @@ func (c *Client) UpdateApplicationSeries(appName, series string, force bool) err
 	}
 
 	results := new(params.ErrorResults)
-	err = c.facade.FacadeCall("UpdateApplicationSeries", args, results)
+	err = c.facade.FacadeCall("UpdateApplicationBase", args, results)
 	if err != nil {
 		return errors.Trace(err)
 	}

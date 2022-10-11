@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -659,12 +658,16 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	}
 
 	machineTag := m.Tag()
+	base, err := ParseBase(m.Base())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
 		Id:                       id,
 		ModelUUID:                i.st.ModelUUID(),
 		Nonce:                    m.Nonce(),
-		Series:                   m.Series(),
+		Base:                     base.Normalise(),
 		ContainerType:            m.ContainerType(),
 		Principals:               nil, // Set during unit import.
 		Life:                     Alive,
@@ -746,15 +749,6 @@ func (i *importer) makeTools(t description.AgentTools) (*tools.Tools, error) {
 		URL:     t.URL(),
 		SHA256:  t.SHA256(),
 		Size:    t.Size(),
-	}
-	// Older versions of Juju recorded the agent binaries for a series.
-	// We now use os type instead.
-	allSeries, err := coreseries.AllWorkloadSeries("", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if allSeries.Contains(result.Version.Release) {
-		result.Version.Release = coreseries.DefaultOSTypeNameFromSeries(result.Version.Release)
 	}
 	return result, nil
 }
@@ -1523,10 +1517,11 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	base := Base{OS: p.OS, Channel: p.Channel}.Normalise()
 	return &unitDoc{
 		Name:                   u.Name(),
 		Application:            s.Name(),
-		Base:                   Base{OS: p.OS, Channel: p.Channel},
+		Base:                   base,
 		CharmURL:               &charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
@@ -2061,15 +2056,12 @@ func (i *importer) cloudimagemetadata() error {
 		if rootStorageSize, ok := image.RootStorageSize(); ok {
 			rootStoragePtr = &rootStorageSize
 		}
-		// We only cache ubuntu image metdata in state.
-		mSeries, _ := coreseries.GetSeriesFromChannel("ubuntu", image.Version())
 		metadatas = append(metadatas, cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Source:          image.Source(),
 				Stream:          image.Stream(),
 				Region:          image.Region(),
 				Version:         image.Version(),
-				Series:          mSeries,
 				Arch:            image.Arch(),
 				RootStorageType: image.RootStorageType(),
 				RootStorageSize: rootStoragePtr,

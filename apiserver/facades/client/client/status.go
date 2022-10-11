@@ -1039,12 +1039,8 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine,
 	agentStatus := c.processMachine(machine)
 	status.AgentStatus = agentStatus
 
-	mSeries := machine.Series()
-	base, err := coreseries.GetBaseFromSeries(mSeries)
-	if err != nil {
-		logger.Errorf("cannot construct machine base from series %q", mSeries) //should never happen
-	}
-	status.Base = params.Base{Name: base.OS, Channel: base.Channel.String()}
+	mBase := machine.Base()
+	status.Base = params.Base{Name: mBase.OS, Channel: mBase.Channel}
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	node, wantsVote := c.controllerNodes[machineID]
 	status.WantsVote = wantsVote

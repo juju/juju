@@ -277,7 +277,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		})
 		c.Assert(args.ConfigSettingsYAML, gc.Equals, "yaml")
 		c.Assert(args.Force, gc.Equals, true)
-		c.Assert(args.ForceSeries, gc.Equals, true)
+		c.Assert(args.ForceBase, gc.Equals, true)
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		c.Assert(args.StorageConstraints, jc.DeepEquals, map[string]params.StorageConstraints{
 			"a": {Pool: "radiant"},
@@ -303,7 +303,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		},
 		ConfigSettingsYAML: "yaml",
 		Force:              true,
-		ForceSeries:        true,
+		ForceBase:          true,
 		ForceUnits:         true,
 		StorageConstraints: map[string]storage.Constraints{
 			"a": {Pool: "radiant"},

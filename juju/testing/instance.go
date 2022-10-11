@@ -184,10 +184,14 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 
 	preferredSeries := config.PreferredSeries(env.Config())
 	if params.ImageMetadata == nil {
+		vers, err := imagemetadata.ImageRelease(preferredSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if err := SetImageMetadata(
 			env,
 			ss,
-			[]string{preferredSeries},
+			[]string{vers},
 			[]string{filter.Arch},
 			&params.ImageMetadata,
 		); err != nil {

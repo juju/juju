@@ -44,7 +44,8 @@ manual_deploy() {
 
 	juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
 
-	machine_series=$(juju machines --format=json | jq -r '.machines | .["0"] | .series')
+	machine_base=$(juju machines --format=json | jq -r '.machines | .["0"] | .base')
+	machine_series=$(base_to_series "${machine_base}")
 
 	juju deploy ubuntu --to=0 --series="${machine_series}"
 

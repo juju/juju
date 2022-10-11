@@ -512,7 +512,7 @@ func (f *Facade) applicationFilesystemParams(
 			charmStorage := ch.Meta().Storage[name]
 			id := fmt.Sprintf("%s/%v", name, i)
 			tag := names.NewStorageTag(id)
-			location, err := state.FilesystemMountPoint(charmStorage, tag, "kubernetes")
+			location, err := state.FilesystemMountPoint(charmStorage, tag, "ubuntu")
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

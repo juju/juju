@@ -431,7 +431,7 @@ sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 	},
 	// OpenSUSE non controller
 	{
-		cfg:               makeNormalConfig(coreseries.MakeDefaultBase("opensuse", "opensuseleap"), 0),
+		cfg:               makeNormalConfig(coreseries.MakeDefaultBase("opensuse", "opensuse42"), 0),
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `

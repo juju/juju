@@ -216,12 +216,12 @@ type fakeContainerManager struct {
 
 func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	series string,
+	base series.Base,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instances.Instance, *instance.HardwareCharacteristics, error) {
-	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
+	m.MethodCall(m, "CreateContainer", instanceConfig, cons, base, network, storage, callback)
 	inst := mockInstance{id: "testinst"}
 	arch := "testarch"
 	hw := instance.HardwareCharacteristics{Arch: &arch}

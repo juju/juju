@@ -14,7 +14,6 @@ import (
 	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/description/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
@@ -28,6 +27,8 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/description/v3"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -275,17 +276,12 @@ func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Applicat
 	})
 }
 
-func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
-	if series == "kubernetes" {
-		series = "focal"
-	}
-	base, err := coreseries.GetBaseFromSeries(series)
-	c.Assert(err, jc.ErrorIsNil)
+func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch *Charm) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st: st,
 		origin: &CharmOrigin{Platform: &Platform{
 			OS:      base.OS,
-			Channel: base.Channel.String(),
+			Channel: base.Channel,
 		}},
 		name: name,
 		ch:   ch,

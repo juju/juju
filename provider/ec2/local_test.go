@@ -1567,7 +1567,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.ImageMetadataValidator).ImageMetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Release = jujuversion.DefaultSupportedLTS()
+	params.Release = jujuversion.DefaultSupportedLTSBase().Channel.Track
 	params.Endpoint = "http://foo"
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2743,7 +2743,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	err = testing.SetImageMetadata(
 		t.Env,
 		simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory()),
-		[]string{"jammy"},
+		[]string{"22.04"},
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -53,7 +54,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	})))
 
 	machine0 := mocks.NewMockMachine(ctrl)
-	machine0.EXPECT().Series().Return("focal").AnyTimes()
+	machine0.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine0.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	machine0.EXPECT().HardwareCharacteristics().Return(&hc, nil)

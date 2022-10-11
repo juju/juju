@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 )
@@ -32,7 +33,7 @@ type Manager interface {
 	CreateContainer(
 		instanceConfig *instancecfg.InstanceConfig,
 		cons constraints.Value,
-		series string,
+		base series.Base,
 		network *NetworkConfig,
 		storage *StorageConfig,
 		callback environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error)

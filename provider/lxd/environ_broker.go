@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -113,11 +112,7 @@ func (env *environ) newContainer(
 		return nil, errors.Trace(err)
 	}
 
-	series, err := coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	image, err := target.FindImage(series, arch, imageSources, true, statusCallback)
+	image, err := target.FindImage(args.InstanceConfig.Base, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

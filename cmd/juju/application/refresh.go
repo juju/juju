@@ -150,13 +150,13 @@ type refreshCommand struct {
 
 	ApplicationName string
 	// Force should be ubiquitous and we should eventually deprecate both
-	// ForceUnits and ForceSeries; instead just using "force"
-	Force       bool
-	ForceUnits  bool
-	ForceSeries bool
-	SwitchURL   string
-	CharmPath   string
-	Revision    int // defaults to -1 (latest)
+	// ForceUnits and ForceBase; instead just using "force"
+	Force      bool
+	ForceUnits bool
+	ForceBase  bool
+	SwitchURL  string
+	CharmPath  string
+	Revision   int // defaults to -1 (latest)
 
 	BindToSpaces string
 	Bindings     map[string]string
@@ -271,7 +271,7 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be refreshed which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm or bundle from the charm store or charm hub")
-	f.BoolVar(&c.ForceSeries, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
+	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
@@ -398,7 +398,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		Channel:         c.Channel,
 		DeployedBase:    chBase,
 		Force:           c.Force,
-		ForceSeries:     c.ForceSeries,
+		ForceBase:       c.ForceBase,
 		Switch:          c.SwitchURL != "",
 		Logger:          ctx,
 	}
@@ -477,7 +477,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		CharmID:            chID,
 		ConfigSettingsYAML: string(configYAML),
 		Force:              c.Force,
-		ForceSeries:        c.ForceSeries,
+		ForceBase:          c.ForceBase,
 		ForceUnits:         c.ForceUnits,
 		ResourceIDs:        resourceIDs,
 		StorageConstraints: c.Storage,

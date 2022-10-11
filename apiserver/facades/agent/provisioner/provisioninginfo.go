@@ -585,16 +585,17 @@ func (api *ProvisionerAPI) availableImageMetadata(
 
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
-	series, err := series.GetSeriesFromChannel(m.Base().OS, m.Base().Channel)
+	// TODO(wallyworld) - does centos still need the series hack?
+	base, err := series.ParseBase(m.Base().OS, m.Base().Channel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(wallyworld) - does centos still need the series hack?
+	vers := base.Channel.Track
 	if m.Base().OS == "centos" {
-		series = "centos" + series
+		vers = "centos" + vers
 	}
 	lookup := simplestreams.LookupParams{
-		Releases: []string{series},
+		Releases: []string{vers},
 		Stream:   env.Config().ImageStream(),
 	}
 
@@ -658,10 +659,10 @@ func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.Imag
 // that matches given criteria.
 func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	filter := cloudimagemetadata.MetadataFilter{
-		Series: constraint.Releases,
-		Arches: constraint.Arches,
-		Region: constraint.Region,
-		Stream: constraint.Stream,
+		Versions: constraint.Releases,
+		Arches:   constraint.Arches,
+		Region:   constraint.Region,
+		Stream:   constraint.Stream,
 	}
 	stored, err := api.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {
@@ -701,7 +702,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	}
 
 	cfg := env.Config()
-	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
+	toModel := func(m *imagemetadata.ImageMetadata, source string, priority int) cloudimagemetadata.Metadata {
 		result := cloudimagemetadata.Metadata{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
@@ -709,7 +710,6 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 				VirtType:        m.VirtType,
 				RootStorageType: m.Storage,
 				Source:          source,
-				Series:          mSeries,
 				Stream:          m.Stream,
 				Version:         m.Version,
 			},
@@ -738,13 +738,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 			continue
 		}
 		for _, m := range found {
-			// We only use cached image metadata for ubuntu images.
-			mSeries, err := series.GetSeriesFromChannel("ubuntu", m.Version)
-			if err != nil {
-				logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
-				continue
-			}
-			metadataState = append(metadataState, toModel(m, mSeries, info.Source, source.Priority()))
+			metadataState = append(metadataState, toModel(m, info.Source, source.Priority()))
 		}
 	}
 	if len(metadataState) > 0 {
@@ -762,7 +756,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	}
 
 	if len(all) == 0 {
-		return nil, errors.NotFoundf("image metadata for series %v, arch %v", constraint.Releases, constraint.Arches)
+		return nil, errors.NotFoundf("image metadata for version %v, arch %v", constraint.Releases, constraint.Arches)
 	}
 
 	return all, nil

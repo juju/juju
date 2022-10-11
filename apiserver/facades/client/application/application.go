@@ -60,8 +60,8 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
-// APIv14 provides the Application API facade for version 14.
-type APIv14 struct {
+// APIv15 provides the Application API facade for version 15.
+type APIv15 struct {
 	*APIBase
 }
 
@@ -73,9 +73,9 @@ type APIBase struct {
 	backend       Backend
 	storageAccess StorageInterface
 
-	authorizer   facade.Authorizer
-	check        BlockChecker
-	updateSeries UpdateSeries
+	authorizer facade.Authorizer
+	check      BlockChecker
+	updateBase UpdateBase
 
 	model     Model
 	modelType state.ModelType
@@ -150,13 +150,13 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		return nil, errors.Trace(err)
 	}
 
-	updateSeries := NewUpdateSeriesAPI(state, makeUpdateSeriesValidator(chClient))
+	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
 
 	return NewAPIBase(
 		state,
 		storageAccess,
 		ctx.Auth(),
-		updateSeries,
+		updateBase,
 		blockChecker,
 		&modelShim{Model: model}, // modelShim wraps the AllPorts() API.
 		leadershipReader,
@@ -174,7 +174,7 @@ func NewAPIBase(
 	backend Backend,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
-	updateSeries UpdateSeries,
+	updateBase UpdateBase,
 	blockChecker BlockChecker,
 	model Model,
 	leadershipReader leadership.Reader,
@@ -192,7 +192,7 @@ func NewAPIBase(
 		backend:               backend,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
-		updateSeries:          updateSeries,
+		updateBase:            updateBase,
 		check:                 blockChecker,
 		model:                 model,
 		modelType:             model.Type(),
@@ -821,7 +821,7 @@ type setCharmParams struct {
 }
 
 type forceParams struct {
-	ForceSeries, ForceUnits, Force bool
+	ForceBase, ForceUnits, Force bool
 }
 
 func (api *APIBase) setConfig(app Application, generation, settingsYAML string, settingsStrings map[string]string) error {
@@ -870,9 +870,9 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	return nil
 }
 
-// UpdateApplicationSeries updates the application series. Series for
-// subordinates updated too.
-func (api *APIBase) UpdateApplicationSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
+// UpdateApplicationBase updates the application base.
+// Base for subordinates is updated too.
+func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -883,14 +883,14 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateChannelArgs) (para
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		err := api.updateOneApplicationSeries(arg)
+		err := api.updateOneApplicationBase(arg)
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) updateOneApplicationSeries(arg params.UpdateChannelArg) error {
-	var argSeries string
+func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error {
+	var argBase series.Base
 	if arg.Channel != "" {
 		appTag, err := names.ParseTag(arg.Entity.Tag)
 		if err != nil {
@@ -901,12 +901,12 @@ func (api *APIBase) updateOneApplicationSeries(arg params.UpdateChannelArg) erro
 			return errors.Trace(err)
 		}
 		origin := app.CharmOrigin()
-		argSeries, err = series.GetSeriesFromChannel(origin.Platform.OS, arg.Channel)
+		argBase, err = series.ParseBase(origin.Platform.OS, arg.Channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
-	return api.updateSeries.UpdateSeries(arg.Entity.Tag, argSeries, arg.Force)
+	return api.updateBase.UpdateBase(arg.Entity.Tag, argBase, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -937,9 +937,9 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 			StorageConstraints:    args.StorageConstraints,
 			EndpointBindings:      args.EndpointBindings,
 			Force: forceParams{
-				ForceSeries: args.ForceSeries,
-				ForceUnits:  args.ForceUnits,
-				Force:       args.Force,
+				ForceBase:  args.ForceBase,
+				ForceUnits: args.ForceUnits,
+				Force:      args.Force,
 			},
 		},
 		args.CharmURL,
@@ -1096,7 +1096,7 @@ func (api *APIBase) applicationSetCharm(
 		CharmOrigin:        newOrigin,
 		Channel:            params.Channel,
 		ConfigSettings:     settings,
-		ForceSeries:        force.ForceSeries,
+		ForceBase:          force.ForceBase,
 		ForceUnits:         force.ForceUnits,
 		Force:              force.Force,
 		ResourceIDs:        params.ResourceIDs,
